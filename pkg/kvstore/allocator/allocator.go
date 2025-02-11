@@ -401,7 +401,7 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 
 	// iterate over /../locks
 	for key, v := range allocated {
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.Any(logfields.Key, key),
 			slog.String(logfields.LeaseID, strconv.FormatUint(uint64(v.LeaseID), 16)),
 		}
@@ -414,15 +414,16 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 			if err := k.backend.Delete(ctx, key); err == nil {
 				log.Warn("Forcefully removed distributed lock due to client staleness."+
 					" Please check the connectivity between the KVStore and the client with that lease ID.",
-					logAttrs,
+					logAttrs...,
 				)
 				continue
 			}
-			log.Warn(
+			log.With(
+				slog.Any(logfields.Error, err),
+			).Warn(
 				"Unable to remove distributed lock due to client staleness."+
 					" Please check the connectivity between the KVStore and the client with that lease ID.",
-				slog.Any(logfields.Error, err),
-				logAttrs,
+				logAttrs...,
 			)
 		}
 		// If the key was not found mark it to be delete in the next RunGC
@@ -528,7 +529,7 @@ func (k *kvstoreBackend) RunGC(
 		var deleted bool
 		// if ID has no user, delete it
 		if !hasUsers {
-			logAttrs := []slog.Attr{
+			logAttrs := []any{
 				slog.Any(logfields.Key, key),
 				slog.Any(logfields.Identity, path.Base(key)),
 			}
@@ -540,16 +541,17 @@ func (k *kvstoreBackend) RunGC(
 				// but the next GC call will do it.
 				if modRev == v.ModRevision {
 					if err := k.backend.DeleteIfLocked(ctx, key, lock); err != nil {
-						log.Warn(
-							"Unable to delete unused allocator master key",
+						log.With(
 							slog.Any(logfields.Error, err),
-							logAttrs,
+						).Warn(
+							"Unable to delete unused allocator master key",
+							logAttrs...,
 						)
 					} else {
 						deletedEntries++
 						log.Info(
 							"Deleted unused allocator master key in KVStore",
-							logAttrs,
+							logAttrs...,
 						)
 					}
 					// consider the key regardless if there was an error from

@@ -369,7 +369,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
-	ackLog := []slog.Attr{
+	ackLog := []any{
 		slog.Uint64(logfields.XDSAckedVersion, ackVersion),
 		slog.Uint64(logfields.XDSNonce, nackVersion),
 		slog.String(logfields.XDSClientNode, nodeIP),
@@ -393,7 +393,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 		if comp.Err() != nil {
 			// Completion was canceled or timed out.
 			// Remove from pending list.
-			log.Debug(fmt.Sprintf("completion context was canceled: %v", pending), ackLog)
+			log.Debug(fmt.Sprintf("completion context was canceled: %v", pending), ackLog...)
 			continue
 		}
 
@@ -412,10 +412,10 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 					if len(pending.remainingNodesResources) == 0 {
 						// completedComparision. Notify and remove from pending list.
 						if pending.version <= ackVersion {
-							log.Debug(fmt.Sprintf("completing ACK: %v", pending), ackLog)
+							log.Debug(fmt.Sprintf("completing ACK: %v", pending), ackLog...)
 							comp.Complete(nil)
 						} else {
-							log.Warn(fmt.Sprintf("completing NACK: %v", pending), ackLog)
+							log.Warn(fmt.Sprintf("completing NACK: %v", pending), ackLog...)
 							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}
 						continue

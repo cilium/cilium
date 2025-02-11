@@ -120,7 +120,7 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, 
 type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
-	PolicyDebug(msg string, attrs ...slog.Attr)
+	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	MapStateSize() int
 }

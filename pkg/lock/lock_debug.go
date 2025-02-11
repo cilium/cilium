@@ -103,7 +103,7 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 
 	log.Debug(
 		selfishThresholdMsg,
-		slog.Duration("seconds", sec),
+		slog.Float64("seconds", sec),
 		slog.String("goroutine", string(goRoutineNumber[len("goroutine"):len(goRoutineNumber)-1])),
 	)
 

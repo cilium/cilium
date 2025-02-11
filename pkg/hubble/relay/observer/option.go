@@ -52,7 +52,7 @@ type options struct {
 	sortBufferDrainTimeout time.Duration
 	errorAggregationWindow time.Duration
 	peerUpdateInterval     time.Duration
-	log                    *slog.Logger
+	log                    logging.FieldLogger
 
 	// this is not meant to be user configurable as it's only useful to
 	// override when testing

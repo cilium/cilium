@@ -207,26 +207,24 @@ func newNodeStore(
 
 	for {
 		minimumReached, required, numAvailable := store.hasMinimumIPsInPool(localNodeStore)
-		logAttrs := []slog.Attr{
+		scopedLog := log.With(
 			slog.String(fieldName, nodeName),
 			slog.Int("required", required),
 			slog.Int("available", numAvailable),
-		}
+		)
 		if minimumReached {
-			log.Info(
+			scopedLog.Info(
 				"All required IPs are available in CRD-backed allocation pool",
-				logAttrs,
 			)
 			break
 		}
 
-		log.Info(
+		scopedLog.Info(
 			"Waiting for IPs to become available in CRD-backed allocation pool",
 			slog.String(
 				logfields.HelpMessage,
 				"Check if cilium-operator pod is running and does not have any warnings or error messages.",
 			),
-			logAttrs,
 		)
 		time.Sleep(5 * time.Second)
 	}
@@ -289,7 +287,7 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
 			found := false
 			for _, vpcCIDR := range allCIDRs {
-				logAttrs := []slog.Attr{
+				logAttrs := []any{
 					slog.Any("vpc-cidr", vpcCIDR),
 					slog.Any(option.IPv4NativeRoutingCIDR, nativeCIDR),
 				}
@@ -298,13 +296,13 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 				if len(ranges4) != 1 {
 					log.Info(
 						"Native routing CIDR does not contain VPC CIDR, trying next",
-						logAttrs,
+						logAttrs...,
 					)
 				} else {
 					found = true
 					log.Info(
 						"Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDRs.",
-						logAttrs,
+						logAttrs...,
 					)
 					break
 				}

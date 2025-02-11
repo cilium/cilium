@@ -20,7 +20,7 @@ func TimeSinceSafe(t time.Time, logger *slog.Logger) (time.Duration, bool) {
 	d := n.Sub(t)
 
 	if d < 0 {
-		attrs := []slog.Attr{
+		attrs := []any{
 			slog.Time(logfields.StartTime, t),
 			slog.Time(logfields.EndTime, n),
 			slog.Duration(logfields.Duration, d),
@@ -32,7 +32,7 @@ func TimeSinceSafe(t time.Time, logger *slog.Logger) (time.Duration, bool) {
 				slog.Int(logfields.Line, line),
 			)
 		}
-		logger.Warn("BUG: negative duration", attrs)
+		logger.Warn("BUG: negative duration", attrs...)
 
 		return time.Duration(0), false
 	}

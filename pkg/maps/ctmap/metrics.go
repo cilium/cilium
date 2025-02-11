@@ -103,11 +103,15 @@ func (s *gcStats) finish() {
 		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		logAttrs := []slog.Attr{slog.Uint64("interrupted", uint64(s.Interrupted))}
+		scopedLog := log.With(
+			slog.Uint64("interrupted", uint64(s.Interrupted)),
+		)
 		if s.dumpError != nil {
-			logAttrs = append(logAttrs, slog.Any(logfields.Error, s.dumpError))
+			scopedLog = scopedLog.With(
+				slog.Any(logfields.Error, s.dumpError),
+			)
 		}
-		log.Warn("Garbage collection CT map failed to finish", slog.String("family", family), slog.String("proto", proto), logAttrs)
+		scopedLog.Warn("Garbage collection CT map failed to finish", slog.String("family", family), slog.String("proto", proto))
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()

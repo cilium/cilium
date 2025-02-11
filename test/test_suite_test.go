@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
@@ -173,7 +174,7 @@ var _ = BeforeAll(func() {
 
 	var err error
 
-	logger := []slog.Attr{"testName": "BeforeAll"})
+	logger := log.With(slog.String("testName", "BeforeAll"))
 	scope, err := helpers.GetScope()
 	if err != nil {
 		Fail(fmt.Sprintf(

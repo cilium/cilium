@@ -263,7 +263,7 @@ func newEnvoyLogPiper() io.WriteCloser {
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(nil, 1024*1024)
 	go func() {
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.String(logfields.LogSubsys, "unknown"),
 			slog.String(logfields.ThreadID, "unknown"),
 		}
@@ -283,7 +283,7 @@ func newEnvoyLogPiper() io.WriteCloser {
 				// TODO: Parse msg to extract the source filename, line number, etc.
 				msg = fmt.Sprintf("[%s", parts[3])
 
-				logAttrs = []slog.Attr{
+				logAttrs = []any{
 					slog.String(logfields.LogSubsys, fmt.Sprintf("envoy-%s", loggerName)),
 					slog.String(logfields.ThreadID, threadID),
 				}
@@ -301,20 +301,20 @@ func newEnvoyLogPiper() io.WriteCloser {
 			// Map the Envoy log level to a logrus level.
 			switch level {
 			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
-				log.Error(msg, logAttrs)
+				log.Error(msg, logAttrs...)
 			case envoyLogLevelWarning:
 				// Demote expected warnings to info level
 				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
-					log.Info(msg, logAttrs)
+					log.Info(msg, logAttrs...)
 					continue
 				}
-				log.Warn(msg, logAttrs)
+				log.Warn(msg, logAttrs...)
 			case envoyLogLevelInfo:
-				log.Info(msg, logAttrs)
+				log.Info(msg, logAttrs...)
 			case envoyLogLevelDebug, envoyLogLevelTrace:
-				log.Debug(msg, logAttrs)
+				log.Debug(msg, logAttrs...)
 			default:
-				log.Debug(msg, logAttrs)
+				log.Debug(msg, logAttrs...)
 			}
 		}
 		if err := scanner.Err(); err != nil {

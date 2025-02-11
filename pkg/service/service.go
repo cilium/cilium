@@ -758,7 +758,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// Implement a "lazy load" function for the scoped logger, so the expensive
 	// call to 'WithFields' is only done if needed.
 	debugLogsEnabled := log.Enabled(context.Background(), slog.LevelDebug)
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any(logfields.ServiceIP, params.Frontend.L3n4Addr),
 		slog.Any(logfields.Backends, params.Backends),
 
@@ -781,14 +781,14 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	if debugLogsEnabled {
-		log.Debug("Upserting service", logAttrs)
+		log.Debug("Upserting service", logAttrs...)
 	}
 
 	if !option.Config.EnableSVCSourceRangeCheck &&
 		len(params.LoadBalancerSourceRanges) != 0 {
 		log.Warn(fmt.Sprintf("--%s is disabled, ignoring loadBalancerSourceRanges",
 			option.EnableSVCSourceRangeCheck),
-			logAttrs,
+			logAttrs...,
 		)
 	}
 
@@ -838,10 +838,11 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// If getScopedLog() has not been called, this field will still be included
 	// from this point on in the function.
 	if debugLogsEnabled {
-		log.Debug(
-			"Acquired service ID",
-			logAttrs,
+		log.With(
 			slog.Any(logfields.ServiceID, svc.frontend.ID),
+		).Debug(
+			"Acquired service ID",
+			logAttrs...,
 		)
 	}
 
@@ -899,11 +900,12 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 			activeBackends := 0
 			if l7lbInfo != nil {
 				// Set this to 1 because Envoy will be running in this case.
-				log.Debug(
-					"L7 service with HealthcheckNodePort enabled",
+				log.With(
 					slog.Any(logfields.ServiceID, svc.frontend.ID),
 					slog.Uint64(logfields.ServiceHealthCheckNodePort, uint64(svc.svcHealthCheckNodePort)),
-					logAttrs,
+				).Debug(
+					"L7 service with HealthcheckNodePort enabled",
+					logAttrs...,
 				)
 				activeBackends = 1
 			} else {
@@ -1623,7 +1625,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal bool,
 	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackends []*lb.Backend,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
-	obsoleteSVCBackendIDs []lb.BackendID, logAttrs []slog.Attr,
+	obsoleteSVCBackendIDs []lb.BackendID, logAttrs []any,
 	debugLogsEnabled bool,
 ) error {
 	v6FE := svc.frontend.IsIPv6()
@@ -1675,12 +1677,13 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		if debugLogsEnabled {
-			log.Debug(
-				"Adding new backend",
+			log.With(
 				slog.Any(logfields.BackendID, b.ID),
 				slog.Any(logfields.BackendWeight, b.Weight),
 				slog.Any(logfields.L3n4Addr, b.L3n4Addr),
-				logAttrs,
+			).Debug(
+				"Adding new backend",
+				logAttrs...,
 			)
 		}
 
@@ -1764,10 +1767,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	for _, be := range obsoleteBackends {
 		id := be.ID
 		if debugLogsEnabled {
-			log.Debug(
-				"Removing obsolete backend",
+			log.With(
 				slog.Any(logfields.BackendID, id),
-				logAttrs,
+			).Debug(
+				"Removing obsolete backend",
+				logAttrs...,
 			)
 		}
 		s.lbmap.DeleteBackendByID(id)
@@ -1911,15 +1915,17 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 	}
 
 	for _, svc := range svcs {
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.Any(logfields.ServiceID, svc.Frontend.ID),
 			slog.Any(logfields.ServiceIP, svc.Frontend.L3n4Addr),
 		}
-		log.Debug("Restoring service", logAttrs)
+		log.Debug("Restoring service", logAttrs...)
 
 		if _, err := RestoreID(svc.Frontend.L3n4Addr, uint32(svc.Frontend.ID)); err != nil {
 			failed++
-			log.Warn("Unable to restore service ID", slog.Any(logfields.Error, err), logAttrs)
+			log.With(
+				slog.Any(logfields.Error, err),
+			).Warn("Unable to restore service ID", logAttrs...)
 		}
 
 		newSVC := &svcInfo{
@@ -1982,7 +1988,9 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
 				ipv6); err != nil {
-				log.Warn("Unable to upsert into the Maglev BPF map.", slog.Any(logfields.Error, err), logAttrs)
+				log.With(
+					slog.Any(logfields.Error, err),
+				).Warn("Unable to upsert into the Maglev BPF map.", logAttrs...)
 				continue
 			}
 		}
@@ -2002,12 +2010,12 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	ipv6 := svc.frontend.L3n4Addr.IsIPv6() || svc.svcNatPolicy == lb.SVCNatPolicyNat46
 	obsoleteBackendIDs, obsoleteBackends := s.deleteBackendsFromCacheLocked(svc)
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any(logfields.ServiceID, svc.frontend.ID),
 		slog.Any(logfields.ServiceIP, svc.frontend.L3n4Addr),
 		slog.Any(logfields.Backends, svc.backends),
 	}
-	log.Debug("Deleting service", logAttrs)
+	log.Debug("Deleting service", logAttrs...)
 
 	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends),
 		svc.useMaglev(), svc.svcNatPolicy); err != nil {
@@ -2034,10 +2042,11 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	delete(s.svcByID, svc.frontend.ID)
 
 	for _, id := range obsoleteBackendIDs {
-		log.Debug(
-			"Deleting obsolete backend",
+		log.With(
 			slog.Any(logfields.BackendID, id),
-			logAttrs,
+		).Debug(
+			"Deleting obsolete backend",
+			logAttrs...,
 		)
 		s.lbmap.DeleteBackendByID(id)
 	}

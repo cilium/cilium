@@ -443,7 +443,7 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.K8sEndpointName, endpoint.Name),
 		slog.String(logfields.K8sNamespace, endpoint.Namespace),
 		slog.Any(logfields.K8sUID, endpoint.UID),
@@ -452,25 +452,27 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	if endpoint.Identity == nil {
 		log.Warn(
 			"Endpoint is missing identity metadata, skipping update to egress policy.",
-			logAttrs,
+			logAttrs...,
 		)
 		return nil
 	}
 
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		log.Warn(
-			"Failed to get identity labels for endpoint",
+		log.With(
 			slog.Any(logfields.Error, err),
-			logAttrs,
+		).Warn(
+			"Failed to get identity labels for endpoint",
+			logAttrs...,
 		)
 		return err
 	}
 
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		log.Error(
-			"Failed to get valid endpoint metadata, skipping update to egress policy.",
+		log.With(
 			slog.Any(logfields.Error, err),
-			logAttrs,
+		).Error(
+			"Failed to get valid endpoint metadata, skipping update to egress policy.",
+			logAttrs...,
 		)
 		return nil
 	}
@@ -478,12 +480,12 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	if _, ok := manager.epDataStore[epData.id]; ok {
 		log.Error(
 			"Updated CiliumEndpoint",
-			logAttrs,
+			logAttrs...,
 		)
 	} else {
 		log.Error(
 			"Added CiliumEndpoint",
-			logAttrs,
+			logAttrs...,
 		)
 	}
 
@@ -680,21 +682,22 @@ func (manager *Manager) addMissingEgressRules() {
 			return
 		}
 
-		logAttrs := []slog.Attr{
-			slog.Any(logfields.SourceIP, endpointIP),
-			slog.Any(logfields.DestinationCIDR, dstCIDR),
-			slog.Any(logfields.EgressIP, gwc.egressIP),
-			slog.Any(logfields.GatewayIP, gatewayIP),
-		}
-
 		if err := manager.policyMap.Update(endpointIP, dstCIDR, gwc.egressIP, gatewayIP); err != nil {
 			log.Error(
 				"Error applying egress gateway policy",
 				slog.Any(logfields.Error, err),
-				logAttrs,
+				slog.Any(logfields.SourceIP, endpointIP),
+				slog.Any(logfields.DestinationCIDR, dstCIDR),
+				slog.Any(logfields.EgressIP, gwc.egressIP),
+				slog.Any(logfields.GatewayIP, gatewayIP),
 			)
 		} else {
-			log.Debug("Egress gateway policy applied", logAttrs)
+			log.Debug("Egress gateway policy applied",
+				slog.Any(logfields.SourceIP, endpointIP),
+				slog.Any(logfields.DestinationCIDR, dstCIDR),
+				slog.Any(logfields.EgressIP, gwc.egressIP),
+				slog.Any(logfields.GatewayIP, gatewayIP),
+			)
 		}
 	}
 
@@ -726,23 +729,22 @@ func (manager *Manager) removeUnusedEgressRules() {
 			continue
 		}
 
-		logAttrs := []slog.Attr{
-			slog.Any(logfields.SourceIP, policyKey.GetSourceIP()),
-			slog.Any(logfields.DestinationCIDR, policyKey.GetDestCIDR()),
-			slog.Any(logfields.EgressIP, policyVal.GetEgressAddr()),
-			slog.Any(logfields.GatewayIP, policyVal.GetGatewayAddr()),
-		}
-
 		if err := manager.policyMap.Delete(policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
 			log.Error(
 				"Error removing egress gateway policy",
 				slog.Any(logfields.Error, err),
-				logAttrs,
+				slog.Any(logfields.SourceIP, policyKey.GetSourceIP()),
+				slog.Any(logfields.DestinationCIDR, policyKey.GetDestCIDR()),
+				slog.Any(logfields.EgressIP, policyVal.GetEgressAddr()),
+				slog.Any(logfields.GatewayIP, policyVal.GetGatewayAddr()),
 			)
 		} else {
 			log.Debug(
 				"Egress gateway policy removed",
-				logAttrs,
+				slog.Any(logfields.SourceIP, policyKey.GetSourceIP()),
+				slog.Any(logfields.DestinationCIDR, policyKey.GetDestCIDR()),
+				slog.Any(logfields.EgressIP, policyVal.GetEgressAddr()),
+				slog.Any(logfields.GatewayIP, policyVal.GetGatewayAddr()),
 			)
 		}
 	}

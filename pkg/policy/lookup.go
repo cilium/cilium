@@ -129,9 +129,9 @@ func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 	return 0
 }
 
-func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...slog.Attr) {
+func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...any) {
 	if ei.Logger != nil {
-		ei.Logger.Debug(msg, attrs)
+		ei.Logger.Debug(msg, attrs...)
 	}
 }
 

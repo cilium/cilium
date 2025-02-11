@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -233,16 +234,16 @@ func initializeDefaultLogger() (logger *slog.Logger) {
 // GetLogLevel returns the log level specified in the provided LogOptions. If
 // it is not set in the options, it will return the default level.
 func (o LogOptions) GetLogLevel() (level slog.Level) {
-	// levelOpt, ok := o[LevelOpt]
-	// if !ok {
-	// 	return DefaultLogLevel
-	// }
-	//
-	// var err error
-	// if level, err = logrus.ParseLevel(levelOpt); err != nil {
-	// 	logrus.Warn("Ignoring user-configured log level", slog.Any(logfields.Error, err))
-	// 	return DefaultLogLevel
-	// }
+	levelOpt, ok := o[LevelOpt]
+	if !ok {
+		return DefaultLogLevel
+	}
+
+	var err error
+	if level, err = ParseLevel(levelOpt); err != nil {
+		DefaultLogger.Warn("Ignoring user-configured log level", slog.Any(logfields.Error, err))
+		return DefaultLogLevel
+	}
 
 	return
 }
@@ -408,7 +409,7 @@ func getLogDriverConfig(logDriver string, logOpts LogOptions) LogOptions {
 	for k, v := range logOpts {
 		ok, err := regexp.MatchString(logDriver+".*", k)
 		if err != nil {
-			// DefaultLogger.Fatal(err)
+			Fatal(DefaultLogger, err.Error())
 		}
 		if ok {
 			keysToValidate[k] = v
@@ -447,12 +448,32 @@ func GetLevel(logger *slog.Logger) slog.Level {
 	return slog.LevelInfo
 }
 
+// ParseLevel takes a string level and returns the slog log level constant.
+func ParseLevel(lvl string) (slog.Level, error) {
+	switch strings.ToUpper(lvl) {
+	case "DEBUG":
+		return slog.LevelDebug, nil
+	case "INFO":
+		return slog.LevelInfo, nil
+	case "WARN", "WARNING":
+		return slog.LevelWarn, nil
+	case "ERROR":
+		return slog.LevelError, nil
+	case "PANIC":
+		return LevelPanic, nil
+	case "FATAL":
+		return LevelFatal, nil
+	default:
+		return slog.LevelInfo, errors.New("unknown name")
+	}
+}
+
 func Fatal(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args)
+	logger.Error(msg, args...)
 	os.Exit(-1)
 }
 
 func Panic(logger FieldLogger, msg string, args ...any) {
-	logger.Error(msg, args)
+	logger.Error(msg, args...)
 	panic(msg)
 }

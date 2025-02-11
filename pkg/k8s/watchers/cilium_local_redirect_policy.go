@@ -117,14 +117,14 @@ func (k *K8sCiliumLRPWatcher) stopWatcher() {
 }
 
 func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
-	logAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.String(logfields.CiliumLocalRedirectName, clrp.ObjectMeta.Name),
 		slog.Any(logfields.K8sUID, clrp.ObjectMeta.UID),
 		slog.String(logfields.K8sAPIVersion, clrp.TypeMeta.APIVersion),
 		slog.String(logfields.K8sNamespace, clrp.ObjectMeta.Namespace),
-	}
+	)
 
-	log.Debug("Add CiliumLocalRedirectPolicy", logAttrs)
+	scopedLog.Debug("Add CiliumLocalRedirectPolicy")
 
 	rp, policyAddErr := redirectpolicy.Parse(clrp, true)
 	if policyAddErr == nil {
@@ -132,9 +132,9 @@ func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.Ciliu
 	}
 
 	if policyAddErr != nil {
-		log.Warn("Failed to add CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyAddErr), logAttrs)
+		scopedLog.Warn("Failed to add CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyAddErr))
 	} else {
-		log.Info("Added CiliumLocalRedirectPolicy", logAttrs)
+		scopedLog.Info("Added CiliumLocalRedirectPolicy")
 	}
 
 	// TODO update status
@@ -143,14 +143,14 @@ func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.Ciliu
 }
 
 func (k *K8sCiliumLRPWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
-	logAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.String(logfields.CiliumLocalRedirectName, clrp.ObjectMeta.Name),
 		slog.Any(logfields.K8sUID, clrp.ObjectMeta.UID),
 		slog.String(logfields.K8sAPIVersion, clrp.TypeMeta.APIVersion),
 		slog.String(logfields.K8sNamespace, clrp.ObjectMeta.Namespace),
-	}
+	)
 
-	log.Debug("Delete CiliumLocalRedirectPolicy", logAttrs)
+	scopedLog.Debug("Delete CiliumLocalRedirectPolicy")
 
 	rp, policyDelErr := redirectpolicy.Parse(clrp, false)
 	if policyDelErr == nil {
@@ -158,9 +158,9 @@ func (k *K8sCiliumLRPWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.Ci
 	}
 
 	if policyDelErr != nil {
-		log.Warn("Failed to delete CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyDelErr), logAttrs)
+		scopedLog.Warn("Failed to delete CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyDelErr))
 	} else {
-		log.Info("Deleted CiliumLocalRedirectPolicy")
+		scopedLog.Info("Deleted CiliumLocalRedirectPolicy")
 	}
 
 	return policyDelErr

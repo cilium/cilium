@@ -131,7 +131,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 			fmt.Errorf("%s: %w", errUnableToGetSecurityGroups, err)
 	}
 
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any("securityGroupIDs", securityGroupIDs),
 		slog.String("vSwitchID", bestSubnet.ID),
 		slog.Int("toAllocate", toAllocate),
@@ -139,7 +139,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog.Info(
 		"No more IPs available, creating new ENI",
-		logAttrs,
+		logAttrs...,
 	)
 
 	instanceID := n.node.InstanceID()
@@ -147,9 +147,8 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	defer n.mutex.Unlock()
 	index, err := n.allocENIIndex()
 	if err != nil {
-		scopedLog.Error(err.Error(),
-			slog.String("instanceID", instanceID),
-			logAttrs,
+		scopedLog.With(slog.String("instanceID", instanceID)).Error(err.Error(),
+			logAttrs...,
 		)
 		return 0, "", err
 	}
@@ -160,7 +159,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	logAttrs = append(logAttrs, slog.String(fieldENIID, eniID))
-	scopedLog.Info("Created new ENI", logAttrs)
+	scopedLog.Info("Created new ENI", logAttrs...)
 
 	if bestSubnet.CIDR != nil {
 		eni.VSwitch.CIDRBlock = bestSubnet.CIDR.String()
@@ -170,10 +169,11 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		err2 := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if err2 != nil {
-			scopedLog.Error(
-				"Failed to release ENI after failure to attach",
+			scopedLog.With(
 				slog.Any(logfields.Error, err2),
-				logAttrs,
+			).Error(
+				"Failed to release ENI after failure to attach",
+				logAttrs...,
 			)
 		}
 		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)
@@ -182,10 +182,11 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		err2 := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if err2 != nil {
-			scopedLog.Error(
-				"Failed to release ENI after failure to attach",
+			scopedLog.With(
 				slog.Any(logfields.Error, err2),
-				logAttrs,
+			).Error(
+				"Failed to release ENI after failure to attach",
+				logAttrs...,
 			)
 		}
 		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)

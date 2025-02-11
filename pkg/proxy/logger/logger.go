@@ -212,7 +212,7 @@ func (lr *LogRecord) ApplyTags(tags ...LogTag) {
 }
 
 func (lr *LogRecord) getLogFields() *slog.Logger {
-	fields := make([]slog.Attr, 0, 8) // at most 8 entries, avoid map grow
+	fields := make([]any, 0, 8) // at most 8 entries, avoid map grow
 
 	fields = append(
 		fields,
@@ -242,7 +242,7 @@ func (lr *LogRecord) getLogFields() *slog.Logger {
 		)
 	}
 
-	return log.With(fields)
+	return log.With(fields...)
 }
 
 // Log logs a record to the logfile and flushes the buffer

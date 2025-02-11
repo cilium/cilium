@@ -99,16 +99,16 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
 	cidr := cidrCluster.AsIPNet()
 
-	var logAttrs []slog.Attr
+	scopedLog := log
 	if option.Config.Debug {
-		logAttrs = []slog.Attr{
+		scopedLog = scopedLog.With(
 			slog.Any(logfields.IPAddr, cidr),
 			slog.Any(logfields.Identity, newID),
 			slog.Any(logfields.Modification, modType),
-		}
+		)
 	}
 
-	log.Debug("Daemon notified of IP-Identity cache state change", logAttrs)
+	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
 
 	l.notifyMonitor(modType, cidr, oldHostIP, newHostIP, oldID, newID, encryptKey, k8sMeta)
 
@@ -140,7 +140,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		}
 		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
-			log.Warn(
+			scopedLog.Warn(
 				"unable to update bpf map",
 				slog.Any(logfields.Error, err),
 				slog.Any("key", key),
@@ -148,22 +148,20 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 				slog.Any(logfields.IPAddr, cidr),
 				slog.Any(logfields.Identity, newID),
 				slog.Any(logfields.Modification, modType),
-				logAttrs,
 			)
 		}
 	case ipcache.Delete:
 		err := l.bpfMap.Delete(&key)
 		if err != nil {
-			log.Warn(
+			scopedLog.Warn(
 				"unable to delete from bpf map",
 				slog.Any("key", key),
 				slog.Any(logfields.IPAddr, cidr),
 				slog.Any(logfields.Identity, newID),
 				slog.Any(logfields.Modification, modType),
-				logAttrs,
 			)
 		}
 	default:
-		log.Warn("cache modification type not supported", logAttrs)
+		scopedLog.Warn("cache modification type not supported")
 	}
 }

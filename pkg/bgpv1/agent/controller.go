@@ -170,18 +170,16 @@ func NewController(params ControllerParams) (*Controller, error) {
 // informers.
 func (c *Controller) Run(ctx context.Context) {
 	var (
-		logAttrs = []slog.Attr{
-			slog.String("component", "Controller.Run"),
-		}
+		logAttr = slog.String("component", "Controller.Run")
 	)
 
-	log.Info("Cilium BGP Control Plane Controller now running...", logAttrs)
+	log.Info("Cilium BGP Control Plane Controller now running...", logAttr)
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
 		case ev, ok := <-ciliumNodeCh:
 			if !ok {
-				log.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down", logAttrs)
+				log.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down", logAttr)
 				return
 			}
 			switch ev.Kind {
@@ -193,15 +191,15 @@ func (c *Controller) Run(ctx context.Context) {
 			}
 			ev.Done(nil)
 		case <-ctx.Done():
-			log.Info("Cilium BGP Control Plane Controller shut down", logAttrs)
+			log.Info("Cilium BGP Control Plane Controller shut down", logAttr)
 			return
 		case <-c.Sig.Sig:
 			if c.LocalCiliumNode == nil {
 				log.Debug("localCiliumNode has not been set yet")
 			} else if err := c.reconcileWithRetry(ctx); err != nil {
-				log.Error("Reconciliation with retries failed", slog.Any(logfields.Error, err), logAttrs)
+				log.With(slog.Any(logfields.Error, err)).Error("Reconciliation with retries failed", logAttr)
 			} else {
-				log.Debug("Successfully completed reconciliation", logAttrs)
+				log.Debug("Successfully completed reconciliation", logAttr)
 			}
 		}
 	}
@@ -380,9 +378,6 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 //     of development.
 func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 	var (
-		logAttrs = []slog.Attr{
-			slog.String("component", "PolicySelection"),
-		}
 		// determine which policies match our node's labels.
 		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
 		slimLabels     = slimlabels.Set(labels)
@@ -400,7 +395,7 @@ func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGP
 			slog.String("policyName", policy.Name),
 			slog.Any("nodeLabels", slimLabels),
 			slog.Any("policyNodeSelector", policy.Spec.NodeSelector),
-			logAttrs,
+			slog.String("component", "PolicySelection"),
 		)
 
 		if policy.Spec.NodeSelector == nil {

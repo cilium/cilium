@@ -548,7 +548,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				delete(added, numericID)
 				continue
 			}
-			logAttrs := []slog.Attr{
+			logAttrs := []any{
 				slog.Any(logfields.NewVersion, txn),
 				slog.Any(logfields.Identity, numericID),
 				slog.Any(logfields.Labels, old.lbls),
@@ -560,9 +560,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			// the kube-apiserver is running on the local host, see
 			// ipcache.TriggerLabelInjection().
 			if numericID == identity.ReservedIdentityHost {
-				log.Debug(msg, logAttrs)
+				log.Debug(msg, logAttrs...)
 			} else {
-				log.Warn(msg, logAttrs)
+				log.Warn(msg, logAttrs...)
 			}
 		} else {
 			log.Debug(

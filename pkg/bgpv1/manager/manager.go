@@ -248,9 +248,7 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 		return fmt.Errorf("bgp router manager is not running")
 	}
 
-	logAttrs := []slog.Attr{
-		slog.String("component", "manager.ConfigurePeers"),
-	}
+	logAttr := slog.String("component", "manager.ConfigurePeers")
 
 	// use a reconcileDiff to compute which BgpServers must be created, removed
 	// and reconciled.
@@ -263,10 +261,10 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 	rd.diff(m.Servers, policy)
 
 	if rd.empty() {
-		log.Debug("GoBGP peering topology up-to-date with CiliumBGPPeeringPolicy for this node.", logAttrs)
+		log.Debug("GoBGP peering topology up-to-date with CiliumBGPPeeringPolicy for this node.", logAttr)
 		return nil
 	}
-	log.Debug("Reconciling new CiliumBGPPeeringPolicy", slog.Any("diff", rd), logAttrs)
+	log.Debug("Reconciling new CiliumBGPPeeringPolicy", slog.Any("diff", rd), logAttr)
 
 	if len(rd.register) > 0 {
 		m.register(ctx, rd)
@@ -285,19 +283,17 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 // register instantiates and configures BgpServer(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
-	logAttrs := []slog.Attr{
-		slog.String("component", "manager.add"),
-	}
+	logAttr := slog.String("component", "manager.add")
 	for _, asn := range rd.register {
 		var config *v2alpha1api.CiliumBGPVirtualRouter
 		var ok bool
 		if config, ok = rd.seen[asn]; !ok {
-			log.Error("Work diff (add) contains unseen ASN, skipping", slog.Int64("asn", asn), logAttrs)
+			log.Error("Work diff (add) contains unseen ASN, skipping", slog.Int64("asn", asn), logAttr)
 			continue
 		}
 		if err := m.registerBGPServer(ctx, config, rd.ciliumNode); err != nil {
 			// we'll just log the error and attempt to register the next BgpServer.
-			log.Error("Error while registering new BGP server for local ASN", slog.Int64("asn", config.LocalASN), slog.Any(logfields.Error, err), logAttrs)
+			log.Error("Error while registering new BGP server for local ASN", slog.Int64("asn", config.LocalASN), slog.Any(logfields.Error, err), logAttr)
 		}
 	}
 }
@@ -311,11 +307,9 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
 func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 	c *v2alpha1api.CiliumBGPVirtualRouter,
 	ciliumNode *v2api.CiliumNode) error {
-	logAttrs := []slog.Attr{
-		slog.String("component", "manager.registerBGPServer"),
-	}
+	logAttr := slog.String("component", "manager.registerBGPServer")
 
-	log.Info("Registering BGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttrs)
+	log.Info("Registering BGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttr)
 
 	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
 	if err != nil {
@@ -374,7 +368,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
 
-	log.Info("Successfully registered GoBGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttrs)
+	log.Info("Successfully registered GoBGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttr)
 
 	return err
 }
@@ -382,9 +376,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 // withdraw disconnects and removes BgpServer(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) error {
-	logAttrs := []slog.Attr{
-		slog.String("component", "manager.remove"),
-	}
+	logAttrs := slog.String("component", "manager.remove")
 	for _, asn := range rd.withdraw {
 		var (
 			s  *instance.ServerWithConfig
@@ -421,24 +413,22 @@ func (m *BGPRouterManager) withdrawAll(ctx context.Context, rd *reconcileDiff) e
 // reconcile evaluates existing BgpServer(s), making changes if necessary, as
 // instructed by the provided reoncileDiff.
 func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) {
-	logAttrs := []slog.Attr{
-		slog.String("component", "manager.reconcile"),
-	}
+	logAttr := slog.String("component", "manager.reconcile")
 	for _, asn := range rd.reconcile {
 		var (
 			sc   = m.Servers[asn]
 			newc = rd.seen[asn]
 		)
 		if sc == nil {
-			log.Error("Virtual router with local ASN marked for reconciliation but missing from Manager", slog.Int64("asn", newc.LocalASN), logAttrs) // really shouldn't happen
+			log.Error("Virtual router with local ASN marked for reconciliation but missing from Manager", slog.Int64("asn", newc.LocalASN), logAttr) // really shouldn't happen
 			continue
 		}
 		if newc == nil {
-			log.Error("Virtual router with local ASN marked for reconciliation but missing from incoming configurations", slog.Int64("asn", sc.Config.LocalASN), logAttrs) // also really shouldn't happen
+			log.Error("Virtual router with local ASN marked for reconciliation but missing from incoming configurations", slog.Int64("asn", sc.Config.LocalASN), logAttr) // also really shouldn't happen
 			continue
 		}
 		if err := m.reconcileBGPConfig(ctx, sc, newc, rd.ciliumNode); err != nil {
-			log.Error("Encountered error reconciling virtual router with local ASN", slog.Any(logfields.Error, err), slog.Int64("asn", newc.LocalASN), logAttrs)
+			log.Error("Encountered error reconciling virtual router with local ASN", slog.Any(logfields.Error, err), slog.Int64("asn", newc.LocalASN), logAttr)
 		}
 	}
 }

@@ -460,23 +460,24 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	index := n.findNextIndex(int32(*resource.Spec.ENI.FirstInterfaceIndex))
 
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any("securityGroupIDs", securityGroupIDs),
 		slog.String("subnetID", subnet.ID),
 		slog.Int("addresses", toAllocate),
 		slog.Bool("isPrefixDelegated", isPrefixDelegated),
 	}
-	scopedLog.Info("No more IPs available, creating new ENI", logAttrs)
+	scopedLog.Info("No more IPs available, creating new ENI", logAttrs...)
 
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
 			// We should attempt to allocate /32 IPs.
-			scopedLog.Warn(
-				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
+			scopedLog.With(
 				slog.String(logfields.Node, n.k8sObj.Name),
-				logAttrs,
+			).Warn(
+				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
+				logAttrs...,
 			)
 			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
 		}
@@ -486,7 +487,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	logAttrs = append(logAttrs, slog.String(fieldEniID, eniID))
-	scopedLog.Info("Created new ENI", logAttrs)
+	scopedLog.Info("Created new ENI", logAttrs...)
 
 	if subnet.CIDR != nil {
 		eni.Subnet.CIDR = subnet.CIDR.String()
@@ -509,10 +510,11 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		delErr := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if delErr != nil {
-			scopedLog.Warn(
-				"Unable to undo ENI creation after failure to attach",
+			scopedLog.With(
 				slog.Any(logfields.Error, delErr),
-				logAttrs,
+			).Warn(
+				"Unable to undo ENI creation after failure to attach",
+				logAttrs...,
 			)
 		}
 
@@ -532,7 +534,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	eni.Number = int(index)
 
-	scopedLog.Info("Attached ENI to instance", logAttrs)
+	scopedLog.Info("Attached ENI to instance", logAttrs...)
 
 	if resource.Spec.ENI.DeleteOnTermination == nil || *resource.Spec.ENI.DeleteOnTermination {
 		// We have an attachment ID from the last API, which lets us mark the
@@ -541,10 +543,11 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		if err != nil {
 			delErr := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 			if delErr != nil {
-				scopedLog.Warn(
-					"Unable to undo ENI creation after failure to attach",
+				scopedLog.With(
 					slog.Any(logfields.Error, delErr),
-					logAttrs,
+				).Warn(
+					"Unable to undo ENI creation after failure to attach",
+					logAttrs...,
 				)
 			}
 

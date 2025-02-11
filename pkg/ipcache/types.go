@@ -376,13 +376,14 @@ func (s prefixInfo) logConflicts(scopedLog *slog.Logger) {
 
 		if info.endpointFlags.IsValid() {
 			if endpointFlags.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.EndpointFlags:            endpointFlags,
-					logfields.Resource:                 endpointFlagsResourceID,
-					logfields.ConflictingEndpointFlags: info.endpointFlags,
-					logfields.ConflictingResource:      resourceID,
-				}).Warning("Detected conflicting endpoint flags for prefix. " +
-					"This may cause connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected conflicting endpoint flags for prefix. "+
+						"This may cause connectivity issues for this address.",
+					slog.Any(logfields.EndpointFlags, endpointFlags),
+					slog.Any(logfields.Resource, endpointFlagsResourceID),
+					slog.Any(logfields.ConflictingEndpointFlags, info.endpointFlags),
+					slog.Any(logfields.ConflictingResource, resourceID),
+				)
 			} else {
 				endpointFlags = info.endpointFlags
 				endpointFlagsResourceID = resourceID

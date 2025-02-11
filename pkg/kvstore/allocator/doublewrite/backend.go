@@ -124,13 +124,12 @@ func (d *doubleWriteBackend) AllocateIDIfLocked(ctx context.Context, id idpool.I
 func (d *doubleWriteBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
 	crdErr := d.crdBackend.AcquireReference(ctx, id, key, lock)
 	if crdErr != nil {
-		logAttrs := []slog.Attr{slog.Any(logfields.Error, crdErr), slog.Any(logfields.Identity, id), slog.Any(logfields.Key, key)}
 		logMessage := "CRD backend failed to acquire reference with lock"
 		if d.readFromKVStore && strings.Contains(crdErr.Error(), "does not exist") {
 			// This is a common error when CRD identities don't exist during the very first migration so we log it as debug
-			log.Debug(logMessage, logAttrs)
+			log.Debug(logMessage, slog.Any(logfields.Error, crdErr), slog.Any(logfields.Identity, id), slog.Any(logfields.Key, key))
 		} else {
-			log.Error(logMessage, logAttrs)
+			log.Error(logMessage, slog.Any(logfields.Error, crdErr), slog.Any(logfields.Identity, id), slog.Any(logfields.Key, key))
 		}
 	}
 	kvStoreErr := d.kvstoreBackend.AcquireReference(ctx, id, key, lock)

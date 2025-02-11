@@ -124,15 +124,14 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 }
 
 func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID, dc chan uint64) error {
-	logAttrs := []slog.Attr{
+	scopedLog := p.log.With(
 		slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
 		slog.String(logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion),
 		slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
-	}
+	)
 
-	p.log.Debug(
+	scopedLog.Debug(
 		"Adding CiliumNetworkPolicy",
-		logAttrs,
 	)
 	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 	if namespace == "" {
@@ -143,10 +142,9 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 
 	rules, err := cnp.Parse()
 	if err != nil {
-		p.log.Warn(
+		scopedLog.Warn(
 			"Unable to add CiliumNetworkPolicy",
 			slog.Any(logfields.Error, err),
-			logAttrs,
 		)
 		return fmt.Errorf("failed to parse CiliumNetworkPolicy %s/%s: %w", cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name, err)
 	}
@@ -164,21 +162,20 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		Resource:            resourceID,
 		DoneChan:            dc,
 	})
-	p.log.Info(
+	scopedLog.Info(
 		"Imported CiliumNetworkPolicy",
-		logAttrs,
 	)
 	return nil
 }
 
 func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID, dc chan uint64) {
-	logAttrs := []slog.Attr{
+	scopedLog := p.log.With(
 		slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
 		slog.String(logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion),
 		slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
-	}
+	)
 
-	p.log.Debug("Deleting CiliumNetworkPolicy", logAttrs)
+	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 	if namespace == "" {
 		p.metricsManager.DelCCNP(cnp.CiliumNetworkPolicy)
@@ -198,7 +195,7 @@ func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 		Resource: resourceID,
 		DoneChan: dc,
 	})
-	p.log.Info("Deleted CiliumNetworkPolicy", logAttrs)
+	scopedLog.Info("Deleted CiliumNetworkPolicy")
 }
 
 func (p *policyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {

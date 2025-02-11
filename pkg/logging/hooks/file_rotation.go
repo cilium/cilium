@@ -69,7 +69,7 @@ type FileRotationLogHook struct {
 }
 
 // NewFileRotationLogHook creates a new FileRotationLogHook*/
-func NewFileRotationLogHook(fileName string, opts ...Option) slog.Handler {
+func NewFileRotationLogHook(logLevel slog.Level, fileName string, opts ...Option) slog.Handler {
 	options := &FileRotationOption{
 		FileName:  fileName,
 		MaxSize:   100,   // MBs
@@ -89,5 +89,8 @@ func NewFileRotationLogHook(fileName string, opts ...Option) slog.Handler {
 		LocalTime:  options.LocalTime,
 		Compress:   options.Compress,
 	}
-	return slog.NewTextHandler(logger, opts)
+
+	return slog.NewTextHandler(logger, &slog.HandlerOptions{
+		Level: logLevel,
+	})
 }

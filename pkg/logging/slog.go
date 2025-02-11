@@ -8,10 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"sync"
+	lock "sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -43,13 +41,13 @@ var slogLeveler = func() *slog.LevelVar {
 
 func newMultiSlogHandler(handler slog.Handler) *multiSlogHandler {
 	return &multiSlogHandler{
-		mu:       sync.RWMutex{},
+		mu:       lock.RWMutex{},
 		handlers: []slog.Handler{handler},
 	}
 }
 
 type multiSlogHandler struct {
-	mu       sync.RWMutex
+	mu       lock.RWMutex
 	handlers []slog.Handler
 }
 
@@ -119,21 +117,6 @@ var defaultMultiSlogHandler = newMultiSlogHandler(slog.NewTextHandler(
 
 // Default slog logger. Will be overwritten once initializeSlog is called.
 var DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
-
-func slogLevel(l logrus.Level) slog.Level {
-	switch l {
-	case logrus.DebugLevel, logrus.TraceLevel:
-		return slog.LevelDebug
-	case logrus.InfoLevel:
-		return slog.LevelInfo
-	case logrus.WarnLevel:
-		return slog.LevelWarn
-	case logrus.ErrorLevel, logrus.PanicLevel, logrus.FatalLevel:
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
 
 // Approximates the logrus output via slog for job groups during the transition
 // phase.

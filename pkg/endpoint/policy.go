@@ -584,9 +584,9 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 	// Only add fields to the scoped logger if the criteria for logging a message is met, to avoid
 	// the expensive call to 'WithFields'.
 	scopedLog := e.getLogger()
-	var logAttrs []slog.Attr
+	var logAttrs []any
 	if err != nil || scopedLog.Enabled(context.Background(), slog.LevelDebug) {
-		logAttrs = []slog.Attr{
+		logAttrs = []any{
 			slog.String(logfields.Reason, ctx.Reason),
 		}
 		for field, stat := range stats.GetMap() {
@@ -605,13 +605,13 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			scopedLog.Warn("Regeneration of endpoint failed", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.With(slog.Any(logfields.Error, err)).Warn("Regeneration of endpoint failed", logAttrs...)
 		}
 		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 		return
 	}
 
-	scopedLog.Debug("Completed endpoint regeneration", logAttrs)
+	scopedLog.Debug("Completed endpoint regeneration", logAttrs...)
 	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+ctx.Reason+")")
 }
 

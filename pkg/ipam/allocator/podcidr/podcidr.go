@@ -241,9 +241,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		var (
 			err, err2     error
 			newCiliumNode *v2.CiliumNode
-			logAttrs      = []slog.Attr{
-				slog.String("node-name", nodeName),
-			}
+			logAttr       = slog.String("node-name", nodeName)
 		)
 		switch nodeToK8s.op {
 		case k8sOpCreate:
@@ -252,7 +250,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		case k8sOpUpdate:
 			var updatedNode *v2.CiliumNode
 			updatedNode, err = nodeGetterUpdater.Update(nil, nodeToK8s.ciliumNode)
-			log.Debug("Updated Node", slog.Any(logfields.Error, err), logAttrs)
+			log.Debug("Updated Node", slog.Any(logfields.Error, err), logAttr)
 			if err != nil {
 				if k8sErrors.IsNotFound(err) {
 					// In case the node was not found we should not try to re-create
@@ -270,7 +268,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 			fallthrough
 		case k8sOpUpdateStatus:
 			_, err = nodeGetterUpdater.UpdateStatus(nil, nodeToK8s.ciliumNode)
-			log.Debug("UpdatedStatus Node", slog.Any(logfields.Error, err), logAttrs)
+			log.Debug("UpdatedStatus Node", slog.Any(logfields.Error, err), logAttr)
 			switch {
 			case k8sErrors.IsNotFound(err):
 				// In case the node was not found we should not try to re-create
@@ -289,7 +287,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 				// already be deleted from k8s.
 				err = nil
 			} else {
-				log.Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).", slog.Any(logfields.Error, err), logAttrs)
+				log.Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).", slog.Any(logfields.Error, err), logAttr)
 			}
 		}
 		switch {
@@ -423,9 +421,7 @@ func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNode, allocated, updateStatus bool, err error) {
 	var cidrs *nodeCIDRs
 
-	logAttrs := []slog.Attr{
-		slog.String("node-name", node.Name),
-	}
+	logAttr := slog.String("node-name", node.Name)
 
 	defer func() {
 		// Overwrite err value if we want to update the status of the
@@ -459,7 +455,7 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			"Allocated new CIDRs",
 			slog.Any("cidrs", cidrs),
 			slog.Bool("allocated", allocated),
-			logAttrs,
+			logAttr,
 		)
 	} else {
 		cidrs, err = parsePodCIDRs(node.Spec.IPAM.PodCIDRs)

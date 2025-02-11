@@ -604,10 +604,9 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		direction = trafficdirection.Ingress
 	}
 
-	var logAttrs []slog.Attr
+	scopedLog := log
 	if option.Config.Debug {
-		logAttrs = append(
-			logAttrs,
+		scopedLog = log.With(
 			slog.Uint64(logfields.EndpointID, p.PolicyOwner.GetID()),
 			slog.Uint64(logfields.Port, uint64(port)),
 			slog.String(logfields.PortName, l4.PortName),
@@ -642,10 +641,9 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		isL3L4withWildcardPresent := isL4Wildcard && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
-			log.Debug(
+			scopedLog.Debug(
 				"ToMapState: Skipping L3/L4 key due to existing L4-only key",
 				slog.Any(logfields.EndpointSelector, cs),
-				logAttrs,
 			)
 			continue
 		}
@@ -673,11 +671,10 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 				// Skip unrealized redirects; this happens routineously just
 				// before new redirects are realized. Once created, we are called
 				// again.
-				log.Debug(
+				scopedLog.Debug(
 					"Skipping unrealized redirect",
 					slog.Any(logfields.Error, err),
 					slog.Any(logfields.EndpointSelector, cs),
-					logAttrs,
 				)
 				continue
 			}
@@ -691,17 +688,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 
 				if port == 0 {
 					// Allow-all
-					log.Debug(
+					scopedLog.Debug(
 						"ToMapState: allow all",
 						slog.Any(logfields.EndpointSelector, cs),
-						logAttrs,
 					)
 				} else {
 					// L4 allow
-					log.Debug(
+					scopedLog.Debug(
 						"ToMapState: L4 allow all",
 						slog.Any(logfields.EndpointSelector, cs),
-						logAttrs,
 					)
 				}
 			}
@@ -711,20 +706,18 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
 			if isDenyRule {
-				log.Debug(
+				scopedLog.Debug(
 					"ToMapState: Denied remote IDs",
 					slog.Any(logfields.Version, p.VersionHandle),
 					slog.Any(logfields.EndpointSelector, cs),
 					slog.Any(logfields.PolicyID, idents),
-					logAttrs,
 				)
 			} else {
-				log.Debug(
+				scopedLog.Debug(
 					"ToMapState: Allowed remote IDs",
 					slog.Any(logfields.Version, p.VersionHandle),
 					slog.Any(logfields.EndpointSelector, cs),
 					slog.Any(logfields.PolicyID, idents),
-					logAttrs,
 				)
 			}
 		}
@@ -745,12 +738,11 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		}
 	}
 	if option.Config.Debug {
-		log.Debug(
+		scopedLog.Debug(
 			"ToMapChange changes",
 			slog.Any(logfields.PolicyKeysAdded, changes.Adds),
 			slog.Any(logfields.PolicyKeysDeleted, changes.Deletes),
 			slog.Any(logfields.PolicyEntriesOld, changes.old),
-			logAttrs,
 		)
 	}
 }

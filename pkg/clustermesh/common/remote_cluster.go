@@ -201,13 +201,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					}
 
 					lgr := rc.logger
-					var logAttr []slog.Attr
+					var logAttr slog.Attr
 					if errors.Is(err, cmutils.ErrClusterConfigNotFound) {
-						logAttr = append(logAttr,
-							slog.String(logfields.Hint,
-								"If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
-									" Additionally, ensure that the cluster name is correct."),
-						)
+						logAttr = slog.String(logfields.Hint,
+							"If KVStoreMesh is enabled, check whether it is connected to the target cluster."+
+								" Additionally, ensure that the cluster name is correct.")
 					}
 
 					lgr.Warn("Unable to get remote cluster configuration", slog.Any(logfields.Error, err), logAttr)

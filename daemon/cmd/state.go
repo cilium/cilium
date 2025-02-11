@@ -89,13 +89,15 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// it as not restored. But we need to clean up the old
 		// state files, so do this now.
 		healthStateDir := ep.StateDirectoryPath()
-		logAttrs := []slog.Attr{
+		log.Debug("Removing old health endpoint state directory",
 			slog.Any(logfields.EndpointID, ep.ID),
 			slog.Any(logfields.Path, healthStateDir),
-		}
-		log.Debug("Removing old health endpoint state directory", logAttrs)
+		)
 		if err := os.RemoveAll(healthStateDir); err != nil {
-			log.Warn("Cannot clean up old health state directory", logAttrs)
+			log.Warn("Cannot clean up old health state directory",
+				slog.Any(logfields.EndpointID, ep.ID),
+				slog.Any(logfields.Path, healthStateDir),
+			)
 		}
 		return false, nil
 	}
@@ -221,7 +223,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 	}
 
 	for _, ep := range state.possible {
-		logAttrs := []slog.Attr{slog.Any(logfields.EndpointID, ep.ID)}
+		logAttrs := []any{slog.Any(logfields.EndpointID, ep.ID)}
 		if d.clientset.IsEnabled() {
 			logAttrs = append(logAttrs, slog.String(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()))
 		}
@@ -243,7 +245,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 			// Disconnected EPs are not failures, clean them silently below
 			if !ep.IsDisconnecting() {
 				d.endpointManager.DeleteK8sCiliumEndpointSync(ep)
-				log.Warn("Unable to restore endpoint, ignoring", slog.Any(logfields.Error, err), logAttrs)
+				log.With(slog.Any(logfields.Error, err)).Warn("Unable to restore endpoint, ignoring", logAttrs...)
 				failed++
 			}
 		}
@@ -252,7 +254,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 			continue
 		}
 
-		log.Debug("Restoring endpoint", logAttrs)
+		log.Debug("Restoring endpoint", logAttrs...)
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		ep.SetDefaultConfiguration()
