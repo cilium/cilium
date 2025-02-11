@@ -62,7 +62,7 @@ type healthServer struct {
 	serverByPort     map[uint16]*httpHealthServer
 	portByService    map[lb.ServiceName]uint16
 	nodeName         string
-	healthServerAddr cmtypes.AddrCluster
+	healthServerAddr *cmtypes.AddrCluster
 }
 
 func registerHealthServer(params healthServerParams) {
@@ -77,11 +77,11 @@ func registerHealthServer(params healthServerParams) {
 	}
 
 	// TODO(brb) Handle ipv6 + cluster-id
-	addr := netip.IPv4Unspecified()
 	if params.TestConfig != nil {
-		addr = chooseHealthServerLoopbackAddressForTesting()
+		addr := chooseHealthServerLoopbackAddressForTesting()
+		addrCluster := cmtypes.AddrClusterFrom(addr, 0)
+		s.healthServerAddr = &addrCluster
 	}
-	s.healthServerAddr = cmtypes.AddrClusterFrom(addr, 0)
 
 	params.Jobs.Add(job.OneShot("control-loop", s.controlLoop))
 }
@@ -253,8 +253,12 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 		db:       s.params.DB,
 		backends: s.params.Backends,
 	}
+	bindAddr := fmt.Sprintf(":%d", port)
+	if s.healthServerAddr != nil {
+		bindAddr = s.healthServerAddr.Addr().String() + bindAddr
+	}
 	srv.Server = http.Server{
-		Addr:    fmt.Sprintf("%s:%d", s.healthServerAddr.Addr().String(), port),
+		Addr:    bindAddr,
 		Handler: srv,
 	}
 	s.params.Jobs.Add(
