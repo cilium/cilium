@@ -168,7 +168,7 @@ func GetConnectionSummary(data []byte) string {
 
 	switch {
 	case icmpCode != "":
-		return fmt.Sprintf("%s -> %s %s", srcIP, dstIP, icmpCode)
+		return fmt.Sprintf("%s -> %s %s %s", srcIP, dstIP, proto, icmpCode)
 	case proto != "":
 		var s string
 

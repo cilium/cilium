@@ -42,7 +42,7 @@ func TestDissectSummary(t *testing.T) {
 	require.Equal(t, dport, summary.L4.Dst)
 }
 
-func TestConnectionSummary(t *testing.T) {
+func TestConnectionSummaryTcp(t *testing.T) {
 	srcIP := "1.2.3.4"
 	dstIP := "5.6.7.8"
 
@@ -59,5 +59,22 @@ func TestConnectionSummary(t *testing.T) {
 		net.JoinHostPort(srcIP, sport),
 		net.JoinHostPort(dstIP, dport),
 		"tcp SYN")
+	require.Equal(t, expect, summary)
+}
+
+func TestConnectionSummaryIcmp(t *testing.T) {
+	srcIP := "1.2.3.4"
+	dstIP := "5.6.7.8"
+
+	// Generated in scapy:
+	// Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="1.2.3.4",dst="5.6.7.8")/ICMP(type=3, code=1)
+	packetData := []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 28, 0, 1, 0, 0, 64, 1, 106, 205, 1, 2, 3, 4, 5, 6, 7, 8, 3, 1, 252, 254, 0, 0, 0, 0}
+
+	summary := GetConnectionSummary(packetData)
+
+	expect := fmt.Sprintf("%s -> %s %s",
+		srcIP,
+		dstIP,
+		"icmp DestinationUnreachable(Host)")
 	require.Equal(t, expect, summary)
 }
