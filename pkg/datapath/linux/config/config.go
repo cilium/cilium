@@ -591,7 +591,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			for _, addr := range drd.Addrs {
 				if addr.Addr.Is6() {
 					ip = addr.AsIP()
-					break
+					if !ip.IsLinkLocalUnicast() {
+						break
+					}
 				}
 			}
 			if ip.IsUnspecified() {
