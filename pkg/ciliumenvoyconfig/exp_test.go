@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -40,6 +41,9 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	// Catch any leaked goroutines.
+	t.Cleanup(func() { goleak.VerifyNone(t) })
+
 	version.Force(testutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{}
@@ -184,6 +188,7 @@ func TestScript(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
+
 	scripttest.Test(t,
 		ctx,
 		setup,

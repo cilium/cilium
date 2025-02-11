@@ -94,7 +94,8 @@ func (h *lrpController) run(ctx context.Context, health cell.Health) error {
 
 	// Limit the rate at which the changes are processed. This allows processing in
 	// larger batches and skipping intermediate states of the objects.
-	var limiter = rate.NewLimiter(100*time.Millisecond, 1)
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	defer limiter.Stop()
 
 	for {
 		health.OK("Processing changes")

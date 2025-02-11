@@ -114,6 +114,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 
 	// Limit the rate at which the change batches are processed.
 	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	defer limiter.Stop()
 
 	defer s.cleanupListeners(ctx)
 

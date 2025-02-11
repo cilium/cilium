@@ -54,6 +54,8 @@ type nodePortAddrReconciler struct {
 
 func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Context, health cell.Health) error {
 	limiter := rate.NewLimiter(time.Second, 1)
+	defer limiter.Stop()
+
 	for {
 		wtxn := r.db.WriteTxn(r.frontends)
 		_, watch := r.nodeAddrs.ListWatch(wtxn, tables.NodeAddressNodePortIndex.Query(true))
