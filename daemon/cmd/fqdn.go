@@ -207,10 +207,20 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 // It may return dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil.
 // Note that the caller should log beforehand the contextualized error.
 
-// epIPPort and serverAddr should match the original request, where epAddr is
+// epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) notifyOnDNSMsg(
+	lookupTime time.Time,
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	msg *dns.Msg,
+	protocol string,
+	allowed bool,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
@@ -272,6 +282,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	// point is always Egress, however.
 	var flowType accesslog.FlowType
 	var addrInfo logger.AddressingInfo
+	var serverAddrPortStr = serverAddrPort.String()
 	if msg.Response {
 		flowType = accesslog.TypeResponse
 		addrInfo.DstIPPort = epIPPort
@@ -279,7 +290,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// ignore error; log fields are best effort. Only returns error if endpoint
 		// is going away.
 		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.SrcIPPort = serverAddr
+		addrInfo.SrcIPPort = serverAddrPortStr
 		addrInfo.SrcIdentity = serverID
 	} else {
 		flowType = accesslog.TypeRequest
@@ -287,7 +298,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		addrInfo.SrcEPID = ep.GetID()
 		// ignore error; same reason as above.
 		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.DstIPPort = serverAddr
+		addrInfo.DstIPPort = serverAddrPortStr
 		addrInfo.DstIdentity = serverID
 	}
 
@@ -399,10 +410,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 	stat.ProcessingTime.End(true)
 
-	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
-	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
-	}
 	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	// Ensure that there are no early returns from this function before the
