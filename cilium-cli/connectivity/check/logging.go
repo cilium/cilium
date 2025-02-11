@@ -11,8 +11,11 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/hmarr/codeowners"
 )
 
 const (
@@ -121,9 +124,32 @@ func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 			"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
 		return
 	}
+
+	var workflowOwners []codeowners.Owner
+	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
+	ghWorkflow := os.Getenv("GITHUB_WORKFLOW_REF")
+	ghWorkflow = strings.TrimPrefix(ghWorkflow, "cilium/cilium/")
+	ghWorkflow, _, _ = strings.Cut(ghWorkflow, "@")
+	if ghWorkflow != "" {
+		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
+		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
+			ct.Warnf("Failed to find CODEOWNERS for workflow %s: %s", ghWorkflow, err)
+		}
+		workflowOwners = workflowRule.Owners
+	}
+
 	ct.Log("    ⛑️ The following owners are responsible for reliability of this test: ")
 	for _, o := range rule.Owners {
 		ct.Log("        - " + o.String() + " (" + scenario.Name() + ")")
+	}
+	for _, o := range workflowOwners {
+		owner := o.String()
+		switch owner {
+		case "@cilium/github-sec":
+			// Skip
+		default:
+			ct.Log("        - " + owner + " (" + ghWorkflow + ")")
+		}
 	}
 }
 
