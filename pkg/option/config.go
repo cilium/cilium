@@ -337,6 +337,9 @@ const (
 	// LogOpt sets log driver options for cilium
 	LogOpt = "log-opt"
 
+	// EnableRemoteNodeSnat SNAT IPv4 packets from endpoints leaving the host destined to a remote node.
+	EnableRemoteNodeSnat = "enable-remote-node-snat"
+
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
 
@@ -1660,6 +1663,7 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
+	EnableRemoteNodeSnat        bool
 	EnableIPv4Masquerade        bool
 	EnableIPv6Masquerade        bool
 	EnableBPFMasquerade         bool
@@ -2972,6 +2976,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
+	c.EnableRemoteNodeSnat = vp.GetBool(EnableRemoteNodeSnat)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
