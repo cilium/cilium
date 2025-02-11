@@ -392,11 +392,8 @@ jobs:
             # install the same Go toolchain version as current HEAD.
             go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
-            # Install go-junit-report to generate junit files for the
-            # privileged tests.
-            go${{ env.go-version}} install github.com/jstemmer/go-junit-report/v2@7fde4641acef5b92f397a8baf8309d1a45d608cc
-            export GOTEST_FORMATTER="/root/go/bin/go-junit-report -set-exit-code -iocopy -out test/runtime.xml"
-            make tests-privileged NO_COLOR=1 GO=go${{ env.go-version }}
+            go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
+            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 tests-privileged GO=go${{ env.go-version }}
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
