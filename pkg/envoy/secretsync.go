@@ -57,23 +57,26 @@ func newSecretSyncer(logger logging.FieldLogger, envoyXdsServer XDSServer) *secr
 }
 
 func (r *secretSyncer) handleSecretEvent(ctx context.Context, event resource.Event[*slim_corev1.Secret]) error {
-	logAttrs := []slog.Attr{slog.String(logfields.K8sNamespace, event.Key.Namespace), slog.String("name", event.Key.Name)}
+	logAttrs := []any{
+		slog.String(logfields.K8sNamespace, event.Key.Namespace),
+		slog.String("name", event.Key.Name),
+	}
 
 	var err error
 
 	switch event.Kind {
 	case resource.Upsert:
-		r.logger.Debug("Received Secret upsert event", logAttrs)
+		r.logger.Debug("Received Secret upsert event", logAttrs...)
 		err = r.upsertK8sSecretV1(ctx, event.Object)
 		if err != nil {
-			r.logger.Error("failed to handle Secret upsert", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Error("failed to handle Secret upsert", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
-		r.logger.Debug("Received Secret delete event", logAttrs)
+		r.logger.Debug("Received Secret delete event", logAttrs...)
 		err = r.deleteK8sSecretV1(ctx, event.Key)
 		if err != nil {
-			r.logger.Error("failed to handle Secret delete", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Error("failed to handle Secret delete", logAttrs...)
 			err = fmt.Errorf("failed to handle Secret delete: %w", err)
 		}
 	}

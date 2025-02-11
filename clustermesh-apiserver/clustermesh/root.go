@@ -318,12 +318,12 @@ func (es *endpointSynchronizer) synced(ctx context.Context) error {
 func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resource.Key, ips ipmap) {
 	for ip := range ips {
 		log := log.With(slog.Any(logfields.Endpoint, key), slog.String(logfields.IPAddr, ip))
-		log.Info("Deleting endpoint from etcd", logAttrs)
+		log.Info("Deleting endpoint from etcd")
 
 		entry := identity.IPIdentityPair{IP: net.ParseIP(ip)}
 		if err := es.store.DeleteKey(ctx, &entry); err != nil {
 			// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-			log.Warn("Unable to delete endpoint from etcd", slog.Any(logfields.Error, err), logAttrs)
+			log.Warn("Unable to delete endpoint from etcd", slog.Any(logfields.Error, err))
 		}
 	}
 }

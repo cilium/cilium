@@ -84,19 +84,28 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 		ciliumSockPath = client.DefaultSockPath()
 	}
 
-	logAttrs := []slog.Attr{slog.String("ciliumSockPath", ciliumSockPath)}
 	c, err := client.NewClient(ciliumSockPath)
 	if err != nil {
-		logging.Fatal(log, "Error while starting cilium-client", slog.Any(logfields.Error, err), logAttrs)
+		logging.Fatal(
+			log,
+			"Error while starting cilium-client",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+		)
 	}
 
-	logAttrs = append(logAttrs, slog.String("dockerHostPath", dockerHostPath))
 	dockerCli, err := dockerCliAPI.NewClientWithOpts(
 		dockerCliAPI.WithHost(dockerHostPath),
 		dockerCliAPI.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		logging.Fatal(log, "Error while starting cilium-client", slog.Any(logfields.Error, err), logAttrs)
+		logging.Fatal(
+			log,
+			"Error while starting cilium-client",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+			slog.String("dockerHostPath", dockerHostPath),
+		)
 	}
 
 	d := &driver{client: c, dockerClient: dockerCli}
@@ -104,14 +113,29 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	for tries := 0; tries < 24; tries++ {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
-				logging.Fatal(log, "Unable to connect to cilium daemon", slog.Any(logfields.Error, err), logAttrs)
+				logging.Fatal(
+					log,
+					"Unable to connect to cilium daemon",
+					slog.Any(logfields.Error, err),
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			} else {
-				log.Info("Waiting for cilium daemon to start up...", logAttrs)
+				log.Info(
+					"Waiting for cilium daemon to start up...",
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
 			if res.Status.Addressing == nil || (res.Status.Addressing.IPV4 == nil && res.Status.Addressing.IPV6 == nil) {
-				logging.Fatal(log, "Invalid addressing information from daemon", logAttrs)
+				logging.Fatal(
+					log,
+					"Invalid addressing information from daemon",
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			}
 
 			d.conf = *res.Status
@@ -120,7 +144,13 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	}
 
 	if err := connector.SufficientAddressing(d.conf.Addressing); err != nil {
-		logging.Fatal(log, "Insufficient addressing", slog.Any(logfields.Error, err), logAttrs)
+		logging.Fatal(
+			log,
+			"Insufficient addressing",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+			slog.String("dockerHostPath", dockerHostPath),
+		)
 	}
 
 	d.updateRoutes(nil)
@@ -144,20 +174,23 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 		}
 	}()
 
-	log.Info("Cilium Docker plugin ready", logAttrs)
+	log.Info("Cilium Docker plugin ready",
+		slog.String("ciliumSockPath", ciliumSockPath),
+		slog.String("dockerHostPath", dockerHostPath),
+	)
 
 	return d, nil
 }
 
 func (driver *driver) updateCiliumEP(event events.Message) {
-	logAttrs := []slog.Attr{slog.Any("event", event)}
+	logAttr := slog.Any("event", event)
 	cont, err := driver.dockerClient.ContainerInspect(context.Background(), event.Actor.ID)
 	if err != nil {
 		log.Error(
 			"Unable to inspect container",
 			slog.Any(logfields.Error, err),
 			slog.String(logfields.ContainerID, event.Actor.ID),
-			logAttrs,
+			logAttr,
 		)
 	}
 	if cont.Config == nil || cont.NetworkSettings == nil {
@@ -177,7 +210,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 			"Unable to inspect image",
 			slog.Any(logfields.Error, err),
 			slog.String("image-id", cont.Config.Image),
-			logAttrs,
+			logAttr,
 		)
 	}
 	lbls := cont.Config.Labels
@@ -203,7 +236,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 			slog.String(logfields.ContainerID, event.Actor.ID),
 			slog.String(logfields.EndpointID, epID),
 			slog.Any(logfields.Labels, cont.Config.Labels),
-			logAttrs,
+			logAttr,
 		)
 	}
 }

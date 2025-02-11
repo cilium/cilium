@@ -89,14 +89,15 @@ func clearCiliumVeths() error {
 		// ill-fated consequences.
 		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
 			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
-			logAttrs := []slog.Attr{
+			logAttrs := []any{
 				slog.String(logfields.Device, v.Attrs().Name),
 			}
 
 			log.Debug("Deleting stale veth device", logAttrs)
 			err := netlink.LinkDel(v)
 			if err != nil {
-				log.Warn("Unable to delete stale veth device", slog.Any(logfields.Error, err), logAttrs)
+				log := log.With(logAttrs...)
+				log.Warn("Unable to delete stale veth device", slog.Any(logfields.Error, err))
 			}
 		}
 	}

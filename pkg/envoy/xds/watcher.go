@@ -86,11 +86,11 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
-	watchLogAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.Uint64(logfields.XDSAckedVersion, lastVersion),
 		slog.String(logfields.XDSClientNode, nodeIP),
 		slog.String(logfields.XDSTypeURL, typeURL),
-	}
+	)
 
 	var res *VersionedResources
 
@@ -123,10 +123,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		// Re-check w.version, since it may have been modified by calling
 		// EnsureVersion above.
 		for ctx.Err() == nil && waitForVersion && w.version <= waitVersion {
-			log.Debug("waiting for current version to increase up to waitVersion",
+			scopedLog.Debug("waiting for current version to increase up to waitVersion",
 				slog.Uint64("waitVersion", waitVersion),
 				slog.Uint64("current-version", w.version),
-				watchLogAttrs,
 			)
 			w.versionCond.Wait()
 		}
@@ -140,16 +139,15 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			break
 		}
 
-		log.Debug("getting resources from set",
+		scopedLog.Debug("getting resources from set",
 			slog.Int("len-resources", len(resourceNames)),
 		)
 		var err error
 		res, err = w.resourceSet.GetResources(typeURL, lastVersion, nodeIP, resourceNames)
 		if err != nil {
-			log.Error("failed to query resources; terminating resource watch",
+			scopedLog.Error("failed to query resources; terminating resource watch",
 				slog.Any(logfields.Error, err),
 				slog.Any("resources", resourceNames),
-				watchLogAttrs,
 			)
 			return
 		}
@@ -168,9 +166,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	err := ctx.Err()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Debug("context canceled, terminating resource watch", watchLogAttrs)
+			scopedLog.Debug("context canceled, terminating resource watch")
 		} else {
-			log.Error("context error, terminating resource watch", slog.Any(logfields.Error, err), watchLogAttrs)
+			scopedLog.Error("context error, terminating resource watch", slog.Any(logfields.Error, err))
 		}
 	}
 }

@@ -717,17 +717,17 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			return value, isNew, firstUse, nil
 		}
 
-		logAttrs := []slog.Attr{
+		scopedLog := log.With(
 			slog.Any(fieldKey, key),
 			slog.Any(logfields.Attempt, attempt),
-		}
+		)
 
 		select {
 		case <-ctx.Done():
-			log.Warn("Ongoing key allocation has been cancelled", slog.Any(logfields.Error, ctx.Err()), logAttrs)
+			scopedLog.Warn("Ongoing key allocation has been cancelled", slog.Any(logfields.Error, ctx.Err()))
 			return 0, false, false, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
 		default:
-			log.Warn("Key allocation attempt failed", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.Warn("Key allocation attempt failed", slog.Any(logfields.Error, err))
 		}
 
 		kvstore.Trace("Allocation attempt failed", err, slog.Any(fieldKey, key), slog.Any(logfields.Attempt, attempt))
@@ -767,21 +767,21 @@ func (a *Allocator) GetWithRetry(ctx context.Context, key AllocatorKey) (idpool.
 			return id, nil
 		}
 
-		logAttrs := []slog.Attr{
+		scopedLog := log.With(
 			slog.Any(fieldKey, key),
 			slog.Any(logfields.Attempt, attempt),
-		}
+		)
 
 		select {
 		case <-ctx.Done():
-			log.Warn("Ongoing key allocation has been cancelled", slog.Any(logfields.Error, ctx.Err()), logAttrs)
+			scopedLog.Warn("Ongoing key allocation has been cancelled", slog.Any(logfields.Error, ctx.Err()))
 			return idpool.NoID, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
 		default:
-			log.Debug("CiliumIdentity not yet created by cilium-operator, retrying...", slog.Any(logfields.Error, ctx.Err()), logAttrs)
+			scopedLog.Debug("CiliumIdentity not yet created by cilium-operator, retrying...", slog.Any(logfields.Error, ctx.Err()))
 		}
 
 		if waitErr := boff.Wait(ctx); waitErr != nil {
-			log.Warn("timed out waiting for cilium-operator to allocate CiliumIdentity", logAttrs)
+			scopedLog.Warn("timed out waiting for cilium-operator to allocate CiliumIdentity")
 			return idpool.NoID, fmt.Errorf("timed out waiting for cilium-operator to allocate CiliumIdentity for key %v, error: %w", key.GetKey(), waitErr)
 		}
 	}

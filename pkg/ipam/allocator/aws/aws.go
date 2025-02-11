@@ -97,7 +97,11 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 
 	optionsFunc := func(options *ec2.Options) {}
 	if ec2APIEndpoint := operatorOption.Config.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
-		log.Debugf("Using custom API endpoint %s for service %s", ec2APIEndpoint, ec2.ServiceID)
+		log.Debug(
+			"Using custom API endpoint for service",
+			slog.String("endpoint", ec2APIEndpoint),
+			slog.String("service", ec2.ServiceID),
+		)
 		optionsFunc = func(options *ec2.Options) {
 			options.BaseEndpoint = aws.String("https://" + ec2APIEndpoint)
 		}

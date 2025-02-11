@@ -88,7 +88,7 @@ func (c *GlobalServiceCache) GetGlobalService(serviceNN types.NamespacedName) *G
 }
 
 func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any(logfields.ServiceName, svc),
 		slog.String(logfields.ClusterName, svc.Cluster),
 	}
@@ -102,14 +102,14 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 		c.byName[svc.NamespaceServiceName()] = globalSvc
 		log.Debug(
 			"Created new global service",
-			logAttrs,
+			logAttrs...,
 		)
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
 	log.Debug(
 		"Updated service definition of remote cluster",
-		logAttrs,
+		logAttrs...,
 	)
 
 	globalSvc.ClusterServices[svc.Cluster] = svc
@@ -118,17 +118,17 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 
 // must be called with c.mutex held
 func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName string, serviceNN types.NamespacedName) bool {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any(logfields.ServiceName, serviceNN),
 		slog.Any(logfields.ClusterName, clusterName),
 	}
 
 	if _, ok := globalService.ClusterServices[clusterName]; !ok {
-		log.Debug("Ignoring delete request for unknown cluster", logAttrs)
+		log.Debug("Ignoring delete request for unknown cluster", logAttrs...)
 		return false
 	}
 
-	log.Debug("Deleted service definition of remote cluster", logAttrs)
+	log.Debug("Deleted service definition of remote cluster", logAttrs...)
 	delete(globalService.ClusterServices, clusterName)
 
 	// After the last cluster service is removed, remove the global service
@@ -192,16 +192,16 @@ func NewSharedServicesObserver(
 // OnUpdate is called when a service in a remote cluster is updated
 func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
-	logAttrs := []slog.Attr{slog.Any(logfields.ServiceName, svc)}
-	r.log.Debug("Received remote service update event", logAttrs)
+	logAttr := slog.Any(logfields.ServiceName, svc)
+	r.log.Debug("Received remote service update event", logAttr)
 
 	// Short-circuit the handling of non-shared services
 	if !svc.Shared {
 		if r.cache.Has(svc) {
-			r.log.Debug("Previously shared service is no longer shared: triggering deletion event", logAttrs)
+			r.log.Debug("Previously shared service is no longer shared: triggering deletion event", logAttr)
 			r.OnDelete(key)
 		} else {
-			r.log.Debug("Ignoring remote service update: service is not shared", logAttrs)
+			r.log.Debug("Ignoring remote service update: service is not shared", logAttr)
 		}
 		return
 	}
@@ -213,12 +213,12 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 // OnDelete is called when a service in a remote cluster is deleted
 func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
-	logAttrs := []slog.Attr{slog.Any(logfields.ServiceName, svc)}
-	r.log.Debug("Received remote service delete event", logAttrs)
+	logAttr := slog.Any(logfields.ServiceName, svc)
+	r.log.Debug("Received remote service delete event", logAttr)
 
 	// Short-circuit the deletion logic if the service was not present (i.e., not shared)
 	if !r.cache.OnDelete(svc) {
-		r.log.Debug("Ignoring remote service delete. Service was not shared", logAttrs)
+		r.log.Debug("Ignoring remote service delete. Service was not shared", logAttr)
 		return
 	}
 

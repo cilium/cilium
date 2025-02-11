@@ -126,12 +126,6 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	logAttrs := []slog.Attr{
-		slog.String(fieldProxyRedirectID, id),
-		slog.String(logfields.Listener, l4.GetListener()),
-		slog.Any("l7parser", l4.GetL7Parser()),
-	}
-
 	// Check for existing redirect and try to update it if possible. Otherwise, it gets removed before re-creation.
 	if existingImpl, ok := p.redirects[id]; ok {
 		existingRedirect := existingImpl.GetRedirect()
@@ -142,12 +136,16 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			if err != nil {
 				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil
 			}
-			log.Debug(
-				"updated existing proxy instance",
-				slog.Any(logfields.Object, existingRedirect),
-				slog.Any("proxyType", existingRedirect.proxyPort.ProxyType),
-				logAttrs,
-			)
+			if logging.CanLogAt(log, slog.LevelDebug) {
+				log.Debug(
+					"updated existing proxy instance",
+					slog.Any(logfields.Object, existingRedirect),
+					slog.Any("proxyType", existingRedirect.proxyPort.ProxyType),
+					slog.String(fieldProxyRedirectID, id),
+					slog.String(logfields.Listener, l4.GetListener()),
+					slog.Any("l7parser", l4.GetL7Parser()),
+				)
+			}
 
 			// Must return the proxy port when successful
 			return existingRedirect.proxyPort.ProxyPort, nil, revert
@@ -174,11 +172,11 @@ func (p *Proxy) createNewRedirect(
 ) (
 	uint16, error, revert.RevertFunc,
 ) {
-	logAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.String(fieldProxyRedirectID, id),
 		slog.String(logfields.Listener, l4.GetListener()),
 		slog.Any("l7parser", l4.GetL7Parser()),
-	}
+	)
 
 	// FindByTypeWithReference takes a reference on the proxy port which must be eventually released
 	ppName, pp := p.proxyPorts.FindByTypeWithReference(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
@@ -188,7 +186,7 @@ func (p *Proxy) createNewRedirect(
 
 	redirect := initRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
 
-	logAttrs = append(logAttrs, slog.String("portName", ppName))
+	scopedLog = scopedLog.With(slog.String("portName", ppName))
 
 	// try first with the previous port, if any
 	p.proxyPorts.Restore(pp)
@@ -208,10 +206,9 @@ func (p *Proxy) createNewRedirect(
 			// implementation if regeneration fails.
 			err = p.proxyPorts.AckProxyPort(ctx, ppName, pp)
 			if err != nil {
-				log.Error(
+				scopedLog.Error(
 					"Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed",
 					slog.Any(logfields.Error, err),
-					logAttrs,
 				)
 			}
 		} else {
@@ -226,11 +223,10 @@ func (p *Proxy) createNewRedirect(
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if err != nil {
 			// an error occurred and we are retrying
-			log.Warn(
+			scopedLog.Warn(
 				"Unable to create proxy, retrying",
 				slog.Any(logfields.Error, err),
 				slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
-				logAttrs,
 			)
 		}
 
@@ -248,11 +244,10 @@ func (p *Proxy) createNewRedirect(
 
 	if err != nil {
 		// an error occurred, and we have no more retries
-		log.Error(
+		scopedLog.Error(
 			"Unable to create proxy",
 			slog.Any(logfields.Error, err),
 			slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
-			logAttrs,
 		)
 		p.proxyPorts.ReleaseProxyPort(ppName)
 		return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil
@@ -265,11 +260,10 @@ func (p *Proxy) createNewRedirect(
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
 
-	log.Info(
+	scopedLog.Info(
 		"Created new proxy instance",
 		slog.Any(logfields.Object, redirect),
 		slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
-		logAttrs,
 	)
 
 	p.redirects[id] = impl

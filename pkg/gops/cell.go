@@ -43,10 +43,10 @@ func registerGopsHooks(lc cell.Lifecycle, log logging.FieldLogger, cfg GopsConfi
 		return
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
-	logAttrs := []slog.Attr{slog.String("address", addr), slog.String(logfields.LogSubsys, "gops")}
+	scopedLog := log.With(slog.String("address", addr), slog.String(logfields.LogSubsys, "gops"))
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			log.Info("Started gops server", logAttrs)
+			scopedLog.Info("Started gops server")
 			return gopsAgent.Listen(gopsAgent.Options{
 				Addr:                   addr,
 				ReuseSocketAddrAndPort: true,
@@ -54,7 +54,7 @@ func registerGopsHooks(lc cell.Lifecycle, log logging.FieldLogger, cfg GopsConfi
 		},
 		OnStop: func(cell.HookContext) error {
 			gopsAgent.Close()
-			log.Info("Stopped gops server", logAttrs)
+			scopedLog.Info("Stopped gops server")
 			return nil
 		},
 	})

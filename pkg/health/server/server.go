@@ -82,11 +82,11 @@ func (s *Server) DumpUptime() string {
 // getNodes fetches the nodes added and removed from the last time the server
 // made a request to the daemon.
 func (s *Server) getNodes() (nodeMap, nodeMap, error) {
-	var logAttrs []slog.Attr
+	scopedLog := log
 	if s.CiliumURI != "" {
-		logAttrs = append(logAttrs, slog.String("URI", s.CiliumURI))
+		scopedLog = log.With(slog.String("URI", s.CiliumURI))
 	}
-	log.Debug("Sending request for /cluster/nodes ...", logAttrs)
+	scopedLog.Debug("Sending request for /cluster/nodes ...")
 
 	clusterNodesParam := daemon.NewGetClusterNodesParams()
 	s.RWMutex.RLock()
@@ -97,7 +97,7 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
-	log.Debug("Got cilium /cluster/nodes", logAttrs)
+	scopedLog.Debug("Got cilium /cluster/nodes")
 
 	if resp == nil || resp.Payload == nil {
 		return nil, nil, fmt.Errorf("received nil health response")

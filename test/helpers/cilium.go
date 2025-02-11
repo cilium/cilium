@@ -131,16 +131,16 @@ func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName s
 
 // SetAndWaitForEndpointConfiguration waits for the endpoint configuration to become a certain value
 func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) error {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.EndpointID, endpointID),
 		slog.String("option", optionName),
 		slog.String("value", expectedValue),
 	}
 	body := func() bool {
-		s.logger.Info("Setting endpoint configuration", logAttrs)
+		s.logger.Info("Setting endpoint configuration", logAttrs...)
 		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
 		if !status {
-			s.logger.Error("Cannot set endpoint configuration", logAttrs)
+			s.logger.Error("Cannot set endpoint configuration", logAttrs...)
 			return status
 		}
 
@@ -153,10 +153,12 @@ func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, exp
 		if value == expectedValue {
 			return true
 		}
-		s.logger.Debug("Expected configuration option to have different value",
+		s.logger.With(
 			slog.Any("expected", expectedValue),
 			slog.Any("actual", value),
-			logAttrs,
+		).Debug(
+			"Expected configuration option to have different value",
+			logAttrs...,
 		)
 		return false
 	}

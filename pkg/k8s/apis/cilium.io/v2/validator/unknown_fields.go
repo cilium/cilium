@@ -44,13 +44,12 @@ import (
 func detectUnknownFields(policy *unstructured.Unstructured) error {
 	kind := policy.GetKind()
 
-	var logAttr []slog.Attr
-	scopedLog := log
+	var logAttr slog.Attr
 	switch kind {
 	case cilium_v2.CNPKindDefinition:
-		logAttr = append(logAttr, slog.String(logfields.CiliumNetworkPolicyName, policy.GetName()))
+		logAttr = slog.String(logfields.CiliumNetworkPolicyName, policy.GetName())
 	case cilium_v2.CCNPKindDefinition:
-		logAttr = append(logAttr, slog.String(logfields.CiliumClusterwideNetworkPolicyName, policy.GetName()))
+		logAttr = slog.String(logfields.CiliumClusterwideNetworkPolicyName, policy.GetName())
 	default:
 		return ErrUnknownKind{
 			kind: kind,
@@ -58,7 +57,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 	}
 
 	if _, ok := policy.Object["description"]; ok {
-		scopedLog.Warn(warnTopLevelDescriptionField)
+		log.Warn(warnTopLevelDescriptionField, logAttr)
 		return ErrTopLevelDescriptionFound
 	}
 
@@ -111,7 +110,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 			return o < n
 		}),
 	) {
-		scopedLog.Warn(warnUnknownFields)
+		log.Warn(warnUnknownFields, logAttr)
 		return ErrUnknownFields{
 			extras: r.extras,
 		}

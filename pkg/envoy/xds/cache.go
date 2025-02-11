@@ -70,16 +70,15 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 	cacheIsUpdated := false
 	newVersion := c.version + 1
 
-	cacheLog := []slog.Attr{
+	scopedLog := log.With(
 		slog.String(logfields.XDSTypeURL, typeURL),
 		slog.Uint64(logfields.XDSCachedVersion, newVersion),
-	}
+	)
 
-	log.Debug(
+	scopedLog.Debug(
 		"preparing new cache transaction",
 		slog.Int("upserted-entries", len(upsertedResources)),
 		slog.Int("deleted-entries", len(deletedNames)),
-		cacheLog,
 	)
 
 	// The parameters to pass to tx in revertFunc.
@@ -102,10 +101,9 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 		// responses in GetResources.
 		if !found || !proto.Equal(oldV.resource, value) {
 			if found {
-				log.Debug(
+				scopedLog.Debug(
 					"updating resource in cache",
 					slog.String(logfields.XDSResourceName, name),
-					cacheLog,
 				)
 
 				if revertUpsertedResources == nil {
@@ -113,10 +111,9 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 				}
 				revertUpsertedResources[name] = oldV.resource
 			} else {
-				log.Debug(
+				scopedLog.Debug(
 					"inserting resource into cache",
 					slog.String(logfields.XDSResourceName, name),
-					cacheLog,
 				)
 
 				if revertDeletedNames == nil {
@@ -134,10 +131,9 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 		k.resourceName = name
 		oldV, found := c.resources[k]
 		if found {
-			log.Debug(
+			scopedLog.Debug(
 				"deleting resource from cache",
 				slog.String(logfields.XDSResourceName, name),
-				cacheLog,
 			)
 
 			if revertUpsertedResources == nil {
@@ -151,9 +147,8 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 	}
 
 	if cacheIsUpdated {
-		log.Debug(
+		scopedLog.Debug(
 			"committing cache transaction and notifying of new version",
-			cacheLog,
 		)
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
@@ -163,9 +158,8 @@ func (c *Cache) TX(typeURL string, upsertedResources map[string]proto.Message, d
 			return
 		}
 	} else {
-		log.Debug(
+		scopedLog.Debug(
 			"cache unmodified by transaction; aborting",
-			cacheLog,
 		)
 	}
 
@@ -187,14 +181,13 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	cacheIsUpdated := false
 	newVersion := c.version + 1
 
-	cacheLog := []slog.Attr{
+	log := log.With(
 		slog.String(logfields.XDSTypeURL, typeURL),
 		slog.Uint64(logfields.XDSCachedVersion, newVersion),
-	}
+	)
 
 	log.Debug(
 		"preparing new cache transaction: deleting all entries",
-		cacheLog,
 	)
 
 	for k := range c.resources {
@@ -202,7 +195,6 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 			log.Debug(
 				"deleting resource from cache",
 				slog.String(logfields.XDSResourceName, k.resourceName),
-				cacheLog,
 			)
 			cacheIsUpdated = true
 			delete(c.resources, k)
@@ -212,14 +204,12 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	if cacheIsUpdated {
 		log.Debug(
 			"committing cache transaction and notifying of new version",
-			cacheLog,
 		)
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
 	} else {
 		log.Debug(
 			"cache unmodified by transaction; aborting",
-			cacheLog,
 		)
 	}
 
@@ -230,11 +220,11 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	cacheLog := []slog.Attr{
+	log := log.With(
 		slog.Uint64(logfields.XDSAckedVersion, lastVersion),
 		slog.String(logfields.XDSClientNode, nodeIP),
 		slog.String(logfields.XDSTypeURL, typeURL),
-	}
+	)
 
 	res := &VersionedResources{
 		Version: c.version,
@@ -257,7 +247,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 			"no resource names requested",
 			slog.Int("returning-resources", len(res.Resources)),
 			slog.String("resources-type", typeURL),
-			cacheLog,
 		)
 		return res, nil
 	}
@@ -281,7 +270,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 	log.Debug(
 		"resource names requested, filtering resources",
 		slog.Int("resources", len(resourceNames)),
-		cacheLog,
 	)
 
 	for _, name := range resourceNames {
@@ -292,7 +280,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 				"resource found, last modified in version",
 				slog.Uint64("last-modified-version", v.lastModifiedVersion),
 				slog.String(logfields.XDSResourceName, name),
-				cacheLog,
 			)
 			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
 				updatedSinceLastVersion = true
@@ -303,7 +290,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 			log.Debug(
 				"resource not found",
 				slog.String(logfields.XDSResourceName, name),
-				cacheLog,
 			)
 			allResourcesFound = false
 		}
@@ -312,7 +298,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 	if allResourcesFound && !updatedSinceLastVersion {
 		log.Debug(
 			"all requested resources found but not updated since last version, returning no response",
-			cacheLog,
 		)
 		return nil, nil
 	}
@@ -323,7 +308,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 		"returning resources",
 		slog.Int("returning-resources", len(res.Resources)),
 		slog.Int("requested-resources", len(resourceNames)),
-		cacheLog,
 	)
 	return res, nil
 }
@@ -333,11 +317,11 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 	defer c.locker.Unlock()
 
 	if c.version < version {
-		cacheLog := []slog.Attr{
+		log.Debug(
+			"increasing version to match client and notifying of new version",
 			slog.String(logfields.XDSTypeURL, typeURL),
 			slog.Uint64(logfields.XDSAckedVersion, version),
-		}
-		log.Debug("increasing version to match client and notifying of new version", cacheLog)
+		)
 
 		c.version = version
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)

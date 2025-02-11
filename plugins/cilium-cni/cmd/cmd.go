@@ -434,7 +434,9 @@ func setupLogging(n *types.NetConf) error {
 	}
 
 	if len(n.LogFile) != 0 {
-		logging.AddHooks(hooks.NewFileRotationLogHook(n.LogFile,
+		logging.AddHooks(hooks.NewFileRotationLogHook(
+			logging.GetLevel(logging.DefaultLogger),
+			n.LogFile,
 			hooks.EnableCompression(),
 			hooks.WithMaxBackups(defaultLogMaxBackups),
 		))
@@ -522,7 +524,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
 	if len(n.NetConf.RawPrevResult) != 0 {
-		if chainAction, err := getChainedAction(n, log, logAttrs); chainAction != nil {
+		if chainAction, err := getChainedAction(n, log.With(logAttrs)); chainAction != nil {
 			var (
 				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
@@ -849,7 +851,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	// Note: DEL always has PrevResult set, so that doesn't tell us if we're chained. Given
 	// that a CNI ADD could not have succeeded with an invalid chained mode, we should always
 	// find a valid chained mode
-	if chainAction, err := getChainedAction(n, log, logAttrs); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
 				Logger:  log.With(logAttrs),
@@ -968,7 +970,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
 	// Note: CHECK always has PrevResult set, so that doesn't tell us if we're chained.
-	if chainAction, err := getChainedAction(n, log, logAttrs); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs...)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
 				Logger:  log.With(logAttrs),
@@ -1075,7 +1077,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
 			fmt.Sprintf("unable to extract CNI arguments: %s", err))
 	}
-	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs...)
+	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -1085,7 +1087,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 	}
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
-	if chainAction, err := getChainedAction(n, log, logAttrs); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs...)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
 				Logger:  log.With(logAttrs),
@@ -1187,14 +1189,14 @@ func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) e
 // getChainedAction retrieves the desired chained action. It returns nil if there
 // is no chained action, and error if there is a configured chained action but it is
 // invalid.
-func getChainedAction(n *types.NetConf, logger *slog.Logger, logAttrs []slog.Attr) (chainingapi.ChainingPlugin, error) {
+func getChainedAction(n *types.NetConf, logger *slog.Logger) (chainingapi.ChainingPlugin, error) {
 	if n.ChainingMode != "" {
 		chainAction := chainingapi.Lookup(n.ChainingMode)
 		if chainAction == nil {
 			return nil, fmt.Errorf("invalid chaining-mode %s", n.ChainingMode)
 		}
 
-		logger.Info("Using chained plugin", slog.String("mode", n.ChainingMode), logAttrs)
+		logger.Info("Using chained plugin", slog.String("mode", n.ChainingMode))
 		return chainAction, nil
 	}
 
@@ -1210,7 +1212,7 @@ func getChainedAction(n *types.NetConf, logger *slog.Logger, logAttrs []slog.Att
 			return nil, nil
 		}
 
-		logger.Info("Using chained plugin", slog.String("name", n.Name), logAttrs)
+		logger.Info("Using chained plugin", slog.String("name", n.Name))
 		return chainAction, nil
 	}
 
@@ -1218,7 +1220,7 @@ func getChainedAction(n *types.NetConf, logger *slog.Logger, logAttrs []slog.Att
 	return nil, nil
 }
 
-func buildLogAttrs(args *skel.CmdArgs, attrs ...slog.Attr) []slog.Attr {
+func buildLogAttrs(args *skel.CmdArgs, attrs ...any) []any {
 	return append(
 		attrs,
 		slog.String(logfields.ContainerID, args.ContainerID),
@@ -1229,7 +1231,7 @@ func buildLogAttrs(args *skel.CmdArgs, attrs ...slog.Attr) []slog.Attr {
 	)
 }
 
-func buildLogAttrsWithCNIArgs(cniArgs *types.ArgsSpec, attrs ...slog.Attr) []slog.Attr {
+func buildLogAttrsWithCNIArgs(cniArgs *types.ArgsSpec, attrs ...any) []any {
 	return append(
 		attrs,
 		slog.Any(logfields.K8sNamespace, cniArgs.K8S_POD_NAMESPACE),

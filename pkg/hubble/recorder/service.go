@@ -328,11 +328,11 @@ func (s *Service) startRecording(
 		}
 	}()
 
-	logAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.Uint64("ruleID", uint64(ruleID)),
 		slog.String("filePath", filePath),
-	}
-	log.Debug("starting new recording", logAttrs)
+	)
+	scopedLog.Debug("starting new recording")
 
 	stop := req.GetStopCondition()
 	config := sink.PcapSink{
@@ -372,10 +372,10 @@ func (s *Service) startRecording(
 	// Ensure to delete the above recorder when the sink has stopped
 	go func() {
 		<-handle.Done
-		log.Debug("stopping recording", logAttrs)
+		scopedLog.Debug("stopping recording")
 		_, err := s.recorder.DeleteRecorder(recorder.ID(ruleID))
 		if err != nil {
-			log.Warn("failed to delete recorder", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.Warn("failed to delete recorder", slog.Any(logfields.Error, err))
 		}
 		s.ruleIDs.Release(idpool.ID(ruleID))
 	}()

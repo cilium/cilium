@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"log/slog"
 	"sync"
 	"testing"
 
@@ -163,8 +162,8 @@ func (d DummyOwner) MapStateSize() int {
 	return d.mapStateSize
 }
 
-func (d DummyOwner) PolicyDebug(attrs []slog.Attr, msg string) {
-	log.WithFields(attrs).Info(msg)
+func (d DummyOwner) PolicyDebug(msg string, attrs ...any) {
+	log.Info(msg, attrs...)
 }
 
 func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {

@@ -25,25 +25,23 @@ type APIPanicHandler struct {
 func (h *APIPanicHandler) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
-			fields := []slog.Attr{
+			scopedLog := log.With(
 				slog.Any("url", req.URL),
 				slog.String("method", req.Method),
 				slog.String("client", req.RemoteAddr),
-			}
+			)
 
 			if err, ok := r.(error); ok && errors.Is(err, syscall.EPIPE) {
-				log.Debug("Failed to write API response: client connection closed",
+				scopedLog.Debug("Failed to write API response: client connection closed",
 					slog.Any(logfields.Error, err),
-					fields,
 				)
 				return
 			}
 
-			log.Warn("Cilium API handler panicked",
+			scopedLog.Warn("Cilium API handler panicked",
 				slog.Any("panic_message", r),
-				fields,
 			)
-			if log.Enabled(context.Background(), slog.LevelDebug) {
+			if scopedLog.Enabled(context.Background(), slog.LevelDebug) {
 				os.Stdout.Write(debug.Stack())
 			}
 			wr.WriteHeader(http.StatusInternalServerError)

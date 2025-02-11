@@ -93,16 +93,17 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 	}
 	if b.eventTTL > 0 {
 		logAttrs := m.logAttrs()
-		log.Debug("starting bpf map event buffer GC controller", logAttrs)
+		log.Debug("starting bpf map event buffer GC controller", logAttrs...)
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
 				Group: bpfEventBufferGCControllerGroup,
 				DoFunc: func(_ context.Context) error {
-					log.Debug(
-						"clearing bpf map events older than TTL",
-						logAttrs,
+					log.With(
 						slog.Duration("ttl", b.eventTTL),
+					).Debug(
+						"clearing bpf map events older than TTL",
+						logAttrs...,
 					)
 					b.buffer.Compact(func(e interface{}) bool {
 						event, ok := e.(*Event)

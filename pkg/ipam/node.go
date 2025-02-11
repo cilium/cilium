@@ -710,24 +710,22 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
 	n.mutex.RUnlock()
 
-	var logAttrs []slog.Attr
 	if a.allocation != nil {
 		n.mutex.Lock()
 		n.stats.IPv4.RemainingInterfaces = a.allocation.IPv4.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
 		stats = n.stats
 		n.mutex.Unlock()
-		logAttrs = []slog.Attr{
+		scopedLog = scopedLog.With(
 			slog.String("selectedInterface", a.allocation.InterfaceID),
 			slog.Any("selectedPoolID", a.allocation.PoolID),
 			slog.Int("maxIPsToAllocate", a.allocation.IPv4.MaxIPsToAllocate),
 			slog.Int("availableForAllocation", a.allocation.IPv4.AvailableForAllocation),
 			slog.Int("emptyInterfaceSlots", a.allocation.EmptyInterfaceSlots),
-		}
+		)
 	}
 
 	scopedLog.Info(
 		"Resolving IP deficit of node",
-		logAttrs,
 		slog.Int("available", stats.IPv4.AvailableIPs),
 		slog.Int("used", stats.IPv4.UsedIPs),
 		slog.Int("neededIPs", stats.IPv4.NeededIPs),
@@ -888,7 +886,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = ipsToRelease
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.Int("available", n.stats.IPv4.AvailableIPs),
 			slog.Int("used", n.stats.IPv4.UsedIPs),
 			slog.Int("excess", n.stats.IPv4.ExcessIPs),
@@ -897,7 +895,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			slog.String("selectedInterface", a.release.InterfaceID),
 			slog.Any("selectedPoolID", a.release.PoolID),
 		}
-		scopedLog.Info("Releasing excess IPs from node", logAttrs)
+		scopedLog.Info("Releasing excess IPs from node", logAttrs...)
 		start := time.Now()
 		err := n.ops.ReleaseIPs(ctx, a.release)
 		if err == nil {
@@ -914,12 +912,13 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			return true, nil
 		}
 		n.manager.metricsAPI.ReleaseAttempt(releaseIP, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
-		log.Warn(
-			"Unable to unassign IPs from interface",
+		log.With(
 			slog.Any(logfields.Error, err),
 			slog.String("selectedInterface", a.release.InterfaceID),
 			slog.Any("releasingAddresses", len(a.release.IPsToRelease)),
-			logAttrs,
+		).Warn(
+			"Unable to unassign IPs from interface",
+			logAttrs...,
 		)
 		return false, err
 	}

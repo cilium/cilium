@@ -232,14 +232,14 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		},
 	}
 
-	logAttrs := []slog.Attr{
+	scopedLogger := pluginCtx.Logger.With(
 		slog.Any(logfields.ContainerID, ep.ContainerID),
 		slog.Any(logfields.ContainerInterface, ep.ContainerInterfaceName),
-	}
+	)
 	var newEp *models.Endpoint
 	newEp, err = cli.EndpointCreate(ep)
 	if err != nil {
-		pluginCtx.Logger.Warn("Unable to create endpoint", slog.Any(logfields.Error, err), logAttrs)
+		scopedLogger.Warn("Unable to create endpoint", slog.Any(logfields.Error, err))
 		err = fmt.Errorf("unable to create endpoint: %w", err)
 		return
 	}
@@ -259,7 +259,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 		}
 	}
-	pluginCtx.Logger.Debug("Endpoint successfully created", logAttrs)
+	scopedLogger.Debug("Endpoint successfully created")
 
 	res = prevRes
 

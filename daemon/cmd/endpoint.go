@@ -699,16 +699,11 @@ func validPatchTransitionState(state *models.EndpointState) bool {
 }
 
 func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.Responder {
-	logAttrs := []slog.Attr{
-		slog.Any(logfields.Params, params),
-	}
+	scopedLog := log.With(slog.Any(logfields.Params, params))
 	if ep := params.Endpoint; ep != nil {
-		logAttrs = append(
-			logAttrs,
-			slog.Any("endpoint", *ep),
-		)
+		scopedLog = scopedLog.With(slog.Any("endpoint", *ep))
 	}
-	log.Debug("PATCH /endpoint/{id} request", logAttrs)
+	scopedLog.Debug("PATCH /endpoint/{id} request")
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -743,10 +738,9 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	// Log invalid state transitions, but do not error out for backwards
 	// compatibility.
 	if !validPatchTransitionState(epTemplate.State) {
-		log.Debug(
+		scopedLog.Debug(
 			"PATCH /endpoint/{id} to invalid state",
 			slog.Any("invalid-state", *epTemplate.State),
-			logAttrs,
 		)
 	} else {
 		validStateTransition = true
@@ -872,20 +866,20 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 	}
 
 	for _, ep := range eps {
-		logAttrs := []slog.Attr{
+		scopedLog := log.With(
 			slog.String(logfields.ContainerID, containerID),
 			slog.Any(logfields.EndpointID, ep.ID),
 			slog.String(logfields.K8sPodName, ep.GetK8sPodName()),
 			slog.String(logfields.K8sNamespace, ep.GetK8sNamespace()),
-		}
+		)
 
 		if err = endpoint.APICanModify(ep); err != nil {
-			log.Warn("Skipped endpoint in batch delete request", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.Warn("Skipped endpoint in batch delete request", slog.Any(logfields.Error, err))
 			nErrors++
 			continue
 		}
 
-		log.Info("Delete endpoint by containerID request", logAttrs)
+		scopedLog.Info("Delete endpoint by containerID request")
 		nErrors += d.deleteEndpoint(ep)
 	}
 

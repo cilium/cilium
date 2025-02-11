@@ -40,9 +40,9 @@ func (e *Endpoint) getPolicyLogger() *slog.Logger {
 }
 
 // PolicyDebug logs the 'msg' with 'fields' if policy debug logging is enabled.
-func (e *Endpoint) PolicyDebug(msg string, attrs ...slog.Attr) {
+func (e *Endpoint) PolicyDebug(msg string, attrs ...any) {
 	if dbgLog := e.getPolicyLogger(); dbgLog != nil {
-		dbgLog.Debug(msg, attrs)
+		dbgLog.Debug(msg, attrs...)
 	}
 }
 
@@ -68,11 +68,11 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
 	if fields != nil && epLogger != nil {
-		var attrs []slog.Attr
+		var attrs []any
 		for k, v := range fields {
 			attrs = append(attrs, slog.Any(k, v))
 		}
-		newLogger := epLogger.With(attrs)
+		newLogger := epLogger.With(attrs...)
 		e.logger.Store(newLogger)
 		return
 	}
@@ -94,7 +94,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
-	f := []slog.Attr{
+	f := []any{
 		slog.String(logfields.LogSubsys, subsystem),
 		slog.Uint64(logfields.EndpointID, uint64(e.ID)),
 		slog.String(logfields.ContainerID, e.GetShortContainerID()),
@@ -112,7 +112,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	}
 
 	// Inherit properties from default logger.
-	baseLogger := logging.DefaultLogger.With(f)
+	baseLogger := logging.DefaultLogger.With(f...)
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
@@ -165,13 +165,13 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 	if !e.Options.IsEnabled(option.DebugPolicy) {
 		policyLogger = nil
 	} else if fields != nil {
-		var attrs []slog.Attr
+		var attrs []any
 		for k, v := range fields {
 			attrs = append(attrs, slog.Any(k, v))
 		}
-		policyLogger = policyLogger.With(attrs)
+		policyLogger = policyLogger.With(attrs...)
 	} else {
-		f := []slog.Attr{
+		f := []any{
 			slog.String(logfields.LogSubsys, subsystem),
 			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
 			slog.String(logfields.ContainerID, e.GetShortContainerID()),
@@ -186,7 +186,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			f = append(f, slog.String(logfields.Identity, e.SecurityIdentity.ID.StringID()))
 		}
 
-		policyLogger = policyLogger.With(f)
+		policyLogger = policyLogger.With(f...)
 	}
 	e.policyLogger.Store(policyLogger)
 }

@@ -70,7 +70,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation no
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
 func AnnotateNode(cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.NodeName, nodeName),
 		slog.Any(logfields.V4Prefix, nd.IPv4AllocCIDR),
 		slog.Any(logfields.V6Prefix, nd.IPv6AllocCIDR),
@@ -82,7 +82,7 @@ func AnnotateNode(cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, e
 		slog.Any(logfields.V6CiliumHostIP, nd.GetCiliumInternalIP(true)),
 		slog.Any(logfields.Key, encryptKey),
 	}
-	log.Debug("Updating node annotations with node CIDRs", logAttrs)
+	log.Debug("Updating node annotations with node CIDRs", logAttrs...)
 	annotation := prepareNodeAnnotation(nd, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
@@ -90,7 +90,7 @@ func AnnotateNode(cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, e
 			DoFunc: func(_ context.Context) error {
 				err := updateNodeAnnotation(cs, nodeName, annotation)
 				if err != nil {
-					log.Warn("Unable to patch node resource with annotation", slog.Any(logfields.Error, err), logAttrs)
+					log.With(slog.Any(logfields.Error, err)).Warn("Unable to patch node resource with annotation", logAttrs...)
 				}
 				return err
 			},

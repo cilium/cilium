@@ -323,30 +323,29 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 		return
 	}
 
-	logAttrs := []slog.Attr{
+	scopedLog := m.opts.log.With(
 		slog.Any("address", p.Address),
 		slog.Bool("hubble-tls", p.TLSEnabled),
 		slog.String("peer", p.Name),
-	}
+	)
 
-	m.opts.log.Info("Connecting", logAttrs)
+	scopedLog.Info("Connecting")
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
 		p.connAttempts++
-		m.opts.log.Warn(
+		scopedLog.Warn(
 			"Failed to create gRPC client",
 			slog.Any(logfields.Error, err),
 			slog.Duration("next-try-in", duration),
-			logAttrs,
 		)
 		return
 	}
 	p.nextConnAttempt = time.Time{}
 	p.connAttempts = 0
 	p.conn = conn
-	m.opts.log.Info("Connected", logAttrs)
+	scopedLog.Info("Connected")
 }
 
 func (m *PeerManager) disconnect(p *peer) {
@@ -359,16 +358,16 @@ func (m *PeerManager) disconnect(p *peer) {
 		return
 	}
 
-	logAttrs := []slog.Attr{
+	scopedLog := m.opts.log.With(
 		slog.Any("address", p.Address),
 		slog.Bool("hubble-tls", p.TLSEnabled),
 		slog.String("peer", p.Name),
-	}
+	)
 
-	m.opts.log.Info("Disconnecting", logAttrs)
+	scopedLog.Info("Disconnecting")
 	if err := p.conn.Close(); err != nil {
-		m.opts.log.Warn("Failed to properly close gRPC client connection", slog.Any(logfields.Error, err), logAttrs)
+		scopedLog.Warn("Failed to properly close gRPC client connection", slog.Any(logfields.Error, err))
 	}
 	p.conn = nil
-	m.opts.log.Info("Disconnected", logAttrs)
+	scopedLog.Info("Disconnected")
 }

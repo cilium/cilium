@@ -73,9 +73,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		log.Logger.SetLevel(slog.LevelDebug)
+		// log.Logger.SetLevel(slog.LevelDebug)
 	} else {
-		log.Logger.SetLevel(slog.LevelInfo)
+		// log.Logger.SetLevel(slog.LevelInfo)
 	}
 }
 

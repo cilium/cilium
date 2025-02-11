@@ -162,11 +162,6 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 
 		svc := event.Service
 
-		logAttrs := []slog.Attr{
-			slog.String(logfields.K8sSvcName, event.ID.Name),
-			slog.String(logfields.K8sNamespace, event.ID.Namespace),
-		}
-
 		if log.Enabled(context.Background(), slog.LevelDebug) {
 			log.Debug(
 				"Kubernetes service definition changed",
@@ -175,7 +170,8 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 				slog.String("old-service", event.OldService.String()),
 				slog.String("endpoints", event.Endpoints.String()),
 				slog.String("old-endpoints", event.OldEndpoints.String()),
-				logAttrs,
+				slog.String(logfields.K8sSvcName, event.ID.Name),
+				slog.String(logfields.K8sNamespace, event.ID.Namespace),
 			)
 		}
 
@@ -209,7 +205,7 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 	if svcInfo.IsHeadless && len(svcInfo.FrontendIPs) == 0 {
 		return
 	}
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.Any(logfields.K8sSvcName, svc.Name),
 		slog.Any(logfields.K8sNamespace, svc.Namespace),
 	}
@@ -258,21 +254,26 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 
 		for _, fe := range frontends {
 			if found, err := k.svcManager.DeleteService(*fe); err != nil {
-				log.Warn(
-					"Error deleting service by frontend",
+				log.With(
 					slog.Any(logfields.Error, err),
 					slog.Any(logfields.Object, fe),
-					logAttrs,
+				).Warn(
+					"Error deleting service by frontend",
+					logAttrs...,
 				)
 			} else if !found {
-				log.Warn(
-					"service not found",
+				log.With(
 					slog.Any(logfields.Object, fe),
-					logAttrs,
+				).Warn(
+					"service not found",
+					logAttrs...,
 				)
 			} else {
 				if option.Config.Debug {
-					log.Debug(fmt.Sprintf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port), logAttrs)
+					log.Debug(
+						fmt.Sprintf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port),
+						logAttrs...,
+					)
 				}
 			}
 		}
@@ -517,10 +518,10 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		return
 	}
 
-	logAttrs := []slog.Attr{
+	scopedLog := log.With(
 		slog.Any(logfields.K8sSvcName, svcID.Name),
 		slog.Any(logfields.K8sNamespace, svcID.Namespace),
-	}
+	)
 
 	if !option.Config.LoadBalancerProtocolDifferentiation {
 		oldSvc = stripServiceProtocol(oldSvc)
@@ -530,7 +531,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 
 	svcs, err := k.datapathSVCs(svc, endpoints)
 	if err != nil {
-		log.Error("Error while evaluating datapath services", slog.Any(logfields.Error, err), logAttrs)
+		scopedLog.Error("Error while evaluating datapath services", slog.Any(logfields.Error, err))
 		return
 	}
 	svcMap := hashSVCMap(svcs)
@@ -540,7 +541,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		// are no longer in the updated service and delete them in the datapath.
 		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
 		if err != nil {
-			log.Error("Error while evaluating datapath services for old service", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.Error("Error while evaluating datapath services for old service", slog.Any(logfields.Error, err))
 			return
 		}
 		oldSVCMap := hashSVCMap(oldSVCs)
@@ -548,21 +549,19 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		for svcHash, oldSvc := range oldSVCMap {
 			if _, ok := svcMap[svcHash]; !ok {
 				if found, err := k.svcManager.DeleteService(oldSvc); err != nil {
-					log.Warn(
+					scopedLog.Warn(
 						"Error deleting service by frontend",
 						slog.Any(logfields.Error, err),
 						slog.Any(logfields.Object, oldSvc),
-						logAttrs,
 					)
 				} else if !found {
-					log.Warn(
+					scopedLog.Warn(
 						"service not found",
 						slog.Any(logfields.Object, oldSvc),
-						logAttrs,
 					)
 				} else {
 					if option.Config.Debug {
-						log.Debug(fmt.Sprintf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port))
+						scopedLog.Debug(fmt.Sprintf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port))
 					}
 				}
 			}
@@ -592,9 +591,9 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
-				log.Debug("Error while inserting service in LB map", slog.Any(logfields.Error, err), logAttrs)
+				scopedLog.Debug("Error while inserting service in LB map", slog.Any(logfields.Error, err))
 			} else {
-				log.Error("Error while inserting service in LB map", slog.Any(logfields.Error, err), logAttrs)
+				scopedLog.Error("Error while inserting service in LB map", slog.Any(logfields.Error, err))
 			}
 		}
 	}

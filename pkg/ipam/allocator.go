@@ -408,11 +408,21 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 
 		if t, ok := ipam.expirationTimers[key]; ok {
 			if t.uuid == allocationUUID {
-				logAttrs := []slog.Attr{slog.Any("ip", ip), slog.Any("pool", pool), slog.String("uuid", allocationUUID)}
 				if err := ipam.releaseIPLocked(ip, pool); err != nil {
-					log.Warn("Unable to release IP after expiration", slog.Any(logfields.Error, err), logAttrs)
+					log.Warn(
+						"Unable to release IP after expiration",
+						slog.Any(logfields.Error, err),
+						slog.Any("ip", ip),
+						slog.Any("pool", pool),
+						slog.String("uuid", allocationUUID),
+					)
 				} else {
-					log.Warn("Released IP after expiration", logAttrs)
+					log.Warn(
+						"Released IP after expiration",
+						slog.Any("ip", ip),
+						slog.Any("pool", pool),
+						slog.String("uuid", allocationUUID),
+					)
 				}
 			} else {
 				// This is an obsolete expiration timer. The IP

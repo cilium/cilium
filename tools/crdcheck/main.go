@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -24,7 +25,7 @@ var allChecks = []checkCRDFunc{
 
 func main() {
 	if len(os.Args) != 2 {
-		logging.Fatal(log, fmt.Sprintf("usage: %s <path>", os.Args[0]))
+		logging.Fatal(slog.Default(), fmt.Sprintf("usage: %s <path>", os.Args[0]))
 	}
 
 	_ = crdv1.AddToScheme(scheme.Scheme)

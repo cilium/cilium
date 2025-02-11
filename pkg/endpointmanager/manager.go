@@ -177,7 +177,7 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if err != nil {
 		return fmt.Errorf("proxy updates failed: %w", err)
 	}
-	log.Debug("Wait time for proxy updates: ", time.Since(start))
+	log.Debug("Wait time for proxy updates", slog.Duration("duration", time.Since(start)))
 
 	return nil
 }

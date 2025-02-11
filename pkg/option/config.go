@@ -3345,7 +3345,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if 0.0 <= connectivityFreqRatio && connectivityFreqRatio <= 1.0 {
 		c.ConnectivityProbeFrequencyRatio = connectivityFreqRatio
 	} else {
-		log.Warn(fmt.Sprintf("specified connectivity probe frequency ratio %f must be in the range [0.0, 1.0], using default", connectivityFreqRatio))
+		log.Warn(
+			"specified connectivity probe frequency ratio must be in the range [0.0, 1.0], using default",
+			slog.Float64("ratio", connectivityFreqRatio),
+		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
 	}
 }

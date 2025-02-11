@@ -74,7 +74,7 @@ func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Con
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumEnvoyConfig]) error {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.K8sNamespace, event.Key.Namespace),
 		slog.String(logfields.CiliumEnvoyConfigName, event.Key.Name),
 	}
@@ -83,21 +83,21 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 
 	switch event.Kind {
 	case resource.Sync:
-		r.logger.Debug("Received CiliumEnvoyConfig sync event", logAttrs)
+		r.logger.Debug("Received CiliumEnvoyConfig sync event", logAttrs...)
 		r.cecSynced.Store(true)
 	case resource.Upsert:
-		r.logger.Debug("Received CiliumEnvoyConfig upsert event", logAttrs)
+		r.logger.Debug("Received CiliumEnvoyConfig upsert event", logAttrs...)
 		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			r.logger.Info("Failed to handle CEC upsert, Hive will retry", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC upsert, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
-		r.logger.Debug("Received CiliumEnvoyConfig delete event", logAttrs)
+		r.logger.Debug("Received CiliumEnvoyConfig delete event", logAttrs...)
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			r.logger.Info("Failed to handle CEC delete, Hive will retry", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC delete, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC delete: %w", err)
 		}
 	}
@@ -108,7 +108,7 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumClusterwideEnvoyConfig]) error {
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.K8sNamespace, event.Key.Namespace),
 		slog.String(logfields.CiliumClusterwideEnvoyConfigName, event.Key.Name),
 	}
@@ -117,21 +117,21 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 
 	switch event.Kind {
 	case resource.Sync:
-		r.logger.Debug("Received CiliumClusterwideEnvoyConfig sync event", logAttrs)
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig sync event", logAttrs...)
 		r.ccecSynced.Store(true)
 	case resource.Upsert:
-		r.logger.Debug("Received CiliumClusterwideEnvoyConfig upsert event", logAttrs)
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig upsert event", logAttrs...)
 		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			r.logger.Info("Failed to handle CCEC upsert, Hive will retry", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CCEC upsert, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
 		}
 	case resource.Delete:
-		r.logger.Debug("Received CiliumClusterwideEnvoyConfig delete event", logAttrs)
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig delete event", logAttrs...)
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			r.logger.Info("Failed to handle CEC delete, Hive will retry", slog.Any(logfields.Error, err), logAttrs)
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC delete, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
 		}
 	}
@@ -212,7 +212,7 @@ func (r *ciliumEnvoyConfigReconciler) configUpserted(ctx context.Context, key re
 }
 
 func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context, key resource.Key, cfg *config, specMayChanged bool) error {
-	logAttrs := []slog.Attr{slog.Any("key", key)}
+	logAttr := slog.Any("key", key)
 
 	selectsLocalNode, err := r.configSelectsLocalNode(cfg)
 	if err != nil {
@@ -223,31 +223,31 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 
 	switch {
 	case !isApplied && !selectsLocalNode:
-		r.logger.Debug("New config doesn't select the local Node", logAttrs)
+		r.logger.Debug("New config doesn't select the local Node", logAttr)
 
 	case !isApplied && selectsLocalNode:
-		r.logger.Debug("New config selects the local node - adding config", logAttrs)
+		r.logger.Debug("New config selects the local node - adding config", logAttr)
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
-		r.logger.Debug("Config now selects the local Node - adding previously filtered config", logAttrs)
+		r.logger.Debug("Config now selects the local Node - adding previously filtered config", logAttr)
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode && specMayChanged:
-		r.logger.Debug("Config still selects the local Node - updating applied config", logAttrs)
+		r.logger.Debug("Config still selects the local Node - updating applied config", logAttr)
 		if err := r.manager.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && !selectsLocalNode && !appliedConfig.selectsLocalNode:
-		r.logger.Debug("Config still doesn't select the local Node", logAttrs)
+		r.logger.Debug("Config still doesn't select the local Node", logAttr)
 
 	case isApplied && !selectsLocalNode && appliedConfig.selectsLocalNode:
-		r.logger.Debug("Config no longer selects the local Node - deleting previously applied config", logAttrs)
+		r.logger.Debug("Config no longer selects the local Node - deleting previously applied config", logAttr)
 		if err := r.manager.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 			return err
 		}
@@ -259,7 +259,7 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 }
 
 func (r *ciliumEnvoyConfigReconciler) configDeleted(ctx context.Context, key resource.Key) error {
-	logAttrs := []slog.Attr{slog.Any("key", key)}
+	logAttr := slog.Any("key", key)
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -268,13 +268,13 @@ func (r *ciliumEnvoyConfigReconciler) configDeleted(ctx context.Context, key res
 
 	switch {
 	case !isApplied:
-		r.logger.Warn("Deleted Envoy config has never been applied", logAttrs)
+		r.logger.Warn("Deleted Envoy config has never been applied", logAttr)
 
 	case isApplied && !appliedConfig.selectsLocalNode:
-		r.logger.Debug("Deleted CEC was already filtered by NodeSelector", logAttrs)
+		r.logger.Debug("Deleted CEC was already filtered by NodeSelector", logAttr)
 
 	case isApplied && appliedConfig.selectsLocalNode:
-		r.logger.Debug("Deleting applied CEC", logAttrs)
+		r.logger.Debug("Deleting applied CEC", logAttr)
 		if err := r.manager.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 			return err
 		}

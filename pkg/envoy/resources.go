@@ -106,7 +106,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	cidrStr := cidr.String()
 	resourceName := newID.ID.StringID()
 
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.IPAddr, cidrStr),
 		slog.String(logfields.Identity, resourceName),
 		slog.Any(logfields.Modification, modType),
@@ -115,7 +115,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	// Look up the current resources for the specified Identity.
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
-		log.Warn("Can't lookup NPHDS cache", slog.Any(logfields.Error, err), logAttrs)
+		log.With(slog.Any(logfields.Error, err)).Warn("Can't lookup NPHDS cache", logAttrs...)
 		return
 	}
 
@@ -134,12 +134,12 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		}
 		err := cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 		if err != nil {
-			log.Warn("NPHSD upsert failed", slog.Any(logfields.Error, err), logAttrs)
+			log.With(slog.Any(logfields.Error, err)).Warn("NPHSD upsert failed", logAttrs...)
 		}
 	case ipcache.Delete:
 		err := cache.handleIPDelete(npHost, resourceName, cidrStr)
 		if err != nil {
-			log.Warn("NPHDS delete failed", slog.Any(logfields.Error, err), logAttrs)
+			log.With(slog.Any(logfields.Error, err)).Warn("NPHDS delete failed", logAttrs...)
 		}
 	}
 }

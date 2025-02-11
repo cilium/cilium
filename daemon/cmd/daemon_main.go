@@ -1151,7 +1151,7 @@ func initEnv(vp *viper.Viper) {
 		bpf.EnableMapPreAllocation()
 	}
 
-	logAttrs := []slog.Attr{
+	logAttrs := []any{
 		slog.String(logfields.Path+".RunDir", option.Config.RunDir),
 		slog.String(logfields.Path+".LibDir", option.Config.LibDir),
 	}
@@ -1159,37 +1159,43 @@ func initEnv(vp *viper.Viper) {
 	option.Config.BpfDir = filepath.Join(option.Config.LibDir, defaults.BpfDir)
 	logAttrs = append(logAttrs, slog.String(logfields.Path+".BPFDir", defaults.BpfDir))
 	if err := os.MkdirAll(option.Config.RunDir, defaults.RuntimePathRights); err != nil {
-		logging.Fatal(log, "Could not create runtime directory", slog.Any(logfields.Error, err))
+		logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+		logging.Fatal(log, "Could not create runtime directory", logAttrs...)
 	}
 
 	if option.Config.RunDir != defaults.RuntimePath {
 		if err := os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights); err != nil {
-			logging.Fatal(log, "Could not create default runtime directory", slog.Any(logfields.Error, err))
+			logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+			logging.Fatal(log, "Could not create default runtime directory", logAttrs...)
 		}
 	}
 
 	option.Config.StateDir = filepath.Join(option.Config.RunDir, defaults.StateDir)
 	logAttrs = append(logAttrs, slog.String(logfields.Path+".StateDir", option.Config.StateDir))
 	if err := os.MkdirAll(option.Config.StateDir, defaults.StateDirRights); err != nil {
-		logging.Fatal(log, "Could not create state directory", slog.Any(logfields.Error, err))
+		logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+		logging.Fatal(log, "Could not create state directory", logAttrs...)
 	}
 
 	if err := os.MkdirAll(option.Config.LibDir, defaults.RuntimePathRights); err != nil {
-		logging.Fatal(log, "Could not create library directory", slog.Any(logfields.Error, err))
+		logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+		logging.Fatal(log, "Could not create library directory", logAttrs...)
 	}
 	// Restore permissions of executable files
 	if err := restoreExecPermissions(option.Config.LibDir, `.*\.sh`); err != nil {
-		logging.Fatal(log, "Unable to restore agent asset permissions", slog.Any(logfields.Error, err))
+		logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+		logging.Fatal(log, "Unable to restore agent asset permissions", logAttrs...)
 	}
 
 	// Creating Envoy sockets directory for cases which doesn't provide a volume mount
 	// (e.g. embedded Envoy, external workload in ClusterMesh scenario)
 	if err := os.MkdirAll(envoy.GetSocketDir(option.Config.RunDir), defaults.RuntimePathRights); err != nil {
-		logging.Fatal(log, "Could not create envoy sockets directory", slog.Any(logfields.Error, err), logAttrs)
+		logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+		logging.Fatal(log, "Could not create envoy sockets directory", logAttrs...)
 	}
 
 	if option.Config.MaxControllerInterval < 0 {
-		logging.Fatal(log, fmt.Sprintf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval), logAttrs)
+		logging.Fatal(log, fmt.Sprintf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval), logAttrs...)
 	}
 
 	// set rlimit Memlock to INFINITY before creating any bpf resources.
@@ -1224,14 +1230,23 @@ func initEnv(vp *viper.Viper) {
 			option.AllowLocalhostAuto, option.AllowLocalhostAlways, option.AllowLocalhostPolicy))
 	}
 
-	logAttrs = []slog.Attr{slog.String(logfields.Path, option.Config.SocketPath)}
 	socketDir := path.Dir(option.Config.SocketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
-		logging.Fatal(log, "Cannot mkdir directory for cilium socket", slog.Any(logfields.Error, err), logAttrs)
+		logging.Fatal(
+			log,
+			"Cannot mkdir directory for cilium socket",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, option.Config.SocketPath),
+		)
 	}
 
 	if err := os.Remove(option.Config.SocketPath); !os.IsNotExist(err) && err != nil {
-		logging.Fatal(log, "Cannot remove existing Cilium sock", slog.Any(logfields.Error, err), logAttrs)
+		logging.Fatal(
+			log,
+			"Cannot remove existing Cilium sock",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, option.Config.SocketPath),
+		)
 	}
 
 	// The standard operation is to mount the BPF filesystem to the

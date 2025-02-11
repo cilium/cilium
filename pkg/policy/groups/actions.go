@@ -210,21 +210,21 @@ func DeleteDerivativeCCNP(ctx context.Context, clientset client.Clientset, ccnp 
 
 func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) error {
 	var (
-		logAttrs           []slog.Attr
+		scopedLog          *slog.Logger
 		derivativePolicy   v1.Object
 		derivativeCNP      *cilium_v2.CiliumNetworkPolicy
 		derivativeCCNP     *cilium_v2.CiliumClusterwideNetworkPolicy
 		derivativeErr, err error
 	)
 	if clusterScoped {
-		logAttrs = []slog.Attr{
+		scopedLog = log.With(
 			slog.Any(logfields.CiliumClusterwideNetworkPolicyName, cnp.ObjectMeta.Name),
-		}
+		)
 	} else {
-		logAttrs = []slog.Attr{
+		scopedLog = log.With(
 			slog.Any(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
 			slog.Any(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
-		}
+		)
 	}
 
 	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
@@ -240,10 +240,10 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 
 	if derivativeErr != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		log.Error("Cannot create derivative rule. Installing deny-all rule.", slog.Any(logfields.Error, derivativeErr), logAttrs)
+		scopedLog.Error("Cannot create derivative rule. Installing deny-all rule.", slog.Any(logfields.Error, derivativeErr))
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
-			log.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, statusErr), logAttrs)
+			scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, statusErr))
 		}
 		return derivativeErr
 	}
@@ -259,7 +259,7 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
 			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-			log.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err), logAttrs)
+			scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err))
 		}
 		return statusErr
 	}
@@ -267,7 +267,7 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 
 	err = updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), nil, clusterScoped)
 	if err != nil {
-		log.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err), logAttrs)
+		scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err))
 	}
 	return err
 }

@@ -34,7 +34,7 @@ func NewServerLogger(l *slog.Logger, params LogParams) *ServerLogger {
 }
 
 func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -47,11 +47,11 @@ func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	logging.Panic(l.l, msg, logAttrs)
+	logging.Panic(l.l, msg, logAttrs...)
 }
 
 func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -64,11 +64,11 @@ func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	logging.Fatal(l.l, msg, logAttrs)
+	logging.Fatal(l.l, msg, logAttrs...)
 }
 
 func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -81,11 +81,11 @@ func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	l.l.Error(msg, logAttrs)
+	l.l.Error(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -98,11 +98,11 @@ func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	l.l.Warn(msg, logAttrs)
+	l.l.Warn(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -115,11 +115,11 @@ func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	l.l.Info(msg, logAttrs)
+	l.l.Info(msg, logAttrs...)
 }
 
 func (l *ServerLogger) Debug(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]slog.Attr, 0, len(fields)+3)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -132,7 +132,7 @@ func (l *ServerLogger) Debug(msg string, fields gobgpLog.Fields) {
 		slog.String("component", l.component),
 		slog.String("subsys", l.subsys),
 	)
-	l.l.Debug(msg, logAttrs)
+	l.l.Debug(msg, logAttrs...)
 }
 
 func (l *ServerLogger) SetLevel(level gobgpLog.LogLevel) {

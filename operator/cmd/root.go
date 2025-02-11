@@ -612,7 +612,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	if kvstoreEnabled() {
 		var goopts *kvstore.ExtraOptions
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.String("kvstore", option.Config.KVStore),
 			slog.String("address", option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)]),
 		}
@@ -660,7 +660,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 		log.Info("Connecting to kvstore", logAttrs)
 		if err := kvstore.Setup(legacy.ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-			logging.Fatal(log, "Unable to setup kvstore", slog.Any(logfields.Error, err), logAttrs)
+			logAttrs = append(logAttrs, slog.Any(logfields.Error, err))
+			logging.Fatal(log, "Unable to setup kvstore", logAttrs...)
 		}
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {

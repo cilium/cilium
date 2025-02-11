@@ -68,20 +68,20 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
 
-		logAttrs := []slog.Attr{
+		logAttrs := []any{
 			slog.Any(logfields.EndpointID, epDirName),
 			slog.Any(logfields.Path, epDir),
 		}
 
 		state, err := findEndpointState(epDir, logAttrs)
 		if err != nil {
-			log.Warn("Couldn't find state, ignoring endpoint", slog.Any(logfields.Error, err), logAttrs)
+			log.With(slog.Any(logfields.Error, err)).Warn("Couldn't find state, ignoring endpoint", logAttrs)
 			continue
 		}
 
 		ep, err := parseEndpoint(owner, policyGetter, namedPortsGetter, state)
 		if err != nil {
-			log.Warn("Unable to parse the C header file", slog.Any(logfields.Error, err), logAttrs)
+			log.With(slog.Any(logfields.Error, err)).Warn("Unable to parse the C header file", logAttrs)
 			continue
 		}
 		if _, ok := possibleEPs[ep.ID]; ok {
@@ -108,10 +108,10 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 //
 // It prefers reading from the endpoint state JSON file and falls back to
 // reading from the header.
-func findEndpointState(dir string, logAttrs []slog.Attr) ([]byte, error) {
+func findEndpointState(dir string, logAttrs []any) ([]byte, error) {
 	state, err := os.ReadFile(filepath.Join(dir, common.EndpointStateFileName))
 	if err == nil {
-		log.Debug("Restore from JSON file", logAttrs)
+		log.Debug("Restore from JSON file", logAttrs...)
 		return state, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -126,7 +126,7 @@ func findEndpointState(dir string, logAttrs []slog.Attr) ([]byte, error) {
 	}
 	defer f.Close()
 
-	log.Debug("Restore from C header file", logAttrs)
+	log.Debug("Restore from C header file", logAttrs...)
 
 	br := bufio.NewReader(f)
 	var line []byte

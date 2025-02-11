@@ -173,9 +173,7 @@ func Delete(ip netip.Addr, compat bool) error {
 
 	ipWithMask := netipx.AddrIPNet(ip)
 
-	logAttrs := []slog.Attr{
-		slog.Any("ip", ipWithMask),
-	}
+	logAttr := slog.Any("ip", ipWithMask)
 
 	// Ingress rules
 	ingress := route.Rule{
@@ -187,7 +185,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
 
-	log.Debug("Deleted ingress rule", slog.Any("rule", ingress), logAttrs)
+	log.Debug("Deleted ingress rule", slog.Any("rule", ingress), logAttr)
 
 	priority := linux_defaults.RulePriorityEgressv2
 	if compat {
@@ -216,7 +214,7 @@ func Delete(ip netip.Addr, compat bool) error {
 			if err := deleteRule(egress); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
-			log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttrs)
+			log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttr)
 		}
 	} else {
 		egress := route.Rule{
@@ -226,7 +224,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		if err := deleteRule(egress); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 		}
-		log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttrs)
+		log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttr)
 	}
 
 	if option.Config.EnableUnreachableRoutes {
