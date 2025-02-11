@@ -33,6 +33,30 @@ var (
 	networkOrder = binary.BigEndian
 )
 
+// Iterate iterates netlink sockets via a callback.
+func Iterate(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
+	return iterate(proto, family, stateFilter, func(s *Socket, err error) error {
+		return fn((*netlink.Socket)(s), err)
+	})
+}
+
+// DestroySocket sends a socket destroy message via netlink and waits for a ack response.
+// This is implemented using primitives in vishvananda library, however the default SocketDestroy()
+// function is insufficient for our purposes as it identifies socket only on src/dst address
+// whereas this allows destroying socket precisely via the netlink.Socket object.
+func DestroySocket(sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(sock.ID, sock.Family, uint8(proto), stateFilter, true)
+}
+
+func iterate(proto uint8, family uint8, stateFilter uint32, fn func(*Socket, error) error) error {
+	switch proto {
+	case unix.IPPROTO_UDP, unix.IPPROTO_TCP:
+	default:
+		return fmt.Errorf("unsupported protocol for iterating sockets: %d", proto)
+	}
+	return iterateNetlinkSockets(proto, family, stateFilter, fn)
+}
+
 type SocketDestroyer interface {
 	Destroy(filter SocketFilter) error
 }
