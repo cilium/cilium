@@ -101,9 +101,14 @@ GOTEST_COVER_OPTS =
 GOTEST_FORMATTER ?= cat
 ifneq ($(shell command -v tparse),)
 	GOTEST_COVER_OPTS += -json
-	GOTEST_FORMATTER = tparse
+	GOTEST_FORMATTER_FLAGS :=
 ifneq ($(V),0)
-	GOTEST_FORMATTER += -progress
+	GOTEST_FORMATTER_FLAGS += -follow
+endif
+ifneq ($(LOG_CODEOWNERS),)
+	GOTEST_FORMATTER = tee >($(GO) run ./tools/testowners) >(tparse $(GOTEST_FORMATTER_FLAGS)) >/dev/null
+else
+	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
 endif
 endif
 
