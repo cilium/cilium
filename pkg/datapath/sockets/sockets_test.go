@@ -5,6 +5,7 @@ package sockets
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -263,6 +264,60 @@ func TestDestroy(t *testing.T) {
 			for _, conn := range conns {
 				_, err := conn.Read([]byte{0})
 				assert.ErrorIs(collect, err, syscall.ECONNABORTED)
+			}
+		}, time.Second*3, time.Millisecond*50)
+	})
+}
+
+func TestIterateAndDestroy(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	setupAndRunTest(t, 1, unix.IPPROTO_TCP, func(t *testing.T, clientConns []net.Conn) {
+		var conn net.Conn
+		for _, conn = range clientConns {
+			break
+		}
+		destroyed := false
+		assert.NoError(t, Iterate(unix.IPPROTO_TCP, unix.AF_INET, 0xff, func(s *netlink.Socket, err error) error {
+			if s == nil {
+				return nil
+			}
+			if conn.RemoteAddr().String() == fmt.Sprintf("%s:%d", s.ID.Destination.String(), s.ID.DestinationPort) {
+				destroyed = true
+				assert.NoError(t, DestroySocket(*s, unix.IPPROTO_TCP, 0xffff))
+			}
+
+			return nil
+		}))
+		assert.True(t, destroyed)
+		assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+			for _, conn := range clientConns {
+				_, err := conn.Read([]byte{0})
+				assert.Error(collect, err)
+			}
+		}, time.Second*3, time.Millisecond*50)
+	})
+	setupAndRunTest(t, 1, unix.IPPROTO_UDP, func(t *testing.T, clientConns []net.Conn) {
+		var conn net.Conn
+		for _, conn = range clientConns {
+			break
+		}
+		destroyed := false
+		assert.NoError(t, Iterate(unix.IPPROTO_UDP, unix.AF_INET, 0xff, func(s *netlink.Socket, err error) error {
+			if s == nil {
+				return nil
+			}
+			if conn.RemoteAddr().String() == fmt.Sprintf("%s:%d", s.ID.Destination.String(), s.ID.DestinationPort) {
+				destroyed = true
+				assert.NoError(t, DestroySocket(*s, unix.IPPROTO_UDP, 0xffff))
+			}
+
+			return nil
+		}))
+		assert.True(t, destroyed)
+		assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+			for _, conn := range clientConns {
+				_, err := conn.Read([]byte{0})
+				assert.Error(collect, err)
 			}
 		}, time.Second*3, time.Millisecond*50)
 	})
