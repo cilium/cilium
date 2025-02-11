@@ -214,7 +214,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}
 	barEps := &k8s.MinimalEndpoints{
 		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
-			barEpAddr: serviceStore.PortConfiguration{
+			barEpAddr: {
 				"port": {
 					Protocol: loadbalancer.UDP,
 					Port:     53,
@@ -238,7 +238,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	bazEps := &k8s.MinimalEndpoints{
 		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
-			barEpAddr: serviceStore.PortConfiguration{
+			barEpAddr: {
 				"port": {
 					Protocol: loadbalancer.UDP,
 					Port:     53,

@@ -553,6 +553,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	if err != nil {
 		return fmt.Errorf("failed to allocate id: %w", err)
 	}
+	fe.ID = loadbalancer.ServiceID(feID)
 
 	var svcKey lbmap.ServiceKey
 	var svcVal lbmap.ServiceValue

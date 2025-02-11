@@ -481,6 +481,24 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 	return referencedServices, nil
 }
 
+func (w *Writer) DeleteBackendsOfService(txn WriteTxn, name loadbalancer.ServiceName, src source.Source) error {
+	for be := range w.bes.List(txn, BackendByServiceName(name)) {
+		if inst := be.GetInstanceFromSource(name, src); inst != nil {
+			be, orphaned := be.releasePerSource(name, src)
+			var err error
+			if orphaned {
+				_, _, err = w.bes.Delete(txn, be)
+			} else {
+				_, _, err = w.bes.Insert(txn, be)
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return w.refreshFrontendsOfService(txn, name)
+}
+
 func (w *Writer) DeleteBackendsBySource(txn WriteTxn, src source.Source) error {
 	// Iterating over all as this is a rare operation so we can afford it.
 	names := sets.New[loadbalancer.ServiceName]()

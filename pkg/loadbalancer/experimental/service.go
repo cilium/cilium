@@ -38,6 +38,11 @@ type Service struct {
 	// Annotations associated with this service.
 	Annotations map[string]string
 
+	// Selector specifies which pods should be associated with this service. If
+	// this is empty the backends associated to this service are managed externally
+	// and not by Kubernetes.
+	Selector map[string]string
+
 	// NatPolicy defines whether we need NAT46/64 translation for backends.
 	NatPolicy loadbalancer.SVCNatPolicy
 
