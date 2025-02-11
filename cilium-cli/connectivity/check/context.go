@@ -64,24 +64,26 @@ type ConnectivityTest struct {
 	// Clients for source and destination clusters.
 	clients *deploymentClients
 
-	ciliumPods           map[string]Pod
-	echoPods             map[string]Pod
-	echoExternalPods     map[string]Pod
-	clientPods           map[string]Pod
-	clientCPPods         map[string]Pod
-	perfClientPods       []Pod
-	perfServerPod        []Pod
-	PerfResults          []common.PerfSummary
-	echoServices         map[string]Service
-	echoExternalServices map[string]Service
-	ingressService       map[string]Service
-	k8sService           Service
-	externalWorkloads    map[string]ExternalWorkload
-	lrpClientPods        map[string]Pod
-	lrpBackendPods       map[string]Pod
-	frrPods              []Pod
-	socatServerPods      []Pod
-	socatClientPods      []Pod
+	ciliumPods            map[string]Pod
+	echoPods              map[string]Pod
+	echoHostNetNsPods     map[string]Pod
+	echoExternalPods      map[string]Pod
+	clientPods            map[string]Pod
+	clientCPPods          map[string]Pod
+	perfClientPods        []Pod
+	perfServerPod         []Pod
+	PerfResults           []common.PerfSummary
+	echoServices          map[string]Service
+	echoHostNetNsServices map[string]Service
+	echoExternalServices  map[string]Service
+	ingressService        map[string]Service
+	k8sService            Service
+	externalWorkloads     map[string]ExternalWorkload
+	lrpClientPods         map[string]Pod
+	lrpBackendPods        map[string]Pod
+	frrPods               []Pod
+	socatServerPods       []Pod
+	socatClientPods       []Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -219,6 +221,7 @@ func NewConnectivityTest(
 		logger:                   logger,
 		ciliumPods:               make(map[string]Pod),
 		echoPods:                 make(map[string]Pod),
+		echoHostNetNsPods:        make(map[string]Pod),
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
 		clientCPPods:             make(map[string]Pod),
@@ -230,6 +233,7 @@ func NewConnectivityTest(
 		perfServerPod:            []Pod{},
 		PerfResults:              []common.PerfSummary{},
 		echoServices:             make(map[string]Service),
+		echoHostNetNsServices:    make(map[string]Service),
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
 		externalWorkloads:        make(map[string]ExternalWorkload),
@@ -1141,6 +1145,10 @@ func (ct *ConnectivityTest) EchoServices() map[string]Service {
 
 func (ct *ConnectivityTest) EchoServicesAll() map[string]Service {
 	return ct.echoServices
+}
+
+func (ct *ConnectivityTest) EchoHostNetNsServices() map[string]Service {
+	return ct.echoHostNetNsServices
 }
 
 func (ct *ConnectivityTest) EchoExternalServices() map[string]Service {
