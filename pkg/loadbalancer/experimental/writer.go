@@ -310,12 +310,10 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], no
 				continue
 			}
 			if fe.PortName != "" {
+				instance := be.GetInstance(serviceName)
+
 				// A backend with specific port name requested. Look up what this backend
 				// is called for this service.
-				instance := be.GetInstance(serviceName)
-				if instance == nil {
-					continue
-				}
 				if !slices.Contains(instance.PortNames, string(fe.PortName)) {
 					continue
 				}
