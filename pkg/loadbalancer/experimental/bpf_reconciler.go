@@ -18,12 +18,10 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -778,10 +776,8 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
 	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.NodePortAlg)
 	if ops.cfg.LoadBalancerAlgorithmAnnotation {
-		alg, err := k8s.GetAnnotationServiceLoadBalancingAlgorithm(fe.service.Annotations, defaultAlgorithm)
-		if err != nil {
-			ops.log.Warn("Ignoring %q annotation, using the default algorithm %q instead.", annotation.ServiceLoadBalancingAlgorithm, defaultAlgorithm)
-		} else {
+		alg := fe.service.GetLBAlgorithmAnnotation()
+		if alg != loadbalancer.SVCLoadBalancingAlgorithmUndef {
 			return alg
 		}
 	}

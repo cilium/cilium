@@ -552,7 +552,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 			SessionAffinity:           svc.SessionAffinity,
 			SessionAffinityTimeoutSec: uint32(svc.SessionAffinityTimeout),
 			HealthCheckNodePort:       svc.HealthCheckNodePort,
-			LoadBalancerAlgorithm:     0,   // FIXME (not merged yet)
+			LoadBalancerAlgorithm:     svc.GetLBAlgorithmAnnotation(),
 			LoadBalancerSourceRanges:  nil, // FIXME CIDR vs *CIDR
 			L7LBProxyPort:             proxyPort,
 			LoopbackHostport:          svc.LoopbackHostPort,

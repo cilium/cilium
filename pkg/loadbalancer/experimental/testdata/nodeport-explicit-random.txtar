@@ -57,7 +57,7 @@ Address NodePort Primary DeviceName
 
 -- services.table --
 Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges   ExplicitLBAlgorithm
-test/echo    k8s                  Cluster            Cluster                              0                     false
+test/echo    k8s                  Cluster            Cluster                              0                     false                             undef
 test/echo2   k8s                  Cluster            Cluster                              0                     false                             random
 
 -- services_empty.table --
