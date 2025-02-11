@@ -20,6 +20,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
@@ -125,13 +126,13 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 		changes, watch := frontendChanges.Next(s.params.DB.ReadTxn())
 		for change := range changes {
 			fe := change.Object
-			if fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort {
+			if (fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort) ||
+				fe.Address.Scope == loadbalancer.ScopeInternal {
 				continue
 			}
 
 			svc := fe.service
 			name := svc.Name
-			healthServiceName := name.AppendSuffix(":healthserver")
 			port := svc.HealthCheckNodePort
 
 			// Health server is only for LoadBalancer services with a local
@@ -153,12 +154,13 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				exists = false
 			}
 
-			if needsServer && !exists {
-				s.serverByPort[port] = s.addListener(svc, port)
+			if !exists && needsServer {
+				s.addListener(svc, port)
 				s.portByService[name] = port
 			}
 
 			if fe.Type == lb.SVCTypeLoadBalancer {
+				healthServiceName := name.AppendSuffix(":healthserver")
 				if !needsServer {
 					wtxn := s.params.Writer.WriteTxn()
 					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
@@ -245,7 +247,12 @@ func (s *healthServer) cleanupListeners(ctx context.Context) {
 	}
 }
 
-func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer {
+func (s *healthServer) addListener(svc *Service, port uint16) {
+	if srv, exists := s.serverByPort[port]; exists {
+		s.params.Log.Warn("HealthServer: Listener already exists", "port", port, "new", svc.Name, "old", srv.name)
+		return
+	}
+
 	srv := &httpHealthServer{
 		nodeName: s.nodeName,
 		name:     svc.Name,
@@ -276,8 +283,7 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 			}),
 		),
 	)
-
-	return srv
+	s.serverByPort[port] = srv
 }
 
 func (s *healthServer) removeListener(ctx context.Context, port uint16) {
