@@ -20,7 +20,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
@@ -127,7 +126,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 		for change := range changes {
 			fe := change.Object
 			if (fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort) ||
-				fe.Address.Scope == loadbalancer.ScopeInternal {
+				fe.Address.Scope == lb.ScopeInternal {
 				continue
 			}
 
@@ -323,10 +322,13 @@ func (h *httpHealthServer) getLocalEndpointCount() int {
 
 	txn := h.db.ReadTxn()
 
-	// Gather the backends. Since the service has traffic policy set to local the
-	// backends we find here are node local.
+	// Gather the backends for the service.
 	activeCount := 0
 	for be := range h.backends.List(txn, BackendByServiceName(h.name)) {
+		if be.NodeName != "" && be.NodeName != h.nodeName {
+			// Skip non-local backends.
+			continue
+		}
 		if be.State == lb.BackendStateActive {
 			activeCount++
 		}
