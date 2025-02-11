@@ -694,6 +694,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 			scopedLog.WithError(err).Warningf("Unable to compute pending pods, will not surge-allocate")
 		}
 	} else if numPendingPods > stats.IPv4.NeededIPs {
+		scopedLog.Debugf("Surge-allocating %d IPs for %d pending pods", numPendingPods-stats.IPv4.NeededIPs, numPendingPods)
 		surgeAllocate = numPendingPods - stats.IPv4.NeededIPs
 	}
 
@@ -921,6 +922,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 
 	// Assign needed addresses
 	if a.allocation.IPv4.AvailableForAllocation > 0 {
+		scopedLog.Debugf("Interface %s has %d IPs available for allocation, allocating %d IPs", a.allocation.InterfaceID, a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
 		a.allocation.IPv4.AvailableForAllocation = min(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
 
 		start := time.Now()

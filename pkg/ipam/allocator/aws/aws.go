@@ -15,7 +15,6 @@ import (
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -104,14 +103,6 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		operatorOption.Config.AWSUsePrimaryAddress)
 
-	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
-		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
-	}
-	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(ctx, a.client); err != nil {
-			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
-		}
-	}
 	return nil
 }
 
@@ -128,7 +119,11 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	instances := eni.NewInstancesManager(a.client)
+	instances, err := eni.NewInstancesManager(a.client)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
+	}
+
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
 		operatorOption.Config.AWSEnablePrefixDelegation)
