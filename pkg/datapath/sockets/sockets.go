@@ -35,6 +35,46 @@ var (
 	networkOrder = binary.BigEndian
 )
 
+// IterateAs iterates netlink sockets via a callback, inside a provided netns handle.
+func IterateAs(ns ciliumnetns.NetNS, proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
+	return iterate(&ns, proto, family, stateFilter, func(s *Socket, err error) error {
+		return fn((*netlink.Socket)(s), err)
+	})
+}
+
+// IterateAs iterates netlink sockets via a callback.
+func Iterate(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
+	return iterate(nil, proto, family, stateFilter, func(s *Socket, err error) error {
+		return fn((*netlink.Socket)(s), err)
+	})
+}
+
+// DestroySocketAs sends a socket destroy message as the provided network namespce
+// via netlink and waits for a ack response.
+// This is implemented using primitives in vishvananda library, however the default SocketDestroy()
+// function is insufficient for our purposes as it identifies socket only on src/dst address
+// whereas this allows destroying socket precisely via the netlink.Socket object.
+func DestroySocketAs(ns ciliumnetns.NetNS, sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(&ns, sock.ID, sock.Family, uint8(proto), stateFilter, true)
+}
+
+// DestroySocket sends a socket destroy message via netlink and waits for a ack response.
+// This is implemented using primitives in vishvananda library, however the default SocketDestroy()
+// function is insufficient for our purposes as it identifies socket only on src/dst address
+// whereas this allows destroying socket precisely via the netlink.Socket object.
+func DestroySocket(sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(nil, sock.ID, sock.Family, uint8(proto), stateFilter, true)
+}
+
+func iterate(ns *ciliumnetns.NetNS, proto uint8, family uint8, stateFilter uint32, fn func(*Socket, error) error) error {
+	switch proto {
+	case unix.IPPROTO_UDP, unix.IPPROTO_TCP:
+	default:
+		return fmt.Errorf("unsupported protocol for iterating sockets: %d", proto)
+	}
+	return iterateNetlinkSockets(ns, proto, family, stateFilter, fn)
+}
+
 type SocketDestroyer interface {
 	Destroy(filter SocketFilter) error
 }
