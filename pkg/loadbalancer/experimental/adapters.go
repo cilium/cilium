@@ -311,12 +311,15 @@ func newMinimalEndpoints(svcName loadbalancer.ServiceName, backends iter.Seq[*Ba
 		Backends: map[cmtypes.AddrCluster]store.PortConfiguration{},
 	}
 	for be := range backends {
+		inst := be.GetInstance(svcName)
+		if inst == nil {
+			continue
+		}
 		ports, ok := eps.Backends[be.AddrCluster]
 		if !ok {
 			ports = store.PortConfiguration{}
 			eps.Backends[be.AddrCluster] = ports
 		}
-		inst := be.GetInstance(svcName)
 		if len(inst.PortNames) == 0 {
 			ports[""] = &be.L4Addr
 		} else {
@@ -334,7 +337,7 @@ func (s *serviceCacheAdapter) ForEachService(yield func(svcID k8s.ServiceID, svc
 
 	for svc := range s.services.All(txn) {
 		backends := statedb.ToSeq(s.backends.List(txn, BackendByServiceName(svc.Name)))
-		yield(
+		if !yield(
 			k8s.ServiceID{
 				Cluster:   svc.Name.Cluster,
 				Name:      svc.Name.Name,
@@ -342,7 +345,9 @@ func (s *serviceCacheAdapter) ForEachService(yield func(svcID k8s.ServiceID, svc
 			},
 			newMinimalService(svc),
 			newMinimalEndpoints(svc.Name, backends),
-		)
+		) {
+			return
+		}
 	}
 }
 
@@ -434,8 +439,6 @@ func (s *serviceCacheAdapter) Notifications() stream.Observable[k8s.ServiceNotif
 
 	return notifications
 }
-
-var _ k8s.ServiceCacheReader = &serviceCacheAdapter{}
 
 var _ k8s.ServiceCache = &serviceCacheAdapter{}
 
