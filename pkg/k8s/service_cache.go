@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	store "github.com/cilium/cilium/pkg/service/store"
 )
 
 // ServiceCacheCell initializes the service cache holds the list of known services
@@ -114,9 +115,6 @@ type ServiceNotification struct {
 	OldEndpoints *MinimalEndpoints
 }
 
-type ServiceCacheReader interface {
-}
-
 // MinimalService is a slimmed down version of 'Service'.
 // This serves as an intermediate step to switch over to the new load-balancer control-plane,
 // allowing implementation of an adapter without having to implement conversions of fields that
@@ -136,7 +134,9 @@ func (ms *MinimalService) DeepEqual(other *MinimalService) bool {
 	case other == nil:
 		return false
 	default:
-		return maps.Equal(ms.Labels, other.Labels)
+		return maps.Equal(ms.Labels, other.Labels) &&
+			maps.Equal(ms.Annotations, other.Annotations) &&
+			maps.Equal(ms.Selector, other.Selector)
 	}
 }
 
@@ -180,7 +180,13 @@ func newMinimalEndpoints(eps *Endpoints) *MinimalEndpoints {
 	if eps == nil {
 		return nil
 	}
-	return &MinimalEndpoints{}
+	meps := &MinimalEndpoints{
+		Backends: map[cmtypes.AddrCluster]store.PortConfiguration{},
+	}
+	for addrCluster, cfg := range eps.Backends {
+		meps.Backends[addrCluster] = cfg.Ports
+	}
+	return meps
 }
 
 type ServiceCache interface {
