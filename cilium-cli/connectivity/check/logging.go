@@ -11,8 +11,11 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/hmarr/codeowners"
 )
 
 const (
@@ -110,9 +113,25 @@ func (ct *ConnectivityTest) LogOwners(o ownedScenario) {
 			"name=%s path=%s err=%s", o.Name(), o.FilePath(), err)
 		return
 	}
+
+	var workflowOwners []codeowners.Owner
+	// Example: octocat/hello-world/.github/workflows/my-workflow.yml@refs/heads/my_branch
+	ghWorkflow := os.Getenv("GITHUB_WORKFLOW_REF")
+	ghWorkflow, _, _ = strings.Cut(ghWorkflow, "@")
+	if ghWorkflow != "" {
+		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
+		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
+			ct.Warnf("Failed to find CODEOWNERS for workflow %s: %s", ghWorkflow, err)
+		}
+		workflowOwners = workflowRule.Owners
+	}
+
 	ct.Log("    ⛑️ The following owners are responsible for reliability of this test: ")
 	for _, o := range rule.Owners {
 		ct.Log("        - ", o.String())
+	}
+	for _, o := range workflowOwners {
+		ct.Log("        - ", o.String(), " (via ", ghWorkflow, ")")
 	}
 }
 
