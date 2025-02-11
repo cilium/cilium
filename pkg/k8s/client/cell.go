@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
@@ -40,7 +38,6 @@ import (
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/version"
 )
 
 // client.Cell provides Clientset, a composition of clientsets to Kubernetes resources
@@ -116,12 +113,12 @@ type compositeClientset struct {
 	*CiliumClientset
 	clientsetGetters
 
-	controller    *controller.Manager
-	slim          *SlimClientset
-	config        Config
-	log           logrus.FieldLogger
-	closeAllConns func()
-	restConfig    *rest.Config
+	controller        *controller.Manager
+	slim              *SlimClientset
+	config            Config
+	log               logrus.FieldLogger
+	closeAllConns     func()
+	restConfigManager restConfig
 }
 
 func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
@@ -133,35 +130,22 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 		return &compositeClientset{disabled: true}, nil
 	}
 
-	if cfg.K8sAPIServer != "" &&
-		!strings.HasPrefix(cfg.K8sAPIServer, "http") {
-		cfg.K8sAPIServer = "http://" + cfg.K8sAPIServer // default to HTTP
-	}
-
 	client := compositeClientset{
 		log:        log,
 		controller: controller.NewManager(),
 		config:     cfg,
 	}
 
-	cmdName := "cilium"
-	if len(os.Args[0]) != 0 {
-		cmdName = filepath.Base(os.Args[0])
-	}
-	userAgent := fmt.Sprintf("%s/%s", cmdName, version.Version)
-
-	if name != "" {
-		userAgent = fmt.Sprintf("%s %s", userAgent, name)
-	}
-
-	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst, userAgent)
+	var err error
+	client.restConfigManager, err = restConfigManagerInit(cfg, name, log)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
-	client.restConfig = restConfig
-	defaultCloseAllConns := setDialer(cfg, restConfig)
+	rc := client.restConfigManager.getConfig()
 
-	httpClient, err := rest.HTTPClientFor(restConfig)
+	defaultCloseAllConns := setDialer(cfg, rc)
+
+	httpClient, err := rest.HTTPClientFor(rc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
 	}
@@ -172,29 +156,29 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 		client.closeAllConns = defaultCloseAllConns
 	} else {
 		client.closeAllConns = func() {
-			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
+			utilnet.CloseIdleConnectionsFor(rc.Transport)
 		}
 	}
 
 	// Slim and K8s clients use protobuf marshalling.
-	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+	rc.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
-	client.slim, err = slim_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.slim, err = slim_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create slim k8s client: %w", err)
 	}
 
-	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
 	}
 
-	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(restConfig, httpClient)
+	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create mcsapi k8s client: %w", err)
 	}
 
-	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
+	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
@@ -202,8 +186,8 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 	client.clientsetGetters = clientsetGetters{&client}
 
 	// The cilium client uses JSON marshalling.
-	restConfig.ContentConfig.ContentType = `application/json`
-	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	rc.ContentConfig.ContentType = `application/json`
+	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
@@ -240,7 +224,7 @@ func (c *compositeClientset) Config() Config {
 }
 
 func (c *compositeClientset) RestConfig() *rest.Config {
-	return rest.CopyConfig(c.restConfig)
+	return c.restConfigManager.getConfig()
 }
 
 func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
@@ -311,62 +295,13 @@ func (c *compositeClientset) startHeartbeat() {
 		})
 }
 
-// createConfig creates a rest.Config for connecting to k8s api-server.
-//
-// The precedence of the configuration selection is the following:
-// 1. kubeCfgPath
-// 2. apiServerURL (https if specified)
-// 3. rest.InClusterConfig().
-func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int, userAgent string) (*rest.Config, error) {
-	var (
-		config *rest.Config
-		err    error
-	)
-
-	switch {
-	// If the apiServerURL and the kubeCfgPath are empty then we can try getting
-	// the rest.Config from the InClusterConfig
-	case apiServerURL == "" && kubeCfgPath == "":
-		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
-		}
-	case kubeCfgPath != "":
-		if config, err = clientcmd.BuildConfigFromFlags("", kubeCfgPath); err != nil {
-			return nil, err
-		}
-	case strings.HasPrefix(apiServerURL, "https://"):
-		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
-		}
-		config.Host = apiServerURL
-	default:
-		//exhaustruct:ignore
-		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
-	}
-
-	setConfig(config, userAgent, qps, burst)
-	return config, nil
-}
-
-func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
-	if userAgent != "" {
-		config.UserAgent = userAgent
-	}
-	if qps != 0.0 {
-		config.QPS = qps
-	}
-	if burst != 0 {
-		config.Burst = burst
-	}
-}
-
 func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	stop := make(chan struct{})
 	timeout := time.NewTimer(time.Minute)
 	defer timeout.Stop()
 	var err error
 	wait.Until(func() {
-		c.log.WithField("host", c.restConfig.Host).Info("Establishing connection to apiserver")
+		c.log.WithField("host", c.restConfigManager.getConfig().Host).Info("Establishing connection to apiserver")
 		err = isConnReady(c)
 		if err == nil {
 			close(stop)
@@ -380,7 +315,7 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 			return
 		}
 
-		c.log.WithError(err).WithField(logfields.IPAddr, c.restConfig.Host).Error("Unable to contact k8s api-server")
+		c.log.WithError(err).WithField(logfields.IPAddr, c.restConfigManager.getConfig().Host).Error("Unable to contact k8s api-server")
 		close(stop)
 	}, 5*time.Second, stop)
 	if err == nil {
