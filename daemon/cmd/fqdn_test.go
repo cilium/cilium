@@ -151,7 +151,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					Answer: []ciliumdns.RR{&ciliumdns.A{
 						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("cilium.io")},
 						A:   net.ParseIP("192.0.2.3"),
-					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
+					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}, &dnsproxy.NotifyOnDNSMsgContext{}))
 
 				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, "10.96.64.1:53", &ciliumdns.Msg{
 					MsgHdr: ciliumdns.MsgHdr{
@@ -164,7 +164,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					Answer: []ciliumdns.RR{&ciliumdns.A{
 						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("ebpf.io")},
 						A:   net.ParseIP("192.0.2.4"),
-					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
+					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}, &dnsproxy.NotifyOnDNSMsgContext{}))
 			}()
 		}
 		wg.Wait()

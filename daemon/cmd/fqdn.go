@@ -210,7 +210,7 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext, notifyOnDNSMsgContext *dnsproxy.NotifyOnDNSMsgContext) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
@@ -244,6 +244,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	case stat.IsTimeout():
 		metricError = metricErrorTimeout
 		endMetric()
+		notifyOnDNSMsgContext.ErrorType = dnsproxy.ErrTimeout
 		return nil
 	case stat.Err != nil:
 		metricError = metricErrorProxy
@@ -265,6 +266,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
 		endMetric()
+		notifyOnDNSMsgContext.ErrorType = dnsproxy.ErrNoEndpoint
 		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
 
@@ -294,6 +296,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
 		log.WithError(err).WithField(logfields.DNSName, qname).Error("cannot extract DNS message details")
+		notifyOnDNSMsgContext.ErrorType = dnsproxy.ErrDNSMsgDetails
 		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
