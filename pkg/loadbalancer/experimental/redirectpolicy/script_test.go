@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -31,6 +32,8 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	version.Force(testutils.DefaultVersion)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

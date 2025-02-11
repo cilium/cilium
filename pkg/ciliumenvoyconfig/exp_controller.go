@@ -142,6 +142,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 	ws := statedb.NewWatchSet()
 	existing := sets.New[CECName]()
 	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	defer limiter.Stop()
 	for {
 		wtxn := c.DB.WriteTxn(c.EnvoyResources)
 
