@@ -53,6 +53,12 @@ type Frontend struct {
 	// Backends associated with the frontend.
 	Backends iter.Seq2[*Backend, statedb.Revision]
 
+	// ID is the identifier allocated to this frontend. Used as the key
+	// in the services BPF map. This field is populated by the reconciler
+	// and is initially set to zero. It can be considered valid only when
+	// [Status] is set to done.
+	ID loadbalancer.ServiceID
+
 	// service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the
 	// frontend is marked for reconciliation.
