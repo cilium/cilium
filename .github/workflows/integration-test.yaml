@@ -173,7 +173,7 @@ jobs:
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
           export CFLAGS="-Werror"
-          make integration-tests
+          make integration-tests LOG_CODEOWNERS=1
 
   commit-status-final:
     if: ${{ always() }}
