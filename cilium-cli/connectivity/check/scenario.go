@@ -59,5 +59,6 @@ func getSourceFile() string {
 		repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
 		return strings.TrimPrefix(path, repoDir+string(filepath.Separator))
 	}
-	return ""
+	// Fall back to the general owner of connectivity infrastructure.
+	return "cilium-cli/connectivity/"
 }

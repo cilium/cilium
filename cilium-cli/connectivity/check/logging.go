@@ -90,8 +90,19 @@ type ownedScenario interface {
 	FilePath() string
 }
 
-var defaultTestOwners = defaultScenario{
-	ScenarioBase: NewScenarioBase(),
+var defaultTestOwners ownedScenario
+
+func init() {
+	// Initialize in an init func to ensure that NewScenarioBase() can look
+	// up a couple of layers of stack to find a test file in order to
+	// determine default codeowners, in this case falling back to the
+	// owners of the overall test infrastructure.
+	//
+	// This will be used when there is a failure outside of a specific
+	// scenario provided by a test.
+	defaultTestOwners = defaultScenario{
+		ScenarioBase: NewScenarioBase(),
+	}
 }
 
 type defaultScenario struct {
@@ -102,15 +113,15 @@ func (s defaultScenario) Name() string {
 	return "cli-test-framework"
 }
 
-func (ct *ConnectivityTest) LogOwners(o ownedScenario) {
+func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 	if !ct.params.LogCodeOwners {
 		return
 	}
 
-	rule, err := ct.CodeOwners.Match(o.FilePath())
+	rule, err := ct.CodeOwners.Match(scenario.FilePath())
 	if err != nil || rule == nil || rule.Owners == nil {
-		ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?",
-			"name=%s path=%s err=%s", o.Name(), o.FilePath(), err)
+		ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
+			"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
 		return
 	}
 
@@ -129,7 +140,7 @@ func (ct *ConnectivityTest) LogOwners(o ownedScenario) {
 
 	ct.Log("    ⛑️ The following owners are responsible for reliability of this test: ")
 	for _, o := range rule.Owners {
-		ct.Log("        - ", o.String())
+		ct.Log("        - " + scenario.Name() + ": " + o.String())
 	}
 	for _, o := range workflowOwners {
 		ct.Log("        - ", o.String(), " (via ", ghWorkflow, ")")
