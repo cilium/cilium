@@ -108,9 +108,9 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test
-        env:
-          GITHUB_WORKFLOW_REF: ${{ github.env.GITHUB_WORKFLOW_REF }}
         run: |
+          export GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF
+          echo $GITHUB_WORKFLOW_REF
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
             --log-code-owners \
@@ -135,8 +135,6 @@ jobs:
           kubectl -n kube-system get pods
 
       - name: Run L7 related connectivity test
-        env:
-          GITHUB_WORKFLOW_REF: ${{ github.env.GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test --test="l7|sni|check-log-errors" \
             --curl-parallel 3 \
