@@ -204,7 +204,7 @@ HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha25
 
 YQ_VERSION ?= "4.40.5"
 YQ_SHA ?= "32be61dc94d0acc44f513ba69d0fc05f1f92c2e760491f2a27e11fc13cde6327"
-YQ_IMAGE ?= "mikefarah/yq:$(YQ_VERSION)@sha256:$(YQ_SHA)"
+YQ_IMAGE ?= "docker.io/mikefarah/yq:$(YQ_VERSION)@sha256:$(YQ_SHA)"
 
 define print_help_line
   @printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
