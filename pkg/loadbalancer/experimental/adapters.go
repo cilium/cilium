@@ -512,7 +512,7 @@ func (s *serviceManagerAdapter) SyncWithK8sFinished(localOnly bool, localService
 }
 
 // TerminateUDPConnectionsToBackend implements service.ServiceManager.
-func (s *serviceManagerAdapter) TerminateUDPConnectionsToBackend(l3n4Addr *loadbalancer.L3n4Addr) {
+func (s *serviceManagerAdapter) TerminateUDPConnectionsToBackend(l3n4Addr *loadbalancer.L3n4Addr) error {
 	// Used by LRP, but not when new implementation is enabled.
 	panic("unimplemented")
 }
