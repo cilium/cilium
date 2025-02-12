@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"reflect"
@@ -20,7 +21,6 @@ import (
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker-driver")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "cilium-docker-driver"))
 
 var endpointIDRx = regexp.MustCompile(`\A[-.0-9a-z]+\z`)
 
@@ -84,19 +84,28 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 		ciliumSockPath = client.DefaultSockPath()
 	}
 
-	scopedLog := log.WithField("ciliumSockPath", ciliumSockPath)
 	c, err := client.NewClient(ciliumSockPath)
 	if err != nil {
-		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
+		logging.Fatal(
+			log,
+			"Error while starting cilium-client",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+		)
 	}
 
-	scopedLog = scopedLog.WithField("dockerHostPath", dockerHostPath)
 	dockerCli, err := dockerCliAPI.NewClientWithOpts(
 		dockerCliAPI.WithHost(dockerHostPath),
 		dockerCliAPI.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
+		logging.Fatal(
+			log,
+			"Error while starting cilium-client",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+			slog.String("dockerHostPath", dockerHostPath),
+		)
 	}
 
 	d := &driver{client: c, dockerClient: dockerCli}
@@ -104,14 +113,29 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	for tries := 0; tries < 24; tries++ {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
-				scopedLog.WithError(err).Fatal("Unable to connect to cilium daemon")
+				logging.Fatal(
+					log,
+					"Unable to connect to cilium daemon",
+					slog.Any(logfields.Error, err),
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			} else {
-				scopedLog.Info("Waiting for cilium daemon to start up...")
+				log.Info(
+					"Waiting for cilium daemon to start up...",
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
 			if res.Status.Addressing == nil || (res.Status.Addressing.IPV4 == nil && res.Status.Addressing.IPV6 == nil) {
-				scopedLog.Fatal("Invalid addressing information from daemon")
+				logging.Fatal(
+					log,
+					"Invalid addressing information from daemon",
+					slog.String("ciliumSockPath", ciliumSockPath),
+					slog.String("dockerHostPath", dockerHostPath),
+				)
 			}
 
 			d.conf = *res.Status
@@ -120,7 +144,13 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	}
 
 	if err := connector.SufficientAddressing(d.conf.Addressing); err != nil {
-		scopedLog.WithError(err).Fatal("Insufficient addressing")
+		logging.Fatal(
+			log,
+			"Insufficient addressing",
+			slog.Any(logfields.Error, err),
+			slog.String("ciliumSockPath", ciliumSockPath),
+			slog.String("dockerHostPath", dockerHostPath),
+		)
 	}
 
 	d.updateRoutes(nil)
@@ -132,7 +162,7 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 		for {
 			select {
 			case err := <-errCh:
-				log.WithError(err).Error("Unable to connect to docker events channel, reconnecting...")
+				log.Error("Unable to connect to docker events channel, reconnecting...", slog.Any(logfields.Error, err))
 				time.Sleep(5 * time.Second)
 				eventsCh, errCh = dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
 			case event := <-eventsCh:
@@ -144,20 +174,24 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 		}
 	}()
 
-	log.Infof("Cilium Docker plugin ready")
+	log.Info("Cilium Docker plugin ready",
+		slog.String("ciliumSockPath", ciliumSockPath),
+		slog.String("dockerHostPath", dockerHostPath),
+	)
 
 	return d, nil
 }
 
 func (driver *driver) updateCiliumEP(event events.Message) {
-	log = log.WithFields(logrus.Fields{"event": fmt.Sprintf("%+v", event)})
+	logAttr := slog.Any("event", event)
 	cont, err := driver.dockerClient.ContainerInspect(context.Background(), event.Actor.ID)
 	if err != nil {
-		log.WithFields(
-			logrus.Fields{
-				"container-id": event.Actor.ID,
-			},
-		).WithError(err).Error("Unable to inspect container")
+		log.Error(
+			"Unable to inspect container",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.ContainerID, event.Actor.ID),
+			logAttr,
+		)
 	}
 	if cont.Config == nil || cont.NetworkSettings == nil {
 		return
@@ -172,11 +206,12 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	}
 	img, _, err := driver.dockerClient.ImageInspectWithRaw(context.Background(), cont.Config.Image)
 	if err != nil {
-		log.WithFields(
-			logrus.Fields{
-				"image-id": cont.Config.Image,
-			},
-		).WithError(err).Error("Unable to inspect image")
+		log.Error(
+			"Unable to inspect image",
+			slog.Any(logfields.Error, err),
+			slog.String("image-id", cont.Config.Image),
+			logAttr,
+		)
 	}
 	lbls := cont.Config.Labels
 	if img.Config != nil && img.Config.Labels != nil {
@@ -195,14 +230,14 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	}
 	err = driver.client.EndpointPatch(endpointID(epID), ecr)
 	if err != nil {
-		log.WithFields(
-			logrus.Fields{
-				"container-id": event.Actor.ID,
-				"endpoint-id":  epID,
-				"labels":       cont.Config.Labels,
-				"error":        err,
-			}).
-			Error("Error while patching the endpoint labels of container")
+		log.Error(
+			"Error while patching the endpoint labels of container",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.ContainerID, event.Actor.ID),
+			slog.String(logfields.EndpointID, epID),
+			slog.Any(logfields.Labels, cont.Config.Labels),
+			logAttr,
+		)
 	}
 }
 
@@ -218,7 +253,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
 		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
-			log.WithError(err).Fatal("Unable to generate IPv6 routes")
+			logging.Fatal(log, "Unable to generate IPv6 routes", slog.Any(logfields.Error, err))
 		} else {
 			for _, r := range routes {
 				driver.routes = append(driver.routes, newLibnetworkRoute(r))
@@ -230,7 +265,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	if driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled {
 		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
-			log.WithError(err).Fatal("Unable to generate IPv4 routes")
+			logging.Fatal(log, "Unable to generate IPv4 routes", slog.Any(logfields.Error, err))
 		} else {
 			for _, r := range routes {
 				driver.routes = append(driver.routes, newLibnetworkRoute(r))
@@ -275,15 +310,19 @@ func (driver *driver) Listen(socket string) error {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	log.WithField(logfields.Object, logfields.Repr(r)).Warn("plugin Not found")
+	log.Warn(
+		"plugin Not found",
+		slog.Any(logfields.Object, r),
+	)
 	http.NotFound(w, r)
 }
 
 func sendError(w http.ResponseWriter, msg string, code int) {
-	log.WithFields(logrus.Fields{
-		"code": code,
-		"msg":  msg,
-	}).Error("Sending error")
+	log.Error(
+		"Sending error",
+		slog.Any("code", code),
+		slog.Any("msg", msg),
+	)
 	http.Error(w, msg, code)
 }
 
@@ -307,7 +346,7 @@ func (driver *driver) handshake(w http.ResponseWriter, r *http.Request) {
 		[]string{"NetworkDriver", "IpamDriver"},
 	})
 	if err != nil {
-		log.WithError(err).Fatal("handshake encode")
+		logging.Fatal(log, "handshake encode", slog.Any(logfields.Error, err))
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
@@ -319,7 +358,7 @@ func (driver *driver) capabilities(w http.ResponseWriter, r *http.Request) {
 		Scope: "local",
 	})
 	if err != nil {
-		log.WithError(err).Fatal("capabilities encode")
+		logging.Fatal(log, "capabilities encode", slog.Any(logfields.Error, err))
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
@@ -333,7 +372,10 @@ func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Network Create Called")
+	log.Debug(
+		"Network Create Called",
+		slog.Any(logfields.Request, create),
+	)
 	emptyResponse(w)
 }
 
@@ -343,7 +385,10 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&delete)).Debug("Delete network request")
+	log.Debug(
+		"Delete network request",
+		slog.Any(logfields.Request, delete),
+	)
 	emptyResponse(w)
 }
 
@@ -363,7 +408,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Create endpoint request")
+	log.Debug(
+		"Create endpoint request",
+		slog.Any(logfields.Request, create),
+	)
 
 	if create.Interface.Address == "" && create.Interface.AddressIPv6 == "" {
 		sendError(w, "No IPv4 or IPv6 address provided (required)", http.StatusBadRequest)
@@ -388,10 +436,12 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	removeLinkOnErr := func(link netlink.Link) {
 		if err != nil && link != nil && !reflect.ValueOf(link).IsNil() {
 			if err := netlink.LinkDel(link); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.DatapathMode: driver.conf.DatapathMode,
-					logfields.Device:       link.Attrs().Name,
-				}).Warn("failed to clean up")
+				log.Warn(
+					"failed to clean up",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.DatapathMode, driver.conf.DatapathMode),
+					slog.String(logfields.Device, link.Attrs().Name),
+				)
 			}
 		}
 	}
@@ -418,7 +468,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.EndpointID, create.EndpointID).Debug("Created new endpoint")
+	log.Debug(
+		"Created new endpoint",
+		slog.Any(logfields.EndpointID, create.EndpointID),
+	)
 
 	respIface := &api.EndpointInterface{
 		// Fixme: the lxcmac is an empty string at this point and we only know the
@@ -430,7 +483,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
 	}
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Create endpoint response")
+	log.Debug(
+		"Create endpoint response",
+		slog.Any(logfields.Response, resp),
+	)
 	objectResponse(w, resp)
 }
 
@@ -441,7 +497,10 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
+	log.Debug(
+		"Delete endpoint request",
+		slog.Any(logfields.Response, del),
+	)
 
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
@@ -449,7 +508,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := link.DeleteByName(ifName); err != nil {
-		log.WithError(err).Warn("Error while deleting link")
+		log.Warn("Error while deleting link", slog.Any(logfields.Error, err))
 	}
 
 	emptyResponse(w)
@@ -461,9 +520,15 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&info)).Debug("Endpoint info request")
+	log.Debug(
+		"Endpoint info request",
+		slog.Any(logfields.Request, info),
+	)
 	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]interface{}{}})
-	log.WithField(logfields.Response, info.EndpointID).Debug("Endpoint info")
+	log.Debug(
+		"Endpoint info",
+		slog.String(logfields.Response, info.EndpointID),
+	)
 }
 
 func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -479,7 +544,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&j)).Debug("Join request")
+	log.Debug(
+		"Join request",
+		slog.Any(logfields.Request, j),
+	)
 
 	old, err := driver.client.EndpointGet(endpointID(j.EndpointID))
 	if err != nil {
@@ -487,7 +555,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.Object, old).Debug("Existing endpoint")
+	log.Debug(
+		"Existing endpoint",
+		slog.Any(logfields.Object, old),
+	)
 
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
@@ -497,7 +568,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		StaticRoutes:          driver.routes,
 		DisableGatewayService: true,
 		GatewayIPv6:           driver.gatewayIPv6,
-		//GatewayIPv4:           driver.gatewayIPv4,
+		// GatewayIPv4:           driver.gatewayIPv4,
 	}
 
 	// FIXME? Having the following code results on a runtime error: docker: Error
@@ -508,7 +579,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	// If empty, it works as expected without docker runtime errors
 	// res.Gateway = connector.IPv4Gateway(addr)
 
-	log.WithField(logfields.Response, logfields.Repr(res)).Debug("Join response")
+	log.Debug(
+		"Join response",
+		slog.Any(logfields.Response, res),
+	)
 	objectResponse(w, res)
 }
 
@@ -518,10 +592,13 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&l)).Debug("Leave request")
+	log.Debug(
+		"Leave request",
+		slog.Any(logfields.Request, l),
+	)
 
 	if err := driver.client.EndpointDelete(endpointID(l.EndpointID)); err != nil {
-		log.WithError(err).Warn("Leaving the endpoint failed")
+		log.Warn("Leaving the endpoint failed", slog.Any(logfields.Error, err))
 	}
 
 	emptyResponse(w)

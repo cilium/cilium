@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync/atomic"
-
-	"github.com/cilium/ebpf/perf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/lock"
@@ -21,9 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/ebpf/perf"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "signal")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "signal"))
 
 type SignalType uint32
 
@@ -136,12 +135,15 @@ func (sm *signalManager) signalReceive(msg *perf.Record) {
 	var which SignalType
 	reader := bytes.NewReader(msg.RawSample)
 	if err := binary.Read(reader, byteorder.Native, &which); err != nil {
-		log.WithError(err).Warning("cannot parse signal type from BPF datapath")
+		log.Warn("cannot parse signal type from BPF datapath", slog.Any(logfields.Error, err))
 		return
 	}
 
 	if which >= SignalTypeMax {
-		log.WithField(logfields.Signal, which).Warning("invalid signal type")
+		log.Warn(
+			"invalid signal type",
+			slog.Any(logfields.Signal, which),
+		)
 		return
 	}
 
@@ -162,7 +164,11 @@ func (sm *signalManager) signalReceive(msg *perf.Record) {
 		if errors.Is(err, ErrFullChannel) {
 			status = "channel overflow"
 		} else {
-			log.WithError(err).WithField(logfields.Signal, name).Warning("cannot parse signal data from BPF datapath")
+			log.Warn(
+				"cannot parse signal data from BPF datapath",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Signal, name),
+			)
 			status = "parse error"
 		}
 	}
@@ -269,9 +275,11 @@ func (sm *signalManager) start() error {
 					break
 				}
 				signalCollectMetrics("", "", "error")
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.BPFMapName: signalmap.MapName,
-				}).Error("failed to read event")
+				log.Error(
+					"failed to read event",
+					slog.Any(logfields.Error, err),
+					slog.String(logfields.BPFMapName, signalmap.MapName),
+				)
 				continue
 			}
 

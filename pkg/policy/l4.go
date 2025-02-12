@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/bits"
 	"sort"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"unique"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -604,15 +604,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		direction = trafficdirection.Ingress
 	}
 
-	logger := log
+	scopedLog := log
 	if option.Config.Debug {
-		logger = log.WithFields(logrus.Fields{
-			logfields.EndpointID:       p.PolicyOwner.GetID(),
-			logfields.Port:             port,
-			logfields.PortName:         l4.PortName,
-			logfields.Protocol:         proto,
-			logfields.TrafficDirection: direction,
-		})
+		scopedLog = log.With(
+			slog.Uint64(logfields.EndpointID, p.PolicyOwner.GetID()),
+			slog.Uint64(logfields.Port, uint64(port)),
+			slog.String(logfields.PortName, l4.PortName),
+			slog.Uint64(logfields.Protocol, uint64(proto)),
+			slog.Any(logfields.TrafficDirection, direction),
+		)
 	}
 
 	// resolve named port
@@ -641,7 +641,10 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		isL3L4withWildcardPresent := isL4Wildcard && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
-			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
+			scopedLog.Debug(
+				"ToMapState: Skipping L3/L4 key due to existing L4-only key",
+				slog.Any(logfields.EndpointSelector, cs),
+			)
 			continue
 		}
 
@@ -668,7 +671,11 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 				// Skip unrealized redirects; this happens routineously just
 				// before new redirects are realized. Once created, we are called
 				// again.
-				logger.WithError(err).WithField(logfields.EndpointSelector, cs).Debugf("Skipping unrealized redirect")
+				scopedLog.Debug(
+					"Skipping unrealized redirect",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.EndpointSelector, cs),
+				)
 				continue
 			}
 		}
@@ -681,10 +688,16 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 
 				if port == 0 {
 					// Allow-all
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+					scopedLog.Debug(
+						"ToMapState: allow all",
+						slog.Any(logfields.EndpointSelector, cs),
+					)
 				} else {
 					// L4 allow
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+					scopedLog.Debug(
+						"ToMapState: L4 allow all",
+						slog.Any(logfields.EndpointSelector, cs),
+					)
 				}
 			}
 			continue
@@ -693,17 +706,19 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
 			if isDenyRule {
-				logger.WithFields(logrus.Fields{
-					logfields.Version:          p.VersionHandle,
-					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
-				}).Debug("ToMapState: Denied remote IDs")
+				scopedLog.Debug(
+					"ToMapState: Denied remote IDs",
+					slog.Any(logfields.Version, p.VersionHandle),
+					slog.Any(logfields.EndpointSelector, cs),
+					slog.Any(logfields.PolicyID, idents),
+				)
 			} else {
-				logger.WithFields(logrus.Fields{
-					logfields.Version:          p.VersionHandle,
-					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
-				}).Debug("ToMapState: Allowed remote IDs")
+				scopedLog.Debug(
+					"ToMapState: Allowed remote IDs",
+					slog.Any(logfields.Version, p.VersionHandle),
+					slog.Any(logfields.EndpointSelector, cs),
+					slog.Any(logfields.PolicyID, idents),
+				)
 			}
 		}
 		for _, id := range idents {
@@ -723,11 +738,12 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		}
 	}
 	if option.Config.Debug {
-		log.WithFields(logrus.Fields{
-			logfields.PolicyKeysAdded:   changes.Adds,
-			logfields.PolicyKeysDeleted: changes.Deletes,
-			logfields.PolicyEntriesOld:  changes.old,
-		}).Debug("ToMapChange changes")
+		scopedLog.Debug(
+			"ToMapChange changes",
+			slog.Any(logfields.PolicyKeysAdded, changes.Adds),
+			slog.Any(logfields.PolicyKeysDeleted, changes.Deletes),
+			slog.Any(logfields.PolicyEntriesOld, changes.old),
+		)
 	}
 }
 
@@ -738,11 +754,12 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
 func (l4 *L4Filter) IdentitySelectionUpdated(cs types.CachedSelector, added, deleted []identity.NumericIdentity) {
-	log.WithFields(logrus.Fields{
-		logfields.EndpointSelector: cs,
-		logfields.AddedPolicyID:    added,
-		logfields.DeletedPolicyID:  deleted,
-	}).Debug("identities selected by L4Filter updated")
+	log.Debug(
+		"identities selected by L4Filter updated",
+		slog.Any(logfields.EndpointSelector, cs),
+		slog.Any(logfields.AddedPolicyID, added),
+		slog.Any(logfields.DeletedPolicyID, deleted),
+	)
 
 	// Skip updates on wildcard selectors, as datapath and L7
 	// proxies do not need enumeration of all ids for L3 wildcard.
@@ -762,7 +779,10 @@ func (l4 *L4Filter) IdentitySelectionUpdated(cs types.CachedSelector, added, del
 }
 
 func (l4 *L4Filter) IdentitySelectionCommit(txn *versioned.Tx) {
-	log.WithField(logfields.NewVersion, txn).Debug("identity selection updates done")
+	log.Debug(
+		"identity selection updates done",
+		slog.Any(logfields.NewVersion, txn),
+	)
 
 	// Push endpoint policy incremental sync.
 	//
@@ -843,7 +863,11 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 	}
 	ca, public, private, inlineSecrets, err := policyCtx.GetTLSContext(tls)
 	if err != nil {
-		log.WithError(err).Warningf("policy: Error getting %s TLS Context.", direction)
+		log.Warn(
+			"policy: Error getting TLS Context",
+			slog.Any(logfields.Error, err),
+			slog.Any("direction", direction),
+		)
 		return nil, err
 	}
 
@@ -1683,15 +1707,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			var err error
 			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointSelector: cs,
-					logfields.Port:             port,
-					logfields.Protocol:         proto,
-					logfields.TrafficDirection: direction,
-					logfields.IsRedirect:       redirect,
-					logfields.Listener:         listener,
-					logfields.ListenerPriority: priority,
-				}).Warn("AccumulateMapChanges: Missing redirect.")
+				log.Warn(
+					"AccumulateMapChanges: Missing redirect.",
+					slog.Any(logfields.EndpointSelector, cs),
+					slog.Uint64(logfields.Port, uint64(port)),
+					slog.Uint64(logfields.Protocol, uint64(proto)),
+					slog.Any(logfields.TrafficDirection, direction),
+					slog.Bool(logfields.IsRedirect, redirect),
+					slog.String(logfields.Listener, listener),
+					slog.Uint64(logfields.ListenerPriority, uint64(priority)),
+				)
 				continue
 			}
 		}
@@ -1707,18 +1732,19 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			if authReq.IsExplicit() {
 				authString = authReq.AuthType().String()
 			}
-			log.WithFields(logrus.Fields{
-				logfields.EndpointSelector: cs,
-				logfields.AddedPolicyID:    adds,
-				logfields.DeletedPolicyID:  deletes,
-				logfields.Port:             port,
-				logfields.Protocol:         proto,
-				logfields.TrafficDirection: direction,
-				logfields.IsRedirect:       redirect,
-				logfields.AuthType:         authString,
-				logfields.Listener:         listener,
-				logfields.ListenerPriority: priority,
-			}).Debug("AccumulateMapChanges")
+			log.Debug(
+				"AccumulateMapChanges",
+				slog.Any(logfields.EndpointSelector, cs),
+				slog.Any(logfields.AddedPolicyID, adds),
+				slog.Any(logfields.DeletedPolicyID, deletes),
+				slog.Uint64(logfields.Port, uint64(port)),
+				slog.Uint64(logfields.Protocol, uint64(proto)),
+				slog.Uint64(logfields.TrafficDirection, uint64(direction)),
+				slog.Bool(logfields.IsRedirect, redirect),
+				slog.String(logfields.AuthType, authString),
+				slog.String(logfields.Listener, listener),
+				slog.Uint64(logfields.ListenerPriority, uint64(priority)),
+			)
 		}
 		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, keysToAdd, value)
 	}

@@ -4,10 +4,12 @@
 package manager
 
 import (
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/hive/cell"
 )
 
 // Cell provides access to the cgroup manager.
@@ -22,7 +24,7 @@ var Cell = cell.Module(
 type cgroupManagerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	AgentConfig *option.DaemonConfig
@@ -36,8 +38,10 @@ func newCGroupManager(params cgroupManagerParams) CGroupManager {
 	pathProvider, err := getCgroupPathProvider()
 	if err != nil {
 		params.Logger.
-			WithError(err).
-			Info("Failed to setup socket load-balancing tracing with Hubble. See the kubeproxy-free guide for more details.")
+			Info(
+				"Failed to setup socket load-balancing tracing with Hubble. See the kubeproxy-free guide for more details.",
+				slog.Any(logfields.Error, err),
+			)
 
 		return &noopCGroupManager{}
 	}

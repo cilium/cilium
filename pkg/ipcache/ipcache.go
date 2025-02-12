@@ -5,12 +5,11 @@ package ipcache
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -332,17 +331,17 @@ func (ipc *IPCache) upsertLocked(
 
 	scopedLog := log
 	if option.Config.Debug {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.IPAddr:   ip,
-			logfields.Identity: &newIdentity,
-			logfields.Key:      hostKey,
-		})
+		scopedLog = log.With(
+			slog.String(logfields.IPAddr, ip),
+			slog.Any(logfields.Identity, newIdentity),
+			slog.Uint64(logfields.Key, uint64(hostKey)),
+		)
 		if k8sMeta != nil {
-			scopedLog = scopedLog.WithFields(logrus.Fields{
-				logfields.K8sPodName:   k8sMeta.PodName,
-				logfields.K8sNamespace: k8sMeta.Namespace,
-				logfields.NamedPorts:   k8sMeta.NamedPorts,
-			})
+			scopedLog = scopedLog.With(
+				slog.String(logfields.K8sPodName, k8sMeta.PodName),
+				slog.String(logfields.K8sNamespace, k8sMeta.Namespace),
+				slog.Any(logfields.NamedPorts, k8sMeta.NamedPorts),
+			)
 		}
 	}
 
@@ -447,11 +446,12 @@ func (ipc *IPCache) upsertLocked(
 			}
 		}
 	} else {
-		log.WithFields(logrus.Fields{
-			logfields.AddrCluster: ip,
-			logfields.Identity:    newIdentity,
-			logfields.Key:         hostKey,
-		}).Error("Attempt to upsert invalid IP into ipcache layer")
+		scopedLog.Error(
+			"Attempt to upsert invalid IP into ipcache layer",
+			slog.String(logfields.AddrCluster, ip),
+			slog.Any(logfields.Identity, newIdentity),
+			slog.Uint64(logfields.Key, uint64(hostKey)),
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeUpsert, metricErrorInvalid,
 		).Inc()
@@ -708,13 +708,11 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 // deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
 func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsChanged bool) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr: ip,
-	})
+	logAttr := slog.Any(logfields.IPAddr, ip)
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
-		scopedLog.Warn("Attempt to remove non-existing IP from ipcache layer")
+		log.Warn("Attempt to remove non-existing IP from ipcache layer", logAttr)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorNoExist,
 		).Inc()
@@ -722,8 +720,12 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	}
 
 	if cachedIdentity.Source != source {
-		scopedLog.WithField("source", cachedIdentity.Source).
-			Debugf("Skipping delete of identity from source %s", source)
+		log.Debug(
+			"Skipping delete of identity from source",
+			slog.Any("cached-source", cachedIdentity.Source),
+			slog.Any("source", source),
+			logAttr,
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorOverwrite,
 		).Inc()
@@ -746,7 +748,10 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		// this case, skip calling back the listeners since they don't know
 		// about its mapping.
 		if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
-			scopedLog.Debug("Deleting CIDR shadowed by endpoint IP")
+			log.Debug(
+				"Deleting CIDR shadowed by endpoint IP",
+				logAttr,
+			)
 			callbackListeners = false
 		}
 	} else if addrCluster, err := cmtypes.ParseAddrCluster(ip); err == nil { // Endpoint IP or Endpoint IP with ClusterID
@@ -759,7 +764,10 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
 			newHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
-				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
+				log.Debug(
+					"Removal of endpoint IP revives shadowed CIDR to identity mapping",
+					logAttr,
+				)
 				cacheModification = Upsert
 				cidrIdentity.shadowed = false
 				ipc.ipToIdentityCache[cidrClusterStr] = cidrIdentity
@@ -772,14 +780,20 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 			}
 		}
 	} else {
-		scopedLog.Error("Attempt to delete invalid IP from ipcache layer")
+		log.Error(
+			"Attempt to delete invalid IP from ipcache layer",
+			logAttr,
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorInvalid,
 		).Inc()
 		return false
 	}
 
-	scopedLog.Debug("Deleting IP from ipcache layer")
+	log.Debug(
+		"Deleting IP from ipcache layer",
+		logAttr,
+	)
 
 	delete(ipc.ipToIdentityCache, ip)
 	delete(ipc.identityToIPCache[cachedIdentity.ID], ip)

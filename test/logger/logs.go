@@ -6,6 +6,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ func (h *LogHook) Levels() []logrus.Level {
 
 // Fire is a callback function used by logrus to write logs that match in
 // the given by `Levels` method
-func (h *LogHook) Fire(entry *logrus.Entry) (err error) {
+func (h *LogHook) Fire(entry *slog.Logger) (err error) {
 	line, err := Formatter.Format(entry)
 	if err == nil {
 		fmt.Fprint(ginkgo.GinkgoWriter, string(line))

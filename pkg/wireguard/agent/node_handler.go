@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"log/slog"
+
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -51,9 +53,11 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 	newIP6 := node.GetNodeIP(true)
 
 	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
-		log.WithError(err).
-			WithField(logfields.NodeName, node.Fullname()).
-			Warning("Failed to update WireGuard configuration for peer")
+		log.Warn(
+			"Failed to update WireGuard configuration for peer",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.NodeName, node.Fullname()),
+		)
 	}
 
 	return nil

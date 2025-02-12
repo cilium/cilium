@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -14,10 +15,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"github.com/sagikazarmark/slog-shim"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -42,7 +44,7 @@ func (rc RegistryConfig) Flags(flags *pflag.FlagSet) {
 type RegistryParams struct {
 	cell.In
 
-	Logger     logrus.FieldLogger
+	Logger     logging.FieldLogger
 	Shutdowner hive.Shutdowner
 	Lifecycle  cell.Lifecycle
 
@@ -91,7 +93,7 @@ func NewRegistry(params RegistryParams) *Registry {
 		params.Lifecycle.Append(cell.Hook{
 			OnStart: func(hc cell.HookContext) error {
 				go func() {
-					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.PrometheusServeAddr)
+					params.Logger.Info("Serving prometheus metrics", slog.String("address", params.Config.PrometheusServeAddr))
 					err := srv.ListenAndServe()
 					if err != nil && !errors.Is(err, http.ErrServerClosed) {
 						params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
@@ -173,9 +175,10 @@ func (r *Registry) Reinitialize() {
 		case '-':
 			metric.SetEnabled(false)
 		default:
-			r.params.Logger.Warning(
-				"--metrics flag contains value which does not start with + or -, '%s', ignoring",
-				metricFlag,
+			r.params.Logger.Warn(
+				fmt.Sprintf(
+					"--metrics flag contains value which does not start with + or -, '%s', ignoring",
+					metricFlag),
 			)
 		}
 	}

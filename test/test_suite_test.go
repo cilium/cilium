@@ -5,11 +5,13 @@ package ciliumTest
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
@@ -172,7 +174,7 @@ var _ = BeforeAll(func() {
 
 	var err error
 
-	logger := log.WithFields(logrus.Fields{"testName": "BeforeAll"})
+	logger := log.With(slog.String("testName", "BeforeAll"))
 	scope, err := helpers.GetScope()
 	if err != nil {
 		Fail(fmt.Sprintf(
@@ -196,7 +198,7 @@ var _ = BeforeAll(func() {
 		if config.CiliumTestConfig.Reprovision {
 			err = helpers.CreateVM(helpers.Runtime)
 			if err != nil {
-				log.WithError(err).Error("Error starting VM")
+				log.Error("Error starting VM", slog.Any(logfields.Error, err))
 				reportCreateVMFailure(helpers.Runtime, err)
 			}
 		}
@@ -209,7 +211,7 @@ var _ = BeforeAll(func() {
 			// ReportFailed manually for this assert to gather cilium logs Fix
 			// #3428
 			vm.ReportFailed()
-			log.WithError(err).Error("Cilium was unable to be set up correctly")
+			log.Error("Cilium was unable to be set up correctly", slog.Any(logfields.Error, err))
 			reportCreateVMFailure(helpers.Runtime, err)
 		}
 		go vm.PprofReport()

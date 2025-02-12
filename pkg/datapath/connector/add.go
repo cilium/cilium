@@ -6,6 +6,7 @@ package connector
 import (
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/sys/unix"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-connector")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "endpoint-connector"))
 
 const (
 	// HostInterfacePrefix is the Host interface prefix.

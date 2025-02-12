@@ -6,6 +6,7 @@ package tables
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -17,13 +18,13 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -219,7 +220,7 @@ type nodeAddressControllerParams struct {
 	cell.In
 
 	Health          cell.Health
-	Log             logrus.FieldLogger
+	Log             logging.FieldLogger
 	Config          NodeAddressConfig
 	Lifecycle       cell.Lifecycle
 	Jobs            job.Registry
@@ -391,7 +392,11 @@ func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *
 		n.NodeAddresses.Insert(txn, nodeAddr)
 	}
 
-	n.Log.WithFields(logrus.Fields{"node-addresses": showAddresses(newAddrs), logfields.Device: WildcardDeviceName}).Info("Fallback node addresses updated")
+	n.Log.Info(
+		"Fallback node addresses updated",
+		slog.String("node-addresses", showAddresses(newAddrs)),
+		slog.String(logfields.Device, WildcardDeviceName),
+	)
 }
 
 func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device, deleted bool) (updated bool) {
@@ -446,7 +451,11 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, 
 
 	if updated {
 		addrs := showAddresses(new)
-		n.Log.WithFields(logrus.Fields{"node-addresses": addrs, logfields.Device: device}).Info("Node addresses updated")
+		n.Log.Info(
+			"Node addresses updated",
+			slog.String("node-addresses", addrs),
+			slog.String(logfields.Device, device),
+		)
 		if reporter != nil {
 			reporter.OK(addrs)
 		}

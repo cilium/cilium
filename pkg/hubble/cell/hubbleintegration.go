@@ -7,16 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
 	"strconv"
 	"strings"
 	"sync/atomic"
-
-	"github.com/go-openapi/strfmt"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
@@ -51,6 +48,8 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -58,6 +57,8 @@ import (
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/go-openapi/strfmt"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 // hubbleIntegration is responsible for configuration, initialization, and
@@ -86,7 +87,7 @@ type hubbleIntegration struct {
 	config      config
 
 	// TODO: replace by slog
-	log logrus.FieldLogger
+	log logging.FieldLogger
 }
 
 // new creates and return a new hubbleIntegration.
@@ -106,7 +107,7 @@ func new(
 	exporters []exporter.FlowLogExporter,
 	agentConfig *option.DaemonConfig,
 	config config,
-	log logrus.FieldLogger,
+	log logging.FieldLogger,
 ) (*hubbleIntegration, error) {
 	config.normalize()
 	if err := config.validate(); err != nil {
@@ -270,17 +271,18 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	if len(h.config.MonitorEvents) > 0 {
 		monitorFilter, err := monitor.NewMonitorFilter(h.log, h.config.MonitorEvents)
 		if err != nil {
-			h.log.WithError(err).Warn("Failed to initialize Hubble monitor event filter")
+			h.log.Warn("Failed to initialize Hubble monitor event filter", slog.Any(logfields.Error, err))
 		} else {
 			observerOpts = append(observerOpts, observeroption.WithOnMonitorEvent(monitorFilter))
 		}
 	}
 
 	if h.config.EnableK8sDropEvents {
-		h.log.
-			WithField("interval", h.config.K8sDropEventsInterval).
-			WithField("reasons", h.config.K8sDropEventsReasons).
-			Info("Starting packet drop events emitter")
+		h.log.Info(
+			"Starting packet drop events emitter",
+			slog.Duration("interval", h.config.K8sDropEventsInterval),
+			slog.Any("reasons", h.config.K8sDropEventsReasons),
+		)
 
 		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
 			h.config.K8sDropEventsInterval,
@@ -293,7 +295,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
 				err := dropEventEmitter.ProcessFlow(ctx, flow)
 				if err != nil {
-					h.log.WithError(err).Error("Failed to ProcessFlow in drop events handler")
+					h.log.Error("Failed to ProcessFlow in drop events handler", slog.Any(logfields.Error, err))
 				}
 				return false, nil
 			}),
@@ -304,7 +306,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	// but before anything else (e.g. metrics).
 	localNodeWatcher, err := observer.NewLocalNodeWatcher(ctx, h.nodeLocalStore)
 	if err != nil {
-		h.log.WithError(err).Error("Failed to retrieve local node information")
+		h.log.Error("Failed to retrieve local node information", slog.Any(logfields.Error, err))
 		return
 	}
 	observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(localNodeWatcher))
@@ -313,13 +315,13 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	var metricsTLSConfig *certloader.WatchedServerConfig
 	if h.config.EnableMetricsServerTLS {
 		metricsTLSConfigChan, err := certloader.FutureWatchedServerConfig(
-			h.log.WithField("config", "hubble-metrics-server-tls"),
+			h.log.With(slog.String("config", "hubble-metrics-server-tls")),
 			h.config.MetricsServerTLSClientCAFiles,
 			h.config.MetricsServerTLSCertFile,
 			h.config.MetricsServerTLSKeyFile,
 		)
 		if err != nil {
-			h.log.WithError(err).Error("Failed to initialize Hubble metrics server TLS configuration")
+			h.log.Error("Failed to initialize Hubble metrics server TLS configuration", slog.Any(logfields.Error, err))
 			return
 		}
 		waitingMsgTimeout := time.After(30 * time.Second)
@@ -329,7 +331,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 			case <-waitingMsgTimeout:
 				h.log.Info("Waiting for Hubble metrics server TLS certificate and key files to be created")
 			case <-ctx.Done():
-				h.log.WithError(ctx.Err()).Error("Timeout while waiting for Hubble metrics server TLS certificate and key files to be created")
+				h.log.Error(
+					"Timeout while waiting for Hubble metrics server TLS certificate and key files to be created",
+					slog.Any(logfields.Error, ctx.Err()),
+				)
 				return
 			}
 		}
@@ -349,11 +354,12 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 			}
 		case h.config.DynamicMetricConfigFilePath != "":
 			{
-				h.log.WithFields(logrus.Fields{
-					"address":      h.config.MetricsServer,
-					"metricConfig": h.config.DynamicMetricConfigFilePath,
-					"tls":          h.config.EnableMetricsServerTLS,
-				}).Info("Starting Hubble server with dynamically configurable metrics")
+				h.log.Info(
+					"Starting Hubble server with dynamically configurable metrics",
+					slog.String("address", h.config.MetricsServer),
+					slog.String("metricConfig", h.config.DynamicMetricConfigFilePath),
+					slog.Bool("tls", h.config.EnableMetricsServerTLS),
+				)
 
 				metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
 				dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, h.log, h.config.DynamicMetricConfigFilePath)
@@ -361,16 +367,17 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 			}
 		case len(h.config.Metrics) > 0:
 			{
-				h.log.WithFields(logrus.Fields{
-					"address": h.config.MetricsServer,
-					"metrics": h.config.Metrics,
-					"tls":     h.config.EnableMetricsServerTLS,
-				}).Info("Starting Hubble Metrics server")
+				h.log.Info(
+					"Starting Hubble Metrics server",
+					slog.Any("address", h.config.MetricsServer),
+					slog.Any("metricConfig", h.config.DynamicMetricConfigFilePath),
+					slog.Any("tls", h.config.EnableMetricsServerTLS),
+				)
 
 				metricConfigs := api.ParseStaticMetricsConfig(strings.Fields(h.config.Metrics))
 				err := metrics.InitMetrics(metrics.Registry, metricConfigs, grpcMetrics)
 				if err != nil {
-					h.log.WithError(err).Error("Unable to setup metrics")
+					h.log.Error("Unable to setup metrics", slog.Any(logfields.Error, err))
 					return
 				}
 
@@ -384,7 +391,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 								errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
 							}
 							if errs != nil {
-								h.log.WithError(err).Error("Failed to ProcessFlow in metrics handler")
+								h.log.Error("Failed to ProcessFlow in metrics handler", slog.Any(logfields.Error, err))
 							}
 						}
 						return false, nil
@@ -401,7 +408,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 
 		go func() {
 			if err := metrics.StartMetricsServer(srv, h.log, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				h.log.WithError(err).Error("Hubble metrics server encountered an error")
+				h.log.Error("Hubble metrics server encountered an error", slog.Any(logfields.Error, err))
 				return
 			}
 		}()
@@ -429,13 +436,13 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 
 	payloadParser, err := parser.New(h.log, h, h, h, h.ipcache, h, link.NewLinkCache(), h.cgroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
 	if err != nil {
-		h.log.WithError(err).Error("Failed to initialize Hubble")
+		h.log.Error("Failed to initialize Hubble", slog.Any(logfields.Error, err))
 		return
 	}
 
 	maxFlows, err := container.NewCapacity(h.config.EventBufferCapacity)
 	if err != nil {
-		h.log.WithError(err).Error("Specified capacity for Hubble events buffer is invalid")
+		h.log.Error("Specified capacity for Hubble events buffer is invalid", slog.Any(logfields.Error, err))
 		return
 	}
 	observerOpts = append(observerOpts,
@@ -464,7 +471,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		observerOpts...,
 	)
 	if err != nil {
-		h.log.WithError(err).Error("Failed to initialize Hubble")
+		h.log.Error("Failed to initialize Hubble", slog.Any(logfields.Error, err))
 		return
 	}
 	go hubbleObserver.Start()
@@ -484,7 +491,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	if addr := h.config.ListenAddress; addr != "" {
 		port, err := getPort(h.config.ListenAddress)
 		if err != nil {
-			h.log.WithError(err).WithField("address", addr).Warn("Hubble server will not pass port information in change notificantions on exposed Hubble peer service")
+			h.log.Warn("Hubble server will not pass port information in change notificantions on exposed Hubble peer service",
+				slog.Any(logfields.Error, err),
+				slog.String("address", addr),
+			)
 		} else {
 			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
 		}
@@ -501,14 +511,14 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	if h.agentConfig.EnableRecorder && h.config.EnableRecorderAPI {
 		dispatch, err := sink.NewDispatch(h.config.RecorderSinkQueueSize)
 		if err != nil {
-			h.log.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
+			h.log.Error("Failed to initialize Hubble recorder sink dispatch", slog.Any(logfields.Error, err))
 			return
 		}
 		h.monitorAgent.RegisterNewConsumer(dispatch)
 		svc, err := hubbleRecorder.NewService(h.recorder, dispatch,
 			recorderoption.WithStoragePath(h.config.RecorderStoragePath))
 		if err != nil {
-			h.log.WithError(err).Error("Failed to initialize Hubble recorder service")
+			h.log.Error("Failed to initialize Hubble recorder service", slog.Any(logfields.Error, err))
 			return
 		}
 		localSrvOpts = append(localSrvOpts, serveroption.WithRecorderService(svc))
@@ -516,13 +526,13 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 
 	localSrv, err := server.NewServer(h.log, localSrvOpts...)
 	if err != nil {
-		h.log.WithError(err).Error("Failed to initialize local Hubble server")
+		h.log.Error("Failed to initialize local Hubble server", slog.Any(logfields.Error, err))
 		return
 	}
-	h.log.WithField("address", sockPath).Info("Starting local Hubble server")
+	h.log.Info("Starting local Hubble server", slog.String("address", sockPath))
 	go func() {
 		if err := localSrv.Serve(); err != nil {
-			h.log.WithError(err).WithField("address", sockPath).Error("Error while serving from local Hubble server")
+			h.log.Error("Error while serving from local Hubble server", slog.Any(logfields.Error, err), slog.String("address", sockPath))
 		}
 	}()
 	go func() {
@@ -539,7 +549,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 	address := h.config.ListenAddress
 	if address != "" {
 		if h.config.DisableServerTLS {
-			h.log.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+			h.log.Warn("Hubble server will be exposing its API insecurely on this address", slog.String("address", address))
 		}
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
@@ -554,13 +564,13 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 			options = append(options, serveroption.WithInsecure())
 		} else {
 			tlsServerConfigChan, err := certloader.FutureWatchedServerConfig(
-				h.log.WithField("config", "tls-server"),
+				h.log.With(slog.String("config", "tls-server")),
 				h.config.ServerTLSClientCAFiles,
 				h.config.ServerTLSCertFile,
 				h.config.ServerTLSKeyFile,
 			)
 			if err != nil {
-				h.log.WithError(err).Error("Failed to initialize Hubble server TLS configuration")
+				h.log.Error("Failed to initialize Hubble server TLS configuration", slog.Any(logfields.Error, err))
 				return
 			}
 			waitingMsgTimeout := time.After(30 * time.Second)
@@ -570,7 +580,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 				case <-waitingMsgTimeout:
 					h.log.Info("Waiting for Hubble server TLS certificate and key files to be created")
 				case <-ctx.Done():
-					h.log.WithError(ctx.Err()).Error("Timeout while waiting for Hubble server TLS certificate and key files to be created")
+					h.log.Error(
+						"Timeout while waiting for Hubble server TLS certificate and key files to be created",
+						slog.Any(logfields.Error, ctx.Err()),
+					)
 					return
 				}
 			}
@@ -579,20 +592,25 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 
 		srv, err := server.NewServer(h.log, options...)
 		if err != nil {
-			h.log.WithError(err).Error("Failed to initialize Hubble server")
+			h.log.Error("Failed to initialize Hubble server", slog.Any(logfields.Error, err))
 			if tlsServerConfig != nil {
 				tlsServerConfig.Stop()
 			}
 			return
 		}
 
-		h.log.WithFields(logrus.Fields{
-			"address": address,
-			"tls":     !h.config.DisableServerTLS,
-		}).Info("Starting Hubble server")
+		h.log.Info(
+			"Starting Hubble server",
+			slog.Any("address", address),
+			slog.Any("tls", !h.config.DisableServerTLS),
+		)
 		go func() {
 			if err := srv.Serve(); err != nil {
-				h.log.WithError(err).WithField("address", address).Error("Error while serving from Hubble server")
+				h.log.Error(
+					"Error while serving from Hubble server",
+					slog.Any(logfields.Error, err),
+					slog.String("address", address),
+				)
 				if tlsServerConfig != nil {
 					tlsServerConfig.Stop()
 				}

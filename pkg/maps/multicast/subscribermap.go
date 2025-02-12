@@ -12,12 +12,12 @@ import (
 	ciliumebpf "github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // compile time checks
@@ -73,7 +73,7 @@ func NewGroupV4OuterMap(name string) *GroupV4OuterMap {
 type ParamsIn struct {
 	cell.In
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 	Config
 }
 

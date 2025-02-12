@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -60,7 +62,7 @@ func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		log.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
-			log.Warningf("%s is not functional when L7 proxies are disabled", option.EnableEnvoyConfig)
+			log.Warn(fmt.Sprintf("%s is not functional when L7 proxies are disabled", option.EnableEnvoyConfig))
 		}
 		return nil
 	}

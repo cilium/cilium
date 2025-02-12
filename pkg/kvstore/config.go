@@ -6,6 +6,7 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -20,13 +21,13 @@ func setOpts(opts map[string]string, supportedOpts backendOptions) error {
 		opt, ok := supportedOpts[key]
 		if !ok {
 			errors++
-			log.WithField(logfields.Key, key).Error("unknown kvstore configuration key")
+			log.Error("unknown kvstore configuration key", slog.String(logfields.Key, key))
 			continue
 		}
 
 		if opt.validate != nil {
 			if err := opt.validate(val); err != nil {
-				log.WithError(err).Errorf("invalid value for key %s", key)
+				log.Error("invalid value for key", slog.Any(logfields.Error, err), slog.String(logfields.Key, key))
 				errors++
 			}
 		}
@@ -38,7 +39,7 @@ func setOpts(opts map[string]string, supportedOpts backendOptions) error {
 	if errors > 0 {
 		log.Error("Supported configuration keys:")
 		for key, val := range supportedOpts {
-			log.Errorf("  %-12s %s", key, val.description)
+			log.Error(fmt.Sprintf("  %-12s %s", key, val.description))
 		}
 
 		return fmt.Errorf("invalid kvstore configuration, see log for details")

@@ -8,20 +8,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
-	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
+	// SSHMetaLogs is a buffer where all commands sent over ssh are saved.
 	SSHMetaLogs = ginkgoext.NewWriter(new(Buffer))
 )
 
@@ -32,7 +33,7 @@ type SSHMeta struct {
 	env       []string
 	rawConfig []byte
 	nodeName  string
-	logger    *logrus.Entry
+	logger    *slog.Logger
 	basePath  string
 }
 
@@ -50,7 +51,7 @@ func (s *SSHMeta) IsLocal() bool {
 }
 
 // Logger returns logger for SSHMeta
-func (s *SSHMeta) Logger() *logrus.Entry {
+func (s *SSHMeta) Logger() *slog.Logger {
 	return s.logger
 }
 
@@ -66,7 +67,7 @@ func (s *SSHMeta) CloseSSHClient() {
 		log.Error("SSH client is nil; cannot close")
 	}
 	if err := s.sshClient.client.Close(); err != nil {
-		log.WithError(err).Error("error closing SSH client")
+		log.Error("error closing SSH client", slog.Any(logfields.Error, err))
 	}
 }
 
@@ -81,7 +82,7 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 	log.Debugf("generated SSHConfig for node %s", vmName)
 	nodes, err := ImportSSHconfig(config)
 	if err != nil {
-		log.WithError(err).Error("Error importing ssh config")
+		log.Error("Error importing ssh config", slog.Any(logfields.Error, err))
 		return nil
 	}
 	var node *SSHConfig
@@ -236,7 +237,7 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 func (s *SSHMeta) GetCopy() *SSHMeta {
 	nodes, err := ImportSSHconfig(s.rawConfig)
 	if err != nil {
-		log.WithError(err).Error("while importing ssh config for meta copy")
+		log.Error("while importing ssh config for meta copy", slog.Any(logfields.Error, err))
 		return nil
 	}
 

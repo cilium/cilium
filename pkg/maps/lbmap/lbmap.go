@@ -4,11 +4,12 @@
 package lbmap
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -26,7 +27,7 @@ import (
 
 const DefaultMaxEntries = 65536
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "map-lb"))
 
 var (
 	// MaxEntries contains the maximum number of entries that are allowed
@@ -131,10 +132,12 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		for i := slot; i <= p.PrevBackendsCount; i++ {
 			svcKey.SetBackendSlot(i)
 			if err := deleteServiceLocked(svcKey); err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.ServiceKey:  svcKey,
-					logfields.BackendSlot: svcKey.GetBackendSlot(),
-				}).WithError(err).Warn("Unable to delete service entry from BPF map")
+				log.Warn(
+					"Unable to delete service entry from BPF map",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.ServiceKey, svcKey),
+					slog.Int(logfields.BackendSlot, svcKey.GetBackendSlot()),
+				)
 			}
 		}
 	}
@@ -212,10 +215,12 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
 		if err := deleteServiceLocked(svcKey); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceKey:  svcKey,
-				logfields.BackendSlot: svcKey.GetBackendSlot(),
-			}).WithError(err).Warn("Unable to delete service entry from BPF map")
+			log.Warn(
+				"Unable to delete service entry from BPF map",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.ServiceKey, svcKey),
+				slog.Int(logfields.BackendSlot, svcKey.GetBackendSlot()),
+			)
 		}
 	}
 
@@ -530,11 +535,16 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	}
 
 	for _, svcKey := range inconsistentServiceKeys {
-		log.WithField(logfields.ServiceKey, svcKey).
-			Warn("Deleting service with inconsistent revNat")
+		log.Warn(
+			"Deleting service with inconsistent revNat",
+			slog.Any(logfields.ServiceKey, svcKey),
+		)
 		if err := deleteServiceLocked(svcKey); err != nil {
-			log.WithField(logfields.ServiceKey, svcKey).
-				WithError(err).Warn("Unable to delete service entry from BPF map")
+			log.Warn(
+				"Unable to delete service entry from BPF map",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.ServiceKey, svcKey),
+			)
 		}
 	}
 
@@ -704,12 +714,13 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceKey:   key,
-			logfields.ServiceValue: value,
-			logfields.BackendSlot:  key.GetBackendSlot(),
-		}).Debug("Upserted service entry")
+	if log.Enabled(context.Background(), slog.LevelDebug) {
+		log.Debug(
+			"Upserted service entry",
+			slog.Any(logfields.ServiceKey, key),
+			slog.Any(logfields.ServiceValue, value),
+			slog.Int(logfields.BackendSlot, key.GetBackendSlot()),
+		)
 	}
 
 	return nil

@@ -7,20 +7,20 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Registry holds a set of registered metric handlers
 type Registry struct {
-	log      logrus.FieldLogger
+	log      logging.FieldLogger
 	mutex    lock.Mutex
 	handlers map[string]Plugin
 }
 
 // NewRegistry returns a new Registry
-func NewRegistry(log logrus.FieldLogger) *Registry {
+func NewRegistry(log logging.FieldLogger) *Registry {
 	return &Registry{
 		log: log,
 	}

@@ -8,13 +8,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -35,7 +35,7 @@ type endpointSliceSyncParams struct {
 
 	operator.ClusterMeshConfig
 	EndpointSliceSyncConfig
-	Logger   logrus.FieldLogger
+	Logger   logging.FieldLogger
 	JobGroup job.Group
 
 	Clientset   k8sClient.Clientset

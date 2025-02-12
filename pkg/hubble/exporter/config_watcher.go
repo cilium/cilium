@@ -9,18 +9,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // configWatcher provides dynamic configuration reload for DynamicExporter.
 type configWatcher struct {
-	logger         logrus.FieldLogger
+	logger         logging.FieldLogger
 	configFilePath string
 	callback       func(hash uint64, config DynamicExportersConfig)
 }
@@ -32,7 +33,7 @@ func NewConfigWatcher(
 	callback func(hash uint64, config DynamicExportersConfig),
 ) *configWatcher {
 	watcher := &configWatcher{
-		logger:         logrus.New().WithField(logfields.LogSubsys, "hubble").WithField("configFilePath", configFilePath),
+		logger:         slog.Default().With(slog.String(logfields.LogSubsys, "hubble"), slog.String("configFilePath", configFilePath)),
 		configFilePath: configFilePath,
 		callback:       callback,
 	}
@@ -61,7 +62,7 @@ func (c *configWatcher) reload() {
 	config, hash, err := c.readConfig()
 	if err != nil {
 		DynamicExporterReconfigurations.WithLabelValues("failure").Inc()
-		c.logger.WithError(err).Warn("failed reading dynamic exporter config")
+		c.logger.Warn("failed reading dynamic exporter config", slog.Any(logfields.Error, err))
 	} else {
 		c.callback(hash, *config)
 	}

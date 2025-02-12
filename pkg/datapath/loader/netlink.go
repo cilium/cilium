@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/ebpf"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -38,7 +40,7 @@ func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
-		log.WithError(err).WithField("device", ifName).Warn("Could not set up the link")
+		log.Warn("Could not set up the link", slog.Any(logfields.Error, err), slog.Any("device", ifName))
 		return err
 	}
 

@@ -5,11 +5,11 @@ package exporter
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +27,7 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 	fileName := "testdata/valid-flowlogs-config.yaml"
 
 	// when
-	sut := NewDynamicExporter(logrus.New(), fileName)
+	sut := NewDynamicExporter(slog.Default(), fileName)
 
 	// then
 	assert.Len(t, sut.managedExporters, 3)
@@ -50,7 +50,7 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 func TestAddNewExporter(t *testing.T) {
 	// given
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -83,7 +83,7 @@ func TestAddNewExporter(t *testing.T) {
 func TestConfigReloadChanges(t *testing.T) {
 	// given
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -138,7 +138,7 @@ func TestConfigReloadChanges(t *testing.T) {
 func TestEventPropagation(t *testing.T) {
 	// given
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -224,7 +224,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 
 	// and
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -361,7 +361,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 
 	// and
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -382,7 +382,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 		},
 	}
 
-	//and
+	// and
 	configHash := uint64(4367168)
 
 	// when
@@ -408,7 +408,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 func TestExportersMetricsReporting(t *testing.T) {
 	// given
 	sut := &DynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 

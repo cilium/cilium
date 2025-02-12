@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -18,13 +16,16 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/hive/cell"
+	"github.com/cloudflare/cfssl/log"
 )
 
 // NeighborReconciler is a ConfigReconciler which reconciles the peers of the
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
-	Logger       logrus.FieldLogger
+	Logger       logging.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
@@ -39,14 +40,14 @@ type NeighborReconcilerOut struct {
 
 type NeighborReconcilerIn struct {
 	cell.In
-	Logger       logrus.FieldLogger
+	Logger       logging.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 }
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
-	logger := params.Logger.WithField(types.ReconcilerLogField, "Neighbor")
+	logger := params.Logger.With(slog.String(types.ReconcilerLogField, "Neighbor"))
 
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
@@ -122,9 +123,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	}
 
 	var (
-		l = r.Logger.WithFields(logrus.Fields{
-			types.InstanceLogField: p.DesiredConfig.Name,
-		})
+		logAttr = slog.String(types.InstanceLogField, p.DesiredConfig.Name)
 
 		toCreate []*PeerData
 		toRemove []*PeerData
@@ -133,7 +132,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	curNeigh := r.getMetadata(p.BGPInstance)
 	newNeigh := p.DesiredConfig.Peers
 
-	l.Debug("Begin reconciling peers")
+	log.Debug("Begin reconciling peers", logAttr)
 
 	type member struct {
 		new *PeerData
@@ -151,7 +150,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		if n.PeerAddress == nil {
-			l.WithField(types.PeerLogField, n.Name).Debug("Peer does not have PeerAddress configured, skipping")
+			log.Debug(
+				"Peer does not have PeerAddress configured, skipping",
+				slog.String(types.PeerLogField, n.Name),
+				logAttr,
+			)
 			continue
 		}
 
@@ -225,14 +228,24 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	}
 
 	if len(toCreate) > 0 || len(toRemove) > 0 || len(toUpdate) > 0 {
-		l.Info("Reconciling peers for instance")
+		log.Info(
+			"Reconciling peers for instance",
+			logAttr,
+		)
 	} else {
-		l.Debug("No peer changes necessary")
+		log.Debug(
+			"No peer changes necessary",
+			logAttr,
+		)
 	}
 
 	// remove neighbors
 	for _, n := range toRemove {
-		l.WithField(types.PeerLogField, n.Peer.Name).Info("Removing peer")
+		log.Info(
+			"Removing peer",
+			slog.String(types.PeerLogField, n.Peer.Name),
+			logAttr,
+		)
 
 		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, "")); err != nil {
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
@@ -243,7 +256,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	// update neighbors
 	for _, n := range toUpdate {
-		l.WithField(types.PeerLogField, n.Peer.Name).Info("Updating peer")
+		log.Info(
+			"Updating peer",
+			slog.String(types.PeerLogField, n.Peer.Name),
+			logAttr,
+		)
 
 		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password)); err != nil {
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
@@ -254,7 +271,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	// create new neighbors
 	for _, n := range toCreate {
-		l.WithField(types.PeerLogField, n.Peer.Name).Info("Adding peer")
+		log.Info(
+			"Adding peer",
+			slog.String(types.PeerLogField, n.Peer.Name),
+			logAttr,
+		)
 
 		if err := p.BGPInstance.Router.AddNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password)); err != nil {
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
@@ -263,7 +284,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		r.upsertMetadata(p.BGPInstance, n)
 	}
 
-	l.Debug("Done reconciling peers")
+	log.Debug("Done reconciling peers", logAttr)
 	return nil
 }
 
@@ -296,11 +317,6 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 		return "", nil
 	}
 
-	l := r.Logger.WithFields(logrus.Fields{
-		types.InstanceLogField: instanceName,
-		types.PeerLogField:     peerName,
-	})
-
 	if config.AuthSecretRef != nil {
 		secretRef := *config.AuthSecretRef
 
@@ -315,7 +331,12 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 		if tcpPassword == "" {
 			return "", fmt.Errorf("failed to fetch secret %q: missing password key", secretRef)
 		}
-		l.Debugf("Using TCP password from secret %q", secretRef)
+		r.Logger.Debug(
+			"Using TCP password from secret",
+			slog.String("secret-ref", secretRef),
+			slog.String(types.InstanceLogField, instanceName),
+			slog.String(types.PeerLogField, peerName),
+		)
 		return tcpPassword, nil
 	}
 	return "", nil

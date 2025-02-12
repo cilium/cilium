@@ -6,6 +6,7 @@ package socketlb
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -37,7 +38,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, Subsystem))
 
 	cgroupProgs = []string{
 		Connect4, SendMsg4, RecvMsg4, GetPeerName4,

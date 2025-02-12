@@ -5,16 +5,15 @@ package allocator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
-
-	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/stream"
 )
 
 // backendOpTimeout is the time allowed for operations sent to backends in
@@ -127,10 +126,12 @@ func (c *cache) OnListDone() {
 func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 	for _, validator := range c.allocator.cacheValidators {
 		if err := validator(AllocatorChangeUpsert, id, key); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Identity: id,
-				logfields.Event:    AllocatorChangeUpsert,
-			}).Warning("Skipping event for invalid identity")
+			log.Warn(
+				"Skipping event for invalid identity",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Identity, id),
+				slog.Any(logfields.Event, AllocatorChangeUpsert),
+			)
 			return
 		}
 	}
@@ -157,10 +158,12 @@ func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	for _, validator := range c.allocator.cacheValidators {
 		if err := validator(AllocatorChangeDelete, id, key); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Identity: id,
-				logfields.Event:    AllocatorChangeDelete,
-			}).Warning("Skipping event for invalid identity")
+			log.Warn(
+				"Skipping event for invalid identity",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Identity, id),
+				slog.Any(logfields.Event, AllocatorChangeDelete),
+			)
 			return
 		}
 	}
@@ -209,10 +212,17 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLo
 					// Otherwise we will attempt to create the key, this process repeats until
 					// the key is created.
 					if err := a.backend.UpdateKey(ctx, id, value, true); err != nil {
-						log.WithField("id", id).WithError(err).Error("OnDelete MasterKeyProtection update for key")
+						log.Error(
+							"OnDelete MasterKeyProtection update for key",
+							slog.Any(logfields.Error, err),
+							slog.Any("id", id),
+						)
 						return err
 					}
-					log.WithField("id", id).Info("OnDelete MasterKeyProtection update succeeded")
+					log.Info(
+						"OnDelete MasterKeyProtection update succeeded",
+						slog.Any("id", id),
+					)
 					return nil
 				},
 			})
@@ -290,8 +300,11 @@ func (c *cache) drainIf(isStale func(id idpool.ID) bool) {
 	for id, key := range c.nextCache {
 		if isStale(id) {
 			c.onDeleteLocked(id, key, false)
-			log.WithFields(logrus.Fields{fieldID: id, fieldKey: key}).
-				Debug("Stale identity deleted")
+			log.Debug(
+				"Stale identity deleted",
+				slog.Any(fieldID, id),
+				slog.Any(fieldKey, key),
+			)
 		}
 	}
 	c.mutex.Unlock()

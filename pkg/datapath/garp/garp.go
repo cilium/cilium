@@ -5,15 +5,16 @@ package garp
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -21,7 +22,7 @@ type Sender interface {
 	Send(netip.Addr) error
 }
 
-func newGARPSender(log logrus.FieldLogger, cfg Config) (Sender, error) {
+func newGARPSender(log logging.FieldLogger, cfg Config) (Sender, error) {
 	if cfg.L2PodAnnouncementsInterface == "" {
 		return nil, nil
 	}
@@ -31,17 +32,16 @@ func newGARPSender(log logrus.FieldLogger, cfg Config) (Sender, error) {
 		return nil, fmt.Errorf("gratuitous arp sender interface %q not found: %w", cfg.L2PodAnnouncementsInterface, err)
 	}
 
-	l := log.WithField(logfields.Interface, iface.Name)
-	l.Info("initialised gratuitous arp sender")
+	log.Info("initialised gratuitous arp sender", slog.String(logfields.Interface, iface.Name))
 
 	return &sender{
-		logger: l,
+		logger: log,
 		iface:  iface,
 	}, nil
 }
 
 type sender struct {
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 
 	iface *net.Interface
 }
@@ -50,7 +50,10 @@ type sender struct {
 func (s *sender) Send(ip netip.Addr) error {
 	err := send(s.iface, ip)
 	if err == nil {
-		s.logger.WithField(logfields.IPAddr, ip).Debug("sent gratuitous arp message")
+		s.logger.Debug(
+			"sent gratuitous arp message",
+			slog.Any(logfields.IPAddr, ip),
+		)
 	}
 
 	return err

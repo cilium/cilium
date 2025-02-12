@@ -5,12 +5,12 @@ package operator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -88,7 +88,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			})
 
 			metrics := NewMetrics()
-			logger := logrus.New()
+			logger := slog.Default()
 			cm := clusterMesh{
 				logger:       logger,
 				storeFactory: st,
@@ -191,7 +191,7 @@ func TestRemoteClusterHooks(t *testing.T) {
 	})
 	st := store.NewFactory(store.MetricsProvider())
 	metrics := NewMetrics()
-	logger := logrus.New()
+	logger := slog.Default()
 	cm := clusterMesh{
 		logger:       logger,
 		storeFactory: st,

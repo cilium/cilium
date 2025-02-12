@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // SkipCRDCreation specifies whether the CustomResourceDefinition will be
@@ -50,7 +50,7 @@ type RegisterCRDsFunc func(k8sClient.Clientset) error
 type params struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	Clientset k8sClient.Clientset

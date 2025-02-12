@@ -6,9 +6,11 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -60,7 +62,7 @@ func getMetadataString(ctx context.Context, path string) (string, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.WithError(err).Errorf("Failed to close body for request %s", url)
+			log.Error("Failed to close body for request", slog.Any(logfields.Error, err), slog.String("url", url))
 		}
 	}()
 

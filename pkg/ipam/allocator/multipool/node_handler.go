@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -57,9 +58,11 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 
 	err := n.poolManager.ReleaseNode(resource.Name)
 	if err != nil {
-		log.WithField(logfields.NodeName, resource.Name).
-			WithError(err).
-			Warning("Errors while release node and its CIDRs")
+		log.Warn(
+			"Errors while release node and its CIDRs",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.NodeName, resource.Name),
+		)
 	}
 
 	delete(n.nodesPendingAllocation, resource.Name)
@@ -116,8 +119,11 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 
 			err := n.poolManager.AllocateToNode(resource)
 			if err != nil {
-				log.WithField(logfields.NodeName, resource.Name).WithError(err).
-					Warning("Failed to allocate PodCIDRs to node")
+				log.Warn(
+					"Failed to allocate PodCIDRs to node",
+					slog.Any(logfields.Error, err),
+					slog.String(logfields.NodeName, resource.Name),
+				)
 				errorMessage = err.Error()
 				controllerErr = err
 			}

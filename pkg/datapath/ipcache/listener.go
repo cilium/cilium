@@ -4,9 +4,8 @@
 package ipcache
 
 import (
+	"log/slog"
 	"net"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -20,7 +19,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "datapath-ipcache"))
 )
 
 // monitorNotify is an interface to notify the monitor about ipcache changes.
@@ -102,11 +101,11 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 
 	scopedLog := log
 	if option.Config.Debug {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.IPAddr:       cidr,
-			logfields.Identity:     newID,
-			logfields.Modification: modType,
-		})
+		scopedLog = scopedLog.With(
+			slog.Any(logfields.IPAddr, cidr),
+			slog.Any(logfields.Identity, newID),
+			slog.Any(logfields.Modification, modType),
+		)
 	}
 
 	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
@@ -141,25 +140,28 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		}
 		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"key":                  key.String(),
-				"value":                value.String(),
-				logfields.IPAddr:       cidr,
-				logfields.Identity:     newID,
-				logfields.Modification: modType,
-			}).Warning("unable to update bpf map")
+			scopedLog.Warn(
+				"unable to update bpf map",
+				slog.Any(logfields.Error, err),
+				slog.Any("key", key),
+				slog.Any("value", value),
+				slog.Any(logfields.IPAddr, cidr),
+				slog.Any(logfields.Identity, newID),
+				slog.Any(logfields.Modification, modType),
+			)
 		}
 	case ipcache.Delete:
 		err := l.bpfMap.Delete(&key)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"key":                  key.String(),
-				logfields.IPAddr:       cidr,
-				logfields.Identity:     newID,
-				logfields.Modification: modType,
-			}).Warning("unable to delete from bpf map")
+			scopedLog.Warn(
+				"unable to delete from bpf map",
+				slog.Any("key", key),
+				slog.Any(logfields.IPAddr, cidr),
+				slog.Any(logfields.Identity, newID),
+				slog.Any(logfields.Modification, modType),
+			)
 		}
 	default:
-		scopedLog.Warning("cache modification type not supported")
+		scopedLog.Warn("cache modification type not supported")
 	}
 }

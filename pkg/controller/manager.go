@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
@@ -63,7 +64,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 	}
 
 	if params.Group.Name == "" {
-		log.Errorf(
+		log.Error(
 			"Controller initialized with unpopulated group information. " +
 				"Metrics will not be exported for this controller.")
 	}
@@ -79,7 +80,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		default:
 		}
 
-		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
+		ctrl.getLogger().Debug("Controller update time", slog.Duration("duration", time.Since(start)))
 	} else {
 		return m.createControllerLocked(name, params)
 	}
@@ -281,7 +282,7 @@ func (c *managedController) updateParamsLocked(params ControllerParams) {
 	// Enforce max controller interval
 	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
 	if maxInterval > 0 && params.RunInterval > maxInterval {
-		c.getLogger().Infof("Limiting interval to %s", maxInterval)
+		c.getLogger().Info("Limiting interval", slog.Duration("max-interval", maxInterval))
 		params.RunInterval = maxInterval
 	}
 

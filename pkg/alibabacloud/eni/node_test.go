@@ -87,9 +87,9 @@ func TestCreateInterface(t *testing.T) {
 		}
 		switch e.Type {
 		case eniTypes.ENITypeSecondary:
-			require.Equal(t, 1, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 1, utils.GetENIIndexFromTags(log, e.Tags))
 		case eniTypes.ENITypePrimary:
-			require.Equal(t, 0, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 0, utils.GetENIIndexFromTags(log, e.Tags))
 		}
 		return nil
 	})

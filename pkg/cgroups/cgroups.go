@@ -4,6 +4,7 @@
 package cgroups
 
 import (
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -19,7 +20,7 @@ var (
 	cgrpMountOnce sync.Once
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroups")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "cgroups"))
 
 // setCgroupRoot will set the path to mount cgroupv2
 func setCgroupRoot(path string) {
@@ -43,10 +44,15 @@ func CheckOrMountCgrpFS(mapRoot string) {
 		}
 
 		if err := cgrpCheckOrMountLocation(mapRoot); err != nil {
-			log.WithError(err).
-				Warn("Failed to mount cgroupv2. Any functionality that needs cgroup (e.g.: socket-based LB) will not work.")
+			log.Warn(
+				"Failed to mount cgroupv2. Any functionality that needs cgroup (e.g.: socket-based LB) will not work.",
+				slog.Any(logfields.Error, err),
+			)
 		} else {
-			log.Infof("Mounted cgroupv2 filesystem at %s", mapRoot)
+			log.Info(
+				"Mounted cgroupv2 filesystem",
+				slog.String("location", mapRoot),
+			)
 		}
 	})
 }

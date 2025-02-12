@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"log/slog"
 	"math"
 	"os"
 	"path"
@@ -18,9 +19,6 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
-
-	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
@@ -30,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/ebpf"
 )
 
 var (
@@ -297,10 +296,13 @@ func (m *Map) WithEvents(c option.BPFEventBufferConfig) *Map {
 	if !c.Enabled {
 		return m
 	}
-	m.scopedLogger().WithFields(logrus.Fields{
-		"size": c.MaxSize,
-		"ttl":  c.TTL,
-	}).Debug("enabling events buffer")
+	log.With(
+		m.logAttrs()...,
+	).Debug(
+		"enabling events buffer",
+		slog.Int("size", c.MaxSize),
+		slog.Duration("ttl", c.TTL),
+	)
 	m.eventsBufferEnabled = true
 	m.initEventsBuffer(c.MaxSize, c.TTL)
 	return m
@@ -460,7 +462,10 @@ func (m *Map) Recreate() error {
 		return fmt.Errorf("removing pinned map %s: %w", m.name, err)
 	}
 
-	m.scopedLogger().Infof("Removed map pin at %s, recreating and re-pinning map %s", m.path, m.name)
+	log.Info(
+		"Removed map pin, recreating and re-pinning map",
+		m.logAttrs()...,
+	)
 
 	return m.openOrCreate(true)
 }
@@ -1283,9 +1288,12 @@ func (m *Map) Delete(key MapKey) error {
 	return err
 }
 
-// scopedLogger returns a logger scoped for the map. m.lock must be held.
-func (m *Map) scopedLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
+// logAttrs returns logger attributes scoped for the map. m.lock must be held.
+func (m *Map) logAttrs() []any {
+	return []any{
+		slog.String(logfields.Path, m.path),
+		slog.String("name", m.name),
+	}
 }
 
 // DeleteAll deletes all entries of a map by traversing the map and deleting individual
@@ -1295,8 +1303,8 @@ func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	defer m.updatePressureMetric()
-	scopedLog := m.scopedLogger()
-	scopedLog.Debug("deleting all entries in map")
+	logAttrs := m.logAttrs()
+	log.Debug("deleting all entries in map", logAttrs...)
 
 	if m.withValueCache {
 		// Mark all entries for deletion, upon successful deletion,
@@ -1329,7 +1337,13 @@ func (m *Map) DeleteAll() error {
 
 	err := i.Err()
 	if err != nil {
-		scopedLog.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
+		log.With(
+			logAttrs...,
+		).Warn(
+			"Unable to correlate iteration key with cache entry. Inconsistent cache.",
+			slog.Any(logfields.Error, err),
+			slog.Any("key", mk),
+		)
 	}
 
 	return err
@@ -1461,9 +1475,12 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		return err
 	}
 
-	scopedLogger := m.scopedLogger()
-	scopedLogger.WithField("remaining", outstanding).
-		Debug("Starting periodic BPF map error resolver")
+	log.With(
+		m.logAttrs()...,
+	).Debug(
+		"Starting periodic BPF map error resolver",
+		slog.Int("remaining", outstanding),
+	)
 
 	resolved := 0
 	scanned := 0
@@ -1517,12 +1534,15 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 
 	m.updatePressureMetric()
 
-	scopedLogger.WithFields(logrus.Fields{
-		"remaining": outstanding,
-		"resolved":  resolved,
-		"scanned":   scanned,
-		"duration":  time.Since(started),
-	}).Debug("BPF map error resolver completed")
+	log.With(
+		m.logAttrs()...,
+	).Debug(
+		"BPF map error resolver completed",
+		slog.Int("remaining", outstanding),
+		slog.Int("resolved", resolved),
+		slog.Int("scanned", scanned),
+		slog.Duration("duration", time.Since(started)),
+	)
 
 	m.outstandingErrors = outstanding > 0
 	if m.outstandingErrors {

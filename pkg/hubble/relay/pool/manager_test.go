@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"sort"
 	"strings"
@@ -668,7 +669,7 @@ func TestPeerManager(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)
@@ -994,7 +995,7 @@ func TestPeerManager_CheckMetrics(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)
@@ -1198,7 +1199,7 @@ func TestPeerManager_Status(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)

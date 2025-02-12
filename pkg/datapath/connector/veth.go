@@ -5,6 +5,7 @@ package connector
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/vishvananda/netlink"
@@ -84,12 +85,12 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
+				log.Warn("failed to clean up veth", slog.Any(logfields.Error, err), slog.Any(logfields.Veth, veth.Name))
 			}
 		}
 	}()
 
-	log.WithField(logfields.VethPair, []string{veth.PeerName, lxcIfName}).Debug("Created veth pair")
+	log.Debug("Created veth pair", slog.Any(logfields.VethPair, []string{veth.PeerName, lxcIfName}))
 
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux

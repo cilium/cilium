@@ -4,11 +4,11 @@
 package certloader
 
 import (
+	"log/slog"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/fswatcher"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -20,7 +20,7 @@ const watcherEventCoalesceWindow = 100 * time.Millisecond
 // reloaded automatically.
 type Watcher struct {
 	*FileReloader
-	log       logrus.FieldLogger
+	log       logging.FieldLogger
 	fswatcher *fswatcher.Watcher
 	stop      chan struct{}
 }
@@ -28,7 +28,7 @@ type Watcher struct {
 // NewWatcher returns a Watcher that watch over the given file
 // paths. The given files are expected to already exists when this function is
 // called. On success, the returned Watcher is ready to use.
-func NewWatcher(log logrus.FieldLogger, caFiles []string, certFile, privkeyFile string) (*Watcher, error) {
+func NewWatcher(log logging.FieldLogger, caFiles []string, certFile, privkeyFile string) (*Watcher, error) {
 	r, err := NewFileReloaderReady(caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func NewWatcher(log logrus.FieldLogger, caFiles []string, certFile, privkeyFile 
 // the given files are ready and loaded. This can be useful when the file paths
 // are well-known, but the files themselves don't exist yet. Note that the
 // requirement is that the file directories must exists.
-func FutureWatcher(log logrus.FieldLogger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
+func FutureWatcher(log logging.FieldLogger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
 	r, err := NewFileReloader(caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
@@ -137,10 +137,10 @@ func (w *Watcher) Watch() <-chan struct{} {
 			select {
 			case event := <-w.fswatcher.Events:
 				path := event.Name
-				log := w.log.WithFields(logrus.Fields{
-					logfields.Path: path,
-					"operation":    event.Op,
-				})
+				log := w.log.With(
+					slog.Any(logfields.Path, path),
+					slog.Any("operation", event.Op),
+				)
 				log.Debug("Received fswatcher event")
 
 				_, keypairUpdated := keypairMap[path]
@@ -164,11 +164,11 @@ func (w *Watcher) Watch() <-chan struct{} {
 
 				keypair, err := w.ReloadKeypair()
 				if err != nil {
-					w.log.WithError(err).Warn("Keypair update failed")
+					w.log.Warn("Keypair update failed", slog.Any(logfields.Error, err))
 					continue
 				}
 				id := keypairId(keypair)
-				w.log.WithField("keypair-sn", id).Info("Keypair updated")
+				w.log.Info("Keypair updated", slog.Any("keypair-sn", id))
 				if w.Ready() {
 					markReady()
 				}
@@ -176,7 +176,7 @@ func (w *Watcher) Watch() <-chan struct{} {
 				caReload = nil
 
 				if _, err := w.ReloadCA(); err != nil {
-					w.log.WithError(err).Warn("Certificate authority update failed")
+					w.log.Warn("Certificate authority update failed", slog.Any(logfields.Error, err))
 					continue
 				}
 				w.log.Info("Certificate authority updated")
@@ -184,7 +184,7 @@ func (w *Watcher) Watch() <-chan struct{} {
 					markReady()
 				}
 			case err := <-w.fswatcher.Errors:
-				w.log.WithError(err).Warn("fswatcher error")
+				w.log.Warn("fswatcher error", slog.Any(logfields.Error, err))
 			case <-w.stop:
 				w.log.Info("Stopping fswatcher")
 				return

@@ -6,6 +6,7 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 
@@ -132,7 +133,7 @@ func commitMapPins(pins []toPin) error {
 			return fmt.Errorf("pinning map to %s: %w", pin.path, err)
 		}
 
-		log.Debugf("Replaced map pin %s", pin.path)
+		log.Debug("Replaced map pin", slog.String("pin", pin.path))
 	}
 
 	return nil

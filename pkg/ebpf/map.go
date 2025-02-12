@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	ciliumebpf "github.com/cilium/ebpf"
+	"github.com/sagikazarmark/slog-shim"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -143,8 +145,11 @@ func (m *Map) OpenOrCreate() error {
 		// configuration (e.g different type, k/v size or flags).
 		// Try to delete and recreate it.
 
-		log.WithField("map", m.spec.Name).
-			WithError(err).Warn("Removing map to allow for property upgrade (expect map data loss)")
+		log.Warn(
+			"Removing map to allow for property upgrade (expect map data loss)",
+			slog.Any(logfields.Error, err),
+			slog.String("map", m.spec.Name),
+		)
 
 		oldMap, err := ciliumebpf.LoadPinnedMap(path, &opts.LoadPinOptions)
 		if err != nil {
@@ -152,7 +157,11 @@ func (m *Map) OpenOrCreate() error {
 		}
 		defer func() {
 			if err := oldMap.Close(); err != nil {
-				log.WithField("map", m.spec.Name).Warnf("Cannot close map: %v", err)
+				log.Warn(
+					"Cannot close map",
+					slog.Any(logfields.Error, err),
+					slog.String("map", m.spec.Name),
+				)
 			}
 		}()
 

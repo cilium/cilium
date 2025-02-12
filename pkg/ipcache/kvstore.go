@@ -7,13 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path"
 	"sort"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -129,12 +128,13 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.N
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.Identity:     ipIDPair.ID,
-		logfields.Key:          ipIDPair.Key,
-		logfields.Modification: Upsert,
-	}).Debug("Upserting IP->ID mapping to kvstore")
+	log.Debug(
+		"Upserting IP->ID mapping to kvstore",
+		slog.Any(logfields.IPAddr, ipIDPair.IP),
+		slog.Any(logfields.Identity, ipIDPair.ID),
+		slog.Any(logfields.Key, uint64(ipIDPair.Key)),
+		slog.Any(logfields.Modification, Upsert),
+	)
 
 	err = globalMap.store.upsert(ctx, ipKey, string(marshaledIPIDPair), true)
 	if err == nil {
@@ -170,7 +170,7 @@ type IPIdentityWatcher struct {
 
 	started bool
 	synced  chan struct{}
-	log     *logrus.Entry
+	log     *slog.Logger
 }
 
 type IPCacher interface {
@@ -188,7 +188,7 @@ func NewIPIdentityWatcher(
 		clusterName: clusterName,
 		source:      source,
 		synced:      make(chan struct{}),
-		log:         log.WithField(logfields.ClusterName, clusterName),
+		log:         log.With(slog.String(logfields.ClusterName, clusterName)),
 	}
 
 	watcher.store = factory.NewWatchStore(
@@ -273,8 +273,10 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 	}
 
 	if iw.started && iw.clusterID != iwo.clusterID {
-		iw.log.WithField(logfields.ClusterID, iwo.clusterID).
-			Info("ClusterID changed: draining all known ipcache entries")
+		iw.log.Info(
+			"ClusterID changed: draining all known ipcache entries",
+			slog.Uint64(logfields.ClusterID, uint64(iwo.clusterID)),
+		)
 		iw.store.Drain()
 	}
 
@@ -329,12 +331,18 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		return
 	}
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed upsertion event")
+	iw.log.Debug(
+		"Observed upsertion event",
+		slog.String(logfields.IPAddr, ip),
+	)
 
 	for _, validator := range iw.validators {
 		if err := validator(ipIDPair); err != nil {
-			log.WithError(err).WithField(logfields.IPAddr, ip).
-				Warning("Skipping invalid upsertion event")
+			iw.log.Warn(
+				"Skipping invalid upsertion event",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.IPAddr, ip),
+			)
 			return
 		}
 	}
@@ -349,9 +357,11 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		for _, np := range ipIDPair.NamedPorts {
 			err := k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 			if err != nil {
-				iw.log.WithFields(logrus.Fields{
-					logfields.IPAddr: ipIDPair,
-				}).WithError(err).Error("Parsing named port failed")
+				iw.log.Error(
+					"Parsing named port failed",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.IPAddr, ipIDPair),
+				)
 			}
 		}
 	}
@@ -399,7 +409,10 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 	ipIDPair := k.(*identity.IPIdentityPair)
 	ip := ipIDPair.PrefixString()
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed deletion event")
+	iw.log.Debug(
+		"Observed deletion event",
+		slog.String(logfields.IPAddr, ip),
+	)
 
 	if iw.withSelfDeletionProtection && iw.selfDeletionProtection(ip) {
 		return
@@ -426,10 +439,17 @@ func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 
 	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	if m, ok := globalMap.marshaledIPIDPairs[key]; ok {
-		iw.log.WithField(logfields.IPAddr, ip).Warning("Received kvstore delete notification for alive ipcache entry")
+		iw.log.Warn(
+			"Received kvstore delete notification for alive ipcache entry",
+			slog.String(logfields.IPAddr, ip),
+		)
 		err := globalMap.store.upsert(context.TODO(), key, string(m), true)
 		if err != nil {
-			iw.log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to re-create alive ipcache entry")
+			iw.log.Warn(
+				"Unable to re-create alive ipcache entry",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.IPAddr, ip),
+			)
 		}
 		return true
 	}

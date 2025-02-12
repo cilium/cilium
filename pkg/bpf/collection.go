@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -115,8 +116,13 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 
 			// Ignore static tail calls made to maps that are not the calls map
 			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
-				log.Debugf("program '%s'/'%s', found tail call at %d, reference '%s', not a calls map, skipping",
-					prog.SectionName, prog.Name, i, ref)
+				log.Debug(
+					"found tail call not not a calls map, skipping",
+					slog.String("section", prog.SectionName),
+					slog.String("prog", prog.Name),
+					slog.Int("i", i),
+					slog.String("reference", ref),
+				)
 				continue
 			}
 
@@ -163,7 +169,11 @@ reset:
 	// Remove all tailcalls that are not referenced.
 	for _, tailcall := range tailcalls {
 		if !tailcall.referenced {
-			log.Debugf("section '%s' / prog '%s', unreferenced, deleting", tailcall.spec.SectionName, tailcall.spec.Name)
+			log.Debug(
+				"unreferenced tail call",
+				slog.String("section", tailcall.spec.SectionName),
+				slog.String("prog", tailcall.spec.Name),
+			)
 			delete(spec.Programs, tailcall.spec.Name)
 		}
 	}

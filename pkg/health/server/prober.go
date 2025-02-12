@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/api/v1/health/models"
@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -161,12 +160,12 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, primary 
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
 	scopedLog := log
-	if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.NodeName: node.Name,
-			logfields.IPAddr:   addr.IP,
-			"primary":          primary,
-		})
+	if scopedLog.Enabled(context.Background(), slog.LevelDebug) {
+		scopedLog = log.With(
+			slog.String(logfields.NodeName, node.Name),
+			slog.String(logfields.IPAddr, addr.IP),
+			slog.Bool("primary", primary),
+		)
 	}
 
 	if skipAddress(addr) {
@@ -279,20 +278,20 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
+	debugLogsEnabled := log.Enabled(context.Background(), slog.LevelDebug)
 	scopedLog := log
-	debugLogsEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
 	if debugLogsEnabled {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.NodeName: node,
-			logfields.IPAddr:   ip,
-		})
+		scopedLog = log.With(
+			slog.String(logfields.NodeName, node),
+			slog.String(logfields.IPAddr, ip),
+		)
 		scopedLog.Debug("Pinging host")
 	}
 
 	pinger, err := probing.NewPinger(ip)
 	if err != nil {
 		if debugLogsEnabled {
-			scopedLog.WithError(err).Debug("Failed to create pinger")
+			scopedLog.Debug("Failed to create pinger", slog.Any(logfields.Error, err))
 		}
 		result.Status = err.Error()
 		resChan <- connectivityResult{ip: ip, status: result}
@@ -310,7 +309,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 	pinger.OnFinish = func(stats *probing.Statistics) {
 		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
 			if debugLogsEnabled {
-				scopedLog.WithField("rtt", stats.Rtts[0].Nanoseconds()).Debug("Ping successful")
+				scopedLog.Debug("Ping successful", slog.Int64("rtt", stats.Rtts[0].Nanoseconds()))
 			}
 			result.Latency = stats.Rtts[0].Nanoseconds()
 		} else {
@@ -322,7 +321,11 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 	pinger.SetPrivileged(true)
 	err = pinger.RunWithContext(ctx)
 	if err != nil {
-		scopedLog.Debugf("Failed to run pinger for IP %s: %v", ip, err)
+		scopedLog.Debug(
+			"Failed to run pinger for IP",
+			slog.Any(logfields.Error, err),
+			slog.String("ip", ip),
+		)
 		result.Status = err.Error()
 	}
 	resChan <- connectivityResult{ip: ip, status: result}
@@ -339,15 +342,15 @@ func httpProbe(node string, ip string, ctx context.Context, resChan chan<- conne
 	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(httpPort))
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
+	debugLogsEnabled := log.Enabled(context.Background(), slog.LevelDebug)
 	scopedLog := log
-	debugLogsEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
 	if debugLogsEnabled {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.NodeName: node,
-			logfields.IPAddr:   ip,
-			"host":             host,
-			"path":             httpPathDescription,
-		})
+		scopedLog = log.With(
+			slog.String(logfields.NodeName, node),
+			slog.String(logfields.IPAddr, ip),
+			slog.String("host", host),
+			slog.String("path", httpPathDescription),
+		)
 		scopedLog.Debug("Greeting host")
 	}
 
@@ -356,12 +359,12 @@ func httpProbe(node string, ip string, ctx context.Context, resChan chan<- conne
 	rtt := time.Since(start)
 	if err == nil {
 		if debugLogsEnabled {
-			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
+			scopedLog.Debug("Greeting successful", slog.Duration("rtt", rtt))
 		}
 		result.Latency = rtt.Nanoseconds()
 	} else {
 		if debugLogsEnabled {
-			scopedLog.WithError(err).Debug("Greeting failed")
+			scopedLog.Debug("Greeting failed", slog.Any(logfields.Error, err))
 		}
 		result.Status = err.Error()
 	}
@@ -381,11 +384,6 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 	p.start = startTime
 	p.Unlock()
 
-	// Only add fields to the scoped logger if debug is enabled, to save on resources.
-	// This can be done since all logs in this function are debug-level only.
-	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
-	scopedLog := log
-
 	p.probeRateLimiter = rate.NewLimiter(per(p.probeIpCount, p.probeInterval), 1)
 
 	// update results as probes complete
@@ -398,7 +396,7 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 			if _, ok := p.results[peer]; ok {
 				p.results[peer].HTTP = resp.status
 			} else {
-				scopedLog.Debug("Node disappeared before result written")
+				log.Debug("Node disappeared before result written")
 			}
 			p.Unlock()
 		}
@@ -412,25 +410,14 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 			if _, ok := p.results[peer]; ok {
 				p.results[peer].Icmp = resp.status
 			} else {
-				scopedLog.Debug("Node disappeared before result written")
+				log.Debug("Node disappeared before result written")
 			}
 			p.Unlock()
 		}
 	}()
 
 	for name, ips := range nodeIps {
-		if debugLogsEnabled {
-			scopedLog = log.WithField(logfields.NodeName, name)
-		}
-
 		for _, ip := range ips {
-			if debugLogsEnabled {
-				scopedLog = scopedLog.WithFields(logrus.Fields{
-					logfields.IPAddr: ip.String(),
-					logfields.Port:   p.server.Config.HTTPPathPort,
-				})
-			}
-
 			ctx := context.Background()
 			if err := p.probeRateLimiter.Wait(ctx); err != nil {
 				result := &models.ConnectivityStatus{}
@@ -488,7 +475,7 @@ func (p *prober) RunLoop() {
 					// reset the cache by setting clientID to 0 and removing all current nodes
 					p.server.clientID = 0
 					p.setNodes(nil, p.nodes)
-					log.WithError(err).Error("unable to get cluster nodes")
+					log.Error("unable to get cluster nodes", slog.Any(logfields.Error, err))
 				} else {
 					// (1) setNodes implementation doesn't override results for existing nodes.
 					// (2) Remove stale nodes so we don't report them in metrics before updating results
@@ -514,8 +501,7 @@ func (p *prober) RunLoop() {
 // newProber prepares a prober. The caller may invoke one the Run* methods of
 // the prober to populate its 'results' map.
 func newProber(s *Server, nodes nodeMap) *prober {
-	scopedLog := log
-	scopedLog.Debug("Creating new prober")
+	log.Debug("Creating new prober")
 
 	prober := &prober{
 		server:       s,
@@ -532,7 +518,6 @@ func newProber(s *Server, nodes nodeMap) *prober {
 // in [10, 110] to set the probe interval, where base interval is 10 + ratio * 100.
 // Returns true if the interval has changed.
 func (p *prober) setProbeInterval(nodeIps map[string][]*net.IPAddr) bool {
-	scopedLog := log
 	baseInterval := (10 + option.Config.ConnectivityProbeFrequencyRatio*100) * 1e9
 	ipCount := 0
 	for _, ips := range nodeIps {
@@ -543,6 +528,10 @@ func (p *prober) setProbeInterval(nodeIps map[string][]*net.IPAddr) bool {
 	oldInterval := p.probeInterval
 	p.probeInterval = backoff.ClusterSizeDependantInterval(time.Duration(baseInterval), ipCount)
 	p.probeIpCount = ipCount
-	scopedLog.Debugf("Setting probe interval %s for %d IPs", p.probeInterval, p.probeIpCount)
+	log.Debug(
+		"Setting probe interval for IPs",
+		slog.Duration("probe-interval", p.probeInterval),
+		slog.Int("len-ips", p.probeIpCount),
+	)
 	return oldInterval != p.probeInterval
 }

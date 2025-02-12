@@ -7,13 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -103,7 +102,11 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 	res := s.ExecCilium(endpointGetCmd)
 	err := res.Unmarshal(&data)
 	if err != nil {
-		s.logger.WithError(err).Errorf("EndpointGet fail %s", id)
+		s.logger.Error(
+			"EndpointGet fail",
+			slog.Any(logfields.Error, err),
+			slog.String("id", id),
+		)
 		return nil
 	}
 	if len(data) > 0 {
@@ -128,29 +131,35 @@ func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName s
 
 // SetAndWaitForEndpointConfiguration waits for the endpoint configuration to become a certain value
 func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) error {
-	logger := s.logger.WithFields(logrus.Fields{
-		logfields.EndpointID: endpointID,
-		"option":             optionName,
-		"value":              expectedValue})
+	logAttrs := []any{
+		slog.String(logfields.EndpointID, endpointID),
+		slog.String("option", optionName),
+		slog.String("value", expectedValue),
+	}
 	body := func() bool {
-		logger.Infof("Setting endpoint configuration")
+		s.logger.Info("Setting endpoint configuration", logAttrs...)
 		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
 		if !status {
-			logger.Error("Cannot set endpoint configuration")
+			s.logger.Error("Cannot set endpoint configuration", logAttrs...)
 			return status
 		}
 
 		value, err := s.GetEndpointMutableConfigurationOption(endpointID, optionName)
 		if err != nil {
-			log.WithError(err).Error("cannot get endpoint configuration")
+			log.Error("cannot get endpoint configuration", slog.Any(logfields.Error, err))
 			return false
 		}
 
 		if value == expectedValue {
 			return true
 		}
-		logger.Debugf("Expected configuration option to have value %s, but got %s",
-			expectedValue, value)
+		s.logger.With(
+			slog.Any("expected", expectedValue),
+			slog.Any("actual", value),
+		).Debug(
+			"Expected configuration option to have different value",
+			logAttrs...,
+		)
 		return false
 	}
 
@@ -165,7 +174,7 @@ func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, exp
 // deleted. Returns true if all endpoints have been deleted before HelperTimeout
 // is exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsDeleted() bool {
-	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsDeleted"})
+	logAttr := slog.String("functionName", "WaitEndpointsDeleted")
 	// cilium-health endpoint is always running, as is the host endpoint.
 	desiredState := "2"
 	body := func() bool {
@@ -176,12 +185,21 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 			return true
 		}
 
-		logger.Infof("%s endpoints are still running, want %s", numEndpointsRunning, desiredState)
+		s.logger.Info(
+			"Endpoints are still running",
+			slog.String("running", numEndpointsRunning),
+			slog.String("desired", desiredState),
+			logAttr,
+		)
 		return false
 	}
 	err := WithTimeout(body, "Endpoints are not deleted after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
-		logger.WithError(err).Warn("Endpoints are not deleted after timeout")
+		s.logger.Warn(
+			"Endpoints are not deleted after timeout",
+			slog.Any(logfields.Error, err),
+			logAttr,
+		)
 		s.Exec("cilium-dbg endpoint list") // This function is only for debugging.
 		return false
 	}
@@ -191,7 +209,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 
 // WaitDockerPluginReady waits up until timeout reached for Cilium docker plugin to be ready
 func (s *SSHMeta) WaitDockerPluginReady() bool {
-	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitDockerPluginReady"})
+	logAttr := slog.String("functionName", "WaitDockerPluginReady")
 
 	body := func() bool {
 		// check that docker plugin socket exists
@@ -207,7 +225,7 @@ func (s *SSHMeta) WaitDockerPluginReady() bool {
 	}
 	err := WithTimeout(body, "Docker plugin is not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
-		logger.WithError(err).Warn("Docker plugin is not ready after timeout")
+		s.logger.Warn("Docker plugin is not ready after timeout", slog.Any(logfields.Error, err), logAttr)
 		s.ExecWithSudo("ls -l /run/docker/plugins/cilium.sock") // This function is only for debugginag.
 		return false
 	}
@@ -215,7 +233,7 @@ func (s *SSHMeta) WaitDockerPluginReady() bool {
 }
 
 func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
-	logger := s.logger.WithFields(logrus.Fields{"functionName": "MonitorDebug"})
+	logAttr := slog.String("functionName", "MonitorDebug")
 	dbg := "Disabled"
 	mode := ""
 	if on {
@@ -227,7 +245,7 @@ func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
 
 	res := s.ExecCilium(fmt.Sprintf("%s config %s Debug=%s", mode, epID, dbg))
 	if !res.WasSuccessful() {
-		logger.Errorf("cannot set BPF datapath debugging to %s", strings.ToLower(dbg))
+		s.logger.Error("cannot set BPF datapath debugging", slog.String("mode", strings.ToLower(dbg)), logAttr)
 		return false
 	}
 	return true
@@ -237,7 +255,7 @@ func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
 // in any regenerating or waiting-for-identity state. Returns true if all
 // endpoints regenerate before HelperTimeout is exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsReady() bool {
-	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
+	logAttr := slog.String("functionName", "WaitEndpointsReady")
 	desiredState := string(models.EndpointStateReady)
 	body := func() bool {
 		filter := `{range [*]}{@.id}{"="}{@.status.state},{@.status.identity.id}{"\n"}{end}`
@@ -245,7 +263,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 
 		res := s.Exec(cmd)
 		if !res.WasSuccessful() {
-			logger.Infof("Cannot get endpoint list: %s", res.CombineOutput())
+			s.logger.Info("Cannot get endpoint list", slog.Any("command", res.CombineOutput()), logAttr)
 			return false
 		}
 		values := res.KVOutput()
@@ -263,16 +281,23 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 			result[state]++
 		}
 
-		logger.WithField("status", result).Infof(
-			"'%d' containers are in a '%s' state of a total of '%d' containers.",
-			result[desiredState], desiredState, total)
+		s.logger.Info(
+			fmt.Sprintf("'%d' containers are in a '%s' state of a total of '%d' containers.",
+				result[desiredState], desiredState, total),
+			slog.Any("status", result),
+			logAttr,
+		)
 
 		return result[desiredState] == total
 	}
 
 	err := WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
-		logger.WithError(err).Warn("Endpoints are not ready after timeout")
+		s.logger.Warn(
+			"Endpoints are not ready after timeout",
+			slog.Any(logfields.Error, err),
+			logAttr,
+		)
 		s.Exec("cilium-dbg endpoint list") // This function is only for debugging into log.
 		return false
 	}
@@ -283,12 +308,17 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 // value for the endpoint with the endpoint ID id. It returns true if the
 // configuration update command returned successfully.
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
-	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
+	logAttr := slog.String("endpointID", id)
 	res := s.ExecCilium(fmt.Sprintf(
 		"endpoint config %s -o json | jq -r '.realized.options.%s'", id, option))
 
 	if res.SingleOut() == value {
-		logger.Debugf("no need to update %s=%s; value already set", option, value)
+		s.logger.Debug(
+			"no need to update option, value already set",
+			slog.String("option", option),
+			slog.String("value", value),
+			logAttr,
+		)
 		return res.WasSuccessful()
 	}
 
@@ -300,7 +330,12 @@ func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	configCmd := fmt.Sprintf("endpoint config %s %s=%s", id, option, value)
 	data := s.ExecCilium(configCmd)
 	if !data.WasSuccessful() {
-		logger.Errorf("cannot set endpoint configuration %s=%s", option, value)
+		s.logger.Error(
+			"cannot set endpoint configuration option",
+			slog.String("option", option),
+			slog.String("value", value),
+			logAttr,
+		)
 		return false
 	}
 
@@ -404,8 +439,11 @@ func (s *SSHMeta) MonitorStart(opts ...string) (*CmdRes, func() error) {
 		cancel()
 		testPath, err := CreateReportDirectory()
 		if err != nil {
-			s.logger.WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
+			s.logger.Error(
+				"cannot create test results path",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Path, testPath),
+			)
 			return err
 		}
 
@@ -414,7 +452,10 @@ func (s *SSHMeta) MonitorStart(opts ...string) (*CmdRes, func() error) {
 			res.CombineOutput().Bytes(),
 			LogPerm)
 		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file")
+			log.Error(
+				"cannot create monitor log file",
+				slog.Any(logfields.Error, err),
+			)
 		}
 		return nil
 	}
@@ -432,7 +473,10 @@ func (s *SSHMeta) GetFullPath(name string) string {
 func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
-	log.Infof("setting %s=%s", PolicyEnforcement, status)
+	log.Info(
+		"setting policy policy enforcement",
+		slog.Any(PolicyEnforcement, status),
+	)
 	res := s.ExecCilium("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'")
 	if res.SingleOut() == status {
 		return res
@@ -500,26 +544,35 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 	if err != nil {
 		return -1, fmt.Errorf("cannot get policy revision: %w", err)
 	}
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path:           path,
-		logfields.PolicyRevision: revision}).Info("before importing policy")
 
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path: path}).Info("validating policy before importing")
+	s.logger.Info(
+		"before importing policy",
+		slog.String(logfields.Path, path),
+		slog.Int(logfields.PolicyRevision, revision),
+	)
+
+	s.logger.Info(
+		"validating policy before importing",
+		slog.String(logfields.Path, path),
+	)
 
 	res := s.ExecCilium(fmt.Sprintf("policy validate %s", path))
 	if !res.WasSuccessful() {
-		s.logger.WithFields(logrus.Fields{
-			logfields.Path: path,
-		}).Errorf("could not validate policy %s: %s", path, res.CombineOutput())
+		s.logger.Error(
+			"could not validate policy",
+			slog.String(logfields.Path, path),
+			slog.Any("output", res.CombineOutput()),
+		)
 		return -1, fmt.Errorf("could not validate policy %s: %s", path, res.CombineOutput())
 	}
 
 	res = s.ExecCilium(fmt.Sprintf("policy import %s", path))
 	if !res.WasSuccessful() {
-		s.logger.WithFields(logrus.Fields{
-			logfields.Path: path,
-		}).Errorf("could not import policy: %s", res.CombineOutput())
+		s.logger.Error(
+			"could not import policy",
+			slog.String(logfields.Path, path),
+			slog.Any("output", res.CombineOutput()),
+		)
 		return -1, fmt.Errorf("could not import policy %s", path)
 	}
 	body := func() bool {
@@ -527,14 +580,18 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 		if currentRev > revision {
 			res := s.PolicyWait(currentRev)
 			if !res.WasSuccessful() {
-				log.Errorf("policy wait failed: %s", res.CombineOutput())
+				log.Error(
+					"policy wait failed",
+					slog.Any("output", res.CombineOutput()),
+				)
 			}
 			return res.WasSuccessful()
 		}
-		s.logger.WithFields(logrus.Fields{
-			logfields.PolicyRevision:    currentRev,
-			"policyRevisionAfterImport": revision,
-		}).Infof("policy revisions are the same")
+		s.logger.Info(
+			"policy revisions are the same",
+			slog.Int("policyRevisionAfterImport", revision),
+			slog.Int(logfields.PolicyRevision, currentRev),
+		)
 		return false
 	}
 	err = WithTimeout(body, "could not import policy", &TimeoutConfig{Timeout: timeout})
@@ -542,10 +599,11 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 		return -1, err
 	}
 	revision, err = s.PolicyGetRevision()
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path:           path,
-		logfields.PolicyRevision: revision,
-	}).Infof("policy import finished and revision increased")
+	s.logger.Info(
+		"policy import finished and revision increased",
+		slog.String(logfields.Path, path),
+		slog.Int(logfields.PolicyRevision, revision),
+	)
 	return revision, err
 }
 
@@ -553,7 +611,10 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 func (s *SSHMeta) PolicyImport(path string) error {
 	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
 	if !res.WasSuccessful() {
-		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
+		s.logger.Error(
+			"could not import policy",
+			slog.Any("command", res.CombineOutput()),
+		)
 		return fmt.Errorf("could not import policy %s", path)
 	}
 	return nil
@@ -565,14 +626,23 @@ func (s *SSHMeta) PolicyImport(path string) error {
 // cannot be imported
 func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	filename := fmt.Sprintf("policy_%s.json", MakeUID())
-	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
+	s.logger.Debug(
+		"PolicyRenderAndImport: render policy",
+		slog.String("filename", filename),
+	)
 	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
 	if err != nil {
-		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
+		s.logger.Error(
+			"PolicyRenderAndImport: cannot create policy file",
+			slog.String("filename", filename),
+		)
 		return 0, fmt.Errorf("cannot render the policy: %w", err)
 	}
 	path := s.GetFilePath(filename)
-	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
+	s.logger.Debug(
+		"PolicyRenderAndImport: import policy",
+		slog.String(logfields.Path, path),
+	)
 	defer os.Remove(filename)
 	return s.PolicyImportAndWait(path, HelperTimeout)
 }
@@ -652,7 +722,10 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 		// Keep the cilium logs for the given test in a separate file.
 		testPath, err := CreateReportDirectory()
 		if err != nil {
-			s.logger.WithError(err).Error("Cannot create report directory")
+			s.logger.Error(
+				"Cannot create report directory",
+				slog.Any(logfields.Error, err),
+			)
 			return
 		}
 		err = os.WriteFile(
@@ -660,7 +733,10 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 			[]byte(logs), LogPerm)
 
 		if err != nil {
-			s.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
+			s.logger.Error(
+				"Cannot create "+CiliumTestLog,
+				slog.Any(logfields.Error, err),
+			)
 		}
 	}()
 
@@ -675,12 +751,17 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 func (s *SSHMeta) PprofReport() {
 	PProfCadence := 5 * time.Minute
 	ticker := time.NewTicker(PProfCadence)
-	log := s.logger.WithField("subsys", "pprofReport")
+	logAttrs := slog.String("subsys", "pprofReport")
 
 	for range ticker.C {
 		testPath, err := CreateReportDirectory()
 		if err != nil {
-			log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+			s.logger.Error(
+				"cannot create test result path",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Path, testPath),
+				logAttrs,
+			)
 			return
 		}
 		d := time.Now().Add(50 * time.Second)
@@ -690,7 +771,7 @@ func (s *SSHMeta) PprofReport() {
 
 		err = res.WaitUntilMatch("Profiling dump saved to")
 		if err != nil {
-			log.WithError(err).Error("Cannot get pprof report")
+			s.logger.Error("Cannot get pprof report", slog.Any(logfields.Error, err))
 		}
 
 		files := s.Exec("ls -1 /tmp/")
@@ -715,8 +796,11 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
-		s.logger.WithError(err).Errorf(
-			"cannot create test results path '%s'", testPath)
+		s.logger.Error(
+			"cannot create test result path",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, testPath),
+		)
 		return
 	}
 	reportMap(testPath, ciliumCLICommands, s)
@@ -727,7 +811,10 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 		fmt.Sprintf("%s %s -t %q", CiliumBugtool, CiliumBugtoolArgs, filepath.Join(s.basePath, testPath)),
 		ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
-		s.logger.Errorf("Error running bugtool: %s", res.CombineOutput())
+		s.logger.Error(
+			"Error running bugtool",
+			slog.Any("output", res.CombineOutput()),
+		)
 	}
 
 }
@@ -742,8 +829,11 @@ func (s *SSHMeta) GatherLogs() {
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
-		s.logger.WithError(err).Errorf(
-			"cannot create test results path '%s'", testPath)
+		s.logger.Error(
+			"cannot create test results path",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, testPath),
+		)
 		return
 	}
 	reportMap(testPath, ciliumLogCommands, s)
@@ -757,7 +847,11 @@ func (s *SSHMeta) GatherLogs() {
 	for _, cmd := range ciliumStateCommands {
 		res := s.Exec(cmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
-			s.logger.Errorf("cannot gather files for cmd '%s': %s", cmd, res.CombineOutput())
+			s.logger.Error(
+				"cannot gather files for cmd",
+				slog.Any("cmd", cmd),
+				slog.Any("output", res.CombineOutput()),
+			)
 		}
 	}
 }
@@ -825,7 +919,10 @@ func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 
 	body := func() bool {
 		res := s.ExecCilium("status")
-		s.logger.Infof("Cilium status is %t", res.WasSuccessful())
+		s.logger.Info(
+			"Cilium status result",
+			slog.Bool("status", res.WasSuccessful()),
+		)
 		return res.WasSuccessful()
 	}
 	err := WithTimeout(body, "Cilium is not ready", &TimeoutConfig{Timeout: timeout})

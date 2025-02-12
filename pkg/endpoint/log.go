@@ -4,21 +4,21 @@
 package endpoint
 
 import (
+	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 
-	"github.com/cilium/lumberjack/v2"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/lumberjack/v2"
 )
 
 var (
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
-	policyLog = logrus.New()
+	log       = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
+	policyLog = slog.New(log.Handler())
 )
 
 const (
@@ -29,35 +29,31 @@ const (
 
 // getLogger returns a logrus object with EndpointID, containerID and the Endpoint
 // revision fields.
-func (e *Endpoint) getLogger() *logrus.Entry {
+func (e *Endpoint) getLogger() *slog.Logger {
 	return e.logger.Load()
 }
 
 // getPolicyLogger returns a logger to be used for policy update debugging, or nil,
 // if not configured.
-func (e *Endpoint) getPolicyLogger() *logrus.Entry {
+func (e *Endpoint) getPolicyLogger() *slog.Logger {
 	return e.policyLogger.Load()
 }
 
 // PolicyDebug logs the 'msg' with 'fields' if policy debug logging is enabled.
-func (e *Endpoint) PolicyDebug(fields logrus.Fields, msg string) {
+func (e *Endpoint) PolicyDebug(msg string, attrs ...any) {
 	if dbgLog := e.getPolicyLogger(); dbgLog != nil {
-		if fields == nil {
-			dbgLog.Debug(msg)
-		} else {
-			dbgLog.WithFields(fields).Debug(msg)
-		}
+		dbgLog.Debug(msg, attrs...)
 	}
 }
 
 // Logger returns a logrus object with EndpointID, containerID and the Endpoint
 // revision fields. The caller must specify their subsystem.
-func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
+func (e *Endpoint) Logger(subsystem string) *slog.Logger {
 	if e == nil {
-		return log.WithField(logfields.LogSubsys, subsystem)
+		return log.With(slog.String(logfields.LogSubsys, subsystem))
 	}
 
-	return e.getLogger().WithField(logfields.LogSubsys, subsystem)
+	return e.getLogger().With(slog.String(logfields.LogSubsys, subsystem))
 }
 
 // UpdateLogger creates a logger instance specific to this endpoint. It will
@@ -72,7 +68,11 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
 	if fields != nil && epLogger != nil {
-		newLogger := epLogger.WithFields(fields)
+		var attrs []any
+		for k, v := range fields {
+			attrs = append(attrs, slog.Any(k, v))
+		}
+		newLogger := epLogger.With(attrs...)
 		e.logger.Store(newLogger)
 		return
 	}
@@ -85,7 +85,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
 	shouldUpdate := epLogger == nil || (e.Options != nil &&
-		e.Options.IsEnabled(option.Debug) != (epLogger.Level == logrus.DebugLevel))
+		e.Options.IsEnabled(option.Debug) != (epLogger.Enabled(context.Background(), slog.LevelDebug)))
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -94,31 +94,32 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
-	f := logrus.Fields{
-		logfields.LogSubsys:              subsystem,
-		logfields.EndpointID:             e.ID,
-		logfields.ContainerID:            e.GetShortContainerID(),
-		logfields.ContainerInterface:     e.containerIfName,
-		logfields.DatapathPolicyRevision: e.policyRevision,
-		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
-		logfields.IPv4:                   e.GetIPv4Address(),
-		logfields.IPv6:                   e.GetIPv6Address(),
-		logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
-		logfields.CEPName:                e.GetK8sNamespaceAndCEPName(),
+	f := []any{
+		slog.String(logfields.LogSubsys, subsystem),
+		slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+		slog.String(logfields.ContainerID, e.GetShortContainerID()),
+		slog.String(logfields.ContainerInterface, e.containerIfName),
+		slog.Uint64(logfields.DatapathPolicyRevision, e.policyRevision),
+		slog.Uint64(logfields.DesiredPolicyRevision, e.nextPolicyRevision),
+		slog.String(logfields.IPv4, e.GetIPv4Address()),
+		slog.String(logfields.IPv6, e.GetIPv6Address()),
+		slog.String(logfields.K8sPodName, e.GetK8sNamespaceAndPodName()),
+		slog.String(logfields.CEPName, e.GetK8sNamespaceAndCEPName()),
 	}
 
 	if e.SecurityIdentity != nil {
-		f[logfields.Identity] = e.SecurityIdentity.ID.StringID()
+		f = append(f, slog.String(logfields.Identity, e.SecurityIdentity.ID.StringID()))
 	}
 
 	// Inherit properties from default logger.
-	baseLogger := logging.DefaultLogger.WithFields(f)
+	baseLogger := logging.DefaultLogger.With(f...)
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
 	// If this endpoint is not set to debug, it will use the log level set by the user.
 	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
-		baseLogger.Logger.SetLevel(logrus.DebugLevel)
+		// FIXME @aanm
+		// baseLogger.Logger.SetLevel(logrus.DebugLevel)
 	}
 
 	e.logger.Store(baseLogger)
@@ -149,11 +150,13 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			LocalTime:  true,
 			Compress:   true,
 		}
-		policyLog.SetOutput(lumberjackLogger)
-		policyLog.SetLevel(logrus.DebugLevel)
-		policyLog.SetFormatter(logging.GetFormatter(logging.DefaultLogFormatTimestamp))
+		// FIXME @aanm
+		_ = lumberjackLogger
+		// policyLog.SetOutput(lumberjackLogger)
+		// policyLog.SetLevel(logrus.DebugLevel)
+		// policyLog.SetFormatter(logging.GetHandler(logging.DefaultLogFormatTimestamp))
 
-		policyLogger = logrus.NewEntry(policyLog)
+		policyLogger = policyLog
 	}
 	if policyLogger == nil || e.Options == nil {
 		return
@@ -162,24 +165,28 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 	if !e.Options.IsEnabled(option.DebugPolicy) {
 		policyLogger = nil
 	} else if fields != nil {
-		policyLogger = policyLogger.WithFields(fields)
+		var attrs []any
+		for k, v := range fields {
+			attrs = append(attrs, slog.Any(k, v))
+		}
+		policyLogger = policyLogger.With(attrs...)
 	} else {
-		f := logrus.Fields{
-			logfields.LogSubsys:              subsystem,
-			logfields.EndpointID:             e.ID,
-			logfields.ContainerID:            e.GetShortContainerID(),
-			logfields.DatapathPolicyRevision: e.policyRevision,
-			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
-			logfields.IPv4:                   e.GetIPv4Address(),
-			logfields.IPv6:                   e.GetIPv6Address(),
-			logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
+		f := []any{
+			slog.String(logfields.LogSubsys, subsystem),
+			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+			slog.String(logfields.ContainerID, e.GetShortContainerID()),
+			slog.Uint64(logfields.DatapathPolicyRevision, e.policyRevision),
+			slog.Uint64(logfields.DesiredPolicyRevision, e.nextPolicyRevision),
+			slog.String(logfields.IPv4, e.GetIPv4Address()),
+			slog.String(logfields.IPv6, e.GetIPv6Address()),
+			slog.String(logfields.K8sPodName, e.GetK8sNamespaceAndPodName()),
 		}
 
 		if e.SecurityIdentity != nil {
-			f[logfields.Identity] = e.SecurityIdentity.ID
+			f = append(f, slog.String(logfields.Identity, e.SecurityIdentity.ID.StringID()))
 		}
 
-		policyLogger = policyLogger.WithFields(f)
+		policyLogger = policyLogger.With(f...)
 	}
 	e.policyLogger.Store(policyLogger)
 }

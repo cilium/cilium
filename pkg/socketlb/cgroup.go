@@ -23,6 +23,7 @@ package socketlb
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -65,7 +66,7 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 	switch {
 	// Update successful, nothing left to do.
 	case err == nil:
-		log.Infof("Updated link %s for program %s", pin, name)
+		log.Info("Updated link for program", slog.String("pin", pin), slog.String("name", name))
 
 		return nil
 
@@ -79,11 +80,11 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
-		log.Infof("Unpinned defunct link %s for program %s", pin, name)
+		log.Info("Unpinned defunct link for program", slog.String("pin", pin), slog.String("name", name))
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
-		log.Infof("No existing link found at %s for program %s", pin, name)
+		log.Info("No existing link found for program", slog.String("pin", pin), slog.String("name", name))
 
 	default:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, name, err)
@@ -107,7 +108,7 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 			// The program was successfully attached using bpf_link. Closing a link
 			// does not detach the program if the link is pinned.
 			if err := l.Close(); err != nil {
-				log.Warnf("Failed to close bpf_link for program %s", name)
+				log.Warn("Failed to close bpf_link for program", slog.String("name", name))
 			}
 		}()
 
@@ -116,7 +117,7 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 		}
 
 		// Successfully created and pinned bpf_link.
-		log.Debugf("Program %s attached using bpf_link", name)
+		log.Debug("Program attached using bpf_link", slog.String("name", name))
 
 		return nil
 	}
@@ -132,7 +133,7 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 		return fmt.Errorf("attach program %s using bpf_link: %w", name, err)
 	}
 
-	log.Debugf("Performing PROG_ATTACH for program %s", name)
+	log.Debug("Performing PROG_ATTACH for program", slog.String("name", name))
 
 	// Call PROG_ATTACH without flags to attach the program if bpf_link is not
 	// available or a previous PROG_ATTACH without flags has to be seamlessly
@@ -148,7 +149,7 @@ func attachCgroup(spec *ebpf.Collection, name, cgroupRoot, pinPath string) error
 	// Nothing left to do, the cgroup now holds a reference to the prog
 	// so we don't need to hold a reference in the agent/bpffs to ensure
 	// the program stays active.
-	log.Debugf("Program %s was attached using PROG_ATTACH", name)
+	log.Debug("Program was attached using PROG_ATTACH", slog.String("name", name))
 
 	return nil
 
@@ -170,7 +171,7 @@ func detachCgroup(name, cgroupRoot, pinPath string) error {
 	}
 
 	// No bpf_link pin found, detach all prog_attach progs.
-	log.Debugf("No pinned link '%s', querying cgroup", pin)
+	log.Debug("No pinned link, querying cgroup", slog.String("pinned-link", pin))
 	err = detachAll(attachTypes[name], cgroupRoot)
 	// Treat detaching unsupported attach types as successful.
 	if errors.Is(err, link.ErrNotSupported) {
@@ -208,7 +209,7 @@ func detachAll(attach ebpf.AttachType, cgroupRoot string) error {
 		return fmt.Errorf("query cgroup %s for type %s: %w", cgroupRoot, attach, err)
 	}
 	if ids == nil || len(ids.Programs) == 0 {
-		log.Debugf("No programs in cgroup %s with attach type %s", cgroupRoot, attach)
+		log.Debug("No programs in cgroup with attach type", slog.String("root", cgroupRoot), slog.Any("type", attach))
 		return nil
 	}
 
@@ -229,7 +230,7 @@ func detachAll(attach ebpf.AttachType, cgroupRoot string) error {
 			return fmt.Errorf("detach programs from cgroup %s attach type %s: %w", cgroupRoot, attach, err)
 		}
 
-		log.Debugf("Detached program id %d", id)
+		log.Debug("Detached program id", slog.Any("id", id))
 	}
 
 	return nil

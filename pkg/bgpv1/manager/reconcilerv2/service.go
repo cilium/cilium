@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -24,6 +24,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -36,14 +37,14 @@ type ServiceReconcilerOut struct {
 type ServiceReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       logging.FieldLogger
 	PeerAdvert   *CiliumPeerAdvertisement
 	SvcDiffStore store.DiffStore[*slim_corev1.Service]
 	EPDiffStore  store.DiffStore[*k8s.Endpoints]
 }
 
 type ServiceReconciler struct {
-	logger       logrus.FieldLogger
+	logger       logging.FieldLogger
 	peerAdvert   *CiliumPeerAdvertisement
 	svcDiffStore store.DiffStore[*slim_corev1.Service]
 	epDiffStore  store.DiffStore[*k8s.Endpoints]
@@ -207,7 +208,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Rec
 		}
 
 		updatedSvcRoutePolicies, rErr := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
-			Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+			Logger:          r.logger.With(slog.String(types.InstanceLogField, p.DesiredConfig.Name)),
 			Ctx:             ctx,
 			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredSvcRoutePolicies,
@@ -324,7 +325,7 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.ServicePaths, err = ReconcileResourceAFPaths(ReconcileResourceAFPathsParams{
-		Logger:                 r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.logger.With(slog.String(types.InstanceLogField, p.DesiredConfig.Name)),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: desiredSvcPaths,

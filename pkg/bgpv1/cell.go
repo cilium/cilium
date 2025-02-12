@@ -4,6 +4,8 @@
 package bgpv1
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -29,7 +31,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "bgp-control-plane"))
 )
 
 var Cell = cell.Module(

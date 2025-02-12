@@ -4,11 +4,13 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type statusCollector struct {
@@ -24,12 +26,12 @@ type statusCollector struct {
 func newStatusCollector() *statusCollector {
 	ciliumClient, err := clientPkg.NewClient("")
 	if err != nil {
-		logrus.WithError(err).Fatal("Error while creating Cilium API client")
+		logging.Fatal(slog.Default(), "Error while creating Cilium API client", slog.Any(logfields.Error, err))
 	}
 
 	healthClient, err := healthClientPkg.NewClient("")
 	if err != nil {
-		logrus.WithError(err).Fatal("Error while creating cilium-health API client")
+		logging.Fatal(slog.Default(), "Error while creating cilium-health API client", slog.Any(logfields.Error, err))
 	}
 
 	return newStatusCollectorWithClients(ciliumClient.Daemon, healthClient.Connectivity)
@@ -73,7 +75,7 @@ func (s *statusCollector) Describe(ch chan<- *prometheus.Desc) {
 func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	statusResponse, err := s.daemonHealthGetter.GetHealthz(nil)
 	if err != nil {
-		logrus.WithError(err).Error("Error while getting Cilium status")
+		slog.Error("Error while getting Cilium status", slog.Any(logfields.Error, err))
 		return
 	}
 
@@ -118,7 +120,7 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 
 	healthStatusResponse, err := s.connectivityStatusGetter.GetStatus(nil)
 	if err != nil {
-		logrus.WithError(err).Error("Error while getting cilium-health status")
+		slog.Error("Error while getting cilium-health status", slog.Any(logfields.Error, err))
 		return
 	}
 

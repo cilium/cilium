@@ -5,6 +5,7 @@ package connector
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/vishvananda/netlink"
 
@@ -80,12 +81,12 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(netkit); err != nil {
-				log.WithError(err).WithField(logfields.Netkit, netkit.Name).Warn("failed to clean up netkit")
+				log.Warn("failed to clean up netkit", slog.Any(logfields.Error, err), slog.Any(logfields.Netkit, netkit.Name))
 			}
 		}
 	}()
 
-	log.WithField(logfields.NetkitPair, []string{peerIfName, lxcIfName}).Debug("Created netkit pair")
+	log.Debug("Created netkit pair", slog.Any(logfields.NetkitPair, []string{peerIfName, lxcIfName}))
 
 	// Disable reverse path filter on the host side netkit peer to allow
 	// container addresses to be used as source address when the linux
@@ -101,9 +102,9 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 	}
 
 	if nk, ok := peer.(*netlink.Netkit); !ok {
-		log.WithField(logfields.NetkitPair, []string{peerIfName, lxcIfName}).Debug("peer does not appear to be a Netkit device")
+		log.Debug("peer does not appear to be a Netkit device", slog.Any(logfields.NetkitPair, []string{peerIfName, lxcIfName}))
 	} else if !nk.SupportsScrub() {
-		log.WithField(logfields.Netkit, netkit.Name).Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit")
+		log.Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit", slog.Any(logfields.Netkit, netkit.Name))
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {

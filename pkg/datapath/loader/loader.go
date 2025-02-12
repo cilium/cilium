@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 
@@ -66,7 +66,7 @@ const (
 	secctxFromIpcacheEnabled
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
 
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
@@ -268,7 +268,8 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 		// per-endpoint maps.
 		bpffsPath := bpffsDeviceDir(bpf.CiliumPath(), l)
 		if err := bpf.Remove(bpffsPath); err != nil {
-			log.WithError(err).WithField(logfields.Device, l.Attrs().Name)
+			// FIXME @aanm ping @ti-mo
+			// log.WithError(err).WithField(logfields.Device, l.Attrs().Name)
 		}
 
 		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
@@ -299,14 +300,22 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 	for _, dev := range ingressDevs {
 		err = removeTCFilters(dev, directionToParent(dirIngress))
 		if err != nil {
-			log.WithError(err).Errorf("couldn't remove ingress tc filters from %s", dev.Attrs().Name)
+			log.Error(
+				"couldn't remove ingress tc filters",
+				slog.Any(logfields.Error, err),
+				slog.String("dev", dev.Attrs().Name),
+			)
 		}
 	}
 
 	for _, dev := range egressDevs {
 		err = removeTCFilters(dev, directionToParent(dirEgress))
 		if err != nil {
-			log.WithError(err).Errorf("couldn't remove egress tc filters from %s", dev.Attrs().Name)
+			log.Error(
+				"couldn't remove egress tc filters",
+				slog.Any(logfields.Error, err),
+				slog.String("dev", dev.Attrs().Name),
+			)
 		}
 	}
 
@@ -429,7 +438,11 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 	for _, device := range devices {
 		iface, err := safenetlink.LinkByName(device)
 		if err != nil {
-			log.WithError(err).WithField("device", device).Warn("Link does not exist")
+			log.Warn(
+				"Link does not exist",
+				slog.Any(logfields.Error, err),
+				slog.String("device", device),
+			)
 			continue
 		}
 
@@ -474,7 +487,11 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			// Remove any previously attached device from egress path if BPF
 			// NodePort and host firewall are disabled.
 			if err := detachSKBProgram(iface, symbolToHostNetdevEp, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-				log.WithField("device", device).Error(err)
+				log.Error(
+					"",
+					slog.Any(logfields.Error, err),
+					slog.String("device", device),
+				)
 			}
 		}
 
@@ -486,7 +503,7 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 	// Call immediately after attaching programs to make it obvious that a
 	// program was wrongfully detached due to a bug or misconfiguration.
 	if err := removeObsoleteNetdevPrograms(devices); err != nil {
-		log.WithError(err).Error("Failed to remove obsolete netdev programs")
+		log.Error("Failed to remove obsolete netdev programs", slog.Any(logfields.Error, err))
 	}
 
 	return nil
@@ -544,7 +561,11 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 		}
 	} else {
 		if err := detachSKBProgram(iface, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-			log.WithField("device", device).Error(err)
+			log.Error(
+				"",
+				slog.Any(logfields.Error, err),
+				slog.String("device", device),
+			)
 		}
 	}
 
@@ -553,17 +574,17 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	}
 
 	if ep.RequireEndpointRoute() {
-		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-			logfields.Interface: device,
-		})
+		scopedLog := ep.Logger(subsystem).With(
+			slog.Any(logfields.Interface, device),
+		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
+				scopedLog.Warn("Failed to upsert route", slog.Any(logfields.Error, err))
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
 			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
+				scopedLog.Warn("Failed to upsert route", slog.Any(logfields.Error, err))
 			}
 		}
 	}
@@ -706,16 +727,24 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 		}
 	}
 
-	log := log.WithField(logfields.EndpointID, ep.StringID())
+	log := log.With(slog.String(logfields.EndpointID, ep.StringID()))
 
 	// Remove legacy tc attachments.
 	link, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err == nil {
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithError(err).Errorf("Removing ingress filter from interface %s", ep.InterfaceName())
+			log.Error(
+				"Failed to remove ingress filter from interface",
+				slog.Any(logfields.Error, err),
+				slog.String("interface", ep.InterfaceName()),
+			)
 		}
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_EGRESS); err != nil {
-			log.WithError(err).Errorf("Removing egress filter from interface %s", ep.InterfaceName())
+			log.Error(
+				"Failed to remove egress filter from interface",
+				slog.Any(logfields.Error, err),
+				slog.String("interface", ep.InterfaceName()),
+			)
 		}
 	}
 
@@ -727,11 +756,13 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 	// Remove the links directory first to avoid removing program arrays before
 	// the entrypoints are detached.
 	if err := bpf.Remove(bpffsEndpointLinksDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err)
+		// FIXME @aanm ping @ti-mo
+		// log.WithError(err)
 	}
 	// Finally, remove the endpoint's top-level directory.
 	if err := bpf.Remove(bpffsEndpointDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err)
+		// FIXME @aanm ping @ti-mo
+		// log.WithError(err)
 	}
 }
 

@@ -8,10 +8,13 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/components"
@@ -78,7 +81,7 @@ func tcPathFromMountInfo(name string) string {
 	readMountInfo.Do(func() {
 		mountInfos, err := mountinfo.GetMountInfo()
 		if err != nil {
-			log.WithError(err).Fatal("Could not get mount info for map root lookup")
+			logging.Fatal(log, "Could not get mount info for map root lookup", slog.Any(logfields.Error, err))
 		}
 
 		for _, mountInfo := range mountInfos {
@@ -88,7 +91,7 @@ func tcPathFromMountInfo(name string) string {
 			}
 		}
 
-		log.Fatal("Could not find BPF map root")
+		logging.Fatal(log, "Could not find BPF map root")
 	})
 
 	return filepath.Join(mountInfoPrefix, name)
@@ -120,14 +123,14 @@ var (
 // mountFS mounts the BPFFS filesystem into the desired mapRoot directory.
 func mountFS(printWarning bool) error {
 	if printWarning {
-		log.Warning("================================= WARNING ==========================================")
-		log.Warning("BPF filesystem is not mounted. This will lead to network disruption when Cilium pods")
-		log.Warning("are restarted. Ensure that the BPF filesystem is mounted in the host.")
-		log.Warning("https://docs.cilium.io/en/stable/operations/system_requirements/#mounted-ebpf-filesystem")
-		log.Warning("====================================================================================")
+		log.Warn("================================= WARNING ==========================================")
+		log.Warn("BPF filesystem is not mounted. This will lead to network disruption when Cilium pods")
+		log.Warn("are restarted. Ensure that the BPF filesystem is mounted in the host.")
+		log.Warn("https://docs.cilium.io/en/stable/operations/system_requirements/#mounted-ebpf-filesystem")
+		log.Warn("====================================================================================")
 	}
 
-	log.Infof("Mounting BPF filesystem at %s", bpffsRoot)
+	log.Info("Mounting BPF filesystem", slog.String("bpf-root-fs", bpffsRoot))
 
 	mapRootStat, err := os.Stat(bpffsRoot)
 	if err != nil {
@@ -194,7 +197,7 @@ func checkOrMountCustomLocation(bpfRoot string) error {
 		return fmt.Errorf("mount in the custom directory %s has a different filesystem than BPFFS", bpfRoot)
 	}
 
-	log.Infof("Detected mounted BPF filesystem at %s", bpffsRoot)
+	log.Info("Detected mounted BPF filesystem", slog.String("bpf-root-fs", bpffsRoot))
 
 	return nil
 }
@@ -238,11 +241,12 @@ func checkOrMountDefaultLocations() error {
 		// such as the connection tracking table of the BPF programs to
 		// be released which will cause all connections into local
 		// containers to be dropped. User is going to be warned.
-		log.Warnf("BPF filesystem is going to be mounted automatically "+
+		log.Warn(fmt.Sprintf("BPF filesystem is going to be mounted automatically "+
 			"in %s. However, it probably means that Cilium is running "+
 			"inside container and BPFFS is not mounted on the host. "+
 			"for more information, see: https://cilium.link/err-bpf-mount",
 			defaults.BPFFSRootFallback,
+		),
 		)
 		setBPFFSRoot(defaults.BPFFSRootFallback)
 
@@ -255,11 +259,11 @@ func checkOrMountDefaultLocations() error {
 				return err
 			}
 		} else if !cBpffsInstance {
-			log.Fatalf("%s is mounted but has a different filesystem than BPFFS", defaults.BPFFSRootFallback)
+			logging.Fatal(log, fmt.Sprintf("%s is mounted but has a different filesystem than BPFFS", defaults.BPFFSRootFallback))
 		}
 	}
 
-	log.Infof("Detected mounted BPF filesystem at %s", bpffsRoot)
+	log.Info("Detected mounted BPF filesystem", slog.String("bpf-root-fs", bpffsRoot))
 
 	return nil
 }
@@ -295,7 +299,7 @@ func checkOrMountFS(bpfRoot string) error {
 func CheckOrMountFS(bpfRoot string) {
 	mountOnce.Do(func() {
 		if err := checkOrMountFS(bpfRoot); err != nil {
-			log.WithError(err).Fatal("Unable to mount BPF filesystem")
+			logging.Fatal(log, "Unable to mount BPF filesystem", slog.Any(logfields.Error, err))
 		}
 	})
 }

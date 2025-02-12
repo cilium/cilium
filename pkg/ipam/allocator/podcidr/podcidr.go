@@ -6,10 +6,10 @@ package podcidr
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "pod-cidr"))
 
 	ciliumNodesPodCidrControllerGroup = controller.NewGroup("update-cilium-nodes-pod-cidr")
 )
@@ -241,9 +241,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		var (
 			err, err2     error
 			newCiliumNode *v2.CiliumNode
-			log           = log.WithFields(logrus.Fields{
-				"node-name": nodeName,
-			})
+			logAttr       = slog.String("node-name", nodeName)
 		)
 		switch nodeToK8s.op {
 		case k8sOpCreate:
@@ -252,7 +250,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		case k8sOpUpdate:
 			var updatedNode *v2.CiliumNode
 			updatedNode, err = nodeGetterUpdater.Update(nil, nodeToK8s.ciliumNode)
-			log.WithError(err).Debug("Updated Node")
+			log.Debug("Updated Node", slog.Any(logfields.Error, err), logAttr)
 			if err != nil {
 				if k8sErrors.IsNotFound(err) {
 					// In case the node was not found we should not try to re-create
@@ -270,7 +268,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 			fallthrough
 		case k8sOpUpdateStatus:
 			_, err = nodeGetterUpdater.UpdateStatus(nil, nodeToK8s.ciliumNode)
-			log.WithError(err).Debug("UpdatedStatus Node")
+			log.Debug("UpdatedStatus Node", slog.Any(logfields.Error, err), logAttr)
 			switch {
 			case k8sErrors.IsNotFound(err):
 				// In case the node was not found we should not try to re-create
@@ -289,7 +287,7 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 				// already be deleted from k8s.
 				err = nil
 			} else {
-				log.WithError(err).Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).")
+				log.Warn("Received a CiliumNode delete event, but the resource may not have been deleted (see error).", slog.Any(logfields.Error, err), logAttr)
 			}
 		}
 		switch {
@@ -423,9 +421,7 @@ func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNode, allocated, updateStatus bool, err error) {
 	var cidrs *nodeCIDRs
 
-	log = log.WithFields(logrus.Fields{
-		"node-name": node.Name,
-	})
+	logAttr := slog.String("node-name", node.Name)
 
 	defer func() {
 		// Overwrite err value if we want to update the status of the
@@ -455,10 +451,12 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			return
 		}
 
-		log.WithFields(logrus.Fields{
-			"cidrs":     cidrs.String(),
-			"allocated": allocated,
-		}).Debug("Allocated new CIDRs")
+		log.Debug(
+			"Allocated new CIDRs",
+			slog.Any("cidrs", cidrs),
+			slog.Bool("allocated", allocated),
+			logAttr,
+		)
 	} else {
 		cidrs, err = parsePodCIDRs(node.Spec.IPAM.PodCIDRs)
 		if err != nil {
@@ -475,11 +473,12 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			updateStatus = true
 			return
 		}
-		log.WithFields(logrus.Fields{
-			"cidrs":                 cidrs.String(),
-			"allocated":             allocated,
-			"n.canAllocatePodCIDRs": n.canAllocatePodCIDRs,
-		}).Debug("Allocated existing CIDRs")
+		log.Debug(
+			"Allocated existing CIDRs",
+			slog.Any("cidrs", cidrs),
+			slog.Bool("allocated", allocated),
+			slog.Bool("n.canAllocatePodCIDRs", n.canAllocatePodCIDRs),
+		)
 		if !allocated {
 			// If we can't allocate podCIDRs for now we should store the node
 			// temporarily until n.reSync is called.
@@ -540,10 +539,6 @@ func (n *NodesPodCIDRManager) releaseIPNets(nodeName string) bool {
 
 	delete(n.nodes, nodeName)
 
-	log = log.WithFields(logrus.Fields{
-		"node-name": nodeName,
-	})
-
 	releaseCIDRs(n.v4CIDRAllocators, cidrs.v4PodCIDRs)
 	releaseCIDRs(n.v6CIDRAllocators, cidrs.v6PodCIDRs)
 
@@ -560,14 +555,12 @@ func releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []*ne
 				continue
 			}
 			err := clusterCIDR.Release(ipNet)
-			log = log.WithFields(logrus.Fields{
-				"cidr": ipNet.String(),
-			})
+			logAttr := slog.String("cidr", ipNet.String())
 			if err != nil {
-				log.WithError(err).Error("failed to release cidr")
+				log.Error("failed to release cidr", slog.Any(logfields.Error, err), logAttr)
 				continue
 			}
-			log.Info("node released cidrs")
+			log.Info("node released cidrs", logAttr)
 			break
 		}
 	}
@@ -584,9 +577,6 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 ) (
 	newNodeCIDRs *nodeCIDRs, allocated bool, err error,
 ) {
-	log = log.WithFields(logrus.Fields{
-		"node-name": nodeName,
-	})
 	if len(n.v4CIDRAllocators) == 0 && len(v4CIDR) != 0 {
 		return nil, false, &ErrAllocatorNotFound{
 			cidr:          v4CIDR,
@@ -678,7 +668,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		}
 		revertStack.Push(revertFunc)
 		oldNodeCIDRs.v4PodCIDRs = v4CIDR
-		log.Debugf("Allocated v4CIDR %s", v4CIDR)
+		log.Debug("Allocated v4CIDR", slog.Any("v4CIDR", v4CIDR), slog.String("node-name", nodeName))
 		allocated = true
 	}
 
@@ -702,7 +692,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		}
 		revertStack.Push(revertFunc)
 		oldNodeCIDRs.v6PodCIDRs = v6CIDR
-		log.Debugf("Allocated v6CIDR %s", v6CIDR)
+		log.Debug("Allocated v6CIDR", slog.Any("v6CIDR", v6CIDR), slog.String("node-name", nodeName))
 		allocated = true
 	}
 
@@ -828,7 +818,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 
-		log.WithField("CIDR", v4CIDR).Debug("v4 allocated CIDR")
+		log.Debug("v4 allocated CIDR", slog.Any("CIDR", v4CIDR))
 		cidrs.v4PodCIDRs = []*net.IPNet{v4CIDR}
 
 		revertStack.Push(revertFunc)
@@ -839,7 +829,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 
-		log.WithField("CIDR", v6CIDR).Debug("v6 allocated CIDR")
+		log.Debug("v6 allocated CIDR", slog.Any("CIDR", v6CIDR))
 		cidrs.v6PodCIDRs = []*net.IPNet{v6CIDR}
 
 		revertStack.Push(revertFunc)

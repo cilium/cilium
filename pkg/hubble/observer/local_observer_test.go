@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ var (
 )
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 

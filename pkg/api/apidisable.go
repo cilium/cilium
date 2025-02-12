@@ -4,10 +4,10 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -24,9 +24,10 @@ func NewAdminDisableHandler(name string) *AdminDisableHandler {
 
 func (a *AdminDisableHandler) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	wr.WriteHeader(http.StatusForbidden)
-	log.WithFields(logrus.Fields{
-		logfields.Endpoint: a.name,
-	}).Info("Denied API request on administratively disabled API endpoint")
+	log.Info(
+		"Denied API request on administratively disabled API endpoint",
+		slog.String(logfields.Endpoint, a.name),
+	)
 	_, _ = wr.Write([]byte("This API is administratively disabled. Contact your administrator for more details."))
 }
 

@@ -5,12 +5,12 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	serviceReconcilerTestLogger = logrus.WithField("unit_test", "reconcilerv2_service")
+	serviceReconcilerTestLogger = slog.With("unit_test", "reconcilerv2_service")
 )
 
 var (
@@ -557,7 +557,7 @@ var (
 
 // Test_ServiceLBReconciler tests reconciliation of service of type load-balancer
 func Test_ServiceLBReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name             string
@@ -808,7 +808,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 
 // Test_ServiceExternalIPReconciler tests reconciliation of cluster service with external IP
 func Test_ServiceExternalIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name             string
@@ -1108,7 +1108,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 
 // Test_ServiceClusterIPReconciler tests reconciliation of cluster service
 func Test_ServiceClusterIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name             string
@@ -1408,7 +1408,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 
 // Test_ServiceAndAdvertisementModifications is a step test, in which each step modifies the advertisement or service parameters.
 func Test_ServiceAndAdvertisementModifications(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	peerConfigs := []*v2alpha1.CiliumBGPPeerConfig{redPeerConfig}
 
@@ -1768,7 +1768,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 }
 
 func Test_ServiceVIPSharing(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	peerConfigs := []*v2alpha1.CiliumBGPPeerConfig{redPeerConfig}
 

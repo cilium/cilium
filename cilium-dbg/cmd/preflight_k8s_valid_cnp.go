@@ -6,8 +6,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +47,7 @@ has an exit code 1 is returned.`,
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
-			log.Fatal(err)
+			logging.Fatal(log, err.Error())
 		}
 	}
 	return cmd
@@ -137,10 +139,10 @@ func validateNPResources(
 				cnpName = cnp.GetName()
 			}
 			if err := validator(&cnp); err != nil {
-				log.WithField(shortName, cnpName).WithError(err).Error("Unexpected validation error")
+				log.Error("Unexpected validation error", slog.Any(logfields.Error, err), slog.String(shortName, cnpName))
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else {
-				log.WithField(shortName, cnpName).Info("Validation OK!")
+				log.Info("Validation OK!", slog.String(shortName, cnpName))
 			}
 		}
 		if cnps.GetContinue() == "" {

@@ -3,13 +3,15 @@
 
 package types
 
-import "github.com/sirupsen/logrus"
+import (
+	"log/slog"
+)
 
 // Endpoint provides access endpoint configuration information that is necessary
 // to compile and load the datapath.
 type Endpoint interface {
 	EndpointConfiguration
 	InterfaceName() string
-	Logger(subsystem string) *logrus.Entry
+	Logger(subsystem string) *slog.Logger
 	StateDir() string
 }

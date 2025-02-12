@@ -8,7 +8,6 @@ import (
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -19,12 +18,13 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 type policyWatcher struct {
-	log    logrus.FieldLogger
+	log    logging.FieldLogger
 	config *option.DaemonConfig
 
 	k8sResourceSynced *k8sSynced.Resources

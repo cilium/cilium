@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -246,7 +247,7 @@ type versionCheckParams struct {
 
 	Lifecycle        cell.Lifecycle
 	Slog             *slog.Logger
-	Logger           logrus.FieldLogger
+	Logger           logging.FieldLogger
 	JobRegistry      job.Registry
 	Health           cell.Health
 	EnvoyProxyConfig ProxyConfig
@@ -278,7 +279,7 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 	// and reported via health reporter.
 	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
 		if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
-			params.Logger.WithError(err).Error("Envoy: Version check failed")
+			params.Logger.Error("Envoy: Version check failed", slog.Any(logfields.Error, err))
 			return err
 		}
 
@@ -314,7 +315,7 @@ type syncerParams struct {
 	cell.In
 
 	Slog        *slog.Logger
-	Logger      logrus.FieldLogger
+	Logger      logging.FieldLogger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Health      cell.Health
@@ -360,11 +361,11 @@ func registerSecretSyncer(params syncerParams) error {
 
 	params.Lifecycle.Append(jobGroup)
 
-	secretSyncerLogger := params.Logger.WithField("controller", "secretSyncer")
+	secretSyncerLogger := params.Logger.With(slog.String("controller", "secretSyncer"))
 
 	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
 
-	secretSyncerLogger.Debug("Watching namespaces for secrets", "namespaces", namespaces)
+	secretSyncerLogger.Debug("Watching namespaces for secrets", slog.Any("namespaces", namespaces))
 
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(
