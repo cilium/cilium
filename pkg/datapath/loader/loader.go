@@ -268,7 +268,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 		// per-endpoint maps.
 		bpffsPath := bpffsDeviceDir(bpf.CiliumPath(), l)
 		if err := bpf.Remove(bpffsPath); err != nil {
-			log.WithError(err).WithField(logfields.Device, l.Attrs().Name)
+			log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsPath)
 		}
 
 		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
@@ -727,11 +727,11 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 	// Remove the links directory first to avoid removing program arrays before
 	// the entrypoints are detached.
 	if err := bpf.Remove(bpffsEndpointLinksDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err)
+		log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsEndpointLinksDir(bpf.CiliumPath(), ep))
 	}
 	// Finally, remove the endpoint's top-level directory.
 	if err := bpf.Remove(bpffsEndpointDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err)
+		log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsEndpointDir(bpf.CiliumPath(), ep))
 	}
 }
 
