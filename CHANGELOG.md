@@ -1,5 +1,79 @@
 # Changelog
 
+## v1.16.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add IngressDeny and EgressDeny rules validation for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy (Backport PR cilium/cilium#37124, Upstream PR cilium/cilium#36598, @pippolo84)
+* doc: Added hostLegacyRouting limitation for Talos (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36852, @PhilipSchmid)
+
+**Bugfixes:**
+* agent: defend against null pointer refs in cecManager.getEndpoint() (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37188, @aetimmes)
+* Allow cilium agent to start on linux kernels that don't have CONFIG_XFRM. (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37123, @julianwiedmann)
+* ces: Fix bug where stale endpoint information was injected into IPCache (Backport PR cilium/cilium#37417, Upstream PR cilium/cilium#37347, @gandro)
+* envoy: add configurable access log buffer size (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36823, @aetimmes)
+* Fix a bug that prevents a pod from accessing Nodeport services when the pod is also in scope of a broad-range Egress Gateway policy. (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36929, @julianwiedmann)
+* Fix bug causing the endpoint regeneration failure handler to be effective only once (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37085, @giorio94)
+* Fix bug potentially causing newly added endpoints to remain stuck in waiting-to-regenerate state forever, causing traffic from/to that endpoint to be incorrectly dropped. (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#37086, @giorio94)
+* Fix specifying multiple interfaces for egress masquerade with enable-masquerade-to-route-source=false (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36103, @viktor-kurchenko)
+* maps/nat/stats: Use Start context when waiting for maps (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37262, @tommyp1ckles)
+* nodeinit: move kubelet restart inside if/else in startup.bash (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37282, @ayuspin)
+* Restore the original flag semantics for --egress-masquerade-interfaces to the same as v1.17.0-pre.2 or earlier (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36504, @viktor-kurchenko)
+* socket-lb: Fix null pointer dereference in socketlb/cgroup.go (Backport PR cilium/cilium#37441, Upstream PR cilium/cilium#37426, @alvaroaleman)
+
+**CI Changes:**
+* [v1.16] ctmap/gc: don't clamp conntrack scan timeout in CI (cilium/cilium#37380, @giorio94)
+* gh: harmonize lvh kernel naming scheme (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37322, @julianwiedmann)
+* gh: update removed --loglevel option for kind (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36935, @julianwiedmann)
+* gha: bump ubuntu version in conformance-externalworkloads (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36859, @giorio94)
+* gha: correctly downgrade to patch release in ipsec workflows (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36858, @giorio94)
+* gha: fix retrieval of DNS server in conformance external workloads (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37361, @giorio94)
+* gha: Retrieve eks supported version via aws cli (Backport PR cilium/cilium#37223, Upstream PR cilium/cilium#37210, @sayboras)
+* Modify bpftrace script in CI to ignore proxy traffic if destination is outside pod CIDRs. (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36364, @smagnani96)
+* Skip tracking unmarked plain-text TCP RST packets generated from proxy timeouts in the CI bpftrace script. (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36962, @smagnani96)
+* test: Fix the flake for TestRestoredPort (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37106, @sayboras)
+* test: Move demo-httpd from Docker to Quay (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37149, @joestringer)
+* test: Move the dind image to Quay to avoid rate-limiting (Backport PR cilium/cilium#37441, Upstream PR cilium/cilium#37388, @pchaigno)
+
+**Misc Changes:**
+* build: Remove debug leftover from Makefile (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36917, @gentoo-root)
+* chore(deps): update actions/setup-go action to v5.3.0 (v1.16) (cilium/cilium#37117, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#37244, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#37505, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#37343, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#37550, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.24 (v1.16) (cilium/cilium#37338, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.20 (v1.16) (cilium/cilium#37215, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.23 (v1.16) (cilium/cilium#37503, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.6 (v1.16) (cilium/cilium#37497, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.31.5-1737535524-fe8efeb16a7d233bffd05af9ea53599340d3f18e (v1.16) (cilium/cilium#37201, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#37411, @cilium-renovate[bot])
+* cilium-dbg/troubleshoot: do not import cilium-dbg from operator (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37326, @aanm)
+* clustermesh: Add hidden flag --allow-unsafe-policy-skb-usage (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36602, @joestringer)
+* doc(glossary): Geneve as final RFC (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37316, @alagoutte)
+* doc: ebpf host-routing and netfilter (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36921, @PhilipSchmid)
+* doc: eks cluster restriction removed (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37043, @viktor-kurchenko)
+* doc: Removed nodeinit from aks byocni install (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#37048, @PhilipSchmid)
+* docs: Add SNI policy example (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37234, @sayboras)
+* docs: Clarify Identity-Relevant Labels description (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36924, @joestringer)
+* docs: Fix broken link in BGP control plane docs (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#37241, @mikejoh)
+* docs: pass current_version to html_context (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#37008, @ayuspin)
+* docs: Remove stale limitation on KPR+IPsec (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#37054, @pchaigno)
+* images: don't assume Dockerfile directory in builder/runtime update scripts (Backport PR cilium/cilium#37375, Upstream PR cilium/cilium#34488, @tklauser)
+* proxy: Mark restored port as configured (Backport PR cilium/cilium#37168, Upstream PR cilium/cilium#36953, @jrajahalme)
+* Remove outdated roadmap matrix and links to it (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#37170, @xmulligan)
+* remove stable tags from image build (cilium/cilium#37394, @aanm)
+* renovate: add fix grpc-go autodetection (Backport PR cilium/cilium#37278, Upstream PR cilium/cilium#33570, @aanm)
+
+**Other Changes:**
+* [v1.16] envoy: Bump envoy version to v1.31.x (cilium/cilium#37157, @sayboras)
+* chore(deps): update go to v1.23.5 (v1.16) (cilium/cilium#37189, @sayboras)
+* Do not leak ipcache entries when apiserver entities are cluster external (cilium/cilium#36927, @antonipp)
+* install: Update image digests for v1.16.6 (cilium/cilium#37154, @cilium-release-bot[bot])
+* Revert "chore(deps): update all-dependencies (v1.16)" (cilium/cilium#37525, @sayboras)
+
 ## v1.16.6
 
 Summary of Changes
