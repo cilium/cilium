@@ -318,7 +318,7 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 			c.log.Debugf("Failed to read existing CNI configuration file %s: %v", dest, err)
 		}
 		// commit CNI config
-		if err := renameio.WriteFile(dest, contents, 0644); err != nil {
+		if err := renameio.WriteFile(dest, contents, 0600); err != nil {
 			return fmt.Errorf("failed to write CNI configuration file at %s: %w", dest, err)
 		}
 		c.log.Infof("Wrote CNI configuration file to %s", dest)
