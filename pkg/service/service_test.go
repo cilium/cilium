@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"iter"
 	"maps"
 	"net"
 	"net/netip"
@@ -27,11 +28,13 @@ import (
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/netns"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -2684,4 +2687,108 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	// The subscriber callback function asserts expected callbacks, and also
 	// closes the channel.
 	<-cbCh1
+}
+
+func TestTerminateUDPConnectionsToBackend(t *testing.T) {
+	ns1, err := netns.New()
+	require.NoError(t, err)
+	ns2, err := netns.New()
+	require.NoError(t, err)
+	var conn1, conn2 net.Conn
+	assert.NoError(t, ns1.Do(func() error {
+		ls, err := netlink.LinkList()
+		assert.NoError(t, err)
+		for _, l := range ls {
+			// Netns should be default created with loopback dev
+			// we assign a localhost address to it to allow us to
+			// bind sockets.
+			if l.Attrs().Name == "lo" {
+				netlink.AddrAdd(l, &netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("127.0.0.1"),
+						Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+					},
+				})
+			}
+			_, err := netlink.AddrList(l, unix.AF_INET)
+			assert.NoError(t, err)
+		}
+		conn1, err = net.Dial("udp", "127.0.0.1:30000")
+		assert.NoError(t, err)
+		conn1.Write([]byte("ping"))
+		return err
+	}))
+	defer conn1.Close()
+
+	assert.NoError(t, ns2.Do(func() error {
+		ls, err := netlink.LinkList()
+		assert.NoError(t, err)
+		for _, l := range ls {
+			// Netns should be default created with loopback dev
+			// we assign a localhost address to it to allow us to
+			// bind sockets.
+			if l.Attrs().Name == "lo" {
+				netlink.AddrAdd(l, &netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("127.0.0.1"),
+						Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+					},
+				})
+			}
+			_, err := netlink.AddrList(l, unix.AF_INET)
+			assert.NoError(t, err)
+		}
+		conn2, err = net.Dial("udp", "127.0.0.1:30000")
+		assert.NoError(t, err)
+		conn2.Write([]byte("ping"))
+		return err
+	}))
+	defer conn2.Close()
+
+	var cookie uint32
+	ns1.Do(func() error {
+		sock, err := netlink.SocketDiagUDP(unix.AF_INET)
+		assert.NoError(t, err)
+		for _, s := range sock {
+			if s.ID.DestinationPort == 30000 {
+				cookie = s.ID.Cookie[0]
+			}
+		}
+		return nil
+	})
+
+	lbmap := mockmaps.NewLBMockMap()
+	s := Service{
+		config: &option.DaemonConfig{
+			EnableSocketLB:                         true,
+			EnableSocketLBPodConnectionTermination: true,
+			BPFSocketLBHostnsOnly:                  false,
+		},
+
+		backendConnectionHandler: &backendConnectionHandler{},
+
+		// Don't need to pin ns's for the purpose of the test.
+		nsIterator: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
+			ch := make(chan error)
+			return func(yield func(string, *netns.NetNS) bool) {
+				yield("cni-0000", ns1)
+				close(ch)
+			}, ch
+		},
+
+		lbmap: lbmap,
+	}
+	lbmap.AddSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000)
+	ip, err := netip.ParseAddr("127.0.0.1")
+	require.NoError(t, err)
+	l4a := loadbalancer.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30000, 0)
+	s.TerminateUDPConnectionsToBackend(l4a)
+
+	_, err = conn1.Read([]byte{0})
+	assert.ErrorIs(t, err, unix.ECONNABORTED, "first sock connection should have been aborted")
+
+	conn2.SetDeadline(time.Now().Add(time.Millisecond * 250))
+	_, err = conn2.Read([]byte{0})
+	assert.True(t, err.(net.Error).Timeout(),
+		"other connection should not be closed, thus read cmd on the sock should simply be allowed to timeout")
 }
