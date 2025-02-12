@@ -191,3 +191,7 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+
+#define send_drop_notify_error_with_exitcode_ext(ctx, src, reason, ext_err, exitcode, direction) \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
+			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
