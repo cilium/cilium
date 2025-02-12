@@ -62,7 +62,6 @@ const (
 	ciliumSPIREServerConfigMapFileName       = "cilium-spire-server-configmap-<ts>.yaml"
 	ciliumSPIREServerEntriesFileName         = "cilium-spire-server-entries-%s-<ts>.json"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
-	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
 	ciliumEndpointsFileName                  = "ciliumendpoints-<ts>.yaml"
 	ciliumEndpointSlicesFileName             = "ciliumendpointslices-<ts>.yaml"
