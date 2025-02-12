@@ -5,8 +5,12 @@ package netns
 
 import (
 	"fmt"
+	"iter"
 	"os"
+	"path/filepath"
 	"runtime"
+
+	"github.com/cilium/cilium/pkg/defaults"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
@@ -242,4 +246,50 @@ func getFromPath(path string) (*os.File, error) {
 // and tid.
 func getFromThread(pid, tid int) (*os.File, error) {
 	return getFromPath(fmt.Sprintf("/proc/%d/task/%d/ns/net", pid, tid))
+}
+
+// All returns a iterator over all pinned network namespaces inside
+// defaults.NetNsPath.
+//
+// Note: Namespace descriptors are closed following the yield, thus
+// namespaces should not be copied and used outside of the iterator loop.
+// The *NetNS handle is provided for to allow for cases where the ns must
+// be used explicitly*inside* the loop.
+func All() (iter.Seq2[string, *NetNS], <-chan error) {
+	errCh := make(chan error)
+	files, err := os.ReadDir(defaults.NetNsPath)
+
+	if err != nil {
+		errCh <- err
+		close(errCh)
+		return nil, errCh
+	}
+
+	errCh = make(chan error, len(files))
+
+	return func(yield func(string, *NetNS) bool) {
+		defer close(errCh)
+		for _, file := range files {
+			ns, err := OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
+			if err != nil {
+				errCh <- err
+				continue
+			}
+			// Defer ns.Close(), in case we return early - otherwise explicitly
+			// close following iteration step.
+			defer ns.Close()
+			done := false
+			if err = ns.Do(func() error {
+				done = !yield(file.Name(), ns)
+				return nil
+			}); err != nil {
+				errCh <- err
+			}
+			ns.Close()
+			if done {
+				break
+			}
+		}
+	}, errCh
+
 }
