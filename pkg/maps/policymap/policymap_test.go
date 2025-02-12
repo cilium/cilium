@@ -407,3 +407,15 @@ func TestPortProtoString(t *testing.T) {
 		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
+
+func TestInitMapInfo(t *testing.T) {
+	nCPU := 7
+	policyMapMax := 50000
+	policyStatsMapMax := nCPU*1000 + 3
+
+	InitMapInfo(policyMapMax, policyStatsMapMax, nCPU)
+
+	require.Equal(t, policyMapMax, MaxEntries)
+	require.NotEqual(t, policyStatsMapMax, MaxStatsEntries)
+	require.Equal(t, nCPU*1000, MaxStatsEntries)
+}

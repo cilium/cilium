@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -318,7 +319,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
-	policymap.InitMapInfo(option.Config.PolicyMapEntries)
+
+	nCPU, err := ebpf.PossibleCPU()
+	if err != nil {
+		log.WithError(err).Errorf("InitMapInfo: ebpf.PossibleCPU failed, policy stats may not work.")
+		nCPU = 1
+	}
+	policymap.InitMapInfo(option.Config.PolicyMapEntries, option.Config.PolicyStatsMapEntries, nCPU)
 
 	lbmapInitParams := lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
