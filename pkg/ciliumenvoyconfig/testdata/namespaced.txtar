@@ -240,7 +240,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         is_l7lb: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -248,21 +248,6 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
 -- envoy2.expected --
 policy-trigger-count:
   1
-endpoints:test/echo:80:
-  cluster_name: "test/echo:80"
-  endpoints: {
-    lb_endpoints: {
-      endpoint: {
-        address: {
-          socket_address: {
-            address: "10.244.1.1"
-            port_value: 8080
-          }
-        }
-      }
-    }
-  }
-  
 listener:test/envoy-lb-listener/envoy-lb-listener:
   name: "test/envoy-lb-listener/envoy-lb-listener"
   address: {
@@ -287,7 +272,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         is_l7lb: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -334,7 +319,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         is_l7lb: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }

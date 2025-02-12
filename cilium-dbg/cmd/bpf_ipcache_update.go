@@ -49,10 +49,6 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		if tunnelEndpoint == nil {
 			Usagef(cmd, "Invalid tunnel endpoint. "+usage)
 		}
-		if tunnelEndpoint.To4() == nil {
-			Usagef(cmd, "Invalid tunnel endpoint, must be an IPv4. "+usage)
-		}
-		tunnelEndpoint = tunnelEndpoint.To4()
 
 		identity, err := cmd.Flags().GetUint32("identity")
 		if err != nil {
