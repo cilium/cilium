@@ -956,25 +956,27 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := ExternalConfig{
+		LBMapsConfig: LBMapsConfig{
+			MaxSockRevNatMapEntries:  1000,
+			ServiceMapMaxEntries:     1000,
+			BackendMapMaxEntries:     1000,
+			RevNatMapMaxEntries:      1000,
+			AffinityMapMaxEntries:    1000,
+			SourceRangeMapMaxEntries: 1000,
+			MaglevMapMaxEntries:      1000,
+		},
+
 		EnableSessionAffinity: true,
 		EnableIPv4:            true,
 		EnableIPv6:            true,
+		KubeProxyReplacement:  true,
 	}
 
 	var lbmaps LBMaps
 	if testutils.IsPrivileged() {
 		r := &BPFLBMaps{
-			Pinned: false,
-			Cfg: LBMapsConfig{
-				MaxSockRevNatMapEntries:  1000,
-				ServiceMapMaxEntries:     1000,
-				BackendMapMaxEntries:     1000,
-				RevNatMapMaxEntries:      1000,
-				AffinityMapMaxEntries:    1000,
-				SourceRangeMapMaxEntries: 1000,
-				MaglevMapMaxEntries:      1000,
-			},
-			ExtCfg:    extCfg,
+			Pinned:    false,
+			Cfg:       extCfg,
 			MaglevCfg: maglevCfg,
 		}
 		lc.Append(r)

@@ -151,10 +151,10 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 	return ops
 }
 
-func (ops *BPFOps) start(_ cell.HookContext) error {
+func (ops *BPFOps) start(ctx cell.HookContext) (err error) {
 	// Restore the ID allocations from the BPF maps in order to reuse
 	// them and thus avoiding traffic disruptions.
-	err := ops.LBMaps.DumpService(func(key lbmap.ServiceKey, value lbmap.ServiceValue) {
+	err = ops.LBMaps.DumpService(func(key lbmap.ServiceKey, value lbmap.ServiceValue) {
 		key = key.ToHost()
 		value = value.ToHost()
 		if key.GetBackendSlot() != 0 {
