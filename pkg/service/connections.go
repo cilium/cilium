@@ -6,16 +6,11 @@ package service
 import (
 	"errors"
 	"net"
-	"os"
-	"path/filepath"
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
-	"github.com/cilium/cilium/pkg/defaults"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/netns"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -27,7 +22,7 @@ var opSupported = true
 func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	// With socket-lb, existing client applications can continue to connect to
 	// deleted backends. Destroy any client sockets connected to the deleted backend.
-	if !(option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly) {
+	if !(s.config.EnableSocketLB || s.config.BPFSocketLBHostnsOnly) {
 		return
 	}
 	if !opSupported {
@@ -87,26 +82,10 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	}
 
 	// Iterate over all pod network namespaces, and terminate any stale connections.
-	if option.Config.EnableSocketLBPodConnectionTermination && !option.Config.BPFSocketLBHostnsOnly {
-		files, err := os.ReadDir(defaults.NetNsPath)
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"netns-dir":        defaults.NetNsPath,
-				logfields.L3n4Addr: l3n4Addr,
-			}).Error("Error opening the netns dir while " +
-				"terminating connections to deleted service backend")
-			return
-		}
-
-		for _, file := range files {
-			ns, err := netns.OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
-			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					"netns": file.Name(),
-				}).Debug("Error opening netns")
-				continue
-			}
-			err = ns.Do(func() error {
+	if s.config.EnableSocketLBPodConnectionTermination && !s.config.BPFSocketLBHostnsOnly {
+		iter, errs := s.nsIterator()
+		for name, ns := range iter {
+			err := ns.Do(func() error {
 				return s.backendConnectionHandler.Destroy(sockets.SocketFilter{
 					Family:    family,
 					Protocol:  protocol,
@@ -115,16 +94,18 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 					DestroyCB: checkSockInRevNat,
 				})
 			})
-			ns.Close()
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
-					"netns":            file.Name(),
+					"netns":            name,
 					logfields.L3n4Addr: l3n4Addr,
 				}).Error("error while forcefully terminating sockets in netns connected to " +
 					"deleted service backend. Consider restarting any application pods sending traffic " +
 					"to the backend")
 				continue
 			}
+		}
+		for err := range errs {
+			log.WithError(err).Debug("Error opening netns, skipping")
 		}
 	}
 }
