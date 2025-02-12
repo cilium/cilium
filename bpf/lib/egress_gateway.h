@@ -213,7 +213,7 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (!info || info->tunnel_endpoint.ip4 == 0)
+		if (!info || !info->flag_has_tunnel_ep)
 			return false;
 
 		*tunnel_endpoint = info->tunnel_endpoint.ip4;
