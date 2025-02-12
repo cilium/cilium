@@ -191,6 +191,179 @@ You can also query the flow API and look for flows:
 
    If you have :ref:`enabled TLS<hubble_enable_tls>` then you will need to specify additional flags to :ref:`access the Hubble API<hubble_api_tls>`.
 
+Troubleshooting Hubble Deployment
+=================================
+
+Validate the state of Hubble and/or Hubble Relay by running ``cilium status``:
+
+.. code-block:: shell-session
+
+    $ cilium status
+        /¯¯\
+     /¯¯\__/¯¯\    Cilium:             OK
+     \__/¯¯\__/    Operator:           OK
+     /¯¯\__/¯¯\    Envoy DaemonSet:    OK
+     \__/¯¯\__/    Hubble Relay:       OK
+        \__/       ClusterMesh:        disabled
+
+    DaemonSet             cilium                   Desired: 1, Ready: 1/1, Available: 1/1
+    DaemonSet             cilium-envoy             Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment            cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment            hubble-relay             Desired: 1, Ready: 1/1, Available: 1/1
+    Containers:           cilium                   Running: 1
+                          cilium-envoy             Running: 1
+                          cilium-operator          Running: 1
+                          clustermesh-apiserver
+                          hubble-relay             Running: 1
+    Cluster Pods:         8/8 managed by Cilium
+    Helm chart version:   1.17.0
+    Image versions        cilium             quay.io/cilium/cilium:latest: 1
+                          cilium-envoy       quay.io/cilium/cilium-envoy:v1.32.3-1739240299-e85e926b0fa4cec519cefff54b60bd7942d7871b@sha256:ced8a89d642d10d648471afc2d8737238f1479c368955e6f2553ded58029ac88: 1
+                          cilium-operator    quay.io/cilium/operator-generic-ci:latest: 1
+                          hubble-relay       quay.io/cilium/hubble-relay-ci:latest: 1
+
+Hubble Relay
+------------
+
+If Hubble Relay is enabled, ``cilium status`` should display: ``OK``.
+Otherwise, we should expect to see errors/warnings reported:
+
+.. code-block:: shell-session
+
+    $ cilium status
+        /¯¯\
+     /¯¯\__/¯¯\    Cilium:             OK
+     \__/¯¯\__/    Operator:           OK
+     /¯¯\__/¯¯\    Envoy DaemonSet:    OK
+     \__/¯¯\__/    Hubble Relay:       1 errors, 2 warnings
+        \__/       ClusterMesh:        disabled
+
+    DaemonSet              cilium                   Desired: 1, Ready: 1/1, Available: 1/1
+    DaemonSet              cilium-envoy             Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment             cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment             hubble-relay             Desired: 1, Unavailable: 1/1
+    Containers:            cilium                   Running: 1
+                           cilium-envoy             Running: 1
+                           cilium-operator          Running: 1
+                           clustermesh-apiserver
+                           hubble-relay             Pending: 1
+    Cluster Pods:          8/8 managed by Cilium
+    Helm chart version:    1.17.0
+    Image versions         cilium             quay.io/cilium/cilium:latest: 1
+                           cilium-envoy       quay.io/cilium/cilium-envoy:v1.32.3-1739240299-e85e926b0fa4cec519cefff54b60bd7942d7871b@sha256:ced8a89d642d10d648471afc2d8737238f1479c368955e6f2553ded58029ac88: 1
+                           cilium-operator    quay.io/cilium/operator-generic-ci:latest: 1
+                           hubble-relay       quay.io/cilium/hubble-relay-ci:latest-: 1
+    Errors:                hubble-relay       hubble-relay                     1 pods of Deployment hubble-relay are not ready
+    Warnings:              hubble-relay       hubble-relay-85f98cc7df-s2lkq    pod is pending
+                           hubble-relay       hubble-relay-85f98cc7df-s2lkq    pod is pending
+
+.. tip::
+
+    If warnings or errors are reported for both ``Cilium`` and ``Hubble Relay``, it
+    often hints at a misconfiguration in Hubble or the Hubble system failing to start.
+    Since Hubble is a non-critical system running in the Cilium Agent, it is expected
+    for the Cilium pods to remain running and healthy even when Hubble fails to start.
+    See the :ref:`hubble_setup_troubleshooting` section below for Hubble-specific troubleshooting
+    steps.
+
+Verify the state of the pods with:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get pods -l k8s-app=hubble-relay
+    NAME                           READY   STATUS             RESTARTS      AGE
+    hubble-relay-6467f4f4d-x825b   0/1     CrashLoopBackOff   5 (19s ago)   7m28s
+
+If one or more pods are in ``Pending`` state, describe the pod(s) with:
+
+.. code-block:: shell-session
+
+    $ kubectl describe -n kube-system pod/cilium-5bjkq
+    Name:             hubble-relay-6467f4f4d-x825b
+    Namespace:        kube-system
+    ...
+
+If one or more pods are not in ``Running`` state, look at the pod(s) logs with:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system logs hubble-relay-6467f4f4d-x825b
+    time="2025-02-12T21:21:40.246596435Z" level=info msg="Starting gRPC health server..." addr=":4222" subsys=hubble-relay
+    time="2025-02-12T21:21:40.246611018Z" level=info msg="Starting gRPC server..." options="{peerTarget:hubble-peer.kube-system.svc.cluster.local.:443 retryTimeout:30000000000 listenAddress::4245 healthListenAddress::4222 metricsListenAddress: log:0x400038fc00 serverTLSConfig:<nil> insecureServer:true clientTLSConfig:0x4000b12528 clusterName:cluster insecureClient:false observerOptions:[0x28cb1e0 0x28cb2e0] grpcMetrics:<nil> grpcUnaryInterceptors:[] grpcStreamInterceptors:[]}" subsys=hubble-relay
+    time="2025-02-12T21:21:40.251658493Z" level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp 10.96.49.4:443: connect: connection refused\"" subsys=hubble-relay
+    time="2025-02-12T21:22:10.25956541Z" level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp 10.96.49.4:443: connect: connection refused\"" subsys=hubble-relay
+    time="2025-02-12T21:22:40.265123839Z" level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp 10.96.49.4:443: connect: connection refused\"" subsys=hubble-relay
+    time="2025-02-12T21:22:49.055746359Z" level=info msg="Stopping server..." subsys=hubble-relay
+    time="2025-02-12T21:22:49.056293486Z" level=info msg="Server stopped" subsys=hubble-relay
+
+If you face a ``connection refused`` error, it means that Hubble-Relay can't connect
+to the Hubble API exposed by Cilium agents through the ``hubble-peer`` service.
+See the :ref:`hubble_setup_troubleshooting` section below for Hubble-specific troubleshooting
+steps.
+
+For TLS related errors, see :ref:`Hubble TLS Troubleshooting<hubble_enable_tls_troubleshooting>`.
+
+.. _hubble_setup_troubleshooting:
+
+Hubble
+------
+
+If Hubble is enabled, ``cilium status`` should display: ``OK`` for ``Cilium``.
+Otherwise, we should expect to see errors/warnings reported:
+
+.. code-block:: shell-session
+
+    $ cilium status
+        /¯¯\
+     /¯¯\__/¯¯\    Cilium:             1 warnings
+     \__/¯¯\__/    Operator:           OK
+     /¯¯\__/¯¯\    Envoy DaemonSet:    OK
+     \__/¯¯\__/    Hubble Relay:       1 errors
+        \__/       ClusterMesh:        disabled
+
+    DaemonSet              cilium                   Desired: 1, Ready: 1/1, Available: 1/1
+    DaemonSet              cilium-envoy             Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment             cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
+    Deployment             hubble-relay             Desired: 1, Unavailable: 1/1
+    Containers:            cilium                   Running: 1
+                           cilium-envoy             Running: 1
+                           cilium-operator          Running: 1
+                           clustermesh-apiserver
+                           hubble-relay             Running: 1
+    Cluster Pods:          8/8 managed by Cilium
+    Helm chart version:    1.17.0
+    Image versions         cilium             quay.io/cilium/cilium:latest: 1
+                           cilium-envoy       quay.io/cilium/cilium-envoy:v1.32.3-1739240299-e85e926b0fa4cec519cefff54b60bd7942d7871b@sha256:ced8a89d642d10d648471afc2d8737238f1479c368955e6f2553ded58029ac88: 1
+                           cilium-operator    quay.io/cilium/operator-generic-ci:latest: 1
+                           hubble-relay       quay.io/cilium/hubble-relay-ci:latest: 1
+    Errors:                hubble-relay       hubble-relay    1 pods of Deployment hubble-relay are not ready
+    Warnings:              cilium             cilium-5bjkq    Hubble: failed to setup metrics: metric 'unknown-metric' does not exist
+
+Verify the state of the pods with:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
+    NAME           READY   STATUS    RESTARTS      AGE
+    cilium-5bjkq   1/1     Running   1 (18m ago)   33m
+
+If one or more pods are in ``Pending`` state, describe the pod(s) with:
+
+.. code-block:: shell-session
+
+    $ kubectl describe -n kube-system pod/cilium-5bjkq
+    Name:                 cilium-5bjkq
+    Namespace:            kube-system
+    ...
+
+If one or more pods are not in ``Running`` state, look at the pod(s) logs with:
+
+.. code-block:: shell-session
+
+    $ kubectl logs -n kube-system -c cilium-agent -l k8s-app=cilium --tail=-1 | grep subsys=hubble
+    time="2025-02-12T22:12:01.227357082Z" level=info msg="Starting Hubble Metrics server" address=":9965" metrics=unknown-metric subsys=hubble tls=false
+    time="2025-02-12T22:12:01.22740229Z" level=error msg="Failed to launch hubble" error="failed to setup metrics: metric 'unknown-metric' does not exist" subsys=hubble
+
 Next Steps
 ==========
 
