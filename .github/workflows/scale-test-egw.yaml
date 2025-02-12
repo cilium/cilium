@@ -149,6 +149,7 @@ jobs:
             --set=eni.awsEnablePrefixDelegation=true \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
+            --set=debug.enabled=true \
             --nodes-without-cilium"
 
           OWNER="${{ github.ref_name }}"
