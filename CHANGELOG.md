@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.17.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* [v1.17] agent: Deprecate lb-only mode (cilium/cilium#37391, @brb)
+* helm: Update CiliumNodeConfig version (Backport PR cilium/cilium#37440, Upstream PR cilium/cilium#37403, @sayboras)
+
+**Bugfixes:**
+* ces: Fix bug where stale endpoint information was injected into IPCache (Backport PR cilium/cilium#37416, Upstream PR cilium/cilium#37347, @gandro)
+* socket-lb: Fix null pointer dereference in socketlb/cgroup.go (Backport PR cilium/cilium#37440, Upstream PR cilium/cilium#37426, @alvaroaleman)
+
+**CI Changes:**
+* test: Move the dind image to Quay to avoid rate-limiting (Backport PR cilium/cilium#37440, Upstream PR cilium/cilium#37388, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#37502, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#37342, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.23 (v1.17) (cilium/cilium#37501, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.6 (v1.17) (cilium/cilium#37446, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#37409, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#37496, @cilium-renovate[bot])
+
+**Other Changes:**
+* install: Update image digests for v1.17.0 (cilium/cilium#37432, @cilium-release-bot[bot])
+
 ## v1.17.0
 
 Summary of Changes
