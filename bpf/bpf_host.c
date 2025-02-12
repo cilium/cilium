@@ -248,7 +248,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int l3_off = ETH_HLEN;
 	struct remote_endpoint_info *info = NULL;
 	struct endpoint_info *ep;
-	int ret;
+	int ret __maybe_unused;
 	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
@@ -291,6 +291,11 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
+
+		if (from_host) {
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+		}
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
@@ -318,18 +323,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (!from_host)
 		return CTX_ACT_OK;
 #endif /* !ENABLE_HOST_ROUTING */
-
-	if (from_host) {
-		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination MAC address to the MAC of cilium_net.
-		 */
-		ret = rewrite_dmac_to_host(ctx);
-		if (IS_ERR(ret))
-			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
 
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
@@ -423,6 +416,13 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 	__s8 ext_err = 0;
 
 	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, &ext_err);
+	if (from_host && ret == CTX_ACT_OK) {
+		/* If we are attached to cilium_host at egress, this will
+		 * rewrite the destination MAC address to the MAC of cilium_net.
+		 */
+		ret = rewrite_dmac_to_host(ctx);
+	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
@@ -695,7 +695,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct iphdr *ip4;
 	struct remote_endpoint_info *info;
 	struct endpoint_info *ep;
-	int ret;
+	int ret __maybe_unused;
 	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
@@ -738,6 +738,11 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
+
+		if (from_host) {
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+		}
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
@@ -754,18 +759,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (!from_host)
 		return CTX_ACT_OK;
 #endif /* !ENABLE_HOST_ROUTING */
-
-	if (from_host) {
-		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination MAC address to the MAC of cilium_net.
-		 */
-		ret = rewrite_dmac_to_host(ctx);
-		if (IS_ERR(ret))
-			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-	}
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
@@ -901,6 +894,13 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 	__s8 ext_err = 0;
 
 	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, &ext_err);
+	if (from_host && ret == CTX_ACT_OK) {
+		/* If we are attached to cilium_host at egress, this will
+		 * rewrite the destination MAC address to the MAC of cilium_net.
+		 */
+		ret = rewrite_dmac_to_host(ctx);
+	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
