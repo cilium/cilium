@@ -281,8 +281,6 @@ jobs:
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           mkdir -p cilium-junits
 
@@ -327,8 +325,6 @@ jobs:
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
 
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
@@ -338,8 +334,6 @@ jobs:
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           mkdir -p cilium-junits
 

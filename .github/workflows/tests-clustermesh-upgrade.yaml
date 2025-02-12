@@ -439,8 +439,6 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test - pre-upgrade (${{ join(matrix.*, ', ') }})
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
@@ -590,8 +588,6 @@ jobs:
           kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - post-upgrade (${{ join(matrix.*, ', ') }})
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
@@ -670,8 +666,6 @@ jobs:
           kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - stress-test (${{ join(matrix.*, ', ') }})
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           # Only check that no long living connection was disrupted
           cilium --context ${{ env.contextName1 }} connectivity test \
@@ -738,8 +732,6 @@ jobs:
           kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - post-downgrade (${{ join(matrix.*, ', ') }})
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \

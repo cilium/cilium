@@ -330,8 +330,6 @@ jobs:
 
       - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
         shell: bash
-        env:
-          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           mkdir -p cilium-junits
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
