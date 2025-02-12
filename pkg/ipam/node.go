@@ -928,6 +928,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		start := time.Now()
 		err := n.ops.AllocateIPs(ctx, a.allocation)
 		if err == nil {
+			n.manager.instancesAPI.InstanceSync(ctx, n.InstanceID())
 			n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.IPv4.AvailableForAllocation))
 			return true, nil

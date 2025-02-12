@@ -584,7 +584,6 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			if !ok {
 				return nil
 			}
-			log.Info("eni: %+v", e)
 
 			n.enis[e.ID] = *e
 
