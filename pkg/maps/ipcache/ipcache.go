@@ -23,7 +23,7 @@ const (
 	MaxEntries = 512000
 
 	// Name is the canonical name for the IPCache map on the filesystem.
-	Name = "cilium_ipcache"
+	Name = "cilium_ipcache_v2"
 )
 
 // Key implements the bpf.MapKey interface.
@@ -160,16 +160,24 @@ const (
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_identity"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	_                uint16
-	Key              uint8                   `align:"key"`
-	Flags            RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
+	SecurityIdentity uint32 `align:"sec_identity"`
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	TunnelEndpoint types.IPv6 `align:"tunnel_endpoint"`
+	_              uint16
+	Key            uint8                   `align:"key"`
+	Flags          RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s flags=%s",
-		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.Flags)
+		v.SecurityIdentity, v.Key, v.getTunnelEndpoint(), v.Flags)
+}
+
+func (v *RemoteEndpointInfo) getTunnelEndpoint() net.IP {
+	if v.Flags&FlagIPv6TunnelEndpoint == 0 {
+		return v.TunnelEndpoint[:4]
+	}
+	return v.TunnelEndpoint[:]
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
