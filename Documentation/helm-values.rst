@@ -1911,7 +1911,7 @@
    * - :spelling:ignore:`hubble.relay.podSecurityContext`
      - hubble-relay pod security context
      - object
-     - ``{"fsGroup":65532}``
+     - ``{"fsGroup":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.pprof.address`
      - Configure pprof listen address for hubble-relay
      - string
@@ -1975,7 +1975,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
