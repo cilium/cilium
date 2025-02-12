@@ -106,10 +106,11 @@ func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
 	return true, 1, nil
 }
 
-func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
+func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error {
 	if f.destroyConnectionEvents != nil {
 		f.destroyConnectionEvents <- *l3n4Addr
 	}
+	return nil
 }
 
 type fakeEpManager struct {
