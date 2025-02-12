@@ -78,6 +78,8 @@ func registerK8sReflector(p reflectorParams) {
 }
 
 func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) error {
+	extConfig := p.ExtConfig
+
 	const (
 		bufferSize = 300
 		waitTime   = 10 * time.Millisecond
@@ -129,7 +131,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 	}
 
 	upsertService := func(txn WriteTxn, obj *slim_corev1.Service) {
-		svc, fes := convertService(p.ExtConfig, obj)
+		svc, fes := convertService(extConfig, obj)
 		if svc == nil {
 			return
 		}
@@ -195,7 +197,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Sync:
 					markSync(txn)
 				case resource.Upsert:
-					name, backends := convertEndpoints(p.ExtConfig, obj)
+					name, backends := convertEndpoints(extConfig, obj)
 
 					if len(backends) > 0 {
 						err := p.Writer.UpsertBackends(
@@ -271,7 +273,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 							continue
 						}
 
-						if err := upsertHostPort(p, txn, obj); err != nil {
+						if err := upsertHostPort(extConfig, p.Log, txn, p.Writer, obj); err != nil {
 							p.Log.Error("BUG: Unexpected failure in upsertHostPort",
 								logfields.Error, err)
 						}
@@ -398,55 +400,92 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 		}
 	}
 
-	// NodePort
-	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-		for _, scope := range scopes {
-			for _, family := range getIPFamilies(svc) {
-				if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
-					(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
-					continue
-				}
-				for _, port := range svc.Spec.Ports {
-					if port.NodePort == 0 {
+	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
+	// See https://github.com/cilium/cilium/issues/16197 for context.
+
+	if cfg.KubeProxyReplacement {
+		// NodePort
+		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+			for _, scope := range scopes {
+				for _, family := range getIPFamilies(svc) {
+					if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+						(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
 						continue
 					}
+					for _, port := range svc.Spec.Ports {
+						if port.NodePort == 0 {
+							continue
+						}
 
-					fe := FrontendParams{
-						Type:        loadbalancer.SVCTypeNodePort,
-						PortName:    loadbalancer.FEPortName(port.Name),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
-					}
+						fe := FrontendParams{
+							Type:        loadbalancer.SVCTypeNodePort,
+							PortName:    loadbalancer.FEPortName(port.Name),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
 
-					switch family {
-					case slim_corev1.IPv4Protocol:
-						fe.Address.AddrCluster = zeroV4
-					case slim_corev1.IPv6Protocol:
-						fe.Address.AddrCluster = zeroV6
-					default:
-						continue
-					}
+						switch family {
+						case slim_corev1.IPv4Protocol:
+							fe.Address.AddrCluster = zeroV4
+						case slim_corev1.IPv6Protocol:
+							fe.Address.AddrCluster = zeroV6
+						default:
+							continue
+						}
 
-					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-					if p == nil {
-						continue
+						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
+						if p == nil {
+							continue
+						}
+						fe.Address.Scope = scope
+						fe.Address.L4Addr = *p
+						fes = append(fes, fe)
 					}
-					fe.Address.Scope = scope
-					fe.Address.L4Addr = *p
-					fes = append(fes, fe)
 				}
 			}
 		}
-	}
 
-	// LoadBalancer
-	if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-		for _, ip := range svc.Status.LoadBalancer.Ingress {
-			if ip.IP == "" {
-				continue
+		// LoadBalancer
+		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+			for _, ip := range svc.Status.LoadBalancer.Ingress {
+				if ip.IP == "" {
+					continue
+				}
+
+				addr, err := cmtypes.ParseAddrCluster(ip.IP)
+				if err != nil {
+					continue
+				}
+				if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+					continue
+				}
+
+				for _, scope := range scopes {
+					for _, port := range svc.Spec.Ports {
+						fe := FrontendParams{
+							Type:        loadbalancer.SVCTypeLoadBalancer,
+							PortName:    loadbalancer.FEPortName(port.Name),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
+
+						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+						if p == nil {
+							continue
+						}
+						fe.Address.AddrCluster = addr
+						fe.Address.Scope = scope
+						fe.Address.L4Addr = *p
+						fes = append(fes, fe)
+					}
+				}
+
 			}
+		}
 
-			addr, err := cmtypes.ParseAddrCluster(ip.IP)
+		// ExternalIP
+		for _, ip := range svc.Spec.ExternalIPs {
+			addr, err := cmtypes.ParseAddrCluster(ip)
 			if err != nil {
 				continue
 			}
@@ -454,56 +493,24 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 				continue
 			}
 
-			for _, scope := range scopes {
-				for _, port := range svc.Spec.Ports {
-					fe := FrontendParams{
-						Type:        loadbalancer.SVCTypeLoadBalancer,
-						PortName:    loadbalancer.FEPortName(port.Name),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
-					}
-
-					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-					if p == nil {
-						continue
-					}
-					fe.Address.AddrCluster = addr
-					fe.Address.Scope = scope
-					fe.Address.L4Addr = *p
-					fes = append(fes, fe)
+			for _, port := range svc.Spec.Ports {
+				fe := FrontendParams{
+					Type:        loadbalancer.SVCTypeExternalIPs,
+					PortName:    loadbalancer.FEPortName(port.Name),
+					ServiceName: name,
+					ServicePort: uint16(port.Port),
 				}
+
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if p == nil {
+					continue
+				}
+
+				fe.Address.AddrCluster = addr
+				fe.Address.Scope = loadbalancer.ScopeExternal
+				fe.Address.L4Addr = *p
+				fes = append(fes, fe)
 			}
-
-		}
-	}
-
-	// ExternalIP
-	for _, ip := range svc.Spec.ExternalIPs {
-		addr, err := cmtypes.ParseAddrCluster(ip)
-		if err != nil {
-			continue
-		}
-		if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
-			continue
-		}
-
-		for _, port := range svc.Spec.Ports {
-			fe := FrontendParams{
-				Type:        loadbalancer.SVCTypeExternalIPs,
-				PortName:    loadbalancer.FEPortName(port.Name),
-				ServiceName: name,
-				ServicePort: uint16(port.Port),
-			}
-
-			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if p == nil {
-				continue
-			}
-
-			fe.Address.AddrCluster = addr
-			fe.Address.Scope = loadbalancer.ScopeExternal
-			fe.Address.L4Addr = *p
-			fes = append(fes, fe)
 		}
 	}
 
@@ -609,7 +616,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
+func upsertHostPort(extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, writer *Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -621,10 +628,10 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				continue
 			}
 
-			if uint16(p.HostPort) >= params.ExtConfig.NodePortMin &&
-				uint16(p.HostPort) <= params.ExtConfig.NodePortMax {
-				params.Log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
-					"HostPort", p.HostPort, "NodePortMin", params.ExtConfig.NodePortMin, "NodePortMax", params.ExtConfig.NodePortMax)
+			if uint16(p.HostPort) >= extConfig.NodePortMin &&
+				uint16(p.HostPort) <= extConfig.NodePortMax {
+				log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
+					"HostPort", p.HostPort, "NodePortMin", extConfig.NodePortMin, "NodePortMax", extConfig.NodePortMax)
 				continue
 			}
 
@@ -647,10 +654,10 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
-					params.Log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
+					log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
 					continue
 				}
-				if (!params.ExtConfig.EnableIPv6 && addr.Is6()) || (!params.ExtConfig.EnableIPv4 && addr.Is4()) {
+				if (!extConfig.EnableIPv6 && addr.Is6()) || (!extConfig.EnableIPv4 && addr.Is4()) {
 					continue
 				}
 				ipv4 = ipv4 || addr.Is4()
@@ -673,7 +680,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 
 			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && feIP.IsLoopback() && !netnsCookieSupported() {
-				params.Log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
+				log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
 					"hostIP", feIP)
 				continue
 			}
@@ -734,11 +741,11 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				Source:           source.Kubernetes,
 			}
 
-			err = params.Writer.UpsertServiceAndFrontends(wtxn, svc, fes...)
+			err = writer.UpsertServiceAndFrontends(wtxn, svc, fes...)
 			if err != nil {
 				return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
 			}
-			if err := params.Writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
+			if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
 				return fmt.Errorf("SetBackends: %w", err)
 			}
 
@@ -748,17 +755,17 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 
 	// Find and remove orphaned HostPort services, frontends and backends
 	// if 'HostPort' has changed or has been unset.
-	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
+	for svc := range writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
 		}
 
-		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
+		err := writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
 		if err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
 
-		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}

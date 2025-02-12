@@ -70,21 +70,22 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	if testutils.IsPrivileged() {
 		bpfMaps := &experimental.BPFLBMaps{
 			Pinned: false,
-			Cfg: experimental.LBMapsConfig{
-				MaxSockRevNatMapEntries:  3 * testSize,
-				ServiceMapMaxEntries:     3 * testSize,
-				BackendMapMaxEntries:     3 * testSize,
-				RevNatMapMaxEntries:      3 * testSize,
-				AffinityMapMaxEntries:    3 * testSize,
-				SourceRangeMapMaxEntries: 3 * testSize,
-				MaglevMapMaxEntries:      3 * testSize,
-			},
-			ExtCfg: experimental.ExternalConfig{
+			Cfg: experimental.ExternalConfig{
+				LBMapsConfig: experimental.LBMapsConfig{
+					MaxSockRevNatMapEntries:  3 * testSize,
+					ServiceMapMaxEntries:     3 * testSize,
+					BackendMapMaxEntries:     3 * testSize,
+					RevNatMapMaxEntries:      3 * testSize,
+					AffinityMapMaxEntries:    3 * testSize,
+					SourceRangeMapMaxEntries: 3 * testSize,
+					MaglevMapMaxEntries:      3 * testSize,
+				},
 				EnableIPv4:                      true,
 				EnableIPv6:                      true,
 				ExternalClusterIP:               true,
 				EnableSessionAffinity:           true,
 				EnableHealthCheckNodePort:       true,
+				KubeProxyReplacement:            true,
 				NodePortMin:                     30000,
 				NodePortMax:                     40000,
 				NodePortAlg:                     "random",

@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	ReconcilerCell,
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
-	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+	cell.ProvidePrivate(newLBMaps),
 
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),

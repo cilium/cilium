@@ -59,9 +59,11 @@ func TestScript(t *testing.T) {
 						return &option.DaemonConfig{
 							EnableIPv4:                true,
 							EnableIPv6:                true,
+							EnableNodePort:            true,
 							SockRevNatEntries:         1000,
 							LBMapEntries:              1000,
 							EnableLocalRedirectPolicy: true,
+							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
 						}
 					},
 				),

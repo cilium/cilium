@@ -63,12 +63,14 @@ func TestScript(t *testing.T) {
 				source.NewSources,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
-						EnableIPv4:        true,
-						EnableIPv6:        true,
-						SockRevNatEntries: 1000,
-						LBMapEntries:      1000,
-						EnableL7Proxy:     true,
-						EnableEnvoyConfig: true,
+						EnableIPv4:           true,
+						EnableIPv6:           true,
+						EnableNodePort:       true,
+						SockRevNatEntries:    1000,
+						LBMapEntries:         1000,
+						EnableL7Proxy:        true,
+						EnableEnvoyConfig:    true,
+						KubeProxyReplacement: option.KubeProxyReplacementTrue,
 					}
 				},
 				func() *experimental.TestConfig {

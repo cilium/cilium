@@ -68,21 +68,27 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
+	LBMapsConfig
+
 	EnableIPv4, EnableIPv6          bool
 	ExternalClusterIP               bool
 	EnableSessionAffinity           bool
 	EnableHealthCheckNodePort       bool
+	KubeProxyReplacement            bool
 	NodePortMin, NodePortMax        uint16
 	NodePortAlg                     string
 	LoadBalancerAlgorithmAnnotation bool
 }
 
+// newExternalConfig maps the daemon config to [ExternalConfig].
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
+		LBMapsConfig:                    newLBMapsConfig(cfg),
 		EnableIPv4:                      cfg.EnableIPv4,
 		EnableIPv6:                      cfg.EnableIPv6,
 		ExternalClusterIP:               cfg.ExternalClusterIP,
 		EnableSessionAffinity:           true, // FIXME cfg.EnableSessionAffinity,
+		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 		NodePortMin:                     uint16(cfg.NodePortMin),
 		NodePortMax:                     uint16(cfg.NodePortMax),

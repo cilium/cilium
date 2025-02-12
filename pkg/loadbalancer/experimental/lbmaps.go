@@ -28,7 +28,6 @@ type lbmapsParams struct {
 
 	Lifecycle    cell.Lifecycle
 	TestConfig   *TestConfig `optional:"true"`
-	MapsConfig   LBMapsConfig
 	MaglevConfig maglev.Config
 	ExtConfig    ExternalConfig
 	Writer       *Writer
@@ -59,7 +58,7 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 		}
 	}
 
-	r := &BPFLBMaps{Pinned: pinned, ExtCfg: p.ExtConfig, Cfg: p.MapsConfig, MaglevCfg: p.MaglevConfig}
+	r := &BPFLBMaps{Pinned: pinned, Cfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
 }
@@ -161,8 +160,7 @@ type BPFLBMaps struct {
 	// Pinned if true will pin the maps to a file. Tests may turn this off.
 	Pinned bool
 
-	Cfg       LBMapsConfig
-	ExtCfg    ExternalConfig
+	Cfg       ExternalConfig
 	MaglevCfg maglev.Config
 
 	service4Map, service6Map         *ebpf.Map
@@ -286,12 +284,12 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
 	}
 	mapsToDelete := []mapDesc{}
-	if r.ExtCfg.EnableIPv4 {
+	if r.Cfg.EnableIPv4 {
 		mapsToCreate = append(mapsToCreate, v4Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v4Maps...)
 	}
-	if r.ExtCfg.EnableIPv6 {
+	if r.Cfg.EnableIPv6 {
 		mapsToCreate = append(mapsToCreate, v6Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v6Maps...)
@@ -300,7 +298,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 }
 
 // Start implements cell.HookInterface.
-func (r *BPFLBMaps) Start(cell.HookContext) error {
+func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 	r.maglevInnerMapSpec = &ebpf.MapSpec{
 		Name:       lbmap.MaglevInnerMapName,
 		Type:       ebpf.Array,

@@ -66,7 +66,7 @@ type healthServer struct {
 }
 
 func registerHealthServer(params healthServerParams) {
-	if !params.Config.EnableExperimentalLB || !params.ExtConfig.EnableHealthCheckNodePort {
+	if !params.Config.EnableExperimentalLB {
 		return
 	}
 
@@ -102,6 +102,11 @@ func chooseHealthServerLoopbackAddressForTesting() netip.Addr {
 }
 
 func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) error {
+	extCfg := s.params.ExtConfig
+	if !extCfg.KubeProxyReplacement || !extCfg.EnableHealthCheckNodePort {
+		return nil
+	}
+
 	s.nodeName = nodeTypes.GetName()
 
 	// Watch services for changes to add and remove the listeners.
