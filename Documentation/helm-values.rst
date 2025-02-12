@@ -2669,7 +2669,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`name`
-     - Agent container name.
+     - Agent daemonset name.
      - string
      - ``"cilium"``
    * - :spelling:ignore:`namespaceOverride`

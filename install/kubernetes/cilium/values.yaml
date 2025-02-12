@@ -188,7 +188,7 @@ serviceAccounts:
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
 agent: true
-# -- Agent container name.
+# -- Agent daemonset name.
 name: cilium
 # -- Roll out cilium agent pods automatically when configmap is updated.
 rollOutCiliumPods: false

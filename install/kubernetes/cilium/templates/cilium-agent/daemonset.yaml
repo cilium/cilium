@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: cilium
+  name: {{ .Values.name }}
   namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.annotations }}
   annotations:
