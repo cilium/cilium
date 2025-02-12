@@ -6,7 +6,7 @@ inputs:
     required: true
 runs:
   using: composite
-  steps:    
+  steps:
     - shell: bash
       name: Read runtime variable from file safely
       run: |
