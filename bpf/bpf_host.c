@@ -377,7 +377,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
-	if (info && info->tunnel_endpoint.ip4 != 0) {
+	if (info && info->flag_has_tunnel_ep) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint.ip4,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
@@ -393,7 +393,7 @@ skip_tunnel:
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
 	/* See IPv4 comment. */
-	if (from_proxy && info->tunnel_endpoint.ip4 && encrypt_key)
+	if (from_proxy && info->flag_has_tunnel_ep && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
 					 info->sec_identity, true, false);
 
@@ -834,7 +834,7 @@ skip_vtep:
 	if (info && info->flag_skip_tunnel)
 		goto skip_tunnel;
 
-	if (info && info->tunnel_endpoint.ip4 != 0) {
+	if (info && info->flag_has_tunnel_ep) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint.ip4,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
@@ -862,7 +862,7 @@ skip_tunnel:
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
 	/* We encrypt host to remote pod packets only if they are from proxy. */
-	if (from_proxy && info->tunnel_endpoint.ip4 && encrypt_key)
+	if (from_proxy && info->flag_has_tunnel_ep && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
 					 info->sec_identity, true, false);
 
@@ -1026,7 +1026,7 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 		break;
 # endif /* ENABLE_IPV4 */
 	}
-	if (!ep || !ep->tunnel_endpoint.ip4)
+	if (!ep || !ep->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	ctx->mark = 0;
