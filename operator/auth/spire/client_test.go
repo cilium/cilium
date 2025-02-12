@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/stretchr/testify/require"
@@ -412,7 +413,7 @@ func TestClient_Delete(t *testing.T) {
 }
 
 func Test_resolvedK8sService(t *testing.T) {
-	_, c := client.NewFakeClientset()
+	_, c := client.NewFakeClientset(hivetest.Logger(t))
 	_, _ = c.CoreV1().Services("dummy-namespace").Create(context.Background(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "valid-service",
