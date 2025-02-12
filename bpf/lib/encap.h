@@ -46,7 +46,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
+	return ctx_set_encap_info4(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
 				  NULL, 0);
 }
 
@@ -213,8 +213,8 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni, opt,
-				  opt_len);
+	return ctx_set_encap_info4(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni, opt,
+				   opt_len);
 }
 
 static __always_inline void
