@@ -35,6 +35,7 @@ import (
 	"go/types"
 	"io"
 	"log"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -55,9 +56,10 @@ type Options struct {
 	SanityCheck bool      // check fact encoding is ok and deterministic
 	FactLog     io.Writer // if non-nil, log each exported fact to it
 
-	// TODO(adonovan): add ReadFile so that an Overlay specified
+	// TODO(adonovan): expose ReadFile so that an Overlay specified
 	// in the [packages.Config] can be communicated via
 	// Pass.ReadFile to each Analyzer.
+	readFile analysisinternal.ReadFileFunc
 }
 
 // Graph holds the results of a round of analysis, including the graph
@@ -335,8 +337,14 @@ func (act *Action) execOnce() {
 		TypeErrors:   act.Package.TypeErrors,
 		Module:       module,
 
-		ResultOf:          inputs,
-		Report:            func(d analysis.Diagnostic) { act.Diagnostics = append(act.Diagnostics, d) },
+		ResultOf: inputs,
+		Report: func(d analysis.Diagnostic) {
+			// Assert that SuggestedFixes are well formed.
+			if err := analysisinternal.ValidateFixes(act.Package.Fset, act.Analyzer, d.SuggestedFixes); err != nil {
+				panic(err)
+			}
+			act.Diagnostics = append(act.Diagnostics, d)
+		},
 		ImportObjectFact:  act.ObjectFact,
 		ExportObjectFact:  act.exportObjectFact,
 		ImportPackageFact: act.PackageFact,
@@ -344,7 +352,11 @@ func (act *Action) execOnce() {
 		AllObjectFacts:    act.AllObjectFacts,
 		AllPackageFacts:   act.AllPackageFacts,
 	}
-	pass.ReadFile = analysisinternal.MakeReadFile(pass)
+	readFile := os.ReadFile
+	if act.opts.readFile != nil {
+		readFile = act.opts.readFile
+	}
+	pass.ReadFile = analysisinternal.CheckedReadFile(pass, readFile)
 	act.pass = pass
 
 	act.Result, act.Err = func() (any, error) {

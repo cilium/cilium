@@ -217,7 +217,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	chk, err := e.initChecker()
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
-		errs.ReportError(common.NoLocation, err.Error())
+		errs.ReportErrorString(common.NoLocation, err.Error())
 		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	}
 
@@ -614,6 +614,9 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	}
 	if e.HasFeature(featureVariadicLogicalASTs) {
 		prsrOpts = append(prsrOpts, parser.EnableVariadicOperatorASTs(true))
+	}
+	if e.HasFeature(featureIdentEscapeSyntax) {
+		prsrOpts = append(prsrOpts, parser.EnableIdentEscapeSyntax(true))
 	}
 	e.prsr, err = parser.NewParser(prsrOpts...)
 	if err != nil {
