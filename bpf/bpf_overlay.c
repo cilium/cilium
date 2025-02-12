@@ -743,9 +743,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	 */
 	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
-	if (ret == CTX_ACT_DROP) {
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       -DROP_EDT_HORIZON);
+	if (ret < 0) {
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
 		return CTX_ACT_DROP;
 	}
 #endif
