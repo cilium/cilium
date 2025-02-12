@@ -347,7 +347,13 @@ struct edt_info {
 struct remote_endpoint_info {
 	__u32		sec_identity;
 	union {
-		__u32	ip4;
+		struct {
+			__u32	ip4;
+			__u32	pad1;
+			__u32	pad2;
+			__u32	pad3;
+		};
+		union v6addr	ip6;
 	} tunnel_endpoint;
 	__u16		pad;
 	__u8		key;

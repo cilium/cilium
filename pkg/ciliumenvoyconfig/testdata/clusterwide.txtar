@@ -136,14 +136,14 @@ ports:
 policy-trigger-count:
   1
 endpoints:test/echo2:
-  cluster_name:  "test/echo2"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.2"
-            port_value:  8081
+  cluster_name: "test/echo2"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.2"
+            port_value: 8081
           }
         }
       }
@@ -151,14 +151,14 @@ endpoints:test/echo2:
   }
   
 endpoints:test/echo2:*:
-  cluster_name:  "test/echo2:*"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.2"
-            port_value:  8081
+  cluster_name: "test/echo2:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.2"
+            port_value: 8081
           }
         }
       }
@@ -166,30 +166,30 @@ endpoints:test/echo2:*:
   }
   
 listener:/envoy-lb-listener-2/envoy-lb-listener-2:
-  name:  "/envoy-lb-listener-2/envoy-lb-listener-2"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+  name: "/envoy-lb-listener-2/envoy-lb-listener-2"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        is_l7lb:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -198,30 +198,30 @@ listener:/envoy-lb-listener-2/envoy-lb-listener-2:
 policy-trigger-count:
   1
 listener:/envoy-lb-listener-2/envoy-lb-listener-2:
-  name:  "/envoy-lb-listener-2/envoy-lb-listener-2"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+  name: "/envoy-lb-listener-2/envoy-lb-listener-2"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        is_l7lb:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -230,14 +230,14 @@ listener:/envoy-lb-listener-2/envoy-lb-listener-2:
 policy-trigger-count:
   1
 endpoints:test/echo2:
-  cluster_name:  "test/echo2"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.2"
-            port_value:  8081
+  cluster_name: "test/echo2"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.2"
+            port_value: 8081
           }
         }
       }
@@ -245,14 +245,14 @@ endpoints:test/echo2:
   }
   
 endpoints:test/echo2:*:
-  cluster_name:  "test/echo2:*"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.2"
-            port_value:  8081
+  cluster_name: "test/echo2:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.2"
+            port_value: 8081
           }
         }
       }
@@ -260,30 +260,30 @@ endpoints:test/echo2:*:
   }
   
 listener:/envoy-lb-listener-2/envoy-lb-listener-2:
-  name:  "/envoy-lb-listener-2/envoy-lb-listener-2"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+  name: "/envoy-lb-listener-2/envoy-lb-listener-2"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        is_l7lb:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
