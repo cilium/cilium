@@ -82,6 +82,11 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch
+
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
         shell: bash
@@ -160,6 +165,13 @@ jobs:
         shell: bash
         run: |
           df -h
+
+      - name: Copy runtime image tag from untrusted branch
+        run: |
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+
+      - name: Set runtime image environment variable
+        uses: ./../cilium-base-branch/set-runtime-image
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
