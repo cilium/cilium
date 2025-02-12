@@ -68,7 +68,7 @@ func (cpt *ControlPlaneTest) AgentDB() (*statedb.DB, statedb.Table[datapathTable
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
-	clients, _ := k8sClient.NewFakeClientset()
+	clients, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
 	var w lock.Map[string, struct{}]
 	clients.KubernetesFakeClientset = augmentTracker(clients.KubernetesFakeClientset, t, &w)
 	clients.SlimFakeClientset = augmentTracker(clients.SlimFakeClientset, t, &w)

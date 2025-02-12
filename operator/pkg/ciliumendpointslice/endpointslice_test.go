@@ -29,7 +29,7 @@ import (
 func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	m := newCESManager(2, log).(*cesManager)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
@@ -44,7 +44,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 			metrics *Metrics,
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
 			cesMetrics = metrics
@@ -101,7 +101,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 func TestDifferentSpeedQueues(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	m := newCESManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
@@ -116,7 +116,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 			metrics *Metrics,
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
 			cesMetrics = metrics
@@ -203,7 +203,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 func TestCESManagement(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	m := newCESManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
@@ -218,7 +218,7 @@ func TestCESManagement(t *testing.T) {
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 			metrics *Metrics,
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
 			cesMetrics = metrics

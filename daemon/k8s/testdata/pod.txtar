@@ -11,16 +11,23 @@
 hive start
 db/initialized
 
+# We can also use the k8s/wait-watchers to wait for a watcher to appear.
+# This is useful when we don't have a StateDB table and thus cannot use
+# 'db/initialized'.
+# This is only here as an example for other tests. You don't need both
+# this and db/initialized!
+k8s/wait-watchers v1.pods
+
 # At the start the table is empty
 db/cmp k8s-pods empty.table 
 
 # Add a pod
-k8s add pod.yaml
+k8s/add pod.yaml
 
 # TIP: Since this is the first test of its kind, it's worth mentioning
 # here that you can add a 'break' command to drop into an interactive
 # debug shell to explore. E.g. if you would have 'break' here, you could
-# run 'help', 'db show k8s-pods', 'db show health', etc. to explore what
+# run 'help', 'db/show k8s-pods', 'db/show health', etc. to explore what
 # state the 'k8s add' above left us in.
 
 # Validate that it gets reflected and health is reported
@@ -46,7 +53,7 @@ db/prefix --index=name --columns=Name -o actual.table k8s-pods default/
 cmp pods_name.table actual.table
 
 # Remove the pod
-k8s delete pod.yaml
+k8s/delete pod.yaml
 
 # Table should be empty
 db/cmp k8s-pods empty.table
@@ -97,7 +104,7 @@ default/nginx
       }
     ],
     "serviceAccountName": "default",
-    "nodeName": "kind-worker"
+    "nodeName": "testnode"
   },
   "status": {
     "phase": "Running",
@@ -183,7 +190,7 @@ spec:
       readOnly: true
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
-  nodeName: kind-worker
+  nodeName: testnode
   preemptionPolicy: PreemptLowerPriority
   priority: 0
   restartPolicy: Always

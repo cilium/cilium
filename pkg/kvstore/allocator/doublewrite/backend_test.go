@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -34,7 +35,7 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 
 	kvstore.SetupDummy(tb, "etcd")
 	kvstorePrefix := fmt.Sprintf("test-prefix-%s", rand.String(12))
-	kubeClient, _ := k8sClient.NewFakeClientset()
+	kubeClient, _ := k8sClient.NewFakeClientset(hivetest.Logger(tb))
 	backend, err := NewDoubleWriteBackend(
 		DoubleWriteBackendConfiguration{
 			CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{

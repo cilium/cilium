@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -24,7 +25,7 @@ func (f *fakeK8sWatcherConfiguration) KVstoreEnabledWithoutPodNetworkSupport() b
 }
 
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
-	fakeClientSet, _ := client.NewFakeClientset()
+	fakeClientSet, _ := client.NewFakeClientset(hivetest.Logger(t))
 
 	w := newWatcher(
 		fakeClientSet,

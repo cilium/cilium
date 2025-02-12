@@ -23,13 +23,13 @@ import (
 )
 
 func TestUsedIdentitiesInCESs(t *testing.T) {
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
 		cell.Invoke(func(c *k8sClient.FakeClientset, ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
-			fakeClient = *c
+			fakeClient = c
 			ciliumEndpointSlice = ces
 			return nil
 		}),

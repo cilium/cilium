@@ -42,7 +42,7 @@ func TestRegisterController(t *testing.T) {
 		}),
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -81,7 +81,7 @@ func TestRegisterControllerOnce(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(prepareCiliumEndpointCRD),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -118,7 +118,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 			}
 		}),
 		cell.Invoke(func(c *k8sClient.FakeClientset, cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
-			prepareCiliumEndpoints(*c)
+			prepareCiliumEndpoints(c)
 			ciliumEndpoint = cep
 		}),
 		cell.Invoke(func(p params) error {
@@ -147,7 +147,7 @@ func prepareCiliumEndpointCRD(c *k8sClient.FakeClientset) error {
 	return nil
 }
 
-func prepareCiliumEndpoints(fakeClient k8sClient.FakeClientset) {
+func prepareCiliumEndpoints(fakeClient *k8sClient.FakeClientset) {
 	// Create set of Cilium Endpoints:
 	// - CEP with no owner reference and no pods
 	cep := createCiliumEndpoint("cep1", "ns")
