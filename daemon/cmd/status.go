@@ -396,7 +396,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(option.Config.CTMapEntriesGlobalTCP),
 			},
 			{
-				Name: "Endpoint policy",
+				Name: "Endpoints",
 				Size: int64(lxcmap.MaxEntries),
 			},
 			{
@@ -456,7 +456,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(option.Config.NeighMapEntriesGlobal),
 			},
 			{
-				Name: "Global policy",
+				Name: "Endpoint policy",
 				Size: int64(option.Config.PolicyMapEntries),
 			},
 			{
