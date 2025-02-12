@@ -447,9 +447,25 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Policy map size below range",
 			d: &DaemonConfig{
+				AuthMapEntries:        AuthMapEntriesDefault,
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
+				SockRevNatEntries:     4096,
+				LBMapEntries:          65536,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				//
 				PolicyMapEntries: PolicyMapMin - 1,
 			},
 			want: sizes{
+				AuthMapEntries:        AuthMapEntriesDefault,
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
+				SockRevNatEntries:     4096,
+				LBMapEntries:          65536,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				//
 				PolicyMapEntries: PolicyMapMin - 1,
 				WantErr:          true,
 			},
@@ -457,11 +473,27 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Policy map size above range",
 			d: &DaemonConfig{
+				AuthMapEntries:        AuthMapEntriesDefault,
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
+				SockRevNatEntries:     4096,
+				LBMapEntries:          65536,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				//
 				PolicyMapEntries: PolicyMapMax + 1,
 			},
 			want: sizes{
-				PolicyMapEntries: PolicyMapMax + 1,
-				WantErr:          true,
+				AuthMapEntries:        AuthMapEntriesDefault,
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
+				SockRevNatEntries:     4096,
+				LBMapEntries:          65536,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				//
+				PolicyMapEntries: PolicyMapMax,
+				WantErr:          false,
 			},
 		},
 		{
