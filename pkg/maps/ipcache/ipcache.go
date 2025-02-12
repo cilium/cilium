@@ -23,7 +23,7 @@ const (
 	MaxEntries = 512000
 
 	// Name is the canonical name for the IPCache map on the filesystem.
-	Name = "cilium_ipcache"
+	Name = "cilium_ipcache_v2"
 )
 
 // Key implements the bpf.MapKey interface.
