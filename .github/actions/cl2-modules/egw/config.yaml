@@ -97,6 +97,14 @@ steps:
         query: quantile(0.95, egw_scale_test_leaked_requests_total)
       - name: EGW Leaked Pings - 99th Percentile
         query: quantile(0.99, egw_scale_test_leaked_requests_total)
+  - Identifier: EGWLeakedPingsTotal
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: "EGW Leaked Pings Total"
+      metricVersion: v1
+      unit: count
+      queries:
       - name: EGW Leaked Pings - Total
         query: sum(egw_scale_test_leaked_requests_total)
   - Identifier: EGWPodCountMetrics
@@ -149,6 +157,10 @@ steps:
     Method: GenericPrometheusQuery
     Params:
       action: gather
+  - Identifier: EGWLeakedPingsTotal
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
   - Identifier: EGWPodCountMetrics
     Method: GenericPrometheusQuery
     Params:
@@ -162,4 +174,3 @@ steps:
       action: gather
 {{end}}
 {{end}}
-
