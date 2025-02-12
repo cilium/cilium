@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -24,13 +23,20 @@ type InfoPrinter struct {
 	width int
 }
 
-func NewInfoPrinter() *InfoPrinter {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		width = 120
+type fder interface {
+	Fd() uintptr
+}
+
+func NewInfoPrinter(w io.Writer) *InfoPrinter {
+	width := 120
+	if f, ok := w.(fder); ok {
+		widthFd, _, err := term.GetSize(int(f.Fd()))
+		if err == nil {
+			width = widthFd
+		}
 	}
 	return &InfoPrinter{
-		Writer: os.Stdout,
+		Writer: w,
 		width:  width,
 	}
 }

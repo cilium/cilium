@@ -156,5 +156,5 @@ func Port(options ...PortOption) uint32 {
 	for _, opt := range options {
 		opt.apply(&opts)
 	}
-	return uint32(rand.Intn(opts.max+1-opts.min) + opts.min)
+	return uint32(rand.Intn(opts.max+1-opts.min) + opts.min) //nolint:gosec
 }

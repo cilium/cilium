@@ -46,6 +46,11 @@ func (e *Errors) ReportError(l Location, format string, args ...any) {
 	e.ReportErrorAtID(0, l, format, args...)
 }
 
+// ReportErrorString records an error at a source location.
+func (e *Errors) ReportErrorString(l Location, message string) {
+	e.ReportErrorAtID(0, l, "%s", message)
+}
+
 // ReportErrorAtID records an error at a source location and expression id.
 func (e *Errors) ReportErrorAtID(id int64, l Location, format string, args ...any) {
 	e.numErrors++

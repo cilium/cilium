@@ -56,6 +56,8 @@ type LinkAttrs struct {
 	Vfs            []VfInfo // virtual functions available on link
 	Group          uint32
 	PermHWAddr     net.HardwareAddr
+	ParentDev      string
+	ParentDevBus   string
 	Slave          LinkSlave
 }
 

@@ -4,6 +4,9 @@
 package hive
 
 import (
+	"log/slog"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +17,7 @@ func (h *Hive) Command() *cobra.Command {
 		Use:   "hive",
 		Short: "Inspect the hive",
 		Run: func(cmd *cobra.Command, args []string) {
-			h.PrintObjects()
+			h.PrintObjects(os.Stdout, slog.Default())
 		},
 		TraverseChildren: false,
 	}

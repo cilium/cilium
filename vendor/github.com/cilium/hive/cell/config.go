@@ -4,6 +4,7 @@
 package cell
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/dig"
 )
+
+var ErrDuplicateFlag = errors.New("duplicate flag")
 
 // Config constructs a new config cell.
 //
@@ -149,8 +152,16 @@ func (c *config[Cfg]) Apply(cont container, _ rootContainer) error {
 
 	// Register the flags to the global set of all flags.
 	err := cont.Invoke(
-		func(allFlags *pflag.FlagSet) {
+		func(allFlags *pflag.FlagSet) error {
+			var err error
+			flags.VisitAll(func(flag *pflag.Flag) {
+				if allFlags.Lookup(flag.Name) != nil {
+					err2 := fmt.Errorf("'%s' declared twice: %w", flag.Name, ErrDuplicateFlag)
+					err = errors.Join(err, err2)
+				}
+			})
 			allFlags.AddFlagSet(flags)
+			return err
 		})
 	if err != nil {
 		return err

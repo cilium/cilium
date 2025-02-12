@@ -45,7 +45,7 @@ func (c *Client) setAddress() error {
 		c.config.dialOptions = append(c.config.dialOptions, grpc.WithContextDialer(winio.DialPipeContext))
 	}
 
-	c.config.address, err = parseTargetFromStringAddr(c.config.address)
+	c.config.address, err = TargetFromAddress(c.config.address)
 	return err
 }
 
