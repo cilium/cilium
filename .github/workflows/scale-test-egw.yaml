@@ -162,11 +162,11 @@ jobs:
             CLIENT_QPS="20"
           fi
 
-          # The m5.large instance type can support 29 Pods.
-          # See https://github.com/awslabs/amazon-eks-ami/blob/main/templates/shared/runtime/eni-max-pods.txt.
-          # Changing the instance type also requires changing the hardcoded value below!
           NODE_INSTANCE_TYPE="m5.large"
-          NUM_CLIENT_NODES="$(((NUM_CLIENT_PODS / 29) + 2))"
+          TARGET_CLIENT_PODS_PER_NODE=25
+
+          # Poor's man round up to derive the number of desired nodes
+          NUM_CLIENT_NODES="$(( (NUM_CLIENT_PODS + TARGET_CLIENT_PODS_PER_NODE - 1) / TARGET_CLIENT_PODS_PER_NODE ))"
 
           TEST_NAME="${{ env.test_name }}-${{ matrix.test_type }}-${NUM_CLIENT_PODS}-${CLIENT_QPS}"
           CLUSTER_NAME="${TEST_NAME}-${{ env.cluster_name }}"
@@ -349,6 +349,7 @@ jobs:
             privateNetworking: true
             volumeType: "gp3"
             volumeSize: 20
+            maxPodsPerNode: 110
             ssh:
               allow: true
               publicKeyPath: ${{ env.AWS_SSH_KEY }}
@@ -366,6 +367,7 @@ jobs:
             privateNetworking: true
             volumeType: "gp3"
             volumeSize: 20
+            maxPodsPerNode: 110
             ssh:
               allow: true
               publicKeyPath: ${{ env.AWS_SSH_KEY }}
@@ -383,6 +385,7 @@ jobs:
             privateNetworking: true
             volumeType: "gp3"
             volumeSize: 20
+            maxPodsPerNode: 110
             ssh:
               allow: true
               publicKeyPath: ${{ env.AWS_SSH_KEY }}
