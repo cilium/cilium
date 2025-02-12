@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"iter"
 	"maps"
 	"net"
 	"net/netip"
@@ -31,6 +32,7 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/netns"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -2682,4 +2684,119 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	// The subscriber callback function asserts expected callbacks, and also
 	// closes the channel.
 	<-cbCh1
+}
+
+func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
+	var conn net.Conn
+	assert.NoError(t, ns.Do(func() error {
+		ls, err := netlink.LinkList()
+		assert.NoError(t, err)
+		for _, l := range ls {
+			// Netns should be default created with loopback dev
+			// we assign a localhost address to it to allow us to
+			// bind sockets.
+			if l.Attrs().Name == "lo" {
+				netlink.AddrAdd(l, &netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("127.0.0.1"),
+						Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+					},
+				})
+			}
+			_, err := netlink.AddrList(l, unix.AF_INET)
+			assert.NoError(t, err)
+		}
+		conn, err = net.Dial("udp", addr)
+		assert.NoError(t, err)
+		conn.Write([]byte("ping"))
+		return err
+	}))
+	return conn
+}
+
+func TestTerminateUDPConnectionsToBackend(t *testing.T) {
+	ns1, err := netns.New()
+	require.NoError(t, err)
+	// ns2 has a connection that should not be matched due
+	// to a different port.
+	ns2, err := netns.New()
+	require.NoError(t, err)
+	// ns3 will match revnat, but with a different cookie value
+	// so we expect to avoid a socket close (i.e. this is
+	// the case where we have matching tuple values, but
+	// in an unexpected network namespace).
+	ns3, err := netns.New()
+	require.NoError(t, err)
+
+	var conn1, conn2, conn3 net.Conn
+	conn1 = initializeNetns(t, ns1, "127.0.0.1:30000")
+	defer conn1.Close()
+
+	conn2 = initializeNetns(t, ns2, "127.0.0.1:30002")
+	defer conn2.Close()
+
+	conn3 = initializeNetns(t, ns3, "127.0.0.1:30001")
+	defer conn3.Close()
+
+	var cookie uint32
+	var cookie3 uint32
+	ns1.Do(func() error {
+		sock, err := netlink.SocketDiagUDP(unix.AF_INET)
+		assert.NoError(t, err)
+		for _, s := range sock {
+			if s.ID.DestinationPort == 30000 {
+				cookie = s.ID.Cookie[0]
+			}
+		}
+		return nil
+	})
+
+	lbmap := mockmaps.NewLBMockMap()
+
+	lbmap.AddSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000)
+	lbmap.AddSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30001)
+
+	s := Service{
+		config: &option.DaemonConfig{
+			EnableSocketLB:                         true,
+			EnableSocketLBPodConnectionTermination: true,
+			BPFSocketLBHostnsOnly:                  false,
+		},
+
+		backendConnectionHandler: &backendConnectionHandler{},
+
+		// Don't need to pin ns's for the purpose of the test.
+		nsIterator: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
+			ch := make(chan error)
+			return func(yield func(string, *netns.NetNS) bool) {
+				yield("cni-0000", ns1)
+				yield("cni-0001", ns2)
+				yield("cni-0002", ns3)
+				close(ch)
+			}, ch
+		},
+
+		lbmap: lbmap,
+	}
+	ip, err := netip.ParseAddr("127.0.0.1")
+	require.NoError(t, err)
+	l4a := lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30000, 0)
+
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+
+	_, err = conn1.Read([]byte{0})
+	assert.ErrorIs(t, err, unix.ECONNABORTED, "first sock connection should have been aborted")
+
+	conn2.SetDeadline(time.Now().Add(time.Millisecond * 250))
+	_, err = conn2.Read([]byte{0})
+	assert.True(t, err.(net.Error).Timeout(),
+		"other connection should not be prematurely closed, thus read cmd on the sock should simply be allowed to timeout")
+
+	l4a = lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+	conn3.SetDeadline(time.Now().Add(time.Millisecond * 250))
+	_, err = conn3.Read([]byte{0})
+	assert.True(t, err.(net.Error).Timeout(),
+		"other connection should not be closed due to mismatch on netns cookie")
+
 }
