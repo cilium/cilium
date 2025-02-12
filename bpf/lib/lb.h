@@ -2040,7 +2040,7 @@ int tail_no_service_ipv4(struct __ctx_buff *ctx)
 	ret = __tail_no_service_ipv4(ctx);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_sec_identity, ret,
-			CTX_ACT_DROP, METRIC_INGRESS);
+					      METRIC_INGRESS);
 
 	return ret;
 }
@@ -2214,7 +2214,7 @@ int tail_no_service_ipv6(struct __ctx_buff *ctx)
 	ret = __tail_no_service_ipv6(ctx);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_sec_identity, ret,
-			CTX_ACT_DROP, METRIC_INGRESS);
+					      METRIC_INGRESS);
 
 	return ret;
 }

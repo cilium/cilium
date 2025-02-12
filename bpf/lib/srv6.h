@@ -377,8 +377,7 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 	srv6_load_meta_sid(ctx, &dst_sid);
 	ret = srv6_handling(ctx, &dst_sid);
 	if (ret < 0)
-		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN,
@@ -413,7 +412,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 				  TRACE_REASON_SRV6_DECAP, 0);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case IPPROTO_IPV6:
@@ -422,14 +421,13 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 				  TRACE_REASON_SRV6_DECAP, 0);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 #endif /* ENABLE_IPV6 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
 error_drop:
-	return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
-				      METRIC_EGRESS);
+	return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
 }
 # endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */

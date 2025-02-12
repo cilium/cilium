@@ -202,7 +202,7 @@ no_encap:
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	return bpf_xdp_exit(ctx, ret);
 }
@@ -213,8 +213,7 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 	int ret;
 
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
-	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, CTX_ACT_DROP,
-					  METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
 #else
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
@@ -282,8 +281,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 	return bpf_xdp_exit(ctx, ret);
 
 drop_err:
-	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
@@ -292,8 +290,7 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 	int ret;
 
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
-	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, CTX_ACT_DROP,
-					  METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
 #else
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)

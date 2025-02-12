@@ -85,5 +85,5 @@ arp_respond(struct __ctx_buff *ctx, union macaddr *smac, __be32 sip,
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), direction);
 
 error:
-	return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 }
