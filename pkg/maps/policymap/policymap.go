@@ -126,28 +126,21 @@ func (k *PolicyKey) GetDestPort() uint16 {
 
 // GetPortMask returns the port mask of the key
 func (k *PolicyKey) GetPortMask() uint16 {
-	if k.DestPortNetwork == 0 {
-		return 0
-	}
-	prefixLen := k.Prefixlen - StaticPrefixBits
-	if prefixLen == FullPrefixBits {
-		return 0xffff
-	}
-	if prefixLen == 0 || prefixLen == NexthdrBits {
-		return 0
-	}
-	portPrefixLen := prefixLen - NexthdrBits
-	portLen := prefixLenPortLenMap[portPrefixLen]
-	return ^portLen
+	return 0xffff << (16 - k.GetPortPrefixLen())
 }
 
 // GetPortPrefixLen returns the prefix length applicable to the port in the key
 func (k *PolicyKey) GetPortPrefixLen() uint8 {
-	prefixLen := k.Prefixlen - StaticPrefixBits
+	prefixLen := k.GetPrefixLen()
 	if prefixLen <= NexthdrBits {
 		return 0
 	}
-	return uint8(prefixLen - NexthdrBits)
+	return prefixLen - NexthdrBits
+}
+
+// GetPrefixLen returns the prefix length applicable to the protocol and port in the key
+func (k *PolicyKey) GetPrefixLen() uint8 {
+	return uint8(k.Prefixlen - StaticPrefixBits)
 }
 
 const (
@@ -156,11 +149,11 @@ const (
 	sizeofNexthdr   = int(unsafe.Sizeof(PolicyKey{}.Nexthdr))
 	sizeofDestPort  = int(unsafe.Sizeof(PolicyKey{}.DestPortNetwork))
 
-	NexthdrBits    = uint32(sizeofNexthdr) * 8
-	DestPortBits   = uint32(sizeofDestPort) * 8
+	NexthdrBits    = uint8(sizeofNexthdr) * 8
+	DestPortBits   = uint8(sizeofDestPort) * 8
 	FullPrefixBits = NexthdrBits + DestPortBits
 
-	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - FullPrefixBits
+	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - uint32(FullPrefixBits)
 )
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
@@ -264,34 +257,18 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 		p[i].Key.Identity < p[j].Key.Identity
 }
 
-// prefixLenPortLenMaskMap is the map of all the possible prefix lengths
-// of the port field in the policy key, corresponding to the port
+// prefixLenToPortLenMask maps a prefix length to the port
 // length of that mask. The "16" prefix len implies a full mask (that is,
-// 0 additional ports) and makes the default return value, 0, useful.
-var prefixLenPortLenMap = map[uint32]uint16{
-	0:  0xffff,
-	1:  0x7fff,
-	2:  0x3fff,
-	3:  0x1fff,
-	4:  0xfff,
-	5:  0x7ff,
-	6:  0x3ff,
-	7:  0x1ff,
-	8:  0xff,
-	9:  0x7f,
-	10: 0x3f,
-	11: 0x1f,
-	12: 0xf,
-	13: 0x7,
-	14: 0x3,
-	15: 0x1,
+// 0 additional ports).
+func prefixLenToPortLen(plen uint8) uint16 {
+	return 0xffff >> plen
 }
 
 func (key *PolicyKey) PortProtoString() string {
 	dport := key.GetDestPort()
 	protoStr := u8proto.U8proto(key.Nexthdr).String()
-	prefixLen := key.Prefixlen - StaticPrefixBits
-	portPrefixLen := prefixLen - NexthdrBits
+	prefixLen := key.GetPrefixLen()
+	portPrefixLen := key.GetPortPrefixLen()
 
 	switch {
 	case prefixLen == 0, prefixLen == NexthdrBits:
@@ -299,7 +276,7 @@ func (key *PolicyKey) PortProtoString() string {
 		return protoStr
 	case prefixLen > NexthdrBits && prefixLen < FullPrefixBits:
 		// Protocol specified, partially wildcarded port
-		portLen := prefixLenPortLenMap[portPrefixLen]
+		portLen := prefixLenToPortLen(portPrefixLen)
 		return fmt.Sprintf("%d-%d/%s", dport, dport+portLen, protoStr)
 	case prefixLen == FullPrefixBits:
 		// Both protocol and port specified, nothing wildcarded
@@ -323,7 +300,7 @@ func (key *PolicyKey) New() bpf.MapKey { return &PolicyKey{} }
 func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8) PolicyKey {
 	prefixLen := StaticPrefixBits
 	if proto != 0 || dport != 0 {
-		prefixLen += NexthdrBits
+		prefixLen += uint32(NexthdrBits)
 		if dport != 0 {
 			prefixLen += uint32(portPrefixLen)
 		}
@@ -341,7 +318,7 @@ func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.Nume
 func NewKeyFromPolicyKey(pk policyTypes.Key) PolicyKey {
 	prefixLen := StaticPrefixBits
 	if pk.Nexthdr != 0 || pk.DestPort != 0 {
-		prefixLen += NexthdrBits
+		prefixLen += uint32(NexthdrBits)
 		if pk.DestPort != 0 {
 			prefixLen += uint32(pk.PortPrefixLen())
 		}
