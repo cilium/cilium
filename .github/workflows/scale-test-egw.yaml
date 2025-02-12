@@ -280,10 +280,55 @@ jobs:
           ssh-keygen -f ${{ env.AWS_SSH_KEY_PRIVATE }} -P ""
 
       - name: Create EKS cluster
-        shell: bash
         id: deploy-cluster
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          addons: "coredns"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ inputs.SHA || github.sha }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout context ref (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.SHA }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Cilium
+        id: install-cilium
         run: |
-          cat <<EOF > eks-config.yaml
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+
+      - name: Delete context ref
+        run: |
+          rm -rf untrusted/
+
+      # This needs to be performed in a different step, because nodeGroups are not
+      # supported during cluster creation in a cluster without VPC CNI. Cilium is
+      # also required to be already installed for the step to complete successfully.
+      - name: Create EKS nodegroups
+        shell: bash
+        run: |
+          cat <<EOF > eks-nodegroup.yaml
           apiVersion: eksctl.io/v1alpha5
           kind: ClusterConfig
 
@@ -364,42 +409,15 @@ jobs:
               effect: "NoSchedule"
             labels:
               cilium.io/no-schedule: "true"
+            # Manually inject a dummy CNI configuration to let the Kubelet turn
+            # ready. This is necessary as otherwise the node creation would
+            # never complete. Regardless, no pods will be scheduled here given
+            # that the node is tainted.
+            preBootstrapCommands:
+            - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
           EOF
 
-          eksctl create cluster -f ./eks-config.yaml
-
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
-        with:
-          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
-          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ inputs.SHA || github.sha }}
-
-      # Warning: since this is a privileged workflow, subsequent workflow job
-      # steps must take care not to execute untrusted code.
-      - name: Checkout context ref (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ steps.vars.outputs.SHA }}
-          persist-credentials: false
-          path: untrusted
-          sparse-checkout: |
-            install/kubernetes/cilium
-
-      - name: Install Cilium
-        id: install-cilium
-        run: |
-          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
-          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
-
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
-
-      - name: Delete context ref
-        run: |
-          rm -rf untrusted/
+          eksctl create nodegroup -f ./eks-nodegroup.yaml
 
       - name: Wait for Cilium status to be ready
         run: |
