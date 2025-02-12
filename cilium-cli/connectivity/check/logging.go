@@ -115,8 +115,9 @@ func (ct *ConnectivityTest) LogOwners(o ownedScenario) {
 	}
 
 	var workflowOwners []codeowners.Owner
-	// Example: octocat/hello-world/.github/workflows/my-workflow.yml@refs/heads/my_branch
+	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
 	ghWorkflow := os.Getenv("GITHUB_WORKFLOW_REF")
+	ghWorkflow = strings.TrimPrefix(ghWorkflow, "cilium/cilium/")
 	ghWorkflow, _, _ = strings.Cut(ghWorkflow, "@")
 	if ghWorkflow != "" {
 		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
