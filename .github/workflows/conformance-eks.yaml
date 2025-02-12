@@ -326,6 +326,8 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --log-code-owners \
@@ -354,6 +356,8 @@ jobs:
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/conn-disrupt-test-check
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         with:
           full-test: 'true'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}

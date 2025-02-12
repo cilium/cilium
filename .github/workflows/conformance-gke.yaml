@@ -325,6 +325,8 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --log-code-owners \

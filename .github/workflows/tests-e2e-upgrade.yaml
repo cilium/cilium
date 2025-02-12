@@ -719,6 +719,8 @@ jobs:
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \
@@ -730,6 +732,8 @@ jobs:
 
       - name: Run sequential Cilium tests
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \
@@ -738,6 +742,8 @@ jobs:
 
       - name: Run concurrent Cilium tests
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \
@@ -776,6 +782,8 @@ jobs:
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \
@@ -787,6 +795,8 @@ jobs:
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \
@@ -796,6 +806,8 @@ jobs:
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test \
             --log-code-owners \

@@ -421,6 +421,8 @@ jobs:
 
       - name: Run basic CLI tests
         shell: bash
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --log-code-owners \

@@ -378,11 +378,15 @@ jobs:
       - name: Run connection interrupted tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
 
       - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
@@ -390,6 +394,8 @@ jobs:
 
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
@@ -433,12 +439,16 @@ jobs:
 
       - name: Run connection interrupted tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
 
       - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
@@ -446,6 +456,8 @@ jobs:
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}

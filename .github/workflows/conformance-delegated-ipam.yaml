@@ -334,6 +334,8 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Cilium connectivity test
+        env:
+          GITHUB_WORKFLOW_REF: ${{ GITHUB_WORKFLOW_REF }}
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --log-code-owners \
