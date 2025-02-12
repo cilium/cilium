@@ -75,7 +75,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, IPCACHE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_ipcache __section_maps_btf;
+} cilium_ipcache_v2 __section_maps_btf;
 
 /* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
 #define IPCACHE_STATIC_PREFIX							\
@@ -127,6 +127,6 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 }
 
 #define lookup_ip6_remote_endpoint(addr, cluster_id) \
-	ipcache_lookup6(&cilium_ipcache, addr, V6_CACHE_KEY_LEN, cluster_id)
+	ipcache_lookup6(&cilium_ipcache_v2, addr, V6_CACHE_KEY_LEN, cluster_id)
 #define lookup_ip4_remote_endpoint(addr, cluster_id) \
-	ipcache_lookup4(&cilium_ipcache, addr, V4_CACHE_KEY_LEN, cluster_id)
+	ipcache_lookup4(&cilium_ipcache_v2, addr, V4_CACHE_KEY_LEN, cluster_id)

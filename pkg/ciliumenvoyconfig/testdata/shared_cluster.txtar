@@ -220,39 +220,39 @@ SVC: ID=6 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterI
 policy-trigger-count:
   2
 clusters:test/listener-a/test:echo:80:
-  name:  "test/listener-a/test:echo:80"
-  eds_cluster_config:  {
-    service_name:  "test/echo:80"
+  name: "test/listener-a/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
   }
-  connect_timeout:  {
-    seconds:  5
+  connect_timeout: {
+    seconds: 5
   }
-  circuit_breakers:  {
-    thresholds:  {
-      max_retries:  {
-        value:  128
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
       }
     }
   }
-  typed_extension_protocol_options:  {
-    key:  "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
-    value:  {
-      [type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions]:  {
-        use_downstream_protocol_config:  {
-          http2_protocol_options:  {}
+  typed_extension_protocol_options: {
+    key: "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+    value: {
+      [type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions]: {
+        use_downstream_protocol_config: {
+          http2_protocol_options: {}
         }
-        http_filters:  {
-          name:  "cilium.l7policy"
-          typed_config:  {
-            [type.googleapis.com/cilium.L7Policy]:  {
-              access_log_path:  "envoy/sockets/access_log.sock"
+        http_filters: {
+          name: "cilium.l7policy"
+          typed_config: {
+            [type.googleapis.com/cilium.L7Policy]: {
+              access_log_path: "envoy/sockets/access_log.sock"
             }
           }
         }
-        http_filters:  {
-          name:  "envoy.filters.http.upstream_codec"
-          typed_config:  {
-            [type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec]:  {}
+        http_filters: {
+          name: "envoy.filters.http.upstream_codec"
+          typed_config: {
+            [type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec]: {}
           }
         }
       }
@@ -260,89 +260,89 @@ clusters:test/listener-a/test:echo:80:
   }
   
 clusters:test/listener-b/test:echo:80:
-  name:  "test/listener-b/test:echo:80"
-  eds_cluster_config:  {
-    service_name:  "test/echo:80"
+  name: "test/listener-b/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
   }
-  connect_timeout:  {
-    seconds:  5
+  connect_timeout: {
+    seconds: 5
   }
-  circuit_breakers:  {
-    thresholds:  {
-      max_retries:  {
-        value:  128
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
       }
     }
   }
   
 endpoints:test/echo:80:
-  cluster_name:  "test/echo:80"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.1"
-            port_value:  8080
+  cluster_name: "test/echo:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
           }
         }
       }
     }
   }
   
-listener:test/listener-a/listener
-  name:  "test/listener-a/listener"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+listener:test/listener-a/listener:
+  name: "test/listener-a/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        is_l7lb:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
   
 listener:test/listener-b/listener:
-  name:  "test/listener-b/listener"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+  name: "test/listener-b/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -351,30 +351,30 @@ listener:test/listener-b/listener:
 policy-trigger-count:
   3
 clusters:test/listener-b/test:echo:80:
-  name:  "test/listener-b/test:echo:80"
-  eds_cluster_config:  {
-    service_name:  "test/echo:80"
+  name: "test/listener-b/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
   }
-  connect_timeout:  {
-    seconds:  5
+  connect_timeout: {
+    seconds: 5
   }
-  circuit_breakers:  {
-    thresholds:  {
-      max_retries:  {
-        value:  128
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
       }
     }
   }
   
 endpoints:test/echo:80:
-  cluster_name:  "test/echo:80"
-  endpoints:  {
-    lb_endpoints:  {
-      endpoint:  {
-        address:  {
-          socket_address:  {
-            address:  "10.244.1.1"
-            port_value:  8080
+  cluster_name: "test/echo:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
           }
         }
       }
@@ -382,29 +382,29 @@ endpoints:test/echo:80:
   }
   
 listener:test/listener-b/listener:
-  name:  "test/listener-b/listener"
-  address:  {
-    socket_address:  {
-      address:  "127.0.0.1"
-      port_value:  1000
+  name: "test/listener-b/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
     }
   }
-  additional_addresses:  {
-    address:  {
-      socket_address:  {
-        address:  "::1"
-        port_value:  1000
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
       }
     }
   }
-  listener_filters:  {
-    name:  "cilium.bpf_metadata"
-    typed_config:  {
-      [type.googleapis.com/cilium.BpfMetadata]:  {
-        bpf_root:  "/sys/fs/bpf"
-        use_original_source_address:  true
-        proxy_id:  1000
-        ipcache_name:  "cilium_ipcache"
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }

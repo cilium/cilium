@@ -216,7 +216,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         bpf_root: "/sys/fs/bpf"
         use_original_source_address: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -247,7 +247,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         bpf_root: "/sys/fs/bpf"
         use_original_source_address: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
@@ -293,7 +293,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         bpf_root: "/sys/fs/bpf"
         use_original_source_address: true
         proxy_id: 1000
-        ipcache_name: "cilium_ipcache"
+        ipcache_name: "cilium_ipcache_v2"
       }
     }
   }
