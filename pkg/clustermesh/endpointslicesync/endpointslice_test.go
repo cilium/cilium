@@ -89,7 +89,7 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 }
 
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
 	logger := logrus.New()
 	hive := hive.New(
@@ -99,7 +99,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 			c *k8sClient.FakeClientset,
 			svc resource.Resource[*slim_corev1.Service],
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			services = svc
 			return nil
 		}),
@@ -117,7 +117,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(
 		context.Background(), logger,
 		EndpointSliceSyncConfig{ClusterMeshMaxEndpointsPerSlice: 100},
-		podInformer, nodeInformer, &fakeClient, services, globalService,
+		podInformer, nodeInformer, fakeClient, services, globalService,
 	)
 	endpointsliceInformer.Start(context.Background().Done())
 	go serviceInformer.Start(context.Background())
@@ -143,7 +143,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err = getEndpointSlice(&fakeClient, svcName)
+			epList, err = getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -174,7 +174,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err = getEndpointSlice(&fakeClient, svcName)
+			epList, err = getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -197,7 +197,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		createGlobalService(globalService, podInformer, svcName, nil)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(&fakeClient, svcName)
+			epList, err := getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -213,7 +213,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			// Make sure that we have 1 endpointslice
-			epList, err = getEndpointSlice(&fakeClient, svcName)
+			epList, err = getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -223,7 +223,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		serviceInformer.refreshAllCluster(svc1)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(&fakeClient, svcName)
+			epList, err := getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -239,7 +239,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			// Make sure that we have 1 endpointslice
-			epList, err = getEndpointSlice(&fakeClient, svcName)
+			epList, err = getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -249,7 +249,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		podInformer.onClusterServiceDelete(clusterSvc)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(&fakeClient, svcName)
+			epList, err := getEndpointSlice(fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")

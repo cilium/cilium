@@ -34,8 +34,10 @@ func TestScript(t *testing.T) {
 	t.Setenv("TZ", "")
 
 	log := hivetest.Logger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
 	scripttest.Test(t,
-		context.Background(),
+		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				client.FakeClientCell,
