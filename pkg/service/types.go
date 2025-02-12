@@ -83,5 +83,5 @@ type ServiceManager interface {
 
 	// TerminateUDPConnectionsToBackend terminates UDP connections to the passed
 	// backend with address when socket-LB is enabled.
-	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)
+	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error
 }

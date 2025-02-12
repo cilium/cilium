@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -296,13 +298,17 @@ type Service struct {
 	l7lbSvcs map[lb.ServiceName]*L7LBInfo
 
 	backendConnectionHandler sockets.SocketDestroyer
+	nsIterator               func() (iter.Seq2[string, *netns.NetNS], <-chan error)
 
 	backendDiscovery       datapathTypes.NodeNeighbors
 	k8sControlplaneEnabled bool
+
+	config *option.DaemonConfig
 }
 
 // newService creates a new instance of the service handler.
-func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
+func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool,
+	config *option.DaemonConfig) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
@@ -323,6 +329,8 @@ func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap data
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
+		config:                   config,
+		nsIterator:               netns.All,
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
@@ -1774,6 +1782,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 			)
 		}
 		s.lbmap.DeleteBackendByID(id)
+		// Note: TerminateUDPConnectionsToBackend returns an error but we do not need to handle it here.
+		// errors are already logged inside the function and we do not want to return early in case of
+		// termination failures - these are always best effort.
 		s.TerminateUDPConnectionsToBackend(&be.L3n4Addr)
 	}
 

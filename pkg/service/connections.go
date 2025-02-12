@@ -5,18 +5,14 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
-	"os"
-	"path/filepath"
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
-	"github.com/cilium/cilium/pkg/defaults"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/netns"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -24,14 +20,16 @@ import (
 
 var opSupported = true
 
-func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
+// TerminateUDPConnectionsToBackend closes UDP connection sockets that match the destination
+// l3/l4 tuple addr that also are tracked in the sock rev nat map (including socket cookie).
+func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error {
 	// With socket-lb, existing client applications can continue to connect to
 	// deleted backends. Destroy any client sockets connected to the deleted backend.
-	if !(option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly) {
-		return
+	if !(s.config.EnableSocketLB || s.config.BPFSocketLBHostnsOnly) {
+		return nil
 	}
 	if !opSupported {
-		return
+		return nil
 	}
 	var (
 		family   uint8
@@ -44,7 +42,7 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	case lb.UDP:
 		protocol = unix.IPPROTO_UDP
 	default:
-		return
+		return nil
 	}
 	s.logger.Debug("handling udp connections to deleted backend", logfields.Deleted, l3n4Addr)
 	if l3n4Addr.IsIPv6() {
@@ -77,7 +75,7 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 			s.logger.Error("Forcefully terminating sockets connected to deleted service backends " +
 				"not supported by underlying kernel: see kube-proxy free guide for " +
 				"the required kernel configurations")
-			return
+			return fmt.Errorf("Forcefully terminating sockets connected to deleted service backends: %w", err)
 		} else {
 			s.logger.Error(
 				"error while forcefully terminating sockets connected to "+
@@ -89,31 +87,12 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 		}
 	}
 
+	var destroyErrs error
 	// Iterate over all pod network namespaces, and terminate any stale connections.
-	if option.Config.EnableSocketLBPodConnectionTermination && !option.Config.BPFSocketLBHostnsOnly {
-		files, err := os.ReadDir(defaults.NetNsPath)
-		if err != nil {
-			s.logger.Error(
-				"Error opening the netns dir while "+
-					"terminating connections to deleted service backend",
-				logfields.Error, err,
-				logfields.L3n4Addr, l3n4Addr,
-				logfields.NetNSDir, defaults.NetNsPath,
-			)
-			return
-		}
-
-		for _, file := range files {
-			ns, err := netns.OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
-			if err != nil {
-				s.logger.Debug(
-					"Error opening netns",
-					logfields.Error, err,
-					logfields.NetNSName, file.Name(),
-				)
-				continue
-			}
-			err = ns.Do(func() error {
+	if s.config.EnableSocketLBPodConnectionTermination && !s.config.BPFSocketLBHostnsOnly {
+		iter, errs := s.nsIterator()
+		for name, ns := range iter {
+			err := ns.Do(func() error {
 				return s.backendConnectionHandler.Destroy(sockets.SocketFilter{
 					Family:    family,
 					Protocol:  protocol,
@@ -122,7 +101,6 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 					DestroyCB: checkSockInRevNat,
 				})
 			})
-			ns.Close()
 			if err != nil {
 				s.logger.Error(
 					"error while forcefully terminating sockets in netns connected to "+
@@ -130,12 +108,18 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 						"to the backend",
 					logfields.Error, err,
 					logfields.L3n4Addr, l3n4Addr,
-					logfields.NetNSName, file.Name(),
+					logfields.NetNSName, name,
 				)
+				destroyErrs = errors.Join(destroyErrs, err)
 				continue
 			}
 		}
+		for err := range errs {
+			s.logger.Debug("Error opening netns, skipping",
+				logfields.Error, err)
+		}
 	}
+	return destroyErrs
 }
 
 // backendConnectionHandler is added for dependency injection in tests.
