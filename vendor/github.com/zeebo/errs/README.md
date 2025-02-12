@@ -152,7 +152,7 @@ func checkForNeatThings() {
 }
 ```
 
-It knows about both the `Cause() error` and `Unwrap() error` methods that are
+It knows about both the `Unwrap() error` and `Unwrap() []error` methods that are
 often used in the community, and will call them as many times as possible.
 
 ### Defer

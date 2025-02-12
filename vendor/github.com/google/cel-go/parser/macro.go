@@ -225,6 +225,9 @@ type ExprHelper interface {
 	// NewAccuIdent returns an accumulator identifier for use with comprehension results.
 	NewAccuIdent() ast.Expr
 
+	// AccuIdentName returns the name of the accumulator identifier.
+	AccuIdentName() string
+
 	// NewCall creates a function call Expr value for a global (free) function.
 	NewCall(function string, args ...ast.Expr) ast.Expr
 
@@ -298,6 +301,11 @@ var (
 // AccumulatorName is the traditional variable name assigned to the fold accumulator variable.
 const AccumulatorName = "__result__"
 
+// HiddenAccumulatorName is a proposed update to the default fold accumlator variable.
+// @result is not normally accessible from source, preventing accidental or intentional collisions
+// in user expressions.
+const HiddenAccumulatorName = "@result"
+
 type quantifierKind int
 
 const (
@@ -342,7 +350,8 @@ func MakeMap(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument is not an identifier")
 	}
-	if v == AccumulatorName {
+	accu := eh.AccuIdentName()
+	if v == accu || v == AccumulatorName {
 		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
 	}
 
@@ -364,7 +373,7 @@ func MakeMap(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common
 	if filter != nil {
 		step = eh.NewCall(operators.Conditional, filter, step, eh.NewAccuIdent())
 	}
-	return eh.NewComprehension(target, v, AccumulatorName, init, condition, step, eh.NewAccuIdent()), nil
+	return eh.NewComprehension(target, v, accu, init, condition, step, eh.NewAccuIdent()), nil
 }
 
 // MakeFilter expands the input call arguments into a comprehension which produces a list which contains
@@ -375,7 +384,8 @@ func MakeFilter(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *com
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument is not an identifier")
 	}
-	if v == AccumulatorName {
+	accu := eh.AccuIdentName()
+	if v == accu || v == AccumulatorName {
 		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
 	}
 
@@ -384,7 +394,7 @@ func MakeFilter(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *com
 	condition := eh.NewLiteral(types.True)
 	step := eh.NewCall(operators.Add, eh.NewAccuIdent(), eh.NewList(args[0]))
 	step = eh.NewCall(operators.Conditional, filter, step, eh.NewAccuIdent())
-	return eh.NewComprehension(target, v, AccumulatorName, init, condition, step, eh.NewAccuIdent()), nil
+	return eh.NewComprehension(target, v, accu, init, condition, step, eh.NewAccuIdent()), nil
 }
 
 // MakeHas expands the input call arguments into a presence test, e.g. has(<operand>.field)
@@ -401,7 +411,8 @@ func makeQuantifier(kind quantifierKind, eh ExprHelper, target ast.Expr, args []
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument must be a simple name")
 	}
-	if v == AccumulatorName {
+	accu := eh.AccuIdentName()
+	if v == accu || v == AccumulatorName {
 		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
 	}
 
@@ -431,7 +442,7 @@ func makeQuantifier(kind quantifierKind, eh ExprHelper, target ast.Expr, args []
 	default:
 		return nil, eh.NewError(args[0].ID(), fmt.Sprintf("unrecognized quantifier '%v'", kind))
 	}
-	return eh.NewComprehension(target, v, AccumulatorName, init, condition, step, result), nil
+	return eh.NewComprehension(target, v, accu, init, condition, step, result), nil
 }
 
 func extractIdent(e ast.Expr) (string, bool) {

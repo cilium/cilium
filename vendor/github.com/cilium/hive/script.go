@@ -63,28 +63,54 @@ type ScriptCmdsOut struct {
 	ScriptCmds []ScriptCmd `group:"script-commands,flatten"`
 }
 
+const defaultScriptTimeout = time.Minute
+
 func hiveScriptCmd(h *Hive, log *slog.Logger) script.Cmd {
-	const defaultTimeout = time.Minute
 	return script.Command(
 		script.CmdUsage{
-			Summary: "manipulate the hive",
-			Args:    "cmd args...",
+			Summary: "show the hive",
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 1 {
-				return nil, fmt.Errorf("hive cmd args...\n'cmd' is one of: start, stop, jobs")
-			}
-			switch args[0] {
-			case "start":
-				ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+			switch {
+			// For backwards compatibility.
+			case len(args) >= 1 && args[0] == "start":
+				ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
 				defer cancel()
 				return nil, h.Start(log, ctx)
-			case "stop":
-				ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+			case len(args) >= 1 && args[0] == "stop":
+				ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
 				defer cancel()
 				return nil, h.Stop(log, ctx)
+			default:
+				h.PrintObjects(s.LogWriter(), log)
+				return nil, nil
 			}
-			return nil, fmt.Errorf("unknown hive command %q, expected one of: start, stop, jobs", args[0])
+		},
+	)
+}
+
+func hiveStartCmd(h *Hive, log *slog.Logger) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "start the hive",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
+			defer cancel()
+			return nil, h.Start(log, ctx)
+		},
+	)
+}
+
+func hiveStopCmd(h *Hive, log *slog.Logger) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "stop the hive",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), defaultScriptTimeout)
+			defer cancel()
+			return nil, h.Stop(log, ctx)
 		},
 	)
 }

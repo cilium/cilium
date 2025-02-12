@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -339,9 +340,9 @@ func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 	start := time.Now()
 	err := h.lifecycle.Start(log, ctx)
 	if err == nil {
-		log.Info("Started", "duration", time.Since(start))
+		log.Info("Started hive", "duration", time.Since(start))
 	} else {
-		log.Error("Start failed", "error", err, "duration", time.Since(start))
+		log.Error("Failed to start hive", "error", err, "duration", time.Since(start))
 	}
 	return err
 }
@@ -351,7 +352,7 @@ func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 // then after 5 more seconds the process will be terminated forcefully.
 func (h *Hive) Stop(log *slog.Logger, ctx context.Context) error {
 	defer close(h.fatalOnTimeout(ctx))
-	log.Info("Stopping")
+	log.Info("Stopping hive")
 	return h.lifecycle.Stop(log, ctx)
 }
 
@@ -392,18 +393,18 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 	}
 }
 
-func (h *Hive) PrintObjects() {
-	if err := h.Populate(slog.Default()); err != nil {
+func (h *Hive) PrintObjects(w io.Writer, log *slog.Logger) {
+	if err := h.Populate(log); err != nil {
 		panic(fmt.Sprintf("Failed to populate object graph: %s", err))
 	}
 
-	fmt.Printf("Cells:\n\n")
-	ip := cell.NewInfoPrinter()
+	fmt.Fprintf(w, "Cells:\n\n")
+	ip := cell.NewInfoPrinter(w)
 	for _, c := range h.cells {
 		c.Info(h.container).Print(2, ip)
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
-	h.lifecycle.PrintHooks()
+	h.lifecycle.PrintHooks(w)
 }
 
 func (h *Hive) PrintDotGraph() {
@@ -429,6 +430,8 @@ func (h *Hive) ScriptCommands(log *slog.Logger) (map[string]script.Cmd, error) {
 	}
 	m := map[string]script.Cmd{}
 	m["hive"] = hiveScriptCmd(h, log)
+	m["hive/start"] = hiveStartCmd(h, log)
+	m["hive/stop"] = hiveStopCmd(h, log)
 
 	// Gather the commands from the hive.
 	h.container.Invoke(func(sc ScriptCmds) {
