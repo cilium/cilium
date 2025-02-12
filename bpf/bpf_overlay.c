@@ -183,7 +183,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -272,7 +272,7 @@ int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 	ret = handle_inter_cluster_revsnat(ctx, src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 #endif
@@ -486,7 +486,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -514,8 +514,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
-		return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_TUNNEL_KEY, CTX_ACT_DROP,
-										METRIC_INGRESS);
+		return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_TUNNEL_KEY, METRIC_INGRESS);
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
@@ -526,7 +525,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	ret = arp_prepare_response(ctx, &mac, tip, &smac, sip);
 	if (unlikely(ret != 0))
-		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
 		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						       LOCAL_NODE_ID, WORLD_IPV4_ID,
@@ -539,7 +538,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	ret = DROP_UNKNOWN_L3;
 drop_err:
-	return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 
 pass_to_stack:
 	send_trace_notify(ctx, TRACE_TO_STACK, UNKNOWN_ID, UNKNOWN_ID,
@@ -713,8 +712,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret,
-						  ext_err, CTX_ACT_DROP,
-						  METRIC_INGRESS);
+						  ext_err, METRIC_INGRESS);
 	return ret;
 }
 
@@ -780,7 +778,7 @@ out:
 #endif
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 	return ret;
 }
 
