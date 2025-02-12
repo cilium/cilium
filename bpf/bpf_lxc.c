@@ -257,7 +257,7 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	}
 
 	return send_drop_notify_ext(ctx, src_label, dst, dst_id, reason,
-				    ext_err, CTX_ACT_DROP, m_dir);
+				    ext_err, m_dir);
 }
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
@@ -801,7 +801,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, SECLABEL_IPV6, dst_sec_identity,
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
-					    CTX_ACT_DROP, METRIC_EGRESS);
+					    METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
@@ -854,7 +854,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -1351,7 +1351,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, SECLABEL_IPV4, dst_sec_identity,
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
-					    CTX_ACT_DROP, METRIC_EGRESS);
+					    METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
@@ -1424,7 +1424,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV4, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 	return ret;
 }
 
@@ -1527,7 +1527,7 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, sec_label, UNKNOWN_ID,
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
-					    CTX_ACT_DROP, METRIC_EGRESS);
+					    METRIC_EGRESS);
 	return ret;
 }
 
@@ -1742,7 +1742,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 drop_err:
 	return send_drop_notify_ext(ctx, src_label, SECLABEL_IPV6, LXC_ID,
-				    ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
+				    ret, ext_err, METRIC_INGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
@@ -1814,7 +1814,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_sec_identity, SECLABEL_IPV6, LXC_ID,
-					ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
+					ret, ext_err, METRIC_INGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
@@ -2101,7 +2101,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 drop_err:
 	return send_drop_notify_ext(ctx, src_label, SECLABEL_IPV4, LXC_ID,
-				    ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
+				    ret, ext_err, METRIC_INGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
@@ -2172,7 +2172,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_sec_identity, SECLABEL_IPV4, LXC_ID,
-					ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
+					ret, ext_err, METRIC_INGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
@@ -2251,7 +2251,7 @@ int handle_policy(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_label, sec_label, LXC_ID, ret, ext_err,
-					    CTX_ACT_DROP, METRIC_INGRESS);
+					    METRIC_INGRESS);
 
 	return ret;
 }
@@ -2306,7 +2306,7 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, sec_label, UNKNOWN_ID,
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
-					    CTX_ACT_DROP, METRIC_EGRESS);
+					    METRIC_EGRESS);
 
 	return ret;
 #else
@@ -2341,7 +2341,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		ret = tail_call_egress_policy(ctx, (__u16)identity);
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
-					ret, CTX_ACT_DROP, METRIC_INGRESS);
+					ret, METRIC_INGRESS);
 	}
 #endif
 
@@ -2363,8 +2363,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 		ret = tail_call_policy(ctx, HOST_EP_ID);
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
-					DROP_HOST_NOT_READY, CTX_ACT_DROP,
-					METRIC_INGRESS);
+					DROP_HOST_NOT_READY, METRIC_INGRESS);
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
@@ -2397,7 +2396,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, identity, sec_label, LXC_ID, ret,
-					    ext_err, CTX_ACT_DROP, METRIC_INGRESS);
+					    ext_err, METRIC_INGRESS);
 
 	return ret;
 }
