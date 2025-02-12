@@ -1159,8 +1159,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
-						  CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
+								CTX_ACT_OK, METRIC_INGRESS);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1207,8 +1207,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
-						  CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
+								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
