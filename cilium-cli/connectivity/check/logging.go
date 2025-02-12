@@ -143,7 +143,7 @@ func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 		ct.Log("        - " + scenario.Name() + ": " + o.String())
 	}
 	for _, o := range workflowOwners {
-		ct.Log("        - ", o.String(), " (via ", ghWorkflow, ")")
+		ct.Log("        - " + ghWorkflow + ": " + o.String())
 	}
 }
 
