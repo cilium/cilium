@@ -272,6 +272,8 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 		})
 
 	})
+
+	t.Fail("Joe is testing that the test failure prints codeowners as expected")
 }
 
 func PodToPodMissingIPCache(opts ...Option) check.Scenario {
