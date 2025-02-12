@@ -142,6 +142,12 @@ const (
 	// packets destined for said endpoint shall not be forwarded through
 	// a VXLAN/Geneve tunnel, regardless of Cilium's configuration.
 	FlagSkipTunnel RemoteEndpointInfoFlags = 1 << iota
+	// FlagHasTunnelEndpoint is set when the tunnel endpoint is not null. It
+	// aims to simplify the logic compared to checking the IPv6 address.
+	FlagHasTunnelEndpoint
+	// FlagIPv6TunnelEndpoint is set when the tunnel endpoint IP address
+	// is an IPv6 address.
+	FlagIPv6TunnelEndpoint
 )
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
@@ -171,10 +177,16 @@ func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpoi
 	result.Key = key
 	result.Flags = flags
 
+	if tunnelEndpoint == nil {
+		return result
+	}
+
+	result.Flags |= FlagHasTunnelEndpoint
 	if ip4 := tunnelEndpoint.To4(); ip4 != nil {
 		copy(result.TunnelEndpoint[:], ip4)
 	} else {
 		copy(result.TunnelEndpoint[:], tunnelEndpoint)
+		result.Flags |= FlagIPv6TunnelEndpoint
 	}
 
 	return result
