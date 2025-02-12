@@ -17,6 +17,8 @@ __ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 	value.tunnel_endpoint.ip4 = tunnel_ep;
 	value.key = spi;
 	value.flag_skip_tunnel = flag_skip_tunnel;
+	if (tunnel_ep)
+		value.flag_has_tunnel_ep = true;
 
 	map_update_elem(&IPCACHE_MAP, &key, &value, BPF_ANY);
 }
@@ -65,6 +67,8 @@ __ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_iden
 	value.tunnel_endpoint.ip4 = tunnel_ep;
 	value.key = spi;
 	value.flag_skip_tunnel = flag_skip_tunnel;
+	if (tunnel_ep)
+		value.flag_has_tunnel_ep = true;
 
 	memcpy(&key.ip6, addr, sizeof(*addr));
 
