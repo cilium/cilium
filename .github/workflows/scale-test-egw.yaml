@@ -149,7 +149,6 @@ jobs:
             --set=eni.awsEnablePrefixDelegation=true \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
-            --set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --nodes-without-cilium"
 
           OWNER="${{ github.ref_name }}"
@@ -192,7 +191,7 @@ jobs:
         timeout-minutes: 30
         shell: bash
         run: |
-          for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
+          for image in cilium-ci operator-aws-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
