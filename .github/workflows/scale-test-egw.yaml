@@ -388,6 +388,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
