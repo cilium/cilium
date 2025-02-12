@@ -1667,7 +1667,7 @@ func (c *Collector) Run() error {
 			Description:     fmt.Sprintf("Collecting logs from extra pods %q", selector),
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+				p, err := c.Client.ListPods(ctx, metav1.NamespaceAll, metav1.ListOptions{
 					LabelSelector: selector,
 				})
 				if err != nil {
