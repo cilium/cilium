@@ -11,7 +11,8 @@ fill_template() {
 }
 
 get_node_internal_ip() {
-    kubectl get node -l "$1" -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}'
+    kubectl get node -l "$1" -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' | \
+        awk '{print $1}'  # Ignore the IPv6 address in dual stack clusters
 }
 
 if [ "$1" != "baseline" ]; then
