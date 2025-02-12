@@ -79,7 +79,7 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	 * potentially allow for per aggregate control.
 	 */
 	if (t_next - now >= info->t_horizon_drop)
-		return CTX_ACT_DROP;
+		return DROP_EDT_HORIZON;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
 out:
