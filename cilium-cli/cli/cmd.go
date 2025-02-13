@@ -92,6 +92,14 @@ cilium connectivity test`,
 	cmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
 
 	cmd.AddCommand(
+		&cobra.Command{
+			Use: "echo",
+			RunE: func(_ *cobra.Command, _ []string) error {
+				env := os.Getenv("GITHUB_WORKFLOW_REF")
+				fmt.Fprint(os.Stderr, "GITHUB_WORKFLOW_REF="+env+"\n")
+				return nil
+			},
+		},
 		newCmdBgp(),
 		newCmdClusterMesh(),
 		newCmdConfig(),
