@@ -13,3 +13,4 @@ spec:
   egressDeny:
   - toCIDRSet:
     - cidr: 169.254.169.255/32
+    - cidr: fd00::169:254:169:255/128

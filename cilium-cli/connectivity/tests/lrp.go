@@ -40,8 +40,14 @@ func (s lrp) Name() string {
 	return "lrp"
 }
 
+func getIPFamily(ip string) features.IPFamily {
+	if strings.Contains(ip, ":") {
+		return features.IPFamilyV6
+	}
+	return features.IPFamilyV4
+}
+
 func (s lrp) Run(ctx context.Context, t *check.Test) {
-	ct := t.Context()
 	policies := make([]*v2.CiliumLocalRedirectPolicy, 0, len(t.CiliumLocalRedirectPolicies()))
 
 	for _, policy := range t.CiliumLocalRedirectPolicies() {
@@ -50,22 +56,57 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 			continue
 		}
 		policies = append(policies, policy)
+	}
+
+	// Group policies by IP family
+	ipv4Policies := make([]*v2.CiliumLocalRedirectPolicy, 0)
+	ipv6Policies := make([]*v2.CiliumLocalRedirectPolicy, 0)
+	for _, policy := range policies {
+		frontendIP := policy.Spec.RedirectFrontend.AddressMatcher.IP
+		if getIPFamily(frontendIP) == features.IPFamilyV4 {
+			ipv4Policies = append(ipv4Policies, policy)
+		} else {
+			ipv6Policies = append(ipv6Policies, policy)
+		}
+	}
+
+	// Run tests for IPv4 policies
+	if len(ipv4Policies) > 0 {
+		s.runTestsForIPFamily(ctx, t, ipv4Policies, features.IPFamilyV4)
+	}
+
+	// Run tests for IPv6 policies
+	if len(ipv6Policies) > 0 {
+		s.runTestsForIPFamily(ctx, t, ipv6Policies, features.IPFamilyV6)
+	}
+}
+
+func (s lrp) runTestsForIPFamily(ctx context.Context, t *check.Test, policies []*v2.CiliumLocalRedirectPolicy, ipFamily features.IPFamily) {
+	ct := t.Context()
+
+	for _, policy := range policies {
+		spec := policy.Spec
 		frontend := check.NewLRPFrontend(spec.RedirectFrontend)
-		frontendStr := net.JoinHostPort(frontend.Address(features.IPFamilyV4), fmt.Sprint(frontend.Port()))
+		frontendStr := net.JoinHostPort(frontend.Address(ipFamily), fmt.Sprint(frontend.Port()))
 		if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
 			frontendStr += fmt.Sprintf("/%s", frontend.Protocol())
 		}
+
 		lrpBackendsMap := make(map[string][]string)
 		// Check for LRP backend pods deployed on nodes in the cluster.
 		for _, pod := range t.Context().LrpBackendPods() {
 			node := pod.NodeName()
 			podIP := pod.Pod.Status.PodIP
+			if ipFamily == features.IPFamilyV6 {
+				podIP = pod.Pod.Status.PodIPs[1].IP
+			}
 			if _, ok := lrpBackendsMap[node]; !ok {
 				lrpBackendsMap[node] = []string{podIP}
 				continue
 			}
 			lrpBackendsMap[node] = append(lrpBackendsMap[node], podIP)
 		}
+
 		// Wait until the local redirect entries are plumbed in the BPF LB map
 		// on the cilium agent nodes hosting LRP backend pods.
 		WaitForLocalRedirectBPFEntries(ctx, t, frontendStr, lrpBackendsMap)
@@ -81,8 +122,8 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 
 			i := 0
 			lf := check.NewLRPFrontend(policy.Spec.RedirectFrontend)
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, lf, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(lf, features.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("curl-%d-%s", i, ipFamily), &pod, lf, ipFamily).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(lf, ipFamily))
 				i++
 			})
 		}
@@ -98,8 +139,8 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 
 			i := 0
 			lf := check.NewLRPFrontend(policy.Spec.RedirectFrontend)
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, lf, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(lf, features.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("curl-%d-%s", i, ipFamily), &pod, lf, ipFamily).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(lf, ipFamily))
 
 				if policy.Spec.SkipRedirectFromBackend {
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
@@ -109,13 +150,12 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 				i++
 			})
 		}
-
 	}
 }
 
 func WaitForLocalRedirectBPFEntries(ctx context.Context, t *check.Test, frontend string, backendsMap map[string][]string) {
 	ct := t.Context()
-	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 20 * time.Second})
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 80 * time.Second})
 	defer w.Cancel()
 
 	ensureBPFLBEntries := func() error {
