@@ -91,10 +91,10 @@ test/echo   1000 (ports: [80])
 
 -- frontends.table --
 Address               Type        ServiceName   PortName   Status  Backends
-0.0.0.0:30725/TCP     NodePort    test/echo     smtp       Done    10.244.1.1:25/TCP (active)
-0.0.0.0:30781/TCP     NodePort    test/echo     http       Done    10.244.1.1:8080/TCP (active)
-10.96.50.104:25/TCP   ClusterIP   test/echo     smtp       Done    10.244.1.1:25/TCP (active)
-10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP (active)
+0.0.0.0:30725/TCP     NodePort    test/echo     smtp       Done    10.244.1.1:25/TCP
+0.0.0.0:30781/TCP     NodePort    test/echo     http       Done    10.244.1.1:8080/TCP
+10.96.50.104:25/TCP   ClusterIP   test/echo     smtp       Done    10.244.1.1:25/TCP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP
 
 -- cec_empty.table --
 Name    Services

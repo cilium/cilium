@@ -613,7 +613,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	svcVal.SetRevNat(int(feID))
 
 	// Gather backends for the service
-	orderedBackends := sortedBackends(fe.Backends)
+	orderedBackends := sortedBackends(fe)
 
 	// Clean up any orphan backends to make room for new backends
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
@@ -649,7 +649,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 
 		if ops.needsUpdate(be.L3n4Addr, be.Revision) {
 			ops.log.Debug("Update backend", "backend", be, "id", beID, "addr", be.L3n4Addr)
-			if err := ops.upsertBackend(beID, be.Backend); err != nil {
+			if err := ops.upsertBackend(beID, be.BackendParams); err != nil {
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
@@ -839,7 +839,7 @@ func (ops *BPFOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 	return nil
 }
 
-func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *Backend) (err error) {
+func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *BackendParams) (err error) {
 	var lbbe lbmap.Backend
 	proto, err := u8proto.ParseProtocol(be.L3n4Addr.Protocol)
 	if err != nil {
@@ -932,7 +932,7 @@ func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBacken
 		}
 		return nil
 	}
-	maglevTable, err := ops.computeMaglevTable(fe, activeBackends)
+	maglevTable, err := ops.computeMaglevTable(activeBackends)
 	if err != nil {
 		return fmt.Errorf("ops.computeMaglevTable failed: %w", err)
 	}
@@ -1013,15 +1013,10 @@ func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L
 	ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
 }
 
-func (ops *BPFOps) computeMaglevTable(fe *Frontend, bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
+func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
 	var errs []error
 	backendInfos := func(yield func(maglev.BackendInfo) bool) {
 		for _, be := range bes {
-			instance := be.GetInstanceForFrontend(fe)
-			if instance == nil {
-				errs = append(errs, fmt.Errorf("instance of backend %q for service %q not found", be.String(), fe.ServiceName))
-				continue
-			}
 			id, err := ops.backendIDAlloc.lookupLocalID(be.L3n4Addr)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("local id for address %s not found: %w", be.L3n4Addr.String(), err))
@@ -1030,7 +1025,7 @@ func (ops *BPFOps) computeMaglevTable(fe *Frontend, bes []backendWithRevision) (
 			if !yield(maglev.BackendInfo{
 				ID:     loadbalancer.BackendID(id),
 				Addr:   be.L3n4Addr,
-				Weight: instance.Weight,
+				Weight: be.Weight,
 			}) {
 				break
 			}
@@ -1046,10 +1041,10 @@ func (ops *BPFOps) computeMaglevTable(fe *Frontend, bes []backendWithRevision) (
 //
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
-func sortedBackends(beIter backendsSeq2) []backendWithRevision {
+func sortedBackends(fe *Frontend) []backendWithRevision {
 	bes := []backendWithRevision{}
-	for be, rev := range beIter {
-		bes = append(bes, backendWithRevision{be, rev})
+	for be, rev := range fe.Backends {
+		bes = append(bes, backendWithRevision{&be, rev})
 	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]

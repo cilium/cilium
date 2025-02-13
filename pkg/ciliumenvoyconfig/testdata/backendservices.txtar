@@ -72,24 +72,24 @@ test/backend_unnamed_port
 test/frontend             1000 (ports: [80])
 
 -- frontends1.table --
-Address            Type        ServiceName     PortName   Backends                    Status   Error
-1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP (active)   Done
-1.0.0.1:82/TCP     ClusterIP   test/frontend   http2      1.1.0.1:9090/TCP (active)   Done
+Address            Type        ServiceName     PortName   Backends           Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP   Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend   http2      1.1.0.1:9090/TCP   Done
 
 -- frontends2.table --
-Address            Type        ServiceName                PortName   Backends                                             Status   Error
-1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP (active)                            Done
-1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP (active)                            Done
-2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
-2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+Address            Type        ServiceName                PortName   Backends                             Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP                     Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP                     Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP   Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP   Done
 
 -- frontends3.table --
-Address            Type        ServiceName                PortName   Backends                                             Status   Error
-1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP (active)                            Done
-1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP (active)                            Done
-2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
-2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
-3.0.0.1:9080/TCP   ClusterIP   test/backend_unnamed_port             3.1.0.1:9080/TCP (active)                            Done
+Address            Type        ServiceName                PortName   Backends                            Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP                    Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP                    Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP  Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP, 2.1.0.2:9080/TCP  Done
+3.0.0.1:9080/TCP   ClusterIP   test/backend_unnamed_port             3.1.0.1:9080/TCP                    Done
 
 -- envoy-resources.table --
 Name           Listeners             Endpoints                                                                                               Status   Error

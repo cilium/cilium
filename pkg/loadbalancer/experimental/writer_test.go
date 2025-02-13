@@ -212,7 +212,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
 	name2 := loadbalancer.ServiceName{Namespace: "test", Name: "test2"}
-	name3 := loadbalancer.ServiceName{Namespace: "test", Name: "test3"}
 
 	nextAddr := 0
 	mkAddr := func(port uint16) loadbalancer.L3n4Addr {
@@ -304,64 +303,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		require.True(t, bes[0].L3n4Addr.DeepEqual(&beAddr3))
 	}
 
-	// SetBackendHealth
-	{
-
-		wtxn := p.Writer.WriteTxn()
-
-		be, _, _ := p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateActive, be.State)
-
-		err := p.Writer.SetBackendHealth(wtxn, beAddr1, false)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateQuarantined, be.State)
-
-		err = p.Writer.SetBackendHealth(wtxn, beAddr1, true)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateActive, be.State)
-
-		// Marking the backend terminating will cause health updates to be ignored.
-		p.Writer.UpsertBackends(wtxn, name2, source.Kubernetes,
-			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateTerminating,
-			},
-		)
-
-		err = p.Writer.SetBackendHealth(wtxn, beAddr1, false)
-		require.NoError(t, err, "SetBackendHealth")
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-
-		// Adding another active instance to the backend won't change the
-		// computed state.
-		p.Writer.UpsertBackends(wtxn, name3, source.Kubernetes,
-			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateActive,
-			},
-		)
-
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-		require.Equal(t, 3, be.Instances.Len()) // name1, name2, name3
-
-		// Removing the "terminating" instance will not change the state, e.g.
-		// when a backend has been marked terminating by any instances it'll stay
-		// terminating until removed.
-		p.Writer.ReleaseBackend(wtxn, name2, beAddr1)
-		be, _, _ = p.BackendTable.Get(wtxn, BackendByAddress(beAddr1))
-		require.Equal(t, 2, be.Instances.Len()) // name1, name3
-		require.Equal(t, loadbalancer.BackendStateTerminating, be.State)
-
-		wtxn.Abort()
-	}
-
 	// ReleaseBackend
 	{
 		wtxn := p.Writer.WriteTxn()
@@ -385,7 +326,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		require.Empty(t, statedb.Collect(bes))
 
 		// No backends remain for the service.
-		require.Empty(t, statedb.Collect(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
+		require.Empty(t, statedb.Collect(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 
 		wtxn.Abort()
 	}
@@ -714,7 +655,7 @@ func TestWithConflictingSources(t *testing.T) {
 				if weight == nil {
 					_, _, found := p.Writer.Backends().Get(txn, BackendByServiceName(name))
 					require.False(t, found)
-					require.Empty(t, statedb.Collect(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
+					require.Empty(t, statedb.Collect(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 				} else {
 					backends := p.Writer.Backends().List(txn, BackendByServiceName(name))
 					count := 0
@@ -724,12 +665,11 @@ func TestWithConflictingSources(t *testing.T) {
 						backendFromTable = b
 					}
 					require.Equal(t, 1, count)
-					actual := slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
+					actual := slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 					require.Len(t, actual, 1)
-					for desc, b := range map[string]*Backend{"from table": backendFromTable, "from Frontend": actual[0]} {
-						bi := b.GetInstance(name)
-						require.NotNil(t, bi, desc)
-						require.Equal(t, int(*weight), int(bi.Weight), "backend %s", desc)
+					for desc, b := range map[string]BackendParams{"from table": *backendFromTable.GetInstance(name), "from Frontend": actual[0]} {
+						require.NotNil(t, b, desc)
+						require.Equal(t, int(*weight), int(b.Weight), "backend %s", desc)
 					}
 				}
 			}

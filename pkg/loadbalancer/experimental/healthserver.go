@@ -331,11 +331,12 @@ func (h *httpHealthServer) getLocalEndpointCount() int {
 	// Gather the backends for the service.
 	activeCount := 0
 	for be := range h.backends.List(txn, BackendByServiceName(h.name)) {
-		if be.NodeName != "" && be.NodeName != h.nodeName {
+		inst := be.GetInstance(h.name)
+		if inst.NodeName != "" && inst.NodeName != h.nodeName {
 			// Skip non-local backends.
 			continue
 		}
-		if be.State == lb.BackendStateActive {
+		if inst.State == lb.BackendStateActive {
 			activeCount++
 		}
 	}

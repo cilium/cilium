@@ -305,7 +305,8 @@ func computeLoadAssignments(
 	backendMap := map[string]map[string]*experimental.Backend{}
 
 	for be := range backends {
-		if be.State != loadbalancer.BackendStateActive {
+		inst := be.GetInstance(serviceName)
+		if inst.State != loadbalancer.BackendStateActive {
 			// FIXME: should use the control-plane logic for picking the backends,
 			// e.g. if all terminating then all active and so on. Since we must support
 			// headless services we can't go via [Frontend.Backends] and must produce
@@ -313,7 +314,6 @@ func computeLoadAssignments(
 			continue
 		}
 
-		inst := be.GetInstance(serviceName)
 		bePortNames := []string{anyPort}
 
 		// If ports are specified only pick the backends that match the service port name or number.
