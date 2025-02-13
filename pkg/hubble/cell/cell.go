@@ -5,7 +5,6 @@ package hubblecell
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -77,6 +76,7 @@ type hubbleParams struct {
 }
 
 type HubbleIntegration interface {
+	Launch(ctx context.Context) error
 	Status(ctx context.Context) *models.HubbleStatus
 }
 
@@ -104,16 +104,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 	}
 
 	params.JobGroup.Add(job.OneShot("hubble", func(ctx context.Context, _ cell.Health) error {
-		h.launch(ctx)
-
-		// NOTE: launch() sets the observer pointer at the very end of starting
-		// up all components successfully. While not ideal, this is the only
-		// signal we have to report whether Hubble was initialized successfully
-		// for now.
-		if h.observer.Load() == nil {
-			return errors.New("Hubble launch failed")
-		}
-		return nil
+		return h.Launch(ctx)
 	}))
 
 	return h, nil
