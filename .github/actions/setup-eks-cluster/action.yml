@@ -14,39 +14,14 @@ inputs:
     description: ''
     required: false
     default: ''
-  spot:
-    description: ''
+  addons:
+    description: 'Space-separated list of add-ons to include'
     required: false
-    default: 'true'
-  default_addons:
-    description: ''
-    required: false
-    default: 'false'
+    default: 'coredns kube-proxy vpc-cni'
 runs:
   using: composite
   steps:
-    - name: Create EKS cluster with default addons
-      if: ${{ inputs.default_addons == 'true' }}
-      shell: bash
-      run: |
-        cat <<EOF > eks-config.yaml
-        apiVersion: eksctl.io/v1alpha5
-        kind: ClusterConfig
-
-        metadata:
-          name: ${{ inputs.cluster_name }}
-          region: ${{ inputs.region }}
-          version: "${{ inputs.version }}"
-          tags:
-           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-           owner: "${{ inputs.owner }}"
-
-        EOF
-
-        eksctl create cluster -f ./eks-config.yaml
-
-    - name: Create EKS cluster without CNI
-      if: ${{ inputs.default_addons == 'false' }}
+    - name: Create EKS cluster with ${{ inputs.addons }}
       shell: bash
       run: |
         cat <<EOF > eks-config.yaml
@@ -64,8 +39,10 @@ runs:
         addonsConfig:
           disableDefaultAddons: true
         addons:
-          - name: coredns
-          - name: kube-proxy
         EOF
+
+        for addon in ${{ inputs.addons }}; do
+          echo "- name: $addon" >> eks-config.yaml
+        done
 
         eksctl create cluster -f ./eks-config.yaml

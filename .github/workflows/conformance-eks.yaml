@@ -256,7 +256,7 @@ jobs:
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
-          spot: false
+          addons: "coredns kube-proxy"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
