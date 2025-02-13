@@ -30,6 +30,7 @@ func PodToPod(opts ...Option) check.Scenario {
 		opt(options)
 	}
 	return &podToPod{
+		ScenarioBase:      check.NewScenarioBase(),
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
@@ -38,6 +39,8 @@ func PodToPod(opts ...Option) check.Scenario {
 
 // podToPod implements a Scenario.
 type podToPod struct {
+	check.ScenarioBase
+
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string
@@ -91,6 +94,7 @@ func PodToPodWithEndpoints(opts ...Option) check.Scenario {
 		opt(rc)
 	}
 	return &podToPodWithEndpoints{
+		ScenarioBase:      check.NewScenarioBase(),
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
@@ -101,6 +105,8 @@ func PodToPodWithEndpoints(opts ...Option) check.Scenario {
 
 // podToPodWithEndpoints implements a Scenario.
 type podToPodWithEndpoints struct {
+	check.ScenarioBase
+
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string
@@ -189,10 +195,14 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 // - For IPv4: $POD_MTU - 20 (IPv4 hdr) - 8 (ICMP Echo hdr)
 // - For IPv6: $POD_MTU - 40 (IPv6 hdr) - 8 (ICMP Echo hdr)
 func PodToPodNoFrag() check.Scenario {
-	return &podToPodNoFrag{}
+	return &podToPodNoFrag{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type podToPodNoFrag struct{}
+type podToPodNoFrag struct {
+	check.ScenarioBase
+}
 
 func (s *podToPodNoFrag) Name() string {
 	return "pod-to-pod-no-frag"
@@ -270,6 +280,7 @@ func PodToPodMissingIPCache(opts ...Option) check.Scenario {
 		opt(options)
 	}
 	return &podToPodMissingIPCache{
+		ScenarioBase:      check.NewScenarioBase(),
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
@@ -277,6 +288,8 @@ func PodToPodMissingIPCache(opts ...Option) check.Scenario {
 }
 
 type podToPodMissingIPCache struct {
+	check.ScenarioBase
+
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string

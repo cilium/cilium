@@ -20,10 +20,14 @@ import (
 )
 
 func CiliumHealth() check.Scenario {
-	return &ciliumHealth{}
+	return &ciliumHealth{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type ciliumHealth struct{}
+type ciliumHealth struct {
+	check.ScenarioBase
+}
 
 func (s *ciliumHealth) Name() string {
 	return "cilium-health"
