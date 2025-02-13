@@ -711,7 +711,7 @@ func (m *manager) nodeAddressShouldUseTunnel(address nodeTypes.Address) bool {
 	// encapsulation. In encryption case we also want to use vxlan device
 	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
 	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-		m.conf.EnableHostFirewall || m.conf.JoinCluster
+		m.conf.EnableHostFirewall
 }
 
 func (m *manager) nodeAddressHasEncryptKey() bool {

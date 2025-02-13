@@ -223,7 +223,7 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 }
 
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
-	if option.Config.KVStore != "" && !option.Config.JoinCluster {
+	if option.Config.KVStore != "" {
 		n.ctrlmgr.UpdateController(
 			"propagating local node change to kv-store",
 			controller.ControllerParams{

@@ -497,11 +497,6 @@ func NewServer(config Config) (*Server, error) {
 func getAddresses() []string {
 	addresses := make([]string, 0, 2)
 
-	// listen on all interfaces and all families in case of external-workloads
-	if option.Config.JoinCluster {
-		return []string{""}
-	}
-
 	if option.Config.EnableIPv4 {
 		if ipv4 := node.GetInternalIPv4(); ipv4 != nil {
 			addresses = append(addresses, ipv4.String())
