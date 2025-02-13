@@ -272,15 +272,18 @@ const (
 	// Alias to NodePortAlg
 	LoadBalancerAlgorithm = "bpf-lb-algorithm"
 
+	// LoadBalancerNat46X64 enables NAT46 and NAT64 for services
+	LoadBalancerNat46X64 = "bpf-lb-nat46x64"
+
 	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf loadbalancing algorithm.
 	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
 
-	// LoadBalancerOnly is legacy knob for --datapath-mode=lb-only.
-	LoadBalancerOnly = "bpf-lb-only"
-
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
+
+	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
+	LoadBalancerIPIPSockMark = "bpf-lb-ipip-sock-mark"
 
 	// LoadBalancerExternalControlPlane switch skips connectivity to kube-apiserver
 	// which is relevant in lb-only mode
@@ -1881,6 +1884,9 @@ type DaemonConfig struct {
 	// level annotation for configuring bpf load balancing algorithm.
 	LoadBalancerModeAnnotation bool
 
+	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
+	LoadBalancerIPIPSockMark bool
+
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	NodePortAlg string
@@ -1907,9 +1913,6 @@ type DaemonConfig struct {
 
 	// LoadBalancerProtocolDifferentiation enables support for service protocol differentiation (TCP, UDP, SCTP)
 	LoadBalancerProtocolDifferentiation bool
-
-	// LoadBalancerOnly is legacy knob for --datapath-mode=lb-only.
-	LoadBalancerOnly bool
 
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
@@ -2887,6 +2890,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
+	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
@@ -2966,6 +2970,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
+	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
@@ -3030,10 +3035,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	if c.EnableNat46X64Gateway {
+	if c.EnableNat46X64Gateway || c.NodePortNat46X64 {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
-			log.Fatalf("--%s requires both --%s and --%s enabled",
-				EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name)
+			log.Fatalf("NAT46/NAT64 requires both --%s and --%s enabled",
+				EnableIPv4Name, EnableIPv6Name)
 		}
 	}
 
@@ -3332,7 +3337,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.LoadBalancerProtocolDifferentiation = vp.GetBool(LoadBalancerProtocolDifferentiation)
-	c.LoadBalancerOnly = vp.GetBool(LoadBalancerOnly)
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 

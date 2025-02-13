@@ -298,14 +298,13 @@ Removed Options
 ~~~~~~~~~~~~~~~
 
 * The previously deprecated high-scale mode for ipcache has been removed.
+* The previously deprecated ``--datapath-mode=lb-only`` for plain Docker mode has been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
 * Operator flag ``ces-slice-mode`` has been deprecated and will be removed in Cilium 1.19.
   CiliumEndpointSlice batching mode defaults to first-come-first-serve mode.
-* The flag value ``--datapath-mode=lb-only`` for plain Docker mode has been migrated into
-  ``--bpf-lb-only`` and will be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~
