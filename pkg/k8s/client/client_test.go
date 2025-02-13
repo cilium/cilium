@@ -348,3 +348,116 @@ func Test_clientMultipleAPIServers(t *testing.T) {
 
 	require.NoError(t, hive.Stop(tlog, ctx))
 }
+
+func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
+	var requests lock.Map[string, *http.Request]
+	getRequest := func(k string) *http.Request {
+		v, _ := requests.Load(k)
+		return v
+	}
+	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
+	require.NoError(t, err)
+	defer apiStateFile.Close()
+	K8sAPIServerFilePath = apiStateFile.Name()
+
+	servers := make([]*httptest.Server, 3)
+	for i := 0; i < len(servers); i++ {
+		servers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests.Store(r.URL.Path, r)
+
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/version":
+				w.Write([]byte(`{
+			       "major": "1",
+			       "minor": "99"
+			}`))
+			default:
+				w.Write([]byte("{}"))
+			}
+		}))
+	}
+	servers[0].Start()
+	servers[1].Start()
+
+	var clientset Clientset
+	h := hive.New(
+		Cell,
+		cell.Invoke(func(c Clientset) { clientset = c }),
+	)
+
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	h.RegisterFlags(flags)
+	urls := []string{servers[0].URL, servers[1].URL}
+	flags.Set(option.K8sAPIServerURLs, strings.Join(urls, ","))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, ctx))
+
+	// Check that we see the connection probe and version check
+	require.NotNil(t, getRequest("/api/v1/namespaces/kube-system"))
+	require.NotNil(t, getRequest("/version"))
+	semVer := k8sversion.Version()
+	require.Equal(t, uint64(99), semVer.Minor)
+
+	// Start server that responds to kube-apiserver address.
+	servers[2].Start()
+	defer servers[2].Close()
+	service := strings.TrimPrefix(servers[2].URL, "http://")
+	mapping := K8sServiceEndpointMapping{
+		Service: service,
+	}
+	UpdateK8sAPIServerEntry(mapping)
+	// All servers are stopped in order to validate that the agent fails over correctly.
+	servers[0].Close()
+	servers[1].Close()
+
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})
+
+		return err == nil
+	}, 5*time.Second))
+	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/pod"))
+	// Test that all different clientsets continue to have connectivity to kube-apiserver.
+
+	_, err = clientset.Slim().CoreV1().Pods("test").Get(context.TODO(), "slim-pod", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/slim-pod"))
+
+	_, err = clientset.ExtensionsV1beta1().DaemonSets("test").Get(context.TODO(), "ds", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/apis/extensions/v1beta1/namespaces/test/daemonsets/ds"))
+
+	_, err = clientset.CiliumV2().CiliumEndpoints("test").Get(context.TODO(), "ces", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, getRequest("/apis/cilium.io/v2/namespaces/test/ciliumendpoints/ces"))
+
+	require.NoError(t, h.Stop(tlog, ctx))
+
+	// Test the agent connects to the restored service address after restart.
+	h = hive.New(
+		Cell,
+		cell.Invoke(func(c Clientset) { clientset = c }),
+	)
+
+	flags = pflag.NewFlagSet("", pflag.ContinueOnError)
+	h.RegisterFlags(flags)
+	flags.Set(option.K8sAPIServerURLs, strings.Join(urls, ","))
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tlog = hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, ctx))
+
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})
+
+		return err == nil
+	}, 5*time.Second))
+	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/pod"))
+
+	require.NoError(t, h.Stop(tlog, ctx))
+}
