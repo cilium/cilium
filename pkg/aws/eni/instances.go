@@ -45,8 +45,11 @@ type EC2API interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
+	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
+	resyncLock lock.RWMutex
+
+	// mutex protects the fields below
 	mutex          lock.RWMutex
-	resyncLock     lock.RWMutex
 	instances      *ipamTypes.InstanceMap
 	subnets        ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
