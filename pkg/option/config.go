@@ -664,9 +664,6 @@ const (
 	// AgentNotReadyNodeTaintKey
 	AgentNotReadyNodeTaintKeyName = "agent-not-ready-taint-key"
 
-	// JoinClusterName is the name of the JoinCluster Option
-	JoinClusterName = "join-cluster"
-
 	// EnableIPv4Name is the name of the option to enable IPv4 support
 	EnableIPv4Name = "enable-ipv4"
 
@@ -1523,10 +1520,6 @@ type DaemonConfig struct {
 	// used in cloud providers to prevent existing CNI plugins from managing
 	// pods.
 	AgentNotReadyNodeTaintKey string
-
-	// JoinCluster is 'true' if the agent should join a Cilium cluster via kvstore
-	// registration
-	JoinCluster bool
 
 	// EnableIPv4 is true when IPv4 is enabled
 	EnableIPv4 bool
@@ -2905,7 +2898,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6NodeAddr = vp.GetString(IPv6NodeAddr)
 	c.IPv6Range = vp.GetString(IPv6Range)
 	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
-	c.JoinCluster = vp.GetBool(JoinClusterName)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
