@@ -661,6 +661,23 @@ jobs:
 
           mkdir -p cilium-junits
 
+      - name: Encrypt traffic from/to cilium-internal-ip
+        if: ${{ matrix.encryption-node == 'false' }}
+        shell: bash
+        run: |
+          cilium_pods=$(kubectl -nkube-system get po -l k8s-app=cilium -o name)
+          for cilium_pod in $cilium_pods; do
+            cilium_pod=${cilium_pod#pod/}
+            while read line; do
+              echo
+              echo $line
+              cidr=$(echo $line | awk '{print $1}')
+              tunnelendpoint=$(echo $line | awk '{print $4}')
+              echo kubectl -nkube-system exec $cilium_pod -- cilium bpf ipcache update $cidr --identity=6 --encryptkey=255 --${tunnelendpoint%,}
+              kubectl -nkube-system exec $cilium_pod -- cilium bpf ipcache update $cidr --identity=6 --encryptkey=255 --${tunnelendpoint%,}
+            done < <(kubectl -nkube-system exec $cilium_pod -- cilium bpf ipcache list | grep 'identity=6 encryptkey=0 tunnelendpoint=[^0]')
+          done
+
       - name: Install node local DNS
         if: ${{ matrix.node-local-dns == 'true' }}
         shell: bash
