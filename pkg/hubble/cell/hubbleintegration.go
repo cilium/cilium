@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -107,14 +108,23 @@ func new(
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
 	observerOptions []observeroption.Option,
-	exporters []exporter.FlowLogExporter,
+	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log logrus.FieldLogger,
 ) (*hubbleIntegration, error) {
 	config.normalize()
 	if err := config.validate(); err != nil {
-		return nil, fmt.Errorf("Hubble configuration error: %w", err)
+		return nil, fmt.Errorf("failed to validate configuration: %w", err)
+	}
+
+	// NOTE: exporter builders MUST always be resolved early and outside of a
+	// Hive job.Group or cell.Lifecycle hook. This is because their Build()
+	// function may have captured pointers to these and append new jobs/hooks,
+	// which we don't want to see happening after the hive startup.
+	exporters, err := exportercell.ResolveExporters(exporterBuilders)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve Hubble exporters: %w", err)
 	}
 
 	hi := &hubbleIntegration{
