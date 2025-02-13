@@ -102,8 +102,9 @@ func (n *noErrorsInLogs) Name() string {
 }
 
 type podID struct{ Cluster, Namespace, Name string }
+type podContainers map[string]uint // Map container name to restart count
 type podInfo struct {
-	containers []string
+	containers podContainers
 	client     *k8s.Client
 }
 
@@ -116,9 +117,26 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
 	for pod, info := range pods {
 		client := info.client
-		for _, container := range info.containers {
+		for container, restarts := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
+				// Ignore Cilium operator restarts for the moment, as they can
+				// legitimately happen in case it loses the leader election due
+				// to temporary control plane blips.
+				ignore := container == "cilium-operator"
+
+				// The hubble relay container can currently be restarted by the
+				// startup probe if it fails to connect to Cilium. However, this
+				// can legitimately happen when the certificates are generated
+				// for the first time, as that they then need to be reloaded
+				// by the agents. Given that we cannot configure the settings of
+				// the startup probe, let's just accept one possible restart here.
+				ignore = ignore || (restarts == 1 && container == "hubble-relay")
+
+				if restarts > 0 && !ignore {
+					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
+				}
+
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
@@ -214,13 +232,24 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.Connectivi
 	return output, nil
 }
 
-func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
+func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
+	restarts := func(statuses []corev1.ContainerStatus, name string) (restarts uint) {
+		for _, status := range statuses {
+			if status.Name == name {
+				return uint(status.RestartCount)
+			}
+		}
+		return 0
+	}
+
+	containers := make(podContainers, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
+
 	for _, container := range pod.Spec.Containers {
-		containers = append(containers, container.Name)
+		containers[container.Name] = restarts(pod.Status.ContainerStatuses, container.Name)
 	}
 
 	for _, container := range pod.Spec.InitContainers {
-		containers = append(containers, container.Name)
+		containers[container.Name] = restarts(pod.Status.InitContainerStatuses, container.Name)
 	}
 
 	return containers
