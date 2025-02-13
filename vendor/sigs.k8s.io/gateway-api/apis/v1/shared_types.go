@@ -542,7 +542,7 @@ type PreciseHostname string
 // scheme (e.g., "http" or "spiffe") and a scheme-specific-part.  URIs that
 // include an authority MUST include a fully qualified domain name or
 // IP address as the host.
-
+// <gateway:util:excludeFromCRD> The below regex is taken from the regex section in RFC 3986 with a slight modification to enforce a full URI and not relative. </gateway:util:excludeFromCRD>
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(([^:/?#]+):)(//([^/?#]*))([^?#]*)(\?([^#]*))?(#(.*))?`
@@ -881,6 +881,8 @@ type CookieConfig struct {
 	// When set to "Session", AbsoluteTimeout indicates the
 	// absolute lifetime of the cookie tracked by the gateway and
 	// is optional.
+	//
+	// Defaults to "Session".
 	//
 	// Support: Core for "Session" type
 	//

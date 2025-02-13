@@ -80,6 +80,9 @@ const (
 	// This option indicates support for multiple RequestMirror filters within the same HTTPRoute rule (extended conformance).
 	SupportHTTPRouteRequestMultipleMirrors FeatureName = "HTTPRouteRequestMultipleMirrors"
 
+	// This option indicates support for HTTPRoute request mirror filter with percentage based mirroring (extended conformance).
+	SupportHTTPRouteRequestPercentageMirror FeatureName = "HTTPRouteRequestPercentageMirror"
+
 	// This option indicates support for HTTPRoute request timeouts (extended conformance).
 	SupportHTTPRouteRequestTimeout FeatureName = "HTTPRouteRequestTimeout"
 
@@ -157,6 +160,11 @@ var (
 		Name:    SupportHTTPRouteRequestMultipleMirrors,
 		Channel: FeatureChannelStandard,
 	}
+	// HTTPRouteRequestPercentageMirrorFeature contains metadata for the HTTPRouteRequestMultipleMirrors feature.
+	HTTPRouteRequestPercentageMirrorFeature = Feature{
+		Name:    SupportHTTPRouteRequestPercentageMirror,
+		Channel: FeatureChannelExperimental,
+	}
 	// HTTPRouteRequestTimeoutFeature contains metadata for the HTTPRouteRequestTimeout feature.
 	HTTPRouteRequestTimeoutFeature = Feature{
 		Name:    SupportHTTPRouteRequestTimeout,
@@ -200,6 +208,7 @@ var HTTPRouteExtendedFeatures = sets.New(
 	HTTPRoutePathRewriteFeature,
 	HTTPRouteRequestMirrorFeature,
 	HTTPRouteRequestMultipleMirrorsFeature,
+	HTTPRouteRequestPercentageMirrorFeature,
 	HTTPRouteRequestTimeoutFeature,
 	HTTPRouteBackendTimeoutFeature,
 	HTTPRouteParentRefPortFeature,

@@ -382,7 +382,7 @@ type HTTPRouteRetry struct {
 	// +optional
 	Codes []HTTPRouteRetryStatusCode `json:"codes,omitempty"`
 
-	// Attempts specifies the maxmimum number of times an individual request
+	// Attempts specifies the maximum number of times an individual request
 	// from the gateway to a backend should be retried.
 	//
 	// If the maximum number of retries has been attempted without a successful

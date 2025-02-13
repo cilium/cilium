@@ -65,12 +65,22 @@ type BackendTLSPolicySpec struct {
 	// by default, but this default may change in the future to provide
 	// a more granular application of the policy.
 	//
+	// TargetRefs must be _distinct_. This means either that:
+	//
+	// * They select different targets. If this is the case, then targetRef
+	//   entries are distinct. In terms of fields, this means that the
+	//   multi-part key defined by `group`, `kind`, and `name` must
+	//   be unique across all targetRef entries in the BackendTLSPolicy.
+	// * They select different sectionNames in the same target.
+	//
 	// Support: Extended for Kubernetes Service
 	//
 	// Support: Implementation-specific for any other resource
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:XValidation:message="sectionName must be specified when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))"
+	// +kubebuilder:validation:XValidation:message="sectionName must be unique when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))"
 	TargetRefs []v1alpha2.LocalPolicyTargetReferenceWithSectionName `json:"targetRefs"`
 
 	// Validation contains backend TLS validation configuration.
