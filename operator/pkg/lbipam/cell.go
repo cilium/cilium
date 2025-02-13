@@ -118,8 +118,8 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 }
 
 const (
-	DefaultLBClassLBIPAM   = "lbipam"
-	DefaulLBClasstNodeIPAM = "nodeipam"
+	DefaultLBClassLBIPAM    = "lbipam"
+	DefaultLBClasstNodeIPAM = "nodeipam"
 )
 
 // SharedConfig contains the configuration that is shared between
