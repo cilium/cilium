@@ -126,12 +126,12 @@ func newFixtureConf() fixtureConfig {
 	}
 }
 
-func newFixture(conf fixtureConfig) *fixture {
+func newFixture(t testing.TB, conf fixtureConfig) *fixture {
 	f := &fixture{
 		config: conf,
 	}
 
-	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
+	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 	f.secretClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Secrets("bgp-secrets")
 
@@ -211,7 +211,7 @@ func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error 
 
 // setup configures the test environment based on provided gobgp and fixture config.
 func setup(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, cleanup func(), err error) {
-	f = newFixture(fixConfig)
+	f = newFixture(t, fixConfig)
 	peers, cleanup, err = start(ctx, t, peerConfigs, f)
 	return
 }

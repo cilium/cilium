@@ -9,7 +9,8 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s add pod.yaml 
+k8s/add pod.yaml
+
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table 
@@ -19,7 +20,7 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
-k8s delete pod.yaml
+k8s/delete pod.yaml
 db/cmp services services_empty.table
 db/cmp frontends frontends_empty.table
 db/cmp backends backends_empty.table
@@ -84,7 +85,7 @@ spec:
     terminationMessagePolicy: File
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
-  nodeName: kind-worker
+  nodeName: testnode
   preemptionPolicy: PreemptLowerPriority
   priority: 0
   restartPolicy: Always

@@ -5,7 +5,7 @@ db/insert node-addresses addrv4.yaml
 db/cmp node-addresses nodeaddrs.table
 
 # Add the first service before starting (List() path)
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 
 # Start the test application
 hive start
@@ -19,7 +19,7 @@ db/initialized
 # have the ID assigned.
 db/cmp frontends frontends1.table
 
-k8s add service2.yaml endpointslice2.yaml
+k8s/add service2.yaml endpointslice2.yaml
 
 db/cmp services services.table
 db/cmp frontends frontends.table
@@ -30,11 +30,11 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup. Backends first in this test.
-k8s delete endpointslice.yaml endpointslice2.yaml
+k8s/delete endpointslice.yaml endpointslice2.yaml
 db/cmp backends backends_empty.table
 db/cmp frontends frontends_nobackends.table
 
-k8s delete service.yaml service2.yaml
+k8s/delete service.yaml service2.yaml
 db/cmp frontends frontends_empty.table
 db/cmp services services_empty.table
 

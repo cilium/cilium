@@ -8,7 +8,7 @@ db/initialized
 
 # Create a LoadBalancer service with Local traffic policies and associate two backends 
 # to it, one of them on this node ("testnode") and one on another node.
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table 

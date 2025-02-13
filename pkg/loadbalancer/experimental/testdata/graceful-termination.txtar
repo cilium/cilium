@@ -6,7 +6,7 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
@@ -16,7 +16,7 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps-active.expected lbmaps.actual
 
 # Set the backend as terminating
-k8s update endpointslice-terminating.yaml
+k8s/update endpointslice-terminating.yaml
 db/cmp frontends frontends-terminating.table
 db/cmp backends backends-terminating.table
 
@@ -25,7 +25,7 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps-terminating.expected lbmaps.actual
 
 # Cleanup
-k8s delete service.yaml endpointslice.yaml 
+k8s/delete service.yaml endpointslice.yaml 
 db/cmp services services_empty.table
 db/cmp frontends frontends_empty.table
 db/cmp backends backends_empty.table
