@@ -84,6 +84,11 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          GITHUB_WORKFLOW_REF: ${{ env.GITHUB_WORKFLOW_REF }}
+
+      - name: Check Joe's sanity
+        run: |
+          cilium echo
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -109,7 +114,6 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF \
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
             --log-code-owners \
