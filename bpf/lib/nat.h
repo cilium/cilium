@@ -874,8 +874,8 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		__u8 code = 0;
 		__be16 identifier = 0;
 
-		ret = ipv4_load_l4_ports_for_icmp(ctx, off, CT_EGRESS,
-						  &type, &code, &identifier, true);
+		ret = icmp4_load_info(ctx, ip4, off, CT_EGRESS, &has_l4_header, &type,
+				      &code, &identifier);
 		if (ret < 0)
 			return ret;
 
@@ -1037,8 +1037,8 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		__u8 code = 0;
 		__be16 identifier = 0;
 
-		ret = ipv4_load_l4_ports_for_icmp(ctx, off, CT_INGRESS,
-						  &type, &code, &identifier, true);
+		ret = icmp4_load_info(ctx, ip4, off, CT_INGRESS, &has_l4_header,
+				      &type, &code, &identifier);
 		if (ret < 0)
 			return ret;
 
