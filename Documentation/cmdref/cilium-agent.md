@@ -286,6 +286,7 @@ cilium-agent [flags]
       --ipv6-range string                                         Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                                 Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --k8s-api-server string                                     Kubernetes API server URL
+      --k8s-api-server-urls strings                               Kubernetes API server URLs
       --k8s-client-burst int                                      Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration                 Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                    Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

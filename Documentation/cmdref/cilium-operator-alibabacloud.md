@@ -87,6 +87,7 @@ cilium-operator-alibabacloud [flags]
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "alibabacloud")
       --k8s-api-server string                                Kubernetes API server URL
+      --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
