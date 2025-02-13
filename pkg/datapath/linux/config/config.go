@@ -643,6 +643,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
 
 		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableRemoteNodeSnat {
+				cDefinesMap["ENABLE_REMOTE_NODE_SNAT"] = "1"
+			}
 			if option.Config.EnableIPv4Masquerade {
 				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
