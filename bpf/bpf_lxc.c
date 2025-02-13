@@ -434,6 +434,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = THIS_INTERFACE_MAC;
@@ -446,7 +447,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u32 tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	bool __maybe_unused skip_tunnel = false;
 	enum ct_status ct_status;
@@ -465,12 +465,10 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 */
 	if (1) {
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
-		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info && info->sec_identity) {
 			*dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint.ip4;
 			encrypt_key = get_min_encrypt_key(info->key);
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
@@ -526,7 +524,11 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 					     ext_err, &proxy_port);
 
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			__u32 tunnel_endpoint = 0;
+
 			auth_type = (__u8)*ext_err;
+			if (info)
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
 			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -712,7 +714,7 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, info, 0, 0, encrypt_key,
 					     &key, SECLABEL_IPV6, *dst_sec_identity,
 					     &trace);
 		switch (ret) {
@@ -759,8 +761,8 @@ pass_to_stack:
 
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
+	if (encrypt_key && info->flag_has_tunnel_ep) {
+		ret = set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
 					SECLABEL_IPV6, false, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
@@ -876,6 +878,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = THIS_INTERFACE_MAC;
@@ -887,7 +890,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u32 tunnel_endpoint = 0, zero = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
@@ -900,6 +902,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool from_l7lb = false;
 	__u32 cluster_id = 0;
 	void *ct_map, *ct_related_map = NULL;
+	__u32 zero = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -911,22 +914,17 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif /* ENABLE_PER_PACKET_LB */
 
 	/* Determine the destination category for policy fallback. */
-	if (1) {
-		struct remote_endpoint_info *info;
-
-		info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
-		if (info && info->sec_identity) {
-			*dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint.ip4;
-			encrypt_key = get_min_encrypt_key(info->key);
-			skip_tunnel = info->flag_skip_tunnel;
-		} else {
-			*dst_sec_identity = WORLD_IPV4_ID;
-		}
-
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->daddr, *dst_sec_identity);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
+	if (info && info->sec_identity) {
+		*dst_sec_identity = info->sec_identity;
+		encrypt_key = get_min_encrypt_key(info->key);
+		skip_tunnel = info->flag_skip_tunnel;
+	} else {
+		*dst_sec_identity = WORLD_IPV4_ID;
 	}
+
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->daddr, *dst_sec_identity);
 
 	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
 	if (!ct_buffer)
@@ -977,7 +975,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 					     ext_err, &proxy_port);
 
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			__u32 tunnel_endpoint = 0;
+
 			auth_type = (__u8)*ext_err;
+			if (info)
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
 			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -1198,6 +1200,7 @@ ct_recreate4:
 	 */
 #if defined(ENABLE_VTEP)
 	{
+		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
@@ -1209,7 +1212,9 @@ ct_recreate4:
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.flag_has_tunnel_ep = true;
+			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -1250,14 +1255,16 @@ skip_vtep:
 		 * and this is the reply for that. In that case, we need to send it back to tunnel.
 		 */
 		if (ct_status == CT_REPLY) {
-			if (identity_is_remote_node(*dst_sec_identity) && ct_state->from_tunnel)
-				tunnel_endpoint = ip4->daddr;
+			if (identity_is_remote_node(*dst_sec_identity) && ct_state->from_tunnel) {
+				info->tunnel_endpoint.ip4 = ip4->daddr;
+				info->flag_has_tunnel_ep = true;
+			}
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
-					     ip4->daddr, encrypt_key, &key,
-					     SECLABEL_IPV4, *dst_sec_identity, &trace);
+		ret = encap_and_redirect_lxc(ctx, info, ip4->saddr, ip4->daddr,
+					     encrypt_key, &key, SECLABEL_IPV4,
+					     *dst_sec_identity, &trace);
 		switch (ret) {
 		case CTX_ACT_OK:
 			/* IPsec, pass up to stack for XFRM processing. */
@@ -1310,8 +1317,8 @@ pass_to_stack:
 
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
+	if (encrypt_key && info->flag_has_tunnel_ep) {
+		ret = set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint.ip4,
 					SECLABEL_IPV4, false, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
