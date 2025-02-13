@@ -3969,6 +3969,23 @@
       },
       "type": "object"
     },
+    "k8sServiceHostRef": {
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "k8sServiceHost": {
       "type": "string"
     },
