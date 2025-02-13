@@ -1,5 +1,7 @@
 {{$NumEGWClients := DefaultParam .CL2_NUM_EGW_CLIENTS 9}}
 {{$QPS := DefaultParam .CL2_EGW_CLIENTS_QPS 3}}
+{{$CreateEGWPolicy := DefaultParam .CL2_CREATE_EGW_POLICY false}}
+{{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
 {{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
 
 name: egw-scale-test-masq-delay
@@ -14,6 +16,15 @@ tuningSets:
   qpsLoad:
     qps: {{$QPS}}
 steps:
+{{ if $CreateEGWPolicy }}
+- name: Create Egress Gateway Policy
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Uniform1qps
+    objectBundle:
+    - basename: egw-scale-test-route-external
+      objectTemplatePath: {{ $EGWPolicyTemplate }}
+{{ end }}
 - name: Create External Target Pod
   phases:
   - namespaceRange:

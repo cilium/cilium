@@ -29,10 +29,3 @@ export EGW_EXTERNAL_TARGET_ADDR="${egw_node_ip}"
 for template in ./manifests/*.tmpl.yaml; do
     fill_template "$template"
 done
-
-if [ "$1" != "baseline" ]; then
-    kubectl apply -f ./manifests/egw-policy.yaml
-else
-    kubectl delete --ignore-not-found \
-        ciliumegressgatewaypolicies.cilium.io/egw-scale-test-route-external
-fi
