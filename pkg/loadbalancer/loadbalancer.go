@@ -1124,6 +1124,12 @@ func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
 			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
+func (l *L3n4Addr) AddrString() string {
+	str := l.AddrCluster.Addr().String() + ":" + strconv.FormatUint(uint64(l.Port), 10)
+
+	return str
+}
+
 // Bytes returns the address as a byte slice for indexing purposes.
 // Similar to Hash() but includes the L4 protocol.
 func (l L3n4Addr) Bytes() []byte {

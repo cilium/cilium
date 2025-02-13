@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -125,11 +126,11 @@ type compositeClientset struct {
 	restConfigManager restConfig
 }
 
-func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
-	return newClientsetForUserAgent(lc, log, cfg, "")
+func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, jobs job.Group) (Clientset, error) {
+	return newClientsetForUserAgent(lc, log, cfg, "", jobs)
 }
 
-func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, name string) (Clientset, error) {
+func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, name string, jobs job.Group) (Clientset, error) {
 	if !cfg.isEnabled() {
 		return &compositeClientset{disabled: true}, nil
 	}
@@ -141,7 +142,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 	}
 
 	var err error
-	client.restConfigManager, err = restConfigManagerInit(cfg, name, log)
+	client.restConfigManager, err = restConfigManagerInit(cfg, name, log, jobs)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
@@ -406,9 +407,9 @@ type ClientBuilderFunc func(name string) (Clientset, error)
 // NewClientBuilder returns a function that creates a new Clientset with the given
 // name appended to the user agent, or returns an error if the Clientset cannot be
 // created.
-func NewClientBuilder(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) ClientBuilderFunc {
+func NewClientBuilder(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, jobs job.Group) ClientBuilderFunc {
 	return func(name string) (Clientset, error) {
-		c, err := newClientsetForUserAgent(lc, log, cfg, name)
+		c, err := newClientsetForUserAgent(lc, log, cfg, name, jobs)
 		if err != nil {
 			return nil, err
 		}
