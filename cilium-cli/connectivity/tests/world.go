@@ -57,26 +57,28 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		// With http, over port 80.
-		httpOpts := s.rc.CurlOptions(http, features.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(http, features.IPFamilyAny, httpOpts...))
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
-		})
+		for _, ipFam := range []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6} {
+			// With http, over port 80.
+			httpOpts := s.rc.CurlOptions(http, ipFam, client, ct.Params())
+			t.NewAction(s, fmt.Sprintf("http-to-%s-%s-%d", extTarget, ipFam, i), &client, http, ipFam).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(http, ipFam, httpOpts...))
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+			})
 
-		// With https, over port 443.
-		httpsOpts := s.rc.CurlOptions(https, features.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny, httpsOpts...))
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
-		})
+			// With https, over port 443.
+			httpsOpts := s.rc.CurlOptions(https, ipFam, client, ct.Params())
+			t.NewAction(s, fmt.Sprintf("https-to-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(https, ipFam, httpsOpts...))
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+			})
 
-		// With https, over port 443, index.html.
-		httpsindexOpts := s.rc.CurlOptions(httpsindex, features.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, features.IPFamilyAny, httpsindexOpts...))
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
-		})
+			// With https, over port 443, index.html.
+			httpsindexOpts := s.rc.CurlOptions(httpsindex, ipFam, client, ct.Params())
+			t.NewAction(s, fmt.Sprintf("https-to-%s-index-%s-%d", extTarget, ipFam, i), &client, httpsindex, ipFam).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(httpsindex, ipFam, httpsindexOpts...))
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+			})
+		}
 
 		i++
 	}
@@ -108,12 +110,14 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny))
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
-			a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
-		})
+		for _, ipFam := range []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6} {
+			// With https, over port 443.
+			t.NewAction(s, fmt.Sprintf("https-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(https, ipFam))
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+				a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
+			})
+		}
 
 		i++
 	}
