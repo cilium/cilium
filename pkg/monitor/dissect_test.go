@@ -51,15 +51,25 @@ func TestConnectionSummaryTcp(t *testing.T) {
 
 	// Generated in scapy:
 	// Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="1.2.3.4",dst="5.6.7.8")/TCP(sport=80,dport=443)
-	packetData := []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 2, 32, 0, 125, 196, 0, 0}
+	l2Data := []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0}
+	l3Data := []byte{69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 2, 32, 0, 125, 196, 0, 0}
 
-	summary := GetConnectionSummary(packetData)
+	for _, isL3Device := range []bool{true, false} {
+		var data []byte
+		if isL3Device {
+			data = l3Data
+		} else {
+			data = append(l2Data, l3Data...)
+		}
 
-	expect := fmt.Sprintf("%s -> %s %s",
-		net.JoinHostPort(srcIP, sport),
-		net.JoinHostPort(dstIP, dport),
-		"tcp SYN")
-	require.Equal(t, expect, summary)
+		summary := GetConnectionSummary(data, &decodeOpts{isL3Device, false})
+
+		expect := fmt.Sprintf("%s -> %s %s",
+			net.JoinHostPort(srcIP, sport),
+			net.JoinHostPort(dstIP, dport),
+			"tcp SYN")
+		require.Equal(t, expect, summary)
+	}
 }
 
 func TestConnectionSummaryIcmp(t *testing.T) {

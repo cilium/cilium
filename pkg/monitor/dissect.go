@@ -36,10 +36,18 @@ type parserCache struct {
 	decoded []gopacket.LayerType
 }
 
+type decodeOpts struct {
+	IsL3Device bool
+	IsIPv6     bool
+}
+
 var (
 	cache       *parserCache
 	dissectLock lock.Mutex
-	parser      *gopacket.DecodingLayerParser
+
+	parserL2     *gopacket.DecodingLayerParser
+	parserL3IPv4 *gopacket.DecodingLayerParser
+	parserL3IPv6 *gopacket.DecodingLayerParser
 
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor")
 )
@@ -53,11 +61,19 @@ func initParser() {
 			decoded: []gopacket.LayerType{},
 		}
 
-		parser = gopacket.NewDecodingLayerParser(
-			layers.LayerTypeEthernet,
-			&cache.eth, &cache.ip4, &cache.ip6,
-			&cache.icmp4, &cache.icmp6, &cache.tcp, &cache.udp,
-			&cache.sctp)
+		decoders := []gopacket.DecodingLayer{
+			&cache.eth,
+			&cache.ip4, &cache.ip6,
+			&cache.icmp4, &cache.icmp6,
+			&cache.tcp, &cache.udp, &cache.sctp,
+		}
+		parserL2 = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
+		parserL3IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
+		parserL3IPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
+
+		parserL2.IgnoreUnsupported = true
+		parserL3IPv4.IgnoreUnsupported = true
+		parserL3IPv6.IgnoreUnsupported = true
 	}
 }
 
@@ -137,29 +153,37 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 	return c, hasIP, hasEth
 }
 
-// GetConnectionInfo returns the ConnectionInfo structure from data
-func GetConnectionInfo(data []byte) *ConnectionInfo {
-	dissectLock.Lock()
-	defer dissectLock.Unlock()
-
-	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
-
-	c, _, _ := getConnectionInfoFromCache()
-	return c
-}
-
 // GetConnectionSummary decodes the data into layers and returns a connection
 // summary in the format:
 //
 // - sIP:sPort -> dIP:dPort, e.g. 1.1.1.1:2000 -> 2.2.2.2:80
 // - sIP -> dIP icmpCode, 1.1.1.1 -> 2.2.2.2 echo-request
-func GetConnectionSummary(data []byte) string {
+func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	dissectLock.Lock()
 	defer dissectLock.Unlock()
 
 	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
+
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet.
+	// Skip decoding and truncate layers to avoid accidental re-use.
+	// See https://github.com/google/gopacket/issues/846
+	if len(data) > 0 {
+		var err error
+		switch {
+		case opts == nil || !opts.IsL3Device:
+			err = parserL2.DecodeLayers(data, &cache.decoded)
+		case opts.IsIPv6:
+			err = parserL3IPv6.DecodeLayers(data, &cache.decoded)
+		default:
+			err = parserL3IPv4.DecodeLayers(data, &cache.decoded)
+		}
+
+		if err != nil {
+			return "[error]"
+		}
+	} else {
+		cache.decoded = cache.decoded[:0]
+	}
 
 	c, hasIP, hasEth := getConnectionInfoFromCache()
 	srcIP, dstIP := c.SrcIP, c.DstIP
@@ -201,7 +225,14 @@ func Dissect(dissect bool, data []byte) {
 		defer dissectLock.Unlock()
 
 		initParser()
-		err := parser.DecodeLayers(data, &cache.decoded)
+
+		var err error
+		// See comment in [GetConnectionSummary].
+		if len(data) > 0 {
+			err = parserL2.DecodeLayers(data, &cache.decoded)
+		} else {
+			cache.decoded = cache.decoded[:0]
+		}
 
 		for _, typ := range cache.decoded {
 			switch typ {
@@ -225,7 +256,7 @@ func Dissect(dissect bool, data []byte) {
 				fmt.Println("Unknown layer")
 			}
 		}
-		if parser.Truncated {
+		if parserL2.Truncated {
 			fmt.Println("  Packet has been truncated")
 		}
 		if err != nil {
@@ -264,7 +295,16 @@ func GetDissectSummary(data []byte) *DissectSummary {
 	defer dissectLock.Unlock()
 
 	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
+
+	// See comment in [GetConnectionSummary].
+	if len(data) > 0 {
+		err := parserL2.DecodeLayers(data, &cache.decoded)
+		if err != nil {
+			return nil
+		}
+	} else {
+		cache.decoded = cache.decoded[:0]
+	}
 
 	ret := &DissectSummary{}
 
