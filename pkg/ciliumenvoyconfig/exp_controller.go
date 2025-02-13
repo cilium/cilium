@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -27,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type cecControllerParams struct {
@@ -50,8 +49,6 @@ type cecControllerParams struct {
 
 type cecController struct {
 	cecControllerParams
-
-	revisions map[CECName]revisions
 }
 
 func newNodeLabels() *nodeLabels {
@@ -68,7 +65,6 @@ func registerCECController(params cecControllerParams) {
 
 	c := &cecController{
 		cecControllerParams: params,
-		revisions:           map[CECName]revisions{},
 	}
 	params.JobGroup.Add(job.OneShot("node-label-controller", c.nodeLabelController))
 	params.JobGroup.Add(job.OneShot("resources-controller", c.processLoop))
@@ -139,67 +135,78 @@ func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.Pr
 }
 
 func (c *cecController) processLoop(ctx context.Context, health cell.Health) error {
-	ws := statedb.NewWatchSet()
-	existing := sets.New[CECName]()
-	limiter := rate.NewLimiter(100*time.Millisecond, 1)
-	defer limiter.Stop()
+	watchSets := map[CECName]*statedb.WatchSet{}
+	var closedWatches []<-chan struct{}
+	orphans := sets.New[CECName]()
+
 	for {
 		wtxn := c.DB.WriteTxn(c.EnvoyResources)
 
-		// Process all CiliumEnvoyConfigs to compute the new EnvoyResources.
+		// Process all Cilium(ClusterWide)EnvoyConfigs to compute the new EnvoyResources.
+		// We use the [statedb.WatchSet] to figure out which things to recompute. If any
+		// of the queries made for a particular CEC changes we recompute the Envoy resources
+		// for it.
+		allWatches := statedb.NewWatchSet()
+
 		cecs, watch := c.CECs.AllWatch(wtxn)
-		ws.Add(watch)
-		processed := sets.New[CECName]()
-		for cec, rev := range cecs {
-			c.processCEC(wtxn, ws, cec, rev)
-			processed.Insert(cec.Name)
-			existing.Delete(cec.Name)
+		allWatches.Add(watch)
+		existing := sets.New[CECName]()
+		for cec := range cecs {
+			if !cec.SelectsLocalNode {
+				continue
+			}
+
+			existing.Insert(cec.Name)
+			orphans.Delete(cec.Name)
+
+			if ws, found := watchSets[cec.Name]; found {
+				if !ws.HasAny(closedWatches) {
+					// Queries related to this CEC did not change, skip.
+					allWatches.Merge(ws)
+					continue
+				}
+			}
+			watchSet := c.processCEC(wtxn, cec.Name)
+			if watchSet != nil {
+				allWatches.Merge(watchSet)
+				watchSets[cec.Name] = watchSet
+			}
 		}
 
 		// Remove orphaned envoy resources.
-		for orphan := range existing {
+		for orphan := range orphans {
 			c.EnvoyResources.Delete(wtxn, &EnvoyResource{Name: orphan})
-			delete(c.revisions, orphan)
+			delete(watchSets, orphan)
 		}
-		existing = processed
 		wtxn.Commit()
 
-		// Wait for any of the queries we made to invalidate before
-		// recomputing again.
-		if err := ws.Wait(ctx); err != nil {
-			return err
-		}
+		orphans = existing
 
-		if err := limiter.Wait(ctx); err != nil {
+		// Wait for any of the queries we made to invalidate before
+		// recomputing again. [allWatches] is cleared by Wait().
+		var err error
+		closedWatches, err = allWatches.Wait(ctx, 100*time.Millisecond)
+		if err != nil {
 			return err
 		}
 	}
 }
 
-func (c *cecController) processCEC(wtxn statedb.WriteTxn, ws *statedb.WatchSet, cec *CEC, rev statedb.Revision) {
-	if !cec.SelectsLocalNode && c.revisions[cec.Name].cecRevision != rev {
-		c.EnvoyResources.Delete(
-			wtxn,
-			&EnvoyResource{Name: cec.Name},
-		)
-		c.revisions[cec.Name] = revisions{cecRevision: rev}
-		return
+func (c *cecController) processCEC(wtxn statedb.WriteTxn, cecName CECName) *statedb.WatchSet {
+	cec, _, watch, found := c.cecControllerParams.CECs.GetWatch(wtxn, CECByName(cecName))
+	if !found {
+		return nil
 	}
+	ws := statedb.NewWatchSet()
+	ws.Add(watch)
 
 	assignments := map[string]*envoy_config_endpoint.ClusterLoadAssignment{}
-	redirects, revisions, updated := c.processSpec(
+	redirects := c.specToAssignmentsAndRedirects(
 		wtxn,
 		ws,
 		cec,
-		rev,
-		c.revisions[cec.Name],
 		assignments,
 	)
-	if !updated {
-		return
-	}
-
-	c.revisions[cec.Name] = revisions
 
 	// Shallow copy of Resources is enough as we just set the Endpoints field.
 	resources := cec.Resources
@@ -225,16 +232,18 @@ func (c *cecController) processCEC(wtxn statedb.WriteTxn, ws *statedb.WatchSet, 
 			return new
 		},
 	)
+
+	// Return the watch set. When any of the channels in the set closes we will
+	// reprocess this CEC.
+	return ws
 }
 
-func (c *cecController) processSpec(
+func (c *cecController) specToAssignmentsAndRedirects(
 	txn statedb.ReadTxn,
 	ws *statedb.WatchSet,
 	cec *CEC,
-	cecRevision statedb.Revision,
-	prevRevisions revisions,
 	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
-) (map[loadbalancer.ServiceName]*experimental.ProxyRedirect, revisions, bool) {
+) map[loadbalancer.ServiceName]*experimental.ProxyRedirect {
 	redirects := map[loadbalancer.ServiceName]*experimental.ProxyRedirect{}
 	servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
 
@@ -261,50 +270,24 @@ func (c *cecController) processSpec(
 		}
 	}
 
-	// The deferred load assignment computations. Only ran if the input object
-	// revisions have changed.
-	var computations []func()
-
-	revisions := revisions{
-		cecRevision: cecRevision,
-		services:    map[loadbalancer.ServiceName]statedb.Revision{},
-		backends:    map[loadbalancer.L3n4Addr]statedb.Revision{},
-	}
-
 	for name, ports := range servicePorts {
-		svc, rev, watchSvc, found := c.Services.GetWatch(txn, experimental.ServiceByName(name))
+		svc, _, watchSvc, found := c.Services.GetWatch(txn, experimental.ServiceByName(name))
 		ws.Add(watchSvc)
-		revisions.services[name] = rev
-
 		if !found {
 			continue
 		}
 		bes, watchBes := c.Backends.ListWatch(txn, experimental.BackendByServiceName(svc.Name))
 		ws.Add(watchBes)
 
-		for be, rev := range bes {
-			revisions.backends[be.L3n4Addr] = rev
-		}
-		computations = append(computations, func() {
-			computeLoadAssignments(
-				assignments,
-				svc.Name,
-				ports,
-				svc.PortNames,
-				bes)
-		})
+		computeLoadAssignments(
+			assignments,
+			svc.Name,
+			ports,
+			svc.PortNames,
+			bes)
 	}
 
-	if prevRevisions.equal(revisions) {
-		// Nothing has changed.
-		return redirects, revisions, false
-	}
-
-	// Recompute the load assignments.
-	for _, compute := range computations {
-		compute()
-	}
-	return redirects, revisions, true
+	return redirects
 }
 
 func computeLoadAssignments(
