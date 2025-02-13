@@ -20,6 +20,16 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
+# Updating the k8s objects doesn't change anything
+k8s update pod.yaml service.yaml endpointslice.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Compare maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps.expected
+
 # Removing policy reverts (but we'll get new backend id)
 k8s delete lrp-svc.yaml
 db/cmp services services-before.table

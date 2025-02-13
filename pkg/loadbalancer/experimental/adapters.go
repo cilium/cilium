@@ -526,7 +526,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 		for be := range fe.Backends {
 			// Get the instance of the referenced service. This may be different from fe.ServiceName
 			// if it is being redirected.
-			inst := be.GetInstance(fe.Service().Name)
+			inst := be.GetInstanceForFrontend(fe)
 			beModel := &loadbalancer.Backend{
 				FEPortName: "",
 				ID:         0,

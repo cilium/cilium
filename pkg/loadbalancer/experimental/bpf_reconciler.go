@@ -932,7 +932,7 @@ func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBacken
 		}
 		return nil
 	}
-	maglevTable, err := ops.computeMaglevTable(fe.Service(), activeBackends)
+	maglevTable, err := ops.computeMaglevTable(fe, activeBackends)
 	if err != nil {
 		return fmt.Errorf("ops.computeMaglevTable failed: %w", err)
 	}
@@ -1013,13 +1013,13 @@ func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L
 	ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
 }
 
-func (ops *BPFOps) computeMaglevTable(svc *Service, bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
+func (ops *BPFOps) computeMaglevTable(fe *Frontend, bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
 	var errs []error
 	backendInfos := func(yield func(maglev.BackendInfo) bool) {
 		for _, be := range bes {
-			instance := be.GetInstance(svc.Name)
+			instance := be.GetInstanceForFrontend(fe)
 			if instance == nil {
-				errs = append(errs, fmt.Errorf("instance of backend %q for service %q not found", be.String(), svc.Name.String()))
+				errs = append(errs, fmt.Errorf("instance of backend %q for service %q not found", be.String(), fe.ServiceName))
 				continue
 			}
 			id, err := ops.backendIDAlloc.lookupLocalID(be.L3n4Addr)

@@ -104,6 +104,14 @@ func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
 	return nil
 }
 
+func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendInstance {
+	serviceName := fe.ServiceName
+	if fe.RedirectTo != nil {
+		serviceName = *fe.RedirectTo
+	}
+	return be.GetInstance(serviceName)
+}
+
 func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src source.Source) *BackendInstance {
 	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
 		if k.ServiceName == name && inst.Source == src {
