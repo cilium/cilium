@@ -91,23 +91,23 @@ default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 k8s
 
 -- frontends.table --
 Address           Type      Status  ServiceName                                                         Backends
-0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP (active)
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP
 
 -- frontends3.table --
 Address           Type      Status  ServiceName                                                           Backends
-0.0.0.0:4444/TCP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP (active)
+0.0.0.0:4444/TCP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
 
 -- frontends4.table --
 Address           Type      Status  ServiceName                                                           Backends
-0.0.0.0:5555/TCP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP (active)
+0.0.0.0:5555/TCP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
 
 -- backends.table --
-Address             State    Instances 
-10.244.1.113:80/TCP active   default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
+Address             Instances 
+10.244.1.113:80/TCP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
 
 -- backends4.table --
-Address             State    Instances 
-10.244.1.114:80/TCP active   default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
+Address             Instances 
+10.244.1.114:80/TCP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
 
 -- services_empty.table --
 Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
@@ -116,7 +116,7 @@ Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionA
 Address               Type        ServiceName   PortName   Status  Backends
 
 -- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
+Address
 
 -- pod.yaml --
 apiVersion: v1

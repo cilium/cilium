@@ -72,37 +72,41 @@ var baseFrontend = Frontend{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
-	Backends: func(yield func(*Backend, statedb.Revision) bool) {},
+	Backends: func(yield func(BackendParams, statedb.Revision) bool) {},
 	Status:   reconciler.StatusPending(),
 }
 
-var emptyInstances = func() part.Map[BackendInstanceKey, BackendInstance] {
+var emptyInstances = func() part.Map[BackendInstanceKey, BackendParams] {
 	part.RegisterKeyType(BackendInstanceKey.Key)
-	return part.Map[BackendInstanceKey, BackendInstance]{}
+	return part.Map[BackendInstanceKey, BackendParams]{}
 }()
 
-var baseBackend = Backend{
-	L3n4Addr: backend1,
-	NodeName: "",
-	ZoneID:   0,
-	Instances: emptyInstances.Set(
-		BackendInstanceKey{testServiceName, 0},
-		BackendInstance{
-			PortNames: nil,
-			Weight:    0,
-			State:     loadbalancer.BackendStateActive,
-		},
-	),
-}
-
+var baseBackend = newTestBackend(backend1, loadbalancer.BackendStateActive)
 var nextBackendRevision = statedb.Revision(1)
 
-func concatBe(bes backendsSeq2, be *Backend, rev statedb.Revision) backendsSeq2 {
-	return func(yield func(*Backend, statedb.Revision) bool) {
+func concatBe(bes backendsSeq2, be BackendParams, rev statedb.Revision) backendsSeq2 {
+	return func(yield func(BackendParams, statedb.Revision) bool) {
 		if !yield(be, rev) {
 			return
 		}
 		bes(yield)
+	}
+}
+
+func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState) Backend {
+	return Backend{
+		L3n4Addr: addr,
+		Instances: emptyInstances.Set(
+			BackendInstanceKey{testServiceName, 0},
+			BackendParams{
+				L3n4Addr:  addr,
+				NodeName:  "",
+				ZoneID:    0,
+				PortNames: nil,
+				Weight:    0,
+				State:     state,
+			},
+		),
 	}
 }
 
@@ -113,7 +117,7 @@ func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []
 	delete, bes := mod(&svc, &fe)
 	fe.service = &svc
 	for _, be := range bes {
-		fe.Backends = concatBe(fe.Backends, &be, nextBackendRevision)
+		fe.Backends = concatBe(fe.Backends, *be.GetInstance(svc.Name), nextBackendRevision)
 		nextBackendRevision++
 	}
 	return testCase{
@@ -173,9 +177,9 @@ var clusterIPTestCases = []testCase{
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
@@ -273,9 +277,9 @@ var quarantineTestCases = []testCase{
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
@@ -296,10 +300,9 @@ var quarantineTestCases = []testCase{
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
 			fe.Type = ClusterIP
 			fe.Address = autoAddr
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
-			be1.State = loadbalancer.BackendStateQuarantined
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
@@ -334,9 +337,9 @@ var nodePortTestCases = []testCase{
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
 			fe.Type = NodePort
 			fe.Address = zeroAddr
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 
@@ -666,10 +669,9 @@ var sessionAffinityTestCases = []testCase{
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
 			svc.SessionAffinityTimeout = time.Second
-
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 
@@ -702,11 +704,9 @@ var sessionAffinityTestCases = []testCase{
 			fe.Address = zeroAddr
 			svc.SessionAffinity = true
 			svc.SessionAffinityTimeout = time.Second
-
-			be1, be2 := baseBackend, baseBackend
-			be1.L3n4Addr = backend1
-			be2.L3n4Addr = backend2
-			be1.State = loadbalancer.BackendStateQuarantined
+			be1, be2 :=
+				newTestBackend(backend1, loadbalancer.BackendStateQuarantined),
+				newTestBackend(backend2, loadbalancer.BackendStateActive)
 			return false, []Backend{be1, be2}
 		},
 

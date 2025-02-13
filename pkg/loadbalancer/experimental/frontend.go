@@ -78,14 +78,14 @@ type Frontend struct {
 
 // backendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
 // marshalable.
-type backendsSeq2 iter.Seq2[*Backend, statedb.Revision]
+type backendsSeq2 iter.Seq2[BackendParams, statedb.Revision]
 
 func (s backendsSeq2) MarshalJSON() ([]byte, error) {
-	return json.Marshal(slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](s))))
+	return json.Marshal(slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))))
 }
 
 func (s backendsSeq2) MarshalYAML() (any, error) {
-	return slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](s))), nil
+	return slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](s))), nil
 }
 
 func (fe *Frontend) Service() *Service {
@@ -139,7 +139,7 @@ func (fe *Frontend) TableRow() []string {
 }
 
 // showBackends returns the backends associated with a frontend in form
-// "1.2.3.4:80 (active), [2001::1]:443 (terminating)"
+// "1.2.3.4:80, [2001::1]:443"
 func showBackends(bes backendsSeq2) string {
 	const maxToShow = 5
 	count := 0
@@ -147,13 +147,6 @@ func showBackends(bes backendsSeq2) string {
 	for be := range bes {
 		if count < maxToShow {
 			b.WriteString(be.L3n4Addr.String())
-			b.WriteString(" (")
-			state, err := be.State.String()
-			if err != nil {
-				state = err.Error()
-			}
-			b.WriteString(state)
-			b.WriteString(")")
 			b.WriteString(", ")
 		}
 		count++

@@ -63,22 +63,18 @@ test/echo   k8s                  Cluster            Cluster                     
 Name  Source
 
 -- backends.table --
-Address             State    Instances          Shadows        NodeName          ZoneID
-10.244.1.1:80/TCP   active   test/echo (http)                  nodeport-worker   0
+Address             Instances          Shadows        NodeName
+10.244.1.1:80/TCP   test/echo (http)                  nodeport-worker
 
 -- backends_empty.table --
-Address             State
-
--- backends_norefs.table --
-Address             State    Instances          Shadows        NodeName          ZoneID
-10.244.1.1:80/TCP   active                                     nodeport-worker   0
+Address
 
 -- frontends_empty.table --
 Address  Type
 
 -- frontends.table --
 Address        Type       Status  Backends 
-1.1.1.1:80/TCP ClusterIP  Done    10.244.1.1:80/TCP (active)
+1.1.1.1:80/TCP ClusterIP  Done    10.244.1.1:80/TCP
 
 -- service_clusterip_none.yaml --
 apiVersion: v1

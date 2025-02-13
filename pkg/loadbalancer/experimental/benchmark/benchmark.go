@@ -451,7 +451,7 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if fe.Status.Kind != "Done" {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
-				backends := slices.Collect(statedb.ToSeq(iter.Seq2[*experimental.Backend, statedb.Revision](fe.Backends)))
+				backends := slices.Collect(statedb.ToSeq(iter.Seq2[experimental.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
 					if backends[0].AddrCluster != wantAddr {
 						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].AddrCluster, wantAddr))
@@ -481,9 +481,6 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 						if be.Protocol != wantPort.Protocol {
 							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Protocol, wantPort.Protocol))
 						}
-					}
-					if be.NodeName != wantBe.NodeName {
-						err = errors.Join(err, fmt.Errorf("Incorrect node name for backend #%06d, got %v, want %v", i, be.NodeName, wantBe.NodeName))
 					}
 				}
 				if be.Instances.Len() != 1 {

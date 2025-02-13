@@ -30,12 +30,11 @@ replace '$READY1' 'false' endpointslice.yaml
 replace '$TERM2' 'false' endpointslice.yaml
 replace '$READY2' 'true' endpointslice.yaml
 k8s update endpointslice.yaml
-db/cmp frontends frontends-terminating1.table
 db/cmp backends backends-terminating1.table
 
 # Check BPF maps
 lb/maps-dump lbmaps.actual
-cmp lbmaps-terminating1.expected lbmaps.actual
+* cmp lbmaps-terminating1.expected lbmaps.actual
 
 # Set also the second backend as terminating. Now since there
 # are now active backends the terminating backends are used
@@ -63,30 +62,26 @@ test/graceful-term-svc   k8s                  Cluster            Cluster        
 
 -- frontends.table --
 Address                 Type        ServiceName              Status  Backends                              
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP (active), 10.244.0.113:8081/TCP (active)
-
--- frontends-terminating1.table --
-Address                 Type        ServiceName              Status  Backends
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP (terminating), 10.244.0.113:8081/TCP (active)
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
 -- frontends-terminating2.table --
 Address                 Type        ServiceName              Status  Backends
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP (terminating), 10.244.0.113:8081/TCP (terminating)
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
 -- backends.table --
-Address                 State   Instances                NodeName                      ZoneID
-10.244.0.112:8081/TCP   active  test/graceful-term-svc   graceful-term-control-plane   0
-10.244.0.113:8081/TCP   active  test/graceful-term-svc   graceful-term-control-plane   0
+Address                 Instances                NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
 
 -- backends-terminating1.table --
-Address                 State         Instances                NodeName                      ZoneID
-10.244.0.112:8081/TCP   terminating   test/graceful-term-svc   graceful-term-control-plane   0
-10.244.0.113:8081/TCP   active        test/graceful-term-svc   graceful-term-control-plane   0
+Address                 Instances                              NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]   graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc                 graceful-term-control-plane
 
 -- backends-terminating2.table --
-Address                 State         Instances                NodeName                      ZoneID
-10.244.0.112:8081/TCP   terminating   test/graceful-term-svc   graceful-term-control-plane   0
-10.244.0.113:8081/TCP   terminating   test/graceful-term-svc   graceful-term-control-plane   0
+Address                 Instances                             NodeName
+10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
+10.244.0.113:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
 
 -- services_empty.table --
 Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
@@ -95,7 +90,7 @@ Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionA
 Address               Type        ServiceName   PortName   Status  Backends
 
 -- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
+Address
 
 -- service.yaml --
 apiVersion: v1
