@@ -1,5 +1,7 @@
 {{$NumEGWClients := DefaultParam .CL2_NUM_EGW_CLIENTS 9}}
 {{$QPS := DefaultParam .CL2_EGW_CLIENTS_QPS 3}}
+{{$CreateEGWPolicy := DefaultParam .CL2_CREATE_EGW_POLICY false}}
+{{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
 {{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
 
 name: egw-scale-test-masq-delay
@@ -14,6 +16,15 @@ tuningSets:
   qpsLoad:
     qps: {{$QPS}}
 steps:
+{{ if $CreateEGWPolicy }}
+- name: Create Egress Gateway Policy
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Uniform1qps
+    objectBundle:
+    - basename: egw-scale-test-route-external
+      objectTemplatePath: {{ $EGWPolicyTemplate }}
+{{ end }}
 - name: Create External Target Pod
   phases:
   - namespaceRange:
@@ -97,6 +108,14 @@ steps:
         query: quantile(0.95, egw_scale_test_leaked_requests_total)
       - name: EGW Leaked Pings - 99th Percentile
         query: quantile(0.99, egw_scale_test_leaked_requests_total)
+  - Identifier: EGWLeakedPingsTotal
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: "EGW Leaked Pings Total"
+      metricVersion: v1
+      unit: count
+      queries:
       - name: EGW Leaked Pings - Total
         query: sum(egw_scale_test_leaked_requests_total)
   - Identifier: EGWPodCountMetrics
@@ -149,6 +168,10 @@ steps:
     Method: GenericPrometheusQuery
     Params:
       action: gather
+  - Identifier: EGWLeakedPingsTotal
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
   - Identifier: EGWPodCountMetrics
     Method: GenericPrometheusQuery
     Params:
@@ -162,4 +185,3 @@ steps:
       action: gather
 {{end}}
 {{end}}
-
