@@ -455,14 +455,14 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Port:     9092,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeKafka,
+					Priority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
@@ -471,14 +471,14 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
@@ -487,15 +487,15 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Port:     9090,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: L7ParserType("tester"),
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: L7ParserType("tester"),
+					Priority: ListenerPriorityProxylib,
 					L7Rules: api.L7Rules{
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}}),
@@ -593,15 +593,15 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -613,15 +613,15 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			Port:     9092,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeKafka,
+					Priority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -864,14 +864,14 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			Port:     53,
 			Protocol: api.ProtoUDP,
 			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeDNS,
+					Priority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
@@ -880,14 +880,14 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
@@ -916,7 +916,6 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 			},
@@ -1016,15 +1015,15 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -1036,15 +1035,15 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			Port:     53,
 			Protocol: api.ProtoUDP,
 			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeDNS,
+					Priority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -1118,10 +1117,11 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{
 							Headers: []string{"X-My-Header: true"},
@@ -1129,7 +1129,6 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 							Path:    "/",
 						}},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}}),
@@ -1138,7 +1137,6 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			Port:     0,
 			Protocol: api.ProtoAny,
 			U8Proto:  0x0,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: nil,
@@ -1215,7 +1213,6 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorWorld:   nil,
 				td.cachedSelectorWorldV4: nil,
@@ -1232,14 +1229,14 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			Port:     9092,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeKafka,
+					Priority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
@@ -1248,14 +1245,14 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
@@ -1329,7 +1326,6 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorWorld:   nil,
 				td.cachedSelectorWorldV4: nil,
@@ -1346,14 +1342,14 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 			Port:     53,
 			Protocol: api.ProtoUDP,
 			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeDNS,
+					Priority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
@@ -1362,14 +1358,14 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					L7Parser: ParserTypeHTTP,
+					Priority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
 				},
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
@@ -1442,13 +1438,13 @@ func TestMinikubeGettingStarted(t *testing.T) {
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"TCP/80": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress:    true,

@@ -69,7 +69,6 @@ func TestMergeDenyAllL3(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: "",
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
@@ -147,7 +146,6 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -193,7 +191,6 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
@@ -243,7 +240,6 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			td.cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
@@ -297,7 +293,6 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: nil,
@@ -345,7 +340,6 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: nil,
@@ -404,14 +398,14 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -462,14 +456,14 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
