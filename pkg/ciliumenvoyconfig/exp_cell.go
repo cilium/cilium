@@ -8,6 +8,8 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 var (
@@ -30,7 +32,10 @@ var (
 		experimentalControllerCells,
 	)
 
-	experimentalControllerCells = cell.Invoke(registerCECController)
+	experimentalControllerCells = cell.Group(
+		cell.Invoke(registerCECController),
+		metrics.Metric(newExperimentalMetrics),
+	)
 
 	experimentalTableCells = cell.Group(
 		cell.ProvidePrivate(
@@ -46,3 +51,21 @@ var (
 		),
 	)
 )
+
+type experimentalMetrics struct {
+	ControllerDuration metric.Histogram
+}
+
+func newExperimentalMetrics() experimentalMetrics {
+	return experimentalMetrics{
+		ControllerDuration: metric.NewHistogram(metric.HistogramOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "ciliumenvoyconfig",
+			Name:      "controller_duration_seconds",
+			Help:      "Histogram of CiliumEnvoyConfig processing times",
+			Disabled:  true,
+			// Use buckets in the 0.5ms-1.0s range.
+			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
+		}),
+	}
+}

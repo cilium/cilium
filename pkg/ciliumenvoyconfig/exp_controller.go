@@ -11,7 +11,6 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type cecControllerParams struct {
@@ -38,6 +38,7 @@ type cecControllerParams struct {
 	Log            *slog.Logger
 	ExpConfig      experimental.Config
 	LocalNodeStore *node.LocalNodeStore
+	Metrics        experimentalMetrics
 
 	NodeLabels     *nodeLabels
 	CECs           statedb.RWTable[*CEC]
@@ -140,6 +141,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 	orphans := sets.New[CECName]()
 
 	for {
+		t0 := time.Now()
 		wtxn := c.DB.WriteTxn(c.EnvoyResources)
 
 		// Process all Cilium(ClusterWide)EnvoyConfigs to compute the new EnvoyResources.
@@ -182,6 +184,8 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 
 		orphans = existing
 
+		c.Metrics.ControllerDuration.Observe(float64(time.Since(t0)) / float64(time.Second))
+
 		// Wait for any of the queries we made to invalidate before
 		// recomputing again. [allWatches] is cleared by Wait().
 		var err error
@@ -193,7 +197,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 }
 
 func (c *cecController) processCEC(wtxn statedb.WriteTxn, cecName CECName) *statedb.WatchSet {
-	cec, _, watch, found := c.cecControllerParams.CECs.GetWatch(wtxn, CECByName(cecName))
+	cec, _, watch, found := c.CECs.GetWatch(wtxn, CECByName(cecName))
 	if !found {
 		return nil
 	}
