@@ -38,6 +38,7 @@ const (
 	testDefaultSecretNamespace          = ""
 	testDefaultSecretName               = ""
 	testDefaultTimeout                  = 60
+	testDefaultStreamTimout             = 300
 	testIngressDefaultRequestTimeout    = time.Duration(0)
 )
 
@@ -47,7 +48,8 @@ func TestReconcile(t *testing.T) {
 	cfg := translation.Config{
 		SecretsNamespace: testCiliumNamespace,
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol: testUseProxyProtocol,
+			UseProxyProtocol:         testUseProxyProtocol,
+			StreamIdleTimeoutSeconds: testDefaultStreamTimout,
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: testDefaultTimeout,

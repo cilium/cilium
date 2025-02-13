@@ -210,8 +210,9 @@ func (r *ciliumEnvoyConfigReconciler) getConnectionManager(svc *corev1.Service) 
 				RouteConfigName: getName(svc),
 			},
 		},
-		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-		SkipXffAppend:    false,
+		StreamIdleTimeout: &durationpb.Duration{Seconds: int64(r.streamIdleTimeoutSeconds)},
+		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:     false,
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
 			{
 				Name: "envoy.filters.http.router",

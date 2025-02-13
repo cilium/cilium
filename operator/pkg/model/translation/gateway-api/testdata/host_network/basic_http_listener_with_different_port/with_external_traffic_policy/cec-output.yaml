@@ -57,6 +57,7 @@ spec:
           rds:
             routeConfigName: listener-insecure
           statPrefix: listener-insecure
+          streamIdleTimeout: 300s
           upgradeConfigs:
           - upgradeType: websocket
           useRemoteAddress: true
