@@ -757,8 +757,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 			__u8 code = 0;
 			__be16 identifier = 0;
 
-			err = ipv4_load_l4_ports_for_icmp(ctx, off, CT_INGRESS,
-							  &type, &code, &identifier, true);
+			err = icmp4_load_info(ctx, ip4, off, dir, has_l4_header,
+					      &type, &code, &identifier);
 			if (err < 0)
 				return err;
 
@@ -913,7 +913,7 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_fragment = ipv4_is_fragment(ip4);
-	bool has_l4_header = ipv4_has_l4_header(ip4);
+	bool has_l4_header = true;
 	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
