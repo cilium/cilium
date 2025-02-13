@@ -28,7 +28,7 @@ var (
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
+func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWGDone()
 
@@ -45,7 +45,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"shared", event.Service.Shared,
 		)
 
-		if shared && !event.Service.Shared {
+		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteKey(ctx, &svc)
 			return
@@ -88,7 +88,6 @@ type ServiceSyncParameters struct {
 	Services     resource.Resource[*slim_corev1.Service]
 	Endpoints    resource.Resource[*k8s.Endpoints]
 	Backend      store.SyncStoreBackend
-	SharedOnly   bool
 	StoreFactory store.Factory
 	SyncCallback func(context.Context)
 }
@@ -125,7 +124,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly, logger)
+		k8sServiceHandler(ctx, cfg.ClusterInfo, logger)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints

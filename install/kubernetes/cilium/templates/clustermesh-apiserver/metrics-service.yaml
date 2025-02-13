@@ -1,6 +1,6 @@
 {{- $kvstoreMetricsEnabled := and .Values.clustermesh.apiserver.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled -}}
 {{- if and
-  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  .Values.clustermesh.useAPIServer
   (or .Values.clustermesh.apiserver.metrics.enabled $kvstoreMetricsEnabled .Values.clustermesh.apiserver.metrics.etcd.enabled) }}
 apiVersion: v1
 kind: Service

@@ -624,7 +624,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				Clientset:    legacy.clientset,
 				Services:     legacy.resources.Services,
 				Endpoints:    legacy.resources.Endpoints,
-				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
 			}, legacy.logger)

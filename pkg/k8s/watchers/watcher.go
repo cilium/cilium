@@ -222,7 +222,6 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(cilium_v2.CNName):            {start, k8sAPIGroupCiliumNodeV2},
 	synced.CRDResourceName(cilium_v2.CIDName):           {skip, ""}, // Handled in pkg/k8s/identitybackend/
 	synced.CRDResourceName(cilium_v2.CLRPName):          {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
-	synced.CRDResourceName(cilium_v2.CEWName):           {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(cilium_v2.CEGPName):          {skip, ""}, // Handled via Resource[T].
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(cilium_v2.CCECName):          {waitOnly, k8sAPIGroupCiliumClusterwideEnvoyConfigV2}, // Handled in pkg/ciliumenvoyconfig/

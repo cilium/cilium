@@ -32,9 +32,5 @@ cat /etc/resolv.conf
 # Restarting docker to use correct nameserver
 service docker restart
 
-if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
-    "${PROVISIONSRC}"/compile.sh ${CILIUM_EXTRA_OPTS}
-    "${PROVISIONSRC}"/wait-cilium-in-docker.sh
-else
-    "${PROVISIONSRC}"/externalworkload_install.sh
-fi
+"${PROVISIONSRC}"/compile.sh ${CILIUM_EXTRA_OPTS}
+"${PROVISIONSRC}"/wait-cilium-in-docker.sh

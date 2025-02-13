@@ -15,7 +15,6 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/node/store"
 )
 
 // ClusterMeshEtcdInit initializes etcd for use by Cilium Clustermesh via the provided client. It creates a number of
@@ -65,36 +64,6 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 		return err
 	}
 	err = ic.grantRoleToUser(ctx, rootRolename, adminUsername)
-	if err != nil {
-		return err
-	}
-
-	// External workload user
-	externalWorkloadUsername := username("externalworkload")
-	log.WithField("etcdUsername", externalWorkloadUsername).
-		Info("Configuring external workload user")
-	err = ic.addNoPasswordUser(ctx, externalWorkloadUsername)
-	if err != nil {
-		return err
-	}
-	externalWorkloadRolename := rolename("externalworkload")
-	err = ic.addRole(ctx, externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantRoleToUser(ctx, externalWorkloadRolename, externalWorkloadUsername)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readOnly, allKeysRange, externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readWrite, rangeForPrefix(store.NodeRegisterStorePrefix), externalWorkloadRolename)
-	if err != nil {
-		return err
-	}
-	err = ic.grantPermissionToRole(ctx, readWrite, rangeForPrefix(kvstore.InitLockPath), externalWorkloadRolename)
 	if err != nil {
 		return err
 	}
@@ -250,15 +219,10 @@ func rangeForPrefix(prefix string, opts ...krOpt) keyRange {
 	return keyRange{prefix, clientv3.GetPrefixRangeEnd(prefix)}
 }
 
-// allKeysRange is the range over all keys in etcd. Granting permissions on this range is the same as granting global
-// permissions in etcd.
-var allKeysRange = keyRange{"\x00", "\x00"}
-
 // permission is a thin, internal wrapper around etcd's permission types
 type permission clientv3.PermissionType
 
 var readOnly = permission(clientv3.PermRead)
-var readWrite = permission(clientv3.PermReadWrite)
 
 func (p permission) string() string {
 	return authpb.Permission_Type(p).String()

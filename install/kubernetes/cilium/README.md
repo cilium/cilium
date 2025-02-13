@@ -430,8 +430,6 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints |
 | etcd.ssl | bool | `false` | Enable use of TLS/SSL for connectivity to etcd. |
 | externalIPs.enabled | bool | `false` | Enable ExternalIPs service support. |
-| externalWorkloads | object | `{"enabled":false}` | Configure external workloads support |
-| externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
 | extraArgs | list | `[]` | Additional agent container arguments. |
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
 | extraContainers | list | `[]` | Additional containers added to the cilium DaemonSet. |
