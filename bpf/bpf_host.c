@@ -378,8 +378,9 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint.ip4,
-						      encrypt_key, secctx, info->sec_identity,
+		return encap_and_redirect_with_nodeid(ctx, info, encrypt_key,
+						      secctx,
+						      info->sec_identity,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
@@ -812,6 +813,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	 */
 #ifdef ENABLE_VTEP
 	{
+		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
@@ -823,7 +825,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.flag_has_tunnel_ep = true;
+			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								secctx, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -844,8 +848,9 @@ skip_vtep:
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
-		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint.ip4,
-						      encrypt_key, secctx, info->sec_identity,
+		return encap_and_redirect_with_nodeid(ctx, info, encrypt_key,
+						      secctx,
+						      info->sec_identity,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -1044,8 +1049,7 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 
 	ctx->mark = 0;
 	bpf_clear_meta(ctx);
-	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint.ip4, 0,
-					      src_id, 0, &trace);
+	return encap_and_redirect_with_nodeid(ctx, ep, 0, src_id, 0, &trace);
 }
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
