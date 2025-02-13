@@ -182,6 +182,8 @@ const (
 
 	MonitorLogFileName = "monitor.log"
 
+	HubbleLogFileName = "hubble.log"
+
 	// CiliumTestLog is the filename where the cilium logs that happens during
 	// the test are saved.
 	CiliumTestLog = "cilium-test.log"
