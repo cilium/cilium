@@ -103,6 +103,18 @@ kprobe:br_forward
       $tcph = (struct tcphdr*)$udph;
 
       if (!$tcph->rst) {
+        printf("\n");
+
+        $i = (uint64)0;
+        while ($i < 16) {
+            if ($i >= @skb_footprint_len[$skb]) {
+                break;
+            }
+            $fp = @skb_footprints[$skb, $i];
+            printf("%s%s mark=%x %s=%d netns=%x\n", $fp.0, $fp.4, $fp.1, $fp.5, $fp.2, $fp.3);
+            $i++;
+        }
+
         printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
           strftime("%H:%M:%S:%f", nsecs),
           ntop($ip4h->saddr), bswap($udph->source),
@@ -142,6 +154,18 @@ kprobe:br_forward
       $tcph = (struct tcphdr*)$udph;
 
       if (!$tcph->rst) {
+        printf("\n");
+
+        $i = (uint64)0;
+        while ($i < 16) {
+            if ($i >= @skb_footprint_len[$skb]) {
+                break;
+            }
+            $fp = @skb_footprints[$skb, $i];
+            printf("%s%s mark=%x %s=%d netns=%x\n", $fp.0, $fp.4, $fp.1, $fp.5, $fp.2, $fp.3);
+            $i++;
+        }
+
         printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
           strftime("%H:%M:%S:%f", nsecs),
           ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
@@ -293,3 +317,79 @@ END
   clear(@trace_sk);
   clear(@sanity);
 }
+
+BEGIN
+{
+    @skb_footprint_len[(struct sk_buff *)0] = (uint8)0;
+    @skb_footprints[(struct sk_buff *)0, (uint8)0] = ("<>", (uint32)0, (uint32)0, (uint32)0, "_______________", "ifindex");
+}
+
+kprobe:ip_output,kprobe:ip6_output
+{
+    $skb = (struct sk_buff *)arg2;
+    $fp_len = @skb_footprint_len[$skb];
+    @skb_footprints[$skb, $fp_len] = (
+        "<-",
+        $skb->mark,
+        (uint32)pid,
+        (uint32)0,
+        comm,
+        "process"
+    );
+    @skb_footprint_len[$skb]++;
+}
+
+tracepoint:net:net_dev_queue
+{
+    $skb = (struct sk_buff *)args->skbaddr;
+    $fp_len = @skb_footprint_len[$skb];
+    @skb_footprints[$skb, $fp_len] = (
+        "<-",
+        $skb->mark,
+        (uint32)$skb->dev->ifindex,
+        $skb->dev->nd_net.net->ns.inum,
+        $skb->dev->name,
+        "ifindex"
+    );
+    @skb_footprint_len[$skb]++;
+}
+
+tracepoint:net:netif_receive_skb
+{
+    $skb = (struct sk_buff *)args->skbaddr;
+    $fp_len = @skb_footprint_len[$skb];
+    @skb_footprints[$skb, $fp_len] = (
+        "->",
+        $skb->mark,
+        (uint32)$skb->dev->ifindex,
+        $skb->dev->nd_net.net->ns.inum,
+        $skb->dev->name,
+        "ifindex"
+    );
+    @skb_footprint_len[$skb]++;
+}
+
+tracepoint:skb:kfree_skb,tracepoint:skb:consume_skb
+{
+    $skb = (struct sk_buff *)args->skbaddr;
+    $fp_len = @skb_footprint_len[$skb];
+    $i = (uint64)0;
+    while ($i < ($fp_len & 0xff)) {
+        delete(@skb_footprints[$skb, $i]);
+        $i++;
+    }
+    delete(@skb_footprint_len[$skb]);
+}
+
+kprobe:kfree_skbmem
+{
+    $skb = (struct sk_buff *)arg0;
+    $fp_len = @skb_footprint_len[$skb];
+    $i = (uint64)0;
+    while ($i < ($fp_len & 0xff)) {
+        delete(@skb_footprints[$skb, $i]);
+        $i++;
+    }
+    delete(@skb_footprint_len[$skb]);
+}
+
