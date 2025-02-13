@@ -84,9 +84,10 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-          GITHUB_WORKFLOW_REF: ${{ env.GITHUB_WORKFLOW_REF }}
 
       - name: Check Joe's sanity
+        env:
+          GITHUB_WORKFLOW_REF: ${{ env.GITHUB_WORKFLOW_REF }}
         run: |
           cilium echo
 
