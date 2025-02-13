@@ -52,13 +52,16 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
-				 __be32 tunnel_endpoint,
+				 const struct remote_endpoint_info *info,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
 {
+	__be32 tunnel_endpoint = 0;
 	int ifindex;
 	int ret = 0;
 
+	if (info)
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
 				  vni, trace->reason, trace->monitor,
 				  &ifindex);
@@ -74,31 +77,37 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
  * On error returns a DROP_* reason.
  */
 static __always_inline int
-encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
+encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
+			       struct remote_endpoint_info *info,
 			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
-	if (encrypt_key)
+	__be32 tunnel_endpoint = 0;
+
+	if (encrypt_key) {
+		if (info)
+			tunnel_endpoint = info->tunnel_endpoint.ip4;
 		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
 					 seclabel, true, false);
+	}
 #endif
 
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-						seclabel, dstid, NOT_VTEP_DST,
-						trace);
+	return __encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid,
+						NOT_VTEP_DST, trace);
 }
 
 /* __encap_and_redirect_lxc() is a variant of encap_and_redirect_lxc()
  * that requires a valid tunnel_endpoint.
  */
 static __always_inline int
-__encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key, __u32 seclabel, __u32 dstid,
-			 const struct trace_ctx *trace)
+__encap_and_redirect_lxc(struct __ctx_buff *ctx,
+			 struct remote_endpoint_info *info,
+			 __u8 encrypt_key, __u32 seclabel,
+			 __u32 dstid, const struct trace_ctx *trace)
 {
-	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+	return encap_and_redirect_with_nodeid(ctx, info,
 					      encrypt_key, seclabel, dstid,
 					      trace);
 }
@@ -115,7 +124,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx,
-		       __be32 tunnel_endpoint __maybe_unused,
+		       struct remote_endpoint_info *info,
 		       __u32 src_ip __maybe_unused,
 		       __u32 dst_ip __maybe_unused,
 		       __u8 encrypt_key __maybe_unused,
@@ -123,12 +132,12 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
 	struct tunnel_value *tunnel __maybe_unused;
 
-	if (tunnel_endpoint)
-		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
-						encrypt_key, seclabel, dstid,
-						trace);
+	if (info && info->flag_has_tunnel_ep)
+		return __encap_and_redirect_lxc(ctx, info, encrypt_key,
+						seclabel, dstid, trace);
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
 	if (!tunnel)
@@ -142,7 +151,9 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
+	fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
+	fake_info.flag_has_tunnel_ep = tunnel->ip4 != 0;
+	return __encap_and_redirect_with_nodeid(ctx, &fake_info, seclabel,
 						dstid, NOT_VTEP_DST, trace);
 }
 
@@ -151,13 +162,16 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u8 encrypt_key, __u32 seclabel,
 			  const struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
 	struct tunnel_value *tunnel;
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
+	fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
+	fake_info.flag_has_tunnel_ep = tunnel->ip4 != 0;
+	return encap_and_redirect_with_nodeid(ctx, &fake_info, encrypt_key,
 					      seclabel, 0, trace);
 }
 #endif /* TUNNEL_MODE */
