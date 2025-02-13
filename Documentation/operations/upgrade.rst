@@ -342,6 +342,7 @@ Changed Metrics
 * ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_kvstore_identities``
 * ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_crd_only_identities``
 * ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_kvstore_only_identities``
+* The type of the ``cilium_agent_bootstrap_seconds`` metric has been changed from histogram to gauge.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
