@@ -52,16 +52,16 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
-				 __be32 tunnel_endpoint,
+				 const struct remote_endpoint_info *info,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
 {
 	int ifindex;
 	int ret = 0;
 
-	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
-				  vni, trace->reason, trace->monitor,
-				  &ifindex);
+	ret = __encap_with_nodeid(ctx, 0, 0, info->tunnel_endpoint.ip4,
+				  seclabel, dstid, vni, trace->reason,
+				  trace->monitor, &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 
@@ -74,20 +74,21 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
  * On error returns a DROP_* reason.
  */
 static __always_inline int
-encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
+encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
+			       struct remote_endpoint_info *info,
 			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					 seclabel, true, false);
+		return set_ipsec_encrypt(ctx, encrypt_key,
+					 info->tunnel_endpoint.ip4, seclabel,
+					 true, false);
 #endif
 
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-						seclabel, dstid, NOT_VTEP_DST,
-						trace);
+	return __encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid,
+						NOT_VTEP_DST, trace);
 }
 
 #if defined(TUNNEL_MODE)
@@ -101,16 +102,16 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * CTX_ACT_REDIRECT.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-		       __u8 encrypt_key, __u32 seclabel, __u32 dstid,
+encap_and_redirect_lxc(struct __ctx_buff *ctx,
+		       struct remote_endpoint_info *info, __u8 encrypt_key,
+		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
-	if (!tunnel_endpoint)
+	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-					      encrypt_key, seclabel, dstid,
-					      trace);
+	return encap_and_redirect_with_nodeid(ctx, info, encrypt_key, seclabel,
+					      dstid, trace);
 }
 #endif /* TUNNEL_MODE */
 
