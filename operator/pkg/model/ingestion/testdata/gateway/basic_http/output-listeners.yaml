@@ -19,6 +19,8 @@
     path_match:
       prefix: /bar
     timeout: {}
+  service:
+    type: LoadBalancer
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway

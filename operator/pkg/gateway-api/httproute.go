@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,83 +47,14 @@ func newHTTPRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *httpRouteRec
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, backendServiceIndex,
-		func(rawObj client.Object) []string {
-			route, ok := rawObj.(*gatewayv1.HTTPRoute)
-			if !ok {
-				return nil
-			}
-			var backendServices []string
-			for _, rule := range route.Spec.Rules {
-				for _, backend := range rule.BackendRefs {
-					namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
-					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
-					if err != nil {
-						r.logger.Error("Failed to get backend service name",
-							logfields.Controller, "httpRoute",
-							logfields.Resource, client.ObjectKeyFromObject(rawObj),
-							logfields.Error, err)
-						continue
-					}
-					backendServices = append(backendServices,
-						types.NamespacedName{
-							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-							Name:      backendServiceName,
-						}.String(),
-					)
-				}
-			}
-			return backendServices
-		},
-	); err != nil {
-		return err
-	}
-
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1beta1.HTTPRoute{}, backendServiceImportIndex,
-		func(rawObj client.Object) []string {
-			hr, ok := rawObj.(*gatewayv1beta1.HTTPRoute)
-			if !ok {
-				return nil
-			}
-			var backendServiceImports []string
-			for _, rule := range hr.Spec.Rules {
-				for _, backend := range rule.BackendRefs {
-					if !helpers.IsServiceImport(backend.BackendObjectReference) {
-						continue
-					}
-					backendServiceImports = append(backendServiceImports,
-						types.NamespacedName{
-							Namespace: helpers.NamespaceDerefOr(backend.Namespace, hr.Namespace),
-							Name:      string(backend.Name),
-						}.String(),
-					)
-				}
-			}
-			return backendServiceImports
-		},
-	); err != nil {
-		return err
-	}
-
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gatewayIndex,
-		func(rawObj client.Object) []string {
-			hr := rawObj.(*gatewayv1.HTTPRoute)
-			var gateways []string
-			for _, parent := range hr.Spec.ParentRefs {
-				if !helpers.IsGateway(parent) {
-					continue
-				}
-				gateways = append(gateways,
-					types.NamespacedName{
-						Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
-						Name:      string(parent.Name),
-					}.String(),
-				)
-			}
-			return gateways
-		},
-	); err != nil {
-		return err
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		backendServiceIndex:       r.referencedBackendService,
+		backendServiceImportIndex: r.referencedBackendServiceImport,
+		gatewayIndex:              r.referencedGateway,
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
@@ -144,6 +76,73 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return builder.Complete(r)
+}
+
+func (r *httpRouteReconciler) referencedBackendService(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	var backendServices []string
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
+			if err != nil {
+				r.logger.Error("Failed to get backend service name",
+					logfields.Controller, "httpRoute",
+					logfields.Resource, client.ObjectKeyFromObject(rawObj),
+					logfields.Error, err)
+				continue
+			}
+			backendServices = append(backendServices,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+					Name:      backendServiceName,
+				}.String(),
+			)
+		}
+	}
+	return backendServices
+}
+
+func (r *httpRouteReconciler) referencedBackendServiceImport(rawObj client.Object) []string {
+	hr, ok := rawObj.(*gatewayv1beta1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	var backendServiceImports []string
+	for _, rule := range hr.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsServiceImport(backend.BackendObjectReference) {
+				continue
+			}
+			backendServiceImports = append(backendServiceImports,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, hr.Namespace),
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+	}
+	return backendServiceImports
+}
+
+func (r *httpRouteReconciler) referencedGateway(rawObj client.Object) []string {
+	hr := rawObj.(*gatewayv1.HTTPRoute)
+	var gateways []string
+	for _, parent := range hr.Spec.ParentRefs {
+		if !helpers.IsGateway(parent) {
+			continue
+		}
+		gateways = append(gateways,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return gateways
 }
 
 func (r *httpRouteReconciler) hasMatchingGatewayParent() func(object client.Object) bool {

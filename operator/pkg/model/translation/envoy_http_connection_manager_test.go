@@ -13,11 +13,10 @@ import (
 
 func Test_desiredHTTPConnectionManager(t *testing.T) {
 	i := &cecTranslator{}
-	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name")
-	require.NoError(t, err)
+	res := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name")
 
 	httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
-	err = proto.Unmarshal(res.Value, httpConnectionManager)
+	err := proto.Unmarshal(res.Value, httpConnectionManager)
 
 	require.NoError(t, err)
 

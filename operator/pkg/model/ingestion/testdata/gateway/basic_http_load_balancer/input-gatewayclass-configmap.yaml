@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-gateway-config
+data:
+  service: |
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    LoadBalancerClass: cilium
+    loadBalancerSourceRanges:
+    - 10.0.0.0/8
+    ipFamilies:
+    - IPv4
+    - IPv6
+    ipFamilyPolicy: PreferDualStack
+    allocateLoadBalancerNodePorts: true
+    trafficDistribution: PreferClose

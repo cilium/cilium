@@ -306,6 +306,13 @@ rules:
 {{- end }}
 {{- if .Values.gatewayAPI.enabled }}
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - list
+  - watch
+- apiGroups:
   - gateway.networking.k8s.io
   resources:
   - gatewayclasses
@@ -319,6 +326,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  verbs:
+  - patch
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
