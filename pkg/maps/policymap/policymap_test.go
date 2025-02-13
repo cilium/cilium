@@ -460,28 +460,28 @@ func TestNewEntryFromPolicyEntry(t *testing.T) {
 		// Proxy tcp 80 to proxy port 1337
 		{
 			key: policyTypes.EgressKey().WithTCPPort(80).WithIdentity(1234),
-			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithProxyPriority(42),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithListenerPriority(42),
 			want: PolicyEntry{
 				Flags: getPolicyEntryFlags(policyEntryFlagParams{
 					IsDeny:    false,
 					PrefixLen: 24,
 				}),
 				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
-				ProxyPortPriority: 255 - 42, //prio is inverted
+				ProxyPortPriority: 128 - 42, //prio is inverted
 			},
 		},
 
 		// proxy ports 4-7
 		{
 			key: policyTypes.EgressKey().WithTCPPortPrefix(4, 14).WithIdentity(1234),
-			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithProxyPriority(42),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithListenerPriority(42),
 			want: PolicyEntry{
 				Flags: getPolicyEntryFlags(policyEntryFlagParams{
 					IsDeny:    false,
 					PrefixLen: 22,
 				}),
 				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
-				ProxyPortPriority: 255 - 42, //prio is inverted
+				ProxyPortPriority: 128 - 42, //prio is inverted
 			},
 		},
 	}

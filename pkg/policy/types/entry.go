@@ -5,11 +5,12 @@ package types
 
 import "strconv"
 
+type ListenerPriority uint8
 type ProxyPortPriority uint8
 
 const (
-	MaxProxyPortPriority = 255
-	MaxListenerPriority  = 100
+	MaxProxyPortPriority = 127
+	MaxListenerPriority  = 126
 )
 
 // MapStateEntry is the configuration associated with a Key in a
@@ -53,9 +54,9 @@ func (e MapStateEntry) String() string {
 		authText
 }
 
-// NewMapStateEntry creeates a new MapStateEntry
+// NewMapStateEntry creates a new MapStateEntry
 // Listener 'priority' is encoded in ProxyPortPriority, inverted
-func NewMapStateEntry(deny bool, proxyPort uint16, priority uint8, authReq AuthRequirement) MapStateEntry {
+func NewMapStateEntry(deny bool, proxyPort uint16, priority ListenerPriority, authReq AuthRequirement) MapStateEntry {
 	// Normalize inputs
 	if deny {
 		proxyPort = 0
@@ -66,7 +67,7 @@ func NewMapStateEntry(deny bool, proxyPort uint16, priority uint8, authReq AuthR
 		isDeny:          deny,
 		ProxyPort:       proxyPort,
 		AuthRequirement: authReq,
-	}.WithProxyPriority(priority)
+	}.WithListenerPriority(priority)
 }
 
 func (e MapStateEntry) IsDeny() bool {
@@ -94,19 +95,28 @@ func (e MapStateEntry) WithDeny(isDeny bool) MapStateEntry {
 	return e
 }
 
-// WithProxyPriority returns a MapStateEntry with the given listener priority:
+// WithListenerPriority returns a MapStateEntry with the given listener priority:
 // 0 - default (low) priority for all proxy redirects
 // 1 - highest listener priority
 // ..
 // 100 - lowest (non-default) listener priority
-func (e MapStateEntry) WithProxyPriority(priority uint8) MapStateEntry {
+// 101 - priority for HTTP parser type
+// 106 - priority for the Kafka parser type
+// 111 - priority for the proxylib parsers
+// 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka/proxylib)
+// 121 - priority for DNS parser type
+// 126 - default priority for CRD parser type
+// 127 - reserved (listener priority passed as 0)
+func (e MapStateEntry) WithListenerPriority(priority ListenerPriority) MapStateEntry {
 	if e.ProxyPort != 0 {
 		if priority > 0 {
 			priority = min(priority, MaxListenerPriority)
 
 			// invert the priority so that higher number has the
-			// precedence, priority 1 becomes 254, 100 -> 155
-			e.ProxyPortPriority = MaxProxyPortPriority - ProxyPortPriority(priority)
+			// precedence, priority 1 becomes '127', 100 -> '28', 126 -> '2'
+			// '1' is reserved for a listener priority passed as 0
+			// '0' is reserved for entries without proxy redirect
+			e.ProxyPortPriority = MaxProxyPortPriority + 1 - ProxyPortPriority(priority)
 		} else {
 			e.ProxyPortPriority = 1 // proxy port without explicit priority
 		}
@@ -116,8 +126,10 @@ func (e MapStateEntry) WithProxyPriority(priority uint8) MapStateEntry {
 
 // WithProxyPort return the MapStateEntry with proxy port set at the default precedence
 func (e MapStateEntry) WithProxyPort(proxyPort uint16) MapStateEntry {
-	e.ProxyPort = proxyPort
-	e.ProxyPortPriority = 1 // proxy port without explicit priority
+	if proxyPort > 0 {
+		e.ProxyPort = proxyPort
+		e.ProxyPortPriority = 1 // proxy port without explicit priority
+	}
 	return e
 }
 

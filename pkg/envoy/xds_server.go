@@ -1509,7 +1509,7 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
@@ -1563,7 +1563,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 	// is set to 'false' below if any rules with side effects are encountered,
 	// causing all the applicable rules to be evaluated instead.
 	canShortCircuit := true
-	switch l7Parser {
+	switch l7Rules.L7Parser {
 	case policy.ParserTypeHTTP:
 		// 'r.L7' is an interface which must not be set to a typed 'nil',
 		// so check if we have any rules
@@ -1585,7 +1585,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 		// Kafka is implemented as an Envoy Go Extension
 		if len(l7Rules.Kafka) > 0 {
 			// L7 rules are not sorted
-			r.L7Proto = l7Parser.String()
+			r.L7Proto = l7Rules.L7Parser.String()
 			r.L7 = &cilium.PortNetworkPolicyRule_KafkaRules{
 				KafkaRules: getKafkaL7Rules(l7Rules.Kafka),
 			}
@@ -1598,7 +1598,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 		// Assume unknown parser types use a Key-Value Pair policy
 		if len(l7Rules.L7) > 0 {
 			// L7 rules are not sorted
-			r.L7Proto = l7Parser.String()
+			r.L7Proto = l7Rules.L7Parser.String()
 			r.L7 = &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: getL7Rules(l7Rules.L7, r.L7Proto),
 			}
@@ -1744,7 +1744,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(version, sel, wildcard, l4.L7Parser, l7, useFullTLSContext, useSDS, policySecretsNamespace)
+				rule, cs := getPortNetworkPolicyRule(version, sel, wildcard, l7, useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false

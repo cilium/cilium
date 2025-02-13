@@ -398,7 +398,7 @@ type mapStateEntry struct {
 }
 
 // newMapStateEntry creates a map state entry.
-func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
+func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority ListenerPriority, deny bool, authReq AuthRequirement) mapStateEntry {
 	return mapStateEntry{
 		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
 		derivedFromRules: derivedFrom,

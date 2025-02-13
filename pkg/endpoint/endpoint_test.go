@@ -572,7 +572,7 @@ func TestProxyID(t *testing.T) {
 	require.Equal(t, "", listener)
 	require.NoError(t, err)
 
-	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
+	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "test-listener")
 	require.NotEqual(t, "", id)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, u8proto.TCP, proto)

@@ -292,15 +292,15 @@ func TestL7WithIngressWildcard(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								L7Parser: ParserTypeHTTP,
+								Priority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
-								isRedirect:      true,
 							},
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
@@ -404,15 +404,15 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								L7Parser: ParserTypeHTTP,
+								Priority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
-								isRedirect:      true,
 							},
 							cachedSelectorHost: nil,
 						},
@@ -511,7 +511,6 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: nil,
@@ -669,7 +668,6 @@ func TestMapStateWithIngress(t *testing.T) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld:   nil,

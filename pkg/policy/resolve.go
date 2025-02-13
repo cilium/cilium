@@ -386,11 +386,9 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPoli
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *PerSelectorPolicy) bool) bool {
 	ok := true
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		if l4.IsRedirect() {
-			for _, ps := range l4.PerSelectorPolicies {
-				if ps != nil && ps.IsRedirect() {
-					ok = yield(l4, ps)
-				}
+		for _, ps := range l4.PerSelectorPolicies {
+			if ps != nil && ps.IsRedirect() {
+				ok = yield(l4, ps)
 			}
 		}
 		return ok

@@ -160,6 +160,22 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 	require.ErrorContains(t, err, errStr)
 }
 
+// policyValid checks that the set of rules does not results in an error
+func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
+	t.Helper()
+	td.withIDs(ruleTestIDs)
+	for _, r := range rules {
+		if r.EndpointSelector.LabelSelector == nil {
+			r.EndpointSelector = endpointSelectorA
+		}
+		require.NoError(t, r.Sanitize())
+	}
+	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+
+	_, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+}
+
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
 	isDeny   bool
@@ -269,7 +285,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		L7Parser: ParserTypeNone, Ingress: true, wildcard: td.wildcardCachedSelector,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
@@ -353,13 +369,13 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: "http",
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress:    true,
@@ -406,13 +422,13 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -469,13 +485,13 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress:    true,
@@ -530,13 +546,13 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeKafka,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeKafka,
+				Priority: ListenerPriorityKafka,
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress:    true,
@@ -754,10 +770,11 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeTLS,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
+				L7Parser: ParserTypeTLS,
+				Priority: ListenerPriorityTLS,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -776,10 +793,6 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 						Name: "tls-ca-certs",
 					},
 				},
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
-				L7Rules:         api.L7Rules{},
-				isRedirect:      true,
 			},
 		},
 		Ingress: false,
@@ -838,10 +851,11 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -860,12 +874,9 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 						Name: "tls-ca-certs",
 					},
 				},
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: false,
@@ -940,10 +951,11 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -962,13 +974,10 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 						Name: "tls-ca-certs",
 					},
 				},
-				ServerNames:     StringSet{"www.foo.com": {}, "www.bar.com": {}},
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
+				ServerNames: StringSet{"www.foo.com": {}, "www.bar.com": {}},
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: false,
@@ -1073,14 +1082,12 @@ func TestMergeListenerPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
-				isRedirect:      true,
-				Listener:        "/shared-cec/test",
+				L7Parser: ParserTypeCRD,
+				Priority: ListenerPriorityCRD,
+				Listener: "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1133,14 +1140,12 @@ func TestMergeListenerPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
-				isRedirect:      true,
-				Listener:        "default/test-cec/test",
+				L7Parser: ParserTypeCRD,
+				Priority: ListenerPriorityCRD,
+				Listener: "default/test-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1194,14 +1199,12 @@ func TestMergeListenerPolicy(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				EnvoyHTTPRules:  nil,
-				CanShortCircuit: false,
-				isRedirect:      true,
-				Listener:        "/shared-cec/test",
+				L7Parser: ParserTypeCRD,
+				Priority: ListenerPriorityCRD,
+				Listener: "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1251,7 +1254,6 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB:        nil,
 			td.wildcardCachedSelector: nil,
@@ -1297,7 +1299,6 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorB:        nil,
@@ -1357,14 +1358,14 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -1415,14 +1416,14 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -1486,19 +1487,20 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -1555,19 +1557,20 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -1581,9 +1584,93 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 }
 
 // Case 9: allow all at L3 and restricts on L7 in one rule, and in another rule,
-// select an endpoint which restricts on different L7 protocol.
+// on the same selector restricts on different L7 protocol.
 // Should fail as cannot have conflicting parsers on same port.
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
+	td := newTestData()
+	// Case 9A: Kafka first, then HTTP.
+	conflictingL7Rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
+
+	// Case 9B: HTTP first, then Kafka.
+	conflictingL7Rule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
+}
+
+// Case 9b: allow all at L3 and restricts on L7 in one rule, and in another rule,
+// select an endpoint which restricts on different L7 protocol, but on different selectors,
+// which is now possible.
+func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 	td := newTestData()
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
@@ -1622,7 +1709,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 		},
 	}
 
-	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
+	td.policyValid(t, &conflictingL7Rule)
 
 	// Case 9B: HTTP first, then Kafka.
 	conflictingL7Rule = api.Rule{
@@ -1661,7 +1748,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 		},
 	}
 
-	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
+	td.policyValid(t, &conflictingL7Rule)
 }
 
 // Case 10: restrict same path / method on L7 in both rules,
@@ -1709,19 +1796,20 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 		},
 		Ingress: true,
@@ -1768,7 +1856,6 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: nil,
 			td.cachedSelectorC: nil,
@@ -1823,13 +1910,13 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Parser: ParserTypeHTTP,
+				Priority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
 			},
 			td.cachedSelectorHost: nil, // no proxy redirect
 		},
@@ -1858,7 +1945,6 @@ func TestEntitiesL3(t *testing.T) {
 		Protocol: api.ProtoAny,
 		U8Proto:  0,
 		wildcard: td.wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
