@@ -1141,7 +1141,7 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	 */
 
 	assert(store_retries(retries_before, false));
-	iters = loop(SNAT_TEST_ITERATIONS, snat_callback_tcp, &cb_ctx, 0);
+	iters = (__u32)loop(SNAT_TEST_ITERATIONS, snat_callback_tcp, &cb_ctx, 0);
 	assert(iters == SNAT_TEST_ITERATIONS);
 	assert(cb_ctx.err == 0);
 	printk("TCP port allocation retries at 100%% of test:\n");
@@ -1272,7 +1272,7 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	 */
 
 	assert(store_retries(retries_before, false));
-	iters = loop(SNAT_TEST_ITERATIONS, snat_callback_udp, &cb_ctx, 0);
+	iters = (__u32)loop(SNAT_TEST_ITERATIONS, snat_callback_udp, &cb_ctx, 0);
 	assert(iters == SNAT_TEST_ITERATIONS);
 	assert(cb_ctx.err == 0);
 	printk("UDP port allocation retries at 100%% of test:\n");
