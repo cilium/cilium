@@ -1,5 +1,61 @@
 # Changelog
 
+## v1.15.14
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix bug potentially causing newly added endpoints to remain stuck in waiting-to-regenerate state forever, causing traffic from/to that endpoint to be incorrectly dropped. (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37086, @giorio94)
+* Fix specifying multiple interfaces for egress masquerade with enable-masquerade-to-route-source=false (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#36103, @viktor-kurchenko)
+* Restore the original flag semantics for --egress-masquerade-interfaces to the same as v1.17.0-pre.2 or earlier (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#36504, @viktor-kurchenko)
+
+**CI Changes:**
+* gh: harmonize lvh kernel naming scheme (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#37322, @julianwiedmann)
+* gh: update removed --loglevel option for kind (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#36935, @julianwiedmann)
+* gha: fix retrieval of DNS server in conformance external workloads (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#37361, @giorio94)
+* gha: Retrieve eks supported version via aws cli (Backport PR cilium/cilium#37224, Upstream PR cilium/cilium#37210, @sayboras)
+* Modify bpftrace script in CI to ignore proxy traffic if destination is outside pod CIDRs. (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#36364, @smagnani96)
+* Skip tracking unmarked plain-text TCP RST packets generated from proxy timeouts in the CI bpftrace script. (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#36962, @smagnani96)
+* test: Move demo-httpd from Docker to Quay (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#37149, @joestringer)
+* test: Move the dind image to Quay to avoid rate-limiting (Backport PR cilium/cilium#37442, Upstream PR cilium/cilium#37388, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update actions/setup-go action to v5.3.0 (v1.15) (cilium/cilium#37118, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37101, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37245, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37508, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#37034, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#37344, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.24 (v1.15) (cilium/cilium#37339, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.6 (v1.15) (cilium/cilium#37216, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.17.0 (v1.15) (cilium/cilium#37507, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.17.1 (v1.15) (cilium/cilium#37590, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.20 (v1.15) (cilium/cilium#37217, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.23 (v1.15) (cilium/cilium#37506, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v29 (v1.15) (cilium/cilium#37509, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.11 (v1.15) (cilium/cilium#37046, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.6 (v1.15) (cilium/cilium#37498, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.1.17 (v1.15) (cilium/cilium#37100, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.31.5-1737535524-fe8efeb16a7d233bffd05af9ea53599340d3f18e (v1.15) (cilium/cilium#37202, @cilium-renovate[bot])
+* doc(glossary): Geneve as final RFC (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#37316, @alagoutte)
+* doc: eks cluster restriction removed (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37043, @viktor-kurchenko)
+* doc: Removed nodeinit from aks byocni install (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#37048, @PhilipSchmid)
+* docs: Add SNI policy example (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37234, @sayboras)
+* docs: pass current_version to html_context (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#37008, @ayuspin)
+* images/builder: let renovate update protoc and proto plugins (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#32739, @rolinh)
+* images: don't assume Dockerfile directory in builder/runtime update scripts (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#34488, @tklauser)
+* Remove outdated roadmap matrix and links to it (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37170, @xmulligan)
+* renovate: add fix grpc-go autodetection (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#33570, @aanm)
+
+**Other Changes:**
+* [v1.15] envoy: Bump envoy version to v1.31.x (cilium/cilium#37161, @sayboras)
+* [v1.15] gha: Retrieve eks supported version via aws cli (cilium/cilium#37230, @sayboras)
+* chore(deps): update go to v1.23.5 (v1.15) (cilium/cilium#37197, @sayboras)
+* Cilium avoids running out of space in policy maps by cleaning up entries in specific cases previously missed. (cilium/cilium#36884, @bimmlerd)
+* gha: Fix feature test artifact upload (cilium/cilium#37205, @sayboras)
+* install: Update image digests for v1.15.13 (cilium/cilium#37153, @cilium-release-bot[bot])
+
 ## v1.15.13
 
 Summary of Changes
