@@ -42,6 +42,8 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 	var i int
 	ct := t.Context()
 
+	ipFamilies := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
+
 	for _, pod := range ct.ClientPods() {
 		if !hasAllLabels(pod, s.sourceLabels) {
 			continue
@@ -51,17 +53,18 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(svc, features.IPFamilyAny))
+			for _, ipFamily := range ipFamilies {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFamily, i), &pod, svc, ipFamily).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, ct.CurlCommand(svc, ipFamily))
 
-				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-					DNSRequired: true,
-					AltDstPort:  svc.Port(),
-				}))
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						DNSRequired: true,
+						AltDstPort:  svc.Port(),
+					}))
 
-				a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
-			})
-
+					a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
+				})
+			}
 			i++
 		}
 	}
