@@ -13,49 +13,31 @@ import (
 	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type CEC struct {
 	Name k8sTypes.NamespacedName
 	Spec *ciliumv2.CiliumEnvoyConfigSpec
 
-	Selector         labels.Selector `json:"-"`
+	Selector         labels.Selector `json:"-" yaml:"-"`
 	SelectsLocalNode bool
 	Listeners        part.Map[string, uint16]
 
-	// FrontendsRevision is the latest revision of [experimental.Frontend] from
-	// which the [Resources.Endpoints] were updated. This is used to coordinate
-	// updates between the reflector and the backendController.
-	FrontendsRevision statedb.Revision
-
-	// Resources is the parsed envoy.Resources.
-	Resources envoy.Resources `json:"-"`
-
-	// ReconciledResources is the last successfully reconciled resources.
-	// Updated by the reconciliation operations.
-	ReconciledResources *envoy.Resources `json:"-"`
-
-	// Status is the reconciliation status of [Resources] towards Envoy.
-	Status reconciler.Status
+	// Resources is the parsed envoy.Resources with the endpoints filled in.
+	Resources envoy.Resources
 }
 
 func (cec *CEC) Clone() *CEC {
 	cec2 := *cec
 	return &cec2
-}
-
-func (cec *CEC) SetStatus(newStatus reconciler.Status) *CEC {
-	cec.Status = newStatus
-	return cec
-}
-
-func (cec *CEC) GetStatus() reconciler.Status {
-	return cec.Status
 }
 
 func (*CEC) TableHeader() []string {
@@ -66,8 +48,6 @@ func (*CEC) TableHeader() []string {
 		"Services",
 		"BackendServices",
 		"Listeners",
-		"Status",
-		"StatusKind",
 	}
 }
 
@@ -89,16 +69,16 @@ func (cec *CEC) TableRow() []string {
 		strings.Join(services, ", "),
 		strings.Join(beServices, ", "),
 		strings.Join(listeners, ", "),
-		cec.Status.String(),
-		string(cec.Status.Kind),
 	}
 }
 
 type CECName = k8sTypes.NamespacedName
 
-var (
+const (
 	CECTableName = "ciliumenvoyconfigs"
+)
 
+var (
 	cecNameIndex = statedb.Index[*CEC, CECName]{
 		Name: "name",
 		FromObject: func(obj *CEC) index.KeySet {
@@ -138,6 +118,109 @@ func NewCECTable(db *statedb.DB) (statedb.RWTable[*CEC], error) {
 		CECTableName,
 		cecNameIndex,
 		cecServiceIndex,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tbl, db.RegisterTable(tbl)
+}
+
+type EnvoyResource struct {
+	Name      CECName
+	Resources envoy.Resources
+	Redirects map[loadbalancer.ServiceName]*experimental.ProxyRedirect `json:"-"`
+
+	ReconciledResources *envoy.Resources
+	ReconciledRedirects map[loadbalancer.ServiceName]*experimental.ProxyRedirect `json:"-"`
+
+	Status reconciler.Status
+}
+
+func (r *EnvoyResource) SetStatus(newStatus reconciler.Status) *EnvoyResource {
+	r.Status = newStatus
+	return r
+}
+
+func (r *EnvoyResource) GetStatus() reconciler.Status {
+	return r.Status
+}
+
+func (r *EnvoyResource) Clone() *EnvoyResource {
+	r2 := *r
+	return &r2
+}
+
+func (*EnvoyResource) TableHeader() []string {
+	return []string{
+		"Name",
+		"Listeners",
+		"Endpoints",
+		"Status",
+		"Since",
+		"Error",
+	}
+}
+
+func (r *EnvoyResource) showListeners() string {
+	names := make([]string, len(r.Resources.Listeners))
+	for i := range r.Resources.Listeners {
+		names[i] = r.Resources.Listeners[i].Name
+	}
+	return strings.Join(names, ", ")
+}
+
+func (r *EnvoyResource) showEndpoints() string {
+	out := []string{}
+	for _, la := range r.Resources.Endpoints {
+		addrs := []string{}
+		for _, ep := range la.Endpoints {
+			for _, lep := range ep.LbEndpoints {
+				ep := lep.GetEndpoint()
+				if addr := ep.GetAddress(); addr != nil {
+					if saddr := addr.GetSocketAddress(); saddr != nil {
+						addrs = append(addrs, saddr.Address)
+					}
+				}
+			}
+		}
+		out = append(out,
+			la.ClusterName+": "+strings.Join(addrs, ", "))
+	}
+	return strings.Join(out, ", ")
+}
+
+func (r *EnvoyResource) TableRow() []string {
+	return []string{
+		r.Name.String(),
+		r.showListeners(),
+		r.showEndpoints(),
+		string(r.Status.Kind),
+		duration.HumanDuration(time.Since(r.Status.UpdatedAt)),
+		r.Status.Error,
+	}
+}
+
+const (
+	EnvoyResourcesTableName = "envoy-resources"
+)
+
+var (
+	envoyResourceNameIndex = statedb.Index[*EnvoyResource, CECName]{
+		Name: "name",
+		FromObject: func(obj *EnvoyResource) index.KeySet {
+			return index.NewKeySet(index.String(obj.Name.String()))
+		},
+		FromKey: index.Stringer[CECName],
+		Unique:  true,
+	}
+
+	EnvoyResourceByName = envoyResourceNameIndex.Query
+)
+
+func NewEnvoyResourcesTable(db *statedb.DB) (statedb.RWTable[*EnvoyResource], error) {
+	tbl, err := statedb.NewTable(
+		EnvoyResourcesTableName,
+		envoyResourceNameIndex,
 	)
 	if err != nil {
 		return nil, err

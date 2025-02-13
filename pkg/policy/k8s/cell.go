@@ -53,7 +53,7 @@ type PolicyManager interface {
 }
 
 type serviceCache interface {
-	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool)
+	ForEachService(func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool)
 }
 
 type ipc interface {
@@ -73,7 +73,7 @@ type PolicyWatcherParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	ServiceCache   *k8s.ServiceCache
+	ServiceCache   k8s.ServiceCache
 	IPCache        *ipcache.IPCache
 	PolicyImporter policycell.PolicyImporter
 

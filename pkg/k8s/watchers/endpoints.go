@@ -29,7 +29,7 @@ type k8sEndpointsWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache *k8s.ServiceCache
+	ServiceCache k8s.ServiceCache
 	IPCache      *ipcache.IPCache
 }
 
@@ -54,7 +54,7 @@ type K8sEndpointsWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	resources    agentK8s.Resources
 
-	k8sSvcCache *k8s.ServiceCache
+	k8sSvcCache k8s.ServiceCache
 	ipcache     ipcacheManager
 
 	stop chan struct{}

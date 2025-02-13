@@ -39,6 +39,11 @@ type serviceManagerParams struct {
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
+	if params.LBMap == nil {
+		// The new implementation is enabled. Do nothing.
+		return nil
+	}
+
 	enabledHealthCheckers := []HealthChecker{}
 	for _, hc := range params.HealthCheckers {
 		if hc != nil {

@@ -31,7 +31,7 @@ func (t AnyTable) UnmarshalYAML(data []byte) (any, error) {
 
 func (t AnyTable) Insert(txn WriteTxn, obj any) (old any, hadOld bool, err error) {
 	var iobj object
-	iobj, hadOld, err = txn.getTxn().insert(t.Meta, Revision(0), obj)
+	iobj, hadOld, _, err = txn.getTxn().insert(t.Meta, Revision(0), obj)
 	if hadOld {
 		old = iobj.data
 	}
