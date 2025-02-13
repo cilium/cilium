@@ -153,6 +153,10 @@ func (a StringSet) Merge(b StringSet) StringSet {
 // PerSelectorPolicy contains policy rules for a CachedSelector, i.e. for a
 // selection of numerical identities.
 type PerSelectorPolicy struct {
+	// L7Parser specifies the L7 protocol parser (optional). If specified as
+	// an empty string, then means that no L7 proxy redirect is performed.
+	L7Parser L7ParserType `json:"-"`
+
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
 	// parameters to be applied on the connections originated from the local
@@ -174,19 +178,17 @@ type PerSelectorPolicy struct {
 	// TLS handshake.
 	ServerNames StringSet `json:"serverNames,omitempty"`
 
-	// isRedirect is 'true' when traffic must be redirected
-	isRedirect bool `json:"-"`
-
-	// Listener is an optional fully qualified name of a Envoy Listner defined in a CiliumEnvoyConfig CRD that should be
-	// used for this traffic instead of the default listener
+	// Listener is an optional fully qualified name of a Envoy Listner defined in a
+	// CiliumEnvoyConfig CRD that should be used for this traffic instead of the default
+	// listener
 	Listener string `json:"listener,omitempty"`
 
-	// Priority of the listener used when multiple listeners would apply to the same
+	// Priority of the proxy redirect used when multiple proxy ports would apply to the same
 	// MapStateEntry.
 	// Lower numbers indicate higher priority. Except for the default 0, which indicates the
 	// lowest priority.  If higher priority desired, a low unique number like 1, 2, or 3 should
 	// be explicitly specified here.
-	Priority uint8 `json:"priority,omitempty"`
+	Priority ListenerPriority `json:"priority,omitempty"`
 
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
@@ -197,8 +199,8 @@ type PerSelectorPolicy struct {
 
 	api.L7Rules
 
-	// Authentication is the kind of cryptographic authentication required for the traffic to be allowed
-	// at L3, if any.
+	// Authentication is the kind of cryptographic authentication required for the traffic to be
+	// allowed at L3, if any.
 	Authentication *api.Authentication `json:"auth,omitempty"`
 
 	// IsDeny is set if this L4Filter contains should be denied
@@ -208,10 +210,10 @@ type PerSelectorPolicy struct {
 // Equal returns true if 'a' and 'b' represent the same L7 Rules
 func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 	return a == nil && b == nil || a != nil && b != nil &&
+		a.L7Parser == b.L7Parser &&
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
-		a.isRedirect == b.isRedirect &&
 		a.Listener == b.Listener &&
 		a.Priority == b.Priority &&
 		(a.Authentication == nil && b.Authentication == nil || a.Authentication != nil && a.Authentication.DeepEqual(b.Authentication)) &&
@@ -228,7 +230,7 @@ func (a *PerSelectorPolicy) GetListener() string {
 }
 
 // GetPriority returns the pritority of the listener of the PerSelectorPolicy.
-func (a *PerSelectorPolicy) GetPriority() uint8 {
+func (a *PerSelectorPolicy) GetPriority() ListenerPriority {
 	if a == nil {
 		return 0
 	}
@@ -274,13 +276,13 @@ func (a *PerSelectorPolicy) getAuthRequirement() AuthRequirement {
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
-func (a *PerSelectorPolicy) IsRedirect() bool {
-	return a != nil && a.isRedirect
+func (sp *PerSelectorPolicy) IsRedirect() bool {
+	return sp != nil && sp.L7Parser != ""
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
-func (a *PerSelectorPolicy) HasL7Rules() bool {
-	return !a.L7Rules.IsEmpty()
+func (sp *PerSelectorPolicy) HasL7Rules() bool {
+	return sp != nil && !sp.L7Rules.IsEmpty()
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -349,6 +351,54 @@ const (
 	// ParserTypeDNS specifies a DNS parser type
 	ParserTypeDNS L7ParserType = "dns"
 )
+
+type ListenerPriority = types.ListenerPriority
+
+// API listener priorities and corresponding defaults for L7 parser types
+// 0 - default (low) priority for all proxy redirects
+// 1 - highest listener priority
+// ..
+// 100 - lowest (non-default) listener priority
+// 101 - priority for HTTP parser type
+// 106 - priority for the Kafka parser type
+// 111 - priority for the proxylib parsers
+// 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka/proxylib)
+// 121 - priority for DNS parser type
+// 126 - default priority for CRD parser type
+// 127 - reserved (listener priority passed as 0)
+//
+// MapStateEntry stores this reverted in 'ProxyPortPriority' where higher numbers have higher
+// precedence
+const (
+	ListenerPriorityNone     ListenerPriority = 0
+	ListenerPriorityHTTP     ListenerPriority = 101
+	ListenerPriorityKafka    ListenerPriority = 106
+	ListenerPriorityProxylib ListenerPriority = 111
+	ListenerPriorityTLS      ListenerPriority = 116
+	ListenerPriorityDNS      ListenerPriority = 121
+	ListenerPriorityCRD      ListenerPriority = 126
+)
+
+// defaultPriority maps the parser type to an "API listener priority"
+func (l7 L7ParserType) defaultPriority() ListenerPriority {
+	switch l7 {
+	case ParserTypeNone:
+		return ListenerPriorityNone // no priority
+	case ParserTypeHTTP:
+		return ListenerPriorityHTTP
+	case ParserTypeKafka:
+		return ListenerPriorityKafka
+	default: // proxylib parsers
+		return ListenerPriorityProxylib
+	case ParserTypeTLS:
+		return ListenerPriorityTLS
+	case ParserTypeDNS:
+		return ListenerPriorityDNS
+	case ParserTypeCRD:
+		// CRD type can have an explicit higher priority in range 1-100
+		return ListenerPriorityCRD
+	}
+}
 
 // redirectTypes is a bitmask of redirection types of multiple filters
 type redirectTypes uint16
@@ -480,9 +530,6 @@ type L4Filter struct {
 	// restriction (such as no L7 rules). Holds references to the cached selectors, which must
 	// be released!
 	PerSelectorPolicies L7DataMap `json:"l7-rules,omitempty"`
-	// L7Parser specifies the L7 protocol parser (optional). If specified as
-	// an empty string, then means that no L7 proxy redirect is performed.
-	L7Parser L7ParserType `json:"-"`
 	// Ingress is true if filter applies at ingress; false if it applies at egress.
 	Ingress bool `json:"-"`
 	// RuleOrigin is a set of rule labels tracking which policy rules are the origin for this
@@ -511,11 +558,6 @@ func (l4 *L4Filter) GetPerSelectorPolicies() L7DataMap {
 	return l4.PerSelectorPolicies
 }
 
-// GetL7Parser returns the L7ParserType of the L4Filter.
-func (l4 *L4Filter) GetL7Parser() L7ParserType {
-	return l4.L7Parser
-}
-
 // GetIngress returns whether the L4Filter applies at ingress or egress.
 func (l4 *L4Filter) GetIngress() bool {
 	return l4.Ingress
@@ -533,7 +575,6 @@ func (l4 *L4Filter) Equals(bL4 *L4Filter) bool {
 		l4.PortName == bL4.PortName &&
 		l4.Protocol == bL4.Protocol &&
 		l4.Ingress == bL4.Ingress &&
-		l4.L7Parser == bL4.L7Parser &&
 		l4.wildcard == bL4.wildcard {
 
 		if len(l4.PerSelectorPolicies) != len(bL4.PerSelectorPolicies) {
@@ -807,16 +848,15 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls stringLabels, s
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority uint8) {
-	isRedirect := !deny && (listener != "" || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty())
+func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority ListenerPriority) {
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
+			L7Parser:       l7Parser,
 			TerminatingTLS: terminatingTLS,
 			OriginatingTLS: originatingTLS,
 			Authentication: auth,
 			IsDeny:         deny,
 			ServerNames:    NewStringSet(sni),
-			isRedirect:     isRedirect,
 			Listener:       listener,
 			Priority:       priority,
 		}
@@ -915,12 +955,13 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		l4.cacheFQDNSelectors(fqdns, ruleLabels, selectorCache)
 	}
 
+	var l7Parser L7ParserType
 	var terminatingTLS *TLSContext
 	var originatingTLS *TLSContext
 	var rules *api.L7Rules
 	var sni []string
 	listener := ""
-	var priority uint8
+	var priority ListenerPriority
 
 	pr := rule.GetPortRule()
 	if pr != nil {
@@ -941,7 +982,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		// Set parser type to TLS, if TLS. This will be overridden by L7 below, if rules
 		// exists.
 		if terminatingTLS != nil || originatingTLS != nil || len(pr.ServerNames) > 0 {
-			l4.L7Parser = ParserTypeTLS
+			l7Parser = ParserTypeTLS
 		}
 
 		// Determine L7ParserType from rules present. Earlier validation ensures rules
@@ -949,22 +990,29 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		if rules != nil {
 			// we need this to redirect DNS UDP (or ANY, which is more useful)
 			if len(rules.DNS) > 0 {
-				l4.L7Parser = ParserTypeDNS
+				l7Parser = ParserTypeDNS
 			} else if protocol == api.ProtoTCP { // Other than DNS only support TCP
 				switch {
 				case len(rules.HTTP) > 0:
-					l4.L7Parser = ParserTypeHTTP
+					l7Parser = ParserTypeHTTP
 				case len(rules.Kafka) > 0:
-					l4.L7Parser = ParserTypeKafka
+					l7Parser = ParserTypeKafka
 				case rules.L7Proto != "":
-					l4.L7Parser = (L7ParserType)(rules.L7Proto)
+					l7Parser = (L7ParserType)(rules.L7Proto)
 				}
 			}
 		}
 
-		// Override the parser type to CRD is applicable.
+		// Override the parser type and possibly priority for CRD is applicable.
 		if pr.Listener != nil {
-			l4.L7Parser = ParserTypeCRD
+			l7Parser = ParserTypeCRD
+		}
+
+		// Map parser type to default priority for the given parser type
+		priority = l7Parser.defaultPriority()
+
+		// Override the parser type and possibly priority for CRD is applicable.
+		if pr.Listener != nil {
 			ns := policyCtx.GetNamespace()
 			resource := pr.Listener.EnvoyConfig
 			switch resource.Kind {
@@ -984,12 +1032,14 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 			default:
 			}
 			listener, _ = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name, api.ForceNamespace)
-			priority = pr.Listener.Priority
+			if pr.Listener.Priority != 0 {
+				priority = ListenerPriority(pr.Listener.Priority)
+			}
 		}
 	}
 
-	if l4.L7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
-		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
+	if l7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
+		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
 	}
 
 	origin := singleRuleOrigin(ruleLabels)
@@ -1021,17 +1071,17 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 // multiple goroutines will be reading the fields from that point on.
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures {
 	var features policyFeatures
-	for cs, cp := range l4.PerSelectorPolicies {
-		if cp != nil {
-			if cp.isRedirect {
+	for cs, sp := range l4.PerSelectorPolicies {
+		if sp != nil {
+			if sp.L7Parser != "" {
 				features.setFeature(redirectRules)
 			}
 
-			if cp.IsDeny {
+			if sp.IsDeny {
 				features.setFeature(denyRules)
 			}
 
-			explicit, authType := getAuthType(cp.Authentication)
+			explicit, authType := getAuthType(sp.Authentication)
 			if explicit {
 				features.setFeature(authRules)
 
@@ -1049,8 +1099,8 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 			}
 
 			// Compute Envoy policies when a policy is ready to be used
-			if len(cp.L7Rules.HTTP) > 0 {
-				cp.EnvoyHTTPRules, cp.CanShortCircuit = ctx.GetEnvoyHTTPRules(&cp.L7Rules)
+			if len(sp.L7Rules.HTTP) > 0 {
+				sp.EnvoyHTTPRules, sp.CanShortCircuit = ctx.GetEnvoyHTTPRules(&sp.L7Rules)
 			}
 		}
 	}
@@ -1101,8 +1151,11 @@ func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelec
 }
 
 // redirectType returns the redirectType for this filter
-func (l4 *L4Filter) redirectType() redirectTypes {
-	switch l4.L7Parser {
+func (sp *PerSelectorPolicy) redirectType() redirectTypes {
+	if sp == nil {
+		return redirectTypeNone
+	}
+	switch sp.L7Parser {
 	case ParserTypeNone:
 		return redirectTypeNone
 	case ParserTypeDNS:
@@ -1113,11 +1166,6 @@ func (l4 *L4Filter) redirectType() redirectTypes {
 		// all other (non-empty) values are used for proxylib redirects
 		return redirectTypeProxylib
 	}
-}
-
-// IsRedirect returns true if the L4 filter contains a port redirection
-func (l4 *L4Filter) IsRedirect() bool {
-	return l4.L7Parser != ParserTypeNone
 }
 
 // Marshal returns the `L4Filter` in a JSON string.
@@ -1513,7 +1561,9 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 	var features policyFeatures
 	l4.PortRules.ForEach(func(f *L4Filter) bool {
 		features |= f.attach(ctx, l4Policy)
-		redirectTypes |= f.redirectType()
+		for _, sp := range f.PerSelectorPolicies {
+			redirectTypes |= sp.redirectType()
+		}
 		return true
 	})
 	l4.features = features

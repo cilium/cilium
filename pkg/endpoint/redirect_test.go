@@ -397,7 +397,7 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort),
+		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort).WithListenerPriority(policy.ListenerPriorityHTTP),
 		mapKeyFoo:       policyTypes.DenyEntry(),
 	}
 
@@ -528,7 +528,7 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithProxyPriority(1),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
@@ -583,7 +583,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithProxyPriority(1),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithListenerPriority(1),
 		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
