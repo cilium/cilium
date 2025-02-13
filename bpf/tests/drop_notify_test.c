@@ -60,8 +60,8 @@ int test_send_drop_notify(struct __ctx_buff ctx)
 {
 	test_init();
 
-	assert(!send_drop_notify(&ctx, 0, 0, 0, 0, 0, 0));
-	assert(!__send_drop_notify_res);
+	assert(send_drop_notify(&ctx, 0, 0, 0, 0, 0) == CTX_ACT_DROP);
+	assert(__send_drop_notify_res == CTX_ACT_DROP);
 
 	test_finish();
 }

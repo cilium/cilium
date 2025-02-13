@@ -619,8 +619,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 drop_err:
 #endif
-	return send_drop_notify_error(ctx, UNKNOWN_ID, code, CTX_ACT_DROP,
-				      METRIC_EGRESS);
+	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
@@ -701,7 +700,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 static __always_inline int
@@ -810,7 +809,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC6052)
@@ -841,7 +840,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
@@ -1002,7 +1001,7 @@ int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 	return ret;
 drop:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
@@ -1075,8 +1074,7 @@ recircle:
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 
 drop_err:
-	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
-					  METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_INGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
@@ -1208,7 +1206,7 @@ fib_ipv4:
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
@@ -1929,8 +1927,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 drop_err:
 #endif
-	return send_drop_notify_error(ctx, UNKNOWN_ID, code, CTX_ACT_DROP,
-				      METRIC_EGRESS);
+	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
@@ -1987,7 +1984,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 static __always_inline int
@@ -2270,7 +2267,7 @@ int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
@@ -2359,7 +2356,7 @@ recircle:
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 
 drop_err:
-	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
+	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 					  METRIC_INGRESS);
 }
 
@@ -2496,7 +2493,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	}
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,

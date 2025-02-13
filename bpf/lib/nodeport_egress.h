@@ -112,7 +112,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	/* contrary to tail_handle_snat_fwd_ipv4, we don't check for
 	 *
@@ -245,7 +245,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
@@ -420,7 +420,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	/* Don't emit a trace event if the packet has been redirected to another
 	 * interface.
@@ -569,7 +569,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
