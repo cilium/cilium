@@ -316,11 +316,11 @@ func TestPolicyMapWildcarding(t *testing.T) {
 			require.Equal(t, uint8(0), entry.GetPrefixLen())
 		} else {
 			if key.DestPortNetwork == 0 {
-				require.Equal(t, StaticPrefixBits+NexthdrBits, key.Prefixlen)
+				require.Equal(t, StaticPrefixBits+uint32(NexthdrBits), key.Prefixlen)
 				require.Equal(t, uint8(NexthdrBits), entry.GetPrefixLen())
 			} else {
 				require.Equal(t, uint16(tt.args.dport), byteorder.NetworkToHost16(key.DestPortNetwork))
-				require.Equal(t, StaticPrefixBits+NexthdrBits+uint32(tt.args.dportPrefixLen), key.Prefixlen)
+				require.Equal(t, StaticPrefixBits+uint32(NexthdrBits+tt.args.dportPrefixLen), key.Prefixlen)
 				require.Equal(t, uint8(NexthdrBits)+tt.args.dportPrefixLen, entry.GetPrefixLen())
 			}
 		}
@@ -353,7 +353,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Fully specified port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          0,
@@ -366,7 +366,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Fully specified port and proto",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          6,
@@ -379,7 +379,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Match TCP / wildcarded port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          6,
@@ -392,7 +392,7 @@ func TestPortProtoString(t *testing.T) {
 			name: "Wildard proto / match upper 8 bits of port",
 			args: args{
 				&PolicyKey{
-					Prefixlen:        StaticPrefixBits + NexthdrBits + DestPortBits/2,
+					Prefixlen:        StaticPrefixBits + uint32(NexthdrBits+DestPortBits/2),
 					Identity:         0,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 					Nexthdr:          0,
@@ -406,4 +406,16 @@ func TestPortProtoString(t *testing.T) {
 		got := tt.args.key.PortProtoString()
 		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 	}
+}
+
+func TestInitMapInfo(t *testing.T) {
+	nCPU := 7
+	policyMapMax := 50000
+	policyStatsMapMax := nCPU*1000 + 3
+
+	InitMapInfo(policyMapMax, policyStatsMapMax, nCPU)
+
+	require.Equal(t, policyMapMax, MaxEntries)
+	require.NotEqual(t, policyStatsMapMax, MaxStatsEntries)
+	require.Equal(t, nCPU*1000, MaxStatsEntries)
 }

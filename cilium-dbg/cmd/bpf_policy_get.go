@@ -177,7 +177,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	}
 	for _, stat := range statsMap {
-		prefixLen := stat.Key.Prefixlen - policymap.StaticPrefixBits
+		prefixLen := stat.Key.GetPrefixLen()
 		id := identity.NumericIdentity(stat.Key.Identity)
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()

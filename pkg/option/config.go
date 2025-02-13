@@ -633,6 +633,9 @@ const (
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
 
+	// PolicyStatsMapEntriesName configures max entries for BPF policymap.
+	PolicyStatsMapEntriesName = "bpf-policy-stats-map-max"
+
 	// PolicyMapFullReconciliationInterval sets the interval for performing the full
 	// reconciliation of the endpoint policy map.
 	PolicyMapFullReconciliationIntervalName = "bpf-policy-map-full-reconciliation-interval"
@@ -1495,6 +1498,11 @@ type DaemonConfig struct {
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
+
+	// PolicyStatsMapEntries is the maximum number of stats entries kept
+	// globally in the node in an LRU map, where oldest entries are recycled
+	// to make space for new ones.
+	PolicyStatsMapEntries int
 
 	// PolicyMapFullReconciliationInterval is the interval at which to perform
 	// the full reconciliation of the endpoint policy map.
@@ -3467,6 +3475,16 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 		c.PolicyMapEntries = PolicyMapMax
 	}
 
+	if c.PolicyStatsMapEntries < LimitTableMin {
+		return fmt.Errorf("specified PolicyStatsMap max entries %d must exceed minimum %d",
+			c.PolicyStatsMapEntries, LimitTableMin)
+	}
+	if c.PolicyStatsMapEntries > LimitTableMax {
+		log.Warnf("specified PolicyStatsMap max entries %d must not exceed maximum %d, lowering it to the maximum value",
+			c.PolicyStatsMapEntries, LimitTableMax)
+		c.PolicyStatsMapEntries = LimitTableMax
+	}
+
 	if c.FragmentsMapEntries < FragmentsMapMin {
 		return fmt.Errorf("specified max entries %d for fragment-tracking map must exceed minimum %d",
 			c.FragmentsMapEntries, FragmentsMapMin)
@@ -3581,6 +3599,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = vp.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = vp.GetInt(PolicyMapEntriesName)
+	c.PolicyStatsMapEntries = vp.GetInt(PolicyStatsMapEntriesName)
 	c.PolicyMapFullReconciliationInterval = vp.GetDuration(PolicyMapFullReconciliationIntervalName)
 	c.SockRevNatEntries = vp.GetInt(SockRevNatEntriesName)
 	c.LBMapEntries = vp.GetInt(LBMapEntriesName)

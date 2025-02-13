@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
@@ -456,8 +457,12 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(option.Config.NeighMapEntriesGlobal),
 			},
 			{
-				Name: "Global policy",
+				Name: "Endpoint policy",
 				Size: int64(option.Config.PolicyMapEntries),
+			},
+			{
+				Name: "Global policy stats",
+				Size: int64(policymap.MaxStatsEntries),
 			},
 			{
 				Name: "Session affinity",
