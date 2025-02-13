@@ -137,7 +137,7 @@ jobs:
             --set=pprof.enabled=true \
             --set=prometheus.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
-            --set=egressGateway.enabled=true \
+            ${{ env.EGRESS_GATEWAY_HELM_VALUES }} \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
             --set=l7Proxy=false \
