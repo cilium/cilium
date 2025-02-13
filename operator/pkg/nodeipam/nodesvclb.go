@@ -63,6 +63,7 @@ func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueRequestForEndpointSlice()).
 		// Watch for changes to Nodes
 		Watches(&corev1.Node{}, r.enqueueRequestForNode()).
+		Named("service-nodeipam").
 		Complete(r)
 }
 
