@@ -92,9 +92,9 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			return ret;
 	}
 
-	return __encap_with_nodeid(ctx, src_ip, src_port, dst_ip,
-				   src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
-				   ct_reason, monitor, ifindex);
+	return __encap_with_nodeid4(ctx, src_ip, src_port, dst_ip,
+				    src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
+				    ct_reason, monitor, ifindex);
 }
 
 # if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
