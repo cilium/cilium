@@ -7,12 +7,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
 	"github.com/lthibault/jitterbug/v2"
 	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,6 +26,7 @@ import (
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -34,28 +40,34 @@ import (
 
 const (
 	CRDStatusUpdateInterval = 5 * time.Second
+	MaxConditionsMessageLen = 32 * 1024
 )
 
 type StatusReconciler struct {
 	lock.Mutex
 
-	Logger            logrus.FieldLogger
-	ClientSet         k8s_client.Clientset
-	LocalNodeResource daemon_k8s.LocalCiliumNodeResource
-
-	nodeName      string
-	desiredStatus *v2alpha1.CiliumBGPNodeStatus
-	runningStatus *v2alpha1.CiliumBGPNodeStatus
+	Logger              logrus.FieldLogger
+	ClientSet           k8s_client.Clientset
+	LocalNodeResource   daemon_k8s.LocalCiliumNodeResource
+	DB                  *statedb.DB
+	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
+	nodeName            string
+	desiredStatus       *v2alpha1.CiliumBGPNodeStatus
+	runningStatus       *v2alpha1.CiliumBGPNodeStatus
+	reconcileInterval   time.Duration
+	conditionsUpdated   bool
 }
 
 type StatusReconcilerIn struct {
 	cell.In
 
-	DaemonConfig *option.DaemonConfig
-	Job          job.Group
-	ClientSet    k8s_client.Clientset
-	Logger       logrus.FieldLogger
-	LocalNode    daemon_k8s.LocalCiliumNodeResource
+	DB                  *statedb.DB
+	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
+	DaemonConfig        *option.DaemonConfig
+	Job                 job.Group
+	ClientSet           k8s_client.Clientset
+	Logger              logrus.FieldLogger
+	LocalNode           daemon_k8s.LocalCiliumNodeResource
 }
 
 type StatusReconcilerOut struct {
@@ -74,11 +86,14 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	}
 
 	r := &StatusReconciler{
-		Logger:            in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
-		LocalNodeResource: in.LocalNode,
-		ClientSet:         in.ClientSet,
-		desiredStatus:     &v2alpha1.CiliumBGPNodeStatus{},
-		runningStatus:     &v2alpha1.CiliumBGPNodeStatus{},
+		Logger:              in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
+		LocalNodeResource:   in.LocalNode,
+		ClientSet:           in.ClientSet,
+		DB:                  in.DB,
+		ReconcileErrorTable: in.ReconcileErrorTable,
+		reconcileInterval:   CRDStatusUpdateInterval,
+		desiredStatus:       &v2alpha1.CiliumBGPNodeStatus{},
+		runningStatus:       &v2alpha1.CiliumBGPNodeStatus{},
 	}
 
 	// If the status reporting is disabled, schedule a job to cleanup
@@ -115,7 +130,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		// which will result in status update.
 		// We want to stagger the status updates to avoid thundering herd problem.
 		ticker := jitterbug.New(
-			CRDStatusUpdateInterval,
+			r.reconcileInterval,
 			&jitterbug.Norm{Stdev: time.Millisecond * 500},
 		)
 		defer ticker.Stop()
@@ -140,9 +155,77 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		}
 	}))
 
+	in.Job.Add(job.OneShot("bgp-reconcile-error-statedb-tracker", func(ctx context.Context, health cell.Health) error {
+		r.Logger.Debug("StateDB reconcile-error tracker running")
+		observable := statedb.Observable[*tables.BGPReconcileError](in.DB, in.ReconcileErrorTable)
+		ch := stream.ToChannel[statedb.Change[*tables.BGPReconcileError]](ctx, observable)
+
+		for range ch {
+			if err := r.updateErrorConditions(); err != nil {
+				r.Logger.WithError(err).Error("Failed to update error conditions")
+			}
+		}
+		return nil
+	}))
+
 	return StatusReconcilerOut{
 		Reconciler: r,
 	}
+}
+
+func (r *StatusReconciler) updateErrorConditions() error {
+	r.Lock()
+	defer r.Unlock()
+
+	var instanceErrors []tables.BGPReconcileError
+	iter := r.ReconcileErrorTable.All(r.DB.ReadTxn())
+	for errObj := range iter {
+		instanceErrors = append(instanceErrors, *errObj)
+	}
+
+	// sort instance errors by instance name and then by error ID
+	sort.Slice(instanceErrors, func(i, j int) bool {
+		if strings.Compare(instanceErrors[i].Instance, instanceErrors[j].Instance) == 0 {
+			return instanceErrors[i].ErrorID < instanceErrors[j].ErrorID
+		}
+		return strings.Compare(instanceErrors[i].Instance, instanceErrors[j].Instance) < 0
+	})
+
+	// combine all errors into a single message
+	var message strings.Builder
+	for _, errObj := range instanceErrors {
+		// maximum length of message can be 32*1024
+		if message.Len()+len(errObj.String()) >= MaxConditionsMessageLen {
+			break
+		}
+		message.WriteString(fmt.Sprintf("%s: %s\n", errObj.Instance, errObj.Error))
+	}
+
+	// get prev observedGeneration
+	observedGeneration := int64(0)
+	for _, cond := range r.desiredStatus.Conditions {
+		if cond.Type == v2alpha1.BGPInstanceConditionReconcileError {
+			observedGeneration = cond.ObservedGeneration
+			break
+		}
+	}
+
+	cond := metav1.Condition{
+		Type:               v2alpha1.BGPInstanceConditionReconcileError,
+		Status:             metav1.ConditionFalse,
+		ObservedGeneration: observedGeneration,
+		Reason:             "BGPReconcileError",
+	}
+
+	if len(instanceErrors) > 0 {
+		cond.Status = metav1.ConditionTrue
+		cond.Message = message.String()
+	}
+
+	if updated := meta.SetStatusCondition(&r.desiredStatus.Conditions, cond); updated {
+		r.conditionsUpdated = true
+	}
+	return nil
 }
 
 func (r *StatusReconciler) Name() string {
@@ -330,7 +413,7 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 
 func (r *StatusReconciler) reconcileWithRetry(ctx context.Context) error {
 	bo := wait.Backoff{
-		Duration: CRDStatusUpdateInterval,
+		Duration: r.reconcileInterval,
 		Factor:   1.2,
 		Jitter:   0.5,
 		Steps:    10,
@@ -357,7 +440,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 		return nil
 	}
 
-	if r.desiredStatus.DeepEqual(r.runningStatus) {
+	if r.desiredStatus.DeepEqual(r.runningStatus) && !r.conditionsUpdated {
 		return nil
 	}
 
@@ -393,6 +476,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 	}
 
 	r.runningStatus = statusCpy
+	r.conditionsUpdated = false // reset conditions updated flag
 	r.Logger.WithField(types.BGPNodeConfigLogField, r.nodeName).Debug("Updated resource status")
 	return nil
 }

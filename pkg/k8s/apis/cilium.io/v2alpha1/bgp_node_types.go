@@ -141,6 +141,14 @@ type CiliumBGPNodeStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	BGPInstances []CiliumBGPNodeInstanceStatus `json:"bgpInstances,omitempty"`
+
+	// The current conditions of the CiliumBGPNodeConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type CiliumBGPNodeInstanceStatus struct {
@@ -237,3 +245,7 @@ type BGPFamilyRouteCount struct {
 	// +kubebuilder:validation:Optional
 	Advertised *int32 `json:"advertised,omitempty"`
 }
+
+const (
+	BGPInstanceConditionReconcileError = "cilium.io/BGPReconcileError"
+)
