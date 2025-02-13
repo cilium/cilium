@@ -227,6 +227,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 			    __u32 src_sec_identity, __u32 dst_sec_identity,
 			    const struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
 	struct endpoint_info *gateway_node_ep;
 	__be32 gateway_ip = 0;
 	int ret;
@@ -255,7 +256,9 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */
-	return __encap_and_redirect_with_nodeid(ctx, gateway_ip,
+	fake_info.tunnel_endpoint.ip4 = gateway_ip;
+	fake_info.flag_has_tunnel_ep = true;
+	return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						src_sec_identity, dst_sec_identity,
 						NOT_VTEP_DST, trace);
 }
