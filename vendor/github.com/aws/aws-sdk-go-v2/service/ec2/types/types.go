@@ -4515,8 +4515,12 @@ type EventInformation struct {
 	//   several attempts to launch instances have failed. For more information, see the
 	//   description of the event.
 	//
-	//   - launchSpecUnusable - The price in a launch specification is not valid
-	//   because it is below the Spot price.
+	//   - launchSpecUnusable - The price specified in a launch specification is not
+	//   valid because it is below the Spot price for the requested Spot pools.
+	//
+	// Note: Even if a fleet with the maintain request type is in the process of being
+	//   canceled, it may still publish a launchSpecUnusable event. This does not mean
+	//   that the canceled fleet is attempting to launch a new instance.
 	//
 	//   - registerWithLoadBalancersFailed - An attempt to register instances with load
 	//   balancers failed. For more information, see the description of the event.
@@ -7095,7 +7099,7 @@ type InstanceBlockDeviceMappingSpecification struct {
 	// launched.
 	Ebs *EbsInstanceBlockDeviceSpecification
 
-	// suppress the specified device included in the block device mapping.
+	// Suppresses the specified device included in the block device mapping.
 	NoDevice *string
 
 	// The virtual device name.
@@ -8009,9 +8013,11 @@ type InstanceRequirements struct {
 
 	// The accelerator types that must be on the instance type.
 	//
+	//   - For instance types with FPGA accelerators, specify fpga .
+	//
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
-	//   - For instance types with FPGA accelerators, specify fpga .
+	//   - For instance types with Inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -8378,9 +8384,11 @@ type InstanceRequirementsRequest struct {
 
 	// The accelerator types that must be on the instance type.
 	//
-	//   - To include instance types with GPU hardware, specify gpu .
+	//   - For instance types with FPGA accelerators, specify fpga .
 	//
-	//   - To include instance types with FPGA hardware, specify fpga .
+	//   - For instance types with GPU accelerators, specify gpu .
+	//
+	//   - For instance types with Inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -17735,6 +17743,9 @@ type SpotMarketOptions struct {
 	//
 	// If you specify a maximum price, your Spot Instances will be interrupted more
 	// frequently than if you do not specify this parameter.
+	//
+	// If you specify a maximum price, it must be more than USD $0.001. Specifying a
+	// value below USD $0.001 will result in an InvalidParameterValue error message.
 	MaxPrice *string
 
 	// The Spot Instance request type. For [RunInstances], persistent Spot Instance requests are
