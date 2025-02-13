@@ -153,22 +153,22 @@ func TestCreateL4Filter(t *testing.T) {
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, EmptyStringLabels)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, r := range filter.PerSelectorPolicies {
-			explicit, authType := r.getAuthType()
+		for _, sp := range filter.PerSelectorPolicies {
+			explicit, authType := sp.getAuthType()
 			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
+			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
-		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, EmptyStringLabels, nil)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, r := range filter.PerSelectorPolicies {
-			explicit, authType := r.getAuthType()
+		for _, sp := range filter.PerSelectorPolicies {
+			explicit, authType := sp.getAuthType()
 			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
+			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
-		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 	}
 }
 
@@ -197,22 +197,22 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, EmptyStringLabels)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, r := range filter.PerSelectorPolicies {
-			explicit, authType := r.getAuthType()
+		for _, sp := range filter.PerSelectorPolicies {
+			explicit, authType := sp.getAuthType()
 			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
+			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
-		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, EmptyStringLabels, nil)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, r := range filter.PerSelectorPolicies {
-			explicit, authType := r.getAuthType()
+		for _, sp := range filter.PerSelectorPolicies {
+			explicit, authType := sp.getAuthType()
 			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
+			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
-		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
 	}
 }
 
@@ -278,9 +278,9 @@ func TestJSONMarshal(t *testing.T) {
 		Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
-				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -290,9 +290,9 @@ func TestJSONMarshal(t *testing.T) {
 			},
 			"9090/TCP": {
 				Port: 9090, Protocol: api.ProtoTCP,
-				L7Parser: "tester",
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						L7Parser: "tester",
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
 							L7: []api.PortRuleL7{
@@ -310,9 +310,9 @@ func TestJSONMarshal(t *testing.T) {
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
-				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
 								{Path: "/", Method: "GET"},
