@@ -451,6 +451,7 @@ jobs:
           CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
+          CL2_EGW_CREATE_POLICY: ${{ matrix.test_type == 'md' }}
         run: |
           echo "CL2-related environment variables"
           printenv | grep CL2_
