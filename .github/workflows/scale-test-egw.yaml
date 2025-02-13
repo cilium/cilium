@@ -77,7 +77,7 @@ env:
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 9ee5a03899528341025847fe064bb045de4f888e
+  egw_utils_ref: fd5df56a163f5907fe0f50f845d7bf17b310db80
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -207,7 +207,7 @@ jobs:
         shell: bash
         run: |
           # Run this seprate from the other "Wait for images to be available" step to help with debugging.
-          if ! docker manifest inspect quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }} ; then
+          if ! docker manifest inspect giorio94/egw-scale-utils:${{ env.egw_utils_ref }} ; then
             echo "FATAL: egw-scale-utils image with ref ${{ env.egw_utils_ref }} is not available, exiting"
             exit 1
           fi
@@ -444,7 +444,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: "2.0"
           CL2_PROMETHEUS_NODE_SELECTOR: 'role.scaffolding/monitoring: "true"'
-          CL2_EGW_TEST_IMAGE: quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }}
+          CL2_EGW_TEST_IMAGE: giorio94/egw-scale-utils:${{ env.egw_utils_ref }}
           CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
