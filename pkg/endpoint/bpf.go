@@ -830,6 +830,9 @@ func (e *Endpoint) deleteMaps() []error {
 	if e.bps != 0 {
 		e.owner.BandwidthManager().DeleteBandwidthLimit(e.ID)
 	}
+	if e.ingressBps != 0 {
+		e.owner.BandwidthManager().DeleteIngressBandwidthLimit(e.ID)
+	}
 
 	if e.ConntrackLocalLocked() {
 		// Remove endpoint-specific CT map pins.

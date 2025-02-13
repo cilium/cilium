@@ -28,22 +28,30 @@ const (
 )
 
 type EdtId struct {
-	Id uint64 `align:"id"`
+	Id        uint32   `align:"id"`
+	Direction uint8    `align:"direction"`
+	Pad       [3]uint8 `align:"pad"`
 }
 
-func (k *EdtId) String() string  { return fmt.Sprintf("%d", int(k.Id)) }
+func (k *EdtId) String() string {
+	return fmt.Sprintf("%d, %d", int(k.Id), int(k.Direction))
+}
+
 func (k *EdtId) New() bpf.MapKey { return &EdtId{} }
 
 type EdtInfo struct {
-	Bps             uint64    `align:"bps"`
-	TimeLast        uint64    `align:"t_last"`
-	TimeHorizonDrop uint64    `align:"t_horizon_drop"`
-	Prio            uint32    `align:"prio"`
-	Pad32           uint32    `align:"pad_32"`
-	Pad             [3]uint64 `align:"pad"`
+	Bps                     uint64    `align:"bps"`
+	TimeLast                uint64    `align:"t_last"`
+	TimeHorizonDropOrTokens uint64    `align:"$union0"`
+	Prio                    uint32    `align:"prio"`
+	Pad32                   uint32    `align:"pad_32"`
+	Pad                     [3]uint64 `align:"pad"`
 }
 
-func (v *EdtInfo) String() string    { return fmt.Sprintf("%d, %d", int(v.Bps), int(v.Prio)) }
+func (v *EdtInfo) String() string {
+	return fmt.Sprintf("%d, %d", int(v.Bps), int(v.Prio))
+}
+
 func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }
 
 type throttleMap struct {

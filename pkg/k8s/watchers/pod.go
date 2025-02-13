@@ -435,7 +435,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 	// Check annotation updates.
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
 	newAnno := newK8sPod.ObjectMeta.Annotations
-	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
+	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno) || !k8s.AnnotationsEqual([]string{bandwidth.IngressBandwidth}, oldAnno, newAnno)
 	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
 	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
@@ -511,6 +511,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 			if annoChangedBandwidth {
 				podEP.UpdateBandwidthPolicy(k.bandwidthManager,
 					newK8sPod.Annotations[bandwidth.EgressBandwidth],
+					newK8sPod.Annotations[bandwidth.IngressBandwidth],
 					newK8sPod.Annotations[bandwidth.Priority])
 			}
 			if annoChangedNoTrack {
