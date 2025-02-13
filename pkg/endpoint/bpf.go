@@ -223,14 +223,19 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // instead of returning a 0 port number.
 type proxyPolicy struct {
 	*policy.L4Filter
+	l7Parser policy.L7ParserType
 	listener string
 	port     uint16
 	protocol u8proto.U8proto
 }
 
 // newProxyPolicy returns a new instance of proxyPolicy by value
-func newProxyPolicy(l4 *policy.L4Filter, listener string, port uint16, proto u8proto.U8proto) proxyPolicy {
-	return proxyPolicy{L4Filter: l4, listener: listener, port: port, protocol: proto}
+func newProxyPolicy(l4 *policy.L4Filter, l7Parser policy.L7ParserType, listener string, port uint16, proto u8proto.U8proto) proxyPolicy {
+	return proxyPolicy{L4Filter: l4, l7Parser: l7Parser, listener: listener, port: port, protocol: proto}
+}
+
+func (p *proxyPolicy) GetL7Parser() policy.L7ParserType {
+	return p.l7Parser
 }
 
 // GetPort returns the destination port number on which the proxy policy applies
@@ -288,7 +293,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			continue
 		}
 
-		pp := newProxyPolicy(l4, listener, dstPort, dstProto)
+		pp := newProxyPolicy(l4, perSelectorPolicy.L7Parser, listener, dstPort, dstProto)
 		proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 		if err != nil {
 			// Skip redirects that can not be created or updated.  This
@@ -306,7 +311,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		// Update the endpoint API model to report that Cilium manages a
 		// redirect for that port.
 		statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
-		proxyStats := e.getProxyStatistics(statsKey, string(l4.L7Parser), dstPort, l4.Ingress, proxyPort)
+		proxyStats := e.getProxyStatistics(statsKey, string(perSelectorPolicy.L7Parser), dstPort, l4.Ingress, proxyPort)
 		updatedStats = append(updatedStats, proxyStats)
 	}
 

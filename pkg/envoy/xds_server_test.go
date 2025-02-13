@@ -217,11 +217,20 @@ var (
 	cachedSelector2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector2)
 )
 
-var L7Rules12 = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}}
+var L7Rules12 = &policy.PerSelectorPolicy{
+	L7Parser: policy.ParserTypeHTTP,
+	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
+}
 
-var L7Rules12HeaderMatch = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}}}
+var L7Rules12HeaderMatch = &policy.PerSelectorPolicy{
+	L7Parser: policy.ParserTypeHTTP,
+	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}},
+}
 
-var L7Rules1 = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}}
+var L7Rules1 = &policy.PerSelectorPolicy{
+	L7Parser: policy.ParserTypeHTTP,
+	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}},
+}
 
 var ExpectedHttpRule1 = &cilium.PortNetworkPolicyRule_HttpRules{
 	HttpRules: &cilium.HttpNetworkPolicyRules{
@@ -280,7 +289,6 @@ var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7Parser: policy.ParserTypeHTTP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12,
 		},
@@ -291,7 +299,6 @@ var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7Parser: policy.ParserTypeHTTP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12HeaderMatch,
 		},
@@ -302,7 +309,6 @@ var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7Parser: policy.ParserTypeHTTP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1:           L7Rules1,
 			cachedRequiresV2Selector1: L7Rules12,
@@ -314,7 +320,6 @@ var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
 		Protocol: api.ProtoTCP,
-		L7Parser: policy.ParserTypeHTTP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector2: L7Rules1,
 		},
@@ -325,7 +330,6 @@ var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7Parser: policy.ParserTypeHTTP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules12,
 		},
@@ -619,15 +623,15 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
 	version := versioned.Latest()
-	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false, false, "")
+	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false, false, "")
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12HeaderMatch, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false, false, "")
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), L7Rules1, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
 	require.True(t, canShortCircuit)
 }
@@ -754,21 +758,23 @@ var L4PolicyL7 = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
-			L7Parser: "tester",
 			PerSelectorPolicies: policy.L7DataMap{
-				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
-					L7Proto: "tester",
-					L7: []api.PortRuleL7{
-						map[string]string{
-							"method": "PUT",
-							"path":   "/",
-						},
-						map[string]string{
-							"method": "GET",
-							"path":   "/",
+				cachedSelector1: &policy.PerSelectorPolicy{
+					L7Parser: "tester",
+					L7Rules: api.L7Rules{
+						L7Proto: "tester",
+						L7: []api.PortRuleL7{
+							map[string]string{
+								"method": "PUT",
+								"path":   "/",
+							},
+							map[string]string{
+								"method": "GET",
+								"path":   "/",
+							},
 						},
 					},
-				}},
+				},
 			},
 			Ingress: true,
 		},
@@ -818,14 +824,16 @@ var L4PolicyKafka = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"9090/TCP": {
 			Port: 9092, Protocol: api.ProtoTCP,
-			L7Parser: "kafka",
 			PerSelectorPolicies: policy.L7DataMap{
-				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
-					Kafka: []kafka.PortRule{{
-						Role:  "consume",
-						Topic: "deathstar-plans",
-					}},
-				}},
+				cachedSelector1: &policy.PerSelectorPolicy{
+					L7Parser: "kafka",
+					L7Rules: api.L7Rules{
+						Kafka: []kafka.PortRule{{
+							Role:  "consume",
+							Topic: "deathstar-plans",
+						}},
+					},
+				},
 			},
 			Ingress: true,
 		},
@@ -878,17 +886,19 @@ var L4PolicyMySQL = &policy.L4Policy{
 	Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"3306/TCP": {
 			Port: 3306, Protocol: api.ProtoTCP,
-			L7Parser: "envoy.filters.network.mysql_proxy",
 			PerSelectorPolicies: policy.L7DataMap{
-				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
-					L7Proto: "envoy.filters.network.mysql_proxy",
-					L7: []api.PortRuleL7{
-						map[string]string{
-							"action":     "deny",
-							"user.mysql": "select",
+				cachedSelector1: &policy.PerSelectorPolicy{
+					L7Parser: "envoy.filters.network.mysql_proxy",
+					L7Rules: api.L7Rules{
+						L7Proto: "envoy.filters.network.mysql_proxy",
+						L7: []api.PortRuleL7{
+							map[string]string{
+								"action":     "deny",
+								"user.mysql": "select",
+							},
 						},
 					},
-				}},
+				},
 			},
 			Ingress: false,
 		},
@@ -1012,9 +1022,9 @@ func newL4PolicyTLSEgress(tls *policy.TLSContext) *policy.L4Policy {
 		Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
 				Port: 443, Protocol: api.ProtoTCP,
-				L7Parser: "tls",
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
+						L7Parser:       "tls",
 						OriginatingTLS: tls,
 					},
 				},
@@ -1077,9 +1087,9 @@ func newL4PolicyTLSIngress(tls *policy.TLSContext) *policy.L4Policy {
 		Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
 				Port: 443, Protocol: api.ProtoTCP,
-				L7Parser: "tls",
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
+						L7Parser:       "tls",
 						TerminatingTLS: tls,
 					},
 				},
@@ -1118,9 +1128,9 @@ var L4PolicyTLSFullContext = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
-			L7Parser: "tls",
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
+					L7Parser: "tls",
 					TerminatingTLS: &policy.TLSContext{
 						CertificateChain: "terminatingCertchain",
 						PrivateKey:       "terminatingKey",

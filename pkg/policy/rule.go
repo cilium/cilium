@@ -107,7 +107,7 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) api.L7Rul
 // takesListenerPrecedenceOver returns true if the listener reference in 'l7Rules' takes precedence
 // over the listener reference in 'other'.
 func (l7Rules *PerSelectorPolicy) takesListenerPrecedenceOver(other *PerSelectorPolicy) bool {
-	var priority, otherPriority uint8
+	var priority, otherPriority ListenerPriority
 
 	// decrement by one to wrap the undefined value (0) to be the highest numerical
 	// value of the uint16, which is the lowest possible priority
@@ -117,9 +117,21 @@ func (l7Rules *PerSelectorPolicy) takesListenerPrecedenceOver(other *PerSelector
 	return priority < otherPriority
 }
 
-// mergeListenerReference merges listener reference from 'newL7Rules' to 'l7Rules', giving
+// mergeRedirect merges listener reference from 'newL7Rules' to 'l7Rules', giving
 // precedence to listener with the lowest priority, if any.
-func (l7Rules *PerSelectorPolicy) mergeListenerReference(newL7Rules *PerSelectorPolicy) error {
+func (l7Rules *PerSelectorPolicy) mergeRedirect(newL7Rules *PerSelectorPolicy) error {
+	// Merge L7ParserType, if possible
+	l7Parser, err := l7Rules.L7Parser.Merge(newL7Rules.L7Parser)
+	if err != nil {
+		return err
+	}
+
+	if l7Parser != l7Rules.L7Parser {
+		// Also copy over the listener priority
+		l7Rules.L7Parser = l7Parser
+		l7Rules.Priority = newL7Rules.Priority
+	}
+
 	// Nothing to do if 'newL7Rules' has no listener reference
 	if newL7Rules.Listener == "" {
 		return nil
@@ -146,15 +158,9 @@ func (l7Rules *PerSelectorPolicy) mergeListenerReference(newL7Rules *PerSelector
 	return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v) with the same priority (%d)", newL7Rules.Listener, l7Rules.Listener, l7Rules.Priority)
 }
 
+// mergePortProto merges the L7-related data from the filter to merge
+// with the L7-related data already in the existing filter.
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) (err error) {
-	// Merge the L7-related data from the filter to merge
-	// with the L7-related data already in the existing filter.
-	existingFilter.L7Parser, err = existingFilter.L7Parser.Merge(filterToMerge.L7Parser)
-	if err != nil {
-		ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", filterToMerge.L7Parser, existingFilter.L7Parser)
-		return err
-	}
-
 	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
@@ -197,11 +203,8 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				newL7Rules = &PerSelectorPolicy{}
 			}
 
-			// Merge isRedirect flag
-			l7Rules.isRedirect = l7Rules.isRedirect || newL7Rules.isRedirect
-
-			// Merge listener reference
-			if err := l7Rules.mergeListenerReference(newL7Rules); err != nil {
+			// Merge Redirect
+			if err := l7Rules.mergeRedirect(newL7Rules); err != nil {
 				ctx.PolicyTrace("   Merge conflict: %s\n", err.Error())
 				return err
 			}
