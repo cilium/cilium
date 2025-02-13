@@ -15,11 +15,14 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -248,13 +251,23 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 			}
 		}
 	}
+
+	// Upsert the labels for the CiliumEndpoint.
+	for _, ip := range ipsAdded {
+		endpointResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindEndpoint, endpoint.Namespace, endpoint.Name)
+		lbls := labels.NewLabelsFromModel(endpoint.Identity.Labels)
+		ipPrefix := ippkg.IPToNetPrefix(net.ParseIP(ip))
+		k.ipcache.UpsertLabels(ipPrefix, lbls, labels.LabelSourceK8s, endpointResourceID)
+	}
 }
 
 func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
+	ipsRemoved := []string{}
 	if endpoint.Networking != nil {
 		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
+				ipsRemoved = append(ipsRemoved, pair.IPV4)
 				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
 				if portsChanged {
 					namedPortsChanged = true
@@ -262,6 +275,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoi
 			}
 
 			if pair.IPV6 != "" {
+				ipsRemoved = append(ipsRemoved, pair.IPV6)
 				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
 				if portsChanged {
 					namedPortsChanged = true
@@ -272,5 +286,14 @@ func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoi
 			k.policyManager.TriggerPolicyUpdates("Named ports deleted")
 		}
 	}
+
+	for _, ip := range ipsRemoved {
+		// Delete the labels for the CiliumEndpoint.
+		endpointResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindEndpoint, endpoint.Namespace, endpoint.Name)
+		lbls := labels.NewLabelsFromModel(endpoint.Identity.Labels)
+		ipPrefix := ippkg.IPToNetPrefix(net.ParseIP(ip))
+		k.ipcache.RemoveLabels(ipPrefix, lbls, endpointResourceID)
+	}
+
 	hubblemetrics.ProcessCiliumEndpointDeletion(endpoint)
 }

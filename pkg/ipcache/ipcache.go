@@ -109,6 +109,10 @@ type Configuration struct {
 	ipcacheTypes.PolicyUpdater
 	ipcacheTypes.DatapathHandler
 	synced.CacheStatus
+	// DisableLabelInjection is set to true to disable label injection.
+	// Default is false.
+	// This is added to allow using ipcache without data plane.
+	DisableLabelInjection bool
 }
 
 // IPCache is a collection of mappings:
@@ -153,7 +157,7 @@ type IPCache struct {
 	prefixLengths *counter.PrefixLengthCounter
 
 	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
-	// but only once
+	// but only once.
 	injectionStarted sync.Once
 }
 
@@ -544,7 +548,10 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	// If IP cache is used without data plane, we should not trigger label injection.
+	if !ipc.Configuration.DisableLabelInjection {
+		ipc.TriggerLabelInjection()
+	}
 	return
 }
 
@@ -573,7 +580,11 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	// If IP cache is used without data plane, we should not trigger label injection.
+	if !ipc.Configuration.DisableLabelInjection {
+		ipc.TriggerLabelInjection()
+	}
+
 	return
 }
 
@@ -593,7 +604,11 @@ func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, r
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(affectedPrefixed...)
-	ipc.TriggerLabelInjection()
+	// If IP cache is used without data plane, we should not trigger label injection.
+	if !ipc.Configuration.DisableLabelInjection {
+		ipc.TriggerLabelInjection()
+	}
+
 	return
 }
 
@@ -616,7 +631,10 @@ func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, r
 	}
 	ipc.metadata.Unlock()
 	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
-	ipc.TriggerLabelInjection()
+	// If IP cache is used without data plane, we should not trigger label injection.
+	if !ipc.Configuration.DisableLabelInjection {
+		ipc.TriggerLabelInjection()
+	}
 }
 
 // UpsertLabels upserts a given IP and its corresponding labels associated

@@ -245,6 +245,13 @@ func (ipc *IPCache) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
 	return ipc.metadata.getLocked(prefix).Source()
 }
 
+// GetMetadataLabelsByPrefix returns the labels associated with the given prefix.
+func (ipc *IPCache) GetMetadataLabelsByPrefix(prefix netip.Prefix) labels.Labels {
+	ipc.metadata.RLock()
+	defer ipc.metadata.RUnlock()
+	return ipc.metadata.getLocked(prefix).ToLabels()
+}
+
 func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
 }
