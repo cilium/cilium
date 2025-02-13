@@ -49,7 +49,15 @@ func (txn *Txn[T]) Clone() *Txn[T] {
 // Insert or update the tree with the given key and value.
 // Returns the old value if it exists.
 func (txn *Txn[T]) Insert(key []byte, value T) (old T, hadOld bool) {
-	old, hadOld, txn.root = txn.insert(txn.root, key, value)
+	old, hadOld, _ = txn.InsertWatch(key, value)
+	return
+}
+
+// Insert or update the tree with the given key and value.
+// Returns the old value if it exists and a watch channel that closes when the
+// key changes again.
+func (txn *Txn[T]) InsertWatch(key []byte, value T) (old T, hadOld bool, watch <-chan struct{}) {
+	old, hadOld, watch, txn.root = txn.insert(txn.root, key, value)
 	if !hadOld {
 		txn.size++
 	}
@@ -61,7 +69,17 @@ func (txn *Txn[T]) Insert(key []byte, value T) (old T, hadOld bool) {
 // caller to not mutate the value in-place and to return a clone.
 // Returns the old value if it exists.
 func (txn *Txn[T]) Modify(key []byte, mod func(T) T) (old T, hadOld bool) {
-	old, hadOld, txn.root = txn.modify(txn.root, key, mod)
+	old, hadOld, _ = txn.ModifyWatch(key, mod)
+	return
+}
+
+// Modify a value in the tree. If the key does not exist the modify
+// function is called with the zero value for T. It is up to the
+// caller to not mutate the value in-place and to return a clone.
+// Returns the old value if it exists and a watch channel that closes
+// when the key changes again.
+func (txn *Txn[T]) ModifyWatch(key []byte, mod func(T) T) (old T, hadOld bool, watch <-chan struct{}) {
+	old, hadOld, watch, txn.root = txn.modify(txn.root, key, mod)
 	if !hadOld {
 		txn.size++
 	}
@@ -166,11 +184,11 @@ func (txn *Txn[T]) cloneNode(n *header[T]) *header[T] {
 	return n
 }
 
-func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, hadOld bool, newRoot *header[T]) {
+func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, hadOld bool, watch <-chan struct{}, newRoot *header[T]) {
 	return txn.modify(root, key, func(_ T) T { return value })
 }
 
-func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue T, hadOld bool, newRoot *header[T]) {
+func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue T, hadOld bool, watch <-chan struct{}, newRoot *header[T]) {
 	fullKey := key
 
 	this := root
@@ -212,8 +230,10 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 				this = txn.cloneNode(this)
 			}
 			var zero T
-			this.insert(idx, newLeaf(txn.opts, key, fullKey, mod(zero)).self())
+			leaf := newLeaf(txn.opts, key, fullKey, mod(zero))
+			this.insert(idx, leaf.self())
 			*thisp = this
+			watch = leaf.watch
 			return
 		}
 
@@ -237,7 +257,9 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 			hadOld = true
 			this = txn.cloneNode(this)
 			*thisp = this
-			this.getLeaf().value = mod(oldValue)
+			leaf := this.getLeaf()
+			leaf.value = mod(oldValue)
+			watch = leaf.watch
 		} else {
 			// Partially matching prefix.
 			newNode := &node4[T]{
@@ -253,6 +275,7 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 			key = key[len(common):]
 			var zero T
 			newLeaf := newLeaf(txn.opts, key, fullKey, mod(zero))
+			watch = newLeaf.watch
 
 			// Insert the two leaves into the node we created. If one has
 			// a key that is a subset of the other, then we can insert them
@@ -298,11 +321,14 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 			hadOld = true
 			leaf = txn.cloneNode(leaf.self()).getLeaf()
 			leaf.value = mod(oldValue)
+			watch = leaf.watch
 			this.setLeaf(leaf)
 		} else {
 			// Set the leaf
 			var zero T
-			this.setLeaf(newLeaf(txn.opts, this.prefix, fullKey, mod(zero)))
+			leaf := newLeaf(txn.opts, this.prefix, fullKey, mod(zero))
+			watch = leaf.watch
+			this.setLeaf(leaf)
 		}
 
 	default:
@@ -316,6 +342,7 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 
 		var zero T
 		newLeaf := newLeaf(txn.opts, key, fullKey, mod(zero))
+		watch = newLeaf.watch
 		newNode := &node4[T]{
 			header: header[T]{prefix: common},
 		}

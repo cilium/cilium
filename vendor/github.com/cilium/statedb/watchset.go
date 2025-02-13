@@ -1,103 +1,199 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package statedb
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sync"
+	"time"
 )
 
 const watchSetChunkSize = 16
 
+type channelSet = map[<-chan struct{}]struct{}
+
 // WatchSet is a set of watch channels that can be waited on.
 type WatchSet struct {
 	mu    sync.Mutex
-	chans []<-chan struct{}
+	chans channelSet
 }
 
 func NewWatchSet() *WatchSet {
 	return &WatchSet{
-		chans: make([]<-chan struct{}, 0, watchSetChunkSize),
+		chans: channelSet{},
 	}
 }
 
-// Add a channel to the watch set.
+// Add channel(s) to the watch set
 func (ws *WatchSet) Add(chans ...<-chan struct{}) {
 	ws.mu.Lock()
 	for _, ch := range chans {
-		ws.chans = append(ws.chans, ch)
+		ws.chans[ch] = struct{}{}
 	}
 	ws.mu.Unlock()
 }
 
+// Clear the channels from the WatchSet
 func (ws *WatchSet) Clear() {
 	ws.mu.Lock()
-	ws.chans = ws.chans[:0]
+	clear(ws.chans)
 	ws.mu.Unlock()
 }
 
-// Wait for any channel in the watch set to close. The
-// watch set is cleared when this method returns.
-func (ws *WatchSet) Wait(ctx context.Context) error {
+// Has returns true if the WatchSet has the channel
+func (ws *WatchSet) Has(ch <-chan struct{}) bool {
 	ws.mu.Lock()
-	defer func() {
-		ws.chans = ws.chans[:0]
-		ws.mu.Unlock()
-	}()
+	_, found := ws.chans[ch]
+	ws.mu.Unlock()
+	return found
+}
+
+// HasAny returns true if the WatchSet has any of the given channels
+func (ws *WatchSet) HasAny(chans []<-chan struct{}) bool {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	for _, ch := range chans {
+		if _, found := ws.chans[ch]; found {
+			return true
+		}
+	}
+	return false
+}
+
+// Merge channels from another WatchSet
+func (ws *WatchSet) Merge(other *WatchSet) {
+	other.mu.Lock()
+	defer other.mu.Unlock()
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	for ch := range other.chans {
+		ws.chans[ch] = struct{}{}
+	}
+}
+
+// Wait for channels in the watch set to close or the context is cancelled.
+// After the first closed channel is seen Wait will wait [settleTime] for
+// more closed channels.
+// Returns the closed channels and removes them from the set.
+func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-chan struct{}, error) {
+	innerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	closedChannels := &closedChannelsSlice{}
 
 	// No channels to watch? Just watch the context.
 	if len(ws.chans) == 0 {
 		<-ctx.Done()
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 
 	// Collect the channels into a slice. The slice length is rounded to a full
 	// chunk size.
+	chans := slices.Collect(maps.Keys(ws.chans))
 	chunkSize := 16
-	roundedSize := len(ws.chans) + (chunkSize - len(ws.chans)%chunkSize)
-	ws.chans = slices.Grow(ws.chans, roundedSize)[:roundedSize]
-
-	if len(ws.chans) <= chunkSize {
-		watch16(ctx.Done(), ws.chans)
-		return ctx.Err()
-	}
-
-	// More than one chunk. Fork goroutines to watch each chunk. The first chunk
-	// that completes will cancel the context and stop the other goroutines.
-	innerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	roundedSize := len(chans) + (chunkSize - len(chans)%chunkSize)
+	chans = slices.Grow(chans, roundedSize)[:roundedSize]
+	haveResult := make(chan struct{}, 1)
 
 	var wg sync.WaitGroup
-	for chunk := range slices.Chunk(ws.chans, chunkSize) {
+	chunks := slices.Chunk(chans, chunkSize)
+	for chunk := range chunks {
 		wg.Add(1)
 		go func() {
-			defer cancel()
 			defer wg.Done()
-			chunk = slices.Clone(chunk)
-			watch16(innerCtx.Done(), chunk)
+			watch16(haveResult, closedChannels, innerCtx.Done(), chunk)
 		}()
 	}
+
+	// Wait for the first closed channel to be seen. If [settleTime] is set,
+	// then wait a bit longer for more.
+	select {
+	case <-haveResult:
+		if settleTime > 0 {
+			select {
+			case <-time.After(settleTime):
+			case <-ctx.Done():
+			}
+		}
+	case <-ctx.Done():
+	}
+
+	// Stop waiting for more channels to close
+	cancel()
 	wg.Wait()
-	return ctx.Err()
+
+	// Remove the closed channels from the watch set.
+	for _, ch := range closedChannels.chans {
+		delete(ws.chans, ch)
+	}
+
+	return closedChannels.chans, ctx.Err()
 }
 
-func watch16(stop <-chan struct{}, chans []<-chan struct{}) {
-	select {
-	case <-stop:
-	case <-chans[0]:
-	case <-chans[1]:
-	case <-chans[2]:
-	case <-chans[3]:
-	case <-chans[4]:
-	case <-chans[5]:
-	case <-chans[6]:
-	case <-chans[7]:
-	case <-chans[8]:
-	case <-chans[9]:
-	case <-chans[10]:
-	case <-chans[11]:
-	case <-chans[12]:
-	case <-chans[13]:
-	case <-chans[14]:
-	case <-chans[15]:
+func watch16(haveClosed chan struct{}, closedChannels *closedChannelsSlice, stop <-chan struct{}, chans []<-chan struct{}) {
+	for {
+		closedIndex := -1
+		select {
+		case <-stop:
+			return
+		case <-chans[0]:
+			closedIndex = 0
+		case <-chans[1]:
+			closedIndex = 1
+		case <-chans[2]:
+			closedIndex = 2
+		case <-chans[3]:
+			closedIndex = 3
+		case <-chans[4]:
+			closedIndex = 4
+		case <-chans[5]:
+			closedIndex = 5
+		case <-chans[6]:
+			closedIndex = 6
+		case <-chans[7]:
+			closedIndex = 7
+		case <-chans[8]:
+			closedIndex = 8
+		case <-chans[9]:
+			closedIndex = 9
+		case <-chans[10]:
+			closedIndex = 10
+		case <-chans[11]:
+			closedIndex = 11
+		case <-chans[12]:
+			closedIndex = 12
+		case <-chans[13]:
+			closedIndex = 13
+		case <-chans[14]:
+			closedIndex = 14
+		case <-chans[15]:
+			closedIndex = 15
+		}
+		closedChannels.append(chans[closedIndex])
+		chans[closedIndex] = nil
+		if haveClosed != nil {
+			select {
+			case haveClosed <- struct{}{}:
+				haveClosed = nil
+			default:
+			}
+		}
 	}
+}
+
+type closedChannelsSlice struct {
+	mu    sync.Mutex
+	chans []<-chan struct{}
+}
+
+func (ccs *closedChannelsSlice) append(ch <-chan struct{}) {
+	ccs.mu.Lock()
+	ccs.chans = append(ccs.chans, ch)
+	ccs.mu.Unlock()
 }
