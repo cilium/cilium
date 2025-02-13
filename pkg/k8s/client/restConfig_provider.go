@@ -4,6 +4,9 @@
 package client
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -12,26 +15,83 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
 
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-client")
+
+	// K8sAPIServerFilePath is the file path for storing kube-apiserver service and
+	// endpoints for high availability failover.
+	K8sAPIServerFilePath = filepath.Join(option.Config.StateDir, "k8sapi_server_state.json")
+)
+
+type K8sServiceEndpointMapping struct {
+	Service   string   `json:"service"`
+	Endpoints []string `json:"endpoints"`
+}
+
+// restConfigManager manages the rest configuration for connecting to the API server, including the logic to fail over
+// to an active kube-apiserver in order to support high availability.
+//
+// Below are the sequence of events to support kube-apiserver failover.
+//
+// Bootstrap: It parses the user provided configuration which may include multiple API server URLs. In case of multiple
+// API servers, it wraps the rest configuration with an HTTP RoundTripper that enables updating the remote host while
+// making API requests to the kube-apiserver. It also asynchronously monitors kube-apiserver service and endpoints related updates.
+// Initially an active kube-apiserver URL is picked at random, and servers are manually rotated on connectivity failures.
+//
+// Runtime: After the agent's initial sync with the kube-apiserver, when the manager receives updates for the kube-apiserver
+// service, it switches over to the service address as the remote host set in the rest configuration. Thereafter, manual
+// rotation of API servers is not needed as Cilium datapath will load-balance API traffic to the kube-apiserver endpoints.
+//
+// Restore: The manager restores the persisted kube-apiserver state after restart after ensuring connectivity using
+// the service address. If that fails, it'll fall back to user provided kube-apiserver URLs. Note that these could be
+// different from the ones configured during initial bootstrap as those kube-apiservers may all have been rotated while
+// the agent was down.
 type restConfigManager struct {
 	restConfig    *rest.Config
 	apiServerURLs []*url.URL
 	lock.RWMutex
-	log logrus.FieldLogger
-	rt  *rotatingHttpRoundTripper
+	log  logrus.FieldLogger
+	rt   *rotatingHttpRoundTripper
+	jobs job.Group
 }
 
 type restConfig interface {
 	getConfig() *rest.Config
 	canRotateAPIServerURL() bool
 	rotateAPIServerURL()
+}
+
+// UpdateK8sAPIServerEntry writes the provided kubernetes service to endpoint mapping
+// to K8sAPIServerFilePath.
+func UpdateK8sAPIServerEntry(mapping K8sServiceEndpointMapping) {
+	f, err := os.OpenFile(K8sAPIServerFilePath, os.O_RDWR, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	if err = json.NewEncoder(f).Encode(mapping); err != nil {
+		log.WithError(err).WithField("entry", mapping).Error("failed to write kubernetes service entry," +
+			"agent may not be able to fail over to an active k8sapi-server")
+	}
 }
 
 func (r *restConfigManager) getConfig() *rest.Config {
@@ -41,16 +101,19 @@ func (r *restConfigManager) getConfig() *rest.Config {
 }
 
 func (r *restConfigManager) canRotateAPIServerURL() bool {
+	r.RLock()
+	defer r.RUnlock()
 	return len(r.apiServerURLs) > 1
 }
 
-func restConfigManagerInit(cfg Config, name string, log logrus.FieldLogger) (restConfig, error) {
+func restConfigManagerInit(cfg Config, name string, log logrus.FieldLogger, jobs job.Group) (restConfig, error) {
 	var err error
 	manager := restConfigManager{
 		log: log,
 		rt: &rotatingHttpRoundTripper{
 			log: log,
-		}}
+		},
+		jobs: jobs}
 
 	manager.parseConfig(cfg)
 
@@ -70,6 +133,9 @@ func restConfigManagerInit(cfg Config, name string, log logrus.FieldLogger) (res
 	if manager.canRotateAPIServerURL() {
 		// Pick an API server at random.
 		manager.rotateAPIServerURL()
+		if err := manager.startK8sAPIServerFileWatcher(); err != nil {
+			return nil, fmt.Errorf("agent may not able to fail over to an active kube-apiserver: %w", err)
+		}
 	}
 
 	return &manager, err
@@ -215,4 +281,158 @@ func (rt *rotatingHttpRoundTripper) RoundTrip(req *http.Request) (*http.Response
 func (r *restConfigManager) WrapRoundTripper(rt http.RoundTripper) http.RoundTripper {
 	r.rt.delegate = rt
 	return r.rt
+}
+
+// startK8sAPIServerFileWatcher asynchronosuly handles updates the API service and endpoints.
+func (r *restConfigManager) startK8sAPIServerFileWatcher() error {
+	if finfo, err := os.Stat(K8sAPIServerFilePath); errors.Is(err, os.ErrNotExist) {
+		if _, err = os.Create(K8sAPIServerFilePath); err != nil {
+			return fmt.Errorf("unable to create '%s': %w", K8sAPIServerFilePath, err)
+		}
+	} else if finfo.Size() != 0 {
+		// Restore the service and endpoint addresses.
+		r.updateK8sAPIServerURL()
+	}
+
+	r.jobs.Add(job.OneShot("kube-apiserver-state-file-watcher", func(ctx context.Context, health cell.Health) error {
+		stop := make(chan struct{})
+		timeout := time.NewTimer(5 * time.Second)
+		defer timeout.Stop()
+		var (
+			watcher *fswatcher.Watcher
+			err     error
+		)
+		wait.Until(func() {
+			watcher, err = fswatcher.New([]string{K8sAPIServerFilePath})
+			if err == nil {
+				close(stop)
+				return
+			}
+			select {
+			case <-ctx.Done():
+			case <-timeout.C:
+			default:
+				return
+			}
+			close(stop)
+		}, time.Second, stop)
+		if err == nil {
+			health.OK("Starting kube-apiserver state file watcher")
+			return r.k8sAPIServerFileWatcher(ctx, watcher, health)
+		}
+		return fmt.Errorf("unable to add file watcher '%s': %w", K8sAPIServerFilePath, err)
+	}))
+
+	return nil
+}
+
+func (r *restConfigManager) k8sAPIServerFileWatcher(ctx context.Context, watcher *fswatcher.Watcher, health cell.Health) error {
+	for {
+		select {
+		case <-ctx.Done():
+			health.Stopped("Context done")
+			watcher.Close()
+			return nil
+		case event := <-watcher.Events:
+			if !event.Op.Has(fsnotify.Write) {
+				continue
+			}
+			r.log.WithField("file", K8sAPIServerFilePath).Info("Processing write event ")
+			r.updateK8sAPIServerURL()
+		case err := <-watcher.Errors:
+			health.Degraded(fmt.Sprintf("Failed to load  %q", K8sAPIServerFilePath), err)
+			r.log.WithField("file", K8sAPIServerFilePath).WithError(err).Error("Unexpected error while watching")
+		}
+
+	}
+}
+
+func (r *restConfigManager) updateK8sAPIServerURL() {
+	f, err := os.Open(K8sAPIServerFilePath)
+	if err != nil {
+		r.log.WithError(err).WithField(logfields.Path, K8sAPIServerFilePath).Error("unable " +
+			"to open file, agent may not be able to fail over to an active kube-apiserver")
+	}
+	defer f.Close()
+
+	var mapping K8sServiceEndpointMapping
+	if err = json.NewDecoder(f).Decode(&mapping); err != nil {
+		r.log.WithError(err).WithFields(logrus.Fields{
+			logfields.Path: K8sAPIServerFilePath,
+			"entry":        mapping,
+		}).Error("failed to " +
+			"decode file entry, agent may not be able to fail over to an active kube-apiserver")
+	}
+	if err = r.checkConnToService(mapping.Service); err != nil {
+		return
+	}
+	r.log.WithField("host", mapping.Service).Info("Updated kubeapi server url host")
+	// Set in tests
+	mapping.Service = strings.TrimPrefix(mapping.Service, "http://")
+	r.rt.Lock()
+	defer r.rt.Unlock()
+	r.rt.apiServerURL.Host = mapping.Service
+	r.Lock()
+	defer r.Unlock()
+	r.restConfig.Host = mapping.Service
+	updatedServerURLs := make([]*url.URL, 0)
+	for _, endpoint := range mapping.Endpoints {
+		endpoint = fmt.Sprintf("https://%s", endpoint)
+		serverURL, err := url.Parse(endpoint)
+		if err != nil {
+			r.log.WithError(err).Errorf("Failed to parse endpoint %s, skipping", endpoint)
+			continue
+		}
+		updatedServerURLs = append(updatedServerURLs, serverURL)
+	}
+	if len(updatedServerURLs) != 0 {
+		r.apiServerURLs = updatedServerURLs
+	}
+}
+
+// checkConnToService ensures connectivity to the API server via the passed service address.
+func (r *restConfigManager) checkConnToService(host string) error {
+	stop := make(chan struct{})
+	timeout := time.NewTimer(connTimeout)
+	defer timeout.Stop()
+	var (
+		config *rest.Config
+		err    error
+	)
+	if strings.HasPrefix(host, "http") {
+		// Set in tests
+		//exhaustruct:ignore
+		config = &rest.Config{Host: host, Timeout: connTimeout}
+	} else {
+		hostURL := fmt.Sprintf("https://%s", host)
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			log.WithError(err).Error("unable to read cluster config")
+			return err
+		}
+		config.Host = hostURL
+	}
+	wait.Until(func() {
+		r.log.WithField(logfields.Address, config.Host).Info("Checking connection to kubeapi service")
+		httpClient, _ := rest.HTTPClientFor(config)
+
+		cs, _ := kubernetes.NewForConfigAndClient(config, httpClient)
+		if err = isConnReady(cs); err == nil {
+			close(stop)
+			return
+		}
+
+		select {
+		case <-timeout.C:
+		default:
+			return
+		}
+
+		r.log.WithError(err).WithField(logfields.Address, config.Host).Error("kubeapi service not ready yet")
+		close(stop)
+	}, connRetryInterval, stop)
+	if err == nil {
+		r.log.WithField(logfields.Address, config.Host).Info("Connected to kubeapi service")
+	}
+	return err
 }
