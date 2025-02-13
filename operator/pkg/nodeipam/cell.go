@@ -58,7 +58,7 @@ func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
 	if err := newNodeSvcLBReconciler(
 		params.CtrlRuntimeManager,
 		params.Logger,
-		params.SharedConfig.DefaultLBServiceIPAM == lbipam.DefaulLBClasstNodeIPAM,
+		params.SharedConfig.DefaultLBServiceIPAM == lbipam.DefaultLBClassNodeIPAM,
 	).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}
