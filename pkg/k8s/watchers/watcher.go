@@ -113,6 +113,7 @@ type ipcacheManager interface {
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 
 	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
+	RemoveLabels(prefix netip.Prefix, lbls labels.Labels, resource ipcacheTypes.ResourceID)
 	RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID)
 	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
 }
@@ -296,7 +297,18 @@ func resourceGroups(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	resources, cachesOnly := k.resourceGroupsFn(k.cfg)
+	k._initK8sSubsystem(ctx, cachesSynced, resources, cachesOnly)
+}
 
+// InitK8sSubsystemWithResources takes a channel for which it will be closed when all
+// the resources are synchronized. Different from InitK8sSubsystem, this function
+// allows watcher to only sync the resources that are passed in.
+func (k *K8sWatcher) InitK8sSubsystemWithResources(ctx context.Context, cachesSynced chan struct{}, resources []string) {
+	k._initK8sSubsystem(ctx, cachesSynced, resources, nil)
+}
+
+// _initK8sSubsystem is a helper function to initialize the K8s subsystem.
+func (k *K8sWatcher) _initK8sSubsystem(ctx context.Context, cachesSynced chan struct{}, resources []string, cachesOnly []string) {
 	log.Info("Enabling k8s event listener")
 	k.enableK8sWatchers(ctx, resources)
 	close(k.k8sPodWatcher.controllersStarted)
