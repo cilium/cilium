@@ -35,14 +35,69 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// NameManager maintains state DNS names, via FQDNSelector or exact match for
-// polling, need to be tracked. It is the main structure which relates the FQDN
-// subsystem to the policy subsystem for plumbing the relation between a DNS
-// name and the corresponding IPs which have been returned via DNS lookups.
-// When DNS updates are given to a NameManager it update cached selectors as
-// required via UpdateSelectors.
-// DNS information is cached, respecting TTL.
-type NameManager struct {
+var (
+	DNSSourceLookup     = "lookup"
+	DNSSourceConnection = "connection"
+)
+
+type NoEndpointIDMatch struct {
+	ID string
+}
+
+func (e NoEndpointIDMatch) Error() string {
+	return "unable to find target endpoint ID: " + e.ID
+}
+
+// The NameManager maintains DNS mappings which need to be tracked, due to
+// FQDNSelectors. It is the main structure which relates the FQDN subsystem to
+// the policy subsystem for plumbing the relation between a DNS name and the
+// corresponding IPs which have been returned via DNS lookups. Name to IP
+// mappings are inserted into the ipcache.
+type NameManager interface {
+	// GetModel returns the API model of the NameManager.
+	GetModel() *models.NameManager
+	// GetDNSHistoryModel returns API models.DNSLookup copies of DNS data in each
+	// endpoint's DNSHistory. These are filtered by the specified matchers if
+	// they are non-empty.
+	//
+	// Note that this does *NOT* dump the NameManager's own global DNSCache.
+	//
+	// endpointID may be "" in order to get DNS history for all endpoints.
+	GetDNSHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) ([]*models.DNSLookup, error)
+
+	// RegisterFQDNSelector exposes this FQDNSelector so that the identity labels
+	// of IPs contained in a DNS response that matches said selector can be
+	// associated with that selector.
+	// This function also evaluates if any DNS names in the cache are matched by
+	// this new selector and updates the labels for those DNS names accordingly.
+	RegisterFQDNSelector(selector api.FQDNSelector)
+
+	// UnregisterFQDNSelector removes this FQDNSelector from the set of
+	// IPs which are being tracked by the identityNotifier. The result
+	// of this is that an IP may be evicted from IPCache if it is no longer
+	// selected by any other FQDN selector.
+	UnregisterFQDNSelector(selector api.FQDNSelector)
+	// UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
+	// have changed for a name they will be reflected in updatedDNSIPs.
+	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) *errgroup.Group
+
+	// LockName is used to serialize  parallel end-to-end updates to the same name.
+	LockName(name string)
+	// UnlockName releases a lock previously acquired by LockName()
+	UnlockName(name string)
+
+	StartGC(context.Context)
+	// DeleteDNSLookups force-removes any entries in *all* caches that are not currently actively
+	// passing traffic.
+	DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternStr string) error
+	// RestoreCache loads cache state from the restored system:
+	// - adds any pre-cached DNS entries
+	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
+	RestoreCache(preCachePath string, restoredEPs []fqdn.EndpointDNSInfo)
+}
+
+// The implementation of the above interface.
+type manager struct {
 	lock.RWMutex
 
 	// config is a copy from when this instance was initialized.
@@ -71,7 +126,7 @@ type NameManager struct {
 }
 
 // GetModel returns the API model of the NameManager.
-func (n *NameManager) GetModel() *models.NameManager {
+func (n *manager) GetModel() *models.NameManager {
 	n.RWMutex.RLock()
 	defer n.RWMutex.RUnlock()
 
@@ -89,19 +144,6 @@ func (n *NameManager) GetModel() *models.NameManager {
 	}
 }
 
-var (
-	DNSSourceLookup     = "lookup"
-	DNSSourceConnection = "connection"
-)
-
-type NoEndpointIDMatch struct {
-	ID string
-}
-
-func (e NoEndpointIDMatch) Error() string {
-	return "unable to find target endpoint ID: " + e.ID
-}
-
 // GetDNSHistoryModel returns API models.DNSLookup copies of DNS data in each
 // endpoint's DNSHistory. These are filtered by the specified matchers if
 // they are non-empty.
@@ -109,7 +151,7 @@ func (e NoEndpointIDMatch) Error() string {
 // Note that this does *NOT* dump the NameManager's own global DNSCache.
 //
 // endpointID may be "" in order to get DNS history for all endpoints.
-func (n *NameManager) GetDNSHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
+func (n *manager) GetDNSHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
 	eps := n.config.GetEndpointsDNSInfo(endpointID)
 	if eps == nil {
 		return nil, &NoEndpointIDMatch{ID: endpointID}
@@ -183,7 +225,7 @@ func (n *NameManager) GetDNSHistoryModel(endpointID string, prefixMatcher fqdn.P
 // associated with that selector.
 // This function also evaluates if any DNS names in the cache are matched by
 // this new selector and updates the labels for those DNS names accordingly.
-func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
+func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 	n.Lock()
 	defer n.Unlock()
 
@@ -216,7 +258,7 @@ func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
 // IPs which are being tracked by the identityNotifier. The result
 // of this is that an IP may be evicted from IPCache if it is no longer
 // selected by any other FQDN selector.
-func (n *NameManager) UnregisterFQDNSelector(selector api.FQDNSelector) {
+func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 	n.Lock()
 	defer n.Unlock()
 
@@ -233,7 +275,7 @@ func (n *NameManager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 // New creates an initialized NameManager.
 // When config.Cache is nil, the global fqdn.DefaultDNSCache is used.
-func New(config fqdn.Config) *NameManager {
+func New(config fqdn.Config) *manager {
 
 	if config.Cache == nil {
 		config.Cache = fqdn.NewDNSCache(0)
@@ -245,7 +287,7 @@ func New(config fqdn.Config) *NameManager {
 		}
 	}
 
-	n := &NameManager{
+	n := &manager{
 		config:       config,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
@@ -262,7 +304,7 @@ func New(config fqdn.Config) *NameManager {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) *errgroup.Group {
+func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) *errgroup.Group {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -282,7 +324,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 	return g
 }
 
-func (n *NameManager) CompleteBootstrap() {
+func (n *manager) CompleteBootstrap() {
 	n.Lock()
 	defer n.Unlock()
 
@@ -317,7 +359,7 @@ func (n *NameManager) CompleteBootstrap() {
 // It returns:
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
 // ipcacheRevision: a revision number to pass to WaitForRevision()
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) (updatedNames map[string][]netip.Addr, ipcacheRevision uint64) {
+func (n *manager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) (updatedNames map[string][]netip.Addr, ipcacheRevision uint64) {
 	updatedNames = make(map[string][]netip.Addr, len(updatedDNSIPs))
 	updatedMetadata := make(map[string]nameMetadata, len(updatedDNSIPs))
 
@@ -369,7 +411,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
-func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
+func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
 	oldCacheIPs := n.cache.Lookup(dnsName)
 
 	if n.config.MinTTL > ttl {
@@ -402,7 +444,7 @@ func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
 
 // updateMetadata updates (i.e. upserts or removes) the metadata in IPCache for
 // each (name, IP) pair provided in nameToMetadata.
-func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcacheRevision uint64) {
+func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcacheRevision uint64) {
 	var ipcacheUpserts, ipcacheRemovals []ipcache.MU
 
 	for dnsName, metadata := range nameToMetadata {
@@ -449,7 +491,7 @@ func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ip
 
 // maybeRemoveMetadata removes the ipcache metadata from every (name, IP) pair
 // in maybeRemoved, as long as that (name, IP) is not still in the dns cache.
-func (n *NameManager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
+func (n *manager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
 	// Need to take an RLock here so that no DNS updates are processed.
 	// Otherwise, we might accidentally remove an IP that is newly inserted.
 	n.RWMutex.RLock()
@@ -487,13 +529,13 @@ func (n *NameManager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) 
 //
 // Rather than having a potentially unbounded set of per-name locks, this
 // buckets names in to a set of locks. The lock count is configurable.
-func (n *NameManager) LockName(name string) {
+func (n *manager) LockName(name string) {
 	idx := nameLockIndex(name, option.Config.DNSProxyLockCount)
 	n.nameLocks[idx].Lock()
 }
 
 // UnlockName releases a lock previously acquired by LockName()
-func (n *NameManager) UnlockName(name string) {
+func (n *manager) UnlockName(name string) {
 	idx := nameLockIndex(name, option.Config.DNSProxyLockCount)
 	n.nameLocks[idx].Unlock()
 }
@@ -542,7 +584,7 @@ func deriveLabelsForNames(nameToIPs map[string][]netip.Addr, selectors map[api.F
 // Name with all its associated IPs is collected.
 //
 // Returns the mapping of DNS names to all IPs selected by that selector.
-func (n *NameManager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (namesIPMapping map[string][]netip.Addr) {
+func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (namesIPMapping map[string][]netip.Addr) {
 	namesIPMapping = make(map[string][]netip.Addr)
 
 	// lookup matching DNS names
