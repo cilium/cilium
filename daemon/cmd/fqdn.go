@@ -54,29 +54,16 @@ const (
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string, ipcache fqdn.IPCache) (err error) {
-	cfg := fqdn.Config{
-		MinTTL:              option.Config.ToFQDNsMinTTL,
-		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		GetEndpointsDNSInfo: d.getEndpointsDNSInfo,
-		IPCache:             ipcache,
-	}
-	// Disable cleanup tracking on the default DNS cache. This cache simply
-	// tracks which api.FQDNSelector are present in policy which apply to
-	// locally running endpoints.
-	cfg.Cache.DisableCleanupTrack()
-
-	nameManager := namemanager.New(cfg)
-	d.policy.GetSelectorCache().SetLocalIdentityNotifier(nameManager)
-	d.dnsNameManager = nameManager
+func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	d.dnsNameManager.StartGC(d.ctx)
 
 	// restore the global DNS cache state
-	epInfo := make([]fqdn.EndpointDNSInfo, 0, len(possibleEndpoints))
+	epInfo := make([]namemanager.EndpointDNSInfo, 0, len(possibleEndpoints))
 	for _, ep := range possibleEndpoints {
-		epInfo = append(epInfo, fqdn.EndpointDNSInfo{
+		epInfo = append(epInfo, namemanager.EndpointDNSInfo{
 			ID:         ep.StringID(),
 			DNSHistory: ep.DNSHistory,
 			DNSZombies: ep.DNSZombies,
@@ -139,32 +126,6 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		}
 	}
 	return err // filled by StartDNSProxy
-}
-
-// getEndpointsDNSInfo is used by the NameManager to iterate through endpoints
-// without having to have access to the EndpointManager.
-//
-// Optional parameter endpointID will cause this function to only return the
-// endpoint with the ID matching the parameter.
-func (d *Daemon) getEndpointsDNSInfo(endpointID string) []fqdn.EndpointDNSInfo {
-	eps := d.endpointManager.GetEndpoints()
-	if endpointID != "" {
-		ep, err := d.endpointManager.Lookup(endpointID)
-		if ep == nil || err != nil {
-			return nil
-		}
-		eps = []*endpoint.Endpoint{ep}
-	}
-	out := make([]fqdn.EndpointDNSInfo, 0, len(eps))
-	for _, ep := range eps {
-		out = append(out, fqdn.EndpointDNSInfo{
-			ID:         ep.StringID(),
-			ID64:       int64(ep.ID),
-			DNSHistory: ep.DNSHistory,
-			DNSZombies: ep.DNSZombies,
-		})
-	}
-	return out
 }
 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
