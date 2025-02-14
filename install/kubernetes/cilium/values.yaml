@@ -2582,6 +2582,9 @@ envoy:
     port: "9964"
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
+# To include or exclude matched resources from cilium node identity evaluation
+# nodeLabels: ""
+
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
   enabled: false
