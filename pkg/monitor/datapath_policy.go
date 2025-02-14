@@ -149,6 +149,6 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
-		GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
+		GetConnectionSummary(data[PolicyVerdictNotifyLen:], nil))
 	buf.Flush()
 }
