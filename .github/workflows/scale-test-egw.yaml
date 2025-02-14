@@ -474,7 +474,7 @@ jobs:
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: cilium-sysdump
+          name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
           path: cilium-sysdump-final.zip
           retention-days: 5
 
