@@ -437,7 +437,6 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 				UNKNOWN_ID,
 				TRACE_EP_ID_UNKNOWN,
 				DROP_MULTICAST_HANDLED,
-				CTX_ACT_DROP,
 				METRIC_INGRESS);
 }
 
