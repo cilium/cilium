@@ -46,9 +46,10 @@ func TestMapIPsToSelectors(t *testing.T) {
 	var (
 		ciliumIP1   = netip.MustParseAddr("1.2.3.4")
 		ciliumIP2   = netip.MustParseAddr("1.2.3.5")
-		nameManager = New(fqdn.Config{
-			MinTTL: 1,
-			Cache:  fqdn.NewDNSCache(0),
+		nameManager = New(ManagerParams{
+			Config: NameManagerConfig{
+				MinTTL: 1,
+			},
 		})
 	)
 
@@ -99,9 +100,10 @@ func TestMapIPsToSelectors(t *testing.T) {
 
 func TestNameManagerIPCacheUpdates(t *testing.T) {
 	ipc := newMockIPCache()
-	nameManager := New(fqdn.Config{
-		MinTTL:  1,
-		Cache:   fqdn.NewDNSCache(0),
+	nameManager := New(ManagerParams{
+		Config: NameManagerConfig{
+			MinTTL: 1,
+		},
 		IPCache: ipc,
 	})
 

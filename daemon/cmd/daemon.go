@@ -404,6 +404,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
+		dnsNameManager:    params.NameManager,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -555,7 +556,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache, d.ipcache)
+	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
