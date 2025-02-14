@@ -93,20 +93,26 @@ int test1_check(struct __ctx_buff *ctx)
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_SUCCESS,
 				      (int *)&ifindex_bad, &ext_err);
-		if (ret != CTX_REDIRECT_ENTERED)
-			test_fatal("did not enter ctx_redirect");
+		if (ret != REDIR_NEIGH_ENTERED)
+			test_fatal("did not enter ctx_redirect_neigh");
 
-		if (redir_recorder.ifindex != ifindex_good)
+		if (redir_neigh_recorder.ifindex != ifindex_good)
 			test_fatal("expected %x, got %d", ifindex_good,
 				   redir_recorder.ifindex);
 
-		if (redir_recorder.ctx != ctx)
-			test_fatal("ctx pointer mismatch");
+		if (!redir_neigh_recorder.params)
+			test_fatal("redirect_neigh called with nil params");
 
-		if (redir_recorder.flags != 0)
-			test_fatal("unexpected flags: ");
+		if (redir_neigh_recorder.plen != sizeof(struct bpf_redir_neigh))
+			test_fatal("expected plen %d, got %d",
+				   sizeof(struct bpf_redir_neigh),
+				   redir_neigh_recorder.plen);
 
-		reset_redir_recorder(&redir_recorder);
+		if (redir_neigh_recorder.flags != 0)
+			test_fatal("expected flags 0, got %d",
+				   redir_neigh_recorder.flags);
+
+			reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
 
 	/* Simulate fib lookup with no neighbor return.
