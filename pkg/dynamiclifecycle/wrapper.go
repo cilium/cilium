@@ -46,8 +46,8 @@ func (l *Lifecycle) Stop(sl *slog.Logger, _ context.Context) error {
 	return fmt.Errorf("lifecycle managed by Dynamic Lifecycle")
 }
 
-func (l *Lifecycle) PrintHooks() {
-	fmt.Printf("Lifecycle managed by Dynamic Lifecycle. This is no-op.")
+func (l *Lifecycle) PrintHooks(w io.Writer) {
+	fmt.Fprintf(w, "Lifecycle managed by Dynamic Lifecycle. This is no-op.")
 }
 
 // WithDynamicLifecycle provides a wrapper over the cell.Lifecycle to register DynamicFeature

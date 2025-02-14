@@ -168,6 +168,8 @@ type CondUsage struct {
 	Prefix bool
 }
 
+var ParseError = errors.New("parse error")
+
 // Execute reads and executes script, writing the output to log.
 //
 // Execute stops and returns an error at the first command that does not succeed.
@@ -288,7 +290,7 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 
 		s.Logf("> %s\n", line)
 		if err != nil {
-			return lineErr(err)
+			return lineErr(fmt.Errorf("%w: %w", ParseError, err))
 		}
 
 		// Evaluate condition guards.

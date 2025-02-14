@@ -5,6 +5,7 @@ package hivetest
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -47,7 +48,7 @@ func (lc *lifecycle) Append(hook cell.HookInterface) {
 }
 
 // PrintHooks implements cell.Lifecycle.
-func (*lifecycle) PrintHooks() {
+func (*lifecycle) PrintHooks(io.Writer) {
 	panic("unimplemented")
 }
 
