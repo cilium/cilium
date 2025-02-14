@@ -4,6 +4,7 @@
 package client
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -79,6 +80,7 @@ var defaultSharedConfig = SharedConfig{
 func (def SharedConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableK8s, def.EnableK8s, "Enable the k8s clientset")
 	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")
+	flags.MarkDeprecated(option.K8sAPIServer, fmt.Sprintf("use --%s", option.K8sAPIServerURLs))
 	flags.StringSlice(option.K8sAPIServerURLs, def.K8sAPIServerURLs, "Kubernetes API server URLs")
 	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
 	flags.Duration(option.K8sClientConnectionTimeout, def.K8sClientConnectionTimeout, "Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0")
