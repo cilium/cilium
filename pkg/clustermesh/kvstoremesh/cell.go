@@ -7,7 +7,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -21,7 +20,6 @@ var Cell = cell.Module(
 	),
 
 	cell.Config(common.DefaultConfig),
-	store.Cell,
 
 	metrics.Metric(common.MetricsProvider("")),
 )
