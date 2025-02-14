@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package fqdn
+package namemanager
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -73,7 +74,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// give these entries 2 cycles of TTL to allow for timing mismatches
 		// with the CT GC.
 		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
-		activeConnections    = NewDNSCache(activeConnectionsTTL)
+		activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
 
@@ -142,7 +143,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	// in from each EP cache.
 	// - If after, the normal update process occurs after .ReplaceFromCache
 	// releases its locks.
-	caches := []*DNSCache{activeConnections}
+	caches := []*fqdn.DNSCache{activeConnections}
 	for _, ep := range endpoints {
 		caches = append(caches, ep.DNSHistory)
 	}
@@ -201,7 +202,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		activeConnections := NewDNSCache(0)
+		activeConnections := fqdn.NewDNSCache(0)
 		zombies, _ := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
@@ -221,7 +222,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
+func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []fqdn.EndpointDNSInfo) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
 		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
@@ -347,13 +348,13 @@ func restoreSelectors(checkpointPath string) (map[api.FQDNSelector]*regexp.Regex
 
 // readPreCache returns a fqdn.DNSCache object created from the json data at
 // preCachePath
-func readPreCache(preCachePath string) (cache *DNSCache, err error) {
+func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
 	data, err := os.ReadFile(preCachePath)
 	if err != nil {
 		return nil, err
 	}
 
-	cache = NewDNSCache(0) // no per-host limit here
+	cache = fqdn.NewDNSCache(0) // no per-host limit here
 	if err = cache.UnmarshalJSON(data); err != nil {
 		return nil, err
 	}
