@@ -66,6 +66,8 @@ const TraceObservationPoint_FROM_STACK = flow.TraceObservationPoint_FROM_STACK
 const TraceObservationPoint_FROM_OVERLAY = flow.TraceObservationPoint_FROM_OVERLAY
 const TraceObservationPoint_FROM_NETWORK = flow.TraceObservationPoint_FROM_NETWORK
 const TraceObservationPoint_TO_NETWORK = flow.TraceObservationPoint_TO_NETWORK
+const TraceObservationPoint_FROM_CRYPTO = flow.TraceObservationPoint_FROM_CRYPTO
+const TraceObservationPoint_TO_CRYPTO = flow.TraceObservationPoint_TO_CRYPTO
 
 var TraceObservationPoint_name = flow.TraceObservationPoint_name
 var TraceObservationPoint_value = flow.TraceObservationPoint_value
