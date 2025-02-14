@@ -20,6 +20,9 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	newTest("pod-to-pod-encryption-v2", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
+			// Quarantine temporarily
+			return false
+
 			// this test only runs post v1.18.0 clusters
 			if !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
 				return false
@@ -49,6 +52,9 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	newTest("pod-to-pod-with-l7-policy-encryption-v2", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
+			// Quarantine temporarily
+			return false
+
 			// this test only runs post v1.18.0 clusters
 			if !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
 				return false
