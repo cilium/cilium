@@ -82,6 +82,7 @@ type ConnectivityTest struct {
 	frrPods              []Pod
 	socatServerPods      []Pod
 	socatClientPods      []Pod
+	ccnpTestPods         map[string]Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -224,6 +225,7 @@ func NewConnectivityTest(
 		clientCPPods:             make(map[string]Pod),
 		lrpClientPods:            make(map[string]Pod),
 		lrpBackendPods:           make(map[string]Pod),
+		ccnpTestPods:         	  make(map[string]Pod),
 		socatServerPods:          []Pod{},
 		socatClientPods:          []Pod{},
 		perfClientPods:           []Pod{},
@@ -1125,6 +1127,10 @@ func (ct *ConnectivityTest) LrpClientPods() map[string]Pod {
 
 func (ct *ConnectivityTest) LrpBackendPods() map[string]Pod {
 	return ct.lrpBackendPods
+}
+
+func (ct *ConnectivityTest) CCNPTestPods() map[string]Pod {
+	return ct.ccnpTestPods
 }
 
 // EchoServices returns all the non headless services
