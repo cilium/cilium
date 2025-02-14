@@ -484,8 +484,8 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 	return names
 }
 
-// entryExistsLocked returns true if this (name, IP) pair is known to the cache.
-func (c *DNSCache) entryExistsLocked(name string, ip netip.Addr) bool {
+// EntryExistsLocked returns true if this (name, IP) pair is known to the cache.
+func (c *DNSCache) EntryExistsLocked(name string, ip netip.Addr) bool {
 	names, exists := c.reverse[ip]
 	if !exists {
 		return false
@@ -801,7 +801,7 @@ type DNSZombieMappings struct {
 	lock.Mutex
 	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
-	nextCTGCUpdate time.Time // estimated
+	NextCTGCUpdate time.Time // estimated
 	// ctGCRevision is a serial number tracking the number of conntrack
 	// garbage collection runs. It is used to ensure that entries
 	// are not reaped until CT GC has run at least twice.
@@ -1079,7 +1079,7 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart, estNext time.Time) {
 	zombies.Lock()
 	zombies.lastCTGCUpdate = ctGCStart
-	zombies.nextCTGCUpdate = estNext
+	zombies.NextCTGCUpdate = estNext
 	zombies.ctGCRevision++
 	zombies.Unlock()
 }
