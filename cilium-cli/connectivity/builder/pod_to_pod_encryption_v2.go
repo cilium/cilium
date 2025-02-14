@@ -25,6 +25,11 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 				return false
 			}
 
+			// https://github.com/cilium/cilium/actions/runs/13320057239
+			if cniChaining, ok := ct.Feature(features.CiliumIPAMMode); !ok || cniChaining.Mode == "aws-cni" {
+				return false
+			}
+
 			// we run if no encryption is enabled at all to sanity check our
 			// tcpdump filters
 			encryptionPod, ok := ct.Feature(features.EncryptionPod)
@@ -51,6 +56,11 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 		WithCondition(func() bool {
 			// this test only runs post v1.18.0 clusters
 			if !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+				return false
+			}
+
+			// https://github.com/cilium/cilium/actions/runs/13320057239
+			if cniChaining, ok := ct.Feature(features.CiliumIPAMMode); !ok || cniChaining.Mode == "aws-cni" {
 				return false
 			}
 
