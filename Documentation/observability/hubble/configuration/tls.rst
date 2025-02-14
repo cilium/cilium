@@ -170,6 +170,7 @@ restart Hubble server or Hubble Relay.
         - ``hubble.metrics.tls.server.existingSecret`` only needs to be provided when ``hubble.metrics.tls.enabled`` (default ``false``).
           For more details on configuring the Hubble metrics API with TLS, see :ref:`hubble_configure_metrics_tls`.
 
+.. _hubble_enable_tls_troubleshooting:
 
 Troubleshooting
 ---------------
