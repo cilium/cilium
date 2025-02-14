@@ -301,6 +301,7 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	defer timeout.Stop()
 	var err error
 	wait.Until(func() {
+	retry:
 		c.log.WithField("host", c.restConfigManager.getConfig().Host).Info("Establishing connection to apiserver")
 		err = isConnReady(c)
 		if err == nil {
@@ -312,6 +313,10 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 		case <-ctx.Done():
 		case <-timeout.C:
 		default:
+			if c.restConfigManager.canRotateAPIServerURL() {
+				c.restConfigManager.rotateAPIServerURL()
+				goto retry
+			}
 			return
 		}
 
