@@ -80,8 +80,6 @@ env:
   egw_utils_ref: 9ee5a03899528341025847fe064bb045de4f888e
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
-  AWS_SSH_KEY: ~/.ssh/id_aws.pub
-  AWS_SSH_KEY_PRIVATE: ~/.ssh/id_aws
 
 jobs:
   echo-inputs:
@@ -275,10 +273,6 @@ jobs:
           sparse-checkout: clusterloader2
           path: perf-tests
 
-      - name: Generate SSH keypair
-        run: |
-          ssh-keygen -f ${{ env.AWS_SSH_KEY_PRIVATE }} -P ""
-
       - name: Create EKS cluster
         id: deploy-cluster
         uses: ./.github/actions/setup-eks-cluster
@@ -350,9 +344,6 @@ jobs:
             volumeType: "gp3"
             volumeSize: 20
             maxPodsPerNode: 110
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
             taints:
             - key: "node.cilium.io/agent-not-ready"
               value: "true"
@@ -368,9 +359,6 @@ jobs:
             volumeType: "gp3"
             volumeSize: 20
             maxPodsPerNode: 110
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
             taints:
             - key: "node.cilium.io/agent-not-ready"
               value: "true"
@@ -386,9 +374,6 @@ jobs:
             volumeType: "gp3"
             volumeSize: 20
             maxPodsPerNode: 110
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
             taints:
             - key: "node.cilium.io/agent-not-ready"
               value: "true"
@@ -403,9 +388,6 @@ jobs:
             privateNetworking: true
             volumeType: "gp3"
             volumeSize: 20
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
             taints:
             - key: "cilium.io/no-schedule"
               value: "true"
