@@ -139,10 +139,14 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			if rpm.skipLBMap == nil {
 				var err error
 				rpm.skipLBMap, err = lbmap.NewSkipLBMap()
+				if err == nil {
+					err = rpm.skipLBMap.OpenOrCreate()
+				}
 				if err != nil {
 					log.WithError(err).Warn("failed to init cilium_skip_lb maps: " +
 						"policies with skipRedirectFromBackend flag set not supported")
 				}
+
 			}
 
 			return false

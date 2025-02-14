@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -971,6 +973,64 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
+func (l *L3n4Addr) ParseFromString(s string) error {
+	formatError := fmt.Errorf(
+		"bad address %q, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"",
+		s,
+	)
+
+	// Parse address
+	var addr string
+	if strings.HasPrefix(s, "[") {
+		addr, s, _ = strings.Cut(s[1:], "]")
+		switch {
+		case strings.HasPrefix(s, ":"):
+			s = s[1:]
+		case len(s) > 0:
+			return formatError
+		}
+	} else {
+		addr, s, _ = strings.Cut(s, ":")
+	}
+
+	var err error
+	l.AddrCluster, err = cmtypes.ParseAddrCluster(addr)
+	if err != nil {
+		return formatError
+	}
+
+	// Parse port
+	if len(s) < 1 {
+		return formatError
+	}
+
+	var portS string
+	portS, s, _ = strings.Cut(s, "/")
+	port, err := strconv.ParseUint(portS, 10, 16)
+	if err != nil {
+		return formatError
+	}
+	l.L4Addr.Port = uint16(port)
+
+	// Parse protocol
+	l.L4Addr.Protocol = TCP
+	if len(s) > 0 {
+		var proto string
+		proto, s, _ = strings.Cut(s, "/")
+		l.L4Addr.Protocol = L4Type(strings.ToUpper(proto))
+		if !slices.Contains(AllProtocols, l.L4Addr.Protocol) {
+			return formatError
+		}
+	}
+
+	// Parse scope.
+	l.Scope = ScopeExternal
+	if s == "i" {
+		l.Scope = ScopeInternal
+	}
+	return nil
+}
+
 func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	if a == nil {
 		return nil
@@ -1079,6 +1139,14 @@ func (l L3n4Addr) Bytes() []byte {
 	key = append(key, L4TypeAsByte(l.Protocol))
 	key = append(key, l.Scope)
 	return key
+}
+
+func (l L3n4Addr) MarshalYAML() (any, error) {
+	return l.StringWithProtocol(), nil
+
+}
+func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
+	return l.ParseFromString(value.Value)
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the

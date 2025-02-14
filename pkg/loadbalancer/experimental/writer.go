@@ -173,9 +173,25 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params FrontendParams) (old *Front
 	if !found {
 		return nil, ErrServiceNotFound
 	}
-	fe = w.newFrontend(txn, params, svc)
-	old, _, err = w.fes.Insert(txn, fe)
-	return old, err
+	return w.upsertFrontendParams(txn, params, svc)
+}
+
+func (w *Writer) upsertFrontendParams(txn WriteTxn, params FrontendParams, svc *Service) (old *Frontend, err error) {
+	if params.ServicePort == 0 {
+		params.ServicePort = params.Address.Port
+	}
+	fe := &Frontend{
+		FrontendParams: params,
+		service:        svc,
+	}
+	var found bool
+	if old, _, found = w.fes.Get(txn, FrontendByAddress(params.Address)); found {
+		fe.ID = old.ID
+		fe.RedirectTo = old.RedirectTo
+	}
+	w.refreshFrontend(txn, fe)
+	_, _, err = w.fes.Insert(txn, fe)
+	return
 }
 
 // validateFrontends checks that the frontends being added are not already owned by other
@@ -211,8 +227,7 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...Fr
 	for _, params := range fes {
 		newAddrs.Insert(params.Address)
 		params.ServiceName = svc.Name
-		fe := w.newFrontend(txn, params, svc)
-		if _, _, err := w.fes.Insert(txn, fe); err != nil {
+		if _, err := w.upsertFrontendParams(txn, params, svc); err != nil {
 			return err
 		}
 	}
@@ -240,18 +255,6 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *Service) error {
 		}
 	}
 	return nil
-}
-
-func (w *Writer) newFrontend(txn statedb.ReadTxn, params FrontendParams, svc *Service) *Frontend {
-	if params.ServicePort == 0 {
-		params.ServicePort = params.Address.Port
-	}
-	fe := &Frontend{
-		FrontendParams: params,
-		service:        svc,
-	}
-	w.refreshFrontend(txn, fe)
-	return fe
 }
 
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {

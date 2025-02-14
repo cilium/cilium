@@ -75,36 +75,36 @@ func frontendConfigTypeString(t frontendConfigType) string {
 
 // LocalRedirectPolicy is the internal representation of Cilium Local Redirect Policy.
 type LocalRedirectPolicy struct {
-	// id is the parsed config name and namespace
-	id k8s.ServiceID
-	// uid is the unique identifier assigned by Kubernetes
-	uid types.UID
-	// lrpType is the type of either address matcher or service matcher policy
-	lrpType lrpConfigType
-	// frontendType is the type for the parsed config frontend.
-	frontendType frontendConfigType
-	// frontendMappings is a slice of policy config frontend mappings that include
+	// ID is the parsed config name and namespace
+	ID k8s.ServiceID
+	// UID is the unique identifier assigned by Kubernetes
+	UID types.UID
+	// LRPType is the type of either address matcher or service matcher policy
+	LRPType lrpConfigType
+	// FrontendType is the type for the parsed config frontend.
+	FrontendType frontendConfigType
+	// FrontendMappings is a slice of policy config frontend mappings that include
 	// frontend address, frontend port name, and a slice of its associated backends
-	frontendMappings []feMapping
-	// serviceID is the parsed service name and namespace
-	serviceID k8s.ServiceID
-	// backendSelector is an endpoint selector generated from the parsed policy selector
-	backendSelector api.EndpointSelector
-	// backendPorts is a slice of backend port and protocol along with the port name
-	backendPorts []bePortInfo
-	// backendPortsByPortName is a map indexed by port name with the value as
+	FrontendMappings []feMapping
+	// ServiceID is the parsed service name and namespace
+	ServiceID k8s.ServiceID
+	// BackendSelector is an endpoint selector generated from the parsed policy selector
+	BackendSelector api.EndpointSelector
+	// BackendPorts is a slice of backend port and protocol along with the port name
+	BackendPorts []bePortInfo
+	// BackendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
-	backendPortsByPortName map[portName]bePortInfo
-	// skipRedirectFromBackend is the flag that enables/disables redirection
+	BackendPortsByPortName map[portName]bePortInfo
+	// SkipRedirectFromBackend is the flag that enables/disables redirection
 	// for traffic matching the policy frontend(s) from the backends selected by the policy
-	// TODO: handling for this is not implemented by this package yet.
-	skipRedirectFromBackend bool
+	SkipRedirectFromBackend bool
 }
 
 func (lrp *LocalRedirectPolicy) TableHeader() []string {
 	return []string{
 		"Name",
 		"Type",
+		"Service",
 		"FrontendType",
 		"Frontends",
 		"BackendSelector",
@@ -112,17 +112,18 @@ func (lrp *LocalRedirectPolicy) TableHeader() []string {
 }
 
 func (lrp *LocalRedirectPolicy) TableRow() []string {
-	mappings := make([]string, 0, len(lrp.frontendMappings))
-	for _, feM := range lrp.frontendMappings {
+	mappings := make([]string, 0, len(lrp.FrontendMappings))
+	for _, feM := range lrp.FrontendMappings {
 		addr := feM.feAddr
 		mappings = append(mappings, fmt.Sprintf("%s:%d %s", addr.AddrCluster, addr.Port, addr.Protocol))
 	}
 	return []string{
-		lrp.id.Namespace + "/" + lrp.id.Name,
-		lrpConfigTypeString(lrp.lrpType),
-		frontendConfigTypeString(lrp.frontendType),
+		lrp.ID.Namespace + "/" + lrp.ID.Name,
+		lrpConfigTypeString(lrp.LRPType),
+		lrp.ServiceID.Namespace + "/" + lrp.ServiceID.Name,
+		frontendConfigTypeString(lrp.FrontendType),
 		strings.Join(mappings, ", "),
-		lrp.backendSelector.String(),
+		lrp.BackendSelector.String(),
 	}
 }
 
@@ -141,9 +142,9 @@ type bePortInfo struct {
 	name string
 }
 
-// Parse parses the specified cilium local redirect policy spec, and returns
+// parse parses the specified cilium local redirect policy spec, and returns
 // a sanitized LocalRedirectPolicy.
-func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirectPolicy, error) {
+func parseLRP(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirectPolicy, error) {
 	name := clrp.ObjectMeta.Name
 	if name == "" {
 		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
@@ -158,7 +159,7 @@ func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirectPol
 		return getSanitizedLocalRedirectPolicy(name, namespace, clrp.UID, clrp.Spec)
 	} else {
 		return &LocalRedirectPolicy{
-			id: k8s.ServiceID{
+			ID: k8s.ServiceID{
 				Name:      name,
 				Namespace: namespace,
 			},
@@ -302,16 +303,16 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LocalRedirectPolicy{
-		uid:                     uid,
-		serviceID:               k8sSvc,
-		frontendMappings:        feMappings,
-		backendSelector:         selector,
-		backendPorts:            bePorts,
-		backendPortsByPortName:  bePortsMap,
-		lrpType:                 lrpType,
-		frontendType:            frontendType,
-		skipRedirectFromBackend: spec.SkipRedirectFromBackend,
-		id: k8s.ServiceID{
+		UID:                     uid,
+		ServiceID:               k8sSvc,
+		FrontendMappings:        feMappings,
+		BackendSelector:         selector,
+		BackendPorts:            bePorts,
+		BackendPortsByPortName:  bePortsMap,
+		LRPType:                 lrpType,
+		FrontendType:            frontendType,
+		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
+		ID: k8s.ServiceID{
 			Name:      name,
 			Namespace: namespace,
 		},

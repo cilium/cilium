@@ -25,7 +25,7 @@ var (
 		Name: "id",
 		FromObject: func(obj *LocalRedirectPolicy) index.KeySet {
 			// FIXME: Figure out which type to use for k8s object names. NamespacedName?
-			return index.NewKeySet(index.String(obj.id.String()))
+			return index.NewKeySet(index.String(obj.ID.String()))
 		},
 		FromKey: index.Stringer[k8s.ServiceID],
 		Unique:  true,
@@ -34,7 +34,7 @@ var (
 	lrpServiceIndex = statedb.Index[*LocalRedirectPolicy, k8s.ServiceID]{
 		Name: "service",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
-			return index.NewKeySet(index.String(lrp.serviceID.String()))
+			return index.NewKeySet(index.String(lrp.ServiceID.String()))
 		},
 		FromKey: index.Stringer[k8s.ServiceID],
 		Unique:  false,
@@ -43,11 +43,11 @@ var (
 	lrpAddressIndex = statedb.Index[*LocalRedirectPolicy, lb.L3n4Addr]{
 		Name: "address",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
-			if lrp.lrpType != lrpConfigTypeAddr {
+			if lrp.LRPType != lrpConfigTypeAddr {
 				return index.KeySet{}
 			}
-			keys := make([]index.Key, 0, len(lrp.frontendMappings))
-			for _, feM := range lrp.frontendMappings {
+			keys := make([]index.Key, 0, len(lrp.FrontendMappings))
+			for _, feM := range lrp.FrontendMappings {
 				keys = append(keys, feM.feAddr.Bytes())
 
 			}
@@ -95,7 +95,7 @@ func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw
 				if !ok {
 					return nil, false
 				}
-				rp, err := Parse(clrp, true)
+				rp, err := parseLRP(clrp, true)
 				return rp, err == nil
 			},
 		})
