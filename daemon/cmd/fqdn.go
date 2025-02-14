@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -65,7 +66,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// locally running endpoints.
 	cfg.Cache.DisableCleanupTrack()
 
-	nameManager := fqdn.NewNameManager(cfg)
+	nameManager := namemanager.New(cfg)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(nameManager)
 	d.dnsNameManager = nameManager
 
@@ -470,7 +471,7 @@ func deleteFqdnCacheHandler(d *Daemon, params DeleteFqdnCacheParams) middleware.
 }
 
 func getFqdnCacheIDHandler(d *Daemon, params GetFqdnCacheIDParams) middleware.Responder {
-	var epErr fqdn.NoEndpointIDMatch
+	var epErr namemanager.NoEndpointIDMatch
 
 	prefixMatcher, nameMatcher, source, err := parseFqdnFilters(params.Cidr, params.Matchpattern, params.Source)
 	if err != nil {
