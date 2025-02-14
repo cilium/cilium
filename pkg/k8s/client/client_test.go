@@ -226,7 +226,7 @@ func Test_client(t *testing.T) {
 	// Set the server URL and use a low heartbeat timeout for quick test completion.
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	hive.RegisterFlags(flags)
-	flags.Set(option.K8sAPIServer, srv.URL)
+	flags.Set(option.K8sAPIServerURLs, srv.URL)
 	flags.Set(option.K8sHeartbeatTimeout, "5ms")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

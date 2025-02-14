@@ -26,7 +26,6 @@ clustermesh-apiserver clustermesh hive [flags]
       --gops-port uint16                             Port for gops server to listen on (default 9892)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
   -h, --help                                         help for hive
-      --k8s-api-server string                        Kubernetes API server URL
       --k8s-api-server-urls strings                  Kubernetes API server URLs
       --k8s-client-burst int                         Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration    Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
