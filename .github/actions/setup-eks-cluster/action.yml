@@ -36,6 +36,11 @@ runs:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
 
+        vpc:
+          clusterEndpoints:
+            publicAccess: true
+            privateAccess: true
+
         addonsConfig:
           disableDefaultAddons: true
         addons:
