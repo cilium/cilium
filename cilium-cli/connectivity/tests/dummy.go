@@ -13,12 +13,14 @@ import (
 
 // dummy implements a Scenario.
 type dummy struct {
+	check.ScenarioBase
 	name string
 }
 
 func Dummy(name string) check.Scenario {
 	return &dummy{
-		name: name,
+		name:         name,
+		ScenarioBase: check.NewScenarioBase(),
 	}
 }
 

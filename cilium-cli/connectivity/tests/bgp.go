@@ -36,10 +36,13 @@ const (
 func BGPAdvertisements(bgpAPIVersion uint8) check.Scenario {
 	return &bgpAdvertisements{
 		bgpAPIVersion: bgpAPIVersion,
+		ScenarioBase:  check.NewScenarioBase(),
 	}
 }
 
 type bgpAdvertisements struct {
+	check.ScenarioBase
+
 	bgpAPIVersion uint8
 }
 

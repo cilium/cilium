@@ -90,10 +90,15 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
-	return &noErrorsInLogs{errorMsgsWithExceptions}
+	return &noErrorsInLogs{
+		errorMsgsWithExceptions: errorMsgsWithExceptions,
+		ScenarioBase:            check.NewScenarioBase(),
+	}
 }
 
 type noErrorsInLogs struct {
+	check.ScenarioBase
+
 	errorMsgsWithExceptions map[string][]logMatcher
 }
 
@@ -134,10 +139,15 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 // NoUnexpectedPacketDrops checks whether there were no drops due to expected
 // packet drops.
 func NoUnexpectedPacketDrops(expectedDrops []string) check.Scenario {
-	return &noUnexpectedPacketDrops{expectedDrops}
+	return &noUnexpectedPacketDrops{
+		expectedDrops: expectedDrops,
+		ScenarioBase:  check.NewScenarioBase(),
+	}
 }
 
 type noUnexpectedPacketDrops struct {
+	check.ScenarioBase
+
 	expectedDrops []string
 }
 

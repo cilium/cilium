@@ -56,10 +56,14 @@ var _ check.Scenario = (*podToPodEncryptionV2)(nil)
 // TCPDUMP filter, this is a sanity check to ensure we match plain-text packets
 // appropriately and have confidence that aforementioned leak detection works.
 func PodToPodEncryptionV2() check.Scenario {
-	return &podToPodEncryptionV2{}
+	return &podToPodEncryptionV2{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 type podToPodEncryptionV2 struct {
+	check.ScenarioBase
+
 	ct *check.ConnectivityTest
 	// client pod used to generate traffic
 	client *check.Pod

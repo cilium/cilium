@@ -26,10 +26,14 @@ import (
 // - client pods to LRP frontend
 // - LRP backend pods to LRP frontend
 func LRP(skipRedirectFromBackend bool) check.Scenario {
-	return lrp{skipRedirectFromBackend: skipRedirectFromBackend}
+	return lrp{
+		ScenarioBase:            check.NewScenarioBase(),
+		skipRedirectFromBackend: skipRedirectFromBackend,
+	}
 }
 
 type lrp struct {
+	check.ScenarioBase
 	skipRedirectFromBackend bool
 }
 
@@ -191,10 +195,14 @@ func WaitForLocalRedirectBPFEntries(ctx context.Context, t *check.Test, frontend
 // The network policy allows the clients to access node-local-dns
 // and the externalEcho service.
 func LRPWithNodeDNS() check.Scenario {
-	return lrpWithNodeDNS{}
+	return lrpWithNodeDNS{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type lrpWithNodeDNS struct{}
+type lrpWithNodeDNS struct {
+	check.ScenarioBase
+}
 
 func (s lrpWithNodeDNS) Name() string {
 	return "local-redirect-policy-with-node-dns"

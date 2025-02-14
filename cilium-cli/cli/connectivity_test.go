@@ -5,10 +5,13 @@ package cli
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
+	"github.com/hmarr/codeowners"
 	"github.com/stretchr/testify/require"
 
+	assets "github.com/cilium/cilium"
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 )
@@ -75,8 +78,13 @@ func TestNewConnectivityTests(t *testing.T) {
 		},
 	}
 	for _, tt := range testCases {
+		owners, err := codeowners.ParseFile(strings.NewReader(assets.CodeOwnersRaw))
+		if err != nil {
+			t.Fatalf("🐛 Failed to parse CODEOWNERS. Developer BUG? %s", err)
+		}
+
 		// function to test
-		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}, 1))
+		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}, 1), owners)
 
 		require.NoError(t, err)
 		require.Len(t, actual, tt.expectedCount)

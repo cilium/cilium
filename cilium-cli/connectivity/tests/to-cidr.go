@@ -20,11 +20,16 @@ func PodToCIDR(opts ...RetryOption) check.Scenario {
 	for _, op := range opts {
 		op(cond)
 	}
-	return &podToCIDR{rc: cond}
+	return &podToCIDR{
+		ScenarioBase: check.NewScenarioBase(),
+		rc:           cond,
+	}
 }
 
 // podToCIDR implements a Scenario.
 type podToCIDR struct {
+	check.ScenarioBase
+
 	rc *retryCondition
 }
 

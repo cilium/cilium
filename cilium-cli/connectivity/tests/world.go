@@ -30,11 +30,16 @@ func PodToWorld(opts ...RetryOption) check.Scenario {
 	for _, op := range opts {
 		op(cond)
 	}
-	return &podToWorld{rc: cond}
+	return &podToWorld{
+		ScenarioBase: check.NewScenarioBase(),
+		rc:           cond,
+	}
 }
 
 // podToWorld implements a Scenario.
 type podToWorld struct {
+	check.ScenarioBase
+
 	rc *retryCondition
 }
 
@@ -85,11 +90,15 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 // PodToWorld2 sends an HTTPS request to ExternalOtherTarget from random client
 // Pods.
 func PodToWorld2() check.Scenario {
-	return &podToWorld2{}
+	return &podToWorld2{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToWorld2 implements a Scenario.
-type podToWorld2 struct{}
+type podToWorld2 struct {
+	check.ScenarioBase
+}
 
 func (s *podToWorld2) Name() string {
 	return "pod-to-world-2"
@@ -122,7 +131,8 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 // PodToWorldWithTLSIntercept sends an HTTPS request to one.one.one.one (default value of ExternalTarget) from from random client
 func PodToWorldWithTLSIntercept(curlOpts ...string) check.Scenario {
 	s := &podToWorldWithTLSIntercept{
-		curlOpts: []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+		curlOpts:     []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+		ScenarioBase: check.NewScenarioBase(),
 	}
 
 	s.curlOpts = append(s.curlOpts, curlOpts...)
@@ -132,6 +142,8 @@ func PodToWorldWithTLSIntercept(curlOpts ...string) check.Scenario {
 
 // podToWorldWithTLSIntercept implements a Scenario.
 type podToWorldWithTLSIntercept struct {
+	check.ScenarioBase
+
 	curlOpts []string
 }
 
@@ -175,8 +187,9 @@ func (s *podToWorldWithTLSIntercept) Run(ctx context.Context, t *check.Test) {
 // The goal is to make sure the secret update path is verified.
 func PodToWorldWithExtraTLSIntercept(caName string, curlOpts ...string) check.Scenario {
 	s := &podToWorldWithExtraTLSIntercept{
-		caName:   caName,
-		curlOpts: []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+		caName:       caName,
+		curlOpts:     []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+		ScenarioBase: check.NewScenarioBase(),
 	}
 
 	s.curlOpts = append(s.curlOpts, curlOpts...)
@@ -185,6 +198,8 @@ func PodToWorldWithExtraTLSIntercept(caName string, curlOpts ...string) check.Sc
 }
 
 type podToWorldWithExtraTLSIntercept struct {
+	check.ScenarioBase
+
 	caName   string
 	curlOpts []string
 }

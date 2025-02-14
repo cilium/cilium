@@ -12,10 +12,14 @@ import (
 )
 
 func PodToExternalWorkload() check.Scenario {
-	return &podToExternalWorkload{}
+	return &podToExternalWorkload{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type podToExternalWorkload struct{}
+type podToExternalWorkload struct {
+	check.ScenarioBase
+}
 
 func (s *podToExternalWorkload) Name() string {
 	return "pod-to-external-workload"
