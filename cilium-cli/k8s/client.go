@@ -43,6 +43,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..）
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -828,6 +829,39 @@ func (c *Client) ProxyGet(ctx context.Context, namespace, name, url string) (str
 	return string(rawbody), nil
 }
 
+func (c *Client) createDialer(url *url.URL) (httpstream.Dialer, error) {
+	var errWebsocket, errSPDY error
+
+	// We cannot control if errors from these constructors are due to lack of server support.
+	// In the case of such errors, ignore them and later chose which dialer to return.
+	dialerWebsocket, errWebsocket := portforward.NewSPDYOverWebsocketDialer(url, c.Config)
+
+	transport, upgrader, errSPDY := spdy.RoundTripperFor(c.Config)
+	dialerSPDY := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, url)
+
+	// NewFallBackDialer returns a httpstream.Dialer which attempts a
+	// connection with a primry dialer and a secondary dialer. However, it
+	// does this by calling a method on both the primary and secondary
+	// dialers. This means that both of them must not be nil if we want to
+	// avoid a crash. Therefore, if either primary or secondary encountered
+	// an error, return the other one.
+	if errSPDY != nil && errWebsocket == nil {
+		return dialerWebsocket, nil
+	}
+	if errWebsocket != nil && errSPDY == nil {
+		return dialerSPDY, nil
+	}
+
+	if errSPDY != nil && errWebsocket != nil {
+		return nil, fmt.Errorf("Error while creating k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
+	}
+
+	dialerFallback := portforward.NewFallbackDialer(dialerWebsocket, dialerSPDY, func(err error) bool {
+		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+	})
+	return dialerFallback, nil
+}
+
 func (c *Client) ProxyTCP(ctx context.Context, namespace, name string, port uint16, handler func(io.ReadWriteCloser) error) error {
 	request := c.Clientset.CoreV1().RESTClient().Post().
 		Resource(corev1.ResourcePods.String()).
@@ -835,12 +869,10 @@ func (c *Client) ProxyTCP(ctx context.Context, namespace, name string, port uint
 		Name(name).
 		SubResource("portforward")
 
-	transport, upgrader, err := spdy.RoundTripperFor(c.Config)
+	dialer, err := c.createDialer(request.URL())
 	if err != nil {
-		return fmt.Errorf("creating round tripper: %w", err)
+		return err
 	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, request.URL())
 
 	const portForwardProtocolV1Name = "portforward.k8s.io"
 	conn, proto, err := dialer.Dial(portForwardProtocolV1Name)
