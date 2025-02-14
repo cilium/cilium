@@ -401,22 +401,22 @@ data:
 {{- if .Values.bpf.natMax }}
   # bpf-nat-global-max specified the maximum number of entries in the
   # BPF NAT table.
-  bpf-nat-global-max: "{{ .Values.bpf.natMax }}"
+  bpf-nat-global-max: "{{ .Values.bpf.natMax | int }}"
 {{- end }}
 {{- if .Values.bpf.neighMax }}
   # bpf-neigh-global-max specified the maximum number of entries in the
   # BPF neighbor table.
-  bpf-neigh-global-max: "{{ .Values.bpf.neighMax }}"
+  bpf-neigh-global-max: "{{ .Values.bpf.neighMax | int }}"
 {{- end }}
 {{- if hasKey .Values.bpf "policyMapMax" }}
   # bpf-policy-map-max specifies the maximum number of entries in endpoint
   # policy map (per endpoint)
-  bpf-policy-map-max: "{{ .Values.bpf.policyMapMax }}"
+  bpf-policy-map-max: "{{ .Values.bpf.policyMapMax | int }}"
 {{- end }}
 {{- if hasKey .Values.bpf "lbMapMax" }}
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
-  bpf-lb-map-max: "{{ .Values.bpf.lbMapMax }}"
+  bpf-lb-map-max: "{{ .Values.bpf.lbMapMax | int }}"
 {{- end }}
 {{- if hasKey .Values.bpf "lbExternalClusterIP" }}
   bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
