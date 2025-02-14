@@ -109,7 +109,7 @@ type Daemon struct {
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
-	dnsNameManager *namemanager.NameManager
+	dnsNameManager namemanager.NameManager
 
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
