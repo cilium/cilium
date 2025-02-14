@@ -15,6 +15,11 @@ type AnyTable struct {
 	Meta TableMeta
 }
 
+func (t AnyTable) NumObjects(txn ReadTxn) int {
+	indexTxn := txn.getTxn().mustIndexReadTxn(t.Meta, PrimaryIndexPos)
+	return indexTxn.Len()
+}
+
 func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
 	all, _ := t.AllWatch(txn)
 	return all
