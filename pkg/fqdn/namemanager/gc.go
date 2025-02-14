@@ -50,6 +50,13 @@ type serializedSelector struct {
 	Selector api.FQDNSelector `json:"sel"`
 }
 
+type EndpointDNSInfo struct {
+	ID         string
+	ID64       int64
+	DNSHistory *fqdn.DNSCache
+	DNSZombies *fqdn.DNSZombieMappings
+}
+
 // This implements some garbage collection and cleanup functions for the NameManager
 
 // doGC cleans up TTL expired entries from the DNS policies. It removes stale or
@@ -82,7 +89,7 @@ func (n *manager) doGC(ctx context.Context) error {
 	maybeStaleIPs := n.cache.GetIPs()
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
-	endpoints := n.config.GetEndpointsDNSInfo("")
+	endpoints := n.getEndpointsDNSInfo("")
 	for _, ep := range endpoints {
 		epID := ep.ID
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
@@ -196,7 +203,7 @@ func (n *manager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.config.GetEndpointsDNSInfo("") {
+	for _, ep := range n.getEndpointsDNSInfo("") {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
@@ -221,7 +228,7 @@ func (n *manager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(preCachePath string, restoredEPs []fqdn.EndpointDNSInfo) {
+func (n *manager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
 		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
@@ -314,7 +321,7 @@ func (n *manager) RestoreCache(preCachePath string, restoredEPs []fqdn.EndpointD
 			})
 			n.restoredPrefixes.Insert(prefix)
 		}
-		n.config.IPCache.UpsertMetadataBatch(ipcacheUpdates...)
+		n.params.IPCache.UpsertMetadataBatch(ipcacheUpdates...)
 	}
 }
 

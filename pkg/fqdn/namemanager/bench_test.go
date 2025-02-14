@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -39,9 +39,12 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 
-	nameManager := New(fqdn.Config{
-		MinTTL:  1,
-		Cache:   fqdn.NewDNSCache(0),
+	nameManager := New(ManagerParams{
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          defaults.StateDir,
+		},
 		IPCache: testipcache.NewMockIPCache(),
 	})
 
@@ -98,22 +101,14 @@ func BenchmarkFqdnCache(b *testing.B) {
 		caches = append(caches, dnsHistory)
 	}
 
-	nameManager := New(fqdn.Config{
-		MinTTL:  1,
-		Cache:   fqdn.NewDNSCache(0),
-		IPCache: testipcache.NewMockIPCache(),
-		GetEndpointsDNSInfo: func(endpointID string) []fqdn.EndpointDNSInfo {
-			out := make([]fqdn.EndpointDNSInfo, 0, len(caches))
-			for i, c := range caches {
-				out = append(out, fqdn.EndpointDNSInfo{
-					ID:         strconv.Itoa(i),
-					ID64:       int64(i),
-					DNSHistory: c,
-					DNSZombies: fqdn.NewDNSZombieMappings(1000, 1000),
-				})
-			}
-			return out
+	nameManager := New(ManagerParams{
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          defaults.StateDir,
 		},
+		IPCache: testipcache.NewMockIPCache(),
+		EPMgr:   &epMgrMock{caches},
 	})
 	prefixMatcher := func(_ netip.Addr) bool { return true }
 	nameMatcher := func(_ string) bool { return true }
@@ -122,4 +117,24 @@ func BenchmarkFqdnCache(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
 	}
+}
+
+type epMgrMock struct {
+	caches []*fqdn.DNSCache
+}
+
+func (mgr *epMgrMock) Lookup(id string) (*endpoint.Endpoint, error) {
+	return nil, fmt.Errorf("Lookup not implemented")
+}
+
+func (mgr *epMgrMock) GetEndpoints() []*endpoint.Endpoint {
+	out := make([]*endpoint.Endpoint, 0, len(mgr.caches))
+	for i, c := range mgr.caches {
+		out = append(out, &endpoint.Endpoint{
+			ID:         uint16(i),
+			DNSHistory: c,
+			DNSZombies: fqdn.NewDNSZombieMappings(1000, 1000),
+		})
+	}
+	return out
 }
