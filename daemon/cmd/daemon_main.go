@@ -473,9 +473,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.AgentNotReadyNodeTaintKeyName, defaults.AgentNotReadyNodeTaint, "Key of the taint indicating that Cilium is not ready on the node")
 	option.BindEnv(vp, option.AgentNotReadyNodeTaintKeyName)
 
-	flags.Bool(option.JoinClusterName, false, "Join a Cilium cluster via kvstore registration")
-	option.BindEnv(vp, option.JoinClusterName)
-
 	flags.Bool(option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
 	option.BindEnv(vp, option.K8sRequireIPv4PodCIDRName)
 

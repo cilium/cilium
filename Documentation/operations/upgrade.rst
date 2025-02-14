@@ -298,6 +298,7 @@ Removed Options
 ~~~~~~~~~~~~~~~
 
 * The previously deprecated high-scale mode for ipcache has been removed.
+* The previously deprecated External Workflows feature has been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

@@ -76,7 +76,6 @@ type ConnectivityTest struct {
 	echoExternalServices map[string]Service
 	ingressService       map[string]Service
 	k8sService           Service
-	externalWorkloads    map[string]ExternalWorkload
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
 	frrPods              []Pod
@@ -232,7 +231,6 @@ func NewConnectivityTest(
 		echoServices:             make(map[string]Service),
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
-		externalWorkloads:        make(map[string]ExternalWorkload),
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
@@ -1161,10 +1159,6 @@ func (ct *ConnectivityTest) IngressService() map[string]Service {
 
 func (ct *ConnectivityTest) K8sService() Service {
 	return ct.k8sService
-}
-
-func (ct *ConnectivityTest) ExternalWorkloads() map[string]ExternalWorkload {
-	return ct.externalWorkloads
 }
 
 func (ct *ConnectivityTest) HubbleClient() observer.ObserverClient {

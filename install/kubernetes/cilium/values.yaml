@@ -3567,10 +3567,6 @@ clustermesh:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
           metricRelabelings: ~
-# -- Configure external workloads support
-externalWorkloads:
-  # -- Enable support for external workloads, such as VMs (false by default).
-  enabled: false
 # -- Configure cgroup related configuration
 cgroup:
   autoMount:
