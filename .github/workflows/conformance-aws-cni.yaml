@@ -261,8 +261,7 @@ jobs:
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
-          spot: false
-          default_addons: true
+          addons: "coredns kube-proxy vpc-cni"
 
       - name: Create EKS nodegroups
         uses: ./.github/actions/setup-eks-nodegroup

@@ -10,7 +10,7 @@ spec:
     role.scaffolding/egw-client: "true"
   containers:
   - name: egw-client
-    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    image: giorio94/egw-scale-utils:${EGW_IMAGE_TAG}
     imagePullPolicy: IfNotPresent
     args:
       - "client"

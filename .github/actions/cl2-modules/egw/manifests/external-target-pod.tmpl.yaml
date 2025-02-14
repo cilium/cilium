@@ -17,7 +17,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: external-target
-    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    image: giorio94/egw-scale-utils:${EGW_IMAGE_TAG}
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 1337

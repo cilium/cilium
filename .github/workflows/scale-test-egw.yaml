@@ -77,11 +77,9 @@ env:
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 9ee5a03899528341025847fe064bb045de4f888e
+  egw_utils_ref: f1674916a320a6dedfce805c449d984484047c43
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
-  AWS_SSH_KEY: ~/.ssh/id_aws.pub
-  AWS_SSH_KEY_PRIVATE: ~/.ssh/id_aws
 
 jobs:
   echo-inputs:
@@ -130,6 +128,7 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+          SHA=ebad330081dd5b93be4da557c1c63cc96b3ede7a
 
           # The SHA under test will have its helm chart checked out at the following
           # path right before the step where Cilium is installed.
@@ -139,7 +138,7 @@ jobs:
             --set=pprof.enabled=true \
             --set=prometheus.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
-            --set=egressGateway.enabled=true \
+            ${{ env.EGRESS_GATEWAY_HELM_VALUES }} \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
             --set=l7Proxy=false \
@@ -149,7 +148,7 @@ jobs:
             --set=eni.awsEnablePrefixDelegation=true \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
-            --set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
+            --set=debug.enabled=true \
             --nodes-without-cilium"
 
           OWNER="${{ github.ref_name }}"
@@ -163,11 +162,11 @@ jobs:
             CLIENT_QPS="20"
           fi
 
-          # The m5.large instance type can support 29 Pods.
-          # See https://github.com/awslabs/amazon-eks-ami/blob/main/templates/shared/runtime/eni-max-pods.txt.
-          # Changing the instance type also requires changing the hardcoded value below!
           NODE_INSTANCE_TYPE="m5.large"
-          NUM_CLIENT_NODES="$(((NUM_CLIENT_PODS / 29) + 2))"
+          TARGET_CLIENT_PODS_PER_NODE=25
+
+          # Poor's man round up to derive the number of desired nodes
+          NUM_CLIENT_NODES="$(( (NUM_CLIENT_PODS + TARGET_CLIENT_PODS_PER_NODE - 1) / TARGET_CLIENT_PODS_PER_NODE ))"
 
           TEST_NAME="${{ env.test_name }}-${{ matrix.test_type }}-${NUM_CLIENT_PODS}-${CLIENT_QPS}"
           CLUSTER_NAME="${TEST_NAME}-${{ env.cluster_name }}"
@@ -192,7 +191,7 @@ jobs:
         timeout-minutes: 30
         shell: bash
         run: |
-          for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
+          for image in cilium-ci operator-aws-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
@@ -200,7 +199,7 @@ jobs:
         shell: bash
         run: |
           # Run this seprate from the other "Wait for images to be available" step to help with debugging.
-          if ! docker manifest inspect quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }} ; then
+          if ! docker manifest inspect giorio94/egw-scale-utils:${{ env.egw_utils_ref }} ; then
             echo "FATAL: egw-scale-utils image with ref ${{ env.egw_utils_ref }} is not available, exiting"
             exit 1
           fi
@@ -276,98 +275,15 @@ jobs:
           sparse-checkout: clusterloader2
           path: perf-tests
 
-      - name: Generate SSH keypair
-        run: |
-          ssh-keygen -f ${{ env.AWS_SSH_KEY_PRIVATE }} -P ""
-
       - name: Create EKS cluster
-        shell: bash
         id: deploy-cluster
-        run: |
-          cat <<EOF > eks-config.yaml
-          apiVersion: eksctl.io/v1alpha5
-          kind: ClusterConfig
-
-          metadata:
-            name: ${{ steps.vars.outputs.cluster_name }}
-            region: ${{ steps.vars.outputs.eks_region }}
-            version: "${{ steps.vars.outputs.eks_version }}"
-            tags:
-              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-              owner: "${{ steps.vars.outputs.owner }}"
-
-          managedNodeGroups:
-          - name: ng-amd64-client
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/egw-client: "true"
-          - name: ng-amd64-egw-node
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/egw-node: "true"
-          - name: ng-amd64-heapster
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/monitoring: "true"
-          - name: ng-amd64-no-cilium
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            ssh:
-              allow: true
-              publicKeyPath: ${{ env.AWS_SSH_KEY }}
-            taints:
-            - key: "cilium.io/no-schedule"
-              value: "true"
-              effect: "NoSchedule"
-            labels:
-              cilium.io/no-schedule: "true"
-          EOF
-
-          eksctl create cluster -f ./eks-config.yaml
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          addons: "coredns"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
@@ -388,13 +304,107 @@ jobs:
             install/kubernetes/cilium
 
       - name: Install Cilium
+        id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
 
       - name: Delete context ref
         run: |
           rm -rf untrusted/
+
+      # This needs to be performed in a different step, because nodeGroups are not
+      # supported during cluster creation in a cluster without VPC CNI. Cilium is
+      # also required to be already installed for the step to complete successfully.
+      - name: Create EKS nodegroups
+        shell: bash
+        run: |
+          cat <<EOF > eks-nodegroup.yaml
+          apiVersion: eksctl.io/v1alpha5
+          kind: ClusterConfig
+
+          metadata:
+            name: ${{ steps.vars.outputs.cluster_name }}
+            region: ${{ steps.vars.outputs.eks_region }}
+            version: "${{ steps.vars.outputs.eks_version }}"
+            tags:
+              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+              owner: "${{ steps.vars.outputs.owner }}"
+
+          managedNodeGroups:
+          - name: ng-amd64-client
+            instanceTypes:
+            - ${{ steps.vars.outputs.node_instance_type }}
+            desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 20
+            maxPodsPerNode: 110
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/egw-client: "true"
+          - name: ng-amd64-egw-node
+            instanceTypes:
+            - ${{ steps.vars.outputs.node_instance_type }}
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 20
+            maxPodsPerNode: 110
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/egw-node: "true"
+          - name: ng-amd64-heapster
+            instanceTypes:
+            - ${{ steps.vars.outputs.node_instance_type }}
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 20
+            maxPodsPerNode: 110
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/monitoring: "true"
+          - name: ng-amd64-no-cilium
+            instanceTypes:
+            - ${{ steps.vars.outputs.node_instance_type }}
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 20
+            taints:
+            - key: "cilium.io/no-schedule"
+              value: "true"
+              effect: "NoSchedule"
+            labels:
+              cilium.io/no-schedule: "true"
+            # Manually inject a dummy CNI configuration to let the Kubelet turn
+            # ready. This is necessary as otherwise the node creation would
+            # never complete. Regardless, no pods will be scheduled here given
+            # that the node is tainted.
+            preBootstrapCommands:
+            - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
+          EOF
+
+          eksctl create nodegroup -f ./eks-nodegroup.yaml
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -429,6 +439,7 @@ jobs:
           CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
+          CL2_CREATE_EGW_POLICY: ${{ matrix.test_type == 'md' }}
         run: |
           mkdir ./report
 
@@ -474,7 +485,7 @@ jobs:
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: cilium-sysdump
+          name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
           path: cilium-sysdump-final.zip
           retention-days: 5
 
@@ -485,11 +496,6 @@ jobs:
           name: features-tested-${{ matrix.test_type }}
           path: features-*.json
 
-      - name: Cleanup cluster
-        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        run: |
-          eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ steps.vars.outputs.eks_region }}
-
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
         uses: cilium/scale-tests-action/export-results@7d8cbd9a2f9d00697f5d2efd5cd064478aa327e0 # main
@@ -498,6 +504,11 @@ jobs:
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        run: |
+          eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ steps.vars.outputs.eks_region }}
 
   commit-status-final:
     if: ${{ always() }}
