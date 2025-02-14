@@ -28,7 +28,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 }
 
 var DefaultConfig = Config{
-	EnableExperimentalLB: false,
+	EnableExperimentalLB: true, // FIXME
 	RetryBackoffMin:      50 * time.Millisecond,
 	RetryBackoffMax:      time.Minute,
 }
@@ -45,32 +45,50 @@ type TestConfig struct {
 	// Can be removed once this option moves out from DaemonConfig into [Config].
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
 
+	// EnableSessionAffinity is defined here to allow script tests to enable this.
+	// Can be removed once this option moves out from DaemonConfig into [Config].
+	EnableSessionAffinity bool `mapstructure:"enable-session-affinity"`
+
 	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
 	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
+
+	// ExternalClusterIP mirrors option.Config.ExternalClusterIP
+	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
+	flags.Bool(option.EnableSessionAffinity, false, "Enable support for session affinity")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
+	flags.Bool(option.ExternalClusterIPName, false, "Enable cluster-external access to ClusterIPs")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
+	LBMapsConfig
+
+	EnableIPv4, EnableIPv6          bool
 	ExternalClusterIP               bool
 	EnableSessionAffinity           bool
 	EnableHealthCheckNodePort       bool
+	KubeProxyReplacement            bool
 	NodePortMin, NodePortMax        uint16
 	NodePortAlg                     string
 	LoadBalancerAlgorithmAnnotation bool
 }
 
+// newExternalConfig maps the daemon config to [ExternalConfig].
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
+		LBMapsConfig:                    newLBMapsConfig(cfg),
+		EnableIPv4:                      cfg.EnableIPv4,
+		EnableIPv6:                      cfg.EnableIPv6,
 		ExternalClusterIP:               cfg.ExternalClusterIP,
-		EnableSessionAffinity:           cfg.EnableSessionAffinity,
+		EnableSessionAffinity:           true, // FIXME cfg.EnableSessionAffinity,
+		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 		NodePortMin:                     uint16(cfg.NodePortMin),
 		NodePortMax:                     uint16(cfg.NodePortMax),

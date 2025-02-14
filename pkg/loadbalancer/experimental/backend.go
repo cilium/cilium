@@ -4,9 +4,9 @@
 package experimental
 
 import (
+	"bytes"
 	"fmt"
 	"iter"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -25,9 +25,9 @@ const (
 type BackendParams struct {
 	loadbalancer.L3n4Addr
 
-	// PortName is the frontend port name. If a frontend has specified a port name
-	// only the backends with matching port name are selected.
-	PortName string
+	// PortNames are the optional names for the ports. A frontend can specify which
+	// backends to select by port name.
+	PortNames []string
 
 	// Weight of backend for load-balancing.
 	Weight uint16
@@ -39,7 +39,10 @@ type BackendParams struct {
 	// Zone where backend is located.
 	ZoneID uint8
 
-	// State of the backend for load-balancing service traffic
+	// Source of the backend.
+	Source source.Source
+
+	// State of the backend, e.g. active, quarantined or terminating.
 	State loadbalancer.BackendState
 }
 
@@ -47,17 +50,6 @@ type BackendParams struct {
 // IP address and port.
 type Backend struct {
 	loadbalancer.L3n4Addr
-
-	// State is the learned state of the backend that combines the state of the
-	// instances and the results of health checking.
-	State loadbalancer.BackendState
-
-	// Node hosting this backend. This is used to determine backends local to
-	// a node.
-	NodeName string
-
-	// Zone where backend is located.
-	ZoneID uint8
 
 	// Instances of this backend. A backend is always linked to a specific
 	// service and the instances may call the backend by different name
@@ -67,11 +59,7 @@ type Backend struct {
 	// highest priority (smallest uint8) is used. This is needed for smooth
 	// transitions when ownership of endpoints is passed between upstream
 	// data sources.
-	Instances part.Map[BackendInstanceKey, BackendInstance]
-
-	// Properties are additional untyped properties that can carry feature
-	// specific metadata about the backend.
-	Properties part.Map[string, any]
+	Instances part.Map[BackendInstanceKey, BackendParams]
 }
 
 type BackendInstanceKey struct {
@@ -80,14 +68,21 @@ type BackendInstanceKey struct {
 }
 
 func (k BackendInstanceKey) Key() []byte {
-	prefix := []byte(k.ServiceName.String() + " ")
-	if k.SourcePriority == 0 {
-		return prefix
+	var buf bytes.Buffer
+	buf.WriteString(k.ServiceName.String())
+	if k.SourcePriority != 0 {
+		buf.WriteByte(' ')
+		buf.WriteByte(k.SourcePriority)
 	}
-	return append(prefix, byte(k.SourcePriority))
+	return buf.Bytes()
 }
 
-func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
+type backendWithRevision struct {
+	*BackendParams
+	Revision statedb.Revision
+}
+
+func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendParams {
 	// Return the instance matching the service name with highest priority
 	// (lowest number)
 	for _, inst := range be.instancesOfService(name) {
@@ -96,7 +91,15 @@ func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
 	return nil
 }
 
-func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src source.Source) *BackendInstance {
+func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
+	serviceName := fe.ServiceName
+	if fe.RedirectTo != nil {
+		serviceName = *fe.RedirectTo
+	}
+	return be.GetInstance(serviceName)
+}
+
+func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src source.Source) *BackendParams {
 	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
 		if k.ServiceName == name && inst.Source == src {
 			return &inst
@@ -106,26 +109,6 @@ func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src sour
 	return nil
 }
 
-// BackendInstance defines the backend's properties associated with a specific
-// service.
-type BackendInstance struct {
-	// PortName is the frontend port name used for filtering the backends
-	// associated with a service.
-	PortName string
-
-	// Weight is the load-balancing weight for this backend in association
-	// with a specific service.
-	Weight uint16
-
-	// Source is the data source from which this backend came from.
-	Source source.Source
-
-	// State is the backend's state as defined by the data source. This is
-	// taken as input along with learned state (e.g. via health checking) to
-	// construct the definite state.
-	State loadbalancer.BackendState
-}
-
 func (be *Backend) String() string {
 	return strings.Join(be.TableRow(), " ")
 }
@@ -133,36 +116,51 @@ func (be *Backend) String() string {
 func (be *Backend) TableHeader() []string {
 	return []string{
 		"Address",
-		"State",
 		"Instances",
 		"Shadows",
 		"NodeName",
-		"ZoneID",
 	}
 }
 
 func (be *Backend) TableRow() []string {
-	state, err := be.State.String()
-	if err != nil {
-		state = err.Error()
+	nodeName := ""
+	for _, inst := range be.Instances.All() {
+		if nodeName == "" {
+			nodeName = inst.NodeName
+		}
 	}
 	return []string{
 		be.StringWithProtocol(),
-		state,
 		showInstances(be),
 		showShadows(be),
-		be.NodeName,
-		strconv.FormatUint(uint64(be.ZoneID), 10),
+		nodeName,
 	}
 }
 
+// showInstances shows the backend instances in the following forms:
+// - no port name(s): "default/nginx"
+// - port name(s): "default/nginx (http, http-alt)"
+// - not active: "default/nginx [quarantined]"
+// - not active, port name(s): "default/nginx [quarantined] (http, http-alt)"
 func showInstances(be *Backend) string {
 	var b strings.Builder
 	for k, inst := range be.PreferredInstances() {
 		b.WriteString(k.ServiceName.String())
-		if inst.PortName != "" {
+
+		if inst.State != loadbalancer.BackendStateActive {
+			b.WriteString(" [")
+			s, _ := inst.State.String()
+			b.WriteString(s)
+			b.WriteRune(']')
+		}
+		if len(inst.PortNames) > 0 {
 			b.WriteString(" (")
-			b.WriteString(string(inst.PortName))
+			for i, name := range inst.PortNames {
+				b.WriteString(string(name))
+				if i < len(inst.PortNames)-1 {
+					b.WriteRune(' ')
+				}
+			}
 			b.WriteRune(')')
 		}
 		b.WriteString(", ")
@@ -177,7 +175,9 @@ func showShadows(be *Backend) string {
 		emptyName, svcName loadbalancer.ServiceName
 	)
 	updateServices := func() {
-		services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
+		if len(instances) > 0 {
+			services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
+		}
 	}
 	for k, inst := range be.Instances.All() {
 		if k.ServiceName != svcName {
@@ -189,8 +189,8 @@ func showShadows(be *Backend) string {
 			continue // Omit the instance that is already included in showInstances
 		}
 		instance := string(inst.Source)
-		if inst.PortName != "" {
-			instance += fmt.Sprintf(" (%s)", inst.PortName)
+		if len(inst.PortNames) > 0 {
+			instance += fmt.Sprintf(" (%s)", strings.Join(inst.PortNames, " "))
 		}
 		instances = append(instances, instance)
 	}
@@ -212,8 +212,8 @@ func (be *Backend) serviceNameKeys() index.KeySet {
 	return index.NewKeySet(keys...)
 }
 
-func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendInstance] {
-	return func(yield func(BackendInstanceKey, BackendInstance) bool) {
+func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendParams] {
+	return func(yield func(BackendInstanceKey, BackendParams) bool) {
 		var svcName loadbalancer.ServiceName
 		for k, v := range be.Instances.All() {
 			if k.ServiceName != svcName {
@@ -227,7 +227,7 @@ func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendIns
 	}
 }
 
-func (be *Backend) instancesOfService(name loadbalancer.ServiceName) iter.Seq2[BackendInstanceKey, BackendInstance] {
+func (be *Backend) instancesOfService(name loadbalancer.ServiceName) iter.Seq2[BackendInstanceKey, BackendParams] {
 	return be.Instances.Prefix(BackendInstanceKey{name, 0})
 }
 
@@ -265,7 +265,7 @@ func (be *Backend) Clone() *Backend {
 
 var (
 	backendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
-		Name: "addr",
+		Name: "address",
 		FromObject: func(obj *Backend) index.KeySet {
 			return index.NewKeySet(obj.L3n4Addr.Bytes())
 		},
@@ -277,7 +277,7 @@ var (
 	BackendByAddress = backendAddrIndex.Query
 
 	backendServiceIndex = statedb.Index[*Backend, loadbalancer.ServiceName]{
-		Name:       "service-name",
+		Name:       "service",
 		FromObject: (*Backend).serviceNameKeys,
 		FromKey:    index.Stringer[loadbalancer.ServiceName],
 		FromString: index.FromString,
