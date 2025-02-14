@@ -6,6 +6,7 @@ package dynamiclifecycle
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
