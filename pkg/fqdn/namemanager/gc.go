@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package fqdn
+package namemanager
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -49,22 +50,28 @@ type serializedSelector struct {
 	Selector api.FQDNSelector `json:"sel"`
 }
 
+type EndpointDNSInfo struct {
+	ID         string
+	ID64       int64
+	DNSHistory *fqdn.DNSCache
+	DNSZombies *fqdn.DNSZombieMappings
+}
+
 // This implements some garbage collection and cleanup functions for the NameManager
 
-// GC cleans up TTL expired entries from the DNS policies.
-// It removes stale or undesired entries from the DNS caches.
-// This is done for all per-EP DNSCache
-// instances (ep.DNSHistory) with evictions (whether due to TTL expiry or
-// overlimit eviction) cascaded into ep.DNSZombies. Data in DNSHistory and
-// DNSZombies is further collected into the global DNSCache instance. The
-// data there drives toFQDNs policy via NameManager and ToFQDNs selectors.
-// DNSCache entries expire data when the TTL elapses and when the entries for
-// a DNS name are above a limit. The data is then placed into
-// DNSZombieMappings instances. These rely on the CT GC loop to update
-// liveness for each to-delete IP. When an IP is not in-use it is finally
-// deleted from the global DNSCache. Until then, each of these IPs is
+// doGC cleans up TTL expired entries from the DNS policies. It removes stale or
+// undesired entries from the DNS caches.
+// This is done for all per-EP DNSCache instances (ep.DNSHistory) with evictions
+// (whether due to TTL expiry or overlimit eviction) cascaded into
+// ep.DNSZombies. Data in DNSHistory and DNSZombies is further collected into
+// the global DNSCache instance. The data there drives toFQDNs policy via
+// NameManager and ToFQDNs selectors. DNSCache entries expire data when the TTL
+// elapses and when the entries for a DNS name are above a limit. The data is
+// then placed into DNSZombieMappings instances. These rely on the CT doGC loop
+// to update liveness for each to-delete IP. When an IP is not in-use it is
+// finally deleted from the global DNSCache. Until then, each of these IPs is
 // inserted into the global cache as a synthetic DNS lookup.
-func (n *NameManager) GC(ctx context.Context) error {
+func (n *manager) doGC(ctx context.Context) error {
 	var (
 		GCStart = time.Now()
 
@@ -73,7 +80,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// give these entries 2 cycles of TTL to allow for timing mismatches
 		// with the CT GC.
 		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
-		activeConnections    = NewDNSCache(activeConnectionsTTL)
+		activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
 
@@ -82,7 +89,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	maybeStaleIPs := n.cache.GetIPs()
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
-	endpoints := n.config.GetEndpointsDNSInfo("")
+	endpoints := n.getEndpointsDNSInfo("")
 	for _, ep := range endpoints {
 		epID := ep.ID
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
@@ -142,7 +149,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	// in from each EP cache.
 	// - If after, the normal update process occurs after .ReplaceFromCache
 	// releases its locks.
-	caches := []*DNSCache{activeConnections}
+	caches := []*fqdn.DNSCache{activeConnections}
 	for _, ep := range endpoints {
 		caches = append(caches, ep.DNSHistory)
 	}
@@ -168,18 +175,18 @@ func (n *NameManager) GC(ctx context.Context) error {
 	return nil
 }
 
-func (n *NameManager) StartGC(ctx context.Context) {
+func (n *manager) StartGC(ctx context.Context) {
 	n.manager.UpdateController(dnsGCJobName, controller.ControllerParams{
 		Group:       dnsGCControllerGroup,
 		RunInterval: DNSGCJobInterval,
-		DoFunc:      n.GC,
+		DoFunc:      n.doGC,
 		Context:     ctx,
 	})
 }
 
 // DeleteDNSLookups force-removes any entries in *all* caches that are not currently actively
 // passing traffic.
-func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternStr string) error {
+func (n *manager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternStr string) error {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
 		var err error
@@ -196,12 +203,12 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.config.GetEndpointsDNSInfo("") {
+	for _, ep := range n.getEndpointsDNSInfo("") {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		activeConnections := NewDNSCache(0)
+		activeConnections := fqdn.NewDNSCache(0)
 		zombies, _ := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
@@ -221,7 +228,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
+func (n *manager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
 		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
@@ -314,7 +321,7 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 			})
 			n.restoredPrefixes.Insert(prefix)
 		}
-		n.config.IPCache.UpsertMetadataBatch(ipcacheUpdates...)
+		n.params.IPCache.UpsertMetadataBatch(ipcacheUpdates...)
 	}
 }
 
@@ -347,13 +354,13 @@ func restoreSelectors(checkpointPath string) (map[api.FQDNSelector]*regexp.Regex
 
 // readPreCache returns a fqdn.DNSCache object created from the json data at
 // preCachePath
-func readPreCache(preCachePath string) (cache *DNSCache, err error) {
+func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
 	data, err := os.ReadFile(preCachePath)
 	if err != nil {
 		return nil, err
 	}
 
-	cache = NewDNSCache(0) // no per-host limit here
+	cache = fqdn.NewDNSCache(0) // no per-host limit here
 	if err = cache.UnmarshalJSON(data); err != nil {
 		return nil, err
 	}

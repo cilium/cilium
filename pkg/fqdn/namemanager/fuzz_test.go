@@ -1,7 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright Authors of Cilium
-
-package fqdn
+package namemanager
 
 import (
 	"testing"
@@ -16,9 +13,10 @@ func FuzzMapSelectorsToNamesLocked(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		fqdnSelector := api.FQDNSelector{}
 		ff.FuzzMap(fqdnSelector)
-		nameManager := NewNameManager(Config{
-			MinTTL: 1,
-			Cache:  NewDNSCache(0),
+		nameManager := New(ManagerParams{
+			Config: NameManagerConfig{
+				MinTTL: 1,
+			},
 		})
 		nameManager.mapSelectorsToNamesLocked(fqdnSelector)
 	})

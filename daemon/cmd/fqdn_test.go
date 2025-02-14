@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -72,9 +73,10 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,
 	})
-	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
-		MinTTL:  1,
-		Cache:   fqdn.NewDNSCache(0),
+	d.dnsNameManager = namemanager.New(namemanager.ManagerParams{
+		Config: namemanager.NameManagerConfig{
+			MinTTL: 1,
+		},
 		IPCache: d.ipcache,
 	})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
