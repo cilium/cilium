@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package fqdn
+package namemanager
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -38,9 +39,9 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 
-	nameManager := NewNameManager(Config{
+	nameManager := New(fqdn.Config{
 		MinTTL:  1,
-		Cache:   NewDNSCache(0),
+		Cache:   fqdn.NewDNSCache(0),
 		IPCache: testipcache.NewMockIPCache(),
 	})
 
@@ -65,13 +66,13 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 		ip = ip.Next()
 
 		k := i % numSelectors
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
+		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("%d.example.com", k)): {
 				TTL: 60,
 				IPs: []netip.Addr{ip},
 			}})
 
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
+		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("example.%d.example.com", k)): {
 				TTL: 60,
 				IPs: []netip.Addr{ip},
@@ -85,10 +86,10 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 func BenchmarkFqdnCache(b *testing.B) {
 	const endpoints = 8
 
-	caches := make([]*DNSCache, 0, endpoints)
+	caches := make([]*fqdn.DNSCache, 0, endpoints)
 	for i := 0; i < b.N; i++ {
 		lookupTime := time.Now()
-		dnsHistory := NewDNSCache(0)
+		dnsHistory := fqdn.NewDNSCache(0)
 
 		for i := 0; i < 1000; i++ {
 			dnsHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
@@ -97,18 +98,18 @@ func BenchmarkFqdnCache(b *testing.B) {
 		caches = append(caches, dnsHistory)
 	}
 
-	nameManager := NewNameManager(Config{
+	nameManager := New(fqdn.Config{
 		MinTTL:  1,
-		Cache:   NewDNSCache(0),
+		Cache:   fqdn.NewDNSCache(0),
 		IPCache: testipcache.NewMockIPCache(),
-		GetEndpointsDNSInfo: func(endpointID string) []EndpointDNSInfo {
-			out := make([]EndpointDNSInfo, 0, len(caches))
+		GetEndpointsDNSInfo: func(endpointID string) []fqdn.EndpointDNSInfo {
+			out := make([]fqdn.EndpointDNSInfo, 0, len(caches))
 			for i, c := range caches {
-				out = append(out, EndpointDNSInfo{
+				out = append(out, fqdn.EndpointDNSInfo{
 					ID:         strconv.Itoa(i),
 					ID64:       int64(i),
 					DNSHistory: c,
-					DNSZombies: NewDNSZombieMappings(1000, 1000),
+					DNSZombies: fqdn.NewDNSZombieMappings(1000, 1000),
 				})
 			}
 			return out
