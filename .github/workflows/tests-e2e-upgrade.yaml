@@ -670,6 +670,25 @@ jobs:
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
           kubectl rollout status -n kube-system ds/node-local-dns
 
+      - name: Prepare the bpftrace parameters
+        if: ${{ matrix.encryption != '' }}
+        id: bpftrace-params
+        run: |
+          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+
+          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+
+      - name: Start unencrypted packets check for upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # disable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
+
       - name: Start conn-disrupt-test
         shell: bash
         run: |
@@ -693,6 +712,10 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+      - name: Assert that no unencrypted packets are leaked during upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Setup Cilium CLI flags
         id: cli-flags
@@ -727,6 +750,14 @@ jobs:
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             ${{ steps.cli-flags.outputs.flags }}
 
+      - name: Start unencrypted packets check for connectivity tests after upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # enable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+
       - name: Run sequential Cilium tests
         shell: bash
         run: |
@@ -741,6 +772,10 @@ jobs:
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Setup conn dirstupt tests after a flush-ct Cilium tests
         shell: bash
@@ -757,6 +792,15 @@ jobs:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
+      - name: Start unencrypted packets check for downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # disable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
+
+
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
@@ -770,6 +814,10 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
+      - name: Assert that no unencrypted packets are leaked during downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
+
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
@@ -779,6 +827,14 @@ jobs:
             --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Start unencrypted packets check for connectivity tests after downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          # enable the check for proxy traffic.
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -796,6 +852,10 @@ jobs:
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
+        if: ${{ matrix.encryption != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
         uses: ./.github/actions/feature-status
