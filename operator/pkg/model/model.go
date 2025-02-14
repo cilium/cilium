@@ -39,6 +39,7 @@ type Listener interface {
 	GetPort() uint32
 	GetAnnotations() map[string]string
 	GetLabels() map[string]string
+	GetService() *Service
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -103,6 +104,10 @@ func (l HTTPListener) GetLabels() map[string]string {
 	return nil
 }
 
+func (l HTTPListener) GetService() *Service {
+	return l.Service
+}
+
 // TLSPassthroughListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
@@ -155,7 +160,12 @@ func (l TLSPassthroughListener) GetPort() uint32 {
 	return l.Port
 }
 
+func (l TLSPassthroughListener) GetService() *Service {
+	return l.Service
+}
+
 // Service holds the configuration for desired Service details
+// Note: This is a subset of the Service.Spec struct from k8s Service. Not all fields are supported.
 type Service struct {
 	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
 	// Defaults to Load Balancer type
@@ -166,6 +176,14 @@ type Service struct {
 	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
 	// Applicable only if Type is Node NodePort
 	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
+
+	ExternalTrafficPolicy         *string  `json:"external_traffic_policy,omitempty"`
+	LoadBalancerClass             *string  `json:"load_balancer_class,omitempty"`
+	LoadBalancerSourceRanges      []string `json:"load_balancer_source_ranges,omitempty"`
+	IPFamilies                    []string `json:"ip_families,omitempty"`
+	IPFamilyPolicy                *string  `json:"ip_family_policy,omitempty"`
+	AllocateLoadBalancerNodePorts *bool    `json:"allocate_load_balancer_node_ports,omitempty"`
+	TrafficDistribution           *string  `json:"traffic_distribution,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including

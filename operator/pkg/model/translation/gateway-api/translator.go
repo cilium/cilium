@@ -99,12 +99,13 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	ep := t.desiredEndpoints(source, allLabels, allAnnotations)
-	lbSvc := t.desiredService(source, ports, allLabels, allAnnotations)
+	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
 
 	return cec, lbSvc, ep, err
 }
 
-func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResource, ports []uint32, labels, annotations map[string]string) *corev1.Service {
+func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
+	ports []uint32, labels, annotations map[string]string) *corev1.Service {
 	if owner == nil {
 		return nil
 	}
@@ -148,18 +149,152 @@ func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResourc
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:                  corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy),
-			Ports:                 servicePorts,
+			Ports:                         t.toServicePorts(ports),
+			Type:                          t.toServiceType(params),
+			ExternalTrafficPolicy:         t.toExternalTrafficPolicy(params),
+			LoadBalancerClass:             t.toLoadBalancerClass(params),
+			LoadBalancerSourceRanges:      t.toLoadBalancerSourceRanges(params),
+			IPFamilies:                    t.toIPFamilies(params),
+			IPFamilyPolicy:                t.toIPFamilyPolicy(params),
+			AllocateLoadBalancerNodePorts: t.toAllocateLoadBalancerNodePorts(params),
+			TrafficDistribution:           t.toTrafficDistribution(params),
 		},
 	}
 
-	if t.cfg.HostNetworkConfig.Enabled {
-		res.Spec.Type = corev1.ServiceTypeClusterIP
-		res.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
+	return res
+}
+
+// toServicePorts returns a list of ServicePort objects from the given list of ports.
+func (t *gatewayAPITranslator) toServicePorts(ports []uint32) []corev1.ServicePort {
+	uniquePorts := map[uint32]struct{}{}
+	for _, p := range ports {
+		uniquePorts[p] = struct{}{}
 	}
 
-	return res
+	servicePorts := make([]corev1.ServicePort, 0, len(uniquePorts))
+	for p := range uniquePorts {
+		servicePorts = append(servicePorts, corev1.ServicePort{
+			Name:     fmt.Sprintf("port-%d", p),
+			Port:     int32(p),
+			Protocol: corev1.ProtocolTCP,
+		})
+	}
+	slices.SortFunc(servicePorts, func(a, b corev1.ServicePort) int {
+		return int(a.Port) - int(b.Port)
+	})
+
+	return servicePorts
+}
+
+// toServiceType returns the ServiceType from the given Service object.
+// If hostNetwork is enabled, it returns ServiceTypeClusterIP. The default value is ServiceTypeLoadBalancer.
+func (t *gatewayAPITranslator) toServiceType(params *model.Service) corev1.ServiceType {
+	if t.cfg.HostNetworkConfig.Enabled {
+		return corev1.ServiceTypeClusterIP
+	}
+	if params == nil {
+		return corev1.ServiceTypeLoadBalancer
+	}
+	return corev1.ServiceType(params.Type)
+}
+
+// toExternalTrafficPolicy returns the ExternalTrafficPolicy from the given Service object.
+// If hostNetwork is enabled, no external traffic policy is return.
+// The default value is the one from the configuration flag.
+func (t *gatewayAPITranslator) toExternalTrafficPolicy(params *model.Service) corev1.ServiceExternalTrafficPolicy {
+	if t.cfg.HostNetworkConfig.Enabled {
+		return corev1.ServiceExternalTrafficPolicy("")
+	}
+
+	if params == nil || params.ExternalTrafficPolicy == nil {
+		return corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy)
+	}
+
+	return corev1.ServiceExternalTrafficPolicy(*params.ExternalTrafficPolicy)
+}
+
+// toLoadBalancerClass returns the LoadBalancerClass from the given Service object.
+// Applicable for LoadBalancer type services only.
+func (t *gatewayAPITranslator) toLoadBalancerClass(params *model.Service) *string {
+	if params == nil || params.LoadBalancerClass == nil {
+		return nil
+	}
+	if t.toServiceType(params) != corev1.ServiceTypeLoadBalancer {
+		return nil
+	}
+	return params.LoadBalancerClass
+}
+
+// toLoadBalancerSourceRanges returns the LoadBalancerSourceRanges from the given Service object.
+// Applicable for LoadBalancer type services only.
+func (t *gatewayAPITranslator) toLoadBalancerSourceRanges(params *model.Service) []string {
+	if params == nil || params.LoadBalancerSourceRanges == nil {
+		return nil
+	}
+
+	// Only return the source ranges if the service type is LoadBalancer
+	if t.toServiceType(params) != corev1.ServiceTypeLoadBalancer {
+		return nil
+	}
+
+	return params.LoadBalancerSourceRanges
+}
+
+// toIPFamilies returns the IPFamilies from the given Service object.
+// The default value is the one from the configuration flags (e.g. IPv4 and IPv6 enabled).
+func (t *gatewayAPITranslator) toIPFamilies(params *model.Service) []corev1.IPFamily {
+	if params == nil || params.IPFamilies == nil {
+		if t.cfg.IPConfig.IPv4Enabled && t.cfg.IPConfig.IPv6Enabled {
+			return []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}
+		}
+
+		if t.cfg.IPConfig.IPv4Enabled {
+			return []corev1.IPFamily{corev1.IPv4Protocol}
+		}
+
+		if t.cfg.IPConfig.IPv6Enabled {
+			return []corev1.IPFamily{corev1.IPv6Protocol}
+		}
+		return nil
+	}
+
+	var families []corev1.IPFamily
+	for _, f := range params.IPFamilies {
+		families = append(families, corev1.IPFamily(f))
+	}
+
+	return families
+}
+
+// toIPFamilyPolicy returns the IPFamilyPolicy from the given Service object.
+func (t *gatewayAPITranslator) toIPFamilyPolicy(params *model.Service) *corev1.IPFamilyPolicy {
+	if params == nil || params.IPFamilyPolicy == nil {
+		if t.cfg.IPConfig.IPv4Enabled && t.cfg.IPConfig.IPv6Enabled {
+			return ptr.To(corev1.IPFamilyPolicyPreferDualStack)
+		}
+		return nil
+	}
+	return ptr.To(corev1.IPFamilyPolicy(*params.IPFamilyPolicy))
+}
+
+// toAllocateLoadBalancerNodePorts returns the AllocateLoadBalancerNodePorts from the given Service object.
+// Applicable for LoadBalancer type services only.
+func (t *gatewayAPITranslator) toAllocateLoadBalancerNodePorts(params *model.Service) *bool {
+	if params == nil || params.AllocateLoadBalancerNodePorts == nil {
+		return nil
+	}
+	if t.toServiceType(params) != corev1.ServiceTypeLoadBalancer {
+		return nil
+	}
+	return params.AllocateLoadBalancerNodePorts
+}
+
+// toTrafficDistribution returns the TrafficDistribution from the given Service object.
+func (t *gatewayAPITranslator) toTrafficDistribution(params *model.Service) *string {
+	if params == nil || params.TrafficDistribution == nil {
+		return nil
+	}
+	return params.TrafficDistribution
 }
 
 func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {

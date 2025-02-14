@@ -1,9 +1,5 @@
+http:
 - hostname: '*'
-  infrastructure:
-    Annotations:
-      internal-loadbalancer-annotation: "true"
-    Labels:
-      internal-loadbalancer-label: "true"
   name: prod-web-gw
   port: 80
   routes:
@@ -12,15 +8,11 @@
       namespace: default
       port:
         port: 8080
-    - name: my-service
-      namespace: default
-      port:
-        port: 8080
     path_match:
       prefix: /bar
     timeout: {}
   service:
-    type: LoadBalancer
+    type: NodePort
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway

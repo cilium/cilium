@@ -18,5 +18,9 @@ spec:
     protocol: TCP
     targetPort: 0
   type: ClusterIP
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: PreferDualStack
 status:
   loadBalancer: {}

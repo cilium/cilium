@@ -1,0 +1,7 @@
+- metadata:
+    creationTimestamp: null
+    name: my-service
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}

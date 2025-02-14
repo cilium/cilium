@@ -18,5 +18,7 @@ spec:
     protocol: TCP
     targetPort: 0
   type: ClusterIP
+  ipFamilies:
+  - IPv6
 status:
   loadBalancer: {}
