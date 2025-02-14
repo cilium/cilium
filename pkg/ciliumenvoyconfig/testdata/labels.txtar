@@ -7,7 +7,7 @@ db/initialized
 set-node-labels foo=a
 
 # Add CECs with foo=a and foo=b node selectors
-k8s add cec_a.yaml cec_b.yaml
+k8s/add cec_a.yaml cec_b.yaml
 
 # CEC with foo=a should be selected.
 db/cmp ciliumenvoyconfigs cec_a.table

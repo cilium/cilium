@@ -29,7 +29,7 @@ db/cmp --grep=^loadbalancer health health_no_service.table
 # Add a node address, service and endpoints.
 db/insert node-addresses addrv4.yaml
 db/cmp node-addresses nodeaddrs.table
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp --grep=^loadbalancer health health_with_service.table
 db/cmp services services.table
 db/cmp frontends frontends.table
@@ -44,7 +44,7 @@ lb/maps-dump lbmaps.actual
 cmp healthserver.expected healthserver.actual
 
 # Test changing the health check port
-k8s update service2.yaml
+k8s/update service2.yaml
 
 # Check that the frontend for the health server is updated
 replace $HEALTHPORT1 $HEALTHPORT2 frontends.table
@@ -62,19 +62,19 @@ cmp healthserver.expected healthserver.actual
 cp service2.yaml service2_tpcluster.yaml
 replace 'externalTrafficPolicy: Local' 'externalTrafficPolicy: Cluster' service2_tpcluster.yaml
 replace 'internalTrafficPolicy: Local' 'internalTrafficPolicy: Cluster' service2_tpcluster.yaml
-k8s update service2_tpcluster.yaml
+k8s/update service2_tpcluster.yaml
 db/cmp frontends frontends_tpcluster.table
 
 # The health checker server should be down now.
 !* http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
 
 # Restore health checking for next test.
-k8s update service2.yaml
+k8s/update service2.yaml
 * http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
 cmp healthserver.expected healthserver.actual
 
 # Test removing the health check port
-k8s update service_no_health.yaml
+k8s/update service_no_health.yaml
 
 # Both ports should now stop responding
 # "!*" means expect failure and retry if needed
