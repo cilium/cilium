@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -224,6 +225,15 @@ type cachedEndpointMetadataFetcher struct {
 }
 
 func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
+	// If network policies are disabled, labels are not needed, the namespace
+	// watcher is not running, and a namespace containing only the name is returned.
+	if !option.NetworkPolicyEnabled(option.Config) {
+		return &slim_corev1.Namespace{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name: nsName,
+			},
+		}, nil
+	}
 	return cemf.k8sWatcher.GetCachedNamespace(nsName)
 }
 
