@@ -1,4 +1,4 @@
-// Six parameters expected:
+// Seven parameters expected:
 // $1: IPv4 CiliumInternalIP - Node1
 // $2: IPv6 CiliumInternalIP - Node1
 // $3: IPv4 CiliumInternalIP - Node2
@@ -6,10 +6,26 @@
 // $5: IPv4 CiliumInternalIP - Node3
 // $6: IPv6 CiliumInternalIP - Node3
 // $7: Report errors if proxy traffic not found - [true|false]
+//
+// IPv6 addresses ($2, $4, and $6) must be "::1" in IPv4-only clusters.
+// We assume /8 CIDRs regardless the provided addresses:
+// - pod IPv4 addresses are checked via (IP & MASK4) == CIDR4
+// - pod IPv6 addresses are checked via IP[0] == CIDR6
 
-#define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
-#define MASK4 (uint32)0xFF000000
-#define CIDR6 (uint32)0xfd00
+// Handling arguments in macros.
+#define NODE1_CILIUM_INTERNAL_IPV4  str($1)
+#define NODE1_CILIUM_INTERNAL_IPV6  str($2)
+#define NODE2_CILIUM_INTERNAL_IPV4  str($3)
+#define NODE2_CILIUM_INTERNAL_IPV6  str($4)
+#define NODE3_CILIUM_INTERNAL_IPV4  str($5)
+#define NODE3_CILIUM_INTERNAL_IPV6  str($6)
+#define ENABLE_SANITY_CHECK         str($7) == "true"
+
+// Compute additional utilities.
+#define ENABLE_IPV6   NODE1_CILIUM_INTERNAL_IPV6 != "::1"
+#define MASK4         (uint32)(-1) << 24                                   // ex. 0xff000000
+#define CIDR4         (uint32)(pton(NODE1_CILIUM_INTERNAL_IPV4)[0]) << 24  // ex. 0x0a000000 (10.0.0.0/8)
+#define CIDR6         (uint32)(pton(NODE1_CILIUM_INTERNAL_IPV6)[0]) << 8   // ex. 0xfd00 (fd00::/8)
 
 #define PROTO_IPV4 0x0800
 #define PROTO_IPV6 0x86DD
@@ -44,6 +60,10 @@ struct dnshdr {
   u16 arcount;
 }
 
+// Monitor and log plain text pod-to-pod packets passing through the Kind bridge if:
+// 1. both IPs are in PodCIDR, or
+// 2. one IP in PodCIDR and packet comes from proxy.
+// For non-proxy packets, skip encap'd packets with inner CiliumInternalIPs.
 kprobe:br_forward
 {
   $skb = ((struct sk_buff *) arg1);
@@ -68,9 +88,9 @@ kprobe:br_forward
       // Skip CiliumInternalIP addresses, as they belong to the PodCIDR,
       // unless the given flow is explicitly marked as traced (i.e., from proxy).
       if (!$pod_to_pod_via_proxy &&
-           ($ip4h->saddr == (uint32)pton(str($1)) || $ip4h->daddr == (uint32)pton(str($1)) ||
-            $ip4h->saddr == (uint32)pton(str($3)) || $ip4h->daddr == (uint32)pton(str($3)) ||
-            $ip4h->saddr == (uint32)pton(str($5)) || $ip4h->daddr == (uint32)pton(str($5)))) {
+           ($ip4h->saddr == (uint32)pton(NODE1_CILIUM_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE1_CILIUM_INTERNAL_IPV4) ||
+            $ip4h->saddr == (uint32)pton(NODE2_CILIUM_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE2_CILIUM_INTERNAL_IPV4) ||
+            $ip4h->saddr == (uint32)pton(NODE3_CILIUM_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE3_CILIUM_INTERNAL_IPV4))) {
         return;
       }
     }
@@ -83,9 +103,9 @@ kprobe:br_forward
       // Skip CiliumInternalIP addresses, as they belong to the PodCIDR
       // unless the given flow is explicitly marked as traced (i.e., from proxy).
       if (!$pod_to_pod_via_proxy &&
-           ($ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(str($6)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($6)))) {
+           ($ip6h->saddr.in6_u.u6_addr8 == pton(NODE1_CILIUM_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE1_CILIUM_INTERNAL_IPV6) ||
+            $ip6h->saddr.in6_u.u6_addr8 == pton(NODE2_CILIUM_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE2_CILIUM_INTERNAL_IPV6) ||
+            $ip6h->saddr.in6_u.u6_addr8 == pton(NODE3_CILIUM_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE3_CILIUM_INTERNAL_IPV6))) {
         return;
       }
     }
@@ -103,7 +123,7 @@ kprobe:br_forward
       $tcph = (struct tcphdr*)$udph;
 
       if (!$tcph->rst) {
-        printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
+        printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, pod_to_pod_via_proxy: %d)\n",
           strftime("%H:%M:%S:%f", nsecs),
           ntop($ip4h->saddr), bswap($udph->source),
           ntop($ip4h->daddr), bswap($udph->dest),
@@ -142,7 +162,7 @@ kprobe:br_forward
       $tcph = (struct tcphdr*)$udph;
 
       if (!$tcph->rst) {
-        printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
+        printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, pod_to_pod_via_proxy: %d)\n",
           strftime("%H:%M:%S:%f", nsecs),
           ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
           ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
@@ -171,7 +191,7 @@ kprobe:br_forward
 }
 
 // Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
-// Ignore connections with the destination address outside pod CIDRs.
+// Ignore connections with the destination address outside PodCIDR or CiliumInternalIPs.
 kprobe:tcp_connect
 {
   if (strncmp(comm, "wrk:", 4) != 0) {
@@ -180,33 +200,37 @@ kprobe:tcp_connect
 
   $sk = ((struct sock *) arg0);
   $inet_family = $sk->__sk_common.skc_family;
-  $dst_is_pod = false;
 
   if ($inet_family == AF_INET) {
-    $dst_is_pod = (bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4;
-  }
+    // Skip packets with destination IP outside PodCIDR or CiliumInternalIP.
+    if ((bswap($sk->__sk_common.skc_daddr) & MASK4) != CIDR4 ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE1_CILIUM_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE2_CILIUM_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE3_CILIUM_INTERNAL_IPV4)) {
+      return;
+    }
 
-  if ($inet_family == AF_INET6) {
-    $dst_is_pod = bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6;
-  }
-
-  if (!$dst_is_pod) {
-    return
-  }
-
-  if ($inet_family == AF_INET) {
     @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_L7_IP4] = true;
   }
 
   if ($inet_family == AF_INET6) {
+    // Skip packets with destination IP outside PodCIDR or CiliumInternalIP.
+    if (bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) != CIDR6 ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE1_CILIUM_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE2_CILIUM_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE3_CILIUM_INTERNAL_IPV6)) {
+      return;
+    }
+
     @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_L7_IP6] = true;
   }
 }
 
+// Clear traced TCP connections.
 kprobe:tcp_close
 {
   $sk = ((struct sock *) arg0);
@@ -236,14 +260,35 @@ kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
-  if ($sk->__sk_common.skc_num == PORT_DNS) {
+  if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
     @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_DNS_IP6] = true;
   }
 }
 
+// Clear traced UDP connections.
+kprobe:udp_destroy_sock
+{
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  if ($inet_family == AF_INET6) {
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  delete(@trace_sk[$sk]);
+}
+
 // Additionally trace traffic flows in which the source got masquerated.
+// This expects that the $sk is already traced from one of the above functions.
+// We keep this kprobe for coverage: if correctly configured, we do not expect
+// additional entries in the map, as pod-to-pod or pod-to-pod-via-proxy traffic
+// should not be masquerated.
 kprobe:__dev_queue_xmit
 {
   $skb = ((struct sk_buff *) arg0);
@@ -276,15 +321,15 @@ kprobe:__dev_queue_xmit
 
 END
 {
-  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4]) {
+  if (ENABLE_SANITY_CHECK && !@sanity[TYPE_PROXY_L7_IP4]) {
     printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
   }
 
-  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
+  if (ENABLE_SANITY_CHECK && !@sanity[TYPE_PROXY_L7_IP6] && ENABLE_IPV6) {
     printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
   }
 
-  if (str($7) == "true" && !(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
+  if (ENABLE_SANITY_CHECK && !(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
     printf("Sanity check failed: detected no messages sent by the DNS proxy. Is the filter correct?\n")
   }
 
