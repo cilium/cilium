@@ -244,7 +244,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -262,7 +262,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -393,7 +393,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
