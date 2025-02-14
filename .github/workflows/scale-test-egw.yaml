@@ -389,8 +389,13 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
 
       - name: Delete context ref
         run: |
