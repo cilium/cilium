@@ -418,6 +418,12 @@ Users (Alphabetically)
       L: https://youtu.be/WRACr5nXl9U
       Q: @gyutaeb
 
+    * N: KA-NABELL
+      D: KA-NABELL harnesses Cilium to deliver Kubernetes networking with robust security and clear observability.
+      U: CNI/ENI Networking, kube-proxy replacement, Monitoring via Prometheus metrics & Hubble, eBPF, CiliumNetworkPolicy
+      L: https://speakerdeck.com/andoshin11/envoy-external-authztogrpc-extensionwoli-yong-sita-wan-zhang-ranai-microservicesren-zheng-ren-ke-ji-pan?slide=8
+      Q: @kahirokunn
+
     * N: Keploy
       D: Keploy is using the Cilium to capture the network traffic to perform E2E Testing.
       U: Networking, network policy, Monitoring, E2E Testing
