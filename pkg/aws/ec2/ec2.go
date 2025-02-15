@@ -712,7 +712,7 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 
 // AssignPrivateIpAddresses assigns the specified number of secondary IP
 // addresses
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId:             aws.String(eniID),
 		SecondaryPrivateIpAddressCount: aws.Int32(addresses),
@@ -720,9 +720,16 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 
 	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
-	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
+	output, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
-	return err
+	if err != nil {
+		return nil, err
+	}
+	assignedIPs := make([]string, addresses)
+	for i, ip := range output.AssignedPrivateIpAddresses {
+		assignedIPs[i] = aws.ToString(ip.PrivateIpAddress)
+	}
+	return assignedIPs, nil
 }
 
 // UnassignPrivateIpAddresses unassigns specified IP addresses from ENI
