@@ -2127,6 +2127,12 @@
           },
           "type": "object"
         },
+        "policyRestoreTimeoutDuration": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "priorityClassName": {
           "type": [
             "null",

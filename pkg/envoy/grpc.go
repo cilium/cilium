@@ -50,7 +50,7 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	reflection.Register(grpcServer)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.policyRestoreTimeout)
 	go func() {
 		if s.restorerPromise != nil {
 			log.Infof("Envoy: Waiting for endpoint restorer before serving xDS resources...")
@@ -62,6 +62,9 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 			if errors.Is(err, context.Canceled) {
 				log.Debug("Envoy: xDS server stopped before started serving")
 				return
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Warningf("Envoy: Endpoint policy restoration took longer than %s, starting serving resources to Envoy", s.config.policyRestoreTimeout)
 			}
 			// Tell xdsServer it's time to start waiting for acknowledgements
 			xdsServer.RestoreCompleted()

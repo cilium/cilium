@@ -54,6 +54,7 @@ func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-d.endpointRestoreComplete:
 	case <-d.endpointInitialPolicyComplete:
 	}
 	return nil
