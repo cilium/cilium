@@ -46,7 +46,7 @@ func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
-func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
+func (d *Daemon) WaitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -54,6 +54,7 @@ func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-d.endpointRestoreComplete:
 	case <-d.endpointInitialPolicyComplete:
 	}
 	return nil
