@@ -56,7 +56,7 @@ func InitMap(mapEntries int) error {
 		&FragmentValue{},
 		mapEntries,
 		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapName))
+	).WithEvents(option.Config.GetEventBufferConfig(MapName)).WithPressureMetric()
 	return fragMap.Create()
 }
 
