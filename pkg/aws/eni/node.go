@@ -199,7 +199,13 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 
 // ReleaseIPs performs the ENI IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
-	return n.manager.api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease)
+	if err := n.manager.api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease); err != nil {
+		return err
+	}
+
+	n.manager.RemoveIPsFromENI(n.node.InstanceID(), r.InterfaceID, r.IPsToRelease)
+	return nil
+
 }
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
@@ -290,7 +296,12 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 			logfields.Node: n.k8sObj.Name,
 		}).Warning("Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore")
 	}
-	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
+	assignedIPs, err := n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
+	if err != nil {
+		return err
+	}
+	n.manager.AddIPsToENI(n.node.InstanceID(), a.InterfaceID, assignedIPs)
+	return nil
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
