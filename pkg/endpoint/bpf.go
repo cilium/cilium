@@ -614,6 +614,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// Signal computation of the initial Envoy policy even if we fail out so
+	// that Envoy xDS server can start serving even if some endpoint
+	// computations fail.
+	defer func() {
+		e.unconditionalLock()
+		e.InitialPolicyComputedLocked()
+		e.unlock()
+	}()
+
 	// lock the endpoint, read our values, then unlock
 	err := e.lockAlive()
 	if err != nil {
