@@ -7,6 +7,7 @@ package eni
 
 import (
 	"context"
+	"slices"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/sirupsen/logrus"
@@ -34,7 +35,7 @@ type EC2API interface {
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
-	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
+	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error)
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
@@ -273,6 +274,51 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	eniRevision := ipamTypes.InterfaceRevision{Resource: eni}
 	m.instances.Update(instanceID, eniRevision)
 	m.mutex.Unlock()
+}
+
+func (m *InstancesManager) AddIPsToENI(instanceID string, eniID string, ips []string) {
+	m.modifyIPsToENI(instanceID, eniID, ips, true)
+}
+
+func (m *InstancesManager) RemoveIPsFromENI(instanceID string, eniID string, ips []string) {
+	m.modifyIPsToENI(instanceID, eniID, ips, false)
+}
+
+func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips []string, isAdd bool) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	ifaces, ok := m.instances.GetInterface(instanceID, eniID)
+	if !ok {
+		log.WithFields(logrus.Fields{
+			"instance": instanceID,
+			"eni":      eniID,
+		}).Warning("ENI not found")
+		return
+	}
+
+	eniIntf := ifaces.Resource.DeepCopyInterface()
+	eni, ok := eniIntf.(*eniTypes.ENI)
+	if !ok {
+		log.WithFields(logrus.Fields{
+			"instance": instanceID,
+			"eni":      eniID,
+		}).Warning("Unexpected resource type, expected *eniTypes.ENI")
+		return
+	}
+	if isAdd {
+		for _, ip := range ips {
+			if !slices.Contains(eni.Addresses, ip) {
+				eni.Addresses = append(eni.Addresses, ip)
+			}
+		}
+	} else {
+		for _, ip := range ips {
+			eni.Addresses = slices.DeleteFunc(eni.Addresses, func(addr string) bool {
+				return addr == ip
+			})
+		}
+	}
+	m.instances.Update(instanceID, ipamTypes.InterfaceRevision{Resource: eni})
 }
 
 // ForeachInstance will iterate over each interface for a particular instance inside `instances`
