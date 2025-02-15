@@ -289,7 +289,7 @@ overloadManager:
 applicationLogConfig:
   logFormat:
     {{- if .Values.envoy.log.format_json }}
-    jsonFormat: "{{ .Values.envoy.log.format_json | toJson }}"
+    jsonFormat: {{ .Values.envoy.log.format_json | toJson }}
     {{- else }}
     textFormat: "{{ .Values.envoy.log.format }}"
     {{- end }}
