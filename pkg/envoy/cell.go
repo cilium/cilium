@@ -75,6 +75,7 @@ type ProxyConfig struct {
 	UseFullTLSContext                 bool
 	ProxyXffNumTrustedHopsIngress     uint32
 	ProxyXffNumTrustedHopsEgress      uint32
+	EnvoyPolicyRestoreTimeout         time.Duration
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -103,6 +104,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("use-full-tls-context", false, "If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.")
 	flags.Uint32("proxy-xff-num-trusted-hops-ingress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
 	flags.Uint32("proxy-xff-num-trusted-hops-egress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.")
+	flags.Duration("envoy-policy-restore-timeout", 3*time.Minute, "Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy")
 }
 
 type secretSyncConfig struct {
@@ -168,6 +170,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			useSDS:                        params.SecretManager.PolicySecretSyncEnabled(),
 			proxyXffNumTrustedHopsIngress: params.EnvoyProxyConfig.ProxyXffNumTrustedHopsIngress,
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
+			policyRestoreTimeout:          params.EnvoyProxyConfig.EnvoyPolicyRestoreTimeout,
 			metrics:                       params.Metrics,
 		},
 		params.SecretManager)
