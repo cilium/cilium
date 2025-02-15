@@ -18,5 +18,9 @@ metadata:
 data:
   # Keep the key name as bootstrap-config.json to avoid breaking changes
   bootstrap-config.json: |
-    {{- (tpl (.Files.Get "files/cilium-envoy/configmap/bootstrap-config.yaml") .) | fromYaml | toJson | nindent 4 }}
+    {{- $json := tpl (.Files.Get "files/cilium-envoy/configmap/bootstrap-config.yaml") . | fromYaml | toJson -}}
+    {{- if contains "error converting YAML to JSON" $json -}}
+      {{- fail (printf "bootstrap-config.yaml parse error: %s" $json) -}}
+    {{- end -}}
+    {{- $json | nindent 4 }}
 {{- end }}
