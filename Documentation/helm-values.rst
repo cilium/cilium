@@ -1368,6 +1368,10 @@
      - AppArmorProfile options for the ``cilium-agent`` and init containers
      - object
      - ``{"type":"Unconfined"}``
+   * - :spelling:ignore:`envoy.policyRestoreTimeoutDuration`
+     - Max duration to wait for endpoint policies to be restored on restart. Default "3m".
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.priorityClassName`
      - The priority class to use for cilium-envoy.
      - string

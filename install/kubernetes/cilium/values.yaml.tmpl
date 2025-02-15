@@ -2351,6 +2351,11 @@ envoy:
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyEgress: 0
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Max duration to wait for endpoint policies to be restored on restart. Default "3m".
+  policyRestoreTimeoutDuration: null
   # -- Envoy container image.
   image:
     # @schema
