@@ -1712,8 +1712,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.13.1"
-        digest: "sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b"
+        tag: "v0.13.2"
+        digest: "sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui backend security context.
@@ -1746,8 +1746,8 @@ hubble:
         # @schema
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.13.1"
-        digest: "sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6"
+        tag: "v0.13.2"
+        digest: "sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392"
         useDigest: true
         pullPolicy: "Always"
       # -- Hubble-ui frontend security context.
@@ -2375,9 +2375,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.3-1739240299-e85e926b0fa4cec519cefff54b60bd7942d7871b"
+    tag: "v1.32.3-1739534224-3e4b99dc5d1f98ec3606f457af2f54a8e1f36981"
     pullPolicy: "Always"
-    digest: "sha256:ced8a89d642d10d648471afc2d8737238f1479c368955e6f2553ded58029ac88"
+    digest: "sha256:b5936c5c42c2fa21424b6f59d5e0f86100709bf196492c0e86a613baca08ea57"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
