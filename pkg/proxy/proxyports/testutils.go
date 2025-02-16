@@ -6,6 +6,8 @@ package proxyports
 import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
+
+	"github.com/sirupsen/logrus"
 )
 
 type MockDatapathUpdater struct{}
@@ -26,7 +28,12 @@ func proxyPortsForTest() (*ProxyPorts, func()) {
 		TriggerFunc:  func(reasons []string) {},
 		ShutdownFunc: func() { close(triggerDone) },
 	})
+
+	oldLevel := log.Logger.GetLevel()
+	log.Logger.SetLevel(logrus.DebugLevel)
+
 	return p, func() {
+		log.Logger.SetLevel(oldLevel)
 		p.Trigger.Shutdown()
 		<-triggerDone
 	}
