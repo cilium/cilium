@@ -16,7 +16,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -31,8 +31,8 @@ type peerConfigStatusReconciler struct {
 	secretResource  resource.Resource[*slim_core_v1.Secret]
 	secretStore     resource.Store[*slim_core_v1.Secret]
 
-	peerConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	peerConfigStore    resource.Store[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
+	peerConfigResource resource.Resource[*v2.CiliumBGPPeerConfig]
+	peerConfigStore    resource.Store[*v2.CiliumBGPPeerConfig]
 }
 
 type peerConfigStatusReconcilerIn struct {
@@ -43,7 +43,7 @@ type peerConfigStatusReconcilerIn struct {
 	JobGroup     job.Group
 
 	SecretResource     resource.Resource[*slim_core_v1.Secret]
-	PeerConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
+	PeerConfigResource resource.Resource[*v2.CiliumBGPPeerConfig]
 }
 
 func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
@@ -156,14 +156,14 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 			}
 
 			updateStatus := false
-			for _, cond := range cilium_api_v2alpha1.AllBGPPeerConfigConditions {
+			for _, cond := range v2.AllBGPPeerConfigConditions {
 				if removed := meta.RemoveStatusCondition(&pc.Status.Conditions, cond); removed {
 					updateStatus = true
 				}
 			}
 
 			if updateStatus {
-				if _, err := u.cs.CiliumV2alpha1().CiliumBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
+				if _, err := u.cs.CiliumV2().CiliumBGPPeerConfigs().UpdateStatus(ctx, pc, meta_v1.UpdateOptions{}); err != nil {
 					// Failed to update status. Skip and retry.
 					continue
 				} else {
@@ -187,7 +187,7 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 	return err
 }
 
-func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, config *cilium_api_v2alpha1.CiliumBGPPeerConfig) error {
+func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, config *v2.CiliumBGPPeerConfig) error {
 	updateStatus := false
 
 	authSecretMissing := u.authSecretMissing(config)
@@ -201,7 +201,7 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	})
 
 	if updateStatus {
-		if _, err := u.cs.CiliumV2alpha1().CiliumBGPPeerConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{}); err != nil {
+		if _, err := u.cs.CiliumV2().CiliumBGPPeerConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -209,7 +209,7 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	return nil
 }
 
-func (u *peerConfigStatusReconciler) authSecretMissing(c *cilium_api_v2alpha1.CiliumBGPPeerConfig) bool {
+func (u *peerConfigStatusReconciler) authSecretMissing(c *v2.CiliumBGPPeerConfig) bool {
 	if c.Spec.AuthSecretRef == nil {
 		return false
 	}
@@ -219,9 +219,9 @@ func (u *peerConfigStatusReconciler) authSecretMissing(c *cilium_api_v2alpha1.Ci
 	return false
 }
 
-func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *cilium_api_v2alpha1.CiliumBGPPeerConfig, missing bool) bool {
+func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v2.CiliumBGPPeerConfig, missing bool) bool {
 	cond := meta_v1.Condition{
-		Type:               cilium_api_v2alpha1.BGPPeerConfigConditionMissingAuthSecret,
+		Type:               v2.BGPPeerConfigConditionMissingAuthSecret,
 		Status:             meta_v1.ConditionFalse,
 		ObservedGeneration: config.Generation,
 		LastTransitionTime: meta_v1.Now(),
