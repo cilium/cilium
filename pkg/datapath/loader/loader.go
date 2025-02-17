@@ -66,7 +66,10 @@ const (
 	secctxFromIpcacheEnabled
 )
 
-var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
+var (
+	log        logging.FieldLogger
+	initLogger = &sync.Once{}
+)
 
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
@@ -90,6 +93,7 @@ type loader struct {
 type Params struct {
 	cell.In
 
+	Log             logging.FieldLogger
 	Sysctl          sysctl.Sysctl
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
@@ -103,6 +107,10 @@ type Params struct {
 
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
+	initLogger.Do(func() {
+		log = p.Log
+	})
+
 	return &loader{
 		templateCache:     newObjectCache(p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
 		sysctl:            p.Sysctl,

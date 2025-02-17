@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
@@ -266,7 +267,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 // * Preprocessed C
 // * Assembly
 // * Object compiled with debug symbols
-func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logger *slog.Logger) error {
+func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logger logging.FieldLogger) error {
 	scopedLog := logger.With(slog.Bool(logfields.Debug, true))
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
