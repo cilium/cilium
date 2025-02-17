@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -19,9 +20,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func proxyForTest() (*Proxy, func()) {
+func proxyForTest(t *testing.T) (*Proxy, func()) {
 	mockDatapathUpdater := &proxyports.MockDatapathUpdater{}
-	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil)
+	p := createProxy(hivetest.Logger(t), 10000, 20000, mockDatapathUpdater, nil, nil)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Second,
@@ -66,7 +67,7 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	err := os.MkdirAll(socketDir, 0700)
 	require.NoError(t, err)
 
-	p, cleaner := proxyForTest()
+	p, cleaner := proxyForTest(t)
 	defer cleaner()
 
 	l4 := &fakeProxyPolicy{}
