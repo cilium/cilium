@@ -7,23 +7,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
 
+	"github.com/google/renameio/v2"
+	jsoniter "github.com/json-iterator/go"
+
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/google/renameio/v2"
-	jsoniter "github.com/json-iterator/go"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
 
 // field names used while logging
 const (
@@ -76,6 +74,8 @@ type ProxyPort struct {
 type proxyPortsMap map[string]*ProxyPort
 
 type ProxyPorts struct {
+	logger *slog.Logger
+
 	// rangeMin is the minimum port used for proxy port allocation
 	rangeMin uint16
 
@@ -110,11 +110,13 @@ type ProxyPorts struct {
 }
 
 func NewProxyPorts(
+	logger *slog.Logger,
 	minPort uint16,
 	maxPort uint16,
 	datapathUpdater DatapathUpdater,
 ) *ProxyPorts {
 	return &ProxyPorts{
+		logger:          logger,
 		rangeMin:        minPort,
 		rangeMax:        maxPort,
 		datapathUpdater: datapathUpdater,
@@ -274,7 +276,7 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	// mark proxy port as configured
 	pp.configured = true
 
-	log.WithField(fieldProxyRedirectID, name).Debugf("AllocateProxyPort: allocated proxy port %d (%v)", pp.ProxyPort, *pp)
+	p.logger.Debug("AllocateProxyPort: allocated proxy port", fieldProxyRedirectID, name, logfields.ProxyPort, *pp)
 
 	return pp.ProxyPort, nil
 }
@@ -318,7 +320,7 @@ func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPor
 // to keep the use count up-to-date.
 // Must be called with mutex held!
 func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
-	scopedLog := log.WithField(fieldProxyRedirectID, name)
+	scopedLog := p.logger.With(fieldProxyRedirectID, name)
 
 	if pp.ProxyPort == 0 {
 		return fmt.Errorf("ackProxyPort: zero port on %s not allowed", name)
@@ -335,7 +337,7 @@ func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPor
 	if pp.rulesPort != pp.ProxyPort {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
-		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.ProxyPort)
+		scopedLog.Info("Adding new proxy port rules", "name", name, logfields.ProxyPort, pp.ProxyPort)
 		p.datapathUpdater.InstallProxyRules(pp.ProxyPort, name)
 		pp.rulesPort = pp.ProxyPort
 
@@ -343,7 +345,7 @@ func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPor
 		p.Trigger.Trigger()
 	}
 	pp.acknowledged = true
-	scopedLog.Debugf("AckProxyPort: acked proxy port %d (%v)", pp.ProxyPort, *pp)
+	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, *pp)
 	return nil
 }
 
@@ -377,7 +379,7 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 
 				if pp.nRedirects == 0 {
 					pp.releaseCancel = nil
-					log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
+					p.logger.Debug("Delayed release of proxy port", fieldProxyRedirectID, name, logfields.ProxyPort, pp.ProxyPort)
 					p.reset(pp)
 
 					// Leave the datapath rules behind on the hope that they get reused
@@ -459,7 +461,7 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 			pp.addReference()
 			return listener, pp
 		}
-		log.Debugf("findProxyPortByType: can not find crd listener %s from %v", listener, p.proxyPorts)
+		p.logger.Debug("findProxyPortByType: can not find crd listener", logfields.Listener, listener, logfields.ProxyPort, p.proxyPorts)
 		return "", nil
 	case types.ProxyTypeDNS, types.ProxyTypeHTTP:
 		// Look up by the given type
@@ -489,12 +491,12 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	if p.proxyPortsPath == "" {
 		return nil // this is a unit test
 	}
-	log := log.WithField(logfields.Path, p.proxyPortsPath)
+	scopedLogger := p.logger.With(logfields.Path, p.proxyPortsPath)
 
 	// use renameio to prevent partial writes
 	out, err := renameio.NewPendingFile(p.proxyPortsPath, renameio.WithExistingPermissions(), renameio.WithPermissions(0o600))
 	if err != nil {
-		log.WithError(err).Error("failed to prepare proxy ports file")
+		scopedLogger.Error("failed to prepare proxy ports file", logfields.Error, err)
 		return err
 	}
 	defer out.Cleanup()
@@ -512,25 +514,23 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	p.mutex.Unlock()
 
 	if err := jw.Encode(portsMap); err != nil {
-		log.WithError(err).Error("failed to marshal proxy ports state")
+		scopedLogger.Error("failed to marshal proxy ports state", logfields.Error, err)
 		return err
 	}
 	if err := out.CloseAtomicallyReplace(); err != nil {
-		log.WithError(err).Error("failed to write proxy ports file")
+		scopedLogger.Error("failed to write proxy ports file", logfields.Error, err)
 		return err
 	}
-	log.Debug("Wrote proxy ports state")
+	scopedLogger.Debug("Wrote proxy ports state")
 	return nil
 }
 
-var (
-	staleProxyPortsFile = errors.New("proxy ports file is too old")
-)
+var staleProxyPortsFile = errors.New("proxy ports file is too old")
 
 // restore proxy ports from file created earlier by storeProxyPorts
 // must be called with mutex held
 func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint) error {
-	log := log.WithField(logfields.Path, p.proxyPortsPath)
+	scopedLogger := p.logger.With(logfields.Path, p.proxyPortsPath)
 
 	// Check that the file exists and is not too old
 	stat, err := os.Stat(p.proxyPortsPath)
@@ -562,10 +562,9 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 		}
 		p.proxyPorts[name] = pp
 		p.allocatedPorts[pp.ProxyPort] = false
-		log.
-			WithField(fieldProxyRedirectID, name).
-			WithField("proxyPort", pp.ProxyPort).
-			Debugf("RestoreProxyPorts: preallocated proxy port")
+		scopedLogger.Debug("RestoreProxyPorts: preallocated proxy port",
+			fieldProxyRedirectID, name,
+			"proxyPort", pp.ProxyPort)
 	}
 	return nil
 }
@@ -591,10 +590,9 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 			p.proxyPorts[name] = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false, ProxyPort: port}
 		}
 		p.allocatedPorts[port] = false
-		log.
-			WithField(fieldProxyRedirectID, name).
-			WithField("proxyPort", port).
-			Debugf("RestoreProxyPorts: preallocated proxy port from iptables")
+		p.logger.Debug("RestoreProxyPorts: preallocated proxy port from iptables",
+			fieldProxyRedirectID, name,
+			"proxyPort", port)
 	}
 }
 
@@ -608,7 +606,7 @@ func (p *ProxyPorts) RestoreProxyPorts(restoredProxyPortsStaleLimit uint) {
 
 	err := p.restoreProxyPortsFromFile(restoredProxyPortsStaleLimit)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Path, p.proxyPortsPath).Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules")
+		p.logger.Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules", logfields.Path, p.proxyPortsPath, logfields.Error, err)
 		p.restoreProxyPortsFromIptables()
 	}
 }

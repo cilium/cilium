@@ -9,8 +9,11 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
 
 var (
 	// procNetTCPFiles is the constant list of /proc/net files to read to get
