@@ -628,7 +628,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 {
 	struct lb6_service *svc;
 
-	key->scope = LB_LOOKUP_SCOPE_EXT;
+	key->scope = LB_LOOKUP_SCOPE_LIMITED;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 
@@ -643,7 +643,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			return svc;
-		key->scope = LB_LOOKUP_SCOPE_INT;
+		key->scope = LB_LOOKUP_SCOPE_FULL;
 		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	}
 
@@ -1348,7 +1348,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 {
 	struct lb4_service *svc;
 
-	key->scope = LB_LOOKUP_SCOPE_EXT;
+	key->scope = LB_LOOKUP_SCOPE_LIMITED;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 
@@ -1363,7 +1363,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			return svc;
-		key->scope = LB_LOOKUP_SCOPE_INT;
+		key->scope = LB_LOOKUP_SCOPE_FULL;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	}
 

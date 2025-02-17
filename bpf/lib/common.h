@@ -668,9 +668,9 @@ enum {
 #define REASON_FRAG_PACKET_UPDATE	10
 #define REASON_MISSED_CUSTOM_CALL	11
 
-/* Lookup scope for externalTrafficPolicy=Local */
-#define LB_LOOKUP_SCOPE_EXT	0
-#define LB_LOOKUP_SCOPE_INT	1
+/* Lookup scope for internalTrafficPolicy / externalTrafficPolicy */
+#define LB_LOOKUP_SCOPE_LIMITED	0	/* == Local */
+#define LB_LOOKUP_SCOPE_FULL	1	/* == Cluster */
 
 /* Cilium metrics direction for dropping/forwarding packet */
 enum metric_dir {
