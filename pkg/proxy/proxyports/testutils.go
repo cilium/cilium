@@ -4,6 +4,9 @@
 package proxyports
 
 import (
+	"log/slog"
+
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -19,7 +22,7 @@ func (m *MockDatapathUpdater) GetProxyPorts() map[string]uint16 {
 
 func proxyPortsForTest() (*ProxyPorts, func()) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
-	p := NewProxyPorts(10000, 20000, mockDatapathUpdater)
+	p := NewProxyPorts(slog.New(logging.SlogNopHandler), 10000, 20000, mockDatapathUpdater)
 	triggerDone := make(chan struct{})
 	p.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Millisecond,
