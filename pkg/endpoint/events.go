@@ -366,8 +366,8 @@ func (e *Endpoint) Start(id uint16) {
 	defer e.unlock()
 
 	e.ID = id
-	e.UpdateLogger(map[string]interface{}{
-		logfields.EndpointID: e.ID,
+	e.UpdateLogger(map[string]slog.Value{
+		logfields.EndpointID: slog.Uint64Value(uint64(e.ID)),
 	})
 
 	// Start goroutines that are responsible for handling events.

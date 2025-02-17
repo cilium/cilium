@@ -50,10 +50,23 @@ func (e *Endpoint) PolicyDebug(msg string, attrs ...any) {
 // revision fields. The caller must specify their subsystem.
 func (e *Endpoint) Logger(subsystem string) *slog.Logger {
 	if e == nil {
-		return log.With(slog.String(logfields.LogSubsys, subsystem))
+		return logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
 	}
+	logAttrs := []any{
+		slog.String(logfields.LogSubsys, subsystem),
+	}
+	e.loggerAttrs.Range(func(k, v interface{}) bool {
+		if k == logfields.LogSubsys {
+			return true
+		}
+		logAttrs = append(logAttrs, slog.Attr{
+			Key:   k.(string),
+			Value: v.(slog.Value),
+		})
+		return true
+	})
 
-	return e.getLogger().With(slog.String(logfields.LogSubsys, subsystem))
+	return logging.DefaultLogger.With(logAttrs...)
 }
 
 // UpdateLogger creates a logger instance specific to this endpoint. It will
@@ -64,52 +77,56 @@ func (e *Endpoint) Logger(subsystem string) *slog.Logger {
 // Note: You must hold Endpoint.mutex.Lock() to synchronize logger pointer
 // updates if the endpoint is already exposed. Callers that create new
 // endpoints do not need locks to call this.
-func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
+func (e *Endpoint) UpdateLogger(fields map[string]slog.Value) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
 	if fields != nil && epLogger != nil {
-		var attrs []any
 		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
+			e.loggerAttrs.Store(k, v)
 		}
-		newLogger := epLogger.With(attrs...)
-		e.logger.Store(newLogger)
-		return
+	} else {
+		// We need to update if
+		// - e.logger is nil (this happens on the first ever call to UpdateLogger via
+		//   Logger above). This clause has to come first to guard the others.
+		// - If any of EndpointID, containerID or policyRevision are different on the
+		//   endpoint from the logger.
+		// - The debug option on the endpoint is true, and the logger is not debug,
+		//   or vice versa.
+		shouldUpdate := epLogger == nil || (e.Options != nil &&
+			e.Options.IsEnabled(option.Debug) != (epLogger.Enabled(context.Background(), slog.LevelDebug)))
+
+		// do nothing if we do not need an update
+		if !shouldUpdate {
+			return
+		}
+
+		// When adding new fields, make sure they are abstracted by a setter
+		// and update the logger when the value is set.
+		e.loggerAttrs.Store(logfields.LogSubsys, slog.StringValue(subsystem))
+		e.loggerAttrs.Store(logfields.EndpointID, slog.Uint64Value(uint64(e.ID)))
+		e.loggerAttrs.Store(logfields.ContainerID, slog.StringValue(e.GetShortContainerID()))
+		e.loggerAttrs.Store(logfields.ContainerInterface, slog.StringValue(e.containerIfName))
+		e.loggerAttrs.Store(logfields.DatapathPolicyRevision, slog.Uint64Value(e.policyRevision))
+		e.loggerAttrs.Store(logfields.DesiredPolicyRevision, slog.Uint64Value(e.nextPolicyRevision))
+		e.loggerAttrs.Store(logfields.IPv4, slog.StringValue(e.GetIPv4Address()))
+		e.loggerAttrs.Store(logfields.IPv6, slog.StringValue(e.GetIPv6Address()))
+		e.loggerAttrs.Store(logfields.K8sPodName, slog.StringValue(e.GetK8sNamespaceAndPodName()))
+		e.loggerAttrs.Store(logfields.CEPName, slog.StringValue(e.GetK8sNamespaceAndCEPName()))
+
+		if e.SecurityIdentity != nil {
+			e.loggerAttrs.Store(logfields.Identity, slog.StringValue(e.SecurityIdentity.ID.StringID()))
+		}
 	}
 
-	// We need to update if
-	// - e.logger is nil (this happens on the first ever call to UpdateLogger via
-	//   Logger above). This clause has to come first to guard the others.
-	// - If any of EndpointID, containerID or policyRevision are different on the
-	//   endpoint from the logger.
-	// - The debug option on the endpoint is true, and the logger is not debug,
-	//   or vice versa.
-	shouldUpdate := epLogger == nil || (e.Options != nil &&
-		e.Options.IsEnabled(option.Debug) != (epLogger.Enabled(context.Background(), slog.LevelDebug)))
-
-	// do nothing if we do not need an update
-	if !shouldUpdate {
-		return
-	}
-
-	// When adding new fields, make sure they are abstracted by a setter
-	// and update the logger when the value is set.
-	f := []any{
-		slog.String(logfields.LogSubsys, subsystem),
-		slog.Uint64(logfields.EndpointID, uint64(e.ID)),
-		slog.String(logfields.ContainerID, e.GetShortContainerID()),
-		slog.String(logfields.ContainerInterface, e.containerIfName),
-		slog.Uint64(logfields.DatapathPolicyRevision, e.policyRevision),
-		slog.Uint64(logfields.DesiredPolicyRevision, e.nextPolicyRevision),
-		slog.String(logfields.IPv4, e.GetIPv4Address()),
-		slog.String(logfields.IPv6, e.GetIPv6Address()),
-		slog.String(logfields.K8sPodName, e.GetK8sNamespaceAndPodName()),
-		slog.String(logfields.CEPName, e.GetK8sNamespaceAndCEPName()),
-	}
-
-	if e.SecurityIdentity != nil {
-		f = append(f, slog.String(logfields.Identity, e.SecurityIdentity.ID.StringID()))
-	}
+	var f []any
+	e.loggerAttrs.Range(func(k, v any) bool {
+		f = append(f, slog.Attr{
+			Key:   k.(string),
+			Value: v.(slog.Value),
+		},
+		)
+		return true
+	})
 
 	// Inherit properties from default logger.
 	baseLogger := logging.DefaultLogger.With(f...)
@@ -126,7 +143,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 }
 
 // Only to be called from UpdateLogger() above
-func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
+func (e *Endpoint) updatePolicyLogger(fields map[string]slog.Value) {
 	policyLogger := e.policyLogger.Load()
 	// e.Options check needed for unit testing.
 	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {
@@ -150,13 +167,13 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			LocalTime:  true,
 			Compress:   true,
 		}
-		// FIXME @aanm
-		_ = lumberjackLogger
-		// policyLog.SetOutput(lumberjackLogger)
-		// policyLog.SetLevel(logrus.DebugLevel)
-		// policyLog.SetFormatter(logging.GetHandler(logging.DefaultLogFormatTimestamp))
+		baseLogger := slog.New(slog.NewTextHandler(lumberjackLogger, &slog.HandlerOptions{
+			Level:       slog.LevelDebug,
+			ReplaceAttr: logging.ReplaceAttrFn,
+		}))
+		e.basePolicyLogger.Store(baseLogger)
 
-		policyLogger = policyLog
+		policyLogger = baseLogger
 	}
 	if policyLogger == nil || e.Options == nil {
 		return
@@ -164,29 +181,38 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 
 	if !e.Options.IsEnabled(option.DebugPolicy) {
 		policyLogger = nil
-	} else if fields != nil {
-		var attrs []any
-		for k, v := range fields {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-		policyLogger = policyLogger.With(attrs...)
+		e.basePolicyLogger.Store(nil)
 	} else {
-		f := []any{
-			slog.String(logfields.LogSubsys, subsystem),
-			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
-			slog.String(logfields.ContainerID, e.GetShortContainerID()),
-			slog.Uint64(logfields.DatapathPolicyRevision, e.policyRevision),
-			slog.Uint64(logfields.DesiredPolicyRevision, e.nextPolicyRevision),
-			slog.String(logfields.IPv4, e.GetIPv4Address()),
-			slog.String(logfields.IPv6, e.GetIPv6Address()),
-			slog.String(logfields.K8sPodName, e.GetK8sNamespaceAndPodName()),
-		}
+		if fields != nil {
+			for k, v := range fields {
+				e.policyLoggerAttrs.Store(k, v)
+			}
+		} else {
+			e.policyLoggerAttrs.Store(logfields.LogSubsys, slog.StringValue(subsystem))
+			e.policyLoggerAttrs.Store(logfields.EndpointID, slog.Uint64Value(uint64(e.ID)))
+			e.policyLoggerAttrs.Store(logfields.ContainerID, slog.StringValue(e.GetShortContainerID()))
+			e.policyLoggerAttrs.Store(logfields.DatapathPolicyRevision, slog.Uint64Value(e.policyRevision))
+			e.policyLoggerAttrs.Store(logfields.DesiredPolicyRevision, slog.Uint64Value(e.nextPolicyRevision))
+			e.policyLoggerAttrs.Store(logfields.IPv4, slog.StringValue(e.GetIPv4Address()))
+			e.policyLoggerAttrs.Store(logfields.IPv6, slog.StringValue(e.GetIPv6Address()))
+			e.policyLoggerAttrs.Store(logfields.K8sPodName, slog.StringValue(e.GetK8sNamespaceAndPodName()))
 
-		if e.SecurityIdentity != nil {
-			f = append(f, slog.String(logfields.Identity, e.SecurityIdentity.ID.StringID()))
-		}
+			if e.SecurityIdentity != nil {
+				e.policyLoggerAttrs.Store(logfields.Identity, slog.StringValue(e.SecurityIdentity.ID.StringID()))
+			}
 
-		policyLogger = policyLogger.With(f...)
+		}
+		var attrs []any
+		e.policyLoggerAttrs.Range(func(k, v any) bool {
+			attrs = append(attrs, slog.Attr{
+				Key:   k.(string),
+				Value: v.(slog.Value),
+			},
+			)
+			return true
+		})
+
+		policyLogger = e.basePolicyLogger.Load().With(attrs...)
 	}
 	e.policyLogger.Store(policyLogger)
 }

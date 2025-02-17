@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -361,11 +362,19 @@ type Endpoint struct {
 	// deletion during builds
 	buildMutex lock.Mutex
 
+	// loggerAttrs are attributes.
+	loggerAttrs sync.Map
+
+	// loggerAttrs are attributes.
+	policyLoggerAttrs sync.Map
+
 	// logger is a logrus object with fields set to report an endpoints information.
 	// This must only be accessed with atomic.LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
 	logger atomic.Pointer[slog.Logger]
+
+	basePolicyLogger atomic.Pointer[slog.Logger]
 
 	// policyLogger is a logrus object with fields set to report an endpoints information.
 	// This must only be accessed with atomic LoadPointer/StorePointer.
@@ -2179,7 +2188,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	newLabels := e.OpLabels.IdentityLabels()
 	myChangeRev := e.identityRevision
 	scopedLog := e.getLogger().With(
-		slog.Uint64(logfields.EndpointID, uint64(e.ID)),
 		slog.Any(logfields.IdentityLabels, newLabels),
 	)
 
@@ -2370,8 +2378,8 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 
 	now := time.Now()
 	e.policyRevision = rev
-	e.UpdateLogger(map[string]interface{}{
-		logfields.DatapathPolicyRevision: e.policyRevision,
+	e.UpdateLogger(map[string]slog.Value{
+		logfields.DatapathPolicyRevision: slog.Uint64Value(e.policyRevision),
 	})
 	for ps := range e.policyRevisionSignals {
 		select {

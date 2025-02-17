@@ -118,8 +118,8 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16
 // Must be called with the endpoint lock held for at least reading
 func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 	e.nextPolicyRevision = revision
-	e.UpdateLogger(map[string]interface{}{
-		logfields.DesiredPolicyRevision: e.nextPolicyRevision,
+	e.UpdateLogger(map[string]slog.Value{
+		logfields.DesiredPolicyRevision: slog.Uint64Value(e.nextPolicyRevision),
 	})
 }
 
@@ -1092,8 +1092,8 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 			slog.Any(logfields.IdentityLabels, identity.Labels),
 		)
 	}
-	e.UpdateLogger(map[string]interface{}{
-		logfields.Identity: identity.StringID(),
+	e.UpdateLogger(map[string]slog.Value{
+		logfields.Identity: slog.StringValue(identity.StringID()),
 	})
 }
 

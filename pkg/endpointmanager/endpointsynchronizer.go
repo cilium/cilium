@@ -55,7 +55,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		controllerName = endpoint.EndpointSyncControllerName(endpointID)
 		scopedLog      = e.Logger(subsysEndpointSync).With(
 			slog.String("controller", controllerName),
-			slog.Uint64("endpointID", uint64(e.ID)),
 		)
 	)
 
