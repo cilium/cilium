@@ -428,13 +428,13 @@ jobs:
         env:
           EGW_IMAGE_TAG: ${{ env.egw_utils_ref }}
         run: |
-          if [[ "${{ matrix.test_type }}" == "md-bs" ]]; then
-            ./preflight.sh baseline
-          else
-            ./preflight.sh
-          fi
+          get_node_internal_ip() {
+            kubectl get node -l "$1" -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' | \
+              awk '{print $1}'  # Ignore the IPv6 address in dual stack clusters
+          }
 
-          cat ./manifests/*
+          echo CL2_EGW_GATEWAY_ADDRESS=$(get_node_internal_ip "role.scaffolding/egw-node=true") >> $GITHUB_ENV
+          echo CL2_EGW_EXTERNAL_TARGET=$(get_node_internal_ip "cilium.io/no-schedule=true") >> $GITHUB_ENV
 
       - name: Run CL2
         id: run-cl2
@@ -448,6 +448,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: "2.0"
           CL2_PROMETHEUS_NODE_SELECTOR: 'role.scaffolding/monitoring: "true"'
+          CL2_EGW_TEST_IMAGE: quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }}
           CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
