@@ -95,6 +95,8 @@ const (
 
 	// CPIPCRDName is the full name of the CiliumPodIPPool CRD.
 	CPIPCRDName = k8sconstv2alpha1.CPIPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+	// CGCCCRDName is the full name of the CiliumGatewayClassConfig CRD.
+	CGCCCRDName = k8sconstv2alpha1.CGCCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 // log is the k8s package logger object.
@@ -197,6 +199,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     CPIPCRDName,
 			FullName: k8sconstv2alpha1.CPIPName,
 		},
+		synced.CRDResourceName(k8sconstv2alpha1.CGCCName): {
+			Name:     CGCCCRDName,
+			FullName: k8sconstv2alpha1.CGCCName,
+		},
 	}
 }
 
@@ -283,6 +289,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumpodippools.yaml
 	crdsv2Alpha1CiliumPodIPPools []byte
+
+	//go:embed crds/v2alpha1/ciliumgatewayclassconfigs.yaml
+	crdsv2Alpha1CiliumGatewayClassConfigs []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -342,6 +351,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Alpha1CiliumL2AnnouncementPolicies
 	case CPIPCRDName:
 		crdBytes = crdsv2Alpha1CiliumPodIPPools
+	case CGCCCRDName:
+		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
