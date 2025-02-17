@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -29,12 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// allService is a resource.Resource[*slim_corev1.Service]
-type allService resource.Resource[*slim_corev1.Service]
-
-// allEndpoint is a resource.Resource[*slim_corev1.Service]
-type allEndpoint resource.Resource[*k8s.Endpoints]
-
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 // and L7 loadbalancing.
 var Cell = cell.Module(
@@ -46,14 +39,6 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
-	cell.ProvidePrivate(
-		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allService, error) {
-			return k8s.ServiceResource(lc, cfg, cs)
-		},
-		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allEndpoint, error) {
-			return k8s.EndpointsResource(lc, cfg, cs)
-		},
-	),
 	cell.ProvidePrivate(newPortAllocator),
 
 	experimentalCell,
@@ -88,7 +73,7 @@ type reconcilerParams struct {
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
 	LocalNodeStore *node.LocalNodeStore
 
-	EndpointResources allEndpoint
+	EndpointResources resource.Resource[*k8s.Endpoints]
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
@@ -169,8 +154,8 @@ type managerParams struct {
 	BackendSyncer  *envoyServiceBackendSyncer
 	ResourceParser *cecResourceParser
 
-	Services  allService
-	Endpoints allEndpoint
+	Services  resource.Resource[*slim_corev1.Service]
+	Endpoints resource.Resource[*k8s.Endpoints]
 
 	MetricsManager CECMetrics
 }
