@@ -103,9 +103,9 @@ func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16
 	return p.proxyPorts.SetProxyPort(name, proxyType, port, ingress)
 }
 
-// OpenLocalPorts returns the set of L4 ports currently open locally.
-func (p *Proxy) OpenLocalPorts() map[uint16]struct{} {
-	return p.proxyPorts.OpenLocalPorts()
+// GetOpenLocalPorts returns the set of L4 ports currently open locally.
+func (p *Proxy) GetOpenLocalPorts() map[uint16]struct{} {
+	return p.proxyPorts.GetOpenLocalPorts()
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
