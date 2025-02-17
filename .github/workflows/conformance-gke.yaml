@@ -265,6 +265,7 @@ jobs:
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ matrix.k8s.zone }} \
             --cluster-version ${{ matrix.k8s.version }} \
+            --enable-dataplane-v2 \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
