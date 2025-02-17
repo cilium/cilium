@@ -1,11 +1,11 @@
 steps:
 - name: "{{ .action }} masquerade delay metrics"
   measurements:
-  - Identifier: EGWMasqueradeDelayMetrics
+  - Identifier: EGWMasqueradeDelayMetrics{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Masquerade Delay Metrics"
+      metricName: "EGW Masquerade Delay Metrics ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: s
       queries:
@@ -18,11 +18,11 @@ steps:
       - name: EGW Masquerade Delay - 99th Percentile
         query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
 
-  - Identifier: EGWLeakedPingsMetrics
+  - Identifier: EGWLeakedPingsMetrics{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Leaked Pings Metrics"
+      metricName: "EGW Leaked Pings Metrics ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: count
       queries:
@@ -35,22 +35,22 @@ steps:
       - name: EGW Leaked Pings - 99th Percentile
         query: quantile(0.99, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
 
-  - Identifier: EGWLeakedPingsTotal
+  - Identifier: EGWLeakedPingsTotal{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Leaked Pings Total"
+      metricName: "EGW Leaked Pings Total ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: count
       queries:
       - name: EGW Leaked Pings - Total
         query: sum(egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
 
-  - Identifier: EGWPodCountMetrics
+  - Identifier: EGWPodCountMetrics{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Pod Count Metrics"
+      metricName: "EGW Pod Count Metrics ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: pod
       queries:
