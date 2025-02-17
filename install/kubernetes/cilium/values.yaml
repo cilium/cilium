@@ -1929,7 +1929,7 @@ ipam:
   # -- Maximum rate at which the CiliumNode custom resource is updated.
   ciliumNodeUpdateRate: "15s"
   # -- Pre-allocation settings for IPAM in Multi-Pool mode
-  multiPoolPreAllocation: ""
+  # multiPoolPreAllocation: ""
   # -- Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
   installUplinkRoutesForDelegatedIPAM: false
   operator:
