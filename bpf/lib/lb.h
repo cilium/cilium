@@ -624,7 +624,7 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-				       const bool scope_switch)
+				       const bool full_scope_allowed)
 {
 	struct lb6_service *svc;
 
@@ -640,9 +640,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	}
 #endif
 
-	if (svc) {
-		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
-			return svc;
+	if (svc && lb6_svc_is_two_scopes(svc) && full_scope_allowed) {
 		key->scope = LB_LOOKUP_SCOPE_FULL;
 		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	}
@@ -1344,10 +1342,23 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				       const bool scope_switch)
+				       const bool full_scope_allowed)
 {
 	struct lb4_service *svc;
 
+	/* To support externalTrafficPolicy / internalTrafficPolicy,
+	 * a service potentially has two entries. The LIMITED entry only
+	 * contains node-local backends, while the FULL entry contains all
+	 * backends in the cluster.
+	 *
+	 * For a service where eTP and iTP define the same scope, this isn't
+	 * necessary and the controlplane produces only one entry with all
+	 * relevant backends.
+	 *
+	 * We first look up with LIMITED scope. If the resulting entry indicates
+	 * that a second entry with FULL scope exists and the eTP / iTP allows for
+	 * it, we switch over to a lookup with FULL scope.
+	 */
 	key->scope = LB_LOOKUP_SCOPE_LIMITED;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
@@ -1360,9 +1371,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	}
 #endif
 
-	if (svc) {
-		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
-			return svc;
+	if (svc && lb4_svc_is_two_scopes(svc) && full_scope_allowed) {
 		key->scope = LB_LOOKUP_SCOPE_FULL;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	}
