@@ -61,7 +61,7 @@ type DescribeVpcEndpointsInput struct {
 	//   | available | deleting | deleted | rejected | failed ).
 	//
 	//   - vpc-endpoint-type - The type of VPC endpoint ( Interface | Gateway |
-	//   GatewayLoadBalancer ).
+	//   GatewayLoadBalancer | Resource | ServiceNetwork ).
 	Filters []types.Filter
 
 	// The maximum number of items to return for this request. The request returns a
