@@ -4,6 +4,10 @@
 package proxyports
 
 import (
+	"testing"
+
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -17,9 +21,9 @@ func (m *MockDatapathUpdater) GetProxyPorts() map[string]uint16 {
 	return nil
 }
 
-func proxyPortsForTest() (*ProxyPorts, func()) {
+func proxyPortsForTest(t *testing.T) (*ProxyPorts, func()) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
-	p := NewProxyPorts(10000, 20000, mockDatapathUpdater)
+	p := NewProxyPorts(hivetest.Logger(t), 10000, 20000, mockDatapathUpdater)
 	triggerDone := make(chan struct{})
 	p.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Millisecond,

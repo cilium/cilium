@@ -64,7 +64,7 @@ func createProxy(
 		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
-		proxyPorts:       proxyports.NewProxyPorts(minPort, maxPort, datapathUpdater),
+		proxyPorts:       proxyports.NewProxyPorts(logger, minPort, maxPort, datapathUpdater),
 	}
 }
 
