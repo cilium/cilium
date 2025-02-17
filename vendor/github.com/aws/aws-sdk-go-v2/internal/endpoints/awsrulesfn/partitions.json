@@ -92,6 +92,9 @@
       "me-south-1" : {
         "description" : "Middle East (Bahrain)"
       },
+      "mx-central-1" : {
+        "description" : "Mexico (Central)"
+      },
       "sa-east-1" : {
         "description" : "South America (Sao Paulo)"
       },
