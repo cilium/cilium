@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -113,6 +113,7 @@ func AllCiliumCRDResourceNames() []string {
 		AgentCRDResourceNames(),
 		CRDResourceName(v2.CNCName),
 		CRDResourceName(v2alpha1.CNCName), // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
+		CRDResourceName(v2alpha1.CGCCName),
 	)
 }
 
