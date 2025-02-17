@@ -315,7 +315,7 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 	if pp == nil {
 		return proxyNotFoundError(name)
 	}
-	err := p.ackProxyPort(ctx, name, pp) // creates datapath rules
+	err := p.ackProxyPort(name, pp) // creates datapath rules
 	if err == nil {
 		pp.addReference()
 	}
@@ -328,14 +328,14 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return p.ackProxyPort(ctx, name, pp)
+	return p.ackProxyPort(name, pp)
 }
 
 // ackProxyPort() increases proxy port reference count and creates or updates the datapath rules.
 // Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
 // Must be called with mutex held!
-func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
+func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	scopedLog := p.logger.With(fieldProxyRedirectID, name)
 
 	if pp.ProxyPort == 0 {
@@ -370,13 +370,13 @@ func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPor
 func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) error {
 	pp := p.proxyPorts[name]
 	if pp == nil {
-		return fmt.Errorf("Can't find proxy port %s", name)
+		return fmt.Errorf("failed to find proxy port %s", name)
 	}
 
 	if pp.nRedirects <= 0 {
 		nRedirects := pp.nRedirects
 		pp.nRedirects = 0
-		return fmt.Errorf("Can't release proxy port with has non-positive reference count: %d", nRedirects)
+		return fmt.Errorf("failed to release proxy port with has non-positive reference count: %d", nRedirects)
 	}
 
 	pp.nRedirects--
@@ -541,7 +541,7 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	return nil
 }
 
-var staleProxyPortsFile = errors.New("proxy ports file is too old")
+var errStaleProxyPortsFile = errors.New("proxy ports file is too old")
 
 // restore proxy ports from file created earlier by storeProxyPorts
 // must be called with mutex held
@@ -554,7 +554,7 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 		return err
 	}
 	if time.Since(stat.ModTime()) > time.Duration(restoredProxyPortsStaleLimit)*time.Minute {
-		return staleProxyPortsFile
+		return errStaleProxyPortsFile
 	}
 
 	// Read in checkpoint file
@@ -661,7 +661,7 @@ func (p *ProxyPorts) SetProxyPort(name string, proxyType types.ProxyType, port u
 		p.proxyPorts[name] = pp
 	}
 	if pp.nRedirects > 0 {
-		return fmt.Errorf("Can't set proxy port to %d: proxy %s is already configured on %d", port, name, pp.ProxyPort)
+		return fmt.Errorf("failed to set proxy port to %d: proxy %s is already configured on %d", port, name, pp.ProxyPort)
 	}
 	pp.ProxyPort = port
 	pp.isStatic = true // prevents release of the proxy port
