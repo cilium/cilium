@@ -41,6 +41,16 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=cilium.io, Version=v2
+	case v2.SchemeGroupVersion.WithResource("ciliumbgpadvertisements"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumBGPAdvertisements().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("ciliumbgpclusterconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumBGPClusterConfigs().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("ciliumbgpnodeconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumBGPNodeConfigs().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("ciliumbgpnodeconfigoverrides"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumBGPNodeConfigOverrides().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("ciliumbgppeerconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumBGPPeerConfigs().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumclusterwideenvoyconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumClusterwideEnvoyConfigs().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumclusterwidenetworkpolicies"):

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +15,7 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpclusterconfig",path="ciliumbgpclusterconfigs",scope="Cluster",shortName={cbgpcluster}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumBGPClusterConfig is the Schema for the CiliumBGPClusterConfig API
 type CiliumBGPClusterConfig struct {
@@ -134,20 +135,6 @@ type CiliumBGPPeer struct {
 
 // PeerConfigReference is a reference to a peer configuration resource.
 type PeerConfigReference struct {
-	// Group is the group of the peer config resource.
-	// If not specified, the default of "cilium.io" is used.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="cilium.io"
-	Group string `json:"group"`
-
-	// Kind is the kind of the peer config resource.
-	// If not specified, the default of "CiliumBGPPeerConfig" is used.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="CiliumBGPPeerConfig"
-	Kind string `json:"kind"`
-
 	// Name is the name of the peer config resource.
 	// Name refers to the name of a Kubernetes object (typically a CiliumBGPPeerConfig).
 	//
