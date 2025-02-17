@@ -5,9 +5,9 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
-	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
@@ -120,29 +120,32 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	// the command will use the default routing table (main).
 	// to lookup such value from a different table, use defaultDeviceFromTable.
 	//
-	// example string output:
-	// "172.18.0.2 dev eth0 src 172.18.0.4 uid 0 \n    cache \n"
+	// example json output:
+	// [{"dst":"192.168.109.96","gateway":"192.168.128.1","dev":"ens5","prefsrc":"192.168.159.49","flags":[],"uid":0,"cache":[]}]
 	deviceFromIPRoute := func(dstIP string) (string, error) {
 		out, err := srcHostNS.K8sClient.ExecInPod(ctx,
 			srcHostNS.Pod.Namespace,
 			srcHostNS.Pod.Name,
 			"",
-			[]string{"ip", "route", "get", dstIP})
+			[]string{"ip", "-j", "route", "get", dstIP})
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
 		}
 
-		// search for dev key in ip route output, next token will be the device name
-		// itself.
-		outArray := strings.Split(out.String(), " ")
-		for i, val := range outArray {
-			if val == "dev" {
-				if i+1 > len(outArray)-1 {
-					// should never really happen...
-					return "", fmt.Errorf("Failed to find egress device")
-				}
-				return outArray[i+1], nil
+		routes := []struct {
+			Dev string `json:"dev,omitempty"`
+		}{}
+
+		err = json.Unmarshal(out.Bytes(), &routes)
+		if err != nil {
+			return "", fmt.Errorf("Failed to parse ip route to json: %w", err)
+		}
+
+		// search for dev key in ip route output.
+		for _, route := range routes {
+			if route.Dev != "" {
+				return route.Dev, nil
 			}
 		}
 
@@ -152,33 +155,33 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	// defaultDeviceFromTable issues `ip route show table X` in provided host network
 	// namespace and extract device from the default route in the routing table X.
 	//
-	// example string output:
-	// "default via 192.168.128.1 dev ens6"
+	// example json output:
+	// [{"dst":"default","gateway":"192.168.128.1","dev":"ens6","flags":[]},{"dst":"192.168.128.1","dev":"ens6","scope":"link","flags":[]}]
 	defaultDeviceFromTable := func(table string) (string, error) {
 		out, err := srcHostNS.K8sClient.ExecInPod(ctx,
 			srcHostNS.Pod.Namespace,
 			srcHostNS.Pod.Name,
 			"",
-			[]string{"ip", "route", "show", "table", table})
+			[]string{"ip", "-j", "route", "show", "table", table})
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to retrieve ip routes for table %s: %w", table, err)
 		}
 
+		routes := []struct {
+			Dst string `json:"dst,omitempty"`
+			Dev string `json:"dev,omitempty"`
+		}{}
+
+		err = json.Unmarshal(out.Bytes(), &routes)
+		if err != nil {
+			return "", fmt.Errorf("Failed to parse ip rules to json: %w", err)
+		}
+
 		// search for dev key in ip route output for the default route.
-		// next token after "dev" will be the device name itself.
-		for _, line := range strings.Split(out.String(), "\n") {
-			if strings.Contains(line, "default") {
-				words := strings.Split(line, " ")
-				for i, val := range words {
-					if val == "dev" {
-						if i+1 > len(words)-1 {
-							// should never really happen...
-							return "", fmt.Errorf("Failed to find egress device from table %s", table)
-						}
-						return words[i+1], nil
-					}
-				}
+		for _, route := range routes {
+			if route.Dst == "default" {
+				return route.Dev, nil
 			}
 		}
 
@@ -207,34 +210,33 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	// returns the interface `ensX`, packets actually transit through a different
 	// `ensY`, specified in a different routing table.
 	//
-	// example string output:
-	// "1536:   from 192.168.137.26 lookup 2"
+	// example json output:
+	// [{"priority":1536,"src":"192.168.137.26","table":"2"}]
 	out, err := srcHostNS.K8sClient.ExecInPod(ctx,
 		srcHostNS.Pod.Namespace,
 		srcHostNS.Pod.Name,
 		"",
-		[]string{"ip", "rule"})
+		[]string{"ip", "-j", "rule"})
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to retrieve ip rules: %w", err)
 	}
 
+	rules := []struct {
+		Src   string `json:"src,omitempty"`
+		Table string `json:"table,omitempty"`
+	}{}
+
+	err = json.Unmarshal(out.Bytes(), &rules)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse ip rules to json: %w", err)
+	}
+
 	// search for "from srcIP lookup X" in ip rule output, with X being != main.
 	// X will be the table from which we'll lookup device name in default route.
-	for _, line := range strings.Split(out.String(), "\n") {
-		words := strings.Split(line, " ")
-		for i, val := range words {
-			if val == srcIP {
-				if i-1 < 0 || i+2 > len(words)-1 {
-					// should never really happen...
-					return "", fmt.Errorf("Failed to find routing table")
-				}
-				if strings.HasSuffix(words[i-1], "from") &&
-					words[i+1] == "lookup" &&
-					words[i+2] != "main" {
-					return defaultDeviceFromTable(words[i+2])
-				}
-			}
+	for _, rule := range rules {
+		if rule.Src == srcIP && rule.Table != "main" {
+			return defaultDeviceFromTable(rule.Table)
 		}
 	}
 
