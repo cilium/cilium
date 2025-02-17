@@ -35,12 +35,11 @@ var (
 	procNetFileRegexp = regexp.MustCompile("^ *[[:digit:]]*: *[[:xdigit:]]*:([[:xdigit:]]*) ")
 )
 
-// readOpenLocalPorts returns the set of L4 ports currently open locally.
-// procNetFiles should be procNetTCPFiles or procNetUDPFiles (or both).
-func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
+// OpenLocalPorts returns the set of L4 ports currently open locally.
+func OpenLocalPorts() map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
-	for _, file := range procNetFiles {
+	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
@@ -67,9 +66,4 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 	}
 
 	return openLocalPorts
-}
-
-// OpenLocalPorts returns the set of L4 ports currently open locally.
-func OpenLocalPorts() map[uint16]struct{} {
-	return readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
 }
