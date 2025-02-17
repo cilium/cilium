@@ -10,13 +10,13 @@ steps:
       unit: s
       queries:
       - name: EGW Masquerade Delay - 50th Percentile
-        query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total)
+        query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
       - name: EGW Masquerade Delay - 90th Percentile
-        query: quantile(0.9, egw_scale_test_masquerade_delay_seconds_total)
+        query: quantile(0.9, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
       - name: EGW Masquerade Delay - 95th Percentile
-        query: quantile(0.95, egw_scale_test_masquerade_delay_seconds_total)
+        query: quantile(0.95, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
       - name: EGW Masquerade Delay - 99th Percentile
-        query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total)
+        query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
 
   - Identifier: EGWLeakedPingsMetrics
     Method: GenericPrometheusQuery
@@ -27,13 +27,13 @@ steps:
       unit: count
       queries:
       - name: EGW Leaked Pings - 50th Percentile
-        query: quantile(0.5, egw_scale_test_leaked_requests_total)
+        query: quantile(0.5, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
       - name: EGW Leaked Pings - 90th Percentile
-        query: quantile(0.9, egw_scale_test_leaked_requests_total)
+        query: quantile(0.9, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
       - name: EGW Leaked Pings - 95th Percentile
-        query: quantile(0.95, egw_scale_test_leaked_requests_total)
+        query: quantile(0.95, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
       - name: EGW Leaked Pings - 99th Percentile
-        query: quantile(0.99, egw_scale_test_leaked_requests_total)
+        query: quantile(0.99, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
 
   - Identifier: EGWLeakedPingsTotal
     Method: GenericPrometheusQuery
@@ -44,7 +44,7 @@ steps:
       unit: count
       queries:
       - name: EGW Leaked Pings - Total
-        query: sum(egw_scale_test_leaked_requests_total)
+        query: sum(egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
 
   - Identifier: EGWPodCountMetrics
     Method: GenericPrometheusQuery
@@ -55,7 +55,7 @@ steps:
       unit: pod
       queries:
       - name: EGW Total Number of Client Pods
-        query: count(count(egw_scale_test_masquerade_delay_seconds_total) by (pod))
+        query: count(count(egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"}) by (pod))
       - name: EGW Total Number of Failed Client Pods
-        query: count(count(egw_scale_test_masquerade_delay_seconds_total==0) by (pod))
+        query: count(count(egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"}==0) by (pod))
         threshold: 0
