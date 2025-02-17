@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -43,7 +42,7 @@ func registerGopsHooks(lc cell.Lifecycle, log logging.FieldLogger, cfg GopsConfi
 		return
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
-	scopedLog := log.With(slog.String("address", addr), slog.String(logfields.LogSubsys, "gops"))
+	scopedLog := log.With(slog.String("address", addr))
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			scopedLog.Info("Started gops server")
