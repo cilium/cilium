@@ -2823,7 +2823,7 @@ func (c *DaemonConfig) SetupLogging(vp *viper.Viper, tag string) {
 		c.LogOpt = m
 	}
 
-	if err := logging.SetupLogging(c.LogDriver, logging.LogOptions(c.LogOpt), tag, c.Debug); err != nil {
+	if err := logging.SetupLogging(c.LogDriver, c.LogOpt, tag, c.Debug); err != nil {
 		logging.Fatal(log, "Unable to set up logging", slog.Any(logfields.Error, err))
 	}
 }

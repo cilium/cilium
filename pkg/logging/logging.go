@@ -311,16 +311,6 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	}
 	initializeSlog(logOpts, len(loggers) == 0)
 
-	// Updating the default log format
-	SetLogFormat(logOpts.GetLogFormat())
-
-	// Updating the default log level, overriding the log options if the debug arg is being set
-	if debug {
-		SetLogLevelToDebug()
-	} else {
-		SetLogLevel(logOpts.GetLogLevel())
-	}
-
 	// always suppress the default logger so libraries don't print things
 	slog.SetLogLoggerLevel(LevelPanic)
 
