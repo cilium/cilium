@@ -7,9 +7,12 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: egw-client
-      scaffolding.cilium.io/egw-client-is-bootstrap: "false"
   namespaceSelector:
     any: true
   podMetricsEndpoints:
   - port: prometheus
     interval: 5s
+    relabelings:
+    - action: labelmap
+      regex: __meta_kubernetes_pod_label_app_kubernetes_io_instance
+      replacement: k8s_instance
