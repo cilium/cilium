@@ -1,13 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+)
+
+const (
+	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
+	DefaultBGPPeerPort = 179
+	// DefaultBGPEBGPMultihopTTL defines the default value for the TTL value used in BGP packets sent to the eBGP neighbors.
+	DefaultBGPEBGPMultihopTTL = 1
+	// DefaultBGPConnectRetryTimeSeconds defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
+	DefaultBGPConnectRetryTimeSeconds = 120
+	// DefaultBGPHoldTimeSeconds defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
+	DefaultBGPHoldTimeSeconds = 90
+	// DefaultBGPKeepAliveTimeSeconds defines the default initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
+	DefaultBGPKeepAliveTimeSeconds = 30
+	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
+	DefaultBGPGRRestartTimeSeconds = 120
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -29,6 +44,7 @@ type CiliumBGPPeerConfigList struct {
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgppeerconfig",path="ciliumbgppeerconfigs",scope="Cluster",shortName={cbgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 type CiliumBGPPeerConfig struct {
 	// +deepequal-gen=false
@@ -150,19 +166,6 @@ type CiliumBGPFamilyWithAdverts struct {
 
 // CiliumBGPTransport defines the BGP transport parameters for the peer.
 type CiliumBGPTransport struct {
-	// Deprecated
-	// LocalPort is the local port to be used for the BGP session.
-	//
-	// If not specified, ephemeral port will be picked to initiate a connection.
-	//
-	// This field is deprecated and will be removed in a future release.
-	// Local port configuration is unnecessary and is not recommended.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=65535
-	LocalPort *int32 `json:"localPort,omitempty"`
-
 	// PeerPort is the peer port to be used for the BGP session.
 	//
 	// If not specified, defaults to TCP port 179.
@@ -175,10 +178,6 @@ type CiliumBGPTransport struct {
 }
 
 func (t *CiliumBGPTransport) SetDefaults() {
-	if t.LocalPort == nil || *t.LocalPort == 0 {
-		t.LocalPort = ptr.To[int32](DefaultBGPPeerLocalPort)
-	}
-
 	if t.PeerPort == nil || *t.PeerPort == 0 {
 		t.PeerPort = ptr.To[int32](DefaultBGPPeerPort)
 	}
@@ -229,6 +228,29 @@ func (t *CiliumBGPTimers) SetDefaults() {
 
 	if t.KeepAliveTimeSeconds == nil || *t.KeepAliveTimeSeconds == 0 {
 		t.KeepAliveTimeSeconds = ptr.To[int32](DefaultBGPKeepAliveTimeSeconds)
+	}
+}
+
+type CiliumBGPNeighborGracefulRestart struct {
+	// Enabled flag, when set enables graceful restart capability.
+	//
+	// +kubebuilder:validation:Required
+	Enabled bool `json:"enabled"`
+	// RestartTimeSeconds is the estimated time it will take for the BGP
+	// session to be re-established with peer after a restart.
+	// After this period, peer will remove stale routes. This is
+	// described RFC 4724 section 4.2.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4095
+	// +kubebuilder:default=120
+	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
+}
+
+func (gr *CiliumBGPNeighborGracefulRestart) SetDefaults() {
+	if gr.RestartTimeSeconds == nil || *gr.RestartTimeSeconds == 0 {
+		gr.RestartTimeSeconds = ptr.To[int32](DefaultBGPGRRestartTimeSeconds)
 	}
 }
 
