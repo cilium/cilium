@@ -253,9 +253,9 @@ if [ "${secondary_network_flag}" = true ]; then
 fi
 
 if [ "${xdp}" = true ]; then
-  if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
-    pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
-    clang -O2 -Wall --target=bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+  if ! [ -f "${CILIUM_ROOT}/test/bpf/xdp.o" ]; then
+    pushd "${CILIUM_ROOT}/test/bpf/" > /dev/null
+    clang -O2 -Wall --target=bpf -c xdp.c -o xdp.o
     popd > /dev/null
   fi
 
@@ -264,7 +264,7 @@ if [ "${xdp}" = true ]; then
 
     # Attach a dummy XDP prog to the host side of the veth so that XDP_TX in the
     # pod side works.
-    sudo ip link set dev "${ifc}" xdp obj "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o"
+    sudo ip link set dev "${ifc}" xdp obj "${CILIUM_ROOT}/test/bpf/xdp.o"
 
     # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
     # the forwarded packets by the LB to the worker node will have invalid csums.
