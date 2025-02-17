@@ -14,7 +14,9 @@ import (
 
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/spf13/pflag"
 
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -84,6 +86,8 @@ type ProxyPorts struct {
 	// ports out of the rangeMin-rangeMax range.
 	rangeMax uint16
 
+	restoredProxyPortsStaleLimit uint
+
 	// Datapath updater for installing and removing proxy rules for a single
 	// proxy port
 	datapathUpdater DatapathUpdater
@@ -111,19 +115,31 @@ type ProxyPorts struct {
 
 func NewProxyPorts(
 	logger *slog.Logger,
-	minPort uint16,
-	maxPort uint16,
-	datapathUpdater DatapathUpdater,
+	config ProxyPortsConfig,
+	datapathUpdater datapath.IptablesManager,
 ) *ProxyPorts {
 	return &ProxyPorts{
-		logger:          logger,
-		rangeMin:        minPort,
-		rangeMax:        maxPort,
-		datapathUpdater: datapathUpdater,
-		proxyPortsPath:  filepath.Join(option.Config.StateDir, proxyPortsFile),
-		allocatedPorts:  make(map[uint16]bool),
-		proxyPorts:      defaultProxyPortMap(),
+		logger:                       logger,
+		rangeMin:                     config.ProxyPortrangeMin,
+		rangeMax:                     config.ProxyPortrangeMax,
+		restoredProxyPortsStaleLimit: config.RestoredProxyPortsAgeLimit,
+		datapathUpdater:              datapathUpdater,
+		proxyPortsPath:               filepath.Join(option.Config.StateDir, proxyPortsFile),
+		allocatedPorts:               make(map[uint16]bool),
+		proxyPorts:                   defaultProxyPortMap(),
 	}
+}
+
+type ProxyPortsConfig struct {
+	ProxyPortrangeMin          uint16
+	ProxyPortrangeMax          uint16
+	RestoredProxyPortsAgeLimit uint
+}
+
+func (r ProxyPortsConfig) Flags(flags *pflag.FlagSet) {
+	flags.Uint16("proxy-portrange-min", 10000, "Start of port range that is used to allocate ports for L7 proxies.")
+	flags.Uint16("proxy-portrange-max", 20000, "End of port range that is used to allocate ports for L7 proxies.")
+	flags.Uint("restored-proxy-ports-age-limit", 15, "Time after which a restored proxy ports file is considered stale (in minutes)")
 }
 
 func (p *ProxyPorts) GetStatusInfo() (rangeMin, rangeMax, nPorts uint16) {
@@ -600,11 +616,11 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 
 // RestoreProxyPorts tries to find earlier port numbers from datapath and use them
 // as defaults for proxy ports
-func (p *ProxyPorts) RestoreProxyPorts(restoredProxyPortsStaleLimit uint) {
+func (p *ProxyPorts) RestoreProxyPorts() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	err := p.restoreProxyPortsFromFile(restoredProxyPortsStaleLimit)
+	err := p.restoreProxyPortsFromFile(p.restoredProxyPortsStaleLimit)
 	if err != nil {
 		p.logger.Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules", logfields.Path, p.proxyPortsPath, logfields.Error, err)
 		p.restoreProxyPortsFromIptables()

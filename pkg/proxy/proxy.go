@@ -53,9 +53,7 @@ type Proxy struct {
 
 func createProxy(
 	logger *slog.Logger,
-	minPort uint16,
-	maxPort uint16,
-	datapathUpdater proxyports.DatapathUpdater,
+	proxyPorts *proxyports.ProxyPorts,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
 ) *Proxy {
@@ -64,7 +62,7 @@ func createProxy(
 		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
-		proxyPorts:       proxyports.NewProxyPorts(logger, minPort, maxPort, datapathUpdater),
+		proxyPorts:       proxyPorts,
 	}
 }
 

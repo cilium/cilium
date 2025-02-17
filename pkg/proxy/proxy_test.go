@@ -22,8 +22,14 @@ import (
 )
 
 func proxyForTest() (*Proxy, func()) {
-	mockDatapathUpdater := &proxyports.MockDatapathUpdater{}
-	p := createProxy(slog.New(logging.SlogNopHandler), 10000, 20000, mockDatapathUpdater, nil, nil)
+	mockDatapathUpdater := &proxyports.MockIPTablesManager{}
+	ppConfig := proxyports.ProxyPortsConfig{
+		ProxyPortrangeMin:          10000,
+		ProxyPortrangeMax:          20000,
+		RestoredProxyPortsAgeLimit: 0,
+	}
+	pp := proxyports.NewProxyPorts(slog.New(logging.SlogNopHandler), ppConfig, mockDatapathUpdater)
+	p := createProxy(slog.New(logging.SlogNopHandler), pp, nil, nil)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Second,
