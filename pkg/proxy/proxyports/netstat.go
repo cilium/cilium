@@ -35,8 +35,8 @@ var (
 	procNetFileRegexp = regexp.MustCompile("^ *[[:digit:]]*: *[[:xdigit:]]*:([[:xdigit:]]*) ")
 )
 
-// OpenLocalPorts returns the set of L4 ports currently open locally.
-func (p *ProxyPorts) OpenLocalPorts() map[uint16]struct{} {
+// GetOpenLocalPorts returns the set of L4 ports currently open locally.
+func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
 	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
