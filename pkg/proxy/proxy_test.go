@@ -21,8 +21,14 @@ import (
 )
 
 func proxyForTest(t *testing.T) (*Proxy, func()) {
-	mockDatapathUpdater := &proxyports.MockDatapathUpdater{}
-	p := createProxy(hivetest.Logger(t), 10000, 20000, mockDatapathUpdater, nil, nil)
+	mockDatapathUpdater := &proxyports.MockIPTablesManager{}
+	ppConfig := proxyports.ProxyPortsConfig{
+		ProxyPortrangeMin:          10000,
+		ProxyPortrangeMax:          20000,
+		RestoredProxyPortsAgeLimit: 0,
+	}
+	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, mockDatapathUpdater)
+	p := createProxy(hivetest.Logger(t), pp, nil, nil)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Second,
