@@ -33,7 +33,7 @@ func TestPortAllocator(t *testing.T) {
 			os.RemoveAll(socketDir)
 		}()
 	}
-	p, cleaner := proxyPortsForTest()
+	p, cleaner := proxyPortsForTest(t)
 	defer cleaner()
 
 	port, err := p.AllocateCRDProxyPort("listener1")
@@ -225,7 +225,7 @@ func TestRestoredPort(t *testing.T) {
 			os.RemoveAll(socketDir)
 		}()
 	}
-	p, cleaner := proxyPortsForTest()
+	p, cleaner := proxyPortsForTest(t)
 	defer cleaner()
 
 	// simulate proxy port restored from file
