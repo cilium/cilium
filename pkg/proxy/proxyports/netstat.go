@@ -36,7 +36,7 @@ var (
 )
 
 // OpenLocalPorts returns the set of L4 ports currently open locally.
-func OpenLocalPorts() map[uint16]struct{} {
+func (p *ProxyPorts) OpenLocalPorts() map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
 	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
