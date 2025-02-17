@@ -72,28 +72,28 @@ func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*me
 	), nil
 }
 
-func CiliumBGPClusterConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig], error) {
+func CiliumBGPClusterConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPClusterConfig], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPClusterConfigList](cs.CiliumV2alpha1().CiliumBGPClusterConfigs()),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPClusterConfigList](cs.CiliumV2().CiliumBGPClusterConfigs()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumBGPClusterConfig](lc, lw, resource.WithMetric("CiliumBGPClusterConfig")), nil
+	return resource.New[*cilium_api_v2.CiliumBGPClusterConfig](lc, lw, resource.WithMetric("CiliumBGPClusterConfig")), nil
 }
 
-func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride], error) {
+func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPNodeConfigOverride], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideList](cs.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPNodeConfigOverrideList](cs.CiliumV2().CiliumBGPNodeConfigOverrides()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+	return resource.New[*cilium_api_v2.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
 }
 
 func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {

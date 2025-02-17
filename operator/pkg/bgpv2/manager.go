@@ -14,10 +14,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
-	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -41,11 +40,11 @@ type BGPParams struct {
 	Metrics      *BGPOperatorMetrics
 
 	// resource tracking
-	ClusterConfigResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
-	NodeConfigOverrideResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
-	NodeConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
-	PeerConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	NodeResource               resource.Resource[*cilium_api_v2.CiliumNode]
+	ClusterConfigResource      resource.Resource[*v2.CiliumBGPClusterConfig]
+	NodeConfigOverrideResource resource.Resource[*v2.CiliumBGPNodeConfigOverride]
+	NodeConfigResource         resource.Resource[*v2.CiliumBGPNodeConfig]
+	PeerConfigResource         resource.Resource[*v2.CiliumBGPPeerConfig]
+	NodeResource               resource.Resource[*v2.CiliumNode]
 }
 
 type BGPResourceManager struct {
@@ -57,17 +56,17 @@ type BGPResourceManager struct {
 	metrics   *BGPOperatorMetrics
 
 	// For BGP Cluster Config
-	clusterConfig           resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
-	nodeConfigOverride      resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
-	nodeConfig              resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
-	ciliumNode              resource.Resource[*cilium_api_v2.CiliumNode]
-	peerConfig              resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	clusterConfigStore      resource.Store[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
-	nodeConfigOverrideStore resource.Store[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
-	nodeConfigStore         resource.Store[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
-	peerConfigStore         resource.Store[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
-	ciliumNodeStore         resource.Store[*cilium_api_v2.CiliumNode]
-	nodeConfigClient        cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
+	clusterConfig           resource.Resource[*v2.CiliumBGPClusterConfig]
+	nodeConfigOverride      resource.Resource[*v2.CiliumBGPNodeConfigOverride]
+	nodeConfig              resource.Resource[*v2.CiliumBGPNodeConfig]
+	ciliumNode              resource.Resource[*v2.CiliumNode]
+	peerConfig              resource.Resource[*v2.CiliumBGPPeerConfig]
+	clusterConfigStore      resource.Store[*v2.CiliumBGPClusterConfig]
+	nodeConfigOverrideStore resource.Store[*v2.CiliumBGPNodeConfigOverride]
+	nodeConfigStore         resource.Store[*v2.CiliumBGPNodeConfig]
+	peerConfigStore         resource.Store[*v2.CiliumBGPPeerConfig]
+	ciliumNodeStore         resource.Store[*v2.CiliumNode]
+	nodeConfigClient        cilium_client_v2.CiliumBGPNodeConfigInterface
 
 	// internal state
 	reconcileCh      chan struct{}
@@ -103,7 +102,7 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		enableStatusReporting: p.DaemonConfig.EnableBGPControlPlaneStatusReport,
 	}
 
-	b.nodeConfigClient = b.clientset.CiliumV2alpha1().CiliumBGPNodeConfigs()
+	b.nodeConfigClient = b.clientset.CiliumV2().CiliumBGPNodeConfigs()
 
 	// initialize jobs and register them with lifecycle
 	b.initializeJobs()

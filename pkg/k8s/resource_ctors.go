@@ -259,40 +259,40 @@ func CiliumBGPPeeringPolicyResource(params CiliumResourceParams, opts ...func(*m
 	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy](params.Lifecycle, lw, resource.WithMetric("CiliumBGPPeeringPolicies"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func CiliumBGPNodeConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig], error) {
+func CiliumBGPNodeConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPNodeConfig], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigList](params.ClientSet.CiliumV2alpha1().CiliumBGPNodeConfigs()),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPNodeConfigList](params.ClientSet.CiliumV2().CiliumBGPNodeConfigs()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPNodeConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*cilium_api_v2.CiliumBGPNodeConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPNodeConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func CiliumBGPAdvertisementResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement], error) {
+func CiliumBGPAdvertisementResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPAdvertisement], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPAdvertisementList](params.ClientSet.CiliumV2alpha1().CiliumBGPAdvertisements()),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPAdvertisementList](params.ClientSet.CiliumV2().CiliumBGPAdvertisements()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumBGPAdvertisement](params.Lifecycle, lw, resource.WithMetric("CiliumBGPAdvertisement"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*cilium_api_v2.CiliumBGPAdvertisement](params.Lifecycle, lw, resource.WithMetric("CiliumBGPAdvertisement"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig], error) {
+func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPPeerConfig], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeerConfigList](params.ClientSet.CiliumV2alpha1().CiliumBGPPeerConfigs()),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPPeerConfigList](params.ClientSet.CiliumV2().CiliumBGPPeerConfigs()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeerConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPPeerConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*cilium_api_v2.CiliumBGPPeerConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPPeerConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
