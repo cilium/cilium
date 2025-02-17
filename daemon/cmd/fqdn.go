@@ -98,7 +98,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			if isStatic {
 				port = oldPort
 			} else {
-				openLocalPorts := d.l7Proxy.OpenLocalPorts()
+				openLocalPorts := d.l7Proxy.GetOpenLocalPorts()
 				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
 					port = oldPort
 				} else {
