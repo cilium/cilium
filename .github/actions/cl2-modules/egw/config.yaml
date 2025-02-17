@@ -3,9 +3,13 @@
 {{$ExternalTarget := .CL2_EGW_EXTERNAL_TARGET}}
 
 {{$NumEGWClients := DefaultParam .CL2_NUM_EGW_CLIENTS 9}}
+{{$NumSyntheticEPs := DefaultParam .CL2_EGW_NUM_SYNTHETIC_EPS 2000}}
+{{$NumSyntheticNodes := DefaultParam .CL2_EGW_NUM_SYNTHETIC_NODES 200}}
+{{$NumSyntheticCEGPs := DefaultParam .CL2_EGW_NUM_SYNTHETIC_CEGPs 5}}
 {{$QPS := DefaultParam .CL2_EGW_CLIENTS_QPS 3}}
 {{$CreateEGWPolicy := DefaultParam .CL2_EGW_CREATE_POLICY false}}
 {{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
+{{$ManifestsDir := DefaultParam .CL2_EGW_MANIFESTS_DIR "manifests"}}
 
 {{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
 
@@ -20,6 +24,9 @@ tuningSets:
 - name: UniformParamqps
   qpsLoad:
     qps: {{$QPS}}
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: 1m
 steps:
 {{ if $CreateEGWPolicy }}
 - name: Create Egress Gateway Policy
@@ -88,6 +95,7 @@ steps:
 {{end}}
 {{end}}
 
+# Run a first iteration of the masquerade delay test.
 - module:
     path: modules/masq-test.yaml
     params:
@@ -95,6 +103,69 @@ steps:
       instance: test-1
       externalTarget: {{$ExternalTarget}}
       replicas: {{$NumEGWClients}}
+      metricsSuffix: LowScale
+
+# The CiliumIdentity is created via an exec command because we need to control
+# its name, which doesn't appear to be possible with normal templating (it
+# always appends the index as a suffix).
+- name: Create synthetic CiliumIdentity
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      - kubectl
+      - apply
+      - -f
+      - {{$ManifestsDir}}/synthetic-identity.yaml
+
+- name: Create synthetic CiliumEndpoints/CiliumNodes
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$NumSyntheticEPs}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: egw-client-pod-synthetic
+      objectTemplatePath: manifests/synthetic-endpoint.yaml
+  - replicasPerNamespace: {{$NumSyntheticNodes}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: egw-node-synthetic
+      objectTemplatePath: manifests/synthetic-node.yaml
+
+{{ if $CreateEGWPolicy }}
+{{range $i := Loop $NumSyntheticCEGPs}}
+- name: Create extra Egress Gateway Policies
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Uniform1qps
+    objectBundle:
+    - basename: egw-scale-test-dummy-{{ $i }}
+      objectTemplatePath: {{$EGWPolicyTemplate}}
+      templateFillMap:
+        ExternalTarget: 1.2.3.{{ AddInt 1 $i}}
+{{ end }}
+{{ end }}
+
+- name: Sleep to allow convergence
+  measurements:
+  - Identifier: SleepWaitConvergence
+    Method: Sleep
+    Params:
+      duration: 10s
+
+# Run a second iteration of the masquerade delay test, now that we increased the
+# overall scale by creating a bunch of synthetic objects.
+- module:
+    path: modules/masq-test.yaml
+    params:
+      image: {{$TestImage}}
+      instance: test-2
+      externalTarget: {{$ExternalTarget}}
+      replicas: {{$NumEGWClients}}
+      metricsSuffix: HighScale
 
 {{if $ADDITIONAL_MEASUREMENT_MODULES}}
 {{range $ADDITIONAL_MEASUREMENT_MODULES}}

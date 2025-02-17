@@ -4,6 +4,7 @@ steps:
     params:
       action: start
       instance: {{ .instance }}
+      metricsSuffix: {{ .metricsSuffix }}
 
 - name: Create EGW client Pods
   phases:
@@ -42,3 +43,4 @@ steps:
     params:
       action: gather
       instance: {{ .instance }}
+      metricsSuffix: {{ .metricsSuffix }}
