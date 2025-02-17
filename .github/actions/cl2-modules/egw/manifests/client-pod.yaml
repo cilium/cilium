@@ -10,11 +10,11 @@ spec:
     role.scaffolding/egw-client: "true"
   containers:
   - name: egw-client
-    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    image: {{.Image}}
     imagePullPolicy: IfNotPresent
     args:
       - "client"
-      - "--external-target-addr=${EGW_EXTERNAL_TARGET_ADDR}:1337"
+      - "--external-target-addr={{.ExternalTarget}}:1337"
       - "--test-timeout={{.ClientConnectTimeout}}"
     ports:
     - name: prometheus
