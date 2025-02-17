@@ -115,7 +115,7 @@ func BenchmarkFqdnCache(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
+		nameManager.dnsHistoryModel("", prefixMatcher, nameMatcher, "")
 	}
 }
 
