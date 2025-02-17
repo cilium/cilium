@@ -446,6 +446,9 @@ jobs:
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
         run: |
+          echo "CL2-related environment variables"
+          printenv | grep CL2_
+
           mkdir ./report
 
           # CL2 hardcodes module paths to live in next to the config, even
