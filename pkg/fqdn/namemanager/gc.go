@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -182,47 +181,6 @@ func (n *manager) StartGC(ctx context.Context) {
 		DoFunc:      n.doGC,
 		Context:     ctx,
 	})
-}
-
-// DeleteDNSLookups force-removes any entries in *all* caches that are not currently actively
-// passing traffic.
-func (n *manager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternStr string) error {
-	var nameMatcher *regexp.Regexp // nil matches all in our implementation
-	if matchPatternStr != "" {
-		var err error
-		nameMatcher, err = matchpattern.ValidateWithoutCache(matchPatternStr)
-		if err != nil {
-			return err
-		}
-	}
-
-	maybeStaleIPs := n.cache.GetIPs()
-
-	// Clear any to-delete entries globally
-	// Clear any to-delete entries in each endpoint, then update globally to
-	// insert any entries that now should be in the global cache (because they
-	// provide an IP at the latest expiration time).
-	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.getEndpointsDNSInfo("") {
-		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
-		n.cache.UpdateFromCache(ep.DNSHistory, nil)
-
-		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		activeConnections := fqdn.NewDNSCache(0)
-		zombies, _ := ep.DNSZombies.GC()
-		lookupTime := time.Now()
-		for _, zombie := range zombies {
-			namesToRegen.Insert(zombie.Names...)
-			for _, name := range zombie.Names {
-				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
-			}
-		}
-		n.cache.UpdateFromCache(activeConnections, nil)
-	}
-
-	// We may have removed entries; remove them from the ipcache metadata layer
-	n.maybeRemoveMetadata(maybeStaleIPs)
-	return nil
 }
 
 // RestoreCache loads cache state from the restored system:
