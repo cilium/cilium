@@ -98,7 +98,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			if isStatic {
 				port = oldPort
 			} else {
-				openLocalPorts := proxy.OpenLocalPorts()
+				openLocalPorts := d.l7Proxy.OpenLocalPorts()
 				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
 					port = oldPort
 				} else {
@@ -221,7 +221,7 @@ func (d *Daemon) notifyOnDNSMsg(
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
+	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
 	metricError := metricErrorAllow
@@ -282,7 +282,7 @@ func (d *Daemon) notifyOnDNSMsg(
 	// point is always Egress, however.
 	var flowType accesslog.FlowType
 	var addrInfo logger.AddressingInfo
-	var serverAddrPortStr = serverAddrPort.String()
+	serverAddrPortStr := serverAddrPort.String()
 	if msg.Response {
 		flowType = accesslog.TypeResponse
 		addrInfo.DstIPPort = epIPPort
@@ -386,7 +386,8 @@ func (d *Daemon) notifyOnDNSMsg(
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
-			}})
+			},
+		})
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
