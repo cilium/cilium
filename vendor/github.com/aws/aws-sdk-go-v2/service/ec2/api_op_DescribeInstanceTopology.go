@@ -33,7 +33,8 @@ import (
 //   - p3dn.24xlarge | p4d.24xlarge | p4de.24xlarge | p5.48xlarge | p5e.48xlarge |
 //     p5en.48xlarge
 //
-//   - trn1.2xlarge | trn1.32xlarge | trn1n.32xlarge
+//   - trn1.2xlarge | trn1.32xlarge | trn1n.32xlarge | trn2.48xlarge |
+//     trn2u.48xlarge
 //
 // For more information, see [Amazon EC2 instance topology] in the Amazon EC2 User Guide.
 //

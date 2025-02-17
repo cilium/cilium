@@ -127954,6 +127954,23 @@ func awsEc2query_deserializeDocumentSnapshot(v **types.Snapshot, decoder smithyx
 				sv.Encrypted = ptr.Bool(xtv)
 			}
 
+		case strings.EqualFold("fullSnapshotSizeInBytes", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.FullSnapshotSizeInBytes = ptr.Int64(i64)
+			}
+
 		case strings.EqualFold("kmsKeyId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -157573,6 +157590,23 @@ func awsEc2query_deserializeOpDocumentCreateSnapshotOutput(v **CreateSnapshotOut
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.Encrypted = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("fullSnapshotSizeInBytes", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.FullSnapshotSizeInBytes = ptr.Int64(i64)
 			}
 
 		case strings.EqualFold("kmsKeyId", t.Name.Local):

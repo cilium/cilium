@@ -25,7 +25,7 @@ import (
 //     same Region as the instance.
 //
 //   - If the source instance is in a Local Zone, you can create the snapshots in
-//     the same Local Zone or in parent Amazon Web Services Region.
+//     the same Local Zone or in its parent Amazon Web Services Region.
 //
 //   - If the source instance is on an Outpost, you can create the snapshots on
 //     the same Outpost or in its parent Amazon Web Services Region.

@@ -73,9 +73,9 @@ type ModifyInstanceAttributeInput struct {
 	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *types.AttributeBooleanValue
 
-	// If the value is true , you can't terminate the instance using the Amazon EC2
-	// console, CLI, or API; otherwise, you can. You cannot use this parameter for Spot
-	// Instances.
+	// Enable or disable termination protection for the instance. If the value is true
+	// , you can't terminate the instance using the Amazon EC2 console, command line
+	// interface, or API. You can't enable termination protection for Spot Instances.
 	DisableApiTermination *types.AttributeBooleanValue
 
 	// Checks whether you have the required permissions for the operation, without

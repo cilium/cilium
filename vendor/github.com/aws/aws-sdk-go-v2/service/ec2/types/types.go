@@ -814,12 +814,13 @@ type AuthorizationRule struct {
 // Describes Availability Zones, Local Zones, and Wavelength Zones.
 type AvailabilityZone struct {
 
-	//  For Availability Zones, this parameter has the same value as the Region name.
+	// The name of the zone group. For example:
 	//
-	// For Local Zones, the name of the associated group, for example us-west-2-lax-1 .
+	//   - Availability Zones - us-east-1-zg-1
 	//
-	// For Wavelength Zones, the name of the associated group, for example
-	// us-east-1-wl1-bos-wlz-1 .
+	//   - Local Zones - us-west-2-lax-1
+	//
+	//   - Wavelength Zones - us-east-1-wl1-bos-wlz-1
 	GroupName *string
 
 	// Any messages about the Availability Zone, Local Zone, or Wavelength Zone.
@@ -4515,8 +4516,12 @@ type EventInformation struct {
 	//   several attempts to launch instances have failed. For more information, see the
 	//   description of the event.
 	//
-	//   - launchSpecUnusable - The price in a launch specification is not valid
-	//   because it is below the Spot price.
+	//   - launchSpecUnusable - The price specified in a launch specification is not
+	//   valid because it is below the Spot price for the requested Spot pools.
+	//
+	// Note: Even if a fleet with the maintain request type is in the process of being
+	//   canceled, it may still publish a launchSpecUnusable event. This does not mean
+	//   that the canceled fleet is attempting to launch a new instance.
 	//
 	//   - registerWithLoadBalancersFailed - An attempt to register instances with load
 	//   balancers failed. For more information, see the description of the event.
@@ -7095,7 +7100,7 @@ type InstanceBlockDeviceMappingSpecification struct {
 	// launched.
 	Ebs *EbsInstanceBlockDeviceSpecification
 
-	// suppress the specified device included in the block device mapping.
+	// Suppresses the specified device included in the block device mapping.
 	NoDevice *string
 
 	// The virtual device name.
@@ -7843,12 +7848,9 @@ type InstanceNetworkInterfaceSpecification struct {
 	// [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
 	PrivateIpAddresses []PrivateIpAddressSpecification
 
-	// The number of secondary private IPv4 addresses. You can't specify this option
-	// and specify more than one private IP address using the private IP addresses
-	// option. You cannot specify this option if you're launching more than one
-	// instance in a [RunInstances]request.
-	//
-	// [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
+	// The number of secondary private IPv4 addresses. You can’t specify this
+	// parameter and also specify a secondary private IP address using the
+	// PrivateIpAddress parameter.
 	SecondaryPrivateIpAddressCount *int32
 
 	// The ID of the subnet associated with the network interface. Applies only if
@@ -8009,9 +8011,11 @@ type InstanceRequirements struct {
 
 	// The accelerator types that must be on the instance type.
 	//
+	//   - For instance types with FPGA accelerators, specify fpga .
+	//
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
-	//   - For instance types with FPGA accelerators, specify fpga .
+	//   - For instance types with Inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -8378,9 +8382,11 @@ type InstanceRequirementsRequest struct {
 
 	// The accelerator types that must be on the instance type.
 	//
-	//   - To include instance types with GPU hardware, specify gpu .
+	//   - For instance types with FPGA accelerators, specify fpga .
 	//
-	//   - To include instance types with FPGA hardware, specify fpga .
+	//   - For instance types with GPU accelerators, specify gpu .
+	//
+	//   - For instance types with Inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -10103,6 +10109,17 @@ type IpRange struct {
 	// The IPv4 address range. You can either specify a CIDR block or a source
 	// security group, not both. To specify a single IPv4 address, use the /32 prefix
 	// length.
+	//
+	// Amazon Web Services [canonicalizes] IPv4 and IPv6 CIDRs. For example, if you specify
+	// 100.68.0.18/18 for the CIDR block, Amazon Web Services canonicalizes the CIDR
+	// block to 100.68.0.0/18. Any subsequent DescribeSecurityGroups and
+	// DescribeSecurityGroupRules calls will return the canonicalized form of the CIDR
+	// block. Additionally, if you attempt to add another rule with the non-canonical
+	// form of the CIDR (such as 100.68.0.18/18) and there is already a rule for the
+	// canonicalized form of the CIDR block (such as 100.68.0.0/18), the API throws an
+	// duplicate rule error.
+	//
+	// [canonicalizes]: https://en.wikipedia.org/wiki/Canonicalization
 	CidrIp *string
 
 	// A description for the security group rule that references this IPv4 address
@@ -10194,7 +10211,7 @@ type Ipv6PrefixSpecification struct {
 	noSmithyDocumentSerde
 }
 
-// Describes the IPv4 prefix option for a network interface.
+// Describes the IPv6 prefix option for a network interface.
 type Ipv6PrefixSpecificationRequest struct {
 
 	// The IPv6 prefix.
@@ -10218,6 +10235,17 @@ type Ipv6Range struct {
 	// The IPv6 address range. You can either specify a CIDR block or a source
 	// security group, not both. To specify a single IPv6 address, use the /128 prefix
 	// length.
+	//
+	// Amazon Web Services [canonicalizes] IPv4 and IPv6 CIDRs. For example, if you specify
+	// 100.68.0.18/18 for the CIDR block, Amazon Web Services canonicalizes the CIDR
+	// block to 100.68.0.0/18. Any subsequent DescribeSecurityGroups and
+	// DescribeSecurityGroupRules calls will return the canonicalized form of the CIDR
+	// block. Additionally, if you attempt to add another rule with the non-canonical
+	// form of the CIDR (such as 100.68.0.18/18) and there is already a rule for the
+	// canonicalized form of the CIDR block (such as 100.68.0.0/18), the API throws an
+	// duplicate rule error.
+	//
+	// [canonicalizes]: https://en.wikipedia.org/wiki/Canonicalization
 	CidrIpv6 *string
 
 	// A description for the security group rule that references this IPv6 address
@@ -14859,13 +14887,11 @@ type RequestLaunchTemplateData struct {
 	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *bool
 
-	// If you set this parameter to true , you can't terminate the instance using the
-	// Amazon EC2 console, CLI, or API; otherwise, you can. To change this attribute
-	// after launch, use [ModifyInstanceAttribute]. Alternatively, if you set InstanceInitiatedShutdownBehavior
-	// to terminate , you can terminate the instance by running the shutdown command
-	// from the instance.
-	//
-	// [ModifyInstanceAttribute]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceAttribute.html
+	// Indicates whether termination protection is enabled for the instance. The
+	// default is false , which means that you can terminate the instance using the
+	// Amazon EC2 console, command line tools, or API. You can enable termination
+	// protection when you launch an instance, while the instance is running, or while
+	// the instance is stopped.
 	DisableApiTermination *bool
 
 	// Indicates whether the instance is optimized for Amazon EBS I/O. This
@@ -16543,9 +16569,20 @@ type SecurityGroupRuleDescription struct {
 //
 //   - ReferencedGroupId
 //
+// Amazon Web Services [canonicalizes] IPv4 and IPv6 CIDRs. For example, if you specify
+// 100.68.0.18/18 for the CIDR block, Amazon Web Services canonicalizes the CIDR
+// block to 100.68.0.0/18. Any subsequent DescribeSecurityGroups and
+// DescribeSecurityGroupRules calls will return the canonicalized form of the CIDR
+// block. Additionally, if you attempt to add another rule with the non-canonical
+// form of the CIDR (such as 100.68.0.18/18) and there is already a rule for the
+// canonicalized form of the CIDR block (such as 100.68.0.0/18), the API throws an
+// duplicate rule error.
+//
 // When you modify a rule, you cannot change the rule type. For example, if the
 // rule uses an IPv4 address range, you must use CidrIpv4 to specify a new IPv4
 // address range.
+//
+// [canonicalizes]: https://en.wikipedia.org/wiki/Canonicalization
 type SecurityGroupRuleRequest struct {
 
 	// The IPv4 CIDR range. To specify a single IPv4 address, use the /32 prefix
@@ -16810,6 +16847,13 @@ type Snapshot struct {
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
 
+	// The full size of the snapshot, in bytes.
+	//
+	// This is not the incremental size of the snapshot. This is the full snapshot
+	// size and represents the size of all the blocks that were written to the source
+	// volume at the time the snapshot was created.
+	FullSnapshotSizeInBytes *int64
+
 	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
 	// volume encryption key for the parent volume.
 	KmsKeyId *string
@@ -17001,7 +17045,7 @@ type SnapshotRecycleBinInfo struct {
 	// The description for the snapshot.
 	Description *string
 
-	// The date and time when the snaphsot entered the Recycle Bin.
+	// The date and time when the snapshot entered the Recycle Bin.
 	RecycleBinEnterTime *time.Time
 
 	// The date and time when the snapshot is to be permanently deleted from the
@@ -17735,6 +17779,9 @@ type SpotMarketOptions struct {
 	//
 	// If you specify a maximum price, your Spot Instances will be interrupted more
 	// frequently than if you do not specify this parameter.
+	//
+	// If you specify a maximum price, it must be more than USD $0.001. Specifying a
+	// value below USD $0.001 will result in an InvalidParameterValue error message.
 	MaxPrice *string
 
 	// The Spot Instance request type. For [RunInstances], persistent Spot Instance requests are
