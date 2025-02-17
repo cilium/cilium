@@ -116,7 +116,7 @@ type config struct {
 }
 
 var defaultConfig = config{
-	EnableHubble: true,
+	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration
 	EventBufferCapacity:  observeroption.Default.MaxFlows.AsInt(),
 	EventQueueSize:       0, // see getDefaultMonitorQueueSize()

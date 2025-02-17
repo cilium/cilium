@@ -68,6 +68,7 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 
 	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
+	maxID := int64(MaxSetOfServiceID)
 	if params.Config.ID == 0 {
 		if !params.Config.UpdateServices {
 			return api.Error(serviceapi.PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
@@ -84,6 +85,9 @@ func (h *putServiceIDHandler) Handle(params serviceapi.PutServiceIDParams) middl
 			return api.Error(serviceapi.PutServiceIDUpdateBackendFailureCode, err)
 		}
 		return serviceapi.NewPutServiceIDOK()
+	} else if params.Config.ID > maxID {
+		return api.Error(serviceapi.PutServiceIDFailureCode, fmt.Errorf("service ID %d exceeds the maximum limit of %d",
+			params.Config.ID, maxID))
 	}
 
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)

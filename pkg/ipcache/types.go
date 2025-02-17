@@ -48,6 +48,7 @@ type resourceInfo struct {
 	tunnelPeer        ipcachetypes.TunnelPeer
 	encryptKey        ipcachetypes.EncryptKey
 	requestedIdentity ipcachetypes.RequestedIdentity
+	endpointFlags     ipcachetypes.EndpointFlags
 }
 
 // IPMetadata is an empty interface intended to inform developers using the
@@ -90,6 +91,9 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
 	case ipcachetypes.RequestedIdentity:
 		changed = m.requestedIdentity != info
 		m.requestedIdentity = info
+	case ipcachetypes.EndpointFlags:
+		changed = m.endpointFlags != info
+		m.endpointFlags = info
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
 		return false
@@ -113,6 +117,8 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 		m.encryptKey = ipcachetypes.EncryptKeyEmpty
 	case ipcachetypes.RequestedIdentity:
 		m.requestedIdentity = ipcachetypes.RequestedIdentity(identity.IdentityUnknown)
+	case ipcachetypes.EndpointFlags:
+		m.endpointFlags = ipcachetypes.EndpointFlags{}
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.unmerge(): %+v", info)
 		return
@@ -135,6 +141,9 @@ func (m *resourceInfo) isValid() bool {
 	if m.requestedIdentity.IsValid() {
 		return true
 	}
+	if m.endpointFlags.IsValid() {
+		return true
+	}
 	return false
 }
 
@@ -146,6 +155,7 @@ func (m *resourceInfo) DeepCopy() *resourceInfo {
 	n.tunnelPeer = m.tunnelPeer
 	n.encryptKey = m.encryptKey
 	n.requestedIdentity = m.requestedIdentity
+	n.endpointFlags = m.endpointFlags
 	return n
 }
 
@@ -216,6 +226,15 @@ func (s prefixInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
 	return ipcachetypes.RequestedIdentity(identity.InvalidIdentity)
 }
 
+func (s prefixInfo) EndpointFlags() ipcachetypes.EndpointFlags {
+	for _, rid := range s.sortedBySourceThenResourceID() {
+		if flags := s[rid].endpointFlags; flags.IsValid() {
+			return flags
+		}
+	}
+	return ipcachetypes.EndpointFlags{}
+}
+
 // identityOverride extracts the labels of the pre-determined identity from
 // the prefix info. If no override identity is present, this returns nil.
 // This pre-determined identity will overwrite any other identity which may
@@ -250,7 +269,7 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 }
 
 func (ri resourceInfo) shouldLogConflicts() bool {
-	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid()
+	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid() || ri.endpointFlags.IsValid()
 }
 
 func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
@@ -266,6 +285,9 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		requestedID           ipcachetypes.RequestedIdentity
 		requestedIDResourceID ipcachetypes.ResourceID
+
+		endpointFlags           ipcachetypes.EndpointFlags
+		endpointFlagsResourceID ipcachetypes.ResourceID
 	)
 
 	for _, resourceID := range s.sortedBySourceThenResourceID() {
@@ -339,6 +361,21 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 			} else {
 				requestedID = info.requestedIdentity
 				requestedIDResourceID = resourceID
+			}
+		}
+
+		if info.endpointFlags.IsValid() {
+			if endpointFlags.IsValid() {
+				scopedLog.WithFields(logrus.Fields{
+					logfields.EndpointFlags:            endpointFlags,
+					logfields.Resource:                 endpointFlagsResourceID,
+					logfields.ConflictingEndpointFlags: info.endpointFlags,
+					logfields.ConflictingResource:      resourceID,
+				}).Warning("Detected conflicting endpoint flags for prefix. " +
+					"This may cause connectivity issues for this address.")
+			} else {
+				endpointFlags = info.endpointFlags
+				endpointFlagsResourceID = resourceID
 			}
 		}
 	}

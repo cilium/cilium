@@ -274,6 +274,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.KVstorePodNetworkSupport)
 	option.BindEnv(vp, option.KVstorePodNetworkSupport)
 
+	flags.String(option.KubeProxyReplacement, "false", "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
+	flags.MarkHidden(option.KubeProxyReplacement)
+	option.BindEnv(vp, option.KubeProxyReplacement)
+
+	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
+	flags.MarkHidden(option.EnableNodePort)
+	option.BindEnv(vp, option.EnableNodePort)
+
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
 

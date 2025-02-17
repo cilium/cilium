@@ -55,7 +55,6 @@ cilium-operator-generic [flags]
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-metrics                                       Enable Prometheus metrics
       --enable-node-ipam                                     Enable Node IPAM
-      --enable-node-port                                     Enable NodePort type services by Cilium
       --enable-node-selector-labels                          Enable use of node label based identity
       --enable-policy string                                 Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
@@ -92,7 +91,6 @@ cilium-operator-generic [flags]
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                 Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                       Key-value store type
       --kvstore-lease-ttl duration                           Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure (default 2)

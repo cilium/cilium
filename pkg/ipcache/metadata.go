@@ -325,9 +325,10 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 	}
 
 	type ipcacheEntry struct {
-		identity   Identity
-		tunnelPeer net.IP
-		encryptKey uint8
+		identity      Identity
+		tunnelPeer    net.IP
+		encryptKey    uint8
+		endpointFlags uint8
 
 		force bool
 	}
@@ -354,6 +355,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		pstr := prefix.String()
 		oldID, entryExists := ipc.LookupByIP(pstr)
 		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
+		oldEndpointFlags := ipc.GetEndpointFlags(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		var newID *identity.Identity
 		var isNew bool
@@ -405,7 +407,8 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 				if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source &&
 					oldID.overwrittenLegacySource == newOverwrittenLegacySource &&
 					oldTunnelIP.Equal(prefixInfo.TunnelPeer().IP()) &&
-					oldEncryptionKey == prefixInfo.EncryptKey().Uint8() {
+					oldEncryptionKey == prefixInfo.EncryptKey().Uint8() &&
+					oldEndpointFlags == prefixInfo.EndpointFlags().Uint8() {
 					goto releaseIdentity
 				}
 			}
@@ -422,8 +425,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 					// Note: `modifiedByLegacyAPI` and `shadowed` will be
 					// set by the upsert call itself
 				},
-				tunnelPeer: prefixInfo.TunnelPeer().IP(),
-				encryptKey: prefixInfo.EncryptKey().Uint8(),
+				tunnelPeer:    prefixInfo.TunnelPeer().IP(),
+				encryptKey:    prefixInfo.EncryptKey().Uint8(),
+				endpointFlags: prefixInfo.EndpointFlags().Uint8(),
 				// IPCache.Upsert() and friends currently require a
 				// Source to be provided during upsert. If the old
 				// Source was higher precedence due to labels that
@@ -483,9 +487,10 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 							Source:              oldID.overwrittenLegacySource,
 							modifiedByLegacyAPI: true,
 						},
-						tunnelPeer: oldTunnelIP,
-						encryptKey: oldEncryptionKey,
-						force:      true, /* overwrittenLegacySource is lower precedence */
+						tunnelPeer:    oldTunnelIP,
+						encryptKey:    oldEncryptionKey,
+						endpointFlags: oldEndpointFlags,
+						force:         true, /* overwrittenLegacySource is lower precedence */
 					}
 					entriesToReplace[prefix] = unmanagedEntry
 
@@ -547,6 +552,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 			entry.encryptKey,
 			meta,
 			entry.identity,
+			entry.endpointFlags,
 			entry.force,
 			/* fromLegacyAPI */ false,
 		); err2 != nil {

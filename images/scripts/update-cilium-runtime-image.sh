@@ -14,7 +14,9 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="quay.io/cilium/cilium-runtime"
+# Retrieve image from parameter and remove tag if one was provided, let make-image-tag in charge of creating the tag
+image=${1}
+image="${image%%:*}"
 
 image_tag="$(WITHOUT_SUFFIX=1 "${script_dir}/make-image-tag.sh" images/runtime)"
 

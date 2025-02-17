@@ -16,6 +16,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 var (
@@ -120,6 +121,11 @@ func updateService(cmd *cobra.Command, args []string) {
 	warnIdTypeDeprecation()
 
 	id := int64(idU)
+	maxID := int64(service.MaxSetOfServiceID)
+	if id > maxID {
+		Fatalf("Service ID %d exceeds the maximum limit of %d", id, maxID)
+	}
+
 	fa := parseFrontendAddress(protocol, frontend)
 	skipFrontendCheck := false
 

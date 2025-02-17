@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/workerpool"
 
 	"github.com/cilium/cilium/operator/auth/identity"
+	"github.com/cilium/cilium/operator/auth/spire"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,7 +27,7 @@ type params struct {
 	IdentityClient identity.Provider
 	Identity       resource.Resource[*ciliumv2.CiliumIdentity]
 
-	Cfg Config
+	Cfg spire.MutualAuthConfig
 }
 
 // IdentityWatcher represents the Cilium identities watcher.
@@ -37,7 +38,7 @@ type IdentityWatcher struct {
 	identityClient identity.Provider
 	identity       resource.Resource[*ciliumv2.CiliumIdentity]
 	wg             *workerpool.WorkerPool
-	cfg            Config
+	cfg            spire.MutualAuthConfig
 }
 
 func registerIdentityWatcher(p params) {
