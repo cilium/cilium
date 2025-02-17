@@ -4,7 +4,7 @@ metadata:
   name: {{.Name}}
   labels:
     app.kubernetes.io/name: egw-client
-    scaffolding.cilium.io/egw-client-is-bootstrap: "{{.ClientIsBootstrap}}"
+    app.kubernetes.io/instance: {{.Instance}}
 spec:
   nodeSelector:
     role.scaffolding/egw-client: "true"
