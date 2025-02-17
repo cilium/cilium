@@ -19,6 +19,7 @@ cilium-operator [flags]
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --azure-resource-group string                          Resource group to use for Azure IPAM
       --azure-subscription-id string                         Subscription ID to access Azure API
+      --azure-tenant-id string                               Tenant ID to access Azure API
       --azure-use-primary-address                            Use Azure IP address from interface's primary IPConfigurations
       --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
