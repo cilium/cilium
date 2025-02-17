@@ -403,7 +403,7 @@ data:
 
 {{- if .Values.bpf.authMapMax }}
   # bpf-auth-map-max specifies the maximum number of entries in the auth map
-  bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
+  bpf-auth-map-max: "{{ .Values.bpf.authMapMax | int }}"
 {{- end }}
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
@@ -419,10 +419,10 @@ data:
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
 {{- if $bpfCtTcpMax }}
-  bpf-ct-global-tcp-max: {{ $bpfCtTcpMax | quote }}
+  bpf-ct-global-tcp-max: "{{ $bpfCtTcpMax | int }}"
 {{- end }}
 {{- if $bpfCtAnyMax }}
-  bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
+  bpf-ct-global-any-max: "{{ $bpfCtAnyMax | int }}"
 {{- end }}
 {{- end }}
 {{- if .Values.bpf.ctAccounting }}
