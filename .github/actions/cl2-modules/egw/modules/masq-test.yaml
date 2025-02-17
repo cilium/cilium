@@ -3,6 +3,7 @@ steps:
     path: modules/masq-metrics.yaml
     params:
       action: start
+      instance: {{ .instance }}
 
 - name: Create EGW client Pods
   phases:
@@ -12,10 +13,10 @@ steps:
     replicasPerNamespace: {{ .replicas }}
     tuningSet: UniformParamqps
     objectBundle:
-    - basename: egw-client-pod
+    - basename: egw-client-pod-{{ .instance }}
       objectTemplatePath: manifests/client-pod.yaml
       templateFillMap:
-        ClientIsBootstrap: "false"
+        Instance: {{ .instance }}
         ClientConnectTimeout: "295s"
 
 - name: Wait for EGW Client pods to be running
@@ -23,7 +24,7 @@ steps:
   - Identifier: WaitForRunningPods
     Method: WaitForRunningPods
     Params:
-      labelSelector: app.kubernetes.io/name=egw-client,scaffolding.cilium.io/egw-client-is-bootstrap=false
+      labelSelector: app.kubernetes.io/name=egw-client,app.kubernetes.io/instance={{ .instance }}
       desiredPodCount: {{ .replicas }}
       timeout: 300s
 
@@ -38,3 +39,4 @@ steps:
     path: modules/masq-metrics.yaml
     params:
       action: gather
+      instance: {{ .instance }}
