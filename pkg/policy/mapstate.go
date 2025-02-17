@@ -242,7 +242,7 @@ func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	}
 }
 
-// CoveringKeysWithSameID iterates over broader port/proto entries in the trie in LPM order,
+// CoveringKeysWithSameID iterates over broader or equal port/proto entries in the trie in LPM order,
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
@@ -250,8 +250,8 @@ func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// Visit key with the same identity, if port/proto is different.
-			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// Visit key with the same identity
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 		}
@@ -266,8 +266,8 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// Visit key with the same identity, if port/proto is different.
-			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+			// Visit key with the same identity
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 		}
@@ -723,6 +723,12 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 			}
 		}
 	} else {
+		// authPreferredInsert takes care for precedence and auth
+		if features.contains(authRules) {
+			ms.authPreferredInsert(newKey, newEntry, features, changes)
+			return
+		}
+
 		// Bail if covered by a deny key or a key with a higher proxy port priority.
 		//
 		// This can be skipped if no rules have denies or proxy redirects
@@ -744,15 +750,26 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 				}
 			}
 		}
-
-		// Checking for auth feature here is faster than calling 'authPreferredInsert' and
-		// checking for it there.
-		if features.contains(authRules) {
-			ms.authPreferredInsert(newKey, newEntry, changes)
-			return
-		}
 	}
 	ms.addKeyWithChanges(newKey, newEntry, changes)
+}
+
+// overrideProxyPortForAuth sets the proxy port and priority of 'v' to that of 'newKey', saving the
+// old entry in 'changes'.
+// Returns 'true' if changes were made.
+func (ms *mapState) overrideProxyPortForAuth(newEntry mapStateEntry, k Key, v mapStateEntry, changes ChangeState) bool {
+	if v.AuthRequirement != newEntry.AuthRequirement && v.AuthRequirement.IsExplicit() {
+		// Save the old value first
+		changes.insertOldIfNotExists(k, v)
+
+		// Proxy port can be changed in-place, trie is not affected
+		v.ProxyPort = newEntry.ProxyPort
+		v.ProxyPortPriority = newEntry.ProxyPortPriority
+
+		ms.entries[k] = v
+		return true
+	}
+	return false
 }
 
 // overrideAuthRequirement sets the AuthRequirement of 'v' to that of 'newKey', saving the old entry
@@ -775,30 +792,66 @@ func (ms *mapState) overrideAuthRequirement(newEntry mapStateEntry, k Key, v map
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
-	if !newEntry.AuthRequirement.IsExplicit() {
-		// New entry has a default auth type.
+func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+	// Bail if covered by a deny key or a key with a higher proxy port priority and current
+	// entry has no explicit auth.
+	var derived bool
+	newEntryHasExplicitAuth := newEntry.AuthRequirement.IsExplicit()
+	for k, v := range ms.CoveringKeysWithSameID(newKey) {
+		if v.IsDeny() {
+			return // bail if covered by deny
+		}
+		if v.ProxyPortPriority > newEntry.ProxyPortPriority {
+			if !newEntryHasExplicitAuth || v.AuthRequirement == newEntry.AuthRequirement {
+				// Covering entry has higher proxy port priority and newEntry has a
+				// default auth type or the same auth requirement => can bail out
+				return
+			}
 
+			// newEnry has a different explicit auth requirement, must propagate
+			// proxy port and priority and keep it
+			newEntry.ProxyPort = v.ProxyPort
+			newEntry.ProxyPortPriority = v.ProxyPortPriority
+
+			// Can break out:
+			// - if there were covering denies the allow 'v' would
+			//   not have existed, and
+			// - since the new entry has explicit auth it does not need to be
+			//   derived.
+			break
+		}
 		// Fill in the AuthType from the most specific covering key with the same ID and an
 		// explicit auth type
-		for _, v := range ms.CoveringKeysWithSameID(newKey) {
-			if v.AuthRequirement.IsExplicit() {
-				// AuthType from the most specific covering key is applied
-				// to 'newEntry'
-				newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
-				break
+		if !derived && !newEntryHasExplicitAuth && !k.PortProtoIsEqual(newKey) && v.AuthRequirement.IsExplicit() {
+			// AuthType from the most specific covering key is applied to 'newEntry' as
+			// derived auth type.
+			newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
+			derived = true
+		}
+	}
+
+	// Delete covered allow entries with lower proxy port priority, but keep
+	// entries with different "auth" and propagate proxy port and priority to them.
+	//
+	// Check if the new key is the most specific covering key of any other key
+	// with the same ID and default auth type, and propagate the auth type from the new
+	// entry to such entries.
+	var propagated bool
+	for k, v := range ms.SubsetKeysWithSameID(newKey) {
+		if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
+			if !ms.overrideProxyPortForAuth(newEntry, k, v, changes) {
+				ms.deleteKeyWithChanges(k, changes)
+				continue
 			}
 		}
-	} else { // New entry has an explicit auth type
-		// Check if the new key is the most specific covering key of any other key
-		// with the same ID and default auth type, and propagate the auth type from the new
-		// entry to such entries.
-		for k, v := range ms.SubsetKeysWithSameID(newKey) {
+		if !propagated && newEntryHasExplicitAuth && !k.PortProtoIsEqual(newKey) {
+			// New entry has an explicit auth type
 			if v.IsDeny() || v.AuthRequirement.IsExplicit() {
-				// Stop if a subset entry is deny or has an explicit auth type, as
+				// Stop if a subset entry is deny or also has an explicit auth type, as
 				// that is the more specific covering key for all remaining subset
 				// keys
-				break
+				propagated = true
+				continue
 			}
 			ms.overrideAuthRequirement(newEntry, k, v, changes)
 		}
