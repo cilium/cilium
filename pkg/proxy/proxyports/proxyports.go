@@ -198,7 +198,7 @@ func (p *ProxyPorts) isPortAvailable(openLocalPorts map[uint16]struct{}, port ui
 // Returns a non-zero allocated port if successful, or 0 and error if not.
 func (p *ProxyPorts) allocatePort(port, min, max uint16) (uint16, error) {
 	// Get a snapshot of the TCP and UDP ports already open locally.
-	openLocalPorts := p.OpenLocalPorts()
+	openLocalPorts := p.GetOpenLocalPorts()
 
 	if port != 0 && p.isPortAvailable(openLocalPorts, port, false) {
 		return port, nil
