@@ -33,6 +33,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 	var (
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
+		hubbleStop    = func() error { return nil }
 		testStartTime time.Time
 	)
 
@@ -70,12 +71,14 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 	JustBeforeEach(func() {
 		_, monitorStop = vm.MonitorStart()
+		_, hubbleStop = vm.HubbleStart("--time-format=RFC3339Milli")
 		testStartTime = time.Now()
 	})
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
+		Expect(hubbleStop()).To(BeNil(), "cannot stop hubble command")
 	})
 
 	AfterFailed(func() {

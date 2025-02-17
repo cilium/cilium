@@ -6,6 +6,8 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -40,4 +42,34 @@ func (s *SSHMeta) HubbleObserveFollow(ctx context.Context, args ...string) *CmdR
 	hubbleCmd := fmt.Sprintf("hubble observe --server=%q --follow --output=jsonpb %s",
 		hubbleSock, argsCoalesced)
 	return s.ExecInBackground(ctx, hubbleCmd)
+}
+
+// HubbleStart runs hubble observe in background and returns the command result and a callback.
+// The callback stops command execution and saves the output to `HubbleLogFileName` file.
+func (s *SSHMeta) HubbleStart(opts ...string) (*CmdRes, func() error) {
+	log.Infof("Running hubble observe in background; will save to %v", HubbleLogFileName)
+
+	cmd := fmt.Sprintf("hubble observe --server=%q --follow %s", hubbleSock, strings.Join(opts, " "))
+	ctx, cancel := context.WithCancel(context.Background())
+	res := s.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
+
+	cb := func() error {
+		cancel()
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			s.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
+		}
+
+		err = os.WriteFile(
+			filepath.Join(testPath, HubbleLogFileName),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create hubble log file")
+		}
+		return nil
+	}
+	return res, cb
 }
