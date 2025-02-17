@@ -128,8 +128,9 @@ func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 	var workflowOwners []codeowners.Owner
 	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
 	ghWorkflow := os.Getenv("GITHUB_WORKFLOW_REF")
-	ghWorkflow = strings.TrimPrefix(ghWorkflow, "cilium/cilium/")
 	ghWorkflow, _, _ = strings.Cut(ghWorkflow, "@")
+	segments := strings.Split(ghWorkflow, "/")
+	ghWorkflow = strings.Join(segments[2:], "/")
 	if ghWorkflow != "" {
 		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
 		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
