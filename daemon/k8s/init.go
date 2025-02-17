@@ -6,6 +6,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -36,7 +37,7 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool {
 		for event := range localCiliumNodeResource.Events(ctx) {
-			if ctx.Err() == context.DeadlineExceeded {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for CiliumNode resource: API server connection issue")
 				break
 			}
@@ -55,7 +56,7 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 		}
 	} else {
 		for event := range localNodeResource.Events(ctx) {
-			if ctx.Err() == context.DeadlineExceeded {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for Node resource: API server connection issue")
 				break
 			}
