@@ -170,3 +170,9 @@ annotations:
       displayName: Cilium Pod IP Pool
       description: |
         CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM mode).
+    - kind: CiliumGatewayClassConfig
+      version: v2alpha1
+      name: ciliumgatewayclassconfigs.cilium.io
+      displayName: Cilium Gateway Class Config
+      description: |
+        CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.

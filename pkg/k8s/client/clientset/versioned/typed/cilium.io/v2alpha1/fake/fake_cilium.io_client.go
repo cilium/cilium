@@ -47,6 +47,10 @@ func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSlice
 	return newFakeCiliumEndpointSlices(c)
 }
 
+func (c *FakeCiliumV2alpha1) CiliumGatewayClassConfigs() v2alpha1.CiliumGatewayClassConfigInterface {
+	return newFakeCiliumGatewayClassConfigs(c)
+}
+
 func (c *FakeCiliumV2alpha1) CiliumL2AnnouncementPolicies() v2alpha1.CiliumL2AnnouncementPolicyInterface {
 	return newFakeCiliumL2AnnouncementPolicies(c)
 }
