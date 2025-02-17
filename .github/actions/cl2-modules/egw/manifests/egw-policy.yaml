@@ -1,14 +1,14 @@
 apiVersion: cilium.io/v2
 kind: CiliumEgressGatewayPolicy
 metadata:
-  name: egw-scale-test-route-external
+  name: {{.Name}}
 spec:
   selectors:
   - podSelector:
       matchLabels:
         app.kubernetes.io/name: egw-client
   destinationCIDRs:
-  - "${EGW_EXTERNAL_TARGET_CIDR}"
+  - "{{.ExternalTarget}}/32"
   egressGateway:
     nodeSelector:
       matchLabels:
