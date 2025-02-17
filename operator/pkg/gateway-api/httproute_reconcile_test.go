@@ -20,8 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 )
 
 var (
