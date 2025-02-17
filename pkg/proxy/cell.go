@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -48,6 +50,7 @@ type proxyParams struct {
 	cell.In
 
 	Lifecycle             cell.Lifecycle
+	Logger                *slog.Logger
 	Config                ProxyConfig
 	IPTablesManager       datapath.IptablesManager
 	EndpointInfoRegistry  logger.EndpointInfoRegistry
@@ -58,16 +61,16 @@ type proxyParams struct {
 
 func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
-		log.Info("L7 proxies are disabled")
+		params.Logger.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
-			log.Warningf("%s is not functional when L7 proxies are disabled", option.EnableEnvoyConfig)
+			params.Logger.Warn("CiliumEnvoyConfig functionality isn't enabled when L7 proxies are disabled", "flag", option.EnableEnvoyConfig)
 		}
 		return nil
 	}
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	p := createProxy(params.Config.ProxyPortrangeMin, params.Config.ProxyPortrangeMax, params.IPTablesManager, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+	p := createProxy(params.Logger, params.Config.ProxyPortrangeMin, params.Config.ProxyPortrangeMax, params.IPTablesManager, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
 	triggerDone := make(chan struct{})
 
