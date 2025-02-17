@@ -338,11 +338,7 @@ func (m *manager) Start(cell.HookContext) error {
 	}
 
 	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
-
-	// In LB-only doing reconciliation of node neighbors should not happen
-	if !option.Config.LoadBalancerOnly {
-		m.jobGroup.Add(job.OneShot("carrierDownReconciler", m.carrierDownReconciler))
-	}
+	m.jobGroup.Add(job.OneShot("carrierDownReconciler", m.carrierDownReconciler))
 
 	return nil
 }
