@@ -16,7 +16,9 @@ steps:
     - basename: egw-client-pod-{{ .instance }}
       objectTemplatePath: manifests/client-pod.yaml
       templateFillMap:
+        Image: {{ .image }}
         Instance: {{ .instance }}
+        ExternalTarget: {{ .externalTarget }}
         ClientConnectTimeout: "295s"
 
 - name: Wait for EGW Client pods to be running
