@@ -152,6 +152,8 @@ jobs:
           #   for newly scheduled pods. This latency depends on the scheduling rate
           #   of new pods on each node, and it is unrelated to the egress gateway
           #   functionality (i.e., it also possibly affects pod to pod connectivity).
+          # * We configure a high cilium-endpoint-gc-interval value to prevent the
+          #   synthetic endpoints from being deleted.
           CILIUM_INSTALL_DEFAULTS="--chart-directory=untrusted/install/kubernetes/cilium \
             --wait=false \
             --set=hubble.enabled=true \
@@ -167,6 +169,8 @@ jobs:
             --set=ipam.mode=eni \
             --set=eni.awsEnablePrefixDelegation=true \
             --set=k8sClientRateLimit.qps=100 \
+            --set=extraConfig.cilium-endpoint-gc-interval=24h \
+            --set-string=extraConfig.enable-stale-cilium-endpoint-cleanup=false \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
             --nodes-without-cilium"
@@ -453,6 +457,7 @@ jobs:
           CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
           CL2_EGW_CREATE_POLICY: ${{ matrix.test_type == 'md' }}
+          CL2_EGW_MANIFESTS_DIR: ../../.github/actions/cl2-modules/egw/manifests
         run: |
           echo "CL2-related environment variables"
           printenv | grep CL2_

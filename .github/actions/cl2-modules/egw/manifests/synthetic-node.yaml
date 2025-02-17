@@ -1,0 +1,15 @@
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/instance: synthetic
+  annotations:
+    cilium.io/do-not-gc: "true"
+    ipam.cilium.io/ignore: "true"
+spec:
+  addresses:
+  - ip: 10.{{RandIntRange 128 191}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}
+    type: InternalIP
+  - ip: 10.{{RandIntRange 192 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}
+    type: CiliumInternalIP
