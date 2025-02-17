@@ -1371,6 +1371,15 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	}
 #endif
 
+	/* TODO look at the actual type of the service (ClusterIP, NodePort, ...),
+	 *	and match it against the calling context (bpf_sock, bpf_lxc, ...).
+	 *	Adjust `full_scope_allowed` accordingly.
+	 *
+	 *	Allow FULL scope for
+	 *	*	bpf_sock / bpf_lxc	to NodePort / LoadBalancer / ExternalIP
+	 *	*	from-netdev		to ClusterIP
+	 */
+
 	if (svc && lb4_svc_is_two_scopes(svc) && full_scope_allowed) {
 		key->scope = LB_LOOKUP_SCOPE_FULL;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
