@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -35,6 +36,7 @@ func FlushLoggingMetrics() {
 type LoggingHook struct {
 	errs, warn *atomic.Uint64
 	th         slog.Handler
+	attrs      map[string]slog.Value
 }
 
 // NewLoggingHook returns a new instance of LoggingHook for the given Cilium
@@ -48,6 +50,7 @@ func NewLoggingHook() *LoggingHook {
 			AddSource: false,
 			Level:     slog.LevelWarn,
 		}),
+		attrs: make(map[string]slog.Value),
 	}
 	go func() {
 		// This channel is closed after registry is created. At this point if the errs/warnings metric
@@ -79,16 +82,23 @@ func (h *LoggingHook) Enabled(ctx context.Context, level slog.Level) bool {
 
 func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 	// Get information about subsystem from logging entry field.
-	var logSysPresent bool
-	var logSysValue slog.Value
+	var i int
+	logSysValue, logSysPresent := h.attrs[logfields.LogSubsys]
+	if logSysPresent {
+		i = 1
+	}
 	record.Attrs(func(attr slog.Attr) bool {
+		fmt.Printf("Hello %s,%s\n", attr.Key, attr.Value)
 		if attr.Key == logfields.LogSubsys {
 			logSysPresent = true
 			logSysValue = attr.Value
-			return false
+			i++
 		}
 		return true
 	})
+	if i > 1 {
+		panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
+	}
 	if !logSysPresent {
 		return fmt.Errorf("log entry doesn't contain 'subsys' field: %s", record.Message)
 	}
@@ -107,11 +117,19 @@ func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 	// Increment the metric.
 	ErrorsWarnings.WithLabelValues(record.Level.String(), logSysValue.String()).Inc()
 
-	return h.th.Handle(ctx, record)
+	return nil
 }
 
 func (h *LoggingHook) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &LoggingHook{errs: h.errs, warn: h.warn, th: h.th.WithAttrs(attrs)}
+	lh := &LoggingHook{errs: h.errs, warn: h.warn, th: h.th.WithAttrs(attrs)}
+	lh.attrs = maps.Clone(h.attrs)
+	for _, attr := range attrs {
+		if v, ok := h.attrs[attr.Key]; ok {
+			panic(fmt.Sprintf("duplicate attribute %s. existing=%s, new=%s", attr.Key, v, attr.Value))
+		}
+		lh.attrs[attr.Key] = attr.Value
+	}
+	return lh
 }
 
 func (h *LoggingHook) WithGroup(name string) slog.Handler {
