@@ -145,8 +145,13 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          # The SHA under test will have its helm chart checked out at the following
-          # path right before the step where Cilium is installed.
+          # * The SHA under test will have its helm chart checked out at the following
+          #   path right before the step where Cilium is installed.
+          # * We configure high K8s Client QPS to avoid observing latency ascribed
+          #   to rate limiting when creating CiliumEndpoint/CiliumIdentity objects
+          #   for newly scheduled pods. This latency depends on the scheduling rate
+          #   of new pods on each node, and it is unrelated to the egress gateway
+          #   functionality (i.e., it also possibly affects pod to pod connectivity).
           CILIUM_INSTALL_DEFAULTS="--chart-directory=untrusted/install/kubernetes/cilium \
             --wait=false \
             --set=hubble.enabled=true \
@@ -161,6 +166,7 @@ jobs:
             --set=eni.enabled=true \
             --set=ipam.mode=eni \
             --set=eni.awsEnablePrefixDelegation=true \
+            --set=k8sClientRateLimit.qps=100 \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
             --nodes-without-cilium"
