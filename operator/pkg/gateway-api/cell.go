@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -48,6 +49,7 @@ var Cell = cell.Module(
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
 	}),
+
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
 )
@@ -126,6 +128,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	}
 
 	if err := registerGatewayAPITypesToScheme(params.Scheme, installedKinds); err != nil {
+		return err
+	}
+
+	if err := v2alpha1.AddToScheme(params.Scheme); err != nil {
 		return err
 	}
 
@@ -268,6 +274,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 		newHTTPRouteReconciler(mgr, logger),
 		newGammaHttpRouteReconciler(mgr, translator, logger),
 		newGRPCRouteReconciler(mgr, logger),
+		newGatewayClassConfigReconciler(mgr, logger),
 	}
 
 	for _, r := range requiredReconcilers {

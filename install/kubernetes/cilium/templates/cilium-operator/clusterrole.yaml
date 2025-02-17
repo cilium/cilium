@@ -329,6 +329,21 @@ rules:
   verbs:
   - update
   - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs/status
+  verbs:
+  - update
+  - patch
 {{- end }}
 {{- if or .Values.gatewayAPI.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
