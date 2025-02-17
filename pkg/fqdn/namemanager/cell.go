@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -35,6 +35,9 @@ var Cell = cell.Module(
 	}),
 	cell.ProvidePrivate(adaptors),
 	cell.Provide(newForCell),
+
+	cell.ProvidePrivate(New), // for the API handlers, exposes *manager.
+	cell.Provide(handlers),
 )
 
 type NameManagerConfig struct {
@@ -74,8 +77,8 @@ type endpoints interface {
 }
 
 // Only exists such that we have constructor which returns the interface type.
-func newForCell(params ManagerParams) NameManager {
-	return New(params)
+func newForCell(m *manager) NameManager {
+	return m
 }
 
 // The NameManager maintains DNS mappings which need to be tracked, due to
@@ -84,17 +87,6 @@ func newForCell(params ManagerParams) NameManager {
 // corresponding IPs which have been returned via DNS lookups. Name to IP
 // mappings are inserted into the ipcache.
 type NameManager interface {
-	// GetModel returns the API model of the NameManager.
-	GetModel() *models.NameManager
-	// GetDNSHistoryModel returns API models.DNSLookup copies of DNS data in each
-	// endpoint's DNSHistory. These are filtered by the specified matchers if
-	// they are non-empty.
-	//
-	// Note that this does *NOT* dump the NameManager's own global DNSCache.
-	//
-	// endpointID may be "" in order to get DNS history for all endpoints.
-	GetDNSHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) ([]*models.DNSLookup, error)
-
 	// RegisterFQDNSelector exposes this FQDNSelector so that the identity labels
 	// of IPs contained in a DNS response that matches said selector can be
 	// associated with that selector.
@@ -117,12 +109,28 @@ type NameManager interface {
 	UnlockName(name string)
 
 	StartGC(context.Context)
-	// DeleteDNSLookups force-removes any entries in *all* caches that are not currently actively
-	// passing traffic.
-	DeleteDNSLookups(expireLookupsBefore time.Time, matchPatternStr string) error
 	// RestoreCache loads cache state from the restored system:
 	// - adds any pre-cached DNS entries
 	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
 	RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo)
 	CompleteBootstrap()
+}
+
+// Provides the API handlers for Cilium API.
+type apiHandlers struct {
+	cell.Out
+
+	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
+	PolicyGetFqdnCacheHandler    policy.GetFqdnCacheHandler
+	PolicyGetFqdnCacheIDHandler  policy.GetFqdnCacheIDHandler
+	PolicyGetFqdnNamesHandler    policy.GetFqdnNamesHandler
+}
+
+func handlers(nm *manager) apiHandlers {
+	return apiHandlers{
+		PolicyDeleteFqdnCacheHandler: &deleteFQDNCacheHandler{nm},
+		PolicyGetFqdnCacheHandler:    &getFQDNCacheHandler{nm},
+		PolicyGetFqdnCacheIDHandler:  &getFQDNCacheIDHandler{nm},
+		PolicyGetFqdnNamesHandler:    &getFQDNNamesHandler{nm},
+	}
 }
