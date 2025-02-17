@@ -302,8 +302,8 @@ jobs:
               --organization cilium \
               --project cilium \
               --url github.com/cilium/cilium \
-              --version main \
-              --contact https://github.com/cilium/community/blob/v1.17/roles/Maintainers.md \
+              --version v1.17 \
+              --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
               -test.timeout=29m \
