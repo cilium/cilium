@@ -114,19 +114,27 @@ func (s *podToPodEncryptionV2) Name() string {
 
 // resolveEgressDevice resolves the egress device used in the provided host
 // network namespace used to send traffic to dst.
-func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostNS *check.Pod, dst *check.Pod) (string, error) {
+func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostNS *check.Pod, src, dst *check.Pod) (string, error) {
 	// if tunnel encap is used, the packet will be encapsulated before
 	// leaving the host, thus, use the tunnel endpoint IP rather then the
 	// pod IP for route lookup.
-	var dstIP string
+	var srcIP, dstIP string
 	if s.tunnelMode.Enabled {
+		srcIP = src.Pod.Status.HostIP
 		dstIP = dst.Pod.Status.HostIP
 	} else {
+		srcIP = src.Pod.Status.PodIP
 		dstIP = dst.Pod.Status.PodIP
 	}
 
-	// issue ip route get for destination in provided host network namespace
-	// and extract device.
+	// issue `ip route get dstIP from srcIP iif cilium_host` for destination in provided
+	// host network namespace and extract device.
+
+	// the `from srcIP` part is needed to tackle cases such as awscni, where there is a
+	// dedicated routing table (using != egress device) for traffic with that srcIP.
+	// the `from srcIP` is ignored in case it doesn't match any non-default route.
+	// the `iif cilium_host` parameter is needed to return anything useful from the command,
+	// but it is ignored if `ip rules` do not have an interface specified in the rule.
 	//
 	// example string output:
 	// "172.18.0.2 dev eth0 src 172.18.0.4 uid 0 \n    cache \n"
@@ -134,7 +142,7 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 		srcHostNS.Pod.Namespace,
 		srcHostNS.Pod.Name,
 		"",
-		[]string{"ip", "route", "get", dstIP})
+		[]string{"ip", "route", "get", dstIP, "from", srcIP, "iif", "cilium_host"})
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
@@ -174,7 +182,7 @@ func (s *podToPodEncryptionV2) resolveClientEgressDevice(ctx context.Context) (s
 		return "", fmt.Errorf("Context already cancelled")
 	}
 
-	return s.resolveEgressDevice(ctx, s.clientHostNS, s.server)
+	return s.resolveEgressDevice(ctx, s.clientHostNS, s.client, s.server)
 }
 
 // resolveServerEgressDevice is the similar to resolveClientEgressDevice but
@@ -184,7 +192,7 @@ func (s *podToPodEncryptionV2) resolveServerEgressDevice(ctx context.Context) (s
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("Context already cancelled")
 	}
-	return s.resolveEgressDevice(ctx, s.serverHostNS, s.client)
+	return s.resolveEgressDevice(ctx, s.serverHostNS, s.server, s.client)
 }
 
 // tunnelTCPDumpFilters4 will generate the required TCPDump filters for leak
