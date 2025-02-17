@@ -294,6 +294,15 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	int ret;
 
+	/* Trigger SW-based hash calculation via kernel flow dissector
+	 * right before we push the packet into vxlan/geneve tunnel,
+	 * so that udp_flow_src_port() actually takes the proper L4
+	 * hash for source port selection instead of having to fall
+	 * back.
+	 */
+	set_hash_invalid(ctx);
+	get_hash_recalc(ctx);
+
 #ifdef ENABLE_VTEP
 	if (vni != NOT_VTEP_DST)
 		key.tunnel_id = get_tunnel_id(vni);
