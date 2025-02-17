@@ -20,8 +20,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
