@@ -19,8 +19,6 @@
 /* Provide the desired egress interface to the datapath */
 #define EGRESS_IFINDEX	IFACE_IFINDEX
 
-#define SECCTX_FROM_IPCACHE 1
-
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,

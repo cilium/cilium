@@ -61,11 +61,6 @@ const (
 	dirEgress  = "egress"
 )
 
-const (
-	secctxFromIpcacheDisabled = iota + 1
-	secctxFromIpcacheEnabled
-)
-
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 // loader is a wrapper structure around operations related to compiling,
@@ -192,12 +187,6 @@ func hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, if
 	opts["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
 
 	ifIndex := uint32(iface.Attrs().Index)
-
-	if !option.Config.EnableHostLegacyRouting {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
-	} else {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
-	}
 
 	// Overwrite the host endpoint ifindex assigned in ELFVariableSubstitutions
 	// with the external device's.
