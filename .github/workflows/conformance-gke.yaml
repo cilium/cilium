@@ -225,6 +225,7 @@ jobs:
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
+            --helm-set=ipv6.enabled=true \
             --wait=false"
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
@@ -264,6 +265,8 @@ jobs:
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ matrix.k8s.zone }} \
             --cluster-version ${{ matrix.k8s.version }} \
+            --enable-dataplane-v2 \
+            --stack-type=ipv4-ipv6 \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
