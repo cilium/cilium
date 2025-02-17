@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -37,7 +37,7 @@ import (
 type peerConfigTestFixture struct {
 	hive               *hive.Hive
 	fakeClientSet      *k8s_client.FakeClientset
-	peerConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
+	peerConfigResource resource.Resource[*v2.CiliumBGPPeerConfig]
 
 	db          *statedb.DB
 	healthTable statedb.Table[healthTypes.Status]
@@ -106,7 +106,7 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 				registerPeerConfigStatusReconciler,
 				func(
 					fcs *k8s_client.FakeClientset,
-					p resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig],
+					p resource.Resource[*v2.CiliumBGPPeerConfig],
 					db *statedb.DB,
 					h statedb.Table[healthTypes.Status],
 				) {
@@ -145,16 +145,16 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		peerConfig    *cilium_api_v2alpha1.CiliumBGPPeerConfig
+		peerConfig    *v2.CiliumBGPPeerConfig
 		expectedState meta_v1.ConditionStatus
 	}{
 		{
 			name: "MissingAuthSecret False",
-			peerConfig: &cilium_api_v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: &v2.CiliumBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPPeerConfigSpec{
+				Spec: v2.CiliumBGPPeerConfigSpec{
 					AuthSecretRef: ptr.To(secretName),
 				},
 			},
@@ -162,21 +162,21 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 		},
 		{
 			name: "MissingAuthSecret False nil AuthSecretRef",
-			peerConfig: &cilium_api_v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: &v2.CiliumBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPPeerConfigSpec{},
+				Spec: v2.CiliumBGPPeerConfigSpec{},
 			},
 			expectedState: meta_v1.ConditionFalse,
 		},
 		{
 			name: "MissingAuthSecret True",
-			peerConfig: &cilium_api_v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: &v2.CiliumBGPPeerConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: peerConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPPeerConfigSpec{
+				Spec: v2.CiliumBGPPeerConfigSpec{
 					AuthSecretRef: ptr.To(secretName + "foo"),
 				},
 			},
@@ -200,7 +200,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 
 			ready()
 
-			_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeerConfigs().Create(
+			_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumBGPPeerConfigs().Create(
 				ctx, tt.peerConfig, meta_v1.CreateOptions{},
 			)
 			require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				}
 				cond := meta.FindStatusCondition(
 					pc.Status.Conditions,
-					cilium_api_v2alpha1.BGPPeerConfigConditionMissingAuthSecret,
+					v2.BGPPeerConfigConditionMissingAuthSecret,
 				)
 				if !assert.NotNil(ct, cond, "Condition not found") {
 					return
@@ -253,26 +253,26 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 
 	ready()
 
-	peerConfig := &cilium_api_v2alpha1.CiliumBGPPeerConfig{
+	peerConfig := &v2.CiliumBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "config0",
 		},
-		Spec: cilium_api_v2alpha1.CiliumBGPPeerConfigSpec{
+		Spec: v2.CiliumBGPPeerConfigSpec{
 			AuthSecretRef: ptr.To("secret0"),
 		},
-		Status: cilium_api_v2alpha1.CiliumBGPPeerConfigStatus{
+		Status: v2.CiliumBGPPeerConfigStatus{
 			Conditions: []meta_v1.Condition{},
 		},
 	}
 
 	// Fill with all known conditions
-	for _, cond := range cilium_api_v2alpha1.AllBGPPeerConfigConditions {
+	for _, cond := range v2.AllBGPPeerConfigConditions {
 		peerConfig.Status.Conditions = append(peerConfig.Status.Conditions, meta_v1.Condition{
 			Type: cond,
 		})
 	}
 
-	_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeerConfigs().Create(
+	_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumBGPPeerConfigs().Create(
 		ctx, peerConfig, meta_v1.CreateOptions{},
 	)
 	require.NoError(t, err)
