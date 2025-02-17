@@ -6,10 +6,11 @@ package encrypt
 import (
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 func Test_nodeStatusFromOutput(t *testing.T) {
@@ -461,51 +462,59 @@ func Test_maxSequenceNumber(t *testing.T) {
 }
 
 func Test_expectedIPsecKeyCount(t *testing.T) {
+	ciliumVersion := semver.MustParse("1.18.0")
+
 	testCases := []struct {
+		version    *semver.Version
+		configMap  *corev1.ConfigMap
 		ciliumPods int
-		fs         features.Set
 		expected   int
 	}{
 		{
+			configMap:  &corev1.ConfigMap{},
 			ciliumPods: 10,
-			fs:         features.Set{},
+			expected:   0,
+		},
+		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec": "true",
+					"routing-mode": "native",
+				},
+			},
+			ciliumPods: 10,
 			expected:   18,
 		},
 		{
-			ciliumPods: 10,
-			fs: features.Set{
-				features.IPv6: features.Status{Enabled: true},
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+				},
 			},
-			expected: 36,
+			ciliumPods: 10,
+			expected:   36,
 		},
 		{
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"enable-ipsec":    "true",
+					"routing-mode":    "tunnel",
+					"tunnel-protocol": "vxlan",
+					"enable-ipv6":     "true",
+				},
+			},
 			ciliumPods: 10,
-			fs: features.Set{
-				features.CiliumIPAMMode: features.Status{Mode: "eni"},
-			},
-			expected: 27,
-		},
-		{
-			ciliumPods: 10,
-			fs: features.Set{
-				features.IPv6:           features.Status{Enabled: true},
-				features.CiliumIPAMMode: features.Status{Mode: "azure"},
-			},
-			expected: 54,
-		},
-		{
-			ciliumPods: 20,
-			fs: features.Set{
-				features.CiliumIPAMMode: features.Status{Mode: "eni"},
-			},
-			expected: 57,
+			expected:   72,
 		},
 	}
 
 	for _, tt := range testCases {
 		// function to test
-		actual := expectedIPsecKeyCount(tt.ciliumPods, tt.fs)
+		actual, err := ipsecExpectedKeyCount(ciliumVersion, tt.configMap, tt.ciliumPods)
 
+		require.NoError(t, err)
 		require.Equal(t, tt.expected, actual)
 	}
 }

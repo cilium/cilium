@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // PrintEncryptStatus prints encryption status from all/specific cilium agent pods.
@@ -31,12 +33,22 @@ func (s *Encrypt) PrintEncryptStatus(ctx context.Context) error {
 		return err
 	}
 
+	ciliumVersion, err := s.checkAndGetCiliumVersion(ctx, pods)
+	if err != nil {
+		return err
+	}
+
+	cm, err := s.client.GetConfigMap(ctx, s.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable get ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
 	nodeMap, err := s.fetchEncryptStatusConcurrently(ctx, pods)
 	if err != nil {
 		return err
 	}
 
-	expectedKeyCount, err := s.getIPsecKeyProps(ctx, len(pods))
+	expectedKeyCount, err := ipsecExpectedKeyCount(*ciliumVersion, cm, len(pods))
 	if err != nil {
 		return err
 	}
@@ -50,6 +62,22 @@ func (s *Encrypt) PrintEncryptStatus(ctx context.Context) error {
 		return err
 	}
 	return printClusterStatus(cs, s.params.Output)
+}
+
+func (s *Encrypt) checkAndGetCiliumVersion(ctx context.Context, pods []corev1.Pod) (*semver.Version, error) {
+	if len(pods) == 0 {
+		return nil, errors.New("unable to find Cilium pods")
+	}
+
+	version, err := s.client.GetCiliumVersion(ctx, &pods[0])
+	if err != nil {
+		return nil, fmt.Errorf("unable to get Cilium version: %w", err)
+	}
+
+	if versioncheck.MustCompile("<1.18.0")(*version) {
+		return nil, fmt.Errorf("Cilium version is too old: %s (command is supported since 1.18)", version.String())
+	}
+	return version, nil
 }
 
 func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]models.EncryptionStatus, error) {
@@ -165,33 +193,26 @@ func nodeStatusFromText(str string) (models.EncryptionStatus, error) {
 	return res, nil
 }
 
-func (s *Encrypt) getIPsecKeyProps(ctx context.Context, nodeCount int) (int, error) {
-	cm, err := s.client.GetConfigMap(ctx, s.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("unable get ConfigMap %q: %w", defaults.ConfigMapName, err)
-	}
-
+func ipsecExpectedKeyCount(ciliumVersion semver.Version, cm *corev1.ConfigMap, nodeCount int) (int, error) {
 	fs := features.Set{}
 	fs.ExtractFromConfigMap(cm)
+	fs.ExtractFromVersionedConfigMap(ciliumVersion, cm)
 	if !fs[features.IPsecEnabled].Enabled {
 		return 0, nil
 	}
 
-	return expectedIPsecKeyCount(nodeCount, fs), nil
-}
-
-func expectedIPsecKeyCount(ciliumPods int, fs features.Set) int {
-	// IPsec key states for `local_cilium_internal_ip` and `remote_node_ip`
-	xfrmStates := 2
-	if fs[features.CiliumIPAMMode].Mode == "eni" || fs[features.CiliumIPAMMode].Mode == "azure" {
-		xfrmStates++
+	// We have two keys per node, per direction, per IP family.
+	expectedKeys := (nodeCount - 1) * 2
+	if fs[features.Tunnel].Enabled {
+		// If running in tunneling mode, then we have twice the amount of states
+		// and keys to handle encrypted overlay traffic.
+		expectedKeys *= 2
 	}
 	if fs[features.IPv6].Enabled {
-		// multiply by 2 because of dual state: IPv4 & IPv6
-		xfrmStates *= 2
+		// multiply by 2 because of dual stack: IPv4 & IPv6
+		expectedKeys *= 2
 	}
-	// subtract 1 to count remote nodes only
-	return (ciliumPods - 1) * xfrmStates
+	return expectedKeys, nil
 }
 
 func printPerNodeStatus(nodeMap map[string]models.EncryptionStatus, expectedKeyCount int, format string) error {
