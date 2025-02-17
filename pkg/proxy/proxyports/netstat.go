@@ -9,11 +9,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
 
 var (
 	// procNetTCPFiles is the constant list of /proc/net files to read to get
@@ -42,7 +39,7 @@ func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+			p.logger.Error("cannot read proc file", logfields.Path, file, logfields.Error, err)
 			continue
 		}
 
@@ -58,7 +55,7 @@ func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 			// The port number is in hexadecimal.
 			localPort, err := strconv.ParseUint(string(groups[1]), 16, 16)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+				p.logger.Error("failed to parse port from proc file", logfields.Path, file, logfields.Error, err)
 				continue
 			}
 			openLocalPorts[uint16(localPort)] = struct{}{}
