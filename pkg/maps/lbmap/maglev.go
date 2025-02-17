@@ -95,6 +95,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 
 	// An outer map already exists but it has the wrong table size (or we
 	// can't determine it). Delete it.
+	log.Infof("Recreating maglev map %s, expected table size %d, saw %d", mapName, tableSize, size)
 	if err := m.Unpin(); err != nil {
 		return false, fmt.Errorf("error unpinning existing outer map: %w", err)
 	}
