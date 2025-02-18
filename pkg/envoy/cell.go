@@ -224,6 +224,7 @@ type accessLogServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
+	Logger             *slog.Logger
 	LocalEndpointStore *LocalEndpointStore
 	EnvoyProxyConfig   ProxyConfig
 }
@@ -234,7 +235,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		return nil
 	}
 
-	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
+	accessLogServer := newAccessLogServer(params.Logger, GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
