@@ -69,7 +69,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *s
 	}
 	for {
 		select {
-		case event, ok := <-K8sSvcCache.Events:
+		case event, ok := <-K8sSvcCache.Events():
 			if !ok {
 				return
 			}
