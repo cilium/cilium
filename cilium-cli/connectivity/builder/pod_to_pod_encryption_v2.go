@@ -21,26 +21,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
 			// this test only runs post v1.18.0 clusters
-			if !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
-				return false
-			}
-
-			// we run if no encryption is enabled at all to sanity check our
-			// tcpdump filters
-			encryptionPod, ok := ct.Feature(features.EncryptionPod)
-			if !ok {
-				return false
-			}
-			if !encryptionPod.Enabled {
-				return true
-			}
-
-			// we only run for wireguard right now, until IPsec implements VinE
-			if encryptionPod.Mode == "wireguard" {
-				return true
-			}
-
-			return false
+			return versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
 		}).
 		WithScenarios(
 			tests.PodToPodEncryptionV2(),
@@ -50,21 +31,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
 			// this test only runs post v1.18.0 clusters
-			if !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
-				return false
-			}
-
-			encryptionPod, ok := ct.Feature(features.EncryptionPod)
-			if !ok {
-				return false
-			}
-
-			// we only run for wireguard right now, until IPsec implements VinE
-			if encryptionPod.Mode == "wireguard" {
-				return true
-			}
-
-			return false
+			return versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
 		}).
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
