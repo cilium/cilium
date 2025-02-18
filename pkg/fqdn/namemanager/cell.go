@@ -100,7 +100,7 @@ type NameManager interface {
 	UnregisterFQDNSelector(selector api.FQDNSelector)
 	// UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 	// have changed for a name they will be reflected in updatedDNSIPs.
-	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) <-chan error
+	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords) <-chan error
 
 	// LockName is used to serialize  parallel end-to-end updates to the same name.
 	LockName(name string)

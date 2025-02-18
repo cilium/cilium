@@ -138,19 +138,17 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) <-chan error {
+func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords) <-chan error {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
-	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		for dnsName, IPs := range updatedDNSNames {
-			log.WithFields(logrus.Fields{
-				"matchName": dnsName,
-				"IPs":       IPs,
-			}).Debug("Updated FQDN with new IPs")
-		}
+	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record)
+	if updated && log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		log.WithFields(logrus.Fields{
+			"matchName": name,
+			"IPs":       record.IPs,
+		}).Debug("Updated FQDN with new IPs")
 	}
 
 	c := make(chan error)
@@ -191,61 +189,53 @@ func (n *manager) CompleteBootstrap() {
 	}
 }
 
-// updateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
-// It returns:
-// updatedNames: a map of DNS names to all the valid IPs we store for each.
-// ipcacheRevision: a revision number to pass to WaitForRevision()
-func (n *manager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) (updatedNames map[string][]netip.Addr, ipcacheRevision uint64) {
-	updatedNames = make(map[string][]netip.Addr, len(updatedDNSIPs))
-	updatedMetadata := make(map[string]nameMetadata, len(updatedDNSIPs))
+// updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
+// changed and ipcacheRevision, a revision number to pass to WaitForRevision()
+func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords) (updated bool, ipcacheRevision uint64) {
+	updated = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
-	for dnsName, lookupIPs := range updatedDNSIPs {
-		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
-
-		// The IPs didn't change. No more to be done for this dnsName
-		if !updated && n.bootstrapCompleted {
-			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					"dnsName":   dnsName,
-					"lookupIPs": lookupIPs,
-				}).Debug("FQDN: IPs didn't change for DNS name")
-			}
-			continue
+	// The IPs didn't change. No more to be done for this dnsName
+	if !updated && n.bootstrapCompleted {
+		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			log.WithFields(logrus.Fields{
+				"dnsName":   dnsName,
+				"lookupIPs": lookupIPs,
+			}).Debug("FQDN: IPs didn't change for DNS name")
 		}
+		return
+	}
 
-		// record the IPs that were different
-		updatedNames[dnsName] = lookupIPs.IPs
-
-		// accumulate the new labels affected by new IPs
-		if len(n.allSelectors) == 0 {
-			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					"dnsName":   dnsName,
-					"lookupIPs": lookupIPs,
-				}).Debug("FQDN: No selectors registered for updates")
-			}
-			continue
+	// accumulate the new labels affected by new IPs
+	if len(n.allSelectors) == 0 {
+		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			log.WithFields(logrus.Fields{
+				"dnsName":   dnsName,
+				"lookupIPs": lookupIPs,
+			}).Debug("FQDN: No selectors registered for updates")
 		}
+		return
+	}
 
-		// derive labels for this DNS name
-		nameLabels := deriveLabelsForName(dnsName, n.allSelectors)
-		if len(nameLabels) == 0 {
-			// If no selectors care about this name, then skip IPCache updates
-			// for this name.
-			// If any selectors/ are added later, ipcache insertion will happen then.
-			continue
-		}
+	// derive labels for this DNS name
+	nameLabels := deriveLabelsForName(dnsName, n.allSelectors)
+	if len(nameLabels) == 0 {
+		// If no selectors care about this name, then skip IPCache updates
+		// for this name.
+		// If any selectors/ are added later, ipcache insertion will happen then.
+		return
+	}
 
-		updatedMetadata[dnsName] = nameMetadata{
+	updates := map[string]nameMetadata{
+		dnsName: {
 			addrs:  lookupIPs.IPs,
 			labels: nameLabels,
-		}
+		},
 	}
 
 	// If new IPs were detected, and these IPs are selected by selectors,
 	// then ensure they have an identity allocated to them via the ipcache.
-	ipcacheRevision = n.updateMetadata(updatedMetadata)
-	return updatedNames, ipcacheRevision
+	ipcacheRevision = n.updateMetadata(updates)
+	return updated, ipcacheRevision
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of

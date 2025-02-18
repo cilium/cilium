@@ -336,11 +336,9 @@ func (d *Daemon) notifyOnDNSMsg(
 		defer updateCancel()
 		updateStart := time.Now()
 
-		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
-			qname: {
-				IPs: responseIPs,
-				TTL: int(TTL),
-			},
+		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+			IPs: responseIPs,
+			TTL: int(TTL),
 		})
 
 		stat.PolicyGenerationTime.End(true)
