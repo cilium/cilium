@@ -5,6 +5,7 @@ package policymap
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -14,6 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -96,6 +99,16 @@ var (
 
 type PolicyMap struct {
 	*bpf.Map
+	stats *StatsMap
+	epID  uint16
+}
+
+func (pm *PolicyMap) Close() error {
+	if pm.stats != nil {
+		pm.stats.Close()
+		pm.stats = nil
+	}
+	return pm.Map.Close()
 }
 
 func (pe PolicyEntry) IsDeny() bool {
@@ -104,7 +117,7 @@ func (pe PolicyEntry) IsDeny() bool {
 
 func (pe *PolicyEntry) String() string {
 	prefixLen := pe.Flags.getPrefixLen()
-	return fmt.Sprintf("%d %d %d %d", pe.GetProxyPort(), prefixLen, pe.Packets, pe.Bytes)
+	return fmt.Sprintf("%d %d", pe.GetProxyPort(), prefixLen)
 }
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
@@ -126,28 +139,21 @@ func (k *PolicyKey) GetDestPort() uint16 {
 
 // GetPortMask returns the port mask of the key
 func (k *PolicyKey) GetPortMask() uint16 {
-	if k.DestPortNetwork == 0 {
-		return 0
-	}
-	prefixLen := k.Prefixlen - StaticPrefixBits
-	if prefixLen == FullPrefixBits {
-		return 0xffff
-	}
-	if prefixLen == 0 || prefixLen == NexthdrBits {
-		return 0
-	}
-	portPrefixLen := prefixLen - NexthdrBits
-	portLen := prefixLenPortLenMap[portPrefixLen]
-	return ^portLen
+	return 0xffff << (16 - k.GetPortPrefixLen())
 }
 
 // GetPortPrefixLen returns the prefix length applicable to the port in the key
 func (k *PolicyKey) GetPortPrefixLen() uint8 {
-	prefixLen := k.Prefixlen - StaticPrefixBits
+	prefixLen := k.GetPrefixLen()
 	if prefixLen <= NexthdrBits {
 		return 0
 	}
-	return uint8(prefixLen - NexthdrBits)
+	return prefixLen - NexthdrBits
+}
+
+// GetPrefixLen returns the prefix length applicable to the protocol and port in the key
+func (k *PolicyKey) GetPrefixLen() uint8 {
+	return uint8(k.Prefixlen - StaticPrefixBits)
 }
 
 const (
@@ -156,11 +162,11 @@ const (
 	sizeofNexthdr   = int(unsafe.Sizeof(PolicyKey{}.Nexthdr))
 	sizeofDestPort  = int(unsafe.Sizeof(PolicyKey{}.DestPortNetwork))
 
-	NexthdrBits    = uint32(sizeofNexthdr) * 8
-	DestPortBits   = uint32(sizeofDestPort) * 8
+	NexthdrBits    = uint8(sizeofNexthdr) * 8
+	DestPortBits   = uint8(sizeofDestPort) * 8
 	FullPrefixBits = NexthdrBits + DestPortBits
 
-	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - FullPrefixBits
+	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - uint32(FullPrefixBits)
 )
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
@@ -172,8 +178,6 @@ type PolicyEntry struct {
 	ProxyPortPriority policyTypes.ProxyPortPriority `align:"proxy_port_priority"`
 	Pad1              uint8                         `align:"pad1"`
 	Pad2              uint16                        `align:"pad2"`
-	Packets           uint64                        `align:"packets"`
-	Bytes             uint64                        `align:"bytes"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -222,13 +226,9 @@ func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
 func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.ProgID), 10) }
 func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
-func (pe *PolicyEntry) Add(oPe PolicyEntry) {
-	pe.Packets += oPe.Packets
-	pe.Bytes += oPe.Bytes
-}
-
 type PolicyEntryDump struct {
 	PolicyEntry
+	StatsValue
 	Key PolicyKey
 }
 
@@ -239,8 +239,8 @@ type PolicyEntriesDump []PolicyEntryDump
 func (p PolicyEntriesDump) String() string {
 	var sb strings.Builder
 	for _, entry := range p {
-		sb.WriteString(fmt.Sprintf("%20s: %s\n",
-			entry.Key.String(), entry.PolicyEntry.String()))
+		sb.WriteString(fmt.Sprintf("%20s: %s %s\n",
+			entry.Key.String(), entry.PolicyEntry.String(), entry.StatsValue.String()))
 	}
 	return sb.String()
 }
@@ -264,34 +264,18 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 		p[i].Key.Identity < p[j].Key.Identity
 }
 
-// prefixLenPortLenMaskMap is the map of all the possible prefix lengths
-// of the port field in the policy key, corresponding to the port
+// prefixLenToPortLenMask maps a prefix length to the port
 // length of that mask. The "16" prefix len implies a full mask (that is,
-// 0 additional ports) and makes the default return value, 0, useful.
-var prefixLenPortLenMap = map[uint32]uint16{
-	0:  0xffff,
-	1:  0x7fff,
-	2:  0x3fff,
-	3:  0x1fff,
-	4:  0xfff,
-	5:  0x7ff,
-	6:  0x3ff,
-	7:  0x1ff,
-	8:  0xff,
-	9:  0x7f,
-	10: 0x3f,
-	11: 0x1f,
-	12: 0xf,
-	13: 0x7,
-	14: 0x3,
-	15: 0x1,
+// 0 additional ports).
+func prefixLenToPortLen(plen uint8) uint16 {
+	return 0xffff >> plen
 }
 
 func (key *PolicyKey) PortProtoString() string {
 	dport := key.GetDestPort()
 	protoStr := u8proto.U8proto(key.Nexthdr).String()
-	prefixLen := key.Prefixlen - StaticPrefixBits
-	portPrefixLen := prefixLen - NexthdrBits
+	prefixLen := key.GetPrefixLen()
+	portPrefixLen := key.GetPortPrefixLen()
 
 	switch {
 	case prefixLen == 0, prefixLen == NexthdrBits:
@@ -299,7 +283,7 @@ func (key *PolicyKey) PortProtoString() string {
 		return protoStr
 	case prefixLen > NexthdrBits && prefixLen < FullPrefixBits:
 		// Protocol specified, partially wildcarded port
-		portLen := prefixLenPortLenMap[portPrefixLen]
+		portLen := prefixLenToPortLen(portPrefixLen)
 		return fmt.Sprintf("%d-%d/%s", dport, dport+portLen, protoStr)
 	case prefixLen == FullPrefixBits:
 		// Both protocol and port specified, nothing wildcarded
@@ -323,7 +307,7 @@ func (key *PolicyKey) New() bpf.MapKey { return &PolicyKey{} }
 func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8) PolicyKey {
 	prefixLen := StaticPrefixBits
 	if proto != 0 || dport != 0 {
-		prefixLen += NexthdrBits
+		prefixLen += uint32(NexthdrBits)
 		if dport != 0 {
 			prefixLen += uint32(portPrefixLen)
 		}
@@ -370,9 +354,15 @@ func newDenyEntry(key PolicyKey) PolicyEntry {
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
+// Clears the associated policy stat entry.
 // Returns an error if the update of the PolicyMap fails.
+//
+// TODO: Update maps with a bpf batch update
 func (pm *PolicyMap) AllowKey(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
 	entry := newAllowEntry(key, proxyPortPriority, authReq, proxyPort)
+	if option.Config.Debug {
+		pm.stats.ClearStat(pm.epID, key)
+	}
 	return pm.Update(&key, &entry)
 }
 
@@ -385,9 +375,15 @@ func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, i
 }
 
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
+// Clears the associated policy stat entry.
 // Returns an error if the update of the PolicyMap fails.
+//
+// TODO: Update maps with a bpf batch update
 func (pm *PolicyMap) DenyKey(key PolicyKey) error {
 	entry := newDenyEntry(key)
+	if option.Config.Debug {
+		pm.stats.ClearStat(pm.epID, key)
+	}
 	return pm.Update(&key, &entry)
 }
 
@@ -457,7 +453,16 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 		entries = append(entries, eDump)
 	}
 	err := pm.DumpWithCallback(cb)
+	if err != nil {
+		return nil, err
+	}
 
+	// Fetch stats for all dumped entries
+	if pm.stats != nil {
+		for i := range entries {
+			entries[i].Packets, entries[i].Bytes = pm.stats.GetStat(pm.epID, entries[i].Key)
+		}
+	}
 	return entries, err
 }
 
@@ -465,18 +470,38 @@ func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
 	return v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits)
 }
 
-func newMap(path string) *PolicyMap {
+func newMap(mapPath string) *PolicyMap {
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetPreAllocateMapFlags(mapType)
+
+	// Extract endpoint ID from the given path
+	var id uint16
+	name := path.Base(mapPath)
+	idx := strings.LastIndexByte(name, '_')
+	if idx >= 0 {
+		if id64, err := strconv.ParseUint(name[idx+1:], 10, 16); err == nil {
+			id = uint16(id64)
+		} else {
+			log.WithError(err).Error("failed to parse endpoint ID")
+		}
+	} else {
+		log.WithField(logfields.BPFMapPath, mapPath).Error("malformed policy map name (missing '_')")
+	}
+	statsMap, err := OpenStatsMap()
+	if err != nil {
+		log.WithError(err).Error("Failed to open StatsMap")
+	}
 	return &PolicyMap{
 		Map: bpf.NewMap(
-			path,
+			mapPath,
 			mapType,
 			&PolicyKey{},
 			&PolicyEntry{},
 			MaxEntries,
 			flags,
 		).WithGroupName("endpoint_policy"),
+		stats: statsMap,
+		epID:  id,
 	}
 }
 
@@ -505,8 +530,15 @@ func Open(path string) (*PolicyMap, error) {
 }
 
 // InitMapInfo updates the map info defaults for policy maps.
-func InitMapInfo(maxEntries int) {
+func InitMapInfo(maxEntries, maxStatsEntries int, nCPU int) {
 	MaxEntries = maxEntries
+
+	roundDown := maxStatsEntries % nCPU
+	MaxStatsEntries = maxStatsEntries - roundDown
+	if roundDown != 0 {
+		log.Debugf("Rounded %s down to the closest multiple of the number of possible CPUs (%d): %d",
+			option.PolicyStatsMapEntriesName, nCPU, MaxStatsEntries)
+	}
 }
 
 // InitCallMap creates the policy call maps in the kernel.
@@ -518,18 +550,20 @@ func InitCallMaps() error {
 		int(PolicyCallMaxEntries),
 		0,
 	)
-	err := policyCallMap.Create()
-
-	if err == nil {
-		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-			ebpf.ProgramArray,
-			&CallKey{},
-			&CallValue{},
-			int(PolicyCallMaxEntries),
-			0,
-		)
-
-		err = policyEgressCallMap.Create()
+	if err := policyCallMap.Create(); err != nil {
+		return err
 	}
-	return err
+
+	policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
+		ebpf.ProgramArray,
+		&CallKey{},
+		&CallValue{},
+		int(PolicyCallMaxEntries),
+		0,
+	)
+	if err := policyEgressCallMap.Create(); err != nil {
+		return err
+	}
+
+	return CreateStatsMap()
 }

@@ -84,6 +84,18 @@ struct {
 } POLICY_MAP __section_maps_btf;
 #endif
 
+#ifdef POLICY_STATS_MAP
+/* Global policy stats map */
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+	__type(key, struct policy_stats_key);
+	__type(value, struct policy_stats_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_STATS_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_COMMON_LRU);
+} POLICY_STATS_MAP __section_maps_btf;
+#endif
+
 #ifdef AUTH_MAP
 /* Global auth map for enforcing authentication policy */
 struct {
