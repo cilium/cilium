@@ -6,12 +6,13 @@ package envoy
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHandleIPUpsert(t *testing.T) {
-	cache := newNPHDSCache(nil)
+	cache := newNPHDSCache(hivetest.Logger(t), nil)
 
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, "123")
 	require.NoError(t, err)
