@@ -10,7 +10,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // ServerWithConfig is a container for providing interface with underlying router implementation
@@ -34,7 +35,7 @@ type ServerWithConfig struct {
 	//
 	// If this field is nil it means the above BgpServer has had no
 	// configuration applied to it.
-	Config *v2alpha1api.CiliumBGPVirtualRouter
+	Config *v2alpha1.CiliumBGPVirtualRouter
 
 	// ReconcilerMetadata holds reconciler-specific metadata keyed by the reconciler name,
 	// opaque outside the respective reconciler.
@@ -69,7 +70,7 @@ type BGPInstance struct {
 	Name      string
 	Global    types.BGPGlobal
 	CancelCtx context.CancelFunc
-	Config    *v2alpha1api.CiliumBGPNodeInstance
+	Config    *v2.CiliumBGPNodeInstance
 	Router    types.Router
 }
 

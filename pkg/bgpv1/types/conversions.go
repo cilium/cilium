@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/netip"
 
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -260,7 +261,7 @@ func ParseSafi(s string) Safi {
 	return ret
 }
 
-func ToAgentFamily(fam v2alpha1.CiliumBGPFamily) Family {
+func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 	return Family{
 		Afi:  ParseAfi(fam.Afi),
 		Safi: ParseSafi(fam.Safi),
@@ -367,7 +368,7 @@ func toNeighborAfiSafisV1(apiFamilies []v2alpha1.CiliumBGPFamily) []*Family {
 // ToNeighborV2 converts a CiliumBGPNodePeer to Neighbor which can be used
 // with Router API. The caller must ensure that the np, np.PeerAddress,
 // np.PeerASN and pc are not nil.
-func ToNeighborV2(np *v2alpha1.CiliumBGPNodePeer, pc *v2alpha1.CiliumBGPPeerConfigSpec, password string) *Neighbor {
+func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
 	neighbor := &Neighbor{}
 
 	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
@@ -399,7 +400,7 @@ func toNeighborEbgpMultihopV2(ebgpMultihop *int32) *NeighborEbgpMultihop {
 	}
 }
 
-func toNeighborTimersV2(apiTimers *v2alpha1.CiliumBGPTimers) *NeighborTimers {
+func toNeighborTimersV2(apiTimers *v2.CiliumBGPTimers) *NeighborTimers {
 	if apiTimers == nil {
 		return nil
 	}
@@ -421,7 +422,7 @@ func toNeighborTimersV2(apiTimers *v2alpha1.CiliumBGPTimers) *NeighborTimers {
 	return timers
 }
 
-func toNeighborTransportV2(apiLocalAddress *string, apiTransport *v2alpha1.CiliumBGPTransport) *NeighborTransport {
+func toNeighborTransportV2(apiLocalAddress *string, apiTransport *v2.CiliumBGPTransport) *NeighborTransport {
 	if apiLocalAddress == nil && apiTransport == nil {
 		return nil
 	}
@@ -433,9 +434,6 @@ func toNeighborTransportV2(apiLocalAddress *string, apiTransport *v2alpha1.Ciliu
 	}
 
 	if apiTransport != nil {
-		if apiTransport.LocalPort != nil {
-			transport.LocalPort = uint32(*apiTransport.LocalPort)
-		}
 		if apiTransport.PeerPort != nil {
 			transport.RemotePort = uint32(*apiTransport.PeerPort)
 		}
@@ -444,7 +442,7 @@ func toNeighborTransportV2(apiLocalAddress *string, apiTransport *v2alpha1.Ciliu
 	return transport
 }
 
-func toNeighborGracefulRestartV2(apiGR *v2alpha1.CiliumBGPNeighborGracefulRestart) *NeighborGracefulRestart {
+func toNeighborGracefulRestartV2(apiGR *v2.CiliumBGPNeighborGracefulRestart) *NeighborGracefulRestart {
 	if apiGR == nil || apiGR.RestartTimeSeconds == nil {
 		return nil
 	}
@@ -454,7 +452,7 @@ func toNeighborGracefulRestartV2(apiGR *v2alpha1.CiliumBGPNeighborGracefulRestar
 	}
 }
 
-func toNeighborAfiSafisV2(families []v2alpha1.CiliumBGPFamilyWithAdverts) []*Family {
+func toNeighborAfiSafisV2(families []v2.CiliumBGPFamilyWithAdverts) []*Family {
 	if len(families) == 0 {
 		return nil
 	}
