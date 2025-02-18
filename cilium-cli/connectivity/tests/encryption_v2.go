@@ -5,9 +5,9 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
-	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
@@ -114,52 +114,133 @@ func (s *podToPodEncryptionV2) Name() string {
 
 // resolveEgressDevice resolves the egress device used in the provided host
 // network namespace used to send traffic to dst.
-func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostNS *check.Pod, dst *check.Pod) (string, error) {
+func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostNS *check.Pod, src, dst *check.Pod) (string, error) {
+	// deviceFromIPRoute issues `ip route get` for destination in provided host network
+	// namespace and extract device.
+	// the command will use the default routing table (main).
+	// to lookup such value from a different table, use defaultDeviceFromTable.
+	//
+	// example json output:
+	// [{"dst":"192.168.109.96","gateway":"192.168.128.1","dev":"ens5","prefsrc":"192.168.159.49","flags":[],"uid":0,"cache":[]}]
+	deviceFromIPRoute := func(dstIP string) (string, error) {
+		out, err := srcHostNS.K8sClient.ExecInPod(ctx,
+			srcHostNS.Pod.Namespace,
+			srcHostNS.Pod.Name,
+			"",
+			[]string{"ip", "-j", "route", "get", dstIP})
+
+		if err != nil {
+			return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
+		}
+
+		routes := []struct {
+			Dev string `json:"dev,omitempty"`
+		}{}
+
+		err = json.Unmarshal(out.Bytes(), &routes)
+		if err != nil {
+			return "", fmt.Errorf("Failed to parse ip route to json: %w", err)
+		}
+
+		// search for dev key in ip route output.
+		for _, route := range routes {
+			if route.Dev != "" {
+				return route.Dev, nil
+			}
+		}
+
+		return "", fmt.Errorf("Failed to find egress device")
+	}
+
+	// defaultDeviceFromTable issues `ip route show table X` in provided host network
+	// namespace and extract device from the default route in the routing table X.
+	//
+	// example json output:
+	// [{"dst":"default","gateway":"192.168.128.1","dev":"ens6","flags":[]},{"dst":"192.168.128.1","dev":"ens6","scope":"link","flags":[]}]
+	defaultDeviceFromTable := func(table string) (string, error) {
+		out, err := srcHostNS.K8sClient.ExecInPod(ctx,
+			srcHostNS.Pod.Namespace,
+			srcHostNS.Pod.Name,
+			"",
+			[]string{"ip", "-j", "route", "show", "table", table})
+
+		if err != nil {
+			return "", fmt.Errorf("Failed to retrieve ip routes for table %s: %w", table, err)
+		}
+
+		routes := []struct {
+			Dst string `json:"dst,omitempty"`
+			Dev string `json:"dev,omitempty"`
+		}{}
+
+		err = json.Unmarshal(out.Bytes(), &routes)
+		if err != nil {
+			return "", fmt.Errorf("Failed to parse ip rules to json: %w", err)
+		}
+
+		// search for dev key in ip route output for the default route.
+		for _, route := range routes {
+			if route.Dst == "default" {
+				return route.Dev, nil
+			}
+		}
+
+		return "", fmt.Errorf("Failed to find egress device from table %s", table)
+	}
+
 	// if tunnel encap is used, the packet will be encapsulated before
 	// leaving the host, thus, use the tunnel endpoint IP rather then the
 	// pod IP for route lookup.
-	var dstIP string
+	var srcIP, dstIP string
 	if s.tunnelMode.Enabled {
+		srcIP = src.Pod.Status.HostIP
 		dstIP = dst.Pod.Status.HostIP
 	} else {
+		srcIP = src.Pod.Status.PodIP
 		dstIP = dst.Pod.Status.PodIP
 	}
 
-	// issue ip route get for destination in provided host network namespace
-	// and extract device.
+	// issue ip rule in provided host network namespace.
 	//
-	// example string output:
-	// "172.18.0.2 dev eth0 src 172.18.0.4 uid 0 \n    cache \n"
+	// in case there exists a specific routing table for a given srcIP,
+	// lookup the device name from "default" route in that particular table.
+	// otherwise, lookup device name from `ip route get`.
+	//
+	// we do that for cases such as aws-cni mode, where despite `ip route get`
+	// returns the interface `ensX`, packets actually transit through a different
+	// `ensY`, specified in a different routing table.
+	//
+	// example json output:
+	// [{"priority":1536,"src":"192.168.137.26","table":"2"}]
 	out, err := srcHostNS.K8sClient.ExecInPod(ctx,
 		srcHostNS.Pod.Namespace,
 		srcHostNS.Pod.Name,
 		"",
-		[]string{"ip", "route", "get", dstIP})
+		[]string{"ip", "-j", "rule"})
 
 	if err != nil {
-		return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
+		return "", fmt.Errorf("Failed to retrieve ip rules: %w", err)
 	}
 
-	// search for dev key in ip route output, next token will be the device name
-	// itself.
-	var dev string
-	outArray := strings.Split(out.String(), " ")
-	for i, val := range outArray {
-		if val == "dev" {
-			if i+1 > len(outArray)-1 {
-				// should never really happen...
-				return "", fmt.Errorf("Failed to find egress device")
-			}
-			dev = outArray[i+1]
-			break
+	rules := []struct {
+		Src   string `json:"src,omitempty"`
+		Table string `json:"table,omitempty"`
+	}{}
+
+	err = json.Unmarshal(out.Bytes(), &rules)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse ip rules to json: %w", err)
+	}
+
+	// search for "from srcIP lookup X" in ip rule output, with X being != main.
+	// X will be the table from which we'll lookup device name in default route.
+	for _, rule := range rules {
+		if rule.Src == srcIP && rule.Table != "main" {
+			return defaultDeviceFromTable(rule.Table)
 		}
 	}
 
-	if dev == "" {
-		return "", fmt.Errorf("Failed to find egress device")
-	}
-
-	return dev, nil
+	return deviceFromIPRoute(dstIP)
 }
 
 // resolveClientEgressDevice determines the ultimate egress device used to
@@ -174,7 +255,7 @@ func (s *podToPodEncryptionV2) resolveClientEgressDevice(ctx context.Context) (s
 		return "", fmt.Errorf("Context already cancelled")
 	}
 
-	return s.resolveEgressDevice(ctx, s.clientHostNS, s.server)
+	return s.resolveEgressDevice(ctx, s.clientHostNS, s.client, s.server)
 }
 
 // resolveServerEgressDevice is the similar to resolveClientEgressDevice but
@@ -184,7 +265,7 @@ func (s *podToPodEncryptionV2) resolveServerEgressDevice(ctx context.Context) (s
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("Context already cancelled")
 	}
-	return s.resolveEgressDevice(ctx, s.serverHostNS, s.client)
+	return s.resolveEgressDevice(ctx, s.serverHostNS, s.server, s.client)
 }
 
 // tunnelTCPDumpFilters4 will generate the required TCPDump filters for leak
