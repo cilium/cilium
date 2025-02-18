@@ -884,7 +884,10 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 // ability
 func (s *ServiceCache) DebugStatus() string {
 	s.mutex.RLock()
-	str := spew.Sdump(s)
+	scCpy := s
+	scCpy.db = nil
+	scCpy.nodeAddrs = nil
+	str := spew.Sdump(scCpy)
 	s.mutex.RUnlock()
 	return str
 }
