@@ -178,7 +178,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		params.SecretManager)
 
 	if !option.Config.EnableL7Proxy {
-		log.Debug("L7 proxies are disabled - not starting Envoy xDS server")
+		params.Logger.Debug("L7 proxies are disabled - not starting Envoy xDS server")
 		return xdsServer, nil
 	}
 
@@ -231,7 +231,7 @@ type accessLogServerParams struct {
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	if !option.Config.EnableL7Proxy {
-		log.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
+		params.Logger.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
 		return nil
 	}
 
