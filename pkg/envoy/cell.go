@@ -198,6 +198,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
 			XDSServer:                xdsServer,
+			logger:                   params.Logger,
 			runDir:                   option.Config.RunDir,
 			envoyLogPath:             params.EnvoyProxyConfig.EnvoyLog,
 			envoyDefaultLogLevel:     params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
