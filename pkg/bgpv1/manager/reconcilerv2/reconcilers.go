@@ -12,8 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 const (
@@ -41,8 +40,8 @@ var (
 
 type ReconcileParams struct {
 	BGPInstance   *instance.BGPInstance
-	DesiredConfig *v2alpha1.CiliumBGPNodeInstance
-	CiliumNode    *v2api.CiliumNode
+	DesiredConfig *v2.CiliumBGPNodeInstance
+	CiliumNode    *v2.CiliumNode
 }
 
 type ConfigReconciler interface {

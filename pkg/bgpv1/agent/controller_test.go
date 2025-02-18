@@ -16,16 +16,16 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // TestControllerSanity ensures that the controller calls the correct methods,
 // with the correct arguments, during its Reconcile loop.
 func TestControllerSanity(t *testing.T) {
-	var wantPolicy = &v2alpha1api.CiliumBGPPeeringPolicy{
-		Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+	var wantPolicy = &v2alpha1.CiliumBGPPeeringPolicy{
+		Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 			NodeSelector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
 					"bgp-policy": "a",
@@ -44,9 +44,9 @@ func TestControllerSanity(t *testing.T) {
 		labels      map[string]string
 		annotations map[string]string
 		// a mock List method for the controller's PolicyLister
-		plist func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+		plist func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error)
 		// a mock ConfigurePeers method for the controller's BGPRouterManager
-		configurePeers func(context.Context, *v2alpha1api.CiliumBGPPeeringPolicy, *v2api.CiliumNode) error
+		configurePeers func(context.Context, *v2alpha1.CiliumBGPPeeringPolicy, *v2.CiliumNode) error
 		// error nil or not
 		err error
 		// expect route full withdrawal observed
@@ -59,10 +59,10 @@ func TestControllerSanity(t *testing.T) {
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
+				return []*v2alpha1.CiliumBGPPeeringPolicy{wantPolicy}, nil
 			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, ciliumNode *v2api.CiliumNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error {
 				if !p.DeepEqual(wantPolicy) {
 					t.Fatalf("got: %+v, want: %+v", p, wantPolicy)
 				}
@@ -76,14 +76,14 @@ func TestControllerSanity(t *testing.T) {
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+			plist: func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 				p0 := wantPolicy.DeepCopy()
 				p0.Name = "policy0"
 				p1 := wantPolicy.DeepCopy()
 				p1.Name = "policy1"
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p0, p1}, nil
+				return []*v2alpha1.CiliumBGPPeeringPolicy{p0, p1}, nil
 			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, n *v2.CiliumNode) error {
 				if p == nil && n == nil {
 					fullWithdrawalObserved = true
 				}
@@ -99,25 +99,25 @@ func TestControllerSanity(t *testing.T) {
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+			plist: func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 				p := wantPolicy.DeepCopy()
-				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
+				p.Spec.VirtualRouters = []v2alpha1.CiliumBGPVirtualRouter{
 					{
 						LocalASN: 65001,
-						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
+						Neighbors: []v2alpha1.CiliumBGPNeighbor{
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
-								GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+								GracefulRestart: &v2alpha1.CiliumBGPNeighborGracefulRestart{
 									Enabled: true,
 								},
 							},
 						},
 					},
 				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
+				return []*v2alpha1.CiliumBGPPeeringPolicy{p}, nil
 			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *v2api.CiliumNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, _ *v2.CiliumNode) error {
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
 						if n.PeerPort == nil ||
@@ -136,26 +136,26 @@ func TestControllerSanity(t *testing.T) {
 		},
 		{
 			name: "configure peers error",
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
+				return []*v2alpha1.CiliumBGPPeeringPolicy{wantPolicy}, nil
 			},
 			labels: map[string]string{
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *v2api.CiliumNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, _ *v2.CiliumNode) error {
 				return errors.New("")
 			},
 			err: errors.New(""),
 		},
 		{
 			name: "timer validation error",
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+			plist: func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 				p := wantPolicy.DeepCopy()
-				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
+				p.Spec.VirtualRouters = []v2alpha1.CiliumBGPVirtualRouter{
 					{
 						LocalASN: 65001,
-						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
+						Neighbors: []v2alpha1.CiliumBGPNeighbor{
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
@@ -166,13 +166,13 @@ func TestControllerSanity(t *testing.T) {
 						},
 					},
 				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
+				return []*v2alpha1.CiliumBGPPeeringPolicy{p}, nil
 			},
 			labels: map[string]string{
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *v2api.CiliumNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, _ *v2.CiliumNode) error {
 				return nil
 			},
 			err: errors.New(""),
@@ -188,7 +188,7 @@ func TestControllerSanity(t *testing.T) {
 			}
 
 			// create test cilium node
-			node := &v2api.CiliumNode{
+			node := &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "Test Node",
 					Annotations: tt.annotations,
@@ -200,7 +200,7 @@ func TestControllerSanity(t *testing.T) {
 				PolicyLister:       policyLister,
 				BGPMgr:             rtmgr,
 				LocalCiliumNode:    node,
-				BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+				BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2.CiliumBGPNodeConfig](),
 				ConfigMode:         mode.NewConfigMode(),
 			}
 
@@ -219,8 +219,8 @@ func TestControllerSanity(t *testing.T) {
 
 // TestDeselection ensures that the deselection of a policy causes a full withdrawal
 func TestDeselection(t *testing.T) {
-	var policy = &v2alpha1api.CiliumBGPPeeringPolicy{
-		Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+	var policy = &v2alpha1.CiliumBGPPeeringPolicy{
+		Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 			NodeSelector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
 					"bgp-policy": "a",
@@ -229,12 +229,12 @@ func TestDeselection(t *testing.T) {
 		},
 	}
 
-	withPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-		return []*v2alpha1api.CiliumBGPPeeringPolicy{policy}, nil
+	withPolicy := func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1.CiliumBGPPeeringPolicy{policy}, nil
 	}
 
-	withoutPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-		return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
+	withoutPolicy := func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1.CiliumBGPPeeringPolicy{}, nil
 	}
 
 	// Start from empty policy list
@@ -244,7 +244,7 @@ func TestDeselection(t *testing.T) {
 
 	fullWithdrawalObserved := false
 	rtmgr := &mock.MockBGPRouterManager{
-		ConfigurePeers_: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+		ConfigurePeers_: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, n *v2.CiliumNode) error {
 			if p == nil && n == nil {
 				fullWithdrawalObserved = true
 			}
@@ -253,7 +253,7 @@ func TestDeselection(t *testing.T) {
 	}
 
 	// create test cilium node
-	node := &v2api.CiliumNode{
+	node := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "Test Node",
 			Labels: map[string]string{
@@ -266,7 +266,7 @@ func TestDeselection(t *testing.T) {
 		PolicyLister:       policyLister,
 		BGPMgr:             rtmgr,
 		LocalCiliumNode:    node,
-		BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig](),
+		BGPNodeConfigStore: store.NewMockBGPCPResourceStore[*v2.CiliumBGPNodeConfig](),
 		ConfigMode:         mode.NewConfigMode(),
 	}
 
@@ -524,11 +524,11 @@ func TestPolicySelection(t *testing.T) {
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			// expand policies into CiliumBGPPeeringPolicies, make note of wanted
-			var policies []*v2alpha1api.CiliumBGPPeeringPolicy
-			var want *v2alpha1api.CiliumBGPPeeringPolicy
+			var policies []*v2alpha1.CiliumBGPPeeringPolicy
+			var want *v2alpha1.CiliumBGPPeeringPolicy
 			for _, p := range tt.policies {
-				policy := &v2alpha1api.CiliumBGPPeeringPolicy{
-					Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+				policy := &v2alpha1.CiliumBGPPeeringPolicy{
+					Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 						NodeSelector: p.selector,
 					},
 				}
@@ -560,15 +560,15 @@ func TestBGPModeSelection(t *testing.T) {
 	var table = []struct {
 		name          string
 		initialMode   mode.Mode
-		ciliumNode    *v2api.CiliumNode
-		policy        *v2alpha1api.CiliumBGPPeeringPolicy
-		bgpNodeConfig *v2alpha1api.CiliumBGPNodeConfig
+		ciliumNode    *v2.CiliumNode
+		policy        *v2alpha1.CiliumBGPPeeringPolicy
+		bgpNodeConfig *v2.CiliumBGPNodeConfig
 		expectedMode  mode.Mode
 	}{
 		{
 			name:        "Disabled to BGPv1",
 			initialMode: mode.Disabled,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -576,8 +576,8 @@ func TestBGPModeSelection(t *testing.T) {
 					},
 				},
 			},
-			policy: &v2alpha1api.CiliumBGPPeeringPolicy{
-				Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+			policy: &v2alpha1.CiliumBGPPeeringPolicy{
+				Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 					NodeSelector: &v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp-policy": "a",
@@ -591,7 +591,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "Disabled to BGPv2",
 			initialMode: mode.Disabled,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -600,7 +600,7 @@ func TestBGPModeSelection(t *testing.T) {
 				},
 			},
 			policy: nil,
-			bgpNodeConfig: &v2alpha1api.CiliumBGPNodeConfig{
+			bgpNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
@@ -610,7 +610,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "BGPv1 to BGPv2",
 			initialMode: mode.BGPv1,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -619,7 +619,7 @@ func TestBGPModeSelection(t *testing.T) {
 				},
 			},
 			policy: nil,
-			bgpNodeConfig: &v2alpha1api.CiliumBGPNodeConfig{
+			bgpNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
@@ -629,7 +629,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "BGPv2 to BGPv1, BGPNodeConfig present",
 			initialMode: mode.BGPv2,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -637,8 +637,8 @@ func TestBGPModeSelection(t *testing.T) {
 					},
 				},
 			},
-			policy: &v2alpha1api.CiliumBGPPeeringPolicy{
-				Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+			policy: &v2alpha1.CiliumBGPPeeringPolicy{
+				Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 					NodeSelector: &v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp-policy": "a",
@@ -646,7 +646,7 @@ func TestBGPModeSelection(t *testing.T) {
 					},
 				},
 			},
-			bgpNodeConfig: &v2alpha1api.CiliumBGPNodeConfig{
+			bgpNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 				},
@@ -656,7 +656,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "BGPv2 to BGPv1, BGPNodeConfig removed",
 			initialMode: mode.BGPv2,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -664,8 +664,8 @@ func TestBGPModeSelection(t *testing.T) {
 					},
 				},
 			},
-			policy: &v2alpha1api.CiliumBGPPeeringPolicy{
-				Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+			policy: &v2alpha1.CiliumBGPPeeringPolicy{
+				Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
 					NodeSelector: &v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp-policy": "a",
@@ -679,7 +679,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "BGPv1 to disabled",
 			initialMode: mode.BGPv1,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -694,7 +694,7 @@ func TestBGPModeSelection(t *testing.T) {
 		{
 			name:        "BGPv2 to disabled",
 			initialMode: mode.BGPv2,
-			ciliumNode: &v2api.CiliumNode{
+			ciliumNode: &v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Test Node",
 					Labels: map[string]string{
@@ -710,16 +710,16 @@ func TestBGPModeSelection(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]()
+			mockStore := store.NewMockBGPCPResourceStore[*v2.CiliumBGPNodeConfig]()
 			if tt.bgpNodeConfig != nil {
 				mockStore.Upsert(tt.bgpNodeConfig)
 			}
 
-			policyLister := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+			policyLister := func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 				if tt.policy == nil {
-					return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
+					return []*v2alpha1.CiliumBGPPeeringPolicy{}, nil
 				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{tt.policy}, nil
+				return []*v2alpha1.CiliumBGPPeeringPolicy{tt.policy}, nil
 			}
 
 			cm := mode.NewConfigMode()
@@ -730,10 +730,10 @@ func TestBGPModeSelection(t *testing.T) {
 					List_: policyLister,
 				},
 				BGPMgr: &mock.MockBGPRouterManager{
-					ConfigurePeers_: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+					ConfigurePeers_: func(_ context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, n *v2.CiliumNode) error {
 						return nil
 					},
-					ReconcileInstances_: func(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig, ciliumNode *v2api.CiliumNode) error {
+					ReconcileInstances_: func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {
 						return nil
 					},
 				},

@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -156,14 +156,14 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 // PolicyName returns a unique route policy name for the provided peer, family and advertisement type.
 // If there a is a need for multiple route policies per advertisement type, unique resourceID can be provided.
-func PolicyName(peer, family string, advertType v2alpha1.BGPAdvertisementType, resourceID string) string {
+func PolicyName(peer, family string, advertType v2.BGPAdvertisementType, resourceID string) string {
 	if resourceID == "" {
 		return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
 	}
 	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
 }
 
-func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2alpha1.BGPAdvertisement) (*types.RoutePolicy, error) {
+func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
 	policy := &types.RoutePolicy{
 		Name: name,
 		Type: types.RoutePolicyTypeExport,
@@ -297,7 +297,7 @@ func mergePolicy(
 	return outputPolicyStatements
 }
 
-func getCommunities(advert v2alpha1.BGPAdvertisement) (standard, large []string, err error) {
+func getCommunities(advert v2.BGPAdvertisement) (standard, large []string, err error) {
 	standard, err = mergeAndDedupCommunities(advert)
 	if err != nil {
 		return nil, nil, err
@@ -309,7 +309,7 @@ func getCommunities(advert v2alpha1.BGPAdvertisement) (standard, large []string,
 
 // mergeAndDedupCommunities merges numeric standard community and well-known community strings,
 // deduplicated by their actual community values.
-func mergeAndDedupCommunities(advert v2alpha1.BGPAdvertisement) ([]string, error) {
+func mergeAndDedupCommunities(advert v2.BGPAdvertisement) ([]string, error) {
 	var res []string
 
 	if advert.Attributes == nil || advert.Attributes.Communities == nil {
@@ -365,7 +365,7 @@ func parseCommunity(communityStr string) (uint32, error) {
 }
 
 // dedupLargeCommunities returns deduplicated large communities as a string slice.
-func dedupLargeCommunities(advert v2alpha1.BGPAdvertisement) []string {
+func dedupLargeCommunities(advert v2.BGPAdvertisement) []string {
 	var res []string
 
 	if advert.Attributes == nil || advert.Attributes.Communities == nil {

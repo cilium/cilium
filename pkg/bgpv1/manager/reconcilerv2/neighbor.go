@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,7 +26,7 @@ import (
 type NeighborReconciler struct {
 	Logger       logrus.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
+	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 	metadata     map[string]NeighborReconcilerMetadata
 }
@@ -41,7 +41,7 @@ type NeighborReconcilerIn struct {
 	cell.In
 	Logger       logrus.FieldLogger
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
+	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
 }
 
@@ -63,8 +63,8 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 // +deepequal-gen=true
 // Note:  If you change PeerDate, do not forget to 'make generate-k8s-api', which will update DeepEqual method.
 type PeerData struct {
-	Peer     *v2alpha1.CiliumBGPNodePeer
-	Config   *v2alpha1.CiliumBGPPeerConfigSpec
+	Peer     *v2.CiliumBGPNodePeer
+	Config   *v2.CiliumBGPPeerConfigSpec
 	Password string
 }
 
@@ -270,10 +270,10 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
 // If peerConfig is not specified, returns the default config.
 // If the referenced peerConfig does not exist, exists returns false.
-func (r *NeighborReconciler) getPeerConfig(peerConfig *v2alpha1.PeerConfigReference) (conf *v2alpha1.CiliumBGPPeerConfigSpec, exists bool, err error) {
+func (r *NeighborReconciler) getPeerConfig(peerConfig *v2.PeerConfigReference) (conf *v2.CiliumBGPPeerConfigSpec, exists bool, err error) {
 	if peerConfig == nil || peerConfig.Name == "" {
 		// if peer config is not specified, return default config
-		conf = &v2alpha1.CiliumBGPPeerConfigSpec{}
+		conf = &v2.CiliumBGPPeerConfigSpec{}
 		conf.SetDefaults()
 		return conf, true, nil
 	}
@@ -291,7 +291,7 @@ func (r *NeighborReconciler) getPeerConfig(peerConfig *v2alpha1.PeerConfigRefere
 	return conf, true, nil
 }
 
-func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2alpha1.CiliumBGPPeerConfigSpec) (string, error) {
+func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2.CiliumBGPPeerConfigSpec) (string, error) {
 	if config == nil {
 		return "", nil
 	}
@@ -341,7 +341,7 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 // GetPeerAddressFromConfig returns peering address for the given peer from the provided BGPNodeInstance.
 // If no error is returned and "exists" is false, it means that PeerAddress is not present in peer configuration.
-func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
+func GetPeerAddressFromConfig(conf *v2.CiliumBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
 	if conf == nil {
 		return netip.Addr{}, false, fmt.Errorf("passed instance is nil")
 	}
@@ -359,6 +359,6 @@ func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName str
 	return netip.Addr{}, false, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
 
-func (r *NeighborReconciler) neighborID(n *v2alpha1.CiliumBGPNodePeer) string {
+func (r *NeighborReconciler) neighborID(n *v2.CiliumBGPNodePeer) string {
 	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
 }

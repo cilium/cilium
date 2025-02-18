@@ -30,8 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -253,8 +253,8 @@ func (m *BGPRouterManager) reconcileStateWithRetry(ctx context.Context) error {
 // ConfigurePeers should return only once a subsequent invocation is safe.
 // This method is not thread safe and does not intend to be called concurrently.
 func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
-	policy *v2alpha1api.CiliumBGPPeeringPolicy,
-	ciliumNode *v2api.CiliumNode) error {
+	policy *v2alpha1.CiliumBGPPeeringPolicy,
+	ciliumNode *v2.CiliumNode) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -307,7 +307,7 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
 		},
 	)
 	for _, asn := range rd.register {
-		var config *v2alpha1api.CiliumBGPVirtualRouter
+		var config *v2alpha1.CiliumBGPVirtualRouter
 		var ok bool
 		if config, ok = rd.seen[asn]; !ok {
 			l.Errorf("Work diff (add) contains unseen ASN %v, skipping", asn)
@@ -327,8 +327,8 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
 // If this registration process fails the server will be stopped (if it was started)
 // and deleted from our manager (if it was added).
 func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
-	c *v2alpha1api.CiliumBGPVirtualRouter,
-	ciliumNode *v2api.CiliumNode) error {
+	c *v2alpha1.CiliumBGPVirtualRouter,
+	ciliumNode *v2.CiliumNode) error {
 	l := log.WithFields(
 		logrus.Fields{
 			"component": "manager.registerBGPServer",
@@ -485,8 +485,8 @@ func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) {
 // should then store `sc` until next reconciliation.
 func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 	sc *instance.ServerWithConfig,
-	newc *v2alpha1api.CiliumBGPVirtualRouter,
-	ciliumNode *v2api.CiliumNode) error {
+	newc *v2alpha1.CiliumBGPVirtualRouter,
+	ciliumNode *v2.CiliumNode) error {
 	if sc.Config != nil {
 		if sc.Config.LocalASN != newc.LocalASN {
 			return fmt.Errorf("cannot reconcile two BgpServers with different local ASNs")
@@ -796,8 +796,8 @@ func (m *BGPRouterManager) Stop() {
 // ReconcileInstances will evaluate BGP instances to be created, removed and
 // reconciled.
 func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
-	nodeObj *v2alpha1api.CiliumBGPNodeConfig,
-	ciliumNode *v2api.CiliumNode) error {
+	nodeObj *v2.CiliumBGPNodeConfig,
+	ciliumNode *v2.CiliumNode) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -847,7 +847,7 @@ func (m *BGPRouterManager) registerV2(ctx context.Context, rd *reconcileDiffV2) 
 		lastErr            error
 	)
 	for _, name := range rd.register {
-		var config *v2alpha1api.CiliumBGPNodeInstance
+		var config *v2.CiliumBGPNodeInstance
 		var ok bool
 		if config, ok = rd.seen[name]; !ok {
 			m.Logger.WithField(types.InstanceLogField, name).Debug("Work diff (add) contains unseen instance, skipping")
@@ -871,8 +871,8 @@ func (m *BGPRouterManager) registerV2(ctx context.Context, rd *reconcileDiffV2) 
 // registerBGPServer encapsulates the logic for instantiating a
 // BgpInstance
 func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
-	c *v2alpha1api.CiliumBGPNodeInstance,
-	ciliumNode *v2api.CiliumNode) error {
+	c *v2.CiliumBGPNodeInstance,
+	ciliumNode *v2.CiliumNode) error {
 
 	l := m.Logger.WithFields(logrus.Fields{
 		types.InstanceLogField: c.Name,
@@ -947,8 +947,8 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 // resource store and applying it to the BGP Instance.
 func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 	i *instance.BGPInstance,
-	newc *v2alpha1api.CiliumBGPNodeInstance,
-	ciliumNode *v2api.CiliumNode) error {
+	newc *v2.CiliumBGPNodeInstance,
+	ciliumNode *v2.CiliumNode) error {
 
 	reconcileStart := time.Now()
 
@@ -1158,7 +1158,7 @@ func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2)
 // getLocalASN returns the local ASN for the given BGP instance. If the local ASN is defined in the desired config, it
 // will be returned. Currently, we do not support auto-ASN assignment, so if the local ASN is not defined in the
 // desired config, an error will be returned.
-func getLocalASN(config *v2alpha1api.CiliumBGPNodeInstance) (int64, error) {
+func getLocalASN(config *v2.CiliumBGPNodeInstance) (int64, error) {
 	if config.LocalASN != nil {
 		return *config.LocalASN, nil
 	}
@@ -1206,7 +1206,7 @@ func calcRouterIDFromMacAddress() (string, error) {
 // be returned. Otherwise, the router ID will be resolved from the ciliumnode annotations. If the router ID is not
 // defined in the annotations, the node IP from cilium node will be returned. If the node IP is not available, the
 // router ID will be calculated from the MAC address.
-func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.CiliumNode, asn int64) (string, error) {
+func getRouterID(config *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, asn int64) (string, error) {
 	if config.RouterID != nil {
 		return *config.RouterID, nil
 	}
@@ -1222,7 +1222,7 @@ func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.Ci
 	}
 
 	// If there are no annotations about router-id, router-id will be allocated based on the allocation mode
-	// TODO: implmente other allocation modes
+	// TODO: implement other allocation modes
 	if option.Config.BGPRouterIDAllocationMode == defaults.BGPRouterIDAllocationMode {
 		if nodeIP := ciliumNode.GetIP(false); nodeIP != nil {
 			routerID = nodeIP.String()
@@ -1242,7 +1242,7 @@ func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.Ci
 // defined in the annotations, -1 will be returned.
 //
 // In gobgp, with -1 as the local port, bgp instance will start in non-listening mode.
-func getLocalPort(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.CiliumNode, asn int64) (int32, error) {
+func getLocalPort(config *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, asn int64) (int32, error) {
 	if config.LocalPort != nil {
 		return *config.LocalPort, nil
 	}
