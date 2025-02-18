@@ -59,7 +59,7 @@ MAX_BASE_OPTIONS += -DENABLE_MASQUERADE_IPV4=1 -DENABLE_IP_MASQ_AGENT_IPV4=1 \
 MAX_BASE_OPTIONS += -DENABLE_BANDWIDTH_MANAGER=1 -DENABLE_EGRESS_GATEWAY=1 -DENABLE_VTEP=1
 ifneq ($(KERNEL),54)
 # BPF TProxy requires 5.7, BPF Host routing 5.10, L3 devices 5.8.
-MAX_BASE_OPTIONS += -DENABLE_TPROXY=1 -DENABLE_HOST_ROUTING=1 -DETH_HLEN=0
+MAX_BASE_OPTIONS += -DENABLE_TPROXY=1 -DENABLE_HOST_ROUTING=1
 endif
 
 ifndef MAX_LB_OPTIONS
@@ -177,11 +177,11 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
+.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands
 
 all: bpf_all
 
-bpf_all: $(BPF) subdirs
+bpf_all: $(BPF) subdirs generate
 
 build_all: force
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
@@ -191,6 +191,9 @@ testdata:
 	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
+
+generate: $(BPF)
+	$(GO) generate ../pkg/datapath/config
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)

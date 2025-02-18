@@ -282,6 +282,7 @@ Makefile* @cilium/build
 /bpf/lib/ids.h @cilium/loader
 /bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
 /bpf/include/bpf/tailcall.h @cilium/loader
+/bpf/include/bpf/config @cilium/loader
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
@@ -345,6 +346,7 @@ Makefile* @cilium/build
 /contrib/containerlab/ @cilium/sig-bgp
 /contrib/coccinelle/ @cilium/sig-datapath
 /contrib/scripts/portgen.py @cilium/sig-datapath
+/contrib/scripts/check-datapathconfig.sh @cilium/loader
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
@@ -655,6 +657,7 @@ Makefile* @cilium/build
 # Misc. tests
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
+/tools/dpgen @cilium/loader
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
