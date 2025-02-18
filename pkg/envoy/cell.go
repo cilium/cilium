@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -258,8 +259,7 @@ type versionCheckParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
-	Slog             *slog.Logger
-	Logger           logrus.FieldLogger
+	Logger           *slog.Logger
 	JobRegistry      job.Registry
 	Health           cell.Health
 	EnvoyProxyConfig ProxyConfig
@@ -271,8 +271,10 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		return
 	}
 
+	checker := &envoyVersionChecker{logger: params.Logger}
+
 	envoyVersionFunc := func() (string, error) {
-		return getRemoteEnvoyVersion(params.EnvoyAdminClient)
+		return checker.getRemoteEnvoyVersion(params.EnvoyAdminClient)
 	}
 
 	if !option.Config.ExternalEnvoyProxy {
@@ -281,7 +283,7 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
-		job.WithLogger(params.Slog),
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
 	params.Lifecycle.Append(jobGroup)
@@ -290,8 +292,8 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
 	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
-		if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
-			params.Logger.WithError(err).Error("Envoy: Version check failed")
+		if err := checker.checkEnvoyVersion(envoyVersionFunc); err != nil {
+			params.Logger.Error("Envoy: Version check failed", logfields.Error, err)
 			return err
 		}
 
