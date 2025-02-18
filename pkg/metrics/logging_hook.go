@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	metricsInitialized chan struct{} = make(chan struct{})
-	flushMetrics                     = sync.Once{}
+	metricsInitialized      chan struct{} = make(chan struct{})
+	flushMetrics                          = sync.Once{}
+	slogDupAttrDetection, _               = strconv.ParseBool(os.Getenv("CILIUM_SLOG_DUP_ATTR_DETECTOR"))
 )
 
 // FlushLoggingMetrics will cause all logging hook metrics accumulated prior
@@ -82,22 +84,29 @@ func (h *LoggingHook) Enabled(ctx context.Context, level slog.Level) bool {
 
 func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 	// Get information about subsystem from logging entry field.
-	var i int
 	logSysValue, logSysPresent := h.attrs[logfields.LogSubsys]
-	if logSysPresent {
-		i = 1
-	}
-	record.Attrs(func(attr slog.Attr) bool {
-		fmt.Printf("Hello %s,%s\n", attr.Key, attr.Value)
-		if attr.Key == logfields.LogSubsys {
-			logSysPresent = true
-			logSysValue = attr.Value
-			i++
+	if slogDupAttrDetection {
+		var i int
+		if logSysPresent {
+			i = 1
 		}
-		return true
-	})
-	if i > 1 {
-		panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
+		record.Attrs(func(attr slog.Attr) bool {
+			if attr.Key == logfields.LogSubsys {
+				logSysPresent = true
+				logSysValue = attr.Value
+				i++
+			}
+			if v, ok := h.attrs[attr.Key]; ok {
+				panic(fmt.Sprintf("duplicate attribute %s. existing=%s, new=%s", attr.Key, v, attr.Value))
+			}
+			if i > 1 {
+				panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
+			}
+			return true
+		})
+		if i > 1 {
+			panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
+		}
 	}
 	if !logSysPresent {
 		return fmt.Errorf("log entry doesn't contain 'subsys' field: %s", record.Message)
@@ -124,8 +133,10 @@ func (h *LoggingHook) WithAttrs(attrs []slog.Attr) slog.Handler {
 	lh := &LoggingHook{errs: h.errs, warn: h.warn, th: h.th.WithAttrs(attrs)}
 	lh.attrs = maps.Clone(h.attrs)
 	for _, attr := range attrs {
-		if v, ok := h.attrs[attr.Key]; ok {
-			panic(fmt.Sprintf("duplicate attribute %s. existing=%s, new=%s", attr.Key, v, attr.Value))
+		if slogDupAttrDetection {
+			if v, ok := h.attrs[attr.Key]; ok {
+				panic(fmt.Sprintf("duplicate attribute %s. existing=%s, new=%s", attr.Key, v, attr.Value))
+			}
 		}
 		lh.attrs[attr.Key] = attr.Value
 	}
