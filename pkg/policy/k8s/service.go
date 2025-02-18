@@ -26,7 +26,7 @@ import (
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
-	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService)
+	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService, event.Endpoints, event.OldEndpoints)
 	if err != nil {
 		p.log.WithError(err).WithFields(logrus.Fields{
 			logfields.Event:     event.Action,
@@ -39,12 +39,13 @@ func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 // added, removed, its endpoints have changed, or its labels have changed).
 // This function then checks if any of the known CNP/CCNPs are affected by this
 // change, and recomputes them by calling resolveCiliumNetworkPolicyRefs.
-func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
+func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service, newEps, oldEps *k8s.Endpoints) error {
 	var errs []error
+	endpointsChanged := !newEps.DeepEqual(oldEps)
 	// newService is true if this is the first time we observe this service
 	newService := oldSVC == nil
 	// changedService is true if the service label or selector has changed
-	changedService := !newSVC.DeepEqual(oldSVC)
+	changedService := !newSVC.DeepEqual(oldSVC) || endpointsChanged
 
 	// candidatePolicyKeys contains the set of policy names we need to process
 	// for this service update. By default, we consider all policies with
