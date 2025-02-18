@@ -346,7 +346,7 @@ func (d *Daemon) notifyOnDNSMsg(
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
 
-		if err := dpUpdates.Wait(); err != nil {
+		if err := <-dpUpdates; err != nil {
 			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
