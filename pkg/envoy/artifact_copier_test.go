@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,6 +17,7 @@ func TestArtifactCopier_Copy_SourceDirDoesntExist(t *testing.T) {
 	targetTempDir := t.TempDir()
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}
@@ -33,6 +35,7 @@ func TestArtifactCopier_Copy_EmptySourceDir(t *testing.T) {
 	targetTempDir := t.TempDir()
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}
@@ -53,6 +56,7 @@ func TestArtifactCopier_Copy_CopyFiles(t *testing.T) {
 	assert.NoError(t, err)
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}
@@ -81,6 +85,7 @@ func TestArtifactCopier_Copy_DontCopySymlinks(t *testing.T) {
 	assert.NoError(t, err)
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}
@@ -102,6 +107,7 @@ func TestArtifactCopier_Copy_DontCopyDirectories(t *testing.T) {
 	assert.NoError(t, err)
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}
@@ -128,6 +134,7 @@ func TestArtifactCopier_Copy_CleanupExistingContent(t *testing.T) {
 	assert.NoError(t, err)
 
 	r := &ArtifactCopier{
+		logger:     hivetest.Logger(t),
 		sourcePath: sourceTempDir,
 		targetPath: targetTempDir,
 	}

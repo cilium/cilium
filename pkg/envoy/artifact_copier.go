@@ -6,14 +6,18 @@ package envoy
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // ArtifactCopier provides support for copying artifacts from a given source directory to a target directory.
 // This is mainly used to copy additional artifacts referenced by the Envoy proxy configuration from the Cilium agent
 // container to the config directory that is shared with the Envoy container if Envoy is running in a dedicated DaemonSet.
 type ArtifactCopier struct {
+	logger     *slog.Logger
 	sourcePath string
 	targetPath string
 }
@@ -24,24 +28,27 @@ type ArtifactCopier struct {
 // If targetPath doesn't exist, it gets created automatically before starting the copy process.
 func (r *ArtifactCopier) Copy() (err error) {
 	if _, err := os.Stat(r.sourcePath); os.IsNotExist(err) {
-		log.WithField("source-path", r.sourcePath).
-			Debugf("Envoy: No artifacts to copy to envoy - source path doesn't exist")
+		r.logger.Debug("Envoy: No artifacts to copy to envoy - source path doesn't exist",
+			logfields.Path, r.sourcePath,
+		)
 		return nil
 	}
 
 	// Wipe target directory if it exists
 	if ti, err := os.Stat(r.targetPath); err == nil && ti.IsDir() {
-		log.WithField("target-path", r.sourcePath).
-			Debugf("Envoy: Clean target directory")
+		r.logger.Debug("Envoy: Clean target directory",
+			logfields.Path, r.sourcePath,
+		)
 
 		if err := r.cleanTargetDirectory(); err != nil {
 			return fmt.Errorf("failed to clean target directory: %w", err)
 		}
 	}
 
-	log.WithField("source-path", r.sourcePath).
-		WithField("target-path", r.targetPath).
-		Infof("Envoy: Copy artifacts to envoy")
+	r.logger.Info("Envoy: Copy artifacts to envoy",
+		logfields.Source, r.sourcePath,
+		logfields.Target, r.targetPath,
+	)
 
 	return r.copyFiles(r.sourcePath, r.targetPath)
 }
