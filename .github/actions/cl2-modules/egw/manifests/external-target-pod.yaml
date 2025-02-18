@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: egw-external-target
+  name: {{.Name}}
   labels:
     app.kubernetes.io/name: egw-external-target
 spec:
@@ -17,11 +17,11 @@ spec:
     effect: NoSchedule
   containers:
   - name: external-target
-    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    image: {{.Image}}
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 1337
     args:
       - "external-target"
-      - "--allowed-cidr=${EGW_ALLOWED_CIDR}"
+      - "--allowed-cidr={{.AllowedCIDR}}"
       - "--listen-port=1337"
