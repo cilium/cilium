@@ -6,12 +6,12 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"slices"
 	"sync"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -64,6 +64,7 @@ const (
 type NPHDSCache struct {
 	*xds.Cache
 
+	logger  *slog.Logger
 	ipcache IPCacheEventSource
 }
 
@@ -71,13 +72,14 @@ type IPCacheEventSource interface {
 	AddListener(ipcache.IPIdentityMappingListener)
 }
 
-func newNPHDSCache(ipcache IPCacheEventSource) NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache(), ipcache: ipcache}
+func newNPHDSCache(logger *slog.Logger, ipcache IPCacheEventSource) NPHDSCache {
+	return NPHDSCache{Cache: xds.NewCache(), logger: logger, ipcache: ipcache}
 }
 
 var observerOnce = sync.Once{}
 
-func (cache *NPHDSCache) MarkRestorePending()   {}
+func (cache *NPHDSCache) MarkRestorePending() {}
+
 func (cache *NPHDSCache) MarkRestoreCompleted() {}
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
@@ -106,16 +108,18 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	cidrStr := cidr.String()
 	resourceName := newID.ID.StringID()
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       cidrStr,
-		logfields.Identity:     resourceName,
-		logfields.Modification: modType,
-	})
+	scopedLog := cache.logger.With(
+		logfields.IPAddr, cidrStr,
+		logfields.Identity, resourceName,
+		logfields.Modification, modType,
+	)
 
 	// Look up the current resources for the specified Identity.
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
+		scopedLog.Warn("Can't lookup NPHDS cache",
+			logfields.Error, err,
+		)
 		return
 	}
 
@@ -134,12 +138,16 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		}
 		err := cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 		if err != nil {
-			scopedLog.WithError(err).Warning("NPHSD upsert failed")
+			scopedLog.Warn("NPHSD upsert failed",
+				logfields.Error, err,
+			)
 		}
 	case ipcache.Delete:
 		err := cache.handleIPDelete(npHost, resourceName, cidrStr)
 		if err != nil {
-			scopedLog.WithError(err).Warning("NPHDS delete failed")
+			scopedLog.Warn("NPHDS delete failed",
+				logfields.Error, err,
+			)
 		}
 	}
 }
