@@ -65,7 +65,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoy(wg *completion.WaitGroup) error 
 
 	o.envoyOnce.Do(func() {
 		// Start embedded Envoy on first invocation
-		_, startErr = startEmbeddedEnvoy(embeddedEnvoyConfig{
+		_, startErr = o.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
 			runDir:                   o.runDir,
 			logPath:                  o.envoyLogPath,
 			defaultLogLevel:          o.envoyDefaultLogLevel,
