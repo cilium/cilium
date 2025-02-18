@@ -4,13 +4,8 @@
 package redirectpolicy
 
 import (
-	"errors"
-	"sync"
-
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"golang.org/x/sys/unix"
 )
 
 // Cell implements the processing of the CiliumLocalRedirectPolicy CRD.
@@ -24,7 +19,6 @@ var Cell = cell.Module(
 
 	cell.Provide(
 		newLRPIsEnabled,
-		netnsCookieSupport,
 
 		NewLRPTable,
 		statedb.RWTable[*LocalRedirectPolicy].ToTable,
@@ -53,12 +47,3 @@ var Cell = cell.Module(
 		registerSkipLB,
 	),
 )
-
-type haveNetNSCookieSupport func() bool
-
-func netnsCookieSupport() haveNetNSCookieSupport {
-	return sync.OnceValue(func() bool {
-		_, err := netns.GetNetNSCookie()
-		return !errors.Is(err, unix.ENOPROTOOPT)
-	})
-}

@@ -48,7 +48,7 @@ type lrpControllerParams struct {
 	Pods               statedb.Table[daemonk8s.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Writer             *experimental.Writer
-	NetNSCookieSupport haveNetNSCookieSupport
+	NetNSCookieSupport experimental.HaveNetNSCookieSupport
 }
 
 type lrpController struct {
