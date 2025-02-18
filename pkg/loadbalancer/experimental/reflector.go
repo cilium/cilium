@@ -12,11 +12,13 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -52,20 +55,24 @@ var ReflectorCell = cell.Module(
 	"Reflects load-balancing state from Kubernetes",
 
 	cell.Invoke(registerK8sReflector),
+
+	// Provide the 'HaveNetNSCookieSupport' function
+	cell.Provide(netnsCookieSupportFunc),
 )
 
 type reflectorParams struct {
 	cell.In
 
-	DB                *statedb.DB
-	Log               *slog.Logger
-	Lifecycle         cell.Lifecycle
-	JobGroup          job.Group
-	ServicesResource  stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
-	Pods              statedb.Table[daemonK8s.LocalPod]
-	Writer            *Writer
-	ExtConfig         ExternalConfig
+	DB                     *statedb.DB
+	Log                    *slog.Logger
+	Lifecycle              cell.Lifecycle
+	JobGroup               job.Group
+	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
+	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
+	Pods                   statedb.Table[daemonK8s.LocalPod]
+	Writer                 *Writer
+	ExtConfig              ExternalConfig
+	HaveNetNSCookieSupport HaveNetNSCookieSupport
 }
 
 func registerK8sReflector(p reflectorParams) {
@@ -288,7 +295,7 @@ func runResourceReflector(ctx context.Context, health cell.Health, p reflectorPa
 							continue
 						}
 
-						if err := upsertHostPort(extConfig, p.Log, txn, p.Writer, obj); err != nil {
+						if err := upsertHostPort(p.HaveNetNSCookieSupport, extConfig, p.Log, txn, p.Writer, obj); err != nil {
 							processingErrors[errName] = err
 						}
 					}
@@ -627,11 +634,6 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 	return
 }
 
-func netnsCookieSupported() bool {
-	// FIXME get implementation from watchers/pod.go or expose features in a some other way.
-	return true
-}
-
 // hostPortServiceNamePrefix returns the common prefix for synthetic HostPort services
 // for the pod with the given name. This prefix is used as-is when cleaning up existing
 // HostPort entries for a pod. This handles the pod recreation where name stays but UID
@@ -643,7 +645,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	}
 }
 
-func upsertHostPort(extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, writer *Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, writer *Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
@@ -706,7 +708,7 @@ func upsertHostPort(extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, w
 			loopbackHostport := false
 
 			feIP := net.ParseIP(p.HostIP)
-			if feIP != nil && feIP.IsLoopback() && !netnsCookieSupported() {
+			if feIP != nil && feIP.IsLoopback() && !netnsCookie() {
 				log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
 					"hostIP", feIP)
 				continue
@@ -832,4 +834,13 @@ func bufferPod(buf map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod], 
 	pod := change.Object
 	buf[types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}] = change
 	return buf
+}
+
+type HaveNetNSCookieSupport func() bool
+
+func netnsCookieSupportFunc() HaveNetNSCookieSupport {
+	return sync.OnceValue(func() bool {
+		_, err := netns.GetNetNSCookie()
+		return !errors.Is(err, unix.ENOPROTOOPT)
+	})
 }
