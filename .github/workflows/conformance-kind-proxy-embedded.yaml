@@ -41,6 +41,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup WARP
+        uses: fscarmen/warp-on-actions@61892bede6dfb9ce9b179e594fc87c4fc5180d88 # v1.3
+
+      - name: Test IPv6
+        run: |
+          ping -c3 -6 one.one.one.one
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
