@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -99,7 +99,7 @@ func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 	}
 
 	// get per peer per family pod cidr advertisements
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1.BGPPodCIDRAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPPodCIDRAdvert)
 	if err != nil {
 		return err
 	}
