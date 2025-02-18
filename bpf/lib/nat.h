@@ -598,6 +598,13 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
+	/* To prevent aliasing with masqueraded connections,
+	 * we need to track all host connections that use IPV4_MASQUERADE.
+	 *
+	 * This either reserves the source port (so that it's not used
+	 * for masquerading), or port-SNATs the host connection (if the sport
+	 * is already in use for a masqueraded connection).
+	 */
 	if (tuple->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
 		target->needs_ct = true;
@@ -642,12 +649,12 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		}
 	}
 
-/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
- *
- * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
- * the destination may be in the SNAT exclusion CIDR but regardless of that we
- * always want to SNAT a packet if it's matched by an egress NAT policy.
- */
+	/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
+	 *
+	 * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
+	 * the destination may be in the SNAT exclusion CIDR but regardless of that we
+	 * always want to SNAT a packet if it's matched by an egress NAT policy.
+	 */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
 				       &target->ifindex)) {
@@ -663,10 +670,10 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 #endif
 
-#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 */
+#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	if (ipv4_is_in_subnet(tuple->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 		return NAT_PUNT_TO_STACK;
@@ -676,11 +683,9 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
+	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
 	{
-		/* Do not SNAT if dst belongs to any ip-masq-agent
-		 * subnet.
-		 */
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
@@ -690,22 +695,29 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 #endif
 
+	/* Masquerading for pod-to-remote-node traffic depends on the
+	 * datapath configuration (native vs overlay routing):
+	 */
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
-	if (remote_ep) {
-		/* In the tunnel mode, a packet from a local ep
-		 * to a remote node is not encap'd, and is sent
-		 * via a native dev. Therefore, such packet has
-		 * to be MASQ'd. Otherwise, it might be dropped
+	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		/* Don't masquerade in native-routing mode: */
+		if (!is_defined(TUNNEL_MODE))
+			return NAT_PUNT_TO_STACK;
+
+		/* In overlay routing mode, pod-to-remote-node traffic
+		 * typically doesn't get transported via the overlay
+		 * network (https://github.com/cilium/cilium/issues/12624).
+		 *
+		 * Therefore such packet has to be masqueraded.
+		 * Otherwise it might be dropped
 		 * either by underlying network (e.g. AWS drops
 		 * packets by default from unknown subnets) or
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
 
-		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
-			if (identity_is_remote_node(remote_ep->sec_identity))
-				return NAT_PUNT_TO_STACK;
-		}
+		if (remote_ep->flag_skip_tunnel)
+			return NAT_PUNT_TO_STACK;
 	}
 
 	if (local_ep) {
@@ -1524,13 +1536,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
-	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
 	{
-		/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 		struct lpm_v6_key pfx __align_stack_8;
 
 		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
@@ -1548,11 +1558,12 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
-	if (remote_ep) {
-		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
-			if (identity_is_remote_node(remote_ep->sec_identity))
-				return NAT_PUNT_TO_STACK;
-		}
+	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		if (!is_defined(TUNNEL_MODE))
+			return NAT_PUNT_TO_STACK;
+
+		if (remote_ep->flag_skip_tunnel)
+			return NAT_PUNT_TO_STACK;
 	}
 
 	if (local_ep) {
