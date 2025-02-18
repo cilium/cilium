@@ -547,6 +547,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	h := hive.New(
 		Cell,
 
+		store.Cell,
 		cell.Provide(
 			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
 			func() Config { return DefaultConfig },
