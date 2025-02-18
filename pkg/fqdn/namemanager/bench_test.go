@@ -69,17 +69,15 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 		ip = ip.Next()
 
 		k := i % numSelectors
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
-			dns.FQDN(fmt.Sprintf("%d.example.com", k)): {
-				TTL: 60,
-				IPs: []netip.Addr{ip},
-			}})
+		nameManager.UpdateGenerateDNS(context.Background(), t, dns.FQDN(fmt.Sprintf("%d.example.com", k)), &fqdn.DNSIPRecords{
+			TTL: 60,
+			IPs: []netip.Addr{ip},
+		})
 
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
-			dns.FQDN(fmt.Sprintf("example.%d.example.com", k)): {
-				TTL: 60,
-				IPs: []netip.Addr{ip},
-			}})
+		nameManager.UpdateGenerateDNS(context.Background(), t, dns.FQDN(fmt.Sprintf("example.%d.example.com", k)), &fqdn.DNSIPRecords{
+			TTL: 60,
+			IPs: []netip.Addr{ip},
+		})
 	}
 }
 
