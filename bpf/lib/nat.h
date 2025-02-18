@@ -703,8 +703,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		 */
 
 		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
-			if (identity_is_remote_node(remote_ep->sec_identity))
+			if (identity_is_remote_node(remote_ep->sec_identity)) {
+				#ifdef ENABLE_REMOTE_NODE_SNAT
+				{
+					target->addr = IPV4_MASQUERADE;
+					return NAT_NEEDED;
+				}
+				#endif
 				return NAT_PUNT_TO_STACK;
+			}
 		}
 	}
 

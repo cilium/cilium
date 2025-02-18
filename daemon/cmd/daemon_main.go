@@ -661,6 +661,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
+	flags.Bool(option.EnableRemoteNodeSnat, false, "SNAT IPv4 packets from endpoints leaving the host destined to a remote node")
+	option.BindEnv(vp, option.EnableRemoteNodeSnat)
+
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv6Masquerade)
 
