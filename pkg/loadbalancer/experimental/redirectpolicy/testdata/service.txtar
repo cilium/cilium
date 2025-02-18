@@ -1,0 +1,188 @@
+hive start
+db/initialized
+
+# Add pods, services and endpoints.
+k8s/add pod.yaml service.yaml endpointslice.yaml
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+
+# Compare maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-before.expected
+
+# Add service-name based redirect
+k8s/add lrp-svc.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Compare maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps.expected
+
+# Updating the k8s objects doesn't change anything
+k8s/update pod.yaml service.yaml endpointslice.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Compare maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps.expected
+
+# Removing policy reverts (but we'll get new backend id)
+k8s/delete lrp-svc.yaml
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+
+# Compare maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-after.expected
+
+-- lrp.table --
+Name           Type     FrontendType                Frontends
+test/lrp-svc   service  all
+
+-- services-before.table --
+Name                          Source
+test/echo                     k8s   
+
+-- services.table --
+Name                          Source
+test/echo                     k8s   
+test/lrp-svc-local-redirect   k8s   
+
+-- frontends-before.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status   
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done 
+
+-- frontends.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc-local-redirect   Done
+
+-- maps-before.expected --
+BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps.expected --
+BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-after.expected --
+BE: ID=3 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lrp-svc.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: echo
+      namespace: test
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 169.254.169.254
+  clusterIPs:
+  - 169.254.169.254
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP
+
+
