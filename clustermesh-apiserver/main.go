@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	clustermeshdbg "github.com/cilium/cilium/clustermesh-apiserver/clustermesh-dbg"
+	"github.com/cilium/cilium/clustermesh-apiserver/common"
 	"github.com/cilium/cilium/clustermesh-apiserver/etcdinit"
 	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
 	kvstoremeshdbg "github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh-dbg"
@@ -31,8 +32,8 @@ func main() {
 		// etcd init does not use the Hive framework, because it's a "one and done" process that doesn't spawn a service
 		// or server, or perform any waiting for connections.
 		etcdinit.NewCmd(),
-		clustermesh.NewCmd(hive.New(clustermesh.Cell)),
-		kvstoremesh.NewCmd(hive.New(kvstoremesh.Cell)),
+		clustermesh.NewCmd(hive.New(common.Cell, clustermesh.Cell)),
+		kvstoremesh.NewCmd(hive.New(common.Cell, kvstoremesh.Cell)),
 		clustermeshdbg.RootCmd,
 		kvstoremeshdbg.RootCmd,
 	)
