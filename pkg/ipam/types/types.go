@@ -6,6 +6,7 @@ package types
 import (
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -442,6 +443,17 @@ type Instance struct {
 	Interfaces map[string]InterfaceRevision
 }
 
+func (i *Instance) String(id string) string {
+	addrs := []string{}
+	if err := foreachAddress(id, i, func(instanceID, interfaceID, ip, poolID string, address Address) error {
+		addrs = append(addrs, fmt.Sprintf("%s:%s:%s", interfaceID, ip, poolID))
+		return nil
+	}); err != nil {
+		return err.Error()
+	}
+	return strings.Join(addrs, ",")
+}
+
 // InstanceMap is the list of all instances indexed by instance ID
 //
 // +k8s:deepcopy-gen=false
@@ -623,4 +635,15 @@ func (m *InstanceMap) Delete(instanceID string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	delete(m.data, instanceID)
+}
+
+func (m *InstanceMap) String() string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	instances := make([]string, len(m.data))
+	for instanceID, instance := range m.data {
+		instances = append(instances, fmt.Sprintf("%s:[%s]", instanceID, instance.String(instanceID)))
+	}
+
+	return strings.Join(instances, ",")
 }

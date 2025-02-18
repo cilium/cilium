@@ -227,6 +227,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			"numVPCs":           len(vpcs),
 			"numSubnets":        len(subnets),
 			"numSecurityGroups": len(securityGroups),
+			"instances":         instances.String(),
 		}).Info("Synchronized ENI information")
 
 		m.mutex.Lock()
@@ -244,6 +245,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			"numVPCs":           len(vpcs),
 			"numSubnets":        len(subnets),
 			"numSecurityGroups": len(securityGroups),
+			"instances":         instance.String(instanceID),
 		}).Info("Synchronized ENI information for the corresponding instance")
 
 		m.mutex.Lock()
