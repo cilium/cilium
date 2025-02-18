@@ -29,8 +29,7 @@ var Cell = cell.Module(
 	cell.Config(cmtypes.DefaultClusterInfo),
 	cell.Invoke(cmtypes.RegisterClusterInfoValidator),
 
-	pprof.Cell,
-	cell.Config(pprofConfig),
+	pprof.Cell(pprofConfig),
 	controller.Cell,
 
 	gops.Cell(defaults.EnableGops, defaults.GopsPortKVStoreMesh),

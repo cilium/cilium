@@ -90,8 +90,7 @@ var (
 		"Infrastructure",
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
-		pprof.Cell,
-		cell.Config(pprofConfig),
+		pprof.Cell(pprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortAgent),
