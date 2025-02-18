@@ -127,6 +127,7 @@ type xdsServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
+	Logger             *slog.Logger
 	IPCache            *ipcache.IPCache
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
@@ -152,6 +153,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	CiliumXDSConfigSource.InitialFetchTimeout.Seconds = int64(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
 	xdsServer := newXDSServer(
+		params.Logger,
 		params.RestorerPromise,
 		params.IPCache,
 		params.LocalEndpointStore,
