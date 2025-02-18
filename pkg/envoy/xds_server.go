@@ -30,7 +30,6 @@ import (
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1611,7 +1610,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 
 // getWildcardNetworkPolicyRule returns the rule for port 0, which
 // will be considered after port-specific rules.
-func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+func (s *xdsServer) getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel := range selectors {
@@ -1643,7 +1642,7 @@ func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors po
 			// Issue a warning if this port-0 rule is a redirect.
 			// Deny rules don't support L7 therefore for the deny case
 			// l7.IsRedirect() will always return false.
-			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
+			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
 		}
 
 		selections := sel.GetSelections(version)
@@ -1676,7 +1675,7 @@ func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors po
 	}
 }
 
-func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
+func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		// Always allow all ports
@@ -1720,15 +1719,15 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(version, l4.PerSelectorPolicies)
+			rule := s.getWildcardNetworkPolicyRule(version, l4.PerSelectorPolicies)
 			if rule != nil {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointID:       ep.GetID(),
-					logfields.Version:          version,
-					logfields.TrafficDirection: dir,
-					logfields.Port:             port,
-					logfields.PolicyID:         rule.RemotePolicies,
-				}).Debug("Wildcard PortNetworkPolicyRule matching remote IDs")
+				s.logger.Debug("Wildcard PortNetworkPolicyRule matching remote IDs",
+					logfields.EndpointID, ep.GetID(),
+					logfields.Version, version,
+					logfields.TrafficDirection, dir,
+					logfields.Port, port,
+					logfields.PolicyID, rule.RemotePolicies,
+				)
 
 				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
@@ -1751,14 +1750,14 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 						canShortCircuit = false
 					}
 
-					log.WithFields(logrus.Fields{
-						logfields.EndpointID:       ep.GetID(),
-						logfields.Version:          version,
-						logfields.TrafficDirection: dir,
-						logfields.Port:             port,
-						logfields.PolicyID:         rule.RemotePolicies,
-						logfields.ServerNames:      rule.ServerNames,
-					}).Debug("PortNetworkPolicyRule matching remote IDs")
+					s.logger.Debug("PortNetworkPolicyRule matching remote IDs",
+						logfields.EndpointID, ep.GetID(),
+						logfields.Version, version,
+						logfields.TrafficDirection, dir,
+						logfields.Port, port,
+						logfields.PolicyID, rule.RemotePolicies,
+						logfields.ServerNames, rule.ServerNames,
+					)
 
 					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
 						// Got an allow-all rule, which can short-circuit all of
@@ -1771,11 +1770,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		}
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:       ep.GetID(),
-				logfields.TrafficDirection: dir,
-				logfields.Port:             port,
-			}).Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+			s.logger.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention",
+				logfields.EndpointID, ep.GetID(),
+				logfields.TrafficDirection, dir,
+				logfields.Port, port,
+			)
 			rules = nil
 		}
 
@@ -1784,11 +1783,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
 		if !allowAll && len(rules) == 0 {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:       ep.GetID(),
-				logfields.TrafficDirection: dir,
-				logfields.Port:             port,
-			}).Debug("Skipping PortNetworkPolicy due to no matching remote identities")
+			s.logger.Debug("Skipping PortNetworkPolicy due to no matching remote identities",
+				logfields.EndpointID, ep.GetID(),
+				logfields.TrafficDirection, dir,
+				logfields.Port, port,
+			)
 			return true
 		}
 
@@ -1810,7 +1809,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
+func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool, policySecretsNamespace string,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
@@ -1825,8 +1824,8 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *polic
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules
 	}
-	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
-	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
+	p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
+	p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
 
 	return p
 }
@@ -1890,7 +1889,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
+	networkPolicy := s.getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
