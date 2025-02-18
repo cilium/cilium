@@ -1657,7 +1657,10 @@ func (e *Endpoint) UpdateProxyStatistics(proxyType, l4Protocol string, port, pro
 
 	proxyStats, ok := e.proxyStatistics[key]
 	if !ok {
-		e.getLogger().WithField(logfields.L4PolicyID, key).Debug("Proxy stats not found when updating")
+		if l := e.getLogger(); l.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			l.WithField(logfields.L4PolicyID, key).Debug("Proxy stats not found when updating")
+		}
+
 		return
 	}
 
