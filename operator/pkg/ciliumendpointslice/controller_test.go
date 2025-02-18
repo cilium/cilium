@@ -48,6 +48,7 @@ func TestRegisterController(t *testing.T) {
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableCiliumEndpointSlice: true,
+				DisableNetworkPolicy:      false,
 			}
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
@@ -107,6 +108,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableCiliumEndpointSlice: false,
+				DisableNetworkPolicy:      false,
 			}
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
