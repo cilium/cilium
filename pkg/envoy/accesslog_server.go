@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"syscall"
@@ -20,12 +21,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type AccessLogServer struct {
+	logger             *slog.Logger
 	socketPath         string
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
@@ -33,8 +36,9 @@ type AccessLogServer struct {
 	bufferSize         uint
 }
 
-func newAccessLogServer(envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
+func newAccessLogServer(logger *slog.Logger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
 	return &AccessLogServer{
+		logger:             logger,
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
@@ -54,7 +58,9 @@ func (s *AccessLogServer) start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		log.Infof("Envoy: Starting access log server listening on %s", socketListener.Addr())
+		s.logger.Info("Envoy: Starting access log server listening",
+			logfields.Address, socketListener.Addr(),
+		)
 		for {
 			// Each Envoy listener opens a new connection over the Unix domain socket.
 			// Multiple worker threads serving the listener share that same connection
@@ -64,10 +70,12 @@ func (s *AccessLogServer) start() error {
 				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
 					break
 				}
-				log.WithError(err).Warn("Envoy: Failed to accept access log connection")
+				s.logger.Warn("Envoy: Failed to accept access log connection",
+					logfields.Error, err,
+				)
 				continue
 			}
-			log.Info("Envoy: Accepted access log connection")
+			s.logger.Info("Envoy: Accepted access log connection")
 
 			// Serve this access log socket in a goroutine, so we can serve multiple
 			// connections concurrently.
@@ -101,7 +109,10 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(s.socketPath, -1, int(s.proxyGID)); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s", s.socketPath)
+		s.logger.Warn("Envoy: Failed to change the group of access log listen socket",
+			logfields.Path, s.socketPath,
+			logfields.Error, err,
+		)
 	}
 	return accessLogListener, nil
 }
@@ -124,7 +135,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}()
 
 	defer func() {
-		log.Info("Envoy: Closing access log connection")
+		s.logger.Info("Envoy: Closing access log connection")
 		_ = conn.Close()
 		stopCh <- struct{}{}
 	}()
@@ -134,20 +145,24 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				log.WithError(err).Error("Envoy: Error while reading from access log connection")
+				s.logger.Error("Envoy: Error while reading from access log connection",
+					logfields.Error, err,
+				)
 			}
 			break
 		}
 		if flags&unix.MSG_TRUNC != 0 {
-			log.WithFields(logrus.Fields{
-				"access_log_buffer_size": s.bufferSize,
-			}).Warning("Envoy: Discarded truncated access log message - increase buffer size via --envoy-access-log-buffer-size")
+			s.logger.Warn("Envoy: Discarded truncated access log message - increase buffer size via --envoy-access-log-buffer-size",
+				logfields.BufferSize, s.bufferSize,
+			)
 			continue
 		}
 		pblog := cilium.LogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
-			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
+			s.logger.Warn("Envoy: Discarded invalid access log message",
+				logfields.Error, err,
+			)
 			continue
 		}
 
