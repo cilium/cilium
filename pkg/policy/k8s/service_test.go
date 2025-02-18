@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 type fakePolicyImporter struct {
@@ -44,17 +45,15 @@ func (f *fakePolicyImporter) UpdatePolicy(upd *policytypes.PolicyUpdate) {
 }
 
 type fakeService struct {
-	svc *k8s.Service
-	eps *k8s.Endpoints
+	svc *k8s.MinimalService
+	eps *k8s.MinimalEndpoints
 }
 
 type fakeServiceCache map[k8s.ServiceID]fakeService
 
-func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool) {
+func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.MinimalService, eps *k8s.MinimalEndpoints) bool) {
 	for svcID, s := range f {
-		eps := k8s.NewEndpointsSlices()
-		eps.Upsert("foo", s.eps)
-		if !yield(svcID, s.svc, eps) {
+		if !yield(svcID, s.svc, s.eps) {
 			break
 		}
 	}
@@ -187,23 +186,19 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		Name:      "foo-svc",
 		Namespace: "foo-ns",
 	}
-	fooSvc := &k8s.Service{}
-	fooEps := &k8s.Endpoints{
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+	fooSvc := &k8s.MinimalService{}
+	fooEps := &k8s.MinimalEndpoints{
+		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
 			fooEpAddr1: {
-				Ports: map[string]*loadbalancer.L4Addr{
-					"port": {
-						Protocol: loadbalancer.TCP,
-						Port:     80,
-					},
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
 				},
 			},
 			fooEpAddr2: {
-				Ports: map[string]*loadbalancer.L4Addr{
-					"port": {
-						Protocol: loadbalancer.TCP,
-						Port:     80,
-					},
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
 				},
 			},
 		},
@@ -214,17 +209,15 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		Name:      "bar-svc",
 		Namespace: "bar-ns",
 	}
-	barSvc := &k8s.Service{
+	barSvc := &k8s.MinimalService{
 		Labels: barSvcLabels,
 	}
-	barEps := &k8s.Endpoints{
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+	barEps := &k8s.MinimalEndpoints{
+		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
 			barEpAddr: {
-				Ports: map[string]*loadbalancer.L4Addr{
-					"port": {
-						Protocol: loadbalancer.UDP,
-						Port:     53,
-					},
+				"port": {
+					Protocol: loadbalancer.UDP,
+					Port:     53,
 				},
 			},
 		},
@@ -238,12 +231,21 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	bazSvcLabels := map[string]string{
 		"app": "baz",
 	}
-	bazSvc := &k8s.Service{
+	bazSvc := &k8s.MinimalService{
 		Labels:   barSvcLabels,
 		Selector: bazSvcLabels,
 	}
 
-	bazEps := barEps.DeepCopy()
+	bazEps := &k8s.MinimalEndpoints{
+		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{
+			barEpAddr: {
+				"port": {
+					Protocol: loadbalancer.UDP,
+					Port:     53,
+				},
+			},
+		},
+	}
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
@@ -290,7 +292,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: fooSvc,
 		eps: fooEps,
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, fooEps, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 2)
@@ -325,7 +327,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: barSvc,
 		eps: barEps,
 	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, barEps, nil)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -379,7 +381,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
 	delete(fooEps.Backends, fooEpAddr2)
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, fooSvc)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, fooSvc, fooEps, nil)
 	assert.NoError(t, err)
 	byNameRules = <-policyAdd
 	assert.Len(t, byNameRules, 2)
@@ -404,7 +406,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	oldBarSvc := barSvc.DeepCopy()
 	barSvc.Labels = nil
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, barEps, barEps)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -446,7 +448,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: bazSvc,
 		eps: bazEps,
 	}
-	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil)
+	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil, bazEps, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -561,13 +563,13 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	fooSvcLabels := map[string]string{
 		"app": "foo",
 	}
-	fooSvc := &k8s.Service{
+	fooSvc := &k8s.MinimalService{
 		Selector: fooSvcLabels,
 	}
 	svcCache[fooSvcID] = fakeService{
 		svc: fooSvc,
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -599,7 +601,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		"app": "foo",
 		"new": "label",
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -655,7 +657,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		Name:      "bar-svc",
 		Namespace: "bar-ns",
 	}
-	barSvc := &k8s.Service{
+	barSvc := &k8s.MinimalService{
 		Labels:   barSvcLabels,
 		Selector: barSvcLabels,
 	}
@@ -671,7 +673,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	svcCache[barSvcID] = fakeService{
 		svc: barSvc,
 	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -699,7 +701,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	oldBarSvc := barSvc.DeepCopy()
 	barSvc.Labels = nil
 
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -723,7 +725,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{}, p.cnpByServiceID)
 
 	// Add foo-svc again, which should re-add the policy
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
 	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
@@ -749,7 +751,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
 		spec  *api.Rule
 		svcID k8s.ServiceID
-		svc   *k8s.Service
+		svc   *k8s.MinimalService
 	}
 	tests := []struct {
 		name string
@@ -761,7 +763,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 			args: args{
 				spec:  nil,
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: false,
 		},
@@ -781,7 +783,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: true,
 		},
@@ -801,7 +803,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: true,
 		},
@@ -823,7 +825,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "not-test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: false,
 		},
@@ -845,7 +847,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: false,
 		},
@@ -867,7 +869,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: false,
 		},
@@ -895,7 +897,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{},
+				svc:   &k8s.MinimalService{},
 			},
 			want: true,
 		},
@@ -918,7 +920,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
 			},
 			want: true,
 		},
@@ -941,7 +943,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
 			},
 			want: true,
 		},
@@ -965,7 +967,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
 			},
 			want: false,
 		},
@@ -989,7 +991,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
 			},
 			want: false,
 		},
@@ -1016,7 +1018,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 					},
 				}},
 				svcID: k8s.ServiceID{Name: "test-svc", Namespace: "test-ns"},
-				svc:   &k8s.Service{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
+				svc:   &k8s.MinimalService{Labels: map[string]string{"foo": "bar", "baz": "qux"}},
 			},
 			want: false,
 		},
