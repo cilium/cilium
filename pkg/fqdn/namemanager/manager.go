@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -146,11 +145,13 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, u
 
 	// Update IPs in n
 	updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
-	for dnsName, IPs := range updatedDNSNames {
-		log.WithFields(logrus.Fields{
-			"matchName": dnsName,
-			"IPs":       IPs,
-		}).Debug("Updated FQDN with new IPs")
+	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		for dnsName, IPs := range updatedDNSNames {
+			log.WithFields(logrus.Fields{
+				"matchName": dnsName,
+				"IPs":       IPs,
+			}).Debug("Updated FQDN with new IPs")
+		}
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -204,10 +205,12 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*f
 
 		// The IPs didn't change. No more to be done for this dnsName
 		if !updated && n.bootstrapCompleted {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: IPs didn't change for DNS name")
+			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+				log.WithFields(logrus.Fields{
+					"dnsName":   dnsName,
+					"lookupIPs": lookupIPs,
+				}).Debug("FQDN: IPs didn't change for DNS name")
+			}
 			continue
 		}
 
@@ -216,10 +219,12 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*f
 
 		// accumulate the new labels affected by new IPs
 		if len(n.allSelectors) == 0 {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: No selectors registered for updates")
+			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+				log.WithFields(logrus.Fields{
+					"dnsName":   dnsName,
+					"lookupIPs": lookupIPs,
+				}).Debug("FQDN: No selectors registered for updates")
+			}
 			continue
 		}
 
@@ -287,7 +292,7 @@ func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcach
 		var updates []ipcache.MU
 		resource := ipcacheResource(dnsName)
 
-		if option.Config.Debug {
+		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
 			log.WithFields(logrus.Fields{
 				"name":     dnsName,
 				"prefixes": metadata.addrs,
@@ -428,11 +433,13 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 		dnsName := prepareMatchName(fqdnSelector.MatchName)
 		lookupIPs := n.cache.Lookup(dnsName)
 		if len(lookupIPs) > 0 {
-			log.WithFields(logrus.Fields{
-				"DNSName":   dnsName,
-				"IPs":       lookupIPs,
-				"matchName": fqdnSelector.MatchName,
-			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+				log.WithFields(logrus.Fields{
+					"DNSName":   dnsName,
+					"IPs":       lookupIPs,
+					"matchName": fqdnSelector.MatchName,
+				}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+			}
 			namesIPMapping[dnsName] = lookupIPs
 		}
 	}
