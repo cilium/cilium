@@ -1,4 +1,4 @@
-name: Conformance K8s Upstream Network
+name: K8s Network Policy E2E tests
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -24,18 +24,18 @@ env:
   cluster_name: cilium-testing
 
 jobs:
-  kubernetes-e2e-net-conformance:
-    name: Installation and Conformance Test
+  kubernetes-e2e-net:
+    name: K8s Network Policy E2E tests
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # TODO add "dual" and "ipv6", "ipv6" fails to install cilium
-        ipFamily: ["ipv4"]
+        # TODO add "ipv6", "ipv6" fails to install cilium
+        ipFamily: ["dual"]
     env:
       IP_FAMILY: ${{ matrix.ipFamily }}
-      job_name: "Installation and Conformance Test"
+      job_name: "K8s network policy tests"
 
     steps:
       - name: Collect Workflow Telemetry
@@ -136,7 +136,8 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
             --helm-set=kubeProxyReplacement=true \
-            --helm-set=identityChangeGracePeriod="0s""
+            --helm-set=identityChangeGracePeriod="0s" \
+            --helm-set=sctp.enabled=true"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
@@ -160,7 +161,7 @@ jobs:
         run: |
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Run Kubernetes sig-network conformance test
+      - name: Run Kubernetes sig-network network policy tests
         run: |
           # output_dir
           mkdir -p _artifacts
@@ -170,26 +171,26 @@ jobs:
 
           # Kubernetes e2e tests use ginkgo and tags to select the tests that should run based on two regex, focus and skip:
           # Focus tests:
-          # \[Conformance\]|\[sig-network\]: Conformance tests are defined by the project to guarantee a consistent behaviour and some mandatory features on all clusters
-          #                                  sig-network tests are defined by sig-networkto guarantee a consistent behaviour on all the the k8s network implementations
+          # Netpol|NetworkPolicy : NetworkPolicy tests ignored by the other workflow
           # Skipped tests:
-          # Disruptive|Serial : require to run in serial and perform disruptive operations on clusters (reboots, ...)
-          # Federation|PerformanceDNS : unrelated sig-network tests
-          # Feature : skip features that are not GA, however, some of them should be enabled, per example [Feature:ProxyTerminatingEndpoints]
-          # DualStack : only with dualstack clusters
-          # KubeProxy|kube-proxy : kube-proxy specifics
-          # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
-          # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
-          # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
-          # externalTrafficPolicy : needs investigation
+          # should.allow.egress.access.to.server.in.CIDR.block - https://github.com/cilium/cilium/issues/9209
+          # should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed - https://github.com/cilium/cilium/issues/9209
+          # should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block - https://github.com/cilium/cilium/issues/9209
+
+          SKIP_FLAG="should.allow.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block"
+          if [ "${IP_FAMILY}" != "dual" ]; then
+            SKIP_FLAG="${SKIP_FLAG}|DualStack"
+          fi
+          if [ "${IP_FAMILY}" == "ipv4" ]; then
+            SKIP_FLAG="${SKIP_FLAG}|IPv6"
+          fi
 
           # Run tests
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=5                \
-            --focus="(HostPort.*\[Conformance\].*|Services.*\[Conformance\].*|Net.*ol.*)"     \
-            --skip="(Legacy|HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol|should.allow.egress.access.to.server.in.CIDR.block|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|Feature:SCTPConnectivity|should.serve.endpoints.on.same.port.and.different.protocols)" \
+          /usr/local/bin/ginkgo --nodes=10                \
+            --focus="(Netpol|NetworkPolicy)"     \
+            --skip="${SKIP_FLAG}" \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
