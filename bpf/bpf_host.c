@@ -1676,40 +1676,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * to mark as PACKET_OTHERHOST and drop.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
-#if !defined(TUNNEL_MODE)
-	/* Since v1.18 Cilium performs IPsec encryption at the native device,
-	 * before the packet leaves the host.
-	 *
-	 * A special case exists for L7 egress proxy packets when native routing
-	 * mode is enabled.
-	 *
-	 * Because L7 egress proxy packets are generated in the host-namespace
-	 * and generated packets MUST adjust their MTU for ESP encapsulation
-	 * an IP route MTU adjustment exists for L7 egress proxy packets.
-	 *
-	 * When the L7 egress proxy generates packets an 'ip rule' in the host
-	 * namespace routes these packets into table 2005 which has a route
-	 * toward 'cilium_host' and adjusts the MTU correctly for ESP encap.
-	 *
-	 * When 'cil_from_host@cilium_host' is reached the skb's mark is zeroed
-	 * and the packet is pushed toward 'cil_to_host@cilium_net'.
-	 *
-	 * If we simply let this packet drop to the stack, an iptables rule
-	 * exists which will mark the packet with 0x200 and trigger a local
-	 * delivery as part of L7 Proxy TPROXY mechanism.
-	 *
-	 * This iptables rule is ignored by the mark MARK_MAGIC_PROXY_TO_WORLD.
-	 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
-	 * this mark breaks further processing as its used in the XFRM subsystem.
-	 *
-	 * Therefore, if the packet's mark is zero, indicating it was forwarded
-	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
-	 * and allow it to enter the foward path once punted to stack.
-	 */
-	if (ctx->mark == 0)
-		ctx->mark |= MARK_MAGIC_PROXY_TO_WORLD;
-#endif /* !TUNNEL_MODE */
-
 # ifdef ENABLE_NODEPORT
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT)
 		goto skip_ipsec_nodeport_revdnat;
