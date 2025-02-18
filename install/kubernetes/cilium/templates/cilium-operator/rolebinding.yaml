@@ -7,16 +7,15 @@ kind: RoleBinding
 metadata:
   name: cilium-operator-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
-  {{- with .Values.commonLabels }}
   labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
   {{- with .Values.operator.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  labels:
-    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -34,12 +33,15 @@ kind: RoleBinding
 metadata:
   name: cilium-operator-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- with .Values.operator.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  labels:
-    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -57,12 +59,15 @@ kind: RoleBinding
 metadata:
   name: cilium-operator-tlsinterception-secrets
   namespace: {{ .Values.tls.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- with .Values.operator.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  labels:
-    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
