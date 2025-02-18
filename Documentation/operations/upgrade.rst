@@ -331,6 +331,9 @@ Agent Options
 Bugtool Options
 ~~~~~~~~~~~~~~~
 
+* The deprecated flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
+  have been removed. Cilium CLI should be used to gather a sysdump from a K8s cluster.
+
 
 Added Metrics
 ~~~~~~~~~~~~~
