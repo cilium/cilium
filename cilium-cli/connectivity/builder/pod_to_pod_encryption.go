@@ -25,12 +25,16 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithCondition(func() bool {
 
 			// for wireguard, we can run the podToPodEncryptionV2 tests if we
-			// are on a post v1.18 cluster
+			// are on a post v1.18 cluster and not using aws-cni chaining
 			encryptionPod, ok := ct.Feature(features.EncryptionPod)
 			if !ok {
 				return false
 			}
-			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+			cniChaining, ok := ct.Feature(features.CNIChaining)
+			if !ok {
+				return false
+			}
+			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) && cniChaining.Mode != "aws-cni" {
 				return false
 			}
 
@@ -44,12 +48,16 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
 			// for wireguard, we can run the podToPodEncryptionV2 tests if we
-			// are on a post v1.18 cluster
+			// are on a post v1.18 cluster and not using aws-cni chaining
 			encryptionPod, ok := ct.Feature(features.EncryptionPod)
 			if !ok {
 				return false
 			}
-			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+			cniChaining, ok := ct.Feature(features.CNIChaining)
+			if !ok {
+				return false
+			}
+			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) && cniChaining.Mode != "aws-cni" {
 				return false
 			}
 
