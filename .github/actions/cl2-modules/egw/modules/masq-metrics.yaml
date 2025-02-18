@@ -11,12 +11,16 @@ steps:
       queries:
       - name: EGW Masquerade Delay - 50th Percentile
         query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
+        threshold: 1
       - name: EGW Masquerade Delay - 90th Percentile
         query: quantile(0.9, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
+        threshold: 1
       - name: EGW Masquerade Delay - 95th Percentile
         query: quantile(0.95, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
+        threshold: 2
       - name: EGW Masquerade Delay - 99th Percentile
         query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
+        threshold: 2
 
   - Identifier: EGWLeakedPingsMetrics{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
