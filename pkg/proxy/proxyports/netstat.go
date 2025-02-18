@@ -32,15 +32,14 @@ var (
 	procNetFileRegexp = regexp.MustCompile("^ *[[:digit:]]*: *[[:xdigit:]]*:([[:xdigit:]]*) ")
 )
 
-// readOpenLocalPorts returns the set of L4 ports currently open locally.
-// procNetFiles should be procNetTCPFiles or procNetUDPFiles (or both).
-func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
+// GetOpenLocalPorts returns the set of L4 ports currently open locally.
+func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
-	for _, file := range procNetFiles {
+	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+			p.logger.Error("cannot read proc file", logfields.Path, file, logfields.Error, err)
 			continue
 		}
 
@@ -56,7 +55,7 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 			// The port number is in hexadecimal.
 			localPort, err := strconv.ParseUint(string(groups[1]), 16, 16)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+				p.logger.Error("failed to parse port from proc file", logfields.Path, file, logfields.Error, err)
 				continue
 			}
 			openLocalPorts[uint16(localPort)] = struct{}{}
@@ -64,9 +63,4 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 	}
 
 	return openLocalPorts
-}
-
-// OpenLocalPorts returns the set of L4 ports currently open locally.
-func OpenLocalPorts() map[uint16]struct{} {
-	return readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
 }
