@@ -6,17 +6,22 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/time"
 )
+
+type envoyVersionChecker struct {
+	logger *slog.Logger
+}
 
 // requiredEnvoyVersionSHA is set during build
 // Running Envoy version will be checked against `requiredEnvoyVersionSHA`.
 // By default, cilium-agent will fail to start if there is a version mismatch.
 var requiredEnvoyVersionSHA string
 
-func checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
+func (r *envoyVersionChecker) checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
 	envoyVersion, err := envoyVersionFunc()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve Envoy version: %w", err)
@@ -27,12 +32,12 @@ func checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
 		return fmt.Errorf("envoy version %s does not match with required version %s", envoyVersion, requiredEnvoyVersionSHA)
 	}
 
-	log.Debugf("Envoy: Envoy version %s is matching required version %s", envoyVersion, requiredEnvoyVersionSHA)
+	r.logger.Debug("Envoy: Envoy version is matching required version", "envoy-version", envoyVersion, "envoy-version-required", requiredEnvoyVersionSHA)
 
 	return nil
 }
 
-func getRemoteEnvoyVersion(envoyAdminClient *EnvoyAdminClient) (string, error) {
+func (r *envoyVersionChecker) getRemoteEnvoyVersion(envoyAdminClient *EnvoyAdminClient) (string, error) {
 	const versionRetryAttempts = 20
 	const versionRetryWait = 500 * time.Millisecond
 
@@ -41,7 +46,7 @@ func getRemoteEnvoyVersion(envoyAdminClient *EnvoyAdminClient) (string, error) {
 		envoyVersion, err := envoyAdminClient.GetEnvoyVersion()
 		if err != nil {
 			if i < versionRetryAttempts {
-				log.Info("Envoy: Unable to retrieve Envoy version - retry")
+				r.logger.Info("Envoy: Unable to retrieve Envoy version - retry")
 				time.Sleep(versionRetryWait)
 				continue
 			}
