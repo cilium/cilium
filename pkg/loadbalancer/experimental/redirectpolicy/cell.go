@@ -6,6 +6,8 @@ package redirectpolicy
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/api/v1/server/restapi/service"
 )
 
 // Cell implements the processing of the CiliumLocalRedirectPolicy CRD.
@@ -46,4 +48,14 @@ var Cell = cell.Module(
 		// pod netns cookies
 		registerSkipLB,
 	),
+
+	// Replace the REST API implementation if enabled
+	cell.DecorateAll(replaceAPI),
 )
+
+func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
+	if !enabled {
+		return old
+	}
+	return &getLrpHandler{db, lrps}
+}
