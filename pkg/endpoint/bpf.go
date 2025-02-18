@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -722,7 +721,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// Collect a dump of the bpf policymap if needed for the sync.
 	if e.realizedPolicy != e.desiredPolicy && e.realizedPolicy.Empty() {
-		datapathRegenCtxt.policyMapDump, err = e.dumpPolicyMapToMapStateMap()
+		datapathRegenCtxt.policyMapDump, err = e.policyMap.DumpToMapStateMap()
 		if err != nil {
 			return fmt.Errorf("policymap dump failed: %w", err)
 		}
@@ -963,8 +962,7 @@ func (e *Endpoint) deletePolicyKeys(deletes, adds policy.Keys) int {
 }
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) bool {
-	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.NewKey(keyToDelete.TrafficDirection(), keyToDelete.Identity, keyToDelete.Nexthdr, keyToDelete.DestPort, keyToDelete.PortPrefixLen())
+	policymapKey := policymap.NewKeyFromPolicyKey(keyToDelete)
 
 	// Do not error out if the map entry was already deleted from the bpf map.
 	// Incremental updates depend on this being OK in cases where identity change
@@ -1009,15 +1007,11 @@ func (e *Endpoint) addPolicyKeys(adds policy.Keys) int {
 }
 
 func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
-	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.NewKey(keyToAdd.TrafficDirection(), keyToAdd.Identity, keyToAdd.Nexthdr, keyToAdd.DestPort, keyToAdd.PortPrefixLen())
+	// Convert from policy.Key to policymap.PolicyKey and Entry, respectively
+	policymapKey := policymap.NewKeyFromPolicyKey(keyToAdd)
+	policymapEntry := policymap.NewEntryFromPolicyEntry(policymapKey, entry)
 
-	var err error
-	if entry.IsDeny() {
-		err = e.policyMap.DenyKey(policymapKey)
-	} else {
-		err = e.policyMap.AllowKey(policymapKey, entry.ProxyPortPriority, entry.AuthRequirement, entry.ProxyPort)
-	}
+	err := e.policyMap.Update(&policymapKey, &policymapEntry)
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{
 			logfields.BPFMapKey: policymapKey,
@@ -1248,12 +1242,13 @@ func (e *Endpoint) stopLockdownLocked() bool {
 // mode. The bpf policy map is populated with deny all traffic entries,
 // and all other entries are deleted.
 func (e *Endpoint) endpointPolicyLockdown() error {
-	denyMap := make(map[policymap.PolicyKey]struct{}, len(allTrafficKeys))
+	denyMap := make(map[policymap.PolicyKey]policymap.PolicyEntry, len(allTrafficKeys))
 	for _, k := range allTrafficKeys {
-		denyMap[policymap.NewKey(k.TrafficDirection(), k.Identity, k.Nexthdr, k.DestPort, k.PortPrefixLen())] = struct{}{}
+		mk := policymap.NewKeyFromPolicyKey(k)
+		denyMap[mk] = policymap.NewEntryFromPolicyEntry(mk, policytypes.DenyEntry())
 	}
 	// realizedPolicy is not accurrate at this point, we need a dump
-	currentMap, err := e.dumpPolicyMapToMapStateMap()
+	currentMap, err := e.policyMap.DumpToMapStateMap()
 	if err != nil {
 		return fmt.Errorf("could not dump current map state: %w", err)
 	}
@@ -1265,7 +1260,7 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	i := 0
 	addedDenyEntries := false
 	for k := range currentMap {
-		pmKey := policymap.NewKey(k.TrafficDirection(), k.Identity, k.Nexthdr, k.DestPort, k.PortPrefixLen())
+		pmKey := policymap.NewKeyFromPolicyKey(k)
 		if _, ok := denyMap[pmKey]; !ok {
 			err := e.policyMap.DeleteKey(pmKey)
 			var errno unix.Errno
@@ -1280,9 +1275,9 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 		i++
 		// Once the length of the deny keys to be added has been deleted we can safely add them.
 		if i == len(denyMap) {
-			for denyKey := range denyMap {
-				if err := e.policyMap.DenyKey(denyKey); err != nil {
-					return fmt.Errorf("failed to add deny all policy (%v): %w", denyKey, err)
+			for mk, mv := range denyMap {
+				if err := e.policyMap.Update(&mk, &mv); err != nil {
+					return fmt.Errorf("failed to add deny all policy (%v): %w", mv, err)
 				}
 			}
 			addedDenyEntries = true
@@ -1292,9 +1287,9 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	// is set to a really low value in a custom build of Cilium,
 	// but it is worth having for testing purposes.
 	if !addedDenyEntries {
-		for denyKey := range denyMap {
-			if err := e.policyMap.DenyKey(denyKey); err != nil {
-				return fmt.Errorf("failed to add deny all policy (%v): %w", denyKey, err)
+		for mk, mv := range denyMap {
+			if err := e.policyMap.Update(&mk, &mv); err != nil {
+				return fmt.Errorf("failed to add deny all policy (%v): %w", mk, err)
 			}
 		}
 	}
@@ -1426,36 +1421,6 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	return diffCount, diffs, err
 }
 
-// dumpPolicyMapToMapStateMap dumps the current bpf policy map for this endpoint
-// into a MapStateMap.
-func (e *Endpoint) dumpPolicyMapToMapStateMap() (policy.MapStateMap, error) {
-	currentMap := make(policy.MapStateMap)
-
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		policymapKey := key.(*policymap.PolicyKey)
-		// Convert from policymap.Key to policy.Key
-		policyKey := policy.KeyForDirection(trafficdirection.TrafficDirection(policymapKey.TrafficDirection)).
-			WithIdentity(identity.NumericIdentity(policymapKey.Identity)).
-			WithPortProtoPrefix(u8proto.U8proto(policymapKey.Nexthdr), policymapKey.GetDestPort(), policymapKey.GetPortPrefixLen())
-		policymapEntry := value.(*policymap.PolicyEntry)
-		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
-		policyEntry := policy.MapStateEntry{
-			ProxyPortPriority: policymapEntry.ProxyPortPriority,
-			ProxyPort:         policymapEntry.GetProxyPort(),
-			AuthRequirement:   policymapEntry.AuthRequirement,
-		}.WithDeny(policymapEntry.IsDeny())
-		// if policymapEntry has invalid prefix length, force update by storing as an
-		// invalid MapStateEntry
-		if !policymapEntry.IsValid(policymapKey) {
-			policyEntry.Invalid = true
-		}
-		currentMap[policyKey] = policyEntry
-	}
-	err := e.policyMap.DumpWithCallback(cb)
-
-	return currentMap, err
-}
-
 // syncPolicyMapWithDump is invoked periodically to perform a full reconciliation
 // of the endpoint's PolicyMap against the BPF maps to catch cases where either
 // due to kernel issue or user intervention the agent's view of the PolicyMap
@@ -1476,7 +1441,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		return nil
 	}
 
-	currentMap, err := e.dumpPolicyMapToMapStateMap()
+	currentMap, err := e.policyMap.DumpToMapStateMap()
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
 	if err != nil {
@@ -1496,7 +1461,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		}
 
 		// Try to dump again, fail if error occurs.
-		currentMap, err = e.dumpPolicyMapToMapStateMap()
+		currentMap, err = e.policyMap.DumpToMapStateMap()
 		if err != nil {
 			return err
 		}
