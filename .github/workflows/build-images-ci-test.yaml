@@ -1,8 +1,8 @@
-name: Image CI Build
+name: Set cilium runtime test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -19,13 +19,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}-1
   cancel-in-progress: true
 
 jobs:
   build-and-push-prs:
     timeout-minutes: 45
-    name: Build and Push Images
+    name: Set cilium runtime test
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
@@ -81,11 +81,6 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
-
-      - name: Copy scripts to trusted directory
-        run: |
-          mkdir -p ../cilium-base-branch
-          cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
@@ -165,6 +160,11 @@ jobs:
         shell: bash
         run: |
           df -h
+      # Doing this in the pr branch because default doesn't have the action yet
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Copy runtime image tag from untrusted branch
         run: |
