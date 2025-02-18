@@ -895,6 +895,9 @@ const (
 	// Maximum specifies a maximum allowed value
 	Maximum = "maximum"
 
+	// Size identifies the size of a list
+	Size = "size"
+
 	// Directory identifies a directory
 	Directory = "directory"
 	// PacketsDropped are the number of packets dropped
