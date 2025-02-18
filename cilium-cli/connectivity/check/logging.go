@@ -10,8 +10,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"regexp"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -113,6 +113,8 @@ func (s defaultScenario) Name() string {
 	return "cli-test-framework"
 }
 
+var ghWorkflowRegexp = regexp.MustCompile("^(?:.+?)/(?:.+?)/(.+?)@.*$")
+
 func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 	if !ct.params.LogCodeOwners {
 		return
@@ -126,11 +128,15 @@ func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 	}
 
 	var workflowOwners []codeowners.Owner
+	var ghWorkflow string
 	// Example: cilium/cilium/.github/workflows/conformance-kind-proxy-embedded.yaml@refs/pull/37593/merge
-	ghWorkflow := os.Getenv("GITHUB_WORKFLOW_REF")
-	ghWorkflow, _, _ = strings.Cut(ghWorkflow, "@")
-	segments := strings.Split(ghWorkflow, "/")
-	ghWorkflow = strings.Join(segments[2:], "/")
+	ghWorkflowRef := os.Getenv("GITHUB_WORKFLOW_REF")
+	matches := ghWorkflowRegexp.FindStringSubmatch(ghWorkflowRef)
+	// here matches should either be nil (no match) or a slice with two values:
+	// the full match and the capture.
+	if len(matches) == 2 {
+		ghWorkflow = matches[1]
+	}
 	if ghWorkflow != "" {
 		workflowRule, err := ct.CodeOwners.Match(ghWorkflow)
 		if err != nil || workflowRule == nil || workflowRule.Owners == nil {
