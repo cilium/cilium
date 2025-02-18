@@ -65,8 +65,9 @@ type K8sServiceEndpointMapping struct {
 // different from the ones configured during initial bootstrap as those kube-apiservers may all have been rotated while
 // the agent was down.
 type restConfigManager struct {
-	restConfig    *rest.Config
-	apiServerURLs []*url.URL
+	restConfig           *rest.Config
+	apiServerURLs        []*url.URL
+	isConnectedToService bool
 	lock.RWMutex
 	log  logrus.FieldLogger
 	rt   *rotatingHttpRoundTripper
@@ -103,7 +104,13 @@ func (r *restConfigManager) getConfig() *rest.Config {
 func (r *restConfigManager) canRotateAPIServerURL() bool {
 	r.RLock()
 	defer r.RUnlock()
-	return len(r.apiServerURLs) > 1
+
+	// API server URLs are initially manually rotated when multiple
+	// servers are configured by the user. Once the connections are
+	// switched over to the kube-apiserver service address, manual
+	// rotation isn't needed as Cilium datapath will load balance
+	// connections to active kube-apiservers.
+	return len(r.apiServerURLs) > 1 && !r.isConnectedToService
 }
 
 func restConfigManagerInit(cfg Config, name string, log logrus.FieldLogger, jobs job.Group) (restConfig, error) {
@@ -374,6 +381,7 @@ func (r *restConfigManager) updateK8sAPIServerURL() {
 	r.rt.apiServerURL.Host = mapping.Service
 	r.Lock()
 	defer r.Unlock()
+	r.isConnectedToService = true
 	r.restConfig.Host = mapping.Service
 	updatedServerURLs := make([]*url.URL, 0)
 	for _, endpoint := range mapping.Endpoints {
