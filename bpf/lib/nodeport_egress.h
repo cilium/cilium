@@ -84,6 +84,24 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
+	if (target.egress_gateway) {
+		/* Stay on the desired egress interface: */
+		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+			goto apply_snat;
+
+		/* Send packet to the correct egress interface, and SNAT it there. */
+		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &target.addr,
+							&tuple.daddr, target.ifindex,
+							ext_err);
+		if (ret != CTX_ACT_OK)
+			return ret;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+	}
+#endif
+
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
 	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
@@ -701,10 +719,12 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = invoke_traced_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-							   is_defined(ENABLE_IPV6)),
-						     __and(is_defined(ENABLE_HOST_FIREWALL),
-							   is_defined(IS_BPF_HOST))),
+		ret = invoke_traced_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
+								is_defined(ENABLE_IPV6)),
+						      __and(is_defined(ENABLE_HOST_FIREWALL),
+								is_defined(IS_BPF_HOST)),
+							  __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
+							    is_defined(IS_BPF_HOST))),
 						CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
 						handle_nat_fwd_ipv6, trace, ext_err);
 		break;

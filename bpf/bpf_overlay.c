@@ -149,6 +149,35 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 not_esp:
 #endif
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+	{
+		__u32 egress_ifindex = 0;
+		union v6addr snat_addr, daddr;
+
+		if (egress_gw_snat_needed_hook_v6((union v6addr *)&ip6->saddr, (union v6addr *)&ip6->daddr, &snat_addr,
+					         &egress_ifindex)) {
+			if (memcmp(&snat_addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6, sizeof(union v6addr)) == 0)
+				return DROP_NO_EGRESS_IP;
+
+			ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, 0);
+			if (unlikely(ret != CTX_ACT_OK))
+				return ret;
+
+			ctx_egw_done_set(ctx);
+
+			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
+			ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &snat_addr,
+								  &daddr, egress_ifindex,
+								  ext_err);
+			if (ret != CTX_ACT_OK)
+				return ret;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+		}
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
