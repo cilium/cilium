@@ -6,17 +6,10 @@ package kvstoremesh
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/clustermesh-apiserver/health"
-	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
-	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
-	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/pprof"
 )
 
@@ -24,30 +17,15 @@ var Cell = cell.Module(
 	"kvstoremesh",
 	"Cilium KVStoreMesh",
 
-	cell.Config(option.DefaultLegacyClusterMeshConfig),
 	cell.Config(kvstoremesh.DefaultConfig),
 
-	cell.Config(cmtypes.DefaultClusterInfo),
-	cell.Invoke(cmtypes.RegisterClusterInfoValidator),
-
 	pprof.Cell(pprofConfig),
-	controller.Cell,
-
 	gops.Cell(defaults.EnableGops, defaults.GopsPortKVStoreMesh),
-	cmmetrics.Cell,
 
 	HealthAPIEndpointsCell,
-	health.HealthAPIServerCell,
 
 	APIServerCell,
 
-	kvstore.Cell,
-	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
-		return &kvstore.ExtraOptions{
-			BootstrapComplete: ss.WaitChannel(),
-		}
-	}),
-	store.Cell,
 	kvstoremesh.Cell,
 
 	cell.Invoke(kvstoremesh.RegisterSyncWaiter),
