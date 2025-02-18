@@ -145,20 +145,20 @@ func (txn *txn) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
 	return indexTxn
 }
 
-func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, error) {
+func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, <-chan struct{}, error) {
 	return txn.modify(meta, guardRevision, data, func(_ any) any { return data })
 }
 
-func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, error) {
+func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, <-chan struct{}, error) {
 	if txn.modifiedTables == nil {
-		return object{}, false, ErrTransactionClosed
+		return object{}, false, nil, ErrTransactionClosed
 	}
 
 	// Look up table and allocate a new revision.
 	tableName := meta.Name()
 	table := txn.modifiedTables[meta.tablePos()]
 	if table == nil {
-		return object{}, false, tableError(tableName, ErrTableNotLockedForWriting)
+		return object{}, false, nil, tableError(tableName, ErrTableNotLockedForWriting)
 	}
 	oldRevision := table.revision
 	table.revision++
@@ -169,7 +169,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 	idIndexTxn := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
 
 	var obj object
-	oldObj, oldExists := idIndexTxn.Modify(idKey,
+	oldObj, oldExists, watch := idIndexTxn.ModifyWatch(idKey,
 		func(old object) object {
 			obj = object{
 				revision: revision,
@@ -204,7 +204,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 			// the insert.
 			idIndexTxn.Delete(idKey)
 			table.revision = oldRevision
-			return object{}, false, ErrObjectNotFound
+			return object{}, false, watch, ErrObjectNotFound
 		}
 		if oldObj.revision != guardRevision {
 			// Revert the change. We're assuming here that it's rarer for CompareAndSwap() to
@@ -212,7 +212,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 			// (versus doing a Get() and then Insert()).
 			idIndexTxn.Insert(idKey, oldObj)
 			table.revision = oldRevision
-			return oldObj, true, ErrRevisionNotEqual
+			return oldObj, true, watch, ErrRevisionNotEqual
 		}
 	}
 
@@ -266,7 +266,7 @@ func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merg
 		})
 	}
 
-	return oldObj, oldExists, nil
+	return oldObj, oldExists, watch, nil
 }
 
 func (txn *txn) hasDeleteTrackers(meta TableMeta) bool {
@@ -570,29 +570,48 @@ func (txn *txn) Commit() ReadTxn {
 	return txn
 }
 
-func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) error {
+func marshalJSON(data any) (out []byte) {
+	// Catch panics from JSON marshalling to ensure we have some output for debugging
+	// purposes even if the object has panicing JSON marshalling.
+	defer func() {
+		if r := recover(); r != nil {
+			out = []byte(fmt.Sprintf("\"panic marshalling JSON: %.32s\"", r))
+		}
+	}()
+	bs, err := json.Marshal(data)
+	if err != nil {
+		return []byte("\"marshalling error: " + err.Error() + "\"")
+	}
+	return bs
+}
+
+func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) (err error) {
 	indexTxn := txn.mustIndexReadTxn(table.meta, PrimaryIndexPos)
 	iter := indexTxn.Iterator()
 
-	buf.WriteString("  \"" + table.meta.Name() + "\": [\n")
+	writeString := func(s string) {
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(s)
+	}
+	writeString("  \"" + table.meta.Name() + "\": [\n")
 
 	_, obj, ok := iter.Next()
 	for ok {
-		buf.WriteString("    ")
-		bs, err := json.Marshal(obj.data)
-		if err != nil {
+		writeString("    ")
+		if _, err := buf.Write(marshalJSON(obj.data)); err != nil {
 			return err
 		}
-		buf.Write(bs)
 		_, obj, ok = iter.Next()
 		if ok {
-			buf.WriteString(",\n")
+			writeString(",\n")
 		} else {
-			buf.WriteByte('\n')
+			writeString("\n")
 		}
 	}
-	buf.WriteString("  ]")
-	return nil
+	writeString("  ]")
+	return
 }
 
 // WriteJSON marshals out the database as JSON into the given writer.
@@ -613,8 +632,7 @@ func (txn *txn) WriteJSON(w io.Writer, tables ...string) error {
 			first = false
 		}
 
-		err := writeTableAsJSON(buf, txn, &table)
-		if err != nil {
+		if err := writeTableAsJSON(buf, txn, &table); err != nil {
 			return err
 		}
 	}
