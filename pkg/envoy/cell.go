@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -329,8 +328,7 @@ func newArtifactCopier(lifecycle cell.Lifecycle, logger *slog.Logger) *ArtifactC
 type syncerParams struct {
 	cell.In
 
-	Slog        *slog.Logger
-	Logger      logrus.FieldLogger
+	Logger      *slog.Logger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Health      cell.Health
@@ -370,13 +368,13 @@ func registerSecretSyncer(params syncerParams) error {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
-		job.WithLogger(params.Slog),
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
 
 	params.Lifecycle.Append(jobGroup)
 
-	secretSyncerLogger := params.Logger.WithField("controller", "secretSyncer")
+	secretSyncerLogger := params.Logger.With("controller", "secretSyncer")
 
 	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
 
