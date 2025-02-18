@@ -413,6 +413,42 @@ const (
 	// Listener is the name of an Envoy Listener defined in CEC or CCEC
 	Listener = "listener"
 
+	// L7 parser type
+	L7ParserType = "l7-parser-type"
+
+	// Whether original source address can be used or not
+	MayUseOriginalSourceAddr = "mayUseOriginalSourceAddr"
+
+	// Name of a resource
+	ResourceName = "name"
+
+	// Old value before an operation
+	ValueBefore = "before"
+
+	// New value after an operation
+	ValueAfter = "after"
+
+	// Number of upserted resources
+	ResourcesUpserted = "upserted"
+
+	// Number of deleted resources
+	ResourcesDeleted = "deleted"
+
+	// Envoy listeners
+	ResourceListeners = "listeners"
+
+	// Envoy routes
+	ResourceRoutes = "routes"
+
+	// Envoy clusters
+	ResourceClusters = "clusters"
+
+	// Envoy endpoints
+	ResourceEndpoints = "endpoints"
+
+	// Envoy secrets
+	ResourceSecrets = "secrets"
+
 	// ListenerPriority is the priority of an Envoy Listener defined in CEC or CCEC
 	ListenerPriority = "listenerPriority"
 
