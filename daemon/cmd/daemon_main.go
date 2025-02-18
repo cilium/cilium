@@ -890,6 +890,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.BPFEventsDefaultBurstLimit)
 	option.BindEnv(vp, option.BPFEventsDefaultBurstLimit)
 
+	flags.Int(option.BPFBatchUpdateChunkSize, defaults.BPFBatchUpdateChunkSize, "The maximum number of bpf map keys and entries that will be used in a bpf batch update command.")
+	flags.MarkHidden(option.BPFBatchUpdateChunkSize)
+	option.BindEnv(vp, option.BPFBatchUpdateChunkSize)
+
 	flags.Int(option.LBServiceMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for services (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
 	flags.MarkHidden(option.LBServiceMapMaxEntries)
 	option.BindEnv(vp, option.LBServiceMapMaxEntries)
