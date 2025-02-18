@@ -290,7 +290,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: fooSvc,
 		eps: fooEps,
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, fooEps, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 2)
@@ -325,7 +325,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: barSvc,
 		eps: barEps,
 	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, barEps, nil)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -379,7 +379,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
 	delete(fooEps.Backends, fooEpAddr2)
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, fooSvc)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, fooSvc, fooEps, nil)
 	assert.NoError(t, err)
 	byNameRules = <-policyAdd
 	assert.Len(t, byNameRules, 2)
@@ -404,7 +404,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	oldBarSvc := barSvc.DeepCopy()
 	barSvc.Labels = nil
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, barEps, barEps)
 	assert.NoError(t, err)
 
 	// Expect two policies to be updated (in any order)
@@ -446,7 +446,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		svc: bazSvc,
 		eps: bazEps,
 	}
-	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil)
+	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil, bazEps, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -567,7 +567,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	svcCache[fooSvcID] = fakeService{
 		svc: fooSvc,
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -599,7 +599,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		"app": "foo",
 		"new": "label",
 	}
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -671,7 +671,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	svcCache[barSvcID] = fakeService{
 		svc: barSvc,
 	}
-	err = p.updateToServicesPolicies(barSvcID, barSvc, nil)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, nil, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -699,7 +699,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	oldBarSvc := barSvc.DeepCopy()
 	barSvc.Labels = nil
 
-	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc)
+	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc, nil, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -723,7 +723,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{}, p.cnpByServiceID)
 
 	// Add foo-svc again, which should re-add the policy
-	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil, nil, nil)
 	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
