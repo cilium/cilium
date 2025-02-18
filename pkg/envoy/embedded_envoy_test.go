@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -69,7 +70,9 @@ func TestEnvoy(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
+	logger := hivetest.Logger(t)
+
+	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -184,7 +187,9 @@ func TestEnvoyNACK(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
+	logger := hivetest.Logger(t)
+
+	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
