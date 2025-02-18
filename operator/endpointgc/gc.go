@@ -31,7 +31,6 @@ type params struct {
 
 	Clientset       k8sClient.Clientset
 	CiliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
-	CiliumNodes     resource.Resource[*cilium_api_v2.CiliumNode]
 	Pods            resource.Resource[*slim_corev1.Pod]
 
 	SharedCfg SharedConfig
@@ -48,7 +47,6 @@ type GC struct {
 
 	clientset       k8sClient.Clientset
 	ciliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
-	ciliumNodes     resource.Resource[*cilium_api_v2.CiliumNode]
 	pods            resource.Resource[*slim_corev1.Pod]
 
 	mgr *controller.Manager
@@ -69,7 +67,6 @@ func registerGC(p params) {
 		once:            once,
 		clientset:       p.Clientset,
 		ciliumEndpoints: p.CiliumEndpoints,
-		ciliumNodes:     p.CiliumNodes,
 		pods:            p.Pods,
 		metrics:         p.Metrics,
 	}
@@ -158,18 +155,11 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 		// state.
 		return true
 	}
-	var podStore resource.Store[*slim_corev1.Pod]
-	var ciliumNodeStore resource.Store[*cilium_api_v2.CiliumNode]
-	var err error
+
 	podChecked := false
-	podStore, err = g.pods.Store(ctx)
+	podStore, err := g.pods.Store(ctx)
 	if err != nil {
 		scopedLog.Warn("Unable to get pod store", logfields.Error, err)
-		return false
-	}
-	ciliumNodeStore, err = g.ciliumNodes.Store(ctx)
-	if err != nil {
-		scopedLog.Warn("Unable to get cilium node store", logfields.Error, err)
 		return false
 	}
 
@@ -181,11 +171,6 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 				return result.shouldBeDeleted
 			}
 			podChecked = true
-		case "CiliumNode":
-			result := g.checkCiliumNodeForCEP(resource.Key{Name: owner.Name}, ciliumNodeStore, scopedLog)
-			if result.validated {
-				return result.shouldBeDeleted
-			}
 		default:
 			return false
 		}
@@ -220,17 +205,6 @@ func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_core
 		return deleteCheckResult{validated: true, shouldBeDeleted: false}
 	}
 	return deleteCheckResult{validated: true, shouldBeDeleted: true}
-}
-
-func (g *GC) checkCiliumNodeForCEP(key resource.Key, ciliumNodeStore resource.Store[*cilium_api_v2.CiliumNode], scopedLog *slog.Logger) deleteCheckResult {
-	_, exists, err := ciliumNodeStore.GetByKey(key)
-	if err != nil {
-		scopedLog.Warn("Unable to get CiliumNode from store", logfields.Error, err)
-	}
-	if !exists {
-		return deleteCheckResult{validated: false}
-	}
-	return deleteCheckResult{validated: true, shouldBeDeleted: false}
 }
 
 func (g *GC) deleteCEP(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) error {
