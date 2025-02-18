@@ -52,6 +52,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -141,7 +142,7 @@ type Daemon struct {
 	ipcache *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
-	k8sSvcCache *k8s.ServiceCache
+	k8sSvcCache k8s.ServiceCache
 
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
 	endpointMetadataFetcher endpointMetadataFetcher
@@ -186,6 +187,8 @@ type Daemon struct {
 	lrpManager   *redirectpolicy.Manager
 	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
+
+	explbConfig experimental.Config
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -401,6 +404,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
+		explbConfig:       params.ExpLBConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

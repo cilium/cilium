@@ -130,17 +130,17 @@ ports:
 
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=
+delete: listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
-delete: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=,test/echo2=
+update: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+delete: listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
