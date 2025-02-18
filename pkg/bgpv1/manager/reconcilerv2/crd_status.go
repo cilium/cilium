@@ -26,6 +26,7 @@ import (
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -52,6 +53,7 @@ type StatusReconciler struct {
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
 	nodeName            string
+	bgpNodeConfig       store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
 	desiredStatus       *v2alpha1.CiliumBGPNodeStatus
 	runningStatus       *v2alpha1.CiliumBGPNodeStatus
 	reconcileInterval   time.Duration
@@ -68,6 +70,7 @@ type StatusReconcilerIn struct {
 	ClientSet           k8s_client.Clientset
 	Logger              logrus.FieldLogger
 	LocalNode           daemon_k8s.LocalCiliumNodeResource
+	BGPNodeConfig       store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
 }
 
 type StatusReconcilerOut struct {
@@ -91,6 +94,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		ClientSet:           in.ClientSet,
 		DB:                  in.DB,
 		ReconcileErrorTable: in.ReconcileErrorTable,
+		bgpNodeConfig:       in.BGPNodeConfig,
 		reconcileInterval:   CRDStatusUpdateInterval,
 		desiredStatus:       &v2alpha1.CiliumBGPNodeStatus{},
 		runningStatus:       &v2alpha1.CiliumBGPNodeStatus{},
@@ -177,6 +181,21 @@ func (r *StatusReconciler) updateErrorConditions() error {
 	r.Lock()
 	defer r.Unlock()
 
+	// Node name is not set yet
+	if r.nodeName == "" {
+		return nil
+	}
+
+	bgpNodeConfig, exists, err := r.bgpNodeConfig.GetByKey(resource.Key{Name: r.nodeName})
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		// BGPNodeConfig object not found, there is nowhere to update the status.
+		return nil
+	}
+
 	var instanceErrors []tables.BGPReconcileError
 	iter := r.ReconcileErrorTable.All(r.DB.ReadTxn())
 	for errObj := range iter {
@@ -201,19 +220,10 @@ func (r *StatusReconciler) updateErrorConditions() error {
 		message.WriteString(fmt.Sprintf("%s: %s\n", errObj.Instance, errObj.Error))
 	}
 
-	// get prev observedGeneration
-	observedGeneration := int64(0)
-	for _, cond := range r.desiredStatus.Conditions {
-		if cond.Type == v2alpha1.BGPInstanceConditionReconcileError {
-			observedGeneration = cond.ObservedGeneration
-			break
-		}
-	}
-
 	cond := metav1.Condition{
 		Type:               v2alpha1.BGPInstanceConditionReconcileError,
 		Status:             metav1.ConditionFalse,
-		ObservedGeneration: observedGeneration,
+		ObservedGeneration: bgpNodeConfig.GetGeneration(),
 		Reason:             "BGPReconcileError",
 	}
 

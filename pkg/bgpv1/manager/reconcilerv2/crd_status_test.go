@@ -22,6 +22,7 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -42,6 +43,7 @@ type crdStatusFixture struct {
 	reconcileErrTbl statedb.RWTable[*tables.BGPReconcileError]
 	fakeClientSet   *k8s_client.FakeClientset
 	bgpnClient      cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
+	bgpncMockStore  *store.MockBGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
 }
 
 func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.Logger) (*crdStatusFixture, func()) {
@@ -99,7 +101,10 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 		cell.Provide(func() k8s_client.Clientset {
 			return f.fakeClientSet
 		}),
-
+		cell.Provide(func() store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig] {
+			f.bgpncMockStore = store.NewMockBGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]()
+			return f.bgpncMockStore
+		}),
 		cell.Invoke(
 			func(p StatusReconcilerIn) {
 				out := NewStatusReconciler(p)
@@ -144,20 +149,23 @@ func TestCRDConditions(t *testing.T) {
 			},
 			initNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "node0",
+					Name:       "node0",
+					Generation: 19,
 				},
 			},
 			expectedNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "node0",
+					Name:       "node0",
+					Generation: 19,
 				},
 				Spec: v2alpha1.CiliumBGPNodeSpec{},
 				Status: v2alpha1.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   v2alpha1.BGPInstanceConditionReconcileError,
-							Status: metav1.ConditionTrue,
-							Reason: "BGPReconcileError",
+							Type:               v2alpha1.BGPInstanceConditionReconcileError,
+							Status:             metav1.ConditionTrue,
+							Reason:             "BGPReconcileError",
+							ObservedGeneration: 19,
 							Message: "bgp-instance-0: error 00\n" +
 								"bgp-instance-0: error 01\n" +
 								"bgp-instance-1: error 10\n",
@@ -248,28 +256,30 @@ func TestCRDConditions(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
-	defer cancel()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			logger := hivetest.Logger(t)
 
 			f, watcherReadyFn := newCRDStatusFixture(ctx, require.New(t), logger)
+
+			require.NoError(t, f.hive.Start(logger, ctx))
+			t.Cleanup(func() {
+				f.hive.Stop(logger, ctx)
+				cancel()
+			})
+
+			// wait for watchers to be ready
+			watcherReadyFn()
 
 			// initialize BGP node config
 			if tt.initNodeConfig != nil {
 				_, err := f.bgpnClient.Create(ctx, tt.initNodeConfig, metav1.CreateOptions{})
 				require.NoError(t, err)
+
+				// insert the node config into the mock store
+				f.bgpncMockStore.Upsert(tt.initNodeConfig)
 			}
-
-			require.NoError(t, f.hive.Start(logger, ctx))
-			t.Cleanup(func() {
-				f.hive.Stop(logger, ctx)
-			})
-
-			// wait for watchers to be ready
-			watcherReadyFn()
 
 			// create local node
 			_, err := f.fakeClientSet.CiliumV2().CiliumNodes().Create(
@@ -283,6 +293,13 @@ func TestCRDConditions(t *testing.T) {
 			)
 			require.NoError(t, err)
 
+			// wait for node to be detected by reconciler
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				f.reconciler.Lock()
+				defer f.reconciler.Unlock()
+				assert.Equal(c, "node0", f.reconciler.nodeName)
+			}, time.Second*10, time.Millisecond*100)
+
 			// setup statedb
 			txn := f.db.WriteTxn(f.reconcileErrTbl)
 			for _, errObj := range tt.statedbData {
@@ -291,11 +308,8 @@ func TestCRDConditions(t *testing.T) {
 			}
 			txn.Commit()
 
-			if len(tt.statedbData) == 0 {
-				// manually trigger updateErrorConditions, since statedb is empty.
-				err := f.reconciler.updateErrorConditions()
-				require.NoError(t, err)
-			}
+			err = f.reconciler.updateErrorConditions()
+			require.NoError(t, err)
 
 			// check eventually the conditions are updated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -310,6 +324,7 @@ func TestCRDConditions(t *testing.T) {
 				// we can not compare the whole status object because the timestamp is different.
 				for i, cond := range nodeConfig.Status.Conditions {
 					assert.Equal(c, tt.expectedNodeConfig.Status.Conditions[i].Type, cond.Type)
+					assert.Equal(c, tt.expectedNodeConfig.Status.Conditions[i].ObservedGeneration, cond.ObservedGeneration)
 					assert.Equal(c, tt.expectedNodeConfig.Status.Conditions[i].Status, cond.Status)
 					assert.Equal(c, tt.expectedNodeConfig.Status.Conditions[i].Reason, cond.Reason)
 					assert.Equal(c, tt.expectedNodeConfig.Status.Conditions[i].Message, cond.Message)
