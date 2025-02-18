@@ -77,21 +77,28 @@ type Engine struct {
 	// section when starting a new section.
 	Quiet bool
 
-	// RetryInterval for retrying commands marked with '*'. If zero, then
-	// the default retry interval is used.
+	// RetryInterval is the minimal interval for retrying commands marked with '*'.
+	// If zero, then the default retry interval is used.
 	RetryInterval time.Duration
+
+	// MaxRetryInterval is the maximum time to wait before retrying.
+	MaxRetryInterval time.Duration
 }
 
 // NewEngine returns an Engine configured with a basic set of commands and conditions.
 func NewEngine() *Engine {
 	return &Engine{
-		Cmds:          DefaultCmds(),
-		Conds:         DefaultConds(),
-		RetryInterval: defaultRetryInterval,
+		Cmds:             DefaultCmds(),
+		Conds:            DefaultConds(),
+		RetryInterval:    defaultRetryInterval,
+		MaxRetryInterval: defaultMaxRetryInterval,
 	}
 }
 
-const defaultRetryInterval = 100 * time.Millisecond
+const (
+	defaultRetryInterval    = 100 * time.Millisecond
+	defaultMaxRetryInterval = 500 * time.Millisecond
+)
 
 // A Cmd is a command that is available to a script.
 type Cmd interface {
@@ -331,14 +338,16 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 			if cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess {
 				// Command wants retries. Retry the whole section
 				numRetries := 0
+				backoff := exponentialBackoff{max: e.MaxRetryInterval, interval: e.RetryInterval}
 				for err != nil {
 					s.FlushLog()
+					retryDuration := backoff.get()
+					s.Logf("(command %q failed, retrying in %s...)\n", line, retryDuration)
 					select {
 					case <-s.Context().Done():
 						return lineErr(s.Context().Err())
-					case <-time.After(retryInterval):
+					case <-time.After(retryDuration):
 					}
-					s.Logf("(command %q failed, retrying...)\n", line)
 					numRetries++
 					for _, cmd := range sectionCmds {
 						impl := e.Cmds[cmd.name]
@@ -996,4 +1005,15 @@ func (e *Engine) ListConds(w io.Writer, s *State, tags ...string) error {
 	}
 
 	return nil
+}
+
+type exponentialBackoff struct {
+	max      time.Duration
+	interval time.Duration
+}
+
+func (eb *exponentialBackoff) get() time.Duration {
+	d := eb.interval
+	eb.interval = min(eb.interval*2, eb.max)
+	return d
 }
