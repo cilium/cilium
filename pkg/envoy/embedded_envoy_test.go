@@ -85,7 +85,7 @@ func TestEnvoy(t *testing.T) {
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestEnvoyNACK(t *testing.T) {
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
 	require.NoError(t, err)

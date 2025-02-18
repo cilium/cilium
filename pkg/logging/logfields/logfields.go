@@ -449,6 +449,9 @@ const (
 	// Envoy secrets
 	ResourceSecrets = "secrets"
 
+	// Size of the buffer
+	BufferSize = "buffer-size"
+
 	// ListenerPriority is the priority of an Envoy Listener defined in CEC or CCEC
 	ListenerPriority = "listenerPriority"
 
