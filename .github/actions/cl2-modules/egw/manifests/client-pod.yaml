@@ -5,6 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: egw-client
     app.kubernetes.io/instance: {{.Instance}}
+    index: "{{.Index}}"
 spec:
   nodeSelector:
     role.scaffolding/egw-client: "true"
