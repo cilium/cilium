@@ -284,6 +284,12 @@ func (c *compositeClientset) startHeartbeat() {
 		return res.Error()
 	}
 
+	rotateAPIServer := func() {
+		if c.restConfigManager.canRotateAPIServerURL() {
+			c.restConfigManager.rotateAPIServerURL()
+		}
+	}
+
 	c.controller.UpdateController("k8s-heartbeat",
 		controller.ControllerParams{
 			Group: k8sHeartbeatControllerGroup,
@@ -293,6 +299,7 @@ func (c *compositeClientset) startHeartbeat() {
 					heartBeat,
 					timeout,
 					c.closeAllConns,
+					rotateAPIServer,
 				)
 				return nil
 			},
@@ -347,7 +354,7 @@ func setDialer(cfg Config, restConfig *rest.Config) func() {
 	return dialer.CloseAll
 }
 
-func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
+func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error, timeout time.Duration, onFailure ...func()) {
 	expireDate := time.Now().Add(-timeout)
 	// Don't even perform a health check if we have received a successful
 	// k8s event in the last 'timeout' duration
@@ -379,13 +386,13 @@ func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error,
 	case err := <-done:
 		if err != nil {
 			log.WithError(err).Warn("Network status error received, restarting client connections")
-			for _, fn := range closeAllConns {
+			for _, fn := range onFailure {
 				fn()
 			}
 		}
 	case <-ctx.Done():
 		log.Warn("Heartbeat timed out, restarting client connections")
-		for _, fn := range closeAllConns {
+		for _, fn := range onFailure {
 			fn()
 		}
 	}
