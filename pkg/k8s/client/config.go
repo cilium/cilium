@@ -4,6 +4,7 @@
 package client
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -24,6 +25,9 @@ type SharedConfig struct {
 	// EnableK8s is a flag that, when set to false, forcibly disables the clientset, to let cilium
 	// operates with CNI-compatible orchestrators other than Kubernetes. Default to true.
 	EnableK8s bool
+
+	// K8sAPIServerURLs is the list of API server instances
+	K8sAPIServerURLs []string
 
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer string
@@ -65,6 +69,7 @@ func (def ClientParams) Flags(flags *pflag.FlagSet) {
 var defaultSharedConfig = SharedConfig{
 	EnableK8s:                    true,
 	K8sAPIServer:                 "",
+	K8sAPIServerURLs:             []string{},
 	K8sKubeConfigPath:            "",
 	K8sClientConnectionTimeout:   30 * time.Second,
 	K8sClientConnectionKeepAlive: 30 * time.Second,
@@ -75,6 +80,8 @@ var defaultSharedConfig = SharedConfig{
 func (def SharedConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableK8s, def.EnableK8s, "Enable the k8s clientset")
 	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")
+	flags.MarkDeprecated(option.K8sAPIServer, fmt.Sprintf("use --%s", option.K8sAPIServerURLs))
+	flags.StringSlice(option.K8sAPIServerURLs, def.K8sAPIServerURLs, "Kubernetes API server URLs")
 	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
 	flags.Duration(option.K8sClientConnectionTimeout, def.K8sClientConnectionTimeout, "Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0")
 	flags.Duration(option.K8sClientConnectionKeepAlive, def.K8sClientConnectionKeepAlive, "Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0")
@@ -94,6 +101,7 @@ func (cfg Config) isEnabled() bool {
 		return false
 	}
 	return cfg.K8sAPIServer != "" ||
+		len(cfg.K8sAPIServerURLs) >= 1 ||
 		cfg.K8sKubeConfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
 			os.Getenv("KUBERNETES_SERVICE_PORT") != "") ||
