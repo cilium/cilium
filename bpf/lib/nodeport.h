@@ -868,6 +868,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct ipv6hdr *ip6;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
 	int ifindex = 0;
@@ -914,6 +915,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			info = lookup_ip6_remote_endpoint(dst, 0);
 			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
 				tunnel_endpoint = info->tunnel_endpoint;
+				src_sec_identity = REMOTE_NODE_ID;
 				dst_sec_identity = info->sec_identity;
 				goto encap_redirect;
 			}
@@ -923,14 +925,27 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		goto fib_lookup;
 	}
 out:
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
+	/* The gateway node needs to manually steer any reply traffic
+	 * for a remote pod into the tunnel (to avoid iptables potentially
+	 * dropping or accidentally SNATing the packets).
+	 */
+	if (egress_gw_reply_needs_redirect_hook_v6(ip6, &tunnel_endpoint, &dst_sec_identity)) {
+		trace->reason = TRACE_REASON_CT_REPLY;
+		src_sec_identity = WORLD_ID;
+		goto encap_redirect;
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 	return CTX_ACT_OK;
 
-#ifdef TUNNEL_MODE
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+    defined(TUNNEL_MODE)
 encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
-					tunnel_endpoint, REMOTE_NODE_ID, dst_sec_identity,
+					tunnel_endpoint, src_sec_identity, dst_sec_identity,
 					trace->reason, trace->monitor, &ifindex);
 	if (IS_ERR(ret))
 		return ret;
@@ -968,7 +983,8 @@ fib_lookup:
 			       (union v6addr *)&ip6->daddr);
 	}
 
-#ifdef TUNNEL_MODE
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+    defined(TUNNEL_MODE)
 fib_redirect:
 #endif
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
@@ -1049,7 +1065,8 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
