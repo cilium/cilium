@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -664,4 +665,105 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/pod"))
 
 	require.NoError(t, h.Stop(tlog, ctx))
+}
+
+func BenchmarkIsConnReady(b *testing.B) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/version":
+			w.Write([]byte(`{
+			       "major": "1",
+			       "minor": "99"
+			}`))
+		default:
+			w.Write([]byte("{}"))
+		}
+	}))
+	server.Start()
+	defer server.Close()
+
+	var clientset Clientset
+	h := hive.New(
+		Cell,
+		cell.Invoke(func(c Clientset) { clientset = c }),
+	)
+
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	h.RegisterFlags(flags)
+	flags.Set(option.K8sAPIServerURLs, server.URL)
+	// Bump up the settings for concurrent requests.
+	flags.Set(option.K8sClientBurst, "100")
+	flags.Set(option.K8sClientQPSLimit, "100")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tlog := hivetest.Logger(b)
+	require.NoError(b, h.Start(tlog, ctx))
+
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, isConnReady(clientset))
+	}
+
+	require.NoError(b, h.Stop(tlog, ctx))
+}
+
+func BenchmarkIsConnReadyMultipleAPIServers(b *testing.B) {
+	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
+	require.NoError(b, err)
+	defer apiStateFile.Close()
+	K8sAPIServerFilePath = apiStateFile.Name()
+
+	servers := make([]*httptest.Server, 3)
+	for i := 0; i < len(servers); i++ {
+		servers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/version":
+				w.Write([]byte(`{
+			       "major": "1",
+			       "minor": "99"
+			}`))
+			default:
+				w.Write([]byte("{}"))
+			}
+		}))
+	}
+	servers[0].Start()
+	servers[1].Start()
+	servers[2].Start()
+
+	var clientset Clientset
+	h := hive.New(
+		Cell,
+		cell.Invoke(func(c Clientset) { clientset = c }),
+	)
+
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	h.RegisterFlags(flags)
+	urls := []string{servers[0].URL, servers[1].URL, servers[2].URL}
+	flags.Set(option.K8sAPIServerURLs, strings.Join(urls, ","))
+	// Bump up the settings for concurrent requests.
+	flags.Set(option.K8sClientBurst, "100")
+	flags.Set(option.K8sClientQPSLimit, "100")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tlog := hivetest.Logger(b)
+	require.NoError(b, h.Start(tlog, ctx))
+
+	num := 20
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(num)
+		for j := 0; j < num; j++ {
+			go func() {
+				require.NoError(b, isConnReady(clientset))
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+	}
+
+	require.NoError(b, h.Stop(tlog, ctx))
 }
