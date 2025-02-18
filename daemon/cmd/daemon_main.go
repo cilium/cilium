@@ -1548,7 +1548,7 @@ type daemonParams struct {
 	Shutdowner          hive.Shutdowner
 	Resources           agentK8s.Resources
 	K8sWatcher          *watchers.K8sWatcher
-	K8sSvcCache         *k8s.ServiceCache
+	K8sSvcCache         k8s.ServiceCache
 	CacheStatus         k8sSynced.CacheStatus
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
@@ -1566,7 +1566,7 @@ type daemonParams struct {
 	CNIConfigManager    cni.CNIConfigManager
 	SwaggerSpec         *server.Spec
 	HealthAPISpec       *healthApi.Spec
-	ServiceCache        *k8s.ServiceCache
+	ServiceCache        k8s.ServiceCache
 	ClusterMesh         *clustermesh.ClusterMesh
 	MonitorAgent        monitorAgent.Agent
 	L2Announcer         *l2announcer.L2Announcer
