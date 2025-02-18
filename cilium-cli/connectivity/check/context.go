@@ -1319,5 +1319,8 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
 		ct.Features[features.NodeWithoutCilium].Enabled &&
 		(ct.Params().MultiCluster == "" || ct.Features[features.KPRNodePort].Enabled) &&
 		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
-		(!ct.Features[features.IPsecEnabled].Enabled || !ct.Features[features.KPRNodePort].Enabled)
+		(!ct.Features[features.IPsecEnabled].Enabled || !ct.Features[features.KPRNodePort].Enabled) &&
+		// v1.18 is going to remove KPR sub-flags, and thus in the case kpr=false+nodeport=true
+		// N/S will be handled by kube-proxy. The upgrade to v1.18 will cause N/S flow interruptions.
+		!(!ct.Features[features.KPRMode].Enabled && ct.Features[features.KPRNodePort].Enabled)
 }
