@@ -238,7 +238,7 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if or .Values.prometheus.enabled .Values.hubble.metrics.enabled }}
+        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         ports:
         - name: peer-service
           containerPort: {{ .Values.hubble.peerService.targetPort }}
@@ -370,7 +370,7 @@ spec:
           mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
         {{- end }}
-        {{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+        {{- if and .Values.hubble.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) .Values.hubble.metrics.tls.enabled }}
         - name: hubble-metrics-tls
           mountPath: /var/lib/cilium/tls/hubble-metrics
           readOnly: true
@@ -1005,7 +1005,7 @@ spec:
                 path: client-ca.crt
           {{- end }}
       {{- end }}
-      {{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
+      {{- if and .Values.hubble.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) .Values.hubble.metrics.tls.enabled }}
       - name: hubble-metrics-tls
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
