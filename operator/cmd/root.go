@@ -88,18 +88,10 @@ var (
 		"Operator Infrastructure",
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
-		pprof.Cell,
 		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
-			return pprof.Config{
-				Pprof:        cfg.OperatorPprof,
-				PprofAddress: cfg.OperatorPprofAddress,
-				PprofPort:    cfg.OperatorPprofPort,
-			}
+			return cfg.Config()
 		}),
-		cell.Config(operatorPprofConfig{
-			OperatorPprofAddress: operatorOption.PprofAddressOperator,
-			OperatorPprofPort:    operatorOption.PprofPortOperator,
-		}),
+		pprof.Cell(defaultOperatorPprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
