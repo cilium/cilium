@@ -1167,6 +1167,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		adds     []int
 		deletes  []int
 		port     uint16
+		prefix   uint8
 		proto    u8proto.U8proto
 		ingress  bool
 		redirect bool
@@ -1343,6 +1344,38 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
+		name:      "test-5c - proxy port propagation from the most specific covering key with a proxy port",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: true},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 80, 12): proxyEntry(1),
+			egressKey(43, 6, 80, 0):  proxyEntry(1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 0):  {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5d - proxy port propagation from the most specific covering key with a proxy port - reverse",
+		args: []args{
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: true},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 80, 12): proxyEntry(1),
+			egressKey(43, 6, 80, 0):  proxyEntry(1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 0):  {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
 		name:      "test-6a - L3-only explicit auth type and L4-only without",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, authReq: AuthTypeSpire.AsExplicitRequirement()},
@@ -1444,7 +1477,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			}
 			adds := x.cs.addSelections(x.adds...)
 			deletes := x.cs.deleteSelections(x.deletes...)
-			key := KeyForDirection(dir).WithPortProto(x.proto, x.port)
+			key := KeyForDirection(dir).WithPortProtoPrefix(x.proto, x.port, x.prefix)
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
