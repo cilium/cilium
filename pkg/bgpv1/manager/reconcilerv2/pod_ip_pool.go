@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -102,7 +102,7 @@ func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 
 	lp := r.populateLocalPools(p.CiliumNode)
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1.BGPCiliumPodIPPoolAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPCiliumPodIPPoolAdvert)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicies(p ReconcileParams, pool *v2al
 
 // populateLocalPools returns a map of allocated multi-pool IPAM CIDRs of the local CiliumNode,
 // keyed by the pool name.
-func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) map[string][]netip.Prefix {
+func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2.CiliumNode) map[string][]netip.Prefix {
 	if localNode == nil {
 		return nil
 	}
@@ -312,7 +312,7 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 
 			for _, advert := range familyAdverts {
 				// sanity check advertisement type
-				if advert.AdvertisementType != v2alpha1.BGPCiliumPodIPPoolAdvert {
+				if advert.AdvertisementType != v2.BGPCiliumPodIPPoolAdvert {
 					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
 					continue
 				}
@@ -351,7 +351,7 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 	return desiredFamilyAdverts, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2alpha1.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
+func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
 	// get the peer address
 	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -23,21 +23,21 @@ type (
 	// PeerAdvertisements is a map of peer name to its family advertisements
 	// This is the top level map that is returned to the consumer with requested advertisements.
 	PeerAdvertisements       map[string]PeerFamilyAdvertisements
-	PeerFamilyAdvertisements map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement // key is the address family type
+	PeerFamilyAdvertisements map[v2.CiliumBGPFamily][]v2.BGPAdvertisement // key is the address family type
 )
 
 type PeerAdvertisementIn struct {
 	cell.In
 
 	Logger          logrus.FieldLogger
-	PeerConfigStore store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
-	AdvertStore     store.BGPCPResourceStore[*v2alpha1.CiliumBGPAdvertisement]
+	PeerConfigStore store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
+	AdvertStore     store.BGPCPResourceStore[*v2.CiliumBGPAdvertisement]
 }
 
 type CiliumPeerAdvertisement struct {
 	logger     logrus.FieldLogger
-	peerConfig store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
-	adverts    store.BGPCPResourceStore[*v2alpha1.CiliumBGPAdvertisement]
+	peerConfig store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
+	adverts    store.BGPCPResourceStore[*v2.CiliumBGPAdvertisement]
 }
 
 func NewCiliumPeerAdvertisement(p PeerAdvertisementIn) *CiliumPeerAdvertisement {
@@ -59,7 +59,7 @@ func NewCiliumPeerAdvertisement(p PeerAdvertisementIn) *CiliumPeerAdvertisement 
 // Linear scan [ Peers ] - O(n) ( number of peers )
 // Linear scan [ Families ] - O(m) ( max 2 )
 // Linear scan [ Advertisements ] - O(k) ( number of advertisements - 3-4 types, which is again filtered)
-func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.CiliumBGPNodeInstance, selectAdvertTypes ...v2alpha1.BGPAdvertisementType) (PeerAdvertisements, error) {
+func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGPNodeInstance, selectAdvertTypes ...v2.BGPAdvertisementType) (PeerAdvertisements, error) {
 	result := make(PeerAdvertisements)
 	l := p.logger.WithField(types.InstanceLogField, conf.Name)
 	for _, peer := range conf.Peers {
@@ -94,8 +94,8 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.Cil
 	return result, nil
 }
 
-func (p *CiliumPeerAdvertisement) getPeerAdvertisements(peerConfig *v2alpha1.CiliumBGPPeerConfig, selectAdvertTypes ...v2alpha1.BGPAdvertisementType) (PeerFamilyAdvertisements, error) {
-	result := make(map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement)
+func (p *CiliumPeerAdvertisement) getPeerAdvertisements(peerConfig *v2.CiliumBGPPeerConfig, selectAdvertTypes ...v2.BGPAdvertisementType) (PeerFamilyAdvertisements, error) {
+	result := make(map[v2.CiliumBGPFamily][]v2.BGPAdvertisement)
 
 	for _, family := range peerConfig.Spec.Families {
 		advert, err := p.getFamilyAdvertisements(family, selectAdvertTypes...)
@@ -107,7 +107,7 @@ func (p *CiliumPeerAdvertisement) getPeerAdvertisements(peerConfig *v2alpha1.Cil
 	return result, nil
 }
 
-func (p *CiliumPeerAdvertisement) getFamilyAdvertisements(family v2alpha1.CiliumBGPFamilyWithAdverts, selectAdvertTypes ...v2alpha1.BGPAdvertisementType) ([]v2alpha1.BGPAdvertisement, error) {
+func (p *CiliumPeerAdvertisement) getFamilyAdvertisements(family v2.CiliumBGPFamilyWithAdverts, selectAdvertTypes ...v2.BGPAdvertisementType) ([]v2.BGPAdvertisement, error) {
 	// get all advertisement CRD objects.
 	advertResources, err := p.adverts.List()
 	if err != nil {
@@ -132,7 +132,7 @@ func (p *CiliumPeerAdvertisement) getFamilyAdvertisements(family v2alpha1.Cilium
 		selectTypesSet.Insert(string(selectType))
 	}
 
-	var selectedAdvertisements []v2alpha1.BGPAdvertisement
+	var selectedAdvertisements []v2.BGPAdvertisement
 	// select advertisements requested by the consumer
 	for _, advertResource := range selectedAdvertResources {
 		for _, advert := range advertResource.Spec.Advertisements {
@@ -146,8 +146,8 @@ func (p *CiliumPeerAdvertisement) getFamilyAdvertisements(family v2alpha1.Cilium
 	return selectedAdvertisements, nil
 }
 
-func (p *CiliumPeerAdvertisement) familySelectedAdvertisements(family v2alpha1.CiliumBGPFamilyWithAdverts, adverts []*v2alpha1.CiliumBGPAdvertisement) ([]*v2alpha1.CiliumBGPAdvertisement, error) {
-	var result []*v2alpha1.CiliumBGPAdvertisement
+func (p *CiliumPeerAdvertisement) familySelectedAdvertisements(family v2.CiliumBGPFamilyWithAdverts, adverts []*v2.CiliumBGPAdvertisement) ([]*v2.CiliumBGPAdvertisement, error) {
+	var result []*v2.CiliumBGPAdvertisement
 	advertSelector, err := slim_metav1.LabelSelectorAsSelector(family.Advertisements)
 	if err != nil {
 		return nil, err
