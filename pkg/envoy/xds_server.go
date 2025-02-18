@@ -294,7 +294,7 @@ func (s *xdsServer) initializeXdsConfigs() {
 		AckObserver: npdsMutator,
 	}
 
-	nphdsCache := newNPHDSCache(s.ipCache)
+	nphdsCache := newNPHDSCache(s.logger, s.ipCache)
 	nphdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      nphdsCache,
 		AckObserver: &nphdsCache,
