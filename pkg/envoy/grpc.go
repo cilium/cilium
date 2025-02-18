@@ -19,13 +19,12 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var (
-	// ErrNotImplemented is the error returned by gRPC methods that are not
-	// implemented by Cilium.
-	ErrNotImplemented = errors.New("not implemented")
-)
+// ErrNotImplemented is the error returned by gRPC methods that are not
+// implemented by Cilium.
+var ErrNotImplemented = errors.New("not implemented")
 
 // startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
@@ -39,7 +38,7 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
 	// Implement IncrementalAggregatedResources to support Incremental xDS.
-	//envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	// envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_secret.RegisterSecretDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_endpoint.RegisterEndpointDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_cluster.RegisterClusterDiscoveryServiceServer(grpcServer, dsServer)
@@ -53,26 +52,32 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.policyRestoreTimeout)
 	go func() {
 		if s.restorerPromise != nil {
-			log.Infof("Envoy: Waiting for endpoint restorer before serving xDS resources...")
+			s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
 			restorer, err := s.restorerPromise.Await(ctx)
 			if err == nil && restorer != nil {
-				log.Infof("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+				s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
 				err = restorer.WaitForInitialPolicy(ctx)
 			}
 			if errors.Is(err, context.Canceled) {
-				log.Debug("Envoy: xDS server stopped before started serving")
+				s.logger.Debug("Envoy: xDS server stopped before started serving")
 				return
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				log.Warningf("Envoy: Endpoint policy restoration took longer than %s, starting serving resources to Envoy", s.config.policyRestoreTimeout)
+				s.logger.Warn("Envoy: Endpoint policy restoration took longer than configured restore timeout, starting serving resources to Envoy",
+					logfields.Duration, s.config.policyRestoreTimeout,
+				)
 			}
 			// Tell xdsServer it's time to start waiting for acknowledgements
 			xdsServer.RestoreCompleted()
 		}
 
-		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
+		s.logger.Info("Envoy: Starting xDS gRPC server listening",
+			logfields.Address, listener.Addr(),
+		)
 		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
-			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
+			s.logger.Error("Envoy: Failed to serve xDS gRPC API",
+				logfields.Error, err,
+			)
 		}
 	}()
 
