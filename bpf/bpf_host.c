@@ -33,6 +33,7 @@
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
+#include "lib/icmp4.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/proxy.h"
