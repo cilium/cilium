@@ -45,7 +45,7 @@ type k8sServiceWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache   *k8s.ServiceCache
+	ServiceCache   k8s.ServiceCache
 	ServiceManager service.ServiceManager
 	LRPManager     *redirectpolicy.Manager
 	LocalNodeStore *node.LocalNodeStore
@@ -76,7 +76,7 @@ type K8sServiceWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	resources    agentK8s.Resources
 
-	k8sSvcCache           *k8s.ServiceCache
+	k8sSvcCache           k8s.ServiceCache
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	localNodeStore        *node.LocalNodeStore
@@ -190,7 +190,7 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 		select {
 		case <-k.stop:
 			return
-		case event, ok := <-k.k8sSvcCache.Events:
+		case event, ok := <-k.k8sSvcCache.Events():
 			if !ok {
 				return
 			}

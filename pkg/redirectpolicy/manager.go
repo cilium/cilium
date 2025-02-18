@@ -102,7 +102,7 @@ type Manager struct {
 	metricsManager LRPMetrics
 }
 
-func NewRedirectPolicyManager(db *statedb.DB, svc svcManager, svcCache *k8s.ServiceCache, lp statedb.Table[agentK8s.LocalPod], epM endpointManager, metricsManager LRPMetrics) *Manager {
+func NewRedirectPolicyManager(db *statedb.DB, svc svcManager, svcCache k8s.ServiceCache, lp statedb.Table[agentK8s.LocalPod], epM endpointManager, metricsManager LRPMetrics) *Manager {
 	return &Manager{
 		db:                    db,
 		svcManager:            svc,

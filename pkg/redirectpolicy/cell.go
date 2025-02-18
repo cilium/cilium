@@ -28,7 +28,7 @@ type lrpManagerParams struct {
 
 	DB             *statedb.DB
 	Svc            service.ServiceManager
-	SvcCache       *k8s.ServiceCache
+	SvcCache       k8s.ServiceCache
 	Pods           statedb.Table[agentK8s.LocalPod]
 	Ep             endpointmanager.EndpointManager
 	MetricsManager LRPMetrics
