@@ -6,7 +6,7 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 						      __be32 gateway_ip, __be32 egress_ip)
 {
 	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(cidr), {} },
+		.lpm_key = { EGRESS_PREFIX_LEN_V4(cidr), {} },
 		.saddr   = saddr,
 		.daddr   = daddr,
 	};
@@ -22,7 +22,7 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
 {
 	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(cidr), {} },
+		.lpm_key = { EGRESS_PREFIX_LEN_V4(cidr), {} },
 		.saddr   = saddr,
 		.daddr   = daddr,
 	};
