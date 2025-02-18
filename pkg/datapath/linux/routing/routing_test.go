@@ -71,7 +71,7 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 
 	_, ri := getFakes(t, true, false)
 	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
-	err := ri.Configure(ipv6, 1500, false, false)
+	err := ri.Configure(ipv6, nil, 1500, false, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -80,7 +80,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ipv6 := netip.MustParseAddr("fd00::2")
-	err := Delete(ipv6, false)
+	err := Delete(ipv6, netip.IPv6Unspecified(), false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -160,7 +160,7 @@ func TestDelete(t *testing.T) {
 			defer ifaceCleanup()
 
 			ip := tt.preRun()
-			err := Delete(ip, false)
+			err := Delete(ip, netip.IPv6Unspecified(), false)
 			require.Equal(t, tt.wantErr, (err != nil))
 			return nil
 		})
@@ -190,12 +190,12 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 }
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
-	err := ri.Configure(ip.AsSlice(), mtu, false, false)
+	err := ri.Configure(ip.AsSlice(), nil, mtu, false, false)
 	require.NoError(t, err)
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
-	err := Delete(ip, false)
+	err := Delete(ip, netip.IPv6Unspecified(), false)
 	require.NoError(t, err)
 }
 
@@ -267,19 +267,23 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 		}
 		fakeRoutingInfo, err = parse(
 			fakeGateway.String(),
+			"",
 			cidrs,
 			fakeMAC.String(),
 			"1",
 			ipamOption.IPAMENI,
 			true,
+			false,
 		)
 	} else {
 		fakeRoutingInfo, err = parse(
 			fakeGateway.String(),
+			"",
 			nil,
 			fakeMAC.String(),
 			"1",
 			ipamOption.IPAMAzure,
+			false,
 			false,
 		)
 	}
