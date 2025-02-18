@@ -220,8 +220,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	return xdsServer, nil
 }
 
-func newEnvoyAdminClient(envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
-	return NewEnvoyAdminClientForSocket(GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
+func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
+	return NewEnvoyAdminClientForSocket(logger, GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
 type accessLogServerParams struct {
