@@ -13,7 +13,6 @@ import (
 	"slices"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -139,7 +138,7 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) *errgroup.Group {
+func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*fqdn.DNSIPRecords) <-chan error {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -154,11 +153,11 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, u
 		}
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return n.params.IPCache.WaitForRevision(ctx, ipcacheRevision)
-	})
-	return g
+	c := make(chan error)
+	go func() {
+		c <- n.params.IPCache.WaitForRevision(ctx, ipcacheRevision)
+	}()
+	return c
 }
 
 func (n *manager) CompleteBootstrap() {
