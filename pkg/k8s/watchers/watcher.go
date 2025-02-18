@@ -188,14 +188,6 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 	return k.k8sAPIGroups.GetGroups()
 }
 
-// WaitForCRDsToRegister will wait for the Cilium Operator to register the CRDs
-// with the apiserver. This step is required before launching the full K8s
-// watcher, as those resource controllers need the resources to be registered
-// with K8s first.
-func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return synced.SyncCRDs(ctx, k.clientset, synced.AgentCRDResourceNames(), k.k8sResourceSynced, k.k8sAPIGroups)
-}
-
 type watcherKind int
 
 const (
