@@ -11,6 +11,7 @@ Summary of Changes
 * Restore the original flag semantics for --egress-masquerade-interfaces to the same as v1.17.0-pre.2 or earlier (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#36504, @viktor-kurchenko)
 
 **CI Changes:**
+* [v1.16] ctmap/gc: don't clamp conntrack scan timeout in CI (Backport PR cilium/cilium#37646, Upstream PR cilium/cilium#37380, @giorio94)
 * gh: harmonize lvh kernel naming scheme (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#37322, @julianwiedmann)
 * gh: update removed --loglevel option for kind (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#36935, @julianwiedmann)
 * gha: fix retrieval of DNS server in conformance external workloads (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#37361, @giorio94)
@@ -21,12 +22,15 @@ Summary of Changes
 * test: Move the dind image to Quay to avoid rate-limiting (Backport PR cilium/cilium#37442, Upstream PR cilium/cilium#37388, @pchaigno)
 
 **Misc Changes:**
+* [v1.15] deps: bump grpc-go to v1.64.1 (cilium/cilium#37628, @ferozsalam)
+* [v1.15] docs: Update requirements.txt dependencies (cilium/cilium#37619, @joestringer)
 * chore(deps): update actions/setup-go action to v5.3.0 (v1.15) (cilium/cilium#37118, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37101, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37245, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37508, @cilium-renovate[bot])
 * chore(deps): update all-dependencies (v1.15) (cilium/cilium#37034, @cilium-renovate[bot])
 * chore(deps): update all-dependencies (v1.15) (cilium/cilium#37344, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#37665, @cilium-renovate[bot])
 * chore(deps): update dependency cilium/cilium-cli to v0.16.24 (v1.15) (cilium/cilium#37339, @cilium-renovate[bot])
 * chore(deps): update dependency cilium/hubble to v1.16.6 (v1.15) (cilium/cilium#37216, @cilium-renovate[bot])
 * chore(deps): update dependency cilium/hubble to v1.17.0 (v1.15) (cilium/cilium#37507, @cilium-renovate[bot])
@@ -43,6 +47,7 @@ Summary of Changes
 * doc: Removed nodeinit from aks byocni install (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#37048, @PhilipSchmid)
 * docs: Add SNI policy example (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37234, @sayboras)
 * docs: pass current_version to html_context (Backport PR cilium/cilium#37173, Upstream PR cilium/cilium#37008, @ayuspin)
+* Fix API generation and add trusted dependencies to renovate config (Backport PR cilium/cilium#37646, Upstream PR cilium/cilium#36957, @aanm)
 * images/builder: let renovate update protoc and proto plugins (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#32739, @rolinh)
 * images: don't assume Dockerfile directory in builder/runtime update scripts (Backport PR cilium/cilium#37376, Upstream PR cilium/cilium#34488, @tklauser)
 * Remove outdated roadmap matrix and links to it (Backport PR cilium/cilium#37281, Upstream PR cilium/cilium#37170, @xmulligan)
