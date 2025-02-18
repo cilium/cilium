@@ -6,11 +6,10 @@ package envoy
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +23,7 @@ import (
 )
 
 func Test_k8sSecretToEnvoySecretTlsCertificate(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -42,7 +41,7 @@ func Test_k8sSecretToEnvoySecretTlsCertificate(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretValidationContext(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -65,7 +64,7 @@ func testSessionKey(i byte) []byte {
 }
 
 func Test_k8sSecretToEnvoySecretTlsSessionKeys(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -94,7 +93,7 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretTlsSessionKeys_FirstKeyMandatory(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -112,7 +111,7 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys_FirstKeyMandatory(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretTlsSessionKeys_Max10Keys(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -153,7 +152,7 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys_Max10Keys(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeysOnMainKeySizeIssue(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -177,7 +176,7 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeysOnMainKeySizeIs
 }
 
 func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeyOnSizeIssue(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -216,7 +215,7 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeyOnSizeIssue(t *t
 }
 
 func Test_k8sSecretToEnvoySecretGeneric(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -235,7 +234,7 @@ func Test_k8sSecretToEnvoySecretGeneric(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretOtherValue(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -254,7 +253,7 @@ func Test_k8sSecretToEnvoySecretOtherValue(t *testing.T) {
 }
 
 func Test_k8sSecretToEnvoySecretOtherMultiValues(t *testing.T) {
-	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+	envoySecret := testSecretSyncer(t).k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
@@ -342,14 +341,11 @@ func TestHandleSecretEvent(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
-
 			xdsServer := &fakeXdsServer{
 				returnError: tc.xdsShouldReturnError,
 			}
 
-			syncer := newSecretSyncer(logger, xdsServer)
+			syncer := newSecretSyncer(hivetest.Logger(t), xdsServer)
 
 			doneCalled := false
 			var doneError error
@@ -481,4 +477,8 @@ func (*fakeXdsServer) GetPolicySecretSyncNamespace() string {
 
 func (*fakeXdsServer) SetPolicySecretSyncNamespace(string) {
 	panic("unimplemented")
+}
+
+func testSecretSyncer(t *testing.T) *secretSyncer {
+	return &secretSyncer{logger: hivetest.Logger(t)}
 }
