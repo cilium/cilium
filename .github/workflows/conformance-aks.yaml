@@ -61,6 +61,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  test_concurrency: 5
 
 jobs:
   echo-inputs:
@@ -289,9 +290,20 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --log-code-owners \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --log-code-owners \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -323,9 +335,18 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
-      - name: Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --log-code-owners \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
+          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --log-code-owners \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
           --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
 
