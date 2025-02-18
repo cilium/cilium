@@ -92,7 +92,8 @@ func TestEnvoy(t *testing.T) {
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
+	starter := &onDemandXdsStarter{logger: logger}
+	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
 		runDir:         testRunDir,
 		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:         15,
@@ -208,7 +209,8 @@ func TestEnvoyNACK(t *testing.T) {
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
+	starter := &onDemandXdsStarter{logger: logger}
+	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
 		runDir:         testRunDir,
 		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:         42,
