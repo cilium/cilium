@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1581,6 +1582,7 @@ type daemonParams struct {
 	Hubble              hubblecell.HubbleIntegration
 	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
+	NameManager         namemanager.NameManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package fqdn
+package namemanager
 
 import (
 	"context"
 	"fmt"
 	"net/netip"
-	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -38,9 +39,12 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 
-	nameManager := NewNameManager(Config{
-		MinTTL:  1,
-		Cache:   NewDNSCache(0),
+	nameManager := New(ManagerParams{
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          defaults.StateDir,
+		},
 		IPCache: testipcache.NewMockIPCache(),
 	})
 
@@ -65,13 +69,13 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 		ip = ip.Next()
 
 		k := i % numSelectors
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
+		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("%d.example.com", k)): {
 				TTL: 60,
 				IPs: []netip.Addr{ip},
 			}})
 
-		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
+		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*fqdn.DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("example.%d.example.com", k)): {
 				TTL: 60,
 				IPs: []netip.Addr{ip},
@@ -85,10 +89,10 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 func BenchmarkFqdnCache(b *testing.B) {
 	const endpoints = 8
 
-	caches := make([]*DNSCache, 0, endpoints)
+	caches := make([]*fqdn.DNSCache, 0, endpoints)
 	for i := 0; i < b.N; i++ {
 		lookupTime := time.Now()
-		dnsHistory := NewDNSCache(0)
+		dnsHistory := fqdn.NewDNSCache(0)
 
 		for i := 0; i < 1000; i++ {
 			dnsHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
@@ -97,28 +101,40 @@ func BenchmarkFqdnCache(b *testing.B) {
 		caches = append(caches, dnsHistory)
 	}
 
-	nameManager := NewNameManager(Config{
-		MinTTL:  1,
-		Cache:   NewDNSCache(0),
-		IPCache: testipcache.NewMockIPCache(),
-		GetEndpointsDNSInfo: func(endpointID string) []EndpointDNSInfo {
-			out := make([]EndpointDNSInfo, 0, len(caches))
-			for i, c := range caches {
-				out = append(out, EndpointDNSInfo{
-					ID:         strconv.Itoa(i),
-					ID64:       int64(i),
-					DNSHistory: c,
-					DNSZombies: NewDNSZombieMappings(1000, 1000),
-				})
-			}
-			return out
+	nameManager := New(ManagerParams{
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          defaults.StateDir,
 		},
+		IPCache: testipcache.NewMockIPCache(),
+		EPMgr:   &epMgrMock{caches},
 	})
 	prefixMatcher := func(_ netip.Addr) bool { return true }
 	nameMatcher := func(_ string) bool { return true }
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		nameManager.GetDNSHistoryModel("", prefixMatcher, nameMatcher, "")
+		nameManager.dnsHistoryModel("", prefixMatcher, nameMatcher, "")
 	}
+}
+
+type epMgrMock struct {
+	caches []*fqdn.DNSCache
+}
+
+func (mgr *epMgrMock) Lookup(id string) (*endpoint.Endpoint, error) {
+	return nil, fmt.Errorf("Lookup not implemented")
+}
+
+func (mgr *epMgrMock) GetEndpoints() []*endpoint.Endpoint {
+	out := make([]*endpoint.Endpoint, 0, len(mgr.caches))
+	for i, c := range mgr.caches {
+		out = append(out, &endpoint.Endpoint{
+			ID:         uint16(i),
+			DNSHistory: c,
+			DNSZombies: fqdn.NewDNSZombieMappings(1000, 1000),
+		})
+	}
+	return out
 }

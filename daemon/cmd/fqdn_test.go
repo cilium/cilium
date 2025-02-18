@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -50,7 +51,6 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	// Also, node.SetTestLocalNodeStore() panics if it called more than once.
 	notifyOnDNSMsgBenchSetup.Do(func() {
 		// set FQDN related options to defaults in order to avoid a flood of warnings
-		option.Config.DNSProxyLockCount = defaults.DNSProxyLockCount
 		option.Config.DNSProxyLockTimeout = defaults.DNSProxyLockTimeout
 		option.Config.FQDNProxyResponseMaxDelay = defaults.FQDNProxyResponseMaxDelay
 
@@ -72,9 +72,12 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,
 	})
-	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
-		MinTTL:  1,
-		Cache:   fqdn.NewDNSCache(0),
+	d.dnsNameManager = namemanager.New(namemanager.ManagerParams{
+		Config: namemanager.NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          defaults.StateDir,
+		},
 		IPCache: d.ipcache,
 	})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
