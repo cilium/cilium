@@ -930,9 +930,8 @@ data:
   operator-api-serve-addr: {{ $defaultOperatorApiServeAddr | quote }}
 {{- end }}
 
-{{- if .Values.hubble.enabled }}
-  # Enable Hubble gRPC service.
   enable-hubble: {{ .Values.hubble.enabled | quote }}
+{{- if .Values.hubble.enabled }}
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path: {{ .Values.hubble.socketPath | quote }}
 {{- if hasKey .Values.hubble "eventQueueSize" }}
