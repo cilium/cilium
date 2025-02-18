@@ -304,8 +304,9 @@ func newLocalEndpointStore() *LocalEndpointStore {
 	}
 }
 
-func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
+func newArtifactCopier(lifecycle cell.Lifecycle, logger *slog.Logger) *ArtifactCopier {
 	artifactCopier := &ArtifactCopier{
+		logger:     logger,
 		sourcePath: "/envoy-artifacts",
 		targetPath: filepath.Join(option.Config.RunDir, "envoy", "artifacts"),
 	}

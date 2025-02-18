@@ -883,6 +883,9 @@ const (
 	// NetnsCookie is the Linux kernel netns cookie.
 	NetnsCookie = "netnsCookie"
 
+	// Source identifies a source value
+	Source = "source"
+
 	// Target identifies a target value
 	Target = "target"
 
