@@ -47,6 +47,9 @@ type TestConfig struct {
 
 	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
 	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
+
+	// ExternalClusterIP mirrors option.Config.ExternalClusterIP
+	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
@@ -54,23 +57,31 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
+	flags.Bool(option.ExternalClusterIPName, false, "Enable cluster-external access to ClusterIPs")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
+	LBMapsConfig
+
+	EnableIPv4, EnableIPv6          bool
 	ExternalClusterIP               bool
-	EnableSessionAffinity           bool
 	EnableHealthCheckNodePort       bool
+	KubeProxyReplacement            bool
 	NodePortMin, NodePortMax        uint16
 	NodePortAlg                     string
 	LoadBalancerAlgorithmAnnotation bool
 }
 
+// newExternalConfig maps the daemon config to [ExternalConfig].
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
+		LBMapsConfig:                    newLBMapsConfig(cfg),
+		EnableIPv4:                      cfg.EnableIPv4,
+		EnableIPv6:                      cfg.EnableIPv6,
 		ExternalClusterIP:               cfg.ExternalClusterIP,
-		EnableSessionAffinity:           cfg.EnableSessionAffinity,
+		KubeProxyReplacement:            cfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || cfg.EnableNodePort,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 		NodePortMin:                     uint16(cfg.NodePortMin),
 		NodePortMax:                     uint16(cfg.NodePortMax),

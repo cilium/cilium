@@ -35,6 +35,7 @@ type LocalPod struct {
 func (p LocalPod) TableHeader() []string {
 	return []string{
 		"Name",
+		"UID",
 		"HostNetwork",
 		"PodIPs",
 		"Containers",
@@ -66,6 +67,7 @@ func (p LocalPod) TableRow() []string {
 	}
 	return []string{
 		p.Namespace + "/" + p.Name,
+		string(p.UID),
 		strconv.FormatBool(p.Spec.HostNetwork),
 		strings.Join(podIPs, ", "),
 		strings.Join(containers, ", "),
