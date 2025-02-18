@@ -20,8 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var (
@@ -169,9 +169,9 @@ func TestGetRoutes(t *testing.T) {
 			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			require.NoError(t, err)
 
-			testSC.Config = &v2alpha1api.CiliumBGPVirtualRouter{
+			testSC.Config = &v2alpha1.CiliumBGPVirtualRouter{
 				LocalASN:  int64(testRouterASN),
-				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
+				Neighbors: []v2alpha1.CiliumBGPNeighbor{},
 			}
 			cm := mode.NewConfigMode()
 			cm.Set(mode.BGPv1)
@@ -185,7 +185,7 @@ func TestGetRoutes(t *testing.T) {
 			}
 
 			// add a neighbor
-			n := &v2alpha1api.CiliumBGPNeighbor{
+			n := &v2alpha1.CiliumBGPNeighbor{
 				PeerAddress: testNeighborIP + "/32",
 				PeerASN:     64100,
 			}
@@ -492,10 +492,10 @@ func TestStatedbReconcileErrors(t *testing.T) {
 				err = m.reconcileBGPConfigV2(
 					context.Background(),
 					inst,
-					&v2alpha1api.CiliumBGPNodeInstance{
+					&v2.CiliumBGPNodeInstance{
 						Name: inst.Name,
 					},
-					&v2api.CiliumNode{
+					&v2.CiliumNode{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node-1",
 						},
