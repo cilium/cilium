@@ -5,6 +5,7 @@ package redirectpolicy
 
 import (
 	"fmt"
+	"iter"
 	"net"
 	"net/netip"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -130,6 +132,36 @@ type fakeSkipLBMap struct {
 	lb6Events chan skipLBParams
 }
 
+// Close implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) Close() error {
+	return nil
+}
+
+// OpenOrCreate implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) OpenOrCreate() error {
+	return nil
+}
+
+// AllLB4 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) AllLB4() iter.Seq2[*lbmap.SkipLB4Key, *lbmap.SkipLB4Value] {
+	panic("not implemented")
+}
+
+// AllLB6 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) AllLB6() iter.Seq2[*lbmap.SkipLB6Key, *lbmap.SkipLB6Value] {
+	panic("not implemented")
+}
+
+// DeleteLB4 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) DeleteLB4(key *lbmap.SkipLB4Key) error {
+	return nil
+}
+
+// DeleteLB6 implements lbmap.SkipLBMap.
+func (f fakeSkipLBMap) DeleteLB6(key *lbmap.SkipLB6Key) error {
+	return nil
+}
+
 type skipLBParams struct {
 	cookie uint64
 	ip     net.IP
@@ -157,20 +189,18 @@ func (f fakeSkipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error 
 }
 
 func (f fakeSkipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
-	panic("implement me")
 }
 
 func (f fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
-	panic("implement me")
 }
+
+var _ lbmap.SkipLBMap = fakeSkipLBMap{}
 
 var (
 	tcpStr    = "TCP"
