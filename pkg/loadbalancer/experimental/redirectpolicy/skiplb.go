@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -43,7 +44,7 @@ type skiplbParams struct {
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Map                lbmap.SkipLBMap
 	EM                 endpointmanager.EndpointManager `optional:"true"`
-	NetNSCookieSupport haveNetNSCookieSupport
+	NetNSCookieSupport experimental.HaveNetNSCookieSupport
 }
 
 func registerSkipLB(p skiplbParams, rp reconciler.Params) {
@@ -331,7 +332,7 @@ type skiplbmapParams struct {
 	IsEnabled          lrpIsEnabled
 	TestSkipLBMap      testSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
-	NetNSCookieSupport haveNetNSCookieSupport
+	NetNSCookieSupport experimental.HaveNetNSCookieSupport
 }
 
 func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmap.SkipLBMap], err error) {
