@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
@@ -159,22 +160,34 @@ var (
 	k8s2NodeIPv6   = net.ParseIP("fd01::c")
 	k8s2NodeIPv6_2 = net.ParseIP("fd01::c")
 
-	pod1IPv4Str = "10.0.0.1"
+	pod1IPv4Str = "10.0.11.1"
 	pod1IPv4    = iputil.IPToPrefix(net.ParseIP(pod1IPv4Str))
-	pod1IPv6Str = "fd00::1"
+	pod1IPv6Str = "fd00:10:0:11::1"
 	pod1IPv6    = iputil.IPToPrefix(net.ParseIP(pod1IPv6Str))
-	pod2IPv4Str = "10.0.0.2"
+	pod2IPv4Str = "10.0.11.2"
 	pod2IPv4    = iputil.IPToPrefix(net.ParseIP(pod2IPv4Str))
-	pod2IPv6Str = "fd00::2"
+	pod2IPv6Str = "fd00:10:0:11::2"
 	pod2IPv6    = iputil.IPToPrefix(net.ParseIP(pod2IPv6Str))
-	pod3IPv4Str = "10.0.0.3"
+	pod3IPv4Str = "10.0.12.3"
 	pod3IPv4    = iputil.IPToPrefix(net.ParseIP(pod3IPv4Str))
-	pod3IPv6Str = "fd00::3"
+	pod3IPv6Str = "fd00:10:0:12::3"
 	pod3IPv6    = iputil.IPToPrefix(net.ParseIP(pod3IPv6Str))
-	pod4IPv4Str = "10.0.0.4"
-	pod4IPv4    = iputil.IPToPrefix(net.ParseIP(pod4IPv4Str))
-	pod4IPv6Str = "fd00::4"
-	pod4IPv6    = iputil.IPToPrefix(net.ParseIP(pod4IPv6Str))
+
+	pod4IPv4k8s1Str = "10.0.11.4"
+	pod4IPv4k8s1    = iputil.IPToPrefix(net.ParseIP(pod4IPv4k8s1Str))
+	pod4IPv6k8s1Str = "fd00:10:0:11::4"
+	pod4IPv6k8s1    = iputil.IPToPrefix(net.ParseIP(pod4IPv6k8s1Str))
+	pod4IPv4k8s2Str = "10.0.12.4"
+	pod4IPv4k8s2    = iputil.IPToPrefix(net.ParseIP(pod4IPv4k8s2Str))
+	pod4IPv6k8s2Str = "fd00:10:0:12::4"
+	pod4IPv6k8s2    = iputil.IPToPrefix(net.ParseIP(pod4IPv6k8s2Str))
+
+	k8s1PodAllocCIDRv4 = cidr.MustParseCIDR("10.0.11.0/24")
+	k8s1PodAllocCIDRv6 = cidr.MustParseCIDR("fd00:10:0:11::/64")
+	k8s2PodAllocCIDRv4 = cidr.MustParseCIDR("10.0.12.0/24")
+	k8s2PodAllocCIDRv6 = cidr.MustParseCIDR("fd00:10:0:12::/64")
+	k8s1PodAllocCIDRs  = []*cidr.CIDR{k8s1PodAllocCIDRv4, k8s1PodAllocCIDRv6}
+	k8s2PodAllocCIDRs  = []*cidr.CIDR{k8s2PodAllocCIDRv4, k8s2PodAllocCIDRv6}
 )
 
 func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
@@ -223,6 +236,7 @@ type config struct {
 	Name         string
 	RoutingMode  string
 	Fallback     bool
+	CIDRs        bool
 	Expectations [][]expectation
 }
 
@@ -250,6 +264,28 @@ func TestAgent_PeerConfig(t *testing.T) {
 				{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, pod2IPv4, pod2IPv6}},
 				{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, pod3IPv4, pod3IPv6}},
 			},
+			// entry 3
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}}},
+			// entry 4
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, pod3IPv4, pod3IPv6}}},
+			// entry 5
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, pod3IPv4, pod3IPv6}}},
+		}
+
+		nativeRoutingWithCIDRsAllowedIPs = [][]expectation{
+			// entry 1
+			{{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}}},
+			// entry 2
+			{
+				{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 3
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}}},
+			// entry 4
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, pod3IPv4, pod3IPv6}}},
+			// entry 5
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}}},
 		}
 
 		tunnelRoutingAllowedIPs = [][]expectation{
@@ -260,13 +296,20 @@ func TestAgent_PeerConfig(t *testing.T) {
 				{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
 				{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
+			// entry 3
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}}},
+			// entry 4
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}}},
+			// entry 5
+			{{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}}},
 		}
 	)
 
 	for _, c := range []config{
-		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
-		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
-		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
+		{"NativeRouting With CIDRs", option.RoutingModeNative, false, true, nativeRoutingWithCIDRsAllowedIPs},
+		{"NativeRouting Without CIDRs", option.RoutingModeNative, false, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, true, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -283,20 +326,36 @@ func TestAgent_PeerConfig(t *testing.T) {
 			wgAgent, ipCache := newTestAgent(ctx, newFakeWgClient())
 			defer ipCache.Shutdown()
 
+			var k8s1CIDRs []*cidr.CIDR
+			var k8s2CIDRs []*cidr.CIDR
+			if c.CIDRs {
+				k8s1CIDRs = k8s1PodAllocCIDRs
+				k8s2CIDRs = k8s2PodAllocCIDRs
+			}
+
 			// Test that IPCache updates before UpdatePeer are handled correctly
 			ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 			ipCache.Upsert(pod1IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 			ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 			ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
-			err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6, k8s1CIDRs)
 			require.NoError(t, err)
 
 			assertAllowedIPs := func(e expectation) {
-				node := wgAgent.peerByNodeName[e.Subject]
-				require.Len(t, node.allowedIPs, len(e.AllowedIPs))
+				peerConfig := wgAgent.peerByNodeName[e.Subject]
+
+				var allowedIPs []net.IPNet
+				// allowedIPs are given by 1st-grade descendants in the trie.
+				for _, pfx := range append(
+					peerConfig.getUncoveredIPs(netip.MustParsePrefix("0.0.0.0/0")),
+					peerConfig.getUncoveredIPs(netip.MustParsePrefix("::/0"))...) {
+					allowedIPs = append(allowedIPs, *netipx.PrefixIPNet(pfx))
+				}
+				require.Len(t, allowedIPs, len(e.AllowedIPs), "AllowedIPs not updated correctly")
+
 				for _, ipn := range e.AllowedIPs {
-					require.True(t, containsIP(maps.Values(node.allowedIPs), ipn))
+					require.True(t, containsIP(slices.Values(allowedIPs), ipn), "IP %v not in allowedIPs (%v)", ipn, allowedIPs)
 				}
 			}
 
@@ -320,7 +379,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			agentUpdatePending := make(chan struct{})
 			go func() {
 				close(agentUpdatePending)
-				err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+				err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
 				require.NoError(t, err)
 				close(agentUpdated)
 			}()
@@ -380,8 +439,22 @@ func TestAgent_PeerConfig(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 2
 
 			// Tests that duplicate public keys are rejected (k8s2 imitates k8s1)
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
 			require.ErrorContains(t, err, "detected duplicate public key")
+
+			// Test correcteness when a CIDR is upserted via IPCache.
+			ipCache.Upsert(k8s2PodAllocCIDRv4.String(), k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1996, Source: source.Kubernetes})
+			ipCache.Upsert(k8s2PodAllocCIDRv6.String(), k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 1996, Source: source.Kubernetes})
+			c.CheckExpectations(assertAllowedIPs) // checks entry 3
+
+			// Test correcteness when a CIDR is removed via IPCache.
+			ipCache.Delete(k8s2PodAllocCIDRv4.String(), source.Kubernetes)
+			ipCache.Delete(k8s2PodAllocCIDRv6.String(), source.Kubernetes)
+			c.CheckExpectations(assertAllowedIPs) // checks entry 4
+
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
+			require.NoError(t, err)
+			c.CheckExpectations(assertAllowedIPs) // checks entry 5
 
 			// Node Deletion
 			wgAgent.DeletePeer(k8s1NodeName)
@@ -409,44 +482,96 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 
 		nativeRoutingAllowedIPs = [][]expectation{
 			// entry 1
-			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod1IPv6, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod1IPv6, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
 			// entry 2
-			{{k8s1PubKey, []*net.IPNet{pod2IPv4, pod3IPv4, pod4IPv4, pod1IPv6, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			{{k8s1PubKey, []*net.IPNet{pod2IPv4, pod3IPv4, pod4IPv4k8s1, pod1IPv6, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
 			// entry 3
 			{
-				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod3IPv4, pod1IPv6, pod2IPv6, pod3IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
-				{k8s2PubKey, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod3IPv4, pod4IPv4k8s1, pod1IPv6, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 			// entry 4
 			{
 				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
-				{k8s2PubKey, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 			// entry 5
 			{
 				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
-				{k8s2PubKey2, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 			// entry 6
 			{
 				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
-				{k8s2PubKey2, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+				{k8s2PubKey2, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
 			},
 			// entry 7
 			{
 				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
-				{k8s2PubKey, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 8
+			{
+				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+			},
+			// entry 9
+			{
+				{k8s1PubKey, []*net.IPNet{pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+		}
+
+		nativeRoutingWithCIDRsAllowedIPs = [][]expectation{
+			// entry 1
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}}},
+			// entry 2
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}}},
+			// entry 3
+			{
+				{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 4
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 5
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 6
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 7
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
+			},
+			// entry 8
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey2, []*net.IPNet{pod4IPv4k8s2, pod4IPv6k8s2, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+			},
+			// entry 9
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx, k8s1PodAllocCIDRv4.IPNet, k8s1PodAllocCIDRv6.IPNet}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, k8s2PodAllocCIDRv4.IPNet, k8s2PodAllocCIDRv6.IPNet}},
 			},
 		}
 
 		tunnelRoutingAllowedIPs = [][]expectation{
 			// entry 1
-			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
 			// entry 2
-			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
 			// entry 3
 			{
-				{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4k8s1, pod2IPv6, pod3IPv6, pod4IPv6k8s1, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
 				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 			// entry 4
@@ -467,15 +592,26 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			// entry 7
 			{
 				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+			},
+			// entry 8
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+			},
+			// entry 9
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
 				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 		}
 	)
 
 	for _, c := range []config{
-		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
-		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
-		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
+		{"NativeRouting With CIDRs", option.RoutingModeNative, false, true, nativeRoutingWithCIDRsAllowedIPs},
+		{"NativeRouting Without CIDRs", option.RoutingModeNative, false, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, true, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
 			ctx := context.Background()
@@ -488,6 +624,13 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
 			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
+			var k8s1CIDRs []*cidr.CIDR
+			var k8s2CIDRs []*cidr.CIDR
+			if c.CIDRs {
+				k8s1CIDRs = k8s1PodAllocCIDRs
+				k8s2CIDRs = k8s2PodAllocCIDRs
+			}
+
 			key1, err := wgtypes.ParseKey(k8s1PubKey)
 			require.NoError(t, err, "Failed to parse WG key")
 
@@ -495,7 +638,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				PublicKey: key1,
 				AllowedIPs: []net.IPNet{
 					*pod1IPv4, *pod3IPv4, *pod2IPv6, *pod3IPv6,
-					*pod4IPv4, *pod4IPv6, *k8s1NodeIPv4Pfx, *k8s1NodeIPv6Pfx,
+					*pod4IPv4k8s1, *pod4IPv6k8s1, *k8s1NodeIPv4Pfx, *k8s1NodeIPv6Pfx,
 				},
 			})
 
@@ -509,14 +652,14 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				allowedIPs := wgClient.peers[key].AllowedIPs
 				require.Len(t, allowedIPs, len(e.AllowedIPs), "AllowedIPs not updated correctly")
 				for _, ip := range e.AllowedIPs {
-					require.True(t, containsIP(slices.Values(allowedIPs), ip), "AllowedIPs does not contain %s", ip.String())
+					require.True(t, containsIP(slices.Values(allowedIPs), ip), "IP %s not in AllowedIPs (%v)", ip.String(), allowedIPs)
 				}
 			}
 
 			ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 			ipCache.Upsert(pod1IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 
-			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6, k8s1CIDRs)
 			require.NoError(t, err, "Failed to update peer")
 
 			// Assert that the AllowedIPs are updated correctly, preserving the restored ones
@@ -530,14 +673,14 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 
 			// Associate previously restored allowed IPs with a different peer, and
 			// assert that the updates are propagated correctly, without flipping.
-			ipCache.Upsert(pod4IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+			ipCache.Upsert(pod4IPv4k8s2Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
 			require.NoError(t, err, "Failed to update peer")
-			ipCache.Upsert(pod4IPv6Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			ipCache.Upsert(pod4IPv6k8s2Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 
 			// We explicitly trigger UpdatePeer here to cause the allowed IPs to be
 			// synchronized, so that we can test that the cache got correctly updated.
-			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
+			err = wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6, k8s1CIDRs)
 			require.NoError(t, err, "Failed to update peer")
 
 			c.CheckExpectations(assertAllowedIPs) // checks entry 3
@@ -547,22 +690,32 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 4
 
 			// Ensure that a public key change results in deletion of the old peer entry.
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4, k8s2NodeIPv6)
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
 			require.NoError(t, err)
 			c.CheckExpectations(assertAllowedIPs) // checks entry 5
 
 			// Ensure that a node IP change gets reflected
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4_2, k8s2NodeIPv6_2)
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4_2, k8s2NodeIPv6_2, k8s2CIDRs)
 			require.NoError(t, err)
 			c.CheckExpectations(assertAllowedIPs) // checks entry 6
 
-			// Ensure that a public key change and node IP change gets reflected.
-			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
-			require.NoError(t, err)
+			// Test correcteness when a CIDR is upserted via IPCache.
+			ipCache.Upsert(k8s2PodAllocCIDRv4.String(), k8s2NodeIPv4_2, 0, nil, ipcache.Identity{ID: 1996, Source: source.Kubernetes})
+			ipCache.Upsert(k8s2PodAllocCIDRv6.String(), k8s2NodeIPv6_2, 0, nil, ipcache.Identity{ID: 1996, Source: source.Kubernetes})
 			c.CheckExpectations(assertAllowedIPs) // checks entry 7
 
+			// Test correcteness when a CIDR is removed via IPCache.
+			ipCache.Delete(k8s2PodAllocCIDRv4.String(), source.Kubernetes)
+			ipCache.Delete(k8s2PodAllocCIDRv6.String(), source.Kubernetes)
+			c.CheckExpectations(assertAllowedIPs) // checks entry 8
+
+			// Ensure that a public key change and node IP change gets reflected.
+			err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6, k8s2CIDRs)
+			require.NoError(t, err)
+			c.CheckExpectations(assertAllowedIPs) // checks entry 9
+
 			// Ensure that a node IP change gets reflected
-			err = wgAgent.UpdatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2)
+			err = wgAgent.UpdatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2, k8s2CIDRs)
 			require.Error(t, err, "node %q is not allowed to use the dummy peer key", k8s2NodeName)
 		})
 	}

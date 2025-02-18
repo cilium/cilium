@@ -49,8 +49,9 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 
 	newIP4 := node.GetNodeIP(false)
 	newIP6 := node.GetNodeIP(true)
+	newPodAllocCIDRs := append(node.GetIPv4AllocCIDRs(), node.GetIPv6AllocCIDRs()...)
 
-	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
+	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6, newPodAllocCIDRs); err != nil {
 		log.WithError(err).
 			WithField(logfields.NodeName, node.Fullname()).
 			Warning("Failed to update WireGuard configuration for peer")
