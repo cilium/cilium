@@ -61,6 +61,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  test_concurrency: 5
 
 jobs:
   echo-inputs:
@@ -195,14 +196,20 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
+          # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.name }} \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
             --helm-set=azure.resourceGroup=${{ env.name }} \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16" # To avoid clashing with the default Service CIDR of AKS (10.0.0.0/16)
+            --helm-set=ipv4.enabled=true \
+            --helm-set=ipv6.enabled=true \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
-            --hubble=false --collect-sysdump-on-failure --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
+            --hubble=false --collect-sysdump-on-failure --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 --debug"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
@@ -229,6 +236,7 @@ jobs:
             --kubernetes-version ${{ matrix.version }} \
             --network-plugin none \
             --node-count 2 \
+            --ip-families ipv4,ipv6 \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
 
@@ -281,10 +289,20 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --log-code-owners \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --log-code-owners \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -316,10 +334,20 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
-      - name: Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
           --log-code-owners \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
+          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --log-code-owners \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
           --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
 
@@ -330,7 +358,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
 
       - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        if: ${{ always() }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
@@ -344,7 +372,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cilium-sysdumps-${{ matrix.index }}
