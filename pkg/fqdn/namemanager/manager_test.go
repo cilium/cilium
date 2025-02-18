@@ -114,7 +114,7 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 
 	// Simulate lookup for single selector
 	prefix := netip.MustParsePrefix("1.1.1.1/32")
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*fqdn.DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []netip.Addr{prefix.Addr()}}})
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}))
 
 	// Add match pattern
@@ -127,16 +127,15 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
 
 	// Same IP matched by two selectors
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*fqdn.DNSIPRecords{dns.FQDN("github.com"): {TTL: 60, IPs: []netip.Addr{prefix.Addr()}}})
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 
 	// Additional unique IPs for each selector
 	githubPrefix := netip.MustParsePrefix("10.0.0.2/32")
 	awesomePrefix := netip.MustParsePrefix("10.0.0.3/32")
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*fqdn.DNSIPRecords{
-		dns.FQDN("github.com"):       {TTL: 60, IPs: []netip.Addr{githubPrefix.Addr()}},
-		dns.FQDN("awesomecilium.io"): {TTL: 60, IPs: []netip.Addr{awesomePrefix.Addr()}},
-	})
+	n := time.Now()
+	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{githubPrefix.Addr()}})
+	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("awesomecilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{awesomePrefix.Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
 	require.Equal(t, ipc.labelsForPrefix(awesomePrefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
