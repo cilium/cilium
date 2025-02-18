@@ -215,6 +215,15 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 			return
 		}
 
+		if strings.Contains(err.Error(), "Wrong sender portid") {
+			// In case of multiple subscriptions for the same object (e.g: routes)
+			// the netlink library might receive messages with a port id different
+			// from the one assigned to the kernel. The library discard those messages,
+			// but still treat them as an error and propagate them to the callback.
+			// To avoid restarting the netlink subscription, ignore those errors.
+			return
+		}
+
 		dc.log.Warn("Netlink error received, restarting", logfields.Error, err)
 
 		// Cancel the context to stop the subscriptions.
