@@ -40,7 +40,8 @@ const (
 	virtualMachineScaleSetVMsUpdate = "VirtualMachineScaleSetVMs.Update"
 	virtualNetworksListAll          = "VirtualNetworks.ListAll"
 
-	interfacesListVirtualMachineScaleSetNetworkInterfaces = "Interfaces.ListVirtualMachineScaleSetNetworkInterfaces"
+	interfacesListVirtualMachineScaleSetNetworkInterfaces   = "Interfaces.ListVirtualMachineScaleSetNetworkInterfaces"
+	interfacesListVirtualMachineScaleSetVMNetworkInterfaces = "Interfaces.ListVirtualMachineScaleSetVMNetworkInterfaces"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
@@ -299,6 +300,28 @@ func (c *Client) listVirtualMachineScaleSetNetworkInterfaces(ctx context.Context
 	return networkInterfaces, nil
 }
 
+// listVirtualMachineScaleSetVMNetworkInterfaces lists all network interfaces for a given virtual machines scale set VM
+func (c *Client) listVirtualMachineScaleSetVMNetworkInterfaces(ctx context.Context, virtualMachineScaleSetName, virtualmachineIndex string) (networkInterfaces []*armnetwork.Interface, err error) {
+	c.limiter.Limit(ctx, interfacesListVirtualMachineScaleSetVMNetworkInterfaces)
+	sinceStart := spanstat.Start()
+
+	pager := c.interfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(c.resourceGroup, virtualMachineScaleSetName, virtualmachineIndex, nil)
+
+	defer func() {
+		c.metricsAPI.ObserveAPICall(interfacesListVirtualMachineScaleSetVMNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+	}()
+
+	for pager.More() {
+		nextResult, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		networkInterfaces = append(networkInterfaces, nextResult.Value...)
+	}
+
+	return networkInterfaces, nil
+}
+
 // parseInterfaces parses a armnetwork.Interface as returned by the Azure API
 // converts it into a types.AzureInterface
 func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
@@ -378,12 +401,39 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 	}
 
 	for _, iface := range networkInterfaces {
-		if id, azureInterface := parseInterface(&iface, subnets, c.usePrimary); id != "" {
-			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
+		if instanceID, azureInterface := parseInterface(&iface, subnets, c.usePrimary); instanceID != "" {
+			instances.Update(instanceID, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}
 
 	return instances, nil
+}
+
+// GetInstance returns the interfaces of a given instance
+func (c *Client) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+
+	resourceID, err := arm.ParseResourceID(instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse instance ID %q", instanceID)
+	}
+	if strings.ToLower(resourceID.ResourceType.Type) != "virtualmachinescalesets/virtualmachines" {
+		return nil, fmt.Errorf("instance %q is not a virtual machine scale set instance", instanceID)
+	}
+
+	networkInterfaces, err := c.listVirtualMachineScaleSetVMNetworkInterfaces(ctx, resourceID.Parent.Name, resourceID.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, networkInterface := range networkInterfaces {
+		_, azureInterface := parseInterface(networkInterface, subnets, c.usePrimary)
+		instance.Interfaces[azureInterface.ID] = ipamTypes.InterfaceRevision{Resource: azureInterface}
+
+	}
+
+	return &instance, nil
 }
 
 // listAllVPCs lists all VPCs
