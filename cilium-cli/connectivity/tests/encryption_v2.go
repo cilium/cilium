@@ -5,9 +5,9 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
-	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
@@ -136,38 +136,35 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	// the `iif cilium_host` parameter is needed to return anything useful from the command,
 	// but it is ignored if `ip rules` do not have an interface specified in the rule.
 	//
-	// example string output:
-	// "172.18.0.2 dev eth0 src 172.18.0.4 uid 0 \n    cache \n"
+	// example json output:
+	// [{"dst":"192.168.109.96","gateway":"192.168.128.1","dev":"ens5","prefsrc":"192.168.159.49","flags":[],"uid":0,"cache":[]}]
 	out, err := srcHostNS.K8sClient.ExecInPod(ctx,
 		srcHostNS.Pod.Namespace,
 		srcHostNS.Pod.Name,
 		"",
-		[]string{"ip", "route", "get", dstIP, "from", srcIP, "iif", "cilium_host"})
+		[]string{"ip", "-j", "route", "get", dstIP, "from", srcIP, "iif", "cilium_host"})
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
 	}
 
-	// search for dev key in ip route output, next token will be the device name
-	// itself.
-	var dev string
-	outArray := strings.Split(out.String(), " ")
-	for i, val := range outArray {
-		if val == "dev" {
-			if i+1 > len(outArray)-1 {
-				// should never really happen...
-				return "", fmt.Errorf("Failed to find egress device")
-			}
-			dev = outArray[i+1]
-			break
+	routes := []struct {
+		Dev string `json:"dev,omitempty"`
+	}{}
+
+	err = json.Unmarshal(out.Bytes(), &routes)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse ip route to json: %w", err)
+	}
+
+	// search for dev key in ip route output.
+	for _, route := range routes {
+		if route.Dev != "" {
+			return route.Dev, nil
 		}
 	}
 
-	if dev == "" {
-		return "", fmt.Errorf("Failed to find egress device")
-	}
-
-	return dev, nil
+	return "", fmt.Errorf("Failed to find egress device")
 }
 
 // resolveClientEgressDevice determines the ultimate egress device used to
