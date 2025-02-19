@@ -1395,6 +1395,7 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
 		HostNetwork:                   hostNetwork,
 		TerminationGracePeriodSeconds: &gracePeriod,
+		Tolerations:                   ct.params.PerfParameters.GetTolerations(),
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {
@@ -1424,6 +1425,7 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
 		HostNetwork:                   hostNetwork,
 		TerminationGracePeriodSeconds: &gracePeriod,
+		Tolerations:                   ct.params.PerfParameters.GetTolerations(),
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
@@ -38,6 +40,15 @@ type PerfParameters struct {
 
 	NodeSelectorServer map[string]string
 	NodeSelectorClient map[string]string
+	Tolerations        []string
+}
+
+func (p *PerfParameters) GetTolerations() []corev1.Toleration {
+	tolerations := make([]corev1.Toleration, 0, len(p.Tolerations))
+	for _, t := range p.Tolerations {
+		tolerations = append(tolerations, corev1.Toleration{Key: t, Operator: corev1.TolerationOpExists})
+	}
+	return tolerations
 }
 
 type Parameters struct {
