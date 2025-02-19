@@ -41,7 +41,7 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	l4Addr := l3n4Addr.L4Addr
 
 	switch l3n4Addr.Protocol {
-	case lb.UDP:
+	case lb.UDP, lb.ANY:
 		protocol = unix.IPPROTO_UDP
 	default:
 		return
