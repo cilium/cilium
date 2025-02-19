@@ -11,7 +11,7 @@
 {{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
 {{$ManifestsDir := DefaultParam .CL2_EGW_MANIFESTS_DIR "manifests"}}
 
-name: egw-scale-test-masq-delay
+name: egw-scale-perf-test
 namespace:
   number: 1
   deleteAutomanagedNamespaces: false
@@ -166,8 +166,52 @@ steps:
       replicas: {{$NumEGWClients}}
       metricsSuffix: HighScale
 
+# Gather the Cilium metrics here, so that they are not impacted by the performance test.
 - module:
     path: ../cilium-metrics.yaml
+    params:
+      action: gather
+
+- module:
+    path: modules/node-metrics.yaml
+    params:
+      action: start
+
+# Run the performance tests via CL2 as well, so that metrics are automatically scraped.
+- name: Run performance tests
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      - cilium
+      - connectivity
+      - perf
+      - --report-dir=./report
+      - --duration=30s
+      - --setup-delay=10s
+      - --throughput=true
+      - --rr=true
+      - --crr=true
+      - --udp=true
+      - --pod-net=false
+      - --host-net=false
+      - --pod-to-host=true
+      - --same-node=false
+      - --other-node=true
+      - --tolerations=node.kubernetes.io/not-ready,cilium.io/no-schedule
+      - --node-selector-server=cilium.io/no-schedule=true
+      - --node-selector-client=role.scaffolding/egw-client=true
+
+- name: Sleep to allow scraping
+  measurements:
+  - Identifier: SleepMetricsScraping
+    Method: Sleep
+    Params:
+      duration: 30s
+
+- module:
+    path: modules/node-metrics.yaml
     params:
       action: gather
 
