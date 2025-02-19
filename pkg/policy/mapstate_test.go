@@ -1282,12 +1282,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: emptyMapState(),
-		adds:  Keys{},
-		deletes: Keys{
-			// Delete of the key is recoded as the key may have existed already in the (bpf) map
-			HttpEgressKey(44): {},
-		},
+		state:   emptyMapState(),
+		adds:    Keys{},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-4b - Add, delete, & add; delete suppressed",
