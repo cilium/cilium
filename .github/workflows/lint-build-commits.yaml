@@ -130,13 +130,21 @@ jobs:
           set -eu -o pipefail
           if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
             COMMITS=${{ github.sha }}
+            HEAD_COMMIT=${{ github.sha }}
           else
             COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+            HEAD_COMMIT=${{ github.event.pull_request.head.sha }}
           fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
-            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble local-release -j $(nproc) || exit 1
+            # full build (with `local-release`) only for head commit (i.e. last commit in sequence)
+            target=hubble
+            if [[ "$commit" == "$HEAD_COMMIT" ]] ; then
+              target=local-release
+            fi
+            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble $target -j $(nproc) || exit 1
           done
+
 
       - name: Check bpf code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
