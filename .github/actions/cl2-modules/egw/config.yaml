@@ -10,8 +10,9 @@
 {{$CreateEGWPolicy := DefaultParam .CL2_EGW_CREATE_POLICY false}}
 {{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
 {{$ManifestsDir := DefaultParam .CL2_EGW_MANIFESTS_DIR "manifests"}}
+{{$UDPMessageSize := DefaultParam .CL2_EGW_PERF_UDP_MSG_SIZE 1024}}
 
-name: egw-scale-test-masq-delay
+name: egw-scale-perf-test
 namespace:
   number: 1
   deleteAutomanagedNamespaces: false
@@ -172,10 +173,18 @@ steps:
       replicas: {{$NumEGWClients}}
       metricsSuffix: HighScale
 
+# Gather the Cilium metrics here, so that they are not impacted by the performance test.
 - module:
     path: ../cilium-metrics.yaml
     params:
       action: gather
+
+# Run the performance test.
+- module:
+    path: modules/perf-test.yaml
+    params:
+      gatewayAddress: {{$GatewayAddress}}
+      udpMessageSize: {{$UDPMessageSize}}
 
 - module:
     path: ../cilium-agent-pprofs.yaml
