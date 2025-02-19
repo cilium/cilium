@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -43,7 +45,7 @@ func localIdentity(n uint32) identity.NumericIdentity {
 }
 
 func TestCacheManagement(t *testing.T) {
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	require.Equal(t, identity, ep2.GetSecurityIdentity())
@@ -86,7 +88,7 @@ func TestCacheManagement(t *testing.T) {
 }
 
 func TestCachePopulation(t *testing.T) {
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
@@ -382,9 +384,9 @@ type policyDistillery struct {
 	log io.Writer
 }
 
-func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
+func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDistillery {
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(selectorCache.logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, certificatemanager.NewMockSecretManagerInline(), envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t)), nil, api.NewPolicyMetricsNoop()),
 	}
 	ret.selectorCache = selectorCache
 	return ret
@@ -640,7 +642,7 @@ func Test_MergeL3(t *testing.T) {
 		Perm(tt.rules, func(rules []*api.Rule) {
 			round++
 
-			repo := newPolicyDistillery(selectorCache)
+			repo := newPolicyDistillery(t, selectorCache)
 			_, _ = repo.MustAddList(rules)
 
 			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
@@ -1176,7 +1178,7 @@ func Test_MergeRules(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		generatedRule := generateRule(tt.test)
 		for _, r := range tt.rules {
 			if r != nil {
@@ -1272,7 +1274,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, testMapState(t, mapStateMap{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4__Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
 	}
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
@@ -1318,7 +1320,7 @@ func Test_AllowAll(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(tt.selector)
@@ -1737,7 +1739,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = false
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {
 				_, _ = repo.MustAddList(api.Rules{rule})
@@ -1818,7 +1820,7 @@ func Test_Allowception(t *testing.T) {
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = false
 
-	repo := newPolicyDistillery(selectorCache)
+	repo := newPolicyDistillery(t, selectorCache)
 	rules := api.Rules{ruleAllowEgressDenyCIDRSet}
 	for _, rule := range rules {
 		if rule != nil {
@@ -1866,7 +1868,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {
 				_, _ = repo.MustAddList(api.Rules{rule})
@@ -1993,7 +1995,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	}}
 
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
+		repo := newPolicyDistillery(t, selectorCache)
 		repo.MustAddList(tt.rules)
 
 		t.Run(tt.test, func(t *testing.T) {

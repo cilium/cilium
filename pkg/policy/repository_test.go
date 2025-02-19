@@ -261,7 +261,6 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.False(t, ingress)
 	require.False(t, egress)
-
 }
 
 func BenchmarkParseLabel(b *testing.B) {
@@ -504,7 +503,6 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	})
 
 	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule, &l7Rule, &icmpRule, &icmpV6Rule)
-
 }
 
 func TestWildcardL4RulesIngress(t *testing.T) {
@@ -1531,7 +1529,6 @@ func TestIterate(t *testing.T) {
 // TestDefaultAllow covers the defaulting logic in determining an identity's default rule
 // in the presence or absence of rules that do not enable default-deny mode.
 func TestDefaultAllow(t *testing.T) {
-
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -1681,7 +1678,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(hivetest.Logger(t), nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
@@ -1829,7 +1826,7 @@ func TestReplaceByResource(t *testing.T) {
 func TestReplaceByLabels(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(hivetest.Logger(t), nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
