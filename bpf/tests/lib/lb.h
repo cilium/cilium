@@ -8,7 +8,7 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_na
 	struct lb4_key svc_key = {
 		.address = addr,
 		.dport = port,
-		.scope = LB_LOOKUP_SCOPE_EXT,
+		.scope = LB_LOOKUP_SCOPE_LIMITED,
 	};
 	struct lb4_service svc_value = {
 		.count = backend_count,
@@ -17,7 +17,7 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_na
 	};
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 	/* Register with both scopes: */
-	svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	svc_key.scope = LB_LOOKUP_SCOPE_FULL;
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 }
 
@@ -42,7 +42,7 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u16 backend_count, __u1
 	struct lb4_key svc_key = {
 		.address = addr,
 		.dport = port,
-		.scope = LB_LOOKUP_SCOPE_EXT,
+		.scope = LB_LOOKUP_SCOPE_LIMITED,
 	};
 	struct lb4_service svc_value = {
 		.count = backend_count,
@@ -52,7 +52,7 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u16 backend_count, __u1
 	};
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 	/* Register with both scopes: */
-	svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	svc_key.scope = LB_LOOKUP_SCOPE_FULL;
 	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 }
 
@@ -84,7 +84,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 		.address = svc_addr,
 		.dport = svc_port,
 		.backend_slot = backend_slot,
-		.scope = LB_LOOKUP_SCOPE_EXT,
+		.scope = LB_LOOKUP_SCOPE_LIMITED,
 	};
 	struct lb4_service svc_value = {
 		.backend_id = backend_id,
@@ -102,7 +102,7 @@ __lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count, 
 {
 	struct lb6_key svc_key __align_stack_8 = {
 		.dport = port,
-		.scope = LB_LOOKUP_SCOPE_EXT,
+		.scope = LB_LOOKUP_SCOPE_LIMITED,
 	};
 	struct lb6_service svc_value = {
 		.count = backend_count,
@@ -113,7 +113,7 @@ __lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count, 
 
 	memcpy(&svc_key.address, addr, sizeof(*addr));
 	map_update_elem(&LB6_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
-	svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	svc_key.scope = LB_LOOKUP_SCOPE_FULL;
 	map_update_elem(&LB6_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
 
 	/* Insert a reverse NAT entry for the above service */
@@ -147,7 +147,7 @@ lb_v6_add_backend(const union v6addr *svc_addr, __be16 svc_port, __u16 backend_s
 	struct lb6_key svc_key __align_stack_8 = {
 		.dport = svc_port,
 		.backend_slot = backend_slot,
-		.scope = LB_LOOKUP_SCOPE_EXT,
+		.scope = LB_LOOKUP_SCOPE_LIMITED,
 	};
 	struct lb6_service svc_value = {
 		.backend_id = backend_id,
