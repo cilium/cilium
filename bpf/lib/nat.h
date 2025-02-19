@@ -707,10 +707,18 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 */
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		/* SNAT the packet to remote node if enable-remote-node-snat flag is set to true.
+		 * This is a feature flag that can be enabled in BPF routing mode.
+		 */
+		#ifdef ENABLE_REMOTE_NODE_SNAT
+		{
+			target->addr = IPV4_MASQUERADE;
+			return NAT_NEEDED;
+		}
+		#endif
 		/* Don't masquerade in native-routing mode: */
 		if (!is_defined(TUNNEL_MODE))
 			return NAT_PUNT_TO_STACK;
-
 		/* In overlay routing mode, pod-to-remote-node traffic
 		 * typically doesn't get transported via the overlay
 		 * network (https://github.com/cilium/cilium/issues/12624).
@@ -1566,6 +1574,12 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		#ifdef ENABLE_REMOTE_NODE_SNAT
+		{
+			ipv6_addr_copy(&target->addr, &masq_addr);
+			return NAT_NEEDED;
+		}
+		#endif
 		if (!is_defined(TUNNEL_MODE))
 			return NAT_PUNT_TO_STACK;
 

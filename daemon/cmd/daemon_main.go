@@ -663,6 +663,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
+	flags.Bool(option.EnableRemoteNodeSnat, false, "SNAT IPv4 packets from endpoints leaving the host destined to a remote node node in BPF routing mode. This option requires to set enable-bpf-masquerade to true.")
+	option.BindEnv(vp, option.EnableRemoteNodeSnat)
+
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv6Masquerade)
 
@@ -1310,6 +1313,10 @@ func initEnv(vp *viper.Viper) {
 
 	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
 		log.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
+	}
+
+	if option.Config.EnableRemoteNodeSnat && !option.Config.EnableBPFMasquerade {
+		log.Fatal("EnableRemoteNodeSnat is enabled but EnableBPFMasquerade is not. Ignoring option.")
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
