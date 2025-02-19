@@ -29,7 +29,7 @@ jobs:
     name: Compute variables
     runs-on: ubuntu-22.04
     outputs:
-      commits: ${{ steps.commits.outputs.commits }}
+      matrix: ${{ steps.commits.outputs.matrix }}
       head-commit: ${{ steps.commits.outputs.head-commit }}
       build-bpf: ${{ steps.bpf-changes.outputs.src }}
       build-test: ${{ steps.test-changes.outputs.src }}
@@ -47,7 +47,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Compute commit list
+      - name: Compute matrix
         id: commits
         run: |
           if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
@@ -57,7 +57,7 @@ jobs:
             commits=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | tr '\n' ' ')
             head_commit=${{ github.event.pull_request.head.sha }}
           fi
-          echo "commits=$commits" >> $GITHUB_OUTPUT
+          echo "matrix=$(echo "$commits" | xargs | jq -c -R 'split(" ") | {commit: .}')" >> $GITHUB_OUTPUT
           echo "head-commit=$head_commit" >> $GITHUB_OUTPUT
 
       - name: Check bpf code changes
@@ -65,7 +65,7 @@ jobs:
         id: bpf-changes
         with:
           # If these filters are modified, also modify the step:
-          # build-commits-bpf: Check if datapath build works for every commit
+          # build-bpf: Check if bpf builds
           filters: |
             src:
               - 'bpf/**'
@@ -75,17 +75,20 @@ jobs:
         id: test-changes
         with:
           # If these filters are modified, also modify the step:
-          # build-commits-test: Check if ginkgo test suite build works for every commit
+          # build-test: Check if ginkgo test suite builds
           filters: |
             src:
               - 'pkg/**'
               - 'test/**'
 
-  build-commits-cilium:
-    name: Check if cilium builds for every commit
+  build-cilium:
+    name: cilium build check ${{ matrix.commit }}
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     timeout-minutes: 180
+    strategy:
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.compute-vars.outputs.matrix) }}
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -101,8 +104,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ matrix.commit }}
 
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
@@ -141,7 +143,7 @@ jobs:
           mkdir -p /tmp/.cache/go/pkg
           mkdir -p /tmp/.cache/ccache/.ccache
 
-      - name: Check if build works for every commit
+      - name: Check if cilium builds for commit
         if: ${{ github.event_name != 'push' || ( (github.event_name == 'push' || github.event_name == 'workflow_run' ) && (steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true')) }}
         env:
           CLANG: "ccache clang"
@@ -150,11 +152,7 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          commits="${{ needs.compute-vars.outputs.commits }}"
-          for commit in $commits; do
-            git checkout $commit || exit 1
-            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
-          done
+          contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
@@ -163,15 +161,14 @@ jobs:
           sudo du -sh /tmp/.cache/
           sudo chown $USER:$USER -R /tmp/.cache
 
-      - name: Failed commit during the build
-        if: ${{ failure() }}
-        run: git --no-pager log --format=%B -n 1
-
-  build-commits-hubble-cli:
-    name: Check if hubble-cli builds for every commit
+  build-hubble-cli:
+    name: hubble-cli build check ${{ matrix.commit }}
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     timeout-minutes: 180
+    strategy:
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.compute-vars.outputs.matrix) }}
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -187,8 +184,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ matrix.commit }}
 
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
@@ -227,7 +223,7 @@ jobs:
           mkdir -p /tmp/.cache/hubble-cli/.cache/go-build
           mkdir -p /tmp/.cache/hubble-cli/pkg
 
-      - name: Check if hubble CLI builds for every commit
+      - name: Check if hubble CLI builds for commit
         if: ${{ github.event_name != 'push' || ( github.event_name == 'push' && steps.hubble-cache.outputs.cache-hit != 'true' ) }}
         env:
           CLANG: "ccache clang"
@@ -235,18 +231,15 @@ jobs:
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/hubble-cli/pkg"
         run: |
           set -eu -o pipefail
-          commits="${{ needs.compute-vars.outputs.commits }}"
+          commit="${{ matrix.commit }}"
           head_commit="${{ needs.compute-vars.outputs.head-commit }}"
-          for commit in $commits; do
-            git checkout $commit || exit 1
-            echo "Only run full build (with `local-release`) for head commit (i.e. last commit in sequence)"
-            target=hubble
-            if [[ "$commit" == "$head_commit" ]]; then
-              target=local-release
-            fi
-            echo "Running build: $target (commit: $commit)"
-            contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble $target -j $(nproc) || exit 1
-          done
+          echo "Only run full build (with `local-release`) for head commit (i.e. last commit in sequence)"
+          target=hubble
+          if [[ "$commit" == "$head_commit" ]]; then
+            target=local-release
+          fi
+          echo "Running build: $target (commit: $commit)"
+          contrib/scripts/builder.sh make CLANG="${CLANG}" -C hubble local-release -j $(nproc) || exit 1
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
@@ -255,17 +248,16 @@ jobs:
           sudo du -sh /tmp/.cache/
           sudo chown $USER:$USER -R /tmp/.cache
 
-      - name: Failed commit during the build
-        if: ${{ failure() }}
-        run: git --no-pager log --format=%B -n 1
-
-  build-commits-bpf:
-    name: Check if bpf builds for every commit
+  build-bpf:
+    name: bpf build check ${{ matrix.commit }}
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     # Runs only if code under bpf/ is changed.
     if: needs.compute-vars.outputs.build-bpf == 'true'
     timeout-minutes: 180
+    strategy:
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.compute-vars.outputs.matrix) }}
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -281,8 +273,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ matrix.commit }}
 
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
@@ -321,7 +312,7 @@ jobs:
           mkdir -p /tmp/.cache/go/pkg
           mkdir -p /tmp/.cache/ccache/.ccache
 
-      - name: Check if datapath build works for every commit
+      - name: Check if bpf builds
         env:
           CLANG: "ccache clang"
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
@@ -329,17 +320,13 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          commits="${{ needs.compute-vars.outputs.commits }}"
-          for commit in $commits; do
-            git checkout $commit || exit 1
-            # Do not run make if there aren't any files modified in these
-            # directories from the previous commit to the current commit.
-            # If these filters are modified, also modify the step:
-            # compute-vars: Check bpf code changes
-            if ! git diff --quiet HEAD^ bpf/ ; then
-              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
-            fi
-          done
+          # Do not run make if there aren't any files modified in these
+          # directories from the previous commit to the current commit.
+          # If these filters are modified, also modify the step:
+          # compute-vars: Check bpf code changes
+          if ! git diff --quiet HEAD^ bpf/ ; then
+            contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
+          fi
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
@@ -348,17 +335,16 @@ jobs:
           sudo du -sh /tmp/.cache/
           sudo chown $USER:$USER -R /tmp/.cache
 
-      - name: Failed commit during the build
-        if: ${{ failure() }}
-        run: git --no-pager log --format=%B -n 1
-
-  build-commits-test:
-    name: Check if test builds for every commit
+  build-test:
+    name: test build check ${{ matrix.commit }}
     runs-on: ubuntu-22.04
     needs: [compute-vars]
     # Runs only if code under test/ is changed.
     if: needs.compute-vars.outputs.build-test == 'true'
     timeout-minutes: 180
+    strategy:
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.compute-vars.outputs.matrix) }}
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -374,8 +360,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ matrix.commit }}
 
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
@@ -406,21 +391,13 @@ jobs:
         run: |
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
-      - name: Check if ginkgo test suite build works for every commit
+      - name: Check if ginkgo test suite builds
         run: |
           set -eu -o pipefail
-          commits="${{ needs.compute-vars.outputs.commits }}"
-          for commit in $commits; do
-            git checkout $commit || exit 1
-            # Do not run make if there aren't any files modified in these
-            # directories from the previous commit to the current commit.
-            # If these filters are modified, also modify the step:
-            # compute-vars: Check test code changes
-            if ! git diff --quiet HEAD^ pkg/ test/ ; then
-              (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
-            fi
-          done
-
-      - name: Failed commit during the build
-        if: ${{ failure() }}
-        run: git --no-pager log --format=%B -n 1
+          # Do not run make if there aren't any files modified in these
+          # directories from the previous commit to the current commit.
+          # If these filters are modified, also modify the step:
+          # compute-vars: Check test code changes
+          if ! git diff --quiet HEAD^ pkg/ test/ ; then
+            (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+          fi
