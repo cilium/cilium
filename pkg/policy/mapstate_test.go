@@ -812,6 +812,10 @@ func proxyEntry(proxyPort uint16) mapStateEntry {
 	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort), nil)
 }
 
+func proxyPriorityEntry(proxyPort uint16, priority uint8) mapStateEntry {
+	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithProxyPriority(priority), nil)
+}
+
 func denyEntry() mapStateEntry {
 	return NewMapStateEntry(DenyEntry, nil)
 }
@@ -1167,9 +1171,10 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		adds     []int
 		deletes  []int
 		port     uint16
+		prefix   uint8
 		proto    u8proto.U8proto
 		ingress  bool
-		redirect bool
+		redirect uint8 // listener priority
 		deny     bool
 		authReq  AuthRequirement
 	}
@@ -1183,7 +1188,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	}{{
 		name: "test-2a - Adding 2 identities, and deleting a nonexisting key on an empty state",
 		args: []args{
-			{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true},
 		},
 		state: testMapState(mapStateMap{
 			HttpIngressKey(42): allowEntry(),
@@ -1198,7 +1203,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 42",
 		args: []args{
-			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true},
 		},
 		state: testMapState(mapStateMap{
 			HttpIngressKey(42): allowEntry(),
@@ -1213,8 +1218,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-2c - Deleting 42",
 		args: []args{
-			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
-			{cs: csBar, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true},
+			{cs: csBar, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true},
 		},
 		state: testMapState(mapStateMap{
 			HttpIngressKey(43): allowEntry(),
@@ -1228,7 +1233,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-2f - Adding an entry that already exists, no adds",
 		args: []args{
-			{cs: csBar, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csBar, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: true},
 		},
 		state: testMapState(mapStateMap{
 			HttpIngressKey(43): allowEntry(),
@@ -1240,10 +1245,10 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: false,
 		name:      "test-3a - egress HTTP proxy (setup)",
 		args: []args{
-			{cs: nil, adds: []int{0}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: false},
-			{cs: nil, adds: []int{1}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: false},
-			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
-			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
+			{cs: nil, adds: []int{0}, deletes: []int{}, port: 0, proto: 0, ingress: true},
+			{cs: nil, adds: []int{1}, deletes: []int{}, port: 0, proto: 0, ingress: true},
+			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false},
+			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false},
 		},
 		state: testMapState(mapStateMap{
 			AnyIngressKey():     allowEntry(),
@@ -1262,14 +1267,14 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-3b - egress HTTP proxy (incremental update)",
 		args: []args{
-			{cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: 1},
 		},
 		state: testMapState(mapStateMap{
 			AnyIngressKey():     allowEntry(),
 			HostIngressKey():    allowEntry(),
 			DNSUDPEgressKey(42): allowEntry(),
 			DNSTCPEgressKey(42): allowEntry(),
-			HttpEgressKey(43):   proxyEntry(1),
+			HttpEgressKey(43):   proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			HttpEgressKey(43): {},
@@ -1279,8 +1284,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: false,
 		name:      "test-4a - Add & delete; delete cancels the add in reply",
 		args: []args{
-			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
-			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: 1},
+			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: 1},
 		},
 		state:   emptyMapState(),
 		adds:    Keys{},
@@ -1289,12 +1294,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-4b - Add, delete, & add; delete suppressed",
 		args: []args{
-			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
-			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
-			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: 1},
+			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: 1},
+			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: 1},
 		},
 		state: testMapState(mapStateMap{
-			HttpEgressKey(44): proxyEntry(1),
+			HttpEgressKey(44): proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			HttpEgressKey(44): {},
@@ -1306,12 +1311,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{43}, authReq: AuthTypeAlwaysFail.AsExplicitRequirement()},
 			{cs: csFoo, adds: []int{0}, proto: 6, authReq: AuthTypeSpire.AsExplicitRequirement()},
-			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: 1},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
 			egressKey(0, 6, 0, 0):   allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): proxyEntry(1).withDerivedAuth(AuthTypeAlwaysFail),
+			egressKey(43, 6, 80, 0): proxyPriorityEntry(1, 1).withDerivedAuth(AuthTypeAlwaysFail),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
@@ -1323,14 +1328,14 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: false,
 		name:      "test-5b - auth type propagation from the most specific covering key - reverse",
 		args: []args{
-			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: 1},
 			{cs: csFoo, adds: []int{0}, proto: 6, authReq: AuthTypeSpire.AsExplicitRequirement()},
 			{cs: csFoo, adds: []int{43}, authReq: AuthTypeAlwaysFail.AsExplicitRequirement()},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
 			egressKey(0, 6, 0, 0):   allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): proxyEntry(1).withDerivedAuth(AuthTypeAlwaysFail),
+			egressKey(43, 6, 80, 0): proxyPriorityEntry(1, 1).withDerivedAuth(AuthTypeAlwaysFail),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
@@ -1340,14 +1345,130 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
+		name:      "test-5c - higher priority proxy port override with auth entries",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, proto: 6, redirect: 1},
+			// lower priority redirect (priority 2) is overridden by priority 1 redirect
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 2},
+			// but more specific entries with different auth are not
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csBar, adds: []int{43}, port: 81, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 0, 0): proxyPriorityEntry(1, 1),
+			//egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 2),
+			egressKey(43, 6, 80, 0): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+			egressKey(43, 6, 81, 0): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 0, 0): {},
+			//egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 16): {},
+			egressKey(43, 6, 81, 16): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5d - higher priority proxy port override with auth entries - reverse",
+		args: []args{
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 1},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1),
+			egressKey(43, 6, 80, 0):  proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 0):  {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5e - higher priority proxy port propagation to auth entries",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, proto: 6, redirect: 1},
+			// lower priority redirect (priority 2) is overridden by priority 1 redirect, but kept due to different auth requirement
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 2, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			// but more specific entries with same auth are not added
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csBar, adds: []int{43}, port: 81, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
+			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 0, 0):   {},
+			egressKey(43, 6, 80, 12): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5f - higher priority proxy port propagation to auth entries - reverse",
+		args: []args{
+			{cs: csBar, adds: []int{43}, port: 81, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 2, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csFoo, adds: []int{43}, proto: 6, redirect: 1},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
+			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 0, 0):   {},
+			egressKey(43, 6, 80, 12): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5g - higher priority proxy port propagation to auth proxy entry",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, proto: 6, redirect: 1},
+			// lower priority redirect (priority 2) is overridden by priority 1 redirect, but kept due to different auth requirement
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 2, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			// but more specific entries with same auth are not added
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16},
+			{cs: csBar, adds: []int{43}, port: 81, proto: 6, prefix: 16},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
+			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 0, 0):   {},
+			egressKey(43, 6, 80, 12): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5h - higher priority proxy port propagation to auth proxy entry - reverse",
+		args: []args{
+			{cs: csBar, adds: []int{43}, port: 81, proto: 6, prefix: 16},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, prefix: 16},
+			{cs: csFoo, adds: []int{43}, port: 80, proto: 6, prefix: 12, redirect: 2, authReq: AuthTypeSpire.AsExplicitRequirement()},
+			{cs: csFoo, adds: []int{43}, proto: 6, redirect: 1},
+		},
+		state: testMapState(mapStateMap{
+			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
+			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+		}),
+		adds: Keys{
+			egressKey(43, 6, 0, 0):   {},
+			egressKey(43, 6, 80, 12): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
 		name:      "test-6a - L3-only explicit auth type and L4-only without",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, authReq: AuthTypeSpire.AsExplicitRequirement()},
-			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: 1},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 0, 0, 0): allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(0, 6, 80, 0): proxyEntry(1),
+			egressKey(0, 6, 80, 0): proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0): {},
@@ -1358,12 +1479,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: false,
 		name:      "test-6b - L3-only explicit auth type and L4-only without - reverse",
 		args: []args{
-			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: 1},
 			{cs: csFoo, adds: []int{43}, authReq: AuthTypeSpire.AsExplicitRequirement()},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 0, 0, 0): allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(0, 6, 80, 0): proxyEntry(1),
+			egressKey(0, 6, 80, 0): proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0): {},
@@ -1375,11 +1496,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		name:      "test-7a - L3/proto explicit auth type and L4-only without",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, proto: 6, authReq: AuthTypeSpire.AsExplicitRequirement()},
-			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: 1},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 6, 0, 0): allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(0, 6, 80, 0): proxyEntry(1),
+			egressKey(0, 6, 80, 0): proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			egressKey(43, 6, 0, 0): {},
@@ -1390,12 +1511,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: false,
 		name:      "test-7b - L3/proto explicit auth type and L4-only without - reverse",
 		args: []args{
-			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: 1},
 			{cs: csFoo, adds: []int{43}, proto: 6, authReq: AuthTypeSpire.AsExplicitRequirement()},
 		},
 		state: testMapState(mapStateMap{
 			egressKey(43, 6, 0, 0): allowEntry().withExplicitAuth(AuthTypeSpire),
-			egressKey(0, 6, 80, 0): proxyEntry(1),
+			egressKey(0, 6, 80, 0): proxyPriorityEntry(1, 1),
 		}),
 		adds: Keys{
 			egressKey(43, 6, 0, 0): {},
@@ -1441,12 +1562,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			}
 			adds := x.cs.addSelections(x.adds...)
 			deletes := x.cs.deleteSelections(x.deletes...)
-			key := KeyForDirection(dir).WithPortProto(x.proto, x.port)
+			key := KeyForDirection(dir).WithPortProtoPrefix(x.proto, x.port, x.prefix)
 			var proxyPort uint16
-			if x.redirect {
+			if x.redirect != 0 {
 				proxyPort = 1
 			}
-			value := newMapStateEntry(nil, proxyPort, 0, x.deny, x.authReq)
+			value := newMapStateEntry(nil, proxyPort, x.redirect, x.deny, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
