@@ -15,6 +15,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/time"
@@ -60,10 +61,17 @@ func (n *manager) model() *models.NameManager {
 //
 // endpointID may be "" in order to get DNS history for all endpoints.
 func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
-	eps := n.getEndpointsDNSInfo(endpointID)
-	if eps == nil {
-		return nil, &NoEndpointIDMatch{ID: endpointID}
+	var eps []*endpoint.Endpoint
+	if endpointID == "" {
+		eps = n.params.EPMgr.GetEndpoints()
+	} else {
+		ep, err := n.params.EPMgr.Lookup(endpointID)
+		if ep == nil || err != nil {
+			return nil, &NoEndpointIDMatch{ID: endpointID}
+		}
+		eps = append(eps, ep)
 	}
+
 	for _, ep := range eps {
 		lookupSourceEntries := []*models.DNSLookup{}
 		connectionSourceEntries := []*models.DNSLookup{}
@@ -91,7 +99,7 @@ func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMa
 				LookupTime:     strfmt.DateTime(lookup.LookupTime),
 				TTL:            int64(lookup.TTL),
 				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
-				EndpointID:     int64(ep.ID64),
+				EndpointID:     int64(ep.ID),
 				Source:         DNSSourceLookup,
 			})
 		}
@@ -108,7 +116,7 @@ func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMa
 					LookupTime:     strfmt.DateTime(delete.AliveAt),
 					TTL:            0,
 					ExpirationTime: strfmt.DateTime(ep.DNSZombies.NextCTGCUpdate),
-					EndpointID:     int64(ep.ID64),
+					EndpointID:     int64(ep.ID),
 					Source:         DNSSourceConnection,
 				})
 			}
@@ -147,7 +155,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
-	for _, ep := range n.getEndpointsDNSInfo("") {
+	for _, ep := range n.params.EPMgr.GetEndpoints() {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
