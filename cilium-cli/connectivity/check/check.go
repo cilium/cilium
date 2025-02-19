@@ -35,6 +35,9 @@ type PerfParameters struct {
 	UDP         bool
 	Image       string
 	NetQos      bool
+
+	NodeSelectorServer map[string]string
+	NodeSelectorClient map[string]string
 }
 
 type Parameters struct {
