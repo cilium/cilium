@@ -330,7 +330,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		features.ExtractFromNodes(ct.nodesWithoutCilium)
+		features.ExtractFromNodes(ct.params.Perf, ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
