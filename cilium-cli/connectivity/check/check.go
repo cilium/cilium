@@ -23,6 +23,7 @@ import (
 type PerfParameters struct {
 	ReportDir   string
 	Duration    time.Duration
+	SetupDelay  time.Duration
 	HostNet     bool
 	PodNet      bool
 	PodToHost   bool
