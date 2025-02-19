@@ -246,6 +246,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	}
 
 	cmd.Flags().DurationVar(&params.PerfParameters.Duration, "duration", 10*time.Second, "Duration for the Performance test to run")
+	cmd.Flags().DurationVar(&params.PerfParameters.SetupDelay, "setup-delay", 0, "Extra delay before starting the performance tests")
 	cmd.Flags().IntVar(&params.PerfParameters.MessageSize, "msg-size", 1024, "Size of message to use in UDP test")
 	cmd.Flags().BoolVar(&params.PerfParameters.CRR, "crr", false, "Run CRR test")
 	cmd.Flags().BoolVar(&params.PerfParameters.RR, "rr", true, "Run RR test")
