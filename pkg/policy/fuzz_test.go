@@ -30,7 +30,7 @@ func FuzzResolvePolicy(f *testing.F) {
 			return
 		}
 
-		td := newTestData().withIDs(ruleTestIDs)
+		td := newTestData(t).withIDs(ruleTestIDs)
 		td.repo.mustAdd(r)
 		sp, err := td.repo.resolvePolicyLocked(idA)
 		if err != nil {

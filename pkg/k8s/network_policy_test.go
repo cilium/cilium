@@ -133,7 +133,7 @@ func testNewPolicyRepository(initialIDs []*identity.Identity) *policy.Repository
 	for _, id := range initialIDs {
 		idmap[id.ID] = id.LabelArray
 	}
-	repo := policy.NewPolicyRepository(idmap, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(idmap, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }

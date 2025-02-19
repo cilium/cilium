@@ -9,12 +9,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/defaults"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -57,10 +60,10 @@ type testData struct {
 	cachedSelectorWorldV6 CachedSelector
 }
 
-func newTestData() *testData {
+func newTestData(t testing.TB) *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(nil),
-		repo:              NewPolicyRepository(nil, &fakeCertificateManager{}, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(nil, &fakeCertificateManager{}, certificatemanager.NewMockSecretManagerInline(), envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t)), nil, api.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -138,7 +141,6 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	}
 
 	if expectedOut != nil {
-
 		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
 	}
 }
@@ -239,7 +241,7 @@ func init() {
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -316,7 +318,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 // at L7, but still redirected at the proxy.
 // Should resolve to one rule.
 func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -427,7 +429,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and
 // same API resource specified at L7 for HTTP.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	identicalHTTPRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -487,7 +489,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 
 // Case 4: identical allow all at L3 with identical restrictions on Kafka.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	identicalKafkaRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -549,7 +551,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 // Case 5: use conflicting protocols on the same port in different rules. This
 // is not supported, so return an error.
 func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	// Case 5A: Kafka first, HTTP second.
 	conflictingParsersRule := api.Rule{
@@ -711,7 +713,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 // TLS policy without L7 rules does not inspect L7, uses L7ParserType "tls"
 func TestMergeTLSTCPPolicy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	egressRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -793,7 +795,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -879,7 +881,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -982,7 +984,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 }
 
 func TestMergeListenerPolicy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	//
 	// no namespace (NodeFirewall policy): Can not refer to EnvoyConfig
@@ -1218,7 +1220,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 // in another rule. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second).
 func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1316,7 +1318,7 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 // which restricts on L7. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second), but setting traffic to the HTTP proxy.
 func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Case 7A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
@@ -1440,7 +1442,7 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 // Should resolve to just allowing all on L3, but restricting on L7 for both
 // wildcard and the specified endpoint.
 func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
@@ -1584,7 +1586,7 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 // select an endpoint which restricts on different L7 protocol.
 // Should fail as cannot have conflicting parsers on same port.
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1667,7 +1669,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 // Case 10: restrict same path / method on L7 in both rules,
 // but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	selectDifferentEndpointsRestrictL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -1736,7 +1738,7 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	selectDifferentEndpointsAllowAllL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -1787,7 +1789,7 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 // the host should always be allowed. From Host should go to proxy allow all;
 // other L3 should restrict at L7 in a separate filter.
 func TestAllowingLocalhostShadowsL7(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// This test checks that when the AllowLocalhost=always option is
 	// enabled, we always wildcard the host at L7. That means we need to
 	// set the option in the config, and of course clean up afterwards so
@@ -1841,7 +1843,7 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 }
 
 func TestEntitiesL3(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	allowWorldRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -1871,7 +1873,7 @@ func TestEntitiesL3(t *testing.T) {
 
 // Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
 func TestEgressEmptyToEndpoints(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{

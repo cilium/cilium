@@ -48,7 +48,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
@@ -260,11 +260,10 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.False(t, ingress)
 	require.False(t, egress)
-
 }
 
 func BenchmarkParseLabel(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	repo := td.repo
 
 	b.ResetTimer()
@@ -303,7 +302,7 @@ func BenchmarkParseLabel(b *testing.B) {
 }
 
 func TestWildcardL3RulesIngress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -503,11 +502,10 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	})
 
 	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule, &l7Rule, &icmpRule, &icmpV6Rule)
-
 }
 
 func TestWildcardL4RulesIngress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL7Kafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -635,7 +633,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 }
 
 func TestL3DependentL4IngressFromRequires(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	l480Rule := api.Rule{
 		Ingress: []api.IngressRule{
@@ -687,7 +685,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 }
 
 func TestL3DependentL4EgressFromRequires(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	l480Rule := api.Rule{
 		Egress: []api.EgressRule{
@@ -760,7 +758,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -928,7 +926,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 }
 
 func TestWildcardL4RulesEgress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL7DNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1058,7 +1056,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 }
 
 func TestWildcardCIDRRulesEgress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -1151,7 +1149,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -1266,7 +1264,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressToEntities(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1380,7 +1378,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 }
 
 func TestMinikubeGettingStarted(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1459,7 +1457,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 }
 
 func TestIterate(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	numWithEgress := 0
@@ -1534,7 +1532,6 @@ func TestIterate(t *testing.T) {
 // TestDefaultAllow covers the defaulting logic in determining an identity's default rule
 // in the presence or absence of rules that do not enable default-deny mode.
 func TestDefaultAllow(t *testing.T) {
-
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -1625,7 +1622,7 @@ func TestDefaultAllow(t *testing.T) {
 
 	// three test runs: ingress, egress, and ingress + egress cartesian
 	for i, tc := range ingressCases {
-		td := newTestData()
+		td := newTestData(t)
 		td.addIdentity(fooIdentity)
 		repo := td.repo
 
@@ -1641,7 +1638,7 @@ func TestDefaultAllow(t *testing.T) {
 	}
 
 	for i, tc := range egressCases {
-		td := newTestData()
+		td := newTestData(t)
 		td.addIdentity(fooIdentity)
 		repo := td.repo
 
@@ -1659,7 +1656,7 @@ func TestDefaultAllow(t *testing.T) {
 	// test all combinations of ingress + egress cases
 	for e, etc := range egressCases {
 		for i, itc := range ingressCases {
-			td := newTestData()
+			td := newTestData(t)
 			td.addIdentity(fooIdentity)
 			repo := td.repo
 
@@ -1684,7 +1681,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
@@ -1832,7 +1829,7 @@ func TestReplaceByResource(t *testing.T) {
 func TestReplaceByLabels(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)

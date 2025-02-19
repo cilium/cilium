@@ -186,7 +186,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{}
@@ -202,7 +202,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -214,7 +214,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -226,8 +226,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 }
 
 func TestL7WithIngressWildcard(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -329,8 +328,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -442,8 +440,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
@@ -549,8 +546,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngress(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 

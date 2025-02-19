@@ -130,7 +130,7 @@ func TestParserTypeMerge(t *testing.T) {
 }
 
 func TestCreateL4Filter(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -173,7 +173,7 @@ func TestCreateL4Filter(t *testing.T) {
 }
 
 func TestCreateL4FilterAuthRequired(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -222,7 +222,7 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 	logging.DefaultLogger.SetLevel(logrus.ErrorLevel)
 	defer logging.DefaultLogger.SetLevel(oldLevel)
 
-	td := newTestData()
+	td := newTestData(t)
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -262,7 +262,7 @@ func (a SortablePolicyRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule }
 
 func TestJSONMarshal(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	model := &models.L4Policy{}
 	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Egress))
 	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Ingress))

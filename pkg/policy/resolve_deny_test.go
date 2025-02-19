@@ -181,7 +181,7 @@ func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 }
 
 func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{}
@@ -197,7 +197,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	td.bootstrapRepo(GenerateCIDRDenyRules, 10, t)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
@@ -208,7 +208,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -293,7 +293,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 }
 
 func TestL3WithLocalHostWildcardd(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -388,7 +388,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 }
 
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -497,7 +497,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
