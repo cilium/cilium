@@ -63,6 +63,16 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
+	if perfParameters.SetupDelay > 0 {
+		t.Context().Logf("⌛ Waiting %v before starting performance tests", perfParameters.SetupDelay)
+		select {
+		case <-time.After(perfParameters.SetupDelay):
+		case <-ctx.Done():
+			return
+		}
+		t.Context().Info("Finished waiting before starting performance tests")
+	}
+
 	for sample := 1; sample <= perfParameters.Samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
