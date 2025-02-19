@@ -166,7 +166,7 @@ func deriveStatus(err error) string {
 }
 
 // listAllNetworkInterfaces lists all Azure Interfaces in the client's resource group
-func (c *Client) listAllNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
+func (c *Client) listAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
 	networkInterfaces, err := c.listVirtualMachineScaleSetsNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
@@ -181,10 +181,7 @@ func (c *Client) listAllNetworkInterfaces(ctx context.Context) ([]armnetwork.Int
 }
 
 // vmNetworkInterfaces list all interfaces of non-VMSS instances in the client's resource group
-func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
-	var networkInterfaces []armnetwork.Interface
-	var err error
-
+func (c *Client) vmNetworkInterfaces(ctx context.Context) (networkInterfaces []*armnetwork.Interface, err error) {
 	c.limiter.Limit(ctx, interfacesList)
 	sinceStart := spanstat.Start()
 
@@ -199,22 +196,14 @@ func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]armnetwork.Interfac
 		if err != nil {
 			return nil, err
 		}
-		for _, intf := range nextResult.Value {
-			if intf.Name == nil {
-				continue
-			}
-			networkInterfaces = append(networkInterfaces, *intf)
-		}
+		networkInterfaces = append(networkInterfaces, nextResult.Value...)
 	}
 
 	return networkInterfaces, nil
 }
 
 // listVirtualMachineScaleSetsNetworkInterfaces lists all interfaces from VMs in Scale Sets in the client's resource group
-func (c *Client) listVirtualMachineScaleSetsNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
-	var networkInterfaces []armnetwork.Interface
-	var err error
-
+func (c *Client) listVirtualMachineScaleSetsNetworkInterfaces(ctx context.Context) (networkInterfaces []*armnetwork.Interface, err error) {
 	virtualMachineScaleSets, err := c.listVirtualMachineScaleSets(ctx)
 	if err != nil {
 		return nil, err
@@ -238,10 +227,7 @@ func (c *Client) listVirtualMachineScaleSetsNetworkInterfaces(ctx context.Contex
 }
 
 // listVirtualMachineScaleSets lists all virtual machine scale sets in the client's resource group
-func (c *Client) listVirtualMachineScaleSets(ctx context.Context) ([]armcompute.VirtualMachineScaleSet, error) {
-	var virtualMachineScaleSets []armcompute.VirtualMachineScaleSet
-	var err error
-
+func (c *Client) listVirtualMachineScaleSets(ctx context.Context) (virtualMachineScaleSets []*armcompute.VirtualMachineScaleSet, err error) {
 	c.limiter.Limit(ctx, virtualMachineScaleSetsList)
 	sinceStart := spanstat.Start()
 
@@ -256,22 +242,14 @@ func (c *Client) listVirtualMachineScaleSets(ctx context.Context) ([]armcompute.
 		if err != nil {
 			return nil, err
 		}
-		for _, virtualMachineScaleSet := range nextResult.Value {
-			if virtualMachineScaleSet.Name == nil {
-				continue
-			}
-			virtualMachineScaleSets = append(virtualMachineScaleSets, *virtualMachineScaleSet)
-		}
+		virtualMachineScaleSets = append(virtualMachineScaleSets, nextResult.Value...)
 	}
 
 	return virtualMachineScaleSets, nil
 }
 
 // listVirtualMachineScaleSetNetworkInterfaces lists all network interfaces for a given virtual machines scale set
-func (c *Client) listVirtualMachineScaleSetNetworkInterfaces(ctx context.Context, virtualMachineScaleSetName string) ([]armnetwork.Interface, error) {
-	var networkInterfaces []armnetwork.Interface
-	var err error
-
+func (c *Client) listVirtualMachineScaleSetNetworkInterfaces(ctx context.Context, virtualMachineScaleSetName string) (networkInterfaces []*armnetwork.Interface, err error) {
 	c.limiter.Limit(ctx, interfacesListVirtualMachineScaleSetNetworkInterfaces)
 	sinceStart := spanstat.Start()
 
@@ -283,17 +261,10 @@ func (c *Client) listVirtualMachineScaleSetNetworkInterfaces(ctx context.Context
 
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
-
 		if err != nil {
 			return nil, err
 		}
-
-		for _, intf := range nextResult.Value {
-			if intf.Name == nil {
-				continue
-			}
-			networkInterfaces = append(networkInterfaces, *intf)
-		}
+		networkInterfaces = append(networkInterfaces, nextResult.Value...)
 	}
 
 	return networkInterfaces, nil
@@ -378,7 +349,7 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 	}
 
 	for _, iface := range networkInterfaces {
-		if id, azureInterface := parseInterface(&iface, subnets, c.usePrimary); id != "" {
+		if id, azureInterface := parseInterface(iface, subnets, c.usePrimary); id != "" {
 			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}
@@ -387,10 +358,7 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 }
 
 // listAllVPCs lists all VPCs
-func (c *Client) listAllVPCs(ctx context.Context) ([]armnetwork.VirtualNetwork, error) {
-	var vpcs []armnetwork.VirtualNetwork
-	var err error
-
+func (c *Client) listAllVPCs(ctx context.Context) (vpcs []*armnetwork.VirtualNetwork, err error) {
 	c.limiter.Limit(ctx, virtualNetworksListAll)
 	sinceStart := spanstat.Start()
 
@@ -406,9 +374,7 @@ func (c *Client) listAllVPCs(ctx context.Context) ([]armnetwork.VirtualNetwork, 
 		if err != nil {
 			return nil, err
 		}
-		for _, vpc := range nextResult.Value {
-			vpcs = append(vpcs, *vpc)
-		}
+		vpcs = append(vpcs, nextResult.Value...)
 	}
 
 	return vpcs, nil
