@@ -5,7 +5,6 @@ package check
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -45,9 +44,9 @@ type ConcurrentLogger struct {
 // Start starts ConcurrentLogger internals in separate goroutines:
 // - collector: collects incoming test messages.
 // - printer: sends messages to the writer in corresponding order.
-func (c *ConcurrentLogger) Start(ctx context.Context) {
+func (c *ConcurrentLogger) Start() {
 	c.collectorStarted.Store(true)
-	go c.collector(ctx)
+	go c.collector()
 	go c.printer()
 }
 
@@ -114,29 +113,20 @@ func (c *ConcurrentLogger) FinishTest(test *Test) {
 	}
 }
 
-func (c *ConcurrentLogger) collector(ctx context.Context) {
+func (c *ConcurrentLogger) collector() {
 	defer c.collectorStarted.Store(false)
-	for {
-		select {
-		case m, open := <-c.messageCh:
-			if !open {
-				return
-			}
-			nsTest := m.nsTest()
-			c.nsTestMsgsLock.Lock()
-			nsTestMsgs, ok := c.nsTestMsgs[nsTest]
-			if !ok {
-				nsTestMsgs = make([]message, 0)
-				// use a separate goroutine to avoid deadlock if the channel
-				// buffer is full, printer goroutine will pull it eventually
-				go func() { c.nsTestsCh <- nsTest }()
-			}
-			c.nsTestMsgs[nsTest] = append(nsTestMsgs, m)
-			c.nsTestMsgsLock.Unlock()
-		case <-ctx.Done():
-			close(c.messageCh)
-			return
+	for m := range c.messageCh {
+		nsTest := m.nsTest()
+		c.nsTestMsgsLock.Lock()
+		nsTestMsgs, ok := c.nsTestMsgs[nsTest]
+		if !ok {
+			nsTestMsgs = make([]message, 0)
+			// use a separate goroutine to avoid deadlock if the channel
+			// buffer is full, printer goroutine will pull it eventually
+			go func() { c.nsTestsCh <- nsTest }()
 		}
+		c.nsTestMsgs[nsTest] = append(nsTestMsgs, m)
+		c.nsTestMsgsLock.Unlock()
 	}
 }
 
