@@ -235,6 +235,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 			// and both of these commands share the same RunE for now.
 			params.Perf = true
 			params.ForceDeploy = true
+			params.Hubble = false
 		},
 		RunE: RunE(hooks),
 	}
