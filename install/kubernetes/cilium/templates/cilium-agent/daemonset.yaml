@@ -307,7 +307,6 @@ spec:
         - mountPath: /host/proc/sys/kernel
           name: host-proc-sys-kernel
         {{- end}}
-        {{- if .Values.bpf.autoMount.enabled }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
           {{- if .Values.securityContext.privileged }}
@@ -319,7 +318,6 @@ spec:
           # in Cilium.
           mountPropagation: HostToContainer
           {{- end}}
-        {{- end }}
         {{- if not (contains "/run/cilium/cgroupv2" .Values.cgroup.hostRoot) }}
         # Check for duplicate mounts before mounting
         - name: cilium-cgroup
@@ -602,12 +600,10 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         securityContext:
           privileged: true
-      {{- if and .Values.bpf.autoMount.enabled }}
         volumeMounts:
         - name: bpf-maps
           mountPath: /sys/fs/bpf
           mountPropagation: Bidirectional
-        {{- end }}
       {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
       - name: wait-for-node-init
@@ -681,10 +677,8 @@ spec:
               - ALL
           {{- end}}
         volumeMounts:
-        {{- if .Values.bpf.autoMount.enabled}}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
-        {{- end }}
           # Required to mount cgroup filesystem from the host to cilium agent pod
         - name: cilium-cgroup
           mountPath: {{ .Values.cgroup.hostRoot }}
@@ -812,13 +806,11 @@ spec:
         hostPath:
           path: /var/run/netns
           type: DirectoryOrCreate
-      {{- if .Values.bpf.autoMount.enabled }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
         hostPath:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
-      {{- end }}
       {{- if or .Values.cgroup.autoMount.enabled .Values.sysctlfix.enabled }}
       # To mount cgroup2 filesystem on the host or apply sysctlfix
       - name: hostproc
