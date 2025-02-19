@@ -521,6 +521,7 @@ jobs:
           CL2_MEDIAN_BOOTSTRAP_THRESHOLD: "80" # Takes a bit for ENI interfaces to be added
           CL2_EGW_CREATE_POLICY: ${{ matrix.test_type == 'egw' }}
           CL2_EGW_MANIFESTS_DIR: ../../.github/actions/cl2-modules/egw/manifests
+          CL2_EGW_PERF_UDP_MSG_SIZE: 8900
         run: |
           echo "CL2-related environment variables"
           printenv | grep CL2_
@@ -540,6 +541,9 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
+
+          # The cilium-cli creates files owned by the root user when run as a container.
+          sudo chmod --recursive +r ./report
 
       - name: Features tested
         uses: ./.github/actions/feature-status
