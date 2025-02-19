@@ -1484,13 +1484,19 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
 		} else {
-			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+			if ct.params.PerfParameters.SameNode {
+				if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
+					ct.Warnf("unable to create deployment: %w", err)
+				}
 			}
-			// Create second client on other node
-			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
-				ct.Warnf("unable to create deployment: %w", err)
+
+			if ct.params.PerfParameters.OtherNode {
+				// Create second client on other node
+				if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
+					ct.Warnf("unable to create deployment: %w", err)
+				}
 			}
+
 			if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
@@ -1498,13 +1504,19 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	}
 
 	if ct.params.PerfParameters.HostNet {
-		if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, firstNodeName, true); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+		if ct.params.PerfParameters.SameNode {
+			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, firstNodeName, true); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
 		}
-		// Create second client on other node
-		if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, secondNodeName, true); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+
+		if ct.params.PerfParameters.OtherNode {
+			// Create second client on other node
+			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, secondNodeName, true); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
 		}
+
 		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, firstNodeName, true); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
@@ -1522,14 +1534,22 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 				srcList = append(srcList, perClientHighPriorityDeploymentName)
 				srcList = append(srcList, perfServerDeploymentName)
 			} else {
-				srcList = append(srcList, perfClientDeploymentName)
-				srcList = append(srcList, perfClientAcrossDeploymentName)
+				if ct.params.PerfParameters.SameNode {
+					srcList = append(srcList, perfClientDeploymentName)
+				}
+				if ct.params.PerfParameters.OtherNode {
+					srcList = append(srcList, perfClientAcrossDeploymentName)
+				}
 				srcList = append(srcList, perfServerDeploymentName)
 			}
 		}
 		if ct.params.PerfParameters.HostNet {
-			srcList = append(srcList, perfClientHostNetDeploymentName)
-			srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
+			if ct.params.PerfParameters.SameNode {
+				srcList = append(srcList, perfClientHostNetDeploymentName)
+			}
+			if ct.params.PerfParameters.OtherNode {
+				srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
+			}
 			srcList = append(srcList, perfServerHostNetDeploymentName)
 		}
 		// Return early, we can't run regular connectivity tests

@@ -23,6 +23,8 @@ type PerfParameters struct {
 	Duration    time.Duration
 	HostNet     bool
 	PodNet      bool
+	SameNode    bool
+	OtherNode   bool
 	Samples     int
 	MessageSize int
 	Mixed       bool
