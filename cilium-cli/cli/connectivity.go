@@ -264,6 +264,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 		"node-selector-server", "Node selector for the server pod (and client same-node)")
 	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-client", &params.PerfParameters.NodeSelectorClient, nil),
 		"node-selector-client", "Node selector for the other-node client pod")
+	cmd.Flags().StringSliceVar(&params.PerfParameters.Tolerations, "tolerations", nil, "Extra NoSchedule tolerations added to test pods")
 
 	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"], "Image path to use for performance")
 	cmd.Flags().StringVar(&params.PerfParameters.ReportDir, "report-dir", "", "Directory to save perf results in json format")
