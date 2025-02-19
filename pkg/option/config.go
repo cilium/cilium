@@ -3403,14 +3403,14 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 
 func (c *DaemonConfig) checkMapSizeLimits() error {
 	if c.AuthMapEntries < AuthMapEntriesMin {
-		return fmt.Errorf("specified AuthMap max entries %d must exceed minimum %d", c.AuthMapEntries, AuthMapEntriesMin)
+		return fmt.Errorf("specified AuthMap max entries %d must be greater or equal to %d", c.AuthMapEntries, AuthMapEntriesMin)
 	}
 	if c.AuthMapEntries > AuthMapEntriesMax {
 		return fmt.Errorf("specified AuthMap max entries %d must not exceed maximum %d", c.AuthMapEntries, AuthMapEntriesMax)
 	}
 
 	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
-		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
+		return fmt.Errorf("specified CT tables values %d/%d must be greater or equal to %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
 	}
 	if c.CTMapEntriesGlobalTCP > LimitTableMax || c.CTMapEntriesGlobalAny > LimitTableMax {
@@ -3419,7 +3419,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	}
 
 	if c.NATMapEntriesGlobal < LimitTableMin {
-		return fmt.Errorf("specified NAT table size %d must exceed minimum %d",
+		return fmt.Errorf("specified NAT table size %d must be greater or equal to %d",
 			c.NATMapEntriesGlobal, LimitTableMin)
 	}
 	if c.NATMapEntriesGlobal > LimitTableMax {
@@ -3437,7 +3437,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	}
 
 	if c.SockRevNatEntries < LimitTableMin {
-		return fmt.Errorf("specified Socket Reverse NAT table size %d must exceed minimum %d",
+		return fmt.Errorf("specified Socket Reverse NAT table size %d must be greater or equal to %d",
 			c.SockRevNatEntries, LimitTableMin)
 	}
 	if c.SockRevNatEntries > LimitTableMax {
@@ -3446,7 +3446,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	}
 
 	if c.PolicyMapEntries < PolicyMapMin {
-		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
+		return fmt.Errorf("specified PolicyMap max entries %d must be greater or equal to %d",
 			c.PolicyMapEntries, PolicyMapMin)
 	}
 	if c.PolicyMapEntries > PolicyMapMax {
@@ -3456,7 +3456,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	}
 
 	if c.FragmentsMapEntries < FragmentsMapMin {
-		return fmt.Errorf("specified max entries %d for fragment-tracking map must exceed minimum %d",
+		return fmt.Errorf("specified max entries %d for fragment-tracking map must be greater or equal to %d",
 			c.FragmentsMapEntries, FragmentsMapMin)
 	}
 	if c.FragmentsMapEntries > FragmentsMapMax {
