@@ -5,7 +5,6 @@ set -eu
 cd "$(dirname "$0")/../.."
 
 CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
-RUN_AS_NONROOT="${RUN_AS_NONROOT:-1}"
 
 USER_OPTION=""
 USER_PATH="/root"
