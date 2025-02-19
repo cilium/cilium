@@ -646,9 +646,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 		ingressKey(192, 6, 80, 0): {},
 		ingressKey(194, 6, 80, 0): {},
 	}, changes.Adds)
-	require.Equal(t, Keys{
-		ingressKey(193, 6, 80, 0): {},
-	}, changes.Deletes)
+	require.Equal(t, Keys{}, changes.Deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
 	policy.selectorPolicy.Detach()

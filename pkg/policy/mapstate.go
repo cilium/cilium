@@ -646,15 +646,13 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 // deleteKeyWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
 func (ms *mapState) deleteKeyWithChanges(key Key, changes ChangeState) {
 	if entry, exists := ms.get(key); exists {
-		// Save old value before any changes, if desired
-		changes.insertOldIfNotExists(key, entry)
-
-		if changes.Deletes != nil {
+		// Only record as a delete if the entry was not added on the same round of changes
+		if changes.insertOldIfNotExists(key, entry) && changes.Deletes != nil {
 			changes.Deletes[key] = struct{}{}
-			// Remove a potential previously added key
-			if changes.Adds != nil {
-				delete(changes.Adds, key)
-			}
+		}
+		// Remove a potential previously added key
+		if changes.Adds != nil {
+			delete(changes.Adds, key)
 		}
 
 		ms.delete(key)
