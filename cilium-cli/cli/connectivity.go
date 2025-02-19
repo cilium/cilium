@@ -250,6 +250,8 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().IntVar(&params.PerfParameters.Samples, "samples", 1, "Number of Performance samples to capture (how many times to run each test)")
 	cmd.Flags().BoolVar(&params.PerfParameters.HostNet, "host-net", true, "Test host network")
 	cmd.Flags().BoolVar(&params.PerfParameters.PodNet, "pod-net", true, "Test pod network")
+	cmd.Flags().BoolVar(&params.PerfParameters.SameNode, "same-node", true, "Run tests in which the client and the server are hosted on the same node")
+	cmd.Flags().BoolVar(&params.PerfParameters.OtherNode, "other-node", true, "Run tests in which the client and the server are hosted on difference nodes")
 	cmd.Flags().BoolVar(&params.PerfParameters.NetQos, "net-qos", false, "Test pod network Quality of Service")
 
 	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"], "Image path to use for performance")
