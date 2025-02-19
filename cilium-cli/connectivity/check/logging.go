@@ -115,16 +115,20 @@ func (s defaultScenario) Name() string {
 
 var ghWorkflowRegexp = regexp.MustCompile("^(?:.+?)/(?:.+?)/(.+?)@.*$")
 
-func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
+func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
 	if !ct.params.LogCodeOwners {
 		return
 	}
 
-	rule, err := ct.CodeOwners.Match(scenario.FilePath())
-	if err != nil || rule == nil || rule.Owners == nil {
-		ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
-			"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
-		return
+	rules := make(map[ownedScenario]*codeowners.Rule)
+	for _, scenario := range scenarios {
+		rule, err := ct.CodeOwners.Match(scenario.FilePath())
+		if err != nil || rule == nil || rule.Owners == nil {
+			ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
+				"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
+			return
+		}
+		rules[scenario] = rule
 	}
 
 	var workflowOwners []codeowners.Owner
@@ -145,17 +149,19 @@ func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
 		workflowOwners = workflowRule.Owners
 	}
 
-	ct.Log("    ⛑️ The following owners are responsible for reliability of this test: ")
-	for _, o := range rule.Owners {
-		ct.Log("        - " + o.String() + " (" + scenario.Name() + ")")
-	}
-	for _, o := range workflowOwners {
-		owner := o.String()
-		switch owner {
-		case "@cilium/github-sec":
-			// Skip
-		default:
-			ct.Log("        - " + owner + " (" + ghWorkflow + ")")
+	ct.Log("    ⛑️ The following owners are responsible for reliability of the testsuite: ")
+	for scenario, rule := range rules {
+		for _, o := range rule.Owners {
+			ct.Log("        - " + o.String() + " (" + scenario.Name() + ")")
+		}
+		for _, o := range workflowOwners {
+			owner := o.String()
+			switch owner {
+			case "@cilium/github-sec":
+				// Skip
+			default:
+				ct.Log("        - " + owner + " (" + ghWorkflow + ")")
+			}
 		}
 	}
 }
