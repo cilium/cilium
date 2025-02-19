@@ -7,6 +7,7 @@ package bpf
 
 import (
 	"context"
+	"encoding"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -16,7 +17,6 @@ import (
 	"path"
 	"reflect"
 	"strings"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 
@@ -52,11 +52,69 @@ type MapKey interface {
 	New() MapKey
 }
 
+type BatchMapKey interface {
+	MapKey
+	Size() int
+	encoding.BinaryMarshaler
+}
+
 type MapValue interface {
 	fmt.Stringer
 
 	// New must return a pointer to a new MapValue.
 	New() MapValue
+}
+
+type BatchMapValue interface {
+	MapValue
+	Size() int
+	encoding.BinaryMarshaler
+}
+
+type BatchMapKeys []BatchMapKey
+
+type BatchMapValues []BatchMapValue
+
+func (mks BatchMapKeys) MarshalBinary() ([]byte, error) {
+	ln := len(mks)
+	if ln == 0 {
+		return nil, nil
+	}
+	sz := mks[0].Size()
+	data := make([]byte, sz*ln)
+	i := 0
+	for _, k := range mks {
+		bs, err := k.MarshalBinary()
+		if err != nil {
+			return data, err
+		}
+		for _, b := range bs {
+			data[i] = b
+			i++
+		}
+	}
+	return data, nil
+}
+
+func (mvs BatchMapValues) MarshalBinary() ([]byte, error) {
+	ln := len(mvs)
+	if ln == 0 {
+		return nil, nil
+	}
+	sz := mvs[0].Size()
+	data := make([]byte, sz*ln)
+	i := 0
+	for _, k := range mvs {
+		bs, err := k.MarshalBinary()
+		if err != nil {
+			return data, err
+		}
+		for _, b := range bs {
+			data[i] = b
+			i++
+		}
+	}
+	return data, nil
 }
 
 // MapPerCPUValue is the same as MapValue, but for per-CPU maps. Implement to be
@@ -1185,7 +1243,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 // to be passed as generics, so that the ebpf library has a slice
 // that is cast to the real type as it cannot deal with slices of
 // interfaces.
-func BatchUpdate[K any, V any](m *Map, keys []MapKey, values []MapValue) (int, error) {
+func (m *Map) BatchUpdate(keys []BatchMapKey, values []BatchMapValue) (int, error) {
 	if err := HasBatchOperations(); err != nil {
 		return 0, fmt.Errorf("%w: batch update: %w", ErrUnsupportedOperation, err)
 	}
@@ -1202,7 +1260,7 @@ func BatchUpdate[K any, V any](m *Map, keys []MapKey, values []MapValue) (int, e
 		for i := range chunkLen {
 			idx := i * option.Config.BPFBatchUpdateChunkSize
 			endLen := (i + 1) * option.Config.BPFBatchUpdateChunkSize
-			cnt, err := batchUpdate[K, V](m, keys[idx:endLen], values[idx:endLen])
+			cnt, err := m.batchUpdate(keys[idx:endLen], values[idx:endLen])
 			if err != nil {
 				return count + cnt, err
 			}
@@ -1210,20 +1268,23 @@ func BatchUpdate[K any, V any](m *Map, keys []MapKey, values []MapValue) (int, e
 		}
 		if keyLen%option.Config.BPFBatchUpdateChunkSize != 0 {
 			idx := chunkLen * option.Config.BPFBatchUpdateChunkSize
-			cnt, err := batchUpdate[K, V](m, keys[idx:], values[idx:])
+			cnt, err := m.batchUpdate(keys[idx:], values[idx:])
 			return cnt + count, err
 		}
 		return count, nil
 	}
-	return batchUpdate[K, V](m, keys, values)
+	return m.batchUpdate(keys, values)
 }
 
-func batchUpdate[K any, V any](m *Map, keys []MapKey, values []MapValue) (int, error) {
+// batchUpdate requires keys and values to be passed as arguments twice.
+// First as a slice of the interfaces MapKey and MapValue respectively and
+// second as an interface that can be cast to a slice of the generics.
+func (m *Map) batchUpdate(keys []BatchMapKey, values []BatchMapValue) (int, error) {
 	var (
 		err   error
 		count int
 	)
-	keyLen, valueLen := len(keys), len(values)
+	keyLen := len(keys)
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -1286,9 +1347,9 @@ func batchUpdate[K any, V any](m *Map, keys []MapKey, values []MapValue) (int, e
 		return 0, err
 	}
 
-	bpfKeys := unsafe.Slice((*K)(unsafe.Pointer(&keys[0])), keyLen)
-	bpfValues := unsafe.Slice((*V)(unsafe.Pointer(&values[0])), valueLen)
-	count, err = m.m.BatchUpdate(bpfKeys, bpfValues, &ebpf.BatchOptions{})
+	keyI := BatchMapKeys(keys)
+	valueI := BatchMapValues(values)
+	count, err = m.m.BatchUpdate(keyI, valueI, &ebpf.BatchOptions{})
 
 	if metrics.BPFMapOps.IsEnabled() {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()

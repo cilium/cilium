@@ -5,6 +5,7 @@ package bpf
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"reflect"
@@ -37,20 +38,77 @@ type TestLPMKey struct {
 	PrefixLen uint32
 	Key       uint32
 }
+type LargeTestKey struct {
+	Key uint32
+	V1  uint32
+	V2  uint32
+	V3  uint32
+	V4  uint32
+	V5  uint32
+}
 type TestValue struct {
 	Value uint32
+}
+type LargeTestValue struct {
+	Value uint32
+	V1    uint32
+	V2    uint32
+	V3    uint32
+	V4    uint32
+	V5    uint32
 }
 type TestValues []TestValue
 
 func (k *TestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
 func (k *TestKey) New() MapKey    { return &TestKey{} }
+func (k *TestKey) Size() int      { return 4 }
+func (k *TestKey) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, k.Key)
+	return b, nil
+}
+
+func (k *LargeTestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
+func (k *LargeTestKey) New() MapKey    { return &TestKey{} }
+func (k *LargeTestKey) Size() int      { return 24 }
+func (k *LargeTestKey) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 24)
+	binary.LittleEndian.PutUint32(b, k.Key)
+	binary.LittleEndian.PutUint32(b, k.V1)
+	binary.LittleEndian.PutUint32(b, k.V2)
+	binary.LittleEndian.PutUint32(b, k.V3)
+	binary.LittleEndian.PutUint32(b, k.V4)
+	binary.LittleEndian.PutUint32(b, k.V5)
+	return b, nil
+}
 
 func (k *TestLPMKey) String() string { return fmt.Sprintf("len=%d, key=%d", k.PrefixLen, k.Key) }
 func (k *TestLPMKey) New() MapKey    { return &TestLPMKey{} }
 
 func (v *TestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
 func (v *TestValue) New() MapValue  { return &TestValue{} }
+func (v *TestValue) Size() int      { return 4 }
 func (k *TestValue) NewSlice() any  { return &TestValues{} }
+func (v *TestValue) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, v.Value)
+	return b, nil
+}
+
+func (v *LargeTestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
+func (v *LargeTestValue) New() MapValue  { return &TestValue{} }
+func (v *LargeTestValue) Size() int      { return 24 }
+func (k *LargeTestValue) NewSlice() any  { return &TestValues{} }
+func (v *LargeTestValue) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 24)
+	binary.LittleEndian.PutUint32(b, v.Value)
+	binary.LittleEndian.PutUint32(b, v.V1)
+	binary.LittleEndian.PutUint32(b, v.V2)
+	binary.LittleEndian.PutUint32(b, v.V3)
+	binary.LittleEndian.PutUint32(b, v.V4)
+	binary.LittleEndian.PutUint32(b, v.V5)
+	return b, nil
+}
 
 func setup(tb testing.TB) *Map {
 	return setupWithOptions(tb, maxEntries)
@@ -808,22 +866,30 @@ func TestDeleteAll(t *testing.T) {
 }
 
 func TestBatchUpdate(t *testing.T) {
-	testMap := setupWithOptions(t, 256)
+	testMap := setupWithOptions(t, 300)
 	if err := HasBatchOperations(); err != nil {
 		t.Skipf("Batch Operations not supported: %s", err)
 	}
 
-	keys := make([]MapKey, 256)
-	values := make([]MapValue, 256)
+	keys := make([]BatchMapKey, 256)
+	values := make([]BatchMapValue, 256)
 
 	for i := range 256 {
 		keys[i] = &TestKey{Key: uint32(i)}
 		values[i] = &TestValue{Value: uint32(i)}
 	}
 
-	count, err := BatchUpdate[TestKey, TestValue](testMap, keys, values)
+	count, err := testMap.BatchUpdate(keys, values)
 	require.NoError(t, err)
 	require.Equal(t, 256, count)
+
+	for i := range 256 {
+		v, err := testMap.Lookup(&TestKey{Key: uint32(i)})
+		require.NoError(t, err)
+		tv, ok := v.(*TestValue)
+		require.Truef(t, ok, "Type assertion of %[1]v (%[1]T) to %T failed", v, &TestValue{})
+		require.Equal(t, uint32(i), tv.Value)
+	}
 
 }
 
@@ -1144,8 +1210,8 @@ func BenchmarkBatchUpdate(b *testing.B) {
 	}
 	testMap := NewMap("",
 		ebpf.Hash,
-		&TestKey{},
-		&TestValue{},
+		&LargeTestKey{},
+		&LargeTestValue{},
 		b.N,
 		BPF_F_NO_PREALLOC)
 
@@ -1154,16 +1220,30 @@ func BenchmarkBatchUpdate(b *testing.B) {
 	}
 	defer testMap.Close()
 
-	keys := make([]MapKey, b.N)
-	values := make([]MapValue, b.N)
+	keys := make([]BatchMapKey, b.N)
+	values := make([]BatchMapValue, b.N)
 	for i := 0; i < b.N; i++ {
-		keys[i] = &TestKey{Key: uint32(i)}
-		values[i] = &TestValue{Value: uint32(i)}
+		keys[i] = &LargeTestKey{
+			Key: uint32(i),
+			V1:  uint32(i + 1),
+			V2:  uint32(i + 2),
+			V3:  uint32(i + 3),
+			V4:  uint32(i + 4),
+			V5:  uint32(i + 5),
+		}
+		values[i] = &LargeTestValue{
+			Value: uint32(i),
+			V1:    uint32(i + 1),
+			V2:    uint32(i + 2),
+			V3:    uint32(i + 3),
+			V4:    uint32(i + 4),
+			V5:    uint32(i + 5),
+		}
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	count, err := batchUpdate[TestKey, TestValue](testMap, keys, values)
+	count, err := testMap.batchUpdate(keys, values)
 	b.StopTimer()
 	require.NoError(b, err)
 	require.Equal(b, b.N, count)
@@ -1175,8 +1255,8 @@ func BenchmarkIteratedMapUpdate(b *testing.B) {
 	}
 	testMap := NewMap("",
 		ebpf.Hash,
-		&TestKey{},
-		&TestValue{},
+		&LargeTestKey{},
+		&LargeTestValue{},
 		b.N,
 		BPF_F_NO_PREALLOC)
 
@@ -1185,11 +1265,25 @@ func BenchmarkIteratedMapUpdate(b *testing.B) {
 	}
 	defer testMap.Close()
 
-	keys := make([]MapKey, b.N)
-	values := make([]MapValue, b.N)
+	keys := make([]BatchMapKey, b.N)
+	values := make([]BatchMapValue, b.N)
 	for i := 0; i < b.N; i++ {
-		keys[i] = &TestKey{Key: uint32(i)}
-		values[i] = &TestValue{Value: uint32(i)}
+		keys[i] = &LargeTestKey{
+			Key: uint32(i),
+			V1:  uint32(i + 1),
+			V2:  uint32(i + 2),
+			V3:  uint32(i + 3),
+			V4:  uint32(i + 4),
+			V5:  uint32(i + 5),
+		}
+		values[i] = &LargeTestValue{
+			Value: uint32(i),
+			V1:    uint32(i + 1),
+			V2:    uint32(i + 2),
+			V3:    uint32(i + 3),
+			V4:    uint32(i + 4),
+			V5:    uint32(i + 5),
+		}
 	}
 
 	b.ReportAllocs()
