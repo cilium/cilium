@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
@@ -192,7 +193,8 @@ type xdsServer struct {
 
 	localEndpointStore *LocalEndpointStore
 
-	secretManager certificatemanager.SecretManager
+	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
+	secretManager     certificatemanager.SecretManager
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -1171,217 +1173,6 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 	return rules
 }
 
-func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, error) {
-	value := ""
-	var err error
-	if hdr.Secret != nil {
-		if secretManager == nil {
-			err = fmt.Errorf("HeaderMatches: Nil secretManager")
-		} else {
-			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
-		}
-	}
-	// Only use Value if secret was not obtained
-	if value == "" && hdr.Value != "" {
-		value = hdr.Value
-		if err != nil {
-			log.WithError(err).Debug("HeaderMatches: Using a default value due to k8s secret not being available")
-			err = nil
-		}
-	}
-
-	return value, err
-}
-
-func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
-	// Count the number of header matches we need
-	cnt := len(h.Headers) + len(h.HeaderMatches)
-	if h.Path != "" {
-		cnt++
-	}
-	if h.Method != "" {
-		cnt++
-	}
-	if h.Host != "" {
-		cnt++
-	}
-
-	headers := make([]*envoy_config_route.HeaderMatcher, 0, cnt)
-	if h.Path != "" {
-		headers = append(headers, &envoy_config_route.HeaderMatcher{
-			Name: ":path",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-				StringMatch: &envoy_type_matcher.StringMatcher{
-					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-						SafeRegex: &envoy_type_matcher.RegexMatcher{
-							Regex: h.Path,
-						},
-					},
-				},
-			},
-		})
-	}
-	if h.Method != "" {
-		headers = append(headers, &envoy_config_route.HeaderMatcher{
-			Name: ":method",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-				StringMatch: &envoy_type_matcher.StringMatcher{
-					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-						SafeRegex: &envoy_type_matcher.RegexMatcher{
-							Regex: h.Method,
-						},
-					},
-				},
-			},
-		})
-	}
-	if h.Host != "" {
-		headers = append(headers, &envoy_config_route.HeaderMatcher{
-			Name: ":authority",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-				StringMatch: &envoy_type_matcher.StringMatcher{
-					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-						SafeRegex: &envoy_type_matcher.RegexMatcher{
-							Regex: h.Host,
-						},
-					},
-				},
-			},
-		})
-	}
-	for _, hdr := range h.Headers {
-		strs := strings.SplitN(hdr, " ", 2)
-		if len(strs) == 2 {
-			// Remove ':' in "X-Key: true"
-			key := strings.TrimRight(strs[0], ":")
-			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_config_route.HeaderMatcher{
-				Name: key,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_type_matcher.StringMatcher{
-						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-							Exact: strs[1],
-						},
-					},
-				},
-			})
-		} else {
-			// Only header presence needed
-			headers = append(headers, &envoy_config_route.HeaderMatcher{
-				Name:                 strs[0],
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
-			})
-		}
-	}
-
-	headerMatches := make([]*cilium.HeaderMatch, 0, len(h.HeaderMatches))
-	for _, hdr := range h.HeaderMatches {
-		var mismatch_action cilium.HeaderMatch_MismatchAction
-		switch hdr.Mismatch {
-		case api.MismatchActionLog:
-			mismatch_action = cilium.HeaderMatch_CONTINUE_ON_MISMATCH
-		case api.MismatchActionAdd:
-			mismatch_action = cilium.HeaderMatch_ADD_ON_MISMATCH
-		case api.MismatchActionDelete:
-			mismatch_action = cilium.HeaderMatch_DELETE_ON_MISMATCH
-		case api.MismatchActionReplace:
-			mismatch_action = cilium.HeaderMatch_REPLACE_ON_MISMATCH
-		default:
-			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
-		}
-		// Fetch the secret
-		value, err := getSecretString(secretManager, hdr, ns)
-		if err != nil {
-			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
-			// Envoy treats an empty exact match value as matching ANY value; adding
-			// InvertMatch: true here will cause this rule to NEVER match.
-			headers = append(headers, &envoy_config_route.HeaderMatcher{
-				Name: hdr.Name,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-					StringMatch: &envoy_type_matcher.StringMatcher{
-						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-							Exact: "",
-						},
-					},
-				},
-				InvertMatch: true,
-			})
-		} else if value != "" {
-			// Inline value provided.
-			// Header presence and matching (literal) value needed.
-			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
-				// fail on mismatch gets converted for regular HeaderMatcher
-				headers = append(headers, &envoy_config_route.HeaderMatcher{
-					Name: hdr.Name,
-					HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-						StringMatch: &envoy_type_matcher.StringMatcher{
-							MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-								Exact: value,
-							},
-						},
-					},
-				})
-			} else {
-				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
-				headerMatches = append(headerMatches, &cilium.HeaderMatch{
-					MismatchAction: mismatch_action,
-					Name:           hdr.Name,
-					Value:          value,
-				})
-			}
-		} else if hdr.Secret == nil {
-			// No inline value and no secret.
-			// Header presence for FAIL_ON_MISMSTCH or matching empty value otherwise needed.
-			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
-				// Only header presence needed
-				headers = append(headers, &envoy_config_route.HeaderMatcher{
-					Name:                 hdr.Name,
-					HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
-				})
-			} else {
-				log.Debugf("HeaderMatches: Adding %s for an empty value", hdr.Name)
-				headerMatches = append(headerMatches, &cilium.HeaderMatch{
-					MismatchAction: mismatch_action,
-					Name:           hdr.Name,
-				})
-			}
-		} else {
-			// A secret is set, so we transform to an SDS value.
-			// cilium-envoy takes care of treating this as a presence match if the
-			// secret exists with an empty value.
-			log.Debugf("HeaderMatches: Adding %s because SDS value is required", hdr.Name)
-			headerMatches = append(headerMatches, &cilium.HeaderMatch{
-				MismatchAction: mismatch_action,
-				Name:           hdr.Name,
-				ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
-					Namespace: hdr.Secret.Namespace,
-					Name:      hdr.Secret.Name,
-				}, policySecretsNamespace),
-			})
-		}
-	}
-	if len(headers) == 0 {
-		headers = nil
-	} else {
-		SortHeaderMatchers(headers)
-	}
-	if len(headerMatches) == 0 {
-		headerMatches = nil
-	} else {
-		// Optimally we should sort the headerMatches to avoid
-		// updating the policy if only the order of the rules
-		// has changed. Right now, when 'headerMatches' is a
-		// slice (rather than a map) the order only changes if
-		// the order of the rules in the imported policies
-		// changes, so there is minimal likelihood of
-		// unnecessary policy updates.
-
-		// SortHeaderMatches(headerMatches)
-	}
-
-	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
-}
-
 var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
 	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
@@ -1485,31 +1276,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
 }
 
-func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {
-	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
-		// Assume none of the rules have side-effects so that rule evaluation can
-		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
-		// is set to 'false' below if any rules with side effects are encountered,
-		// causing all the applicable rules to be evaluated instead.
-		canShortCircuit := true
-		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
-		for _, l7 := range l7Rules.HTTP {
-			var cs bool
-			rule, cs := getHTTPRule(secretManager, &l7, ns, policySecretsNamespace)
-			httpRules = append(httpRules, rule)
-			if !cs {
-				canShortCircuit = false
-			}
-		}
-		SortHTTPNetworkPolicyRules(httpRules)
-		return &cilium.HttpNetworkPolicyRules{
-			HttpRules: httpRules,
-		}, canShortCircuit
-	}
-	return nil, true
-}
-
-func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+func (s *xdsServer) getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
@@ -1574,7 +1341,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 				httpRules = l7Rules.EnvoyHTTPRules
 				canShortCircuit = l7Rules.CanShortCircuit
 			} else {
-				httpRules, canShortCircuit = GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "", policySecretsNamespace)
+				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "", policySecretsNamespace)
 			}
 			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: httpRules,
@@ -1744,7 +1511,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(version, sel, wildcard, l7, useFullTLSContext, useSDS, policySecretsNamespace)
+				rule, cs := s.getPortNetworkPolicyRule(version, sel, wildcard, l7, useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
@@ -1796,7 +1563,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			Port:     uint32(port),
 			EndPort:  uint32(l4.EndPort),
 			Protocol: protocol,
-			Rules:    SortPortNetworkPolicyRules(rules),
+			Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
 		})
 		return true
 	})
@@ -1805,7 +1572,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 		return nil
 	}
 
-	return SortPortNetworkPolicies(PerPortPolicies)
+	return envoypolicy.SortPortNetworkPolicies(PerPortPolicies)
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.

@@ -14,12 +14,11 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -466,49 +465,6 @@ var PortRuleHeaderMatchSecret = &api.PortRuleHTTP{
 	},
 }
 
-var expectedHeadersPortRuleHeaderMatchSecretNilSecretManager = []*envoy_config_route.HeaderMatcher{
-	{
-		Name: "VeryImportantHeader",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-			StringMatch: &envoy_type_matcher.StringMatcher{
-				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-					Exact: "",
-				},
-			},
-		},
-		InvertMatch: true,
-	},
-}
-
-var expectedHeadersPortRuleHeaderMatchInline = []*envoy_config_route.HeaderMatcher{
-	{
-		Name: "VeryImportantHeader",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-			StringMatch: &envoy_type_matcher.StringMatcher{
-				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-					Exact: "somevalue",
-				},
-			},
-		},
-	},
-}
-
-// var expectedHeadersPortRuleHeaderMatchSDS = []*envoy_config_route.HeaderMatcher{
-// 	{
-// 		Name:                 "VeryImportantHeader",
-// 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
-// 	},
-// }
-
-var expectedHeaderMatchesPortRuleHeaderMatchSDS = []*cilium.HeaderMatch{
-	{
-		Name:           "VeryImportantHeader",
-		ValueSdsSecret: "cilium-secrets/secretName",
-	},
-}
-
-var expectedHeadersPortRuleHeaderMatchSDS []*envoy_config_route.HeaderMatcher
-
 var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
 	HeaderMatches: []*api.HeaderMatch{
 		{
@@ -520,40 +476,6 @@ var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
 			},
 		},
 	},
-}
-
-var expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS = []*cilium.HeaderMatch{
-	{
-		Name:           "VeryImportantHeader",
-		ValueSdsSecret: "cilium-secrets/secretName",
-		MismatchAction: cilium.HeaderMatch_CONTINUE_ON_MISMATCH,
-	},
-}
-
-func TestGetHTTPRule(t *testing.T) {
-	log.Logger.SetLevel(logrus.DebugLevel)
-
-	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "", "")
-	require.Equal(t, ExpectedHeaders1, obtained.Headers)
-	require.True(t, canShortCircuit)
-
-	result, canShortCircuit := getHTTPRule(nil, PortRuleHeaderMatchSecret, "", "")
-	require.Equal(t, expectedHeadersPortRuleHeaderMatchSecretNilSecretManager, result.Headers)
-	require.True(t, canShortCircuit)
-
-	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerInline(), PortRuleHeaderMatchSecret, "", "")
-	require.Equal(t, expectedHeadersPortRuleHeaderMatchInline, result.Headers)
-	require.True(t, canShortCircuit)
-
-	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerSDS(), PortRuleHeaderMatchSecret, "", "")
-	require.Equal(t, expectedHeadersPortRuleHeaderMatchSDS, result.Headers)
-	require.False(t, canShortCircuit)
-	require.Equal(t, expectedHeaderMatchesPortRuleHeaderMatchSDS, result.HeaderMatches)
-
-	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerSDS(), PortRuleHeaderMatchSecretLogOnMismatch, "", "")
-	require.Nil(t, result.Headers)
-	require.False(t, canShortCircuit)
-	require.Equal(t, expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS, result.HeaderMatches)
 }
 
 func Test_getWildcardNetworkPolicyRule(t *testing.T) {
@@ -583,16 +505,18 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
+	xds := testXdsServer(t)
+
 	version := versioned.Latest()
-	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12, false, false, "")
+	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12HeaderMatch, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), L7Rules12HeaderMatch, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), L7Rules1, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), L7Rules1, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
 	require.True(t, canShortCircuit)
 }
@@ -1753,5 +1677,9 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 }
 
 func testXdsServer(t *testing.T) *xdsServer {
-	return &xdsServer{logger: hivetest.Logger(t)}
+	logger := hivetest.Logger(t)
+	return &xdsServer{
+		logger:            logger,
+		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger),
+	}
 }

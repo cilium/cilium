@@ -16,7 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/defaults"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -62,7 +64,7 @@ type testData struct {
 func newTestData(logger *slog.Logger) *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, certificatemanager.NewMockSecretManagerInline(), envoypolicy.NewEnvoyL7RulesTranslator(logger), nil, api.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -140,7 +142,6 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	}
 
 	if expectedOut != nil {
-
 		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
 	}
 }
