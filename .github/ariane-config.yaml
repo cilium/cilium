@@ -9,7 +9,6 @@ triggers:
     - conformance-delegated-ipam.yaml
     - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
-    - conformance-externalworkloads.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
@@ -47,9 +46,6 @@ triggers:
   /ci-eks:
     workflows:
     - conformance-eks.yaml
-  /ci-external-workloads(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
-    workflows:
-    - conformance-externalworkloads.yaml
   /ci-gateway-api:
     workflows:
     - conformance-gateway-api.yaml
@@ -102,8 +98,6 @@ workflows:
   conformance-ipsec-e2e.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-eks.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
-  conformance-externalworkloads.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-gateway-api.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
