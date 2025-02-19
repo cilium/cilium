@@ -9,7 +9,6 @@ triggers:
     - conformance-clustermesh.yaml
     - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
-    - conformance-externalworkloads.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-gke.yaml
@@ -44,9 +43,6 @@ triggers:
   /ci-eks:
     workflows:
     - conformance-eks.yaml
-  /ci-external-workloads:
-    workflows:
-    - conformance-externalworkloads.yaml
   /ci-gateway-api:
     workflows:
     - conformance-gateway-api.yaml
@@ -94,8 +90,6 @@ workflows:
   conformance-ipsec-e2e.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-eks.yaml:
-    paths-ignore-regex: (test|Documentation)/
-  conformance-externalworkloads.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-gateway-api.yaml:
     paths-ignore-regex: (test|Documentation)/
