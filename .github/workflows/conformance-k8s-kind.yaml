@@ -202,6 +202,11 @@ jobs:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }} ${{ matrix.ipFamily }}"
 
+      - name: Gather metrics
+        uses: ./.github/actions/gather-metrics
+        with:
+          job: "${{ env.job_name }} ${{ matrix.ipFamily }}"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
@@ -225,6 +230,13 @@ jobs:
         with:
           name: "features-tested-${{ matrix.ipFamily }}"
           path: ${{ env.job_name }}*.json
+
+      - name: Upload metrics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: metrics
+          path: metrics-*.html
 
       - name: Upload cluster logs
         if: ${{ !success() }}
