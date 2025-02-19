@@ -9,11 +9,11 @@ db/cmp services services_empty.table
 db/cmp ciliumenvoyconfigs cec_empty.table
 
 # Set up the services and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 
 # Add the CiliumClusterwideEnvoyConfig and wait for it to be ingested.
-k8s add ccec.yaml
+k8s/add ccec.yaml
 db/cmp ciliumenvoyconfigs cec.table
 
 # Check that both services are now redirected to proxy.
@@ -25,7 +25,7 @@ envoy envoy.out
 
 # Test the processing other way around, e.g. CEC exists before
 # the service.
-k8s delete service.yaml endpointslice.yaml
+k8s/delete service.yaml endpointslice.yaml
 db/cmp services services_empty.table
 
 # Backends towards Envoy should be updated.
@@ -33,7 +33,7 @@ envoy envoy.out
 * cmp envoy.out envoy2.expected
 
 # Add back the service and endpoints
-k8s add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
 db/cmp services services_redirected.table
 
 # Check again that updates happened.
@@ -41,7 +41,7 @@ envoy envoy.out
 * cmp envoy.out envoy3.expected
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
-k8s delete ccec.yaml
+k8s/delete ccec.yaml
 db/cmp services services.table
 db/cmp ciliumenvoyconfigs cec_empty.table
 

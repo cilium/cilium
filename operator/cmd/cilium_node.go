@@ -42,7 +42,11 @@ func (c *ciliumNodeName) GetKeyName() string {
 	return nodeTypes.GetKeyNodeName(c.cluster, c.name)
 }
 
-type ciliumNodeManagerQueueSyncedKey struct{}
+// ciliumNodeManagerQueueSyncedKey indicates that the caches
+// are synced. The underscore prefix ensures that it can never
+// clash with a real key, as Kubernetes does not allow object
+// names to start with an underscore.
+const ciliumNodeManagerQueueSyncedKey = "_ciliumNodeManagerQueueSynced"
 
 type ciliumNodeSynchronizer struct {
 	clientset   k8sClient.Clientset
@@ -76,9 +80,9 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 		connectedToKVStore     = make(chan struct{})
 
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
-		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-		kvStoreQueue           = workqueue.NewRateLimitingQueue(
-			workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 120*time.Second),
+		ciliumNodeManagerQueue = workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
+		kvStoreQueue           = workqueue.NewTypedRateLimitingQueue[string](
+			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
 		)
 	)
 
@@ -273,7 +277,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 
 		cache.WaitForCacheSync(ctx.Done(), ciliumNodeInformer.HasSynced)
 		close(s.k8sCiliumNodesCacheSynced)
-		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey{})
+		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey)
 		log.Info("CiliumNodes caches synced with Kubernetes")
 		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
 		// then there isn't any event handler set for CiliumNodes events.
@@ -352,19 +356,19 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler, foundHa
 }
 
 // processNextWorkItem process all events from the workqueue.
-func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func(key string) error) bool {
+func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.TypedRateLimitingInterface[string], syncHandler func(key string) error) bool {
 	key, quit := queue.Get()
 	if quit {
 		return false
 	}
 	defer queue.Done(key)
 
-	if _, ok := key.(ciliumNodeManagerQueueSyncedKey); ok {
+	if key == ciliumNodeManagerQueueSyncedKey {
 		close(s.ciliumNodeManagerQueueSynced)
 		return true
 	}
 
-	err := syncHandler(key.(string))
+	err := syncHandler(key)
 	if err == nil {
 		// If err is nil we can forget it from the queue, if it is not nil
 		// the queue handler will retry to process this key until it succeeds.

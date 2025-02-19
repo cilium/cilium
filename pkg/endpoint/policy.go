@@ -946,7 +946,7 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 // This synchronizes the key-value store with a mapping of the endpoint's IP
 // with the numerical ID representing its security identity.
 func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
-	if option.Config.KVStore == "" || !endpointIP.IsValid() || option.Config.JoinCluster {
+	if option.Config.KVStore == "" || !endpointIP.IsValid() {
 		return
 	}
 
@@ -1071,14 +1071,15 @@ func (e *Endpoint) UpdateNoTrackRules(noTrackPort string) {
 	}
 }
 
-// UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
+// UpdateBandwidthPolicy updates the egress/ingress bandwidth of this endpoint to
 // progagate the throttle rate to the BPF data path.
-func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, bandwidthEgress, priority string) {
+func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, bandwidthEgress, bandwidthIngress, priority string) {
 	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
-		bwm:             bwm,
-		ep:              e,
-		bandwidthEgress: bandwidthEgress,
-		priority:        priority,
+		bwm:              bwm,
+		ep:               e,
+		bandwidthEgress:  bandwidthEgress,
+		bandwidthIngress: bandwidthIngress,
+		priority:         priority,
 	}))
 	if err != nil {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")

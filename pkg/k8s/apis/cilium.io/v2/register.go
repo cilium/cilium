@@ -95,17 +95,6 @@ const (
 	// CLRPName is the full name of Local Redirect Policy
 	CLRPName = CLRPPluralName + "." + CustomResourceDefinitionGroup
 
-	// Cilium External Workload (CEW)
-
-	// CEWPluralName is the plural name of Cilium External Workload
-	CEWPluralName = "ciliumexternalworkloads"
-
-	// CEWKindDefinition is the kind name for Cilium External Workload
-	CEWKindDefinition = "CiliumExternalWorkload"
-
-	// CEWName is the full name of Cilium External Workload
-	CEWName = CEWPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium Cluster Envoy Config (CCEC)
 
 	// CCECPluralName is the plural name of Cilium Clusterwide Envoy Config
@@ -193,8 +182,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNodeList{},
 		&CiliumNodeConfig{},
 		&CiliumNodeConfigList{},
-		&CiliumExternalWorkload{},
-		&CiliumExternalWorkloadList{},
 		&CiliumIdentity{},
 		&CiliumIdentityList{},
 		&CiliumLocalRedirectPolicy{},

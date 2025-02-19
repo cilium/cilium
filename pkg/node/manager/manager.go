@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"math/rand/v2"
 	"net"
 	"net/netip"
@@ -18,17 +19,21 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/workerpool"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
+	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
@@ -64,10 +69,6 @@ var (
 
 	neighborTableRefreshControllerGroup = controller.NewGroup("neighbor-table-refresh")
 	neighborTableUpdateControllerGroup  = controller.NewGroup("neighbor-table-update")
-)
-
-const (
-	numBackgroundWorkers = 1
 )
 
 type nodeEntry struct {
@@ -134,8 +135,8 @@ type manager struct {
 	// events.
 	nodeHandlers map[datapath.NodeHandler]struct{}
 
-	// workerpool manages background workers
-	workerpool *workerpool.WorkerPool
+	// group of jobs, tied to the lifecycle of the manager
+	jobGroup job.Group
 
 	// metrics to track information about the node manager
 	metrics *nodeMetrics
@@ -168,6 +169,11 @@ type manager struct {
 
 	// Ensure the pruning is only attempted once.
 	nodePruneOnce sync.Once
+
+	// Reference to the StateDB
+	db *statedb.DB
+	// The devices table
+	devices statedb.Table[*tables.Device]
 }
 
 type nodeQueueEntry struct {
@@ -289,7 +295,17 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetFilter IPSetFilterFn, nodeMetrics *nodeMetrics, health cell.Health) (*manager, error) {
+func New(
+	c *option.DaemonConfig,
+	ipCache IPCache,
+	ipsetMgr ipset.Manager,
+	ipsetFilter IPSetFilterFn,
+	nodeMetrics *nodeMetrics,
+	health cell.Health,
+	jobGroup job.Group,
+	db *statedb.DB,
+	devices statedb.Table[*tables.Device],
+) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
 	}
@@ -306,31 +322,29 @@ func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipset.Manager, ipsetF
 		ipsetFilter:       ipsetFilter,
 		metrics:           nodeMetrics,
 		health:            health,
+		jobGroup:          jobGroup,
+		db:                db,
+		devices:           devices,
 	}
 
 	return m, nil
 }
 
 func (m *manager) Start(cell.HookContext) error {
-	m.workerpool = workerpool.New(numBackgroundWorkers)
-
 	// Ensure that we read a potential nodes file before we overwrite it.
 	m.restoreNodeCheckpoint()
 	if err := m.initNodeCheckpointer(nodeCheckpointMinInterval); err != nil {
 		return fmt.Errorf("failed to initialize node file writer: %w", err)
 	}
 
-	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
+	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
+	m.jobGroup.Add(job.OneShot("carrierDownReconciler", m.carrierDownReconciler))
+
+	return nil
 }
 
 // Stop shuts down a node manager
 func (m *manager) Stop(cell.HookContext) error {
-	if m.workerpool != nil {
-		if err := m.workerpool.Close(); err != nil {
-			return err
-		}
-	}
-
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -385,9 +399,108 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
+func (m *manager) carrierDownReconciler(ctx context.Context, health cell.Health) error {
+	runningDevices := make(sets.Set[int])
+
+	// Collect all up and running devices, and start watching for changes
+	txn := m.db.WriteTxn(m.devices)
+	devChanges, err := m.devices.Changes(txn)
+	if err != nil {
+		txn.Abort()
+		return fmt.Errorf("failed to watch device table: %w", err)
+	}
+
+	devices, watch := m.devices.AllWatch(txn)
+	for dev := range devices {
+		if !deviceIsUpAndRunning(dev) {
+			continue
+		}
+
+		runningDevices = runningDevices.Insert(dev.Index)
+	}
+	txn.Commit()
+
+	health.OK("Watching for device changes")
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			// If the context is done, we should stop the background sync.
+			return nil
+		case <-watch:
+			// On changes to the device table
+
+			revalidate := false
+
+		changesLoop:
+			for {
+				// Use change iterator instead of [statedb.Table.AllWatch] so we can catch when a device
+				// goes down for a short time. Something we would miss by looking at just the latest state.
+				var changes iter.Seq2[statedb.Change[*tables.Device], uint64]
+				changes, watch = devChanges.Next(m.db.ReadTxn())
+				for change := range changes {
+					isRunning := runningDevices.Has(change.Object.Index)
+
+					if change.Deleted {
+						// If a running device has been deleted, we just need to track that.
+						// No need for revalidation.
+						runningDevices = runningDevices.Delete(change.Object.Index)
+						continue
+					}
+
+					upAndRunning := deviceIsUpAndRunning(change.Object)
+					if !isRunning && upAndRunning {
+						// This device is new, or was not up and running before.
+						// We should revalidate the node implementations.
+						runningDevices = runningDevices.Insert(change.Object.Index)
+						revalidate = true
+					} else if isRunning && !upAndRunning {
+						// This device was up and running, but is no longer.
+						// Keep track so we know to revalidate when it comes back up.
+						runningDevices = runningDevices.Delete(change.Object.Index)
+					}
+				}
+
+				// The change iterator will return an already closed channel if there are more changes.
+				// So lets process all changes until we get a channel that will block for optimal batching.
+				select {
+				case <-watch:
+				default:
+					break changesLoop
+				}
+			}
+
+			if !revalidate {
+				health.OK("Processed device change, not revalidating")
+				continue loop
+			}
+
+			// A device went down, was removed, added, or went up. We need to
+			// trigger node neighbor system to reconcile neighbor entries
+
+			m.mutex.RLock()
+			for _, entry := range m.nodes {
+				entry.mutex.Lock()
+				entryNode := entry.node
+				entry.mutex.Unlock()
+
+				if entryNode.IsLocal() {
+					continue
+				}
+
+				m.Enqueue(&entryNode)
+			}
+			m.mutex.RUnlock()
+
+			health.OK("Processed device change, enqueued all nodes")
+		}
+	}
+}
+
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
-func (m *manager) backgroundSync(ctx context.Context) error {
+func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error {
 	for {
 		syncInterval := m.backgroundSyncInterval()
 		startWaiting := time.After(syncInterval)
@@ -404,13 +517,37 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 		case <-startWaiting:
 		}
 
-		hr := m.health.NewScope("background-sync")
 		if err != nil {
-			hr.Degraded("Failed to apply node validation", err)
+			health.Degraded("Failed to apply node validation", err)
 		} else {
-			hr.OK("Node validation successful")
+			health.OK("Node validation successful")
 		}
 	}
+}
+
+const (
+	upAndRunningFlags = unix.IFF_UP | unix.IFF_RUNNING
+	LoopbackFlags     = unix.IFF_LOOPBACK
+)
+
+// Check if a given device is up and running (not down or carrier down).
+// Always returns false for non-physical devices so we never detect a
+// transition from down to up.
+func deviceIsUpAndRunning(dev *tables.Device) bool {
+	// We only care about physical devices. So we select for [netlink.Device].
+	// This technically also include loopback devices, but those are filtered
+	// in a later step.
+	if dev.Type != "device" {
+		return false
+	}
+
+	loopbackDevice := dev.RawFlags&LoopbackFlags != 0
+	if loopbackDevice {
+		return false
+	}
+
+	upAndRunning := dev.RawFlags&upAndRunningFlags == upAndRunningFlags
+	return upAndRunning
 }
 
 func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
@@ -570,7 +707,7 @@ func (m *manager) nodeAddressShouldUseTunnel(address nodeTypes.Address) bool {
 	// encapsulation. In encryption case we also want to use vxlan device
 	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
 	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-		m.conf.EnableHostFirewall || m.conf.JoinCluster
+		m.conf.EnableHostFirewall
 }
 
 func (m *manager) nodeAddressHasEncryptKey() bool {

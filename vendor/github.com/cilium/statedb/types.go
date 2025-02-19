@@ -143,6 +143,18 @@ type RWTable[Obj any] interface {
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// InsertWatch an object into the table. Returns the object that was
+	// replaced if there was one and a watch channel that closes when the
+	// object is modified again.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	//
+	// Each inserted or updated object will be assigned a new unique
+	// revision.
+	InsertWatch(WriteTxn, Obj) (oldObj Obj, hadOld bool, watch <-chan struct{}, err error)
+
 	// Modify an existing object or insert a new object into the table. If an old object
 	// exists the [merge] function is called with the old and new objects.
 	//

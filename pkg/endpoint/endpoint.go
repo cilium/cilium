@@ -219,6 +219,9 @@ type Endpoint struct {
 	// bps is the egress rate of the endpoint
 	bps uint64
 
+	// ingressBps is the ingress rate of the endpoint
+	ingressBps uint64
+
 	// mac is the MAC address of the endpoint
 	// Constant after endpoint creation / restoration.
 	mac mac.MAC // Container MAC address.
@@ -924,7 +927,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
+func parseEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		owner:            owner,
 		namedPortsGetter: namedPortsGetter,
@@ -947,9 +950,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
-	ctx, cancel := context.WithCancel(ctx)
-	ep.aliveCancel = cancel
-	ep.aliveCtx = ctx
+	ep.aliveCtx, ep.aliveCancel = context.WithCancel(context.Background())
 
 	// If host label is present, it's the host endpoint.
 	ep.isHost = ep.HasLabels(labels.LabelHost)
@@ -1788,6 +1789,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	}())
 	e.UpdateBandwidthPolicy(bwm,
 		pod.Annotations[bandwidth.EgressBandwidth],
+		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
 	)
 

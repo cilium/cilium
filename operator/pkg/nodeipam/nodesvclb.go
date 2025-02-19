@@ -63,6 +63,7 @@ func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueRequestForEndpointSlice()).
 		// Watch for changes to Nodes
 		Watches(&corev1.Node{}, r.enqueueRequestForNode()).
+		Named("service-nodeipam").
 		Complete(r)
 }
 
@@ -197,7 +198,7 @@ func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc
 	return selectedNodes, nil
 }
 
-// getRelevantNodes gets all the nodes candidates for seletion by nodeipam
+// getRelevantNodes gets all the nodes candidates for selection by nodeipam
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
 	scopedLog := r.Logger.With(logfields.Controller, "node-service-lb",
 		logfields.Resource, client.ObjectKeyFromObject(svc))

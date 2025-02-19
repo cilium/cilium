@@ -17,16 +17,19 @@ import (
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // healthReport is a snapshot of the health of the cluster.
 type healthReport struct {
-	startTime time.Time
-	nodes     []*models.NodeStatus
+	startTime     time.Time
+	nodes         []*models.NodeStatus
+	probeInterval time.Duration
 }
 
 type connectivityResult struct {
@@ -54,6 +57,8 @@ type prober struct {
 	nodes   nodeMap
 
 	probeRateLimiter *rate.Limiter
+	probeInterval    time.Duration
+	probeIpCount     int
 }
 
 // copyResultRLocked makes a copy of the path status for the specified IP.
@@ -127,7 +132,7 @@ func (p *prober) getResults() *healthReport {
 		resultMap[node.Name] = status
 	}
 
-	result := &healthReport{startTime: p.start}
+	result := &healthReport{startTime: p.start, probeInterval: p.probeInterval}
 	for _, res := range resultMap {
 		result.nodes = append(result.nodes, res)
 	}
@@ -312,6 +317,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 			scopedLog.Debug("Ping failed")
 			result.Status = "Connection timed out"
 		}
+		result.LastProbed = time.Now().Format(time.RFC3339)
 	}
 	pinger.SetPrivileged(true)
 	err = pinger.RunWithContext(ctx)
@@ -322,7 +328,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 	resChan <- connectivityResult{ip: ip, status: result}
 }
 
-func Per(nodes int, duration time.Duration) rate.Limit {
+func per(nodes int, duration time.Duration) rate.Limit {
 	return rate.Every(duration / time.Duration(nodes))
 }
 
@@ -359,11 +365,12 @@ func httpProbe(node string, ip string, ctx context.Context, resChan chan<- conne
 		}
 		result.Status = err.Error()
 	}
+	result.LastProbed = time.Now().Format(time.RFC3339)
 
 	resChan <- connectivityResult{ip: ip, status: result}
 }
 
-func (p *prober) runProbe() {
+func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 	httpResChan := make(chan connectivityResult)
 	icmpResChan := make(chan connectivityResult)
 	wg := sync.WaitGroup{}
@@ -379,13 +386,7 @@ func (p *prober) runProbe() {
 	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
 	scopedLog := log
 
-	nodeIps := p.getIPsByNode()
-	// Spread probes evenly across probing interval.
-	ipCount := 0
-	for _, ips := range nodeIps {
-		ipCount += len(ips)
-	}
-	p.probeRateLimiter = rate.NewLimiter(Per(ipCount, p.server.Config.ProbeInterval), 1)
+	p.probeRateLimiter = rate.NewLimiter(per(p.probeIpCount, p.probeInterval), 1)
 
 	// update results as probes complete
 	resultsWg.Add(2)
@@ -463,14 +464,17 @@ func (p *prober) Stop() {
 }
 
 // RunLoop periodically sends probes out to all of the other cilium nodes to
-// gather connectivity status for the cluster.
+// gather connectivity status for the cluster once the current probing interval
+// has elapsed.
 //
 // This is a non-blocking method so it immediately returns. If you want to
 // stop sending packets, call Stop().
 func (p *prober) RunLoop() {
 	go func() {
-		tick := time.NewTicker(p.server.ProbeInterval)
-		p.runProbe()
+		nodeIps := p.getIPsByNode()
+		p.setProbeInterval(nodeIps)
+		tick := time.NewTicker(p.probeInterval)
+		p.runProbe(nodeIps)
 	loop:
 		for {
 			select {
@@ -492,7 +496,13 @@ func (p *prober) RunLoop() {
 					// (2) Update results without stale nodes
 					p.server.updateCluster(p.getResults())
 				}
-				p.runProbe()
+				// Reset probe interval based on cluster size.
+				nodeIps := p.getIPsByNode()
+				changedInterval := p.setProbeInterval(nodeIps)
+				if changedInterval {
+					tick.Reset(p.probeInterval)
+				}
+				p.runProbe(nodeIps)
 				continue
 			}
 		}
@@ -516,4 +526,23 @@ func newProber(s *Server, nodes nodeMap) *prober {
 	}
 	prober.setNodes(nodes, nil)
 	return prober
+}
+
+// Given user-provided ConnectivityProbeFrequencyRatio, uses base interval
+// in [10, 110] to set the probe interval, where base interval is 10 + ratio * 100.
+// Returns true if the interval has changed.
+func (p *prober) setProbeInterval(nodeIps map[string][]*net.IPAddr) bool {
+	scopedLog := log
+	baseInterval := (10 + option.Config.ConnectivityProbeFrequencyRatio*100) * 1e9
+	ipCount := 0
+	for _, ips := range nodeIps {
+		ipCount += len(ips)
+	}
+	p.Lock()
+	defer p.Unlock()
+	oldInterval := p.probeInterval
+	p.probeInterval = backoff.ClusterSizeDependantInterval(time.Duration(baseInterval), ipCount)
+	p.probeIpCount = ipCount
+	scopedLog.Debugf("Setting probe interval %s for %d IPs", p.probeInterval, p.probeIpCount)
+	return oldInterval != p.probeInterval
 }

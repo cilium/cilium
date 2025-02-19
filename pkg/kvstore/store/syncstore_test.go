@@ -100,14 +100,14 @@ func NewFakeRateLimiter() *fakeRateLimiter {
 	return &fakeRateLimiter{whenCalled: make(chan *KVPair), forgetCalled: make(chan *KVPair)}
 }
 
-func (frl *fakeRateLimiter) When(item interface{}) time.Duration {
-	frl.whenCalled <- NewKVPair(item.(string), "")
+func (frl *fakeRateLimiter) When(item workqueueKey) time.Duration {
+	frl.whenCalled <- NewKVPair(item.value, "")
 	return time.Duration(0)
 }
-func (frl *fakeRateLimiter) Forget(item interface{}) {
-	frl.forgetCalled <- NewKVPair(item.(string), "")
+func (frl *fakeRateLimiter) Forget(item workqueueKey) {
+	frl.forgetCalled <- NewKVPair(item.value, "")
 }
-func (frl *fakeRateLimiter) NumRequeues(item interface{}) int { return 0 }
+func (frl *fakeRateLimiter) NumRequeues(item workqueueKey) int { return 0 }
 
 func eventually(in <-chan *KVPair) *KVPair {
 	select {

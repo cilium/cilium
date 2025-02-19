@@ -60,7 +60,8 @@ jobs:
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=true \
             --helm-set=loadBalancer.l7.backend=envoy \
-            --helm-set=tls.secretsBackend=k8s \
+            --helm-set=tls.readSecretsOnlyFromSecretsNamespace=true \
+            --helm-set=tls.secretSync.enabled=true \
             --helm-set=envoy.enabled=false \
             --helm-set=ipv6.enabled=true \
             --wait=false"
@@ -111,6 +112,7 @@ jobs:
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
+            --log-code-owners \
             --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Features tested
@@ -125,6 +127,7 @@ jobs:
           helm upgrade cilium ./install/kubernetes/cilium \
             --namespace kube-system \
             --reuse-values \
+            --set=tls.readSecretsOnlyFromSecretsNamespace=false \
             --set=tls.secretSync.enabled=false
 
           kubectl -n kube-system rollout restart ds/cilium deployment/cilium-operator
@@ -135,6 +138,7 @@ jobs:
         run: |
           cilium connectivity test --test="l7|sni|check-log-errors" \
             --curl-parallel 3 \
+            --log-code-owners \
             --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
             --junit-property github_job_step="Run connectivity test with secret sync disabled"
 

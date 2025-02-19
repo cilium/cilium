@@ -207,10 +207,20 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 // It may return dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil.
 // Note that the caller should log beforehand the contextualized error.
 
-// epIPPort and serverAddr should match the original request, where epAddr is
+// epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) notifyOnDNSMsg(
+	lookupTime time.Time,
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	msg *dns.Msg,
+	protocol string,
+	allowed bool,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
@@ -272,6 +282,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	// point is always Egress, however.
 	var flowType accesslog.FlowType
 	var addrInfo logger.AddressingInfo
+	var serverAddrPortStr = serverAddrPort.String()
 	if msg.Response {
 		flowType = accesslog.TypeResponse
 		addrInfo.DstIPPort = epIPPort
@@ -279,7 +290,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// ignore error; log fields are best effort. Only returns error if endpoint
 		// is going away.
 		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.SrcIPPort = serverAddr
+		addrInfo.SrcIPPort = serverAddrPortStr
 		addrInfo.SrcIdentity = serverID
 	} else {
 		flowType = accesslog.TypeRequest
@@ -287,7 +298,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		addrInfo.SrcEPID = ep.GetID()
 		// ignore error; same reason as above.
 		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.DstIPPort = serverAddr
+		addrInfo.DstIPPort = serverAddrPortStr
 		addrInfo.DstIdentity = serverID
 	}
 
@@ -296,12 +307,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).WithField(logfields.DNSName, qname).Error("cannot extract DNS message details")
 		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
-
-	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
-	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
-	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
@@ -338,9 +343,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// updates for the response IPs. Due to G1 performing all the work
 		// first, G2 executes T4 also as a no-op and releases the msg back to the
 		// pod at T5 before G1 would at T6.
+		//
+		// We do not do a `defer unlock()` here, as we should release the lock before
+		// doing final bookkeeping.
 		mutexAcquireStart := time.Now()
 		d.dnsNameManager.LockName(qname)
-		defer d.dnsNameManager.UnlockName(qname)
 
 		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
 			log.WithFields(logrus.Fields{
@@ -389,6 +396,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
 
+		// Policy updates for this name have been pushed out; we can release the lock.
+		d.dnsNameManager.UnlockName(qname)
+
 		log.WithFields(logrus.Fields{
 			logfields.Duration:   time.Since(updateStart),
 			logfields.EndpointID: ep.GetID(),
@@ -399,6 +409,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 
 	stat.ProcessingTime.End(true)
+
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.

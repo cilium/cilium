@@ -58,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.23.6
+  go-version: 1.24.0
 
 jobs:
   echo-inputs:
@@ -129,7 +129,7 @@ jobs:
         uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.6
+          go-version: 1.24.0
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -288,7 +288,7 @@ jobs:
         uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.6
+          go-version: 1.24.0
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -389,7 +389,7 @@ jobs:
             go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
-            make SKIP_COVERAGE=1 tests-privileged GO=go${{ env.go-version }}
+            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 tests-privileged GO=go${{ env.go-version }}
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}

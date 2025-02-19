@@ -38,7 +38,7 @@ const (
 )
 
 func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
-	cidResource, cesResource, fakeClient, m, h := initHiveTest(true)
+	cidResource, cesResource, fakeClient, m, h := initHiveTest(t, true)
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -74,7 +74,7 @@ func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
 }
 
 func TestRegisterController(t *testing.T) {
-	cidResource, _, fakeClient, m, h := initHiveTest(false)
+	cidResource, _, fakeClient, m, h := initHiveTest(t, false)
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -104,10 +104,10 @@ func TestRegisterController(t *testing.T) {
 	}
 }
 
-func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *Metrics, *hive.Hive) {
+func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *Metrics, *hive.Hive) {
 	var cidResource resource.Resource[*capi_v2.CiliumIdentity]
 	var cesResource resource.Resource[*capi_v2a1.CiliumEndpointSlice]
-	var fakeClient k8sClient.FakeClientset
+	var fakeClient *k8sClient.FakeClientset
 	var cidMetrics Metrics
 
 	h := hive.New(
@@ -117,13 +117,11 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 		cell.Provide(func() config {
 			if operatorManagingCID {
 				return config{
-					IdentityManagementMode:   option.IdentityManagementModeOperator,
-					EnableOperatorManageCIDs: true, // deprecated
+					IdentityManagementMode: option.IdentityManagementModeOperator,
 				}
 			} else {
 				return config{
-					IdentityManagementMode:   option.IdentityManagementModeAgent,
-					EnableOperatorManageCIDs: false, // deprecated
+					IdentityManagementMode: option.IdentityManagementModeAgent,
 				}
 			}
 		}),
@@ -149,14 +147,18 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 			ces resource.Resource[*capi_v2a1.CiliumEndpointSlice],
 			m *Metrics,
 		) error {
-			fakeClient = *c
+			fakeClient = c
 			cidResource = cid
 			cesResource = ces
 			cidMetrics = *m
 			return nil
 		}),
 	)
-	return &cidResource, &cesResource, &fakeClient, &cidMetrics, h
+	// Populate to call the invoke functions that pull out the values.
+	if err := h.Populate(hivetest.Logger(t)); err != nil {
+		t.Fatalf("Populate: %s", err)
+	}
+	return &cidResource, &cesResource, fakeClient, &cidMetrics, h
 }
 
 func createNsAndPod(ctx context.Context, fakeClient *k8sClient.FakeClientset) error {
@@ -223,7 +225,7 @@ func TestCreateTwoPodsWithSameLabels(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod3, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -296,7 +298,7 @@ func TestUpdatePodLabels(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod1b, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -363,7 +365,7 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod2, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -443,7 +445,7 @@ func TestDeleteUsedCIDIsRecreated(t *testing.T) {
 	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {

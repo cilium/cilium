@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -48,6 +49,7 @@ var Cell = cell.Module(
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
 	}),
+
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
 )
@@ -129,8 +131,15 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(translation.Config{
+	if err := v2alpha1.AddToScheme(params.Scheme); err != nil {
+		return err
+	}
+
+	cfg := translation.Config{
 		SecretsNamespace: params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
+		},
 		HostNetworkConfig: translation.HostNetworkConfig{
 			Enabled:           params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
 			NodeLabelSelector: translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
@@ -153,13 +162,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 		},
-	})
+	}
+	cecTranslator := translation.NewCECTranslator(cfg)
 
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(
-		cecTranslator,
-		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
-		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
-	)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
@@ -268,6 +274,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 		newHTTPRouteReconciler(mgr, logger),
 		newGammaHttpRouteReconciler(mgr, translator, logger),
 		newGRPCRouteReconciler(mgr, logger),
+		newGatewayClassConfigReconciler(mgr, logger),
 	}
 
 	for _, r := range requiredReconcilers {

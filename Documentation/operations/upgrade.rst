@@ -298,14 +298,15 @@ Removed Options
 ~~~~~~~~~~~~~~~
 
 * The previously deprecated high-scale mode for ipcache has been removed.
+* The previously deprecated hubble-relay flag ``--dial-timeout`` has been removed.
+* The previously deprecated External Workflows feature has been removed.
+* The previously deprecated ``--datapath-mode=lb-only`` for plain Docker mode has been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
 * Operator flag ``ces-slice-mode`` has been deprecated and will be removed in Cilium 1.19.
   CiliumEndpointSlice batching mode defaults to first-come-first-serve mode.
-* The flag value ``--datapath-mode=lb-only`` for plain Docker mode has been migrated into
-  ``--bpf-lb-only`` and will be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -321,12 +322,16 @@ Helm Options
   These can be customized using helm values ``k8sClientExponentialBackoff.backoffBaseSeconds`` and
   ``k8sClientExponentialBackoff.backoffMaxDurationSeconds``. Users who were already setting these
   using ``extraEnv`` should either remove them from ``extraEnv`` or set ``k8sClientExponentialBackoff.enabled=false``.
+* The deprecated Helm option ``hubble.relay.dialTimeout`` has been removed.
 
 Agent Options
 ~~~~~~~~~~~~~
 
 Bugtool Options
 ~~~~~~~~~~~~~~~
+
+* The deprecated flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
+  have been removed. Cilium CLI should be used to gather a sysdump from a K8s cluster.
 
 
 Added Metrics
@@ -342,6 +347,7 @@ Changed Metrics
 * ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_kvstore_identities``
 * ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_crd_only_identities``
 * ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_kvstore_only_identities``
+* The type of the ``cilium_agent_bootstrap_seconds`` metric has been changed from histogram to gauge.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

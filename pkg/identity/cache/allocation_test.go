@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -408,7 +409,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			lbls1 := labels.NewLabelsFromSortedList("blah=%%//!!;id=foo;user=anna")
 
 			ctx := context.Background()
-			_, kubeClient := k8sClient.NewFakeClientset()
+			_, kubeClient := k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 			owner := newDummyOwner()
 			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})

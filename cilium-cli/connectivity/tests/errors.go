@@ -65,7 +65,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI, envoyTLSWarning,
-		ciliumNodeConfigDeprecation}
+		ciliumNodeConfigDeprecation, hubbleUIEnvVarFallback}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -90,10 +90,15 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
-	return &noErrorsInLogs{errorMsgsWithExceptions}
+	return &noErrorsInLogs{
+		errorMsgsWithExceptions: errorMsgsWithExceptions,
+		ScenarioBase:            check.NewScenarioBase(),
+	}
 }
 
 type noErrorsInLogs struct {
+	check.ScenarioBase
+
 	errorMsgsWithExceptions map[string][]logMatcher
 }
 
@@ -102,8 +107,9 @@ func (n *noErrorsInLogs) Name() string {
 }
 
 type podID struct{ Cluster, Namespace, Name string }
+type podContainers map[string]uint // Map container name to restart count
 type podInfo struct {
-	containers []string
+	containers podContainers
 	client     *k8s.Client
 }
 
@@ -116,9 +122,26 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
 	for pod, info := range pods {
 		client := info.client
-		for _, container := range info.containers {
+		for container, restarts := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
+				// Ignore Cilium operator restarts for the moment, as they can
+				// legitimately happen in case it loses the leader election due
+				// to temporary control plane blips.
+				ignore := container == "cilium-operator"
+
+				// The hubble relay container can currently be restarted by the
+				// startup probe if it fails to connect to Cilium. However, this
+				// can legitimately happen when the certificates are generated
+				// for the first time, as that they then need to be reloaded
+				// by the agents. Given that we cannot configure the settings of
+				// the startup probe, let's just accept one possible restart here.
+				ignore = ignore || (restarts == 1 && container == "hubble-relay")
+
+				if restarts > 0 && !ignore {
+					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
+				}
+
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
@@ -134,10 +157,15 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 // NoUnexpectedPacketDrops checks whether there were no drops due to expected
 // packet drops.
 func NoUnexpectedPacketDrops(expectedDrops []string) check.Scenario {
-	return &noUnexpectedPacketDrops{expectedDrops}
+	return &noUnexpectedPacketDrops{
+		expectedDrops: expectedDrops,
+		ScenarioBase:  check.NewScenarioBase(),
+	}
 }
 
 type noUnexpectedPacketDrops struct {
+	check.ScenarioBase
+
 	expectedDrops []string
 }
 
@@ -214,13 +242,24 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.Connectivi
 	return output, nil
 }
 
-func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
+func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
+	restarts := func(statuses []corev1.ContainerStatus, name string) (restarts uint) {
+		for _, status := range statuses {
+			if status.Name == name {
+				return uint(status.RestartCount)
+			}
+		}
+		return 0
+	}
+
+	containers := make(podContainers, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
+
 	for _, container := range pod.Spec.Containers {
-		containers = append(containers, container.Name)
+		containers[container.Name] = restarts(pod.Status.ContainerStatuses, container.Name)
 	}
 
 	for _, container := range pod.Spec.InitContainers {
-		containers = append(containers, container.Name)
+		containers[container.Name] = restarts(pod.Status.InitContainerStatuses, container.Name)
 	}
 
 	return containers
@@ -318,6 +357,7 @@ const (
 	fqdnMaxIPPerHostname        stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"            // cf. https://github.com/cilium/cilium/issues/36073
 	failedGetMetricsAPI         stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"      // cf. https://github.com/cilium/cilium/issues/36085
 	ciliumNodeConfigDeprecation stringMatcher = "cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16" // cf. https://github.com/cilium/cilium/issues/37249
+	hubbleUIEnvVarFallback      stringMatcher = "using fallback value for env var"                                       // cf. https://github.com/cilium/hubble-ui/pull/940
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"

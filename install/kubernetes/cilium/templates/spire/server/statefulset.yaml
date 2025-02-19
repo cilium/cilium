@@ -4,10 +4,6 @@ kind: StatefulSet
 metadata:
   name: spire-server
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
-  {{- with .Values.commonLabels }}
-  labels:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   {{- if or .Values.authentication.mutual.spire.install.server.annotations .Values.authentication.mutual.spire.annotations }}
   annotations:
     {{- with .Values.authentication.mutual.spire.annotations }}
@@ -19,9 +15,12 @@ metadata:
   {{- end }}
   labels:
     app: spire-server
-  {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   replicas: 1
   selector:

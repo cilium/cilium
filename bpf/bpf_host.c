@@ -425,7 +425,7 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -475,7 +475,7 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	return ret;
 }
@@ -903,7 +903,7 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -953,7 +953,7 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	return ret;
 }
@@ -1127,7 +1127,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
-						      CTX_ACT_DROP, METRIC_INGRESS);
+						      METRIC_INGRESS);
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
@@ -1159,8 +1159,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
-						  CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
+								CTX_ACT_OK, METRIC_INGRESS);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1170,7 +1170,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 */
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
-						      CTX_ACT_DROP, METRIC_INGRESS);
+						      METRIC_INGRESS);
 
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
 					      from_host);
@@ -1207,15 +1207,15 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
-						  CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
+								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
 #ifdef ENABLE_HOST_FIREWALL
 		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
-					     CTX_ACT_DROP, METRIC_INGRESS);
+					     METRIC_INGRESS);
 #else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
@@ -1236,6 +1236,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
+	enum trace_point obs_point = TRACE_FROM_NETWORK;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
@@ -1243,6 +1244,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
 	int ret;
+
+#ifdef ENABLE_WIREGUARD
+	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
+	 * BPF NodePort enabled, we should change the obs point to FROM_CRYPTO.
+	 * Therefore, we check THIS_INTERFACE_IFINDEX value to be set to WG_IFINDEX.
+	 */
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+		obs_point = TRACE_FROM_CRYPTO;
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
@@ -1297,10 +1307,10 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif
 
-	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
 
 drop_err:
-	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
 }
 
 /*
@@ -1328,7 +1338,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_HOST_FIREWALL
 		return send_drop_notify(ctx, src_sec_identity, dst_sec_identity,
 					TRACE_EP_ID_UNKNOWN, DROP_UNSUPPORTED_L2,
-					CTX_ACT_DROP, METRIC_EGRESS);
+					METRIC_EGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity, dst_sec_identity,
 				  TRACE_EP_ID_UNKNOWN,
@@ -1346,8 +1356,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		/* extracted identity is actually the endpoint ID */
 		ret = tail_call_egress_policy(ctx, (__u16)identity);
-		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	}
 #endif
 
@@ -1362,8 +1371,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 # ifdef TUNNEL_MODE
 		ret = do_netdev_encrypt_encap(ctx, proto, identity);
 		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, identity, ret,
-						      CTX_ACT_DROP, METRIC_EGRESS);
+			return send_drop_notify_error(ctx, identity, ret, METRIC_EGRESS);
 # endif /* TUNNEL_MODE */
 		return ret;
 	}
@@ -1476,10 +1484,9 @@ skip_host_firewall:
 #if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
-	if (ret == CTX_ACT_DROP) {
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       -DROP_EDT_HORIZON);
-		return ret;
+	if (ret < 0) {
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
+		return CTX_ACT_DROP;
 	}
 #endif
 
@@ -1619,7 +1626,7 @@ skip_egress_gateway:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0, proto, false, &trace, &ext_err);
+		ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, false, &trace, &ext_err);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
@@ -1639,7 +1646,7 @@ exit:
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-					  CTX_ACT_DROP, METRIC_EGRESS);
+					  METRIC_EGRESS);
 }
 
 /*
@@ -1702,7 +1709,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * might never return to this program. Since IPsec is not compatible
 	 * iwth Host Firewall, this won't be an issue.
 	 */
-	ret = handle_nat_fwd(ctx, 0, proto, true, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -1747,7 +1754,7 @@ skip_ipsec_nodeport_revdnat:
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
@@ -1775,7 +1782,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
@@ -1803,7 +1810,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
@@ -1867,7 +1874,7 @@ to_host_from_lxc(struct __ctx_buff *ctx)
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -1947,13 +1954,12 @@ int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
 		ret = from_host_to_lxc(ctx, &ext_err);
 		if (IS_ERR(ret))
 			return send_drop_notify_error_ext(ctx, HOST_ID, ret, ext_err,
-							  CTX_ACT_DROP, METRIC_EGRESS);
+							  METRIC_EGRESS);
 
 		lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
 		ctx_store_meta(ctx, CB_SRC_LABEL, HOST_ID);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
-		return send_drop_notify_error(ctx, HOST_ID, ret,
-					      CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error(ctx, HOST_ID, ret, METRIC_EGRESS);
 	}
 
 	return to_host_from_lxc(ctx);

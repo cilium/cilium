@@ -31,7 +31,6 @@ const (
 	keyPprofPort               = "pprof-port"
 	keyGops                    = "gops"
 	keyGopsPort                = "gops-port"
-	keyDialTimeout             = "dial-timeout" // Deprecated: now a no-op
 	keyRetryTimeout            = "retry-timeout"
 	keyListenAddress           = "listen-address"
 	keyHealthListenAddress     = "health-listen-address"
@@ -84,11 +83,6 @@ func New(vp *viper.Viper) *cobra.Command {
 		keyGopsPort,
 		defaults.GopsPort,
 		"Port for gops server to listen on")
-	flags.Duration(
-		keyDialTimeout,
-		defaults.DialTimeout,
-		"Dial timeout when connecting to hubble peers")
-	flags.MarkDeprecated(keyDialTimeout, "This option is deprecated, and will be removed in v1.18")
 	flags.Duration(
 		keyRetryTimeout,
 		defaults.RetryTimeout,

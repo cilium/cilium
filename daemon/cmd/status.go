@@ -873,11 +873,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		{
 			Name: "kube-proxy-replacement",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				if d.clientset.IsEnabled() || option.Config.LoadBalancerOnly {
-					return d.getKubeProxyReplacementStatus(), nil
-				} else {
-					return nil, nil
-				}
+				return d.getKubeProxyReplacementStatus(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()

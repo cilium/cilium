@@ -268,6 +268,7 @@
 /api/v1/peer/ @cilium/sig-hubble-api
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
+/assets.go @cilium/sig-agent
 /bpf/ @cilium/sig-datapath
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
@@ -314,13 +315,14 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/egressgateway.go @cilium/egress-gateway
 /cilium-cli/connectivity/tests/encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/tests/encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/tests/errors.go @cilium/sig-agent @cilium/sig-datapath
-/cilium-cli/connectivity/tests/externalworkload.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/from-cidr.go @cilium/sig-policy
 /cilium-cli/connectivity/tests/health.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/host.go @cilium/sig-agent
@@ -407,6 +409,7 @@ Makefile* @cilium/build
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/kubernetes/local-redirect-policy.rst @cilium/sig-lb @cilium/docs-structure
+/Documentation/network/kubernetes/ciliumendpointslice.rst @cilium/sig-scalability @cilium/docs-structure
 /Documentation/network/lb-ipam.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/multicast.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
@@ -647,9 +650,7 @@ Makefile* @cilium/build
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
 /test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/fqdn @cilium/ci-structure
-# Standalone L4LB tests
-/test/l4lb @cilium/sig-lb @cilium/ci-structure
-/test/nat46x64 @cilium/sig-lb @cilium/ci-structure
+# BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure

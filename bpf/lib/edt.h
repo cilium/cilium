@@ -44,7 +44,7 @@ static __always_inline int
 edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 {
 	__u64 delay, now, t, t_next;
-	struct edt_id aggregate;
+	struct edt_id aggregate = {};
 	struct edt_info *info;
 
 	if (!eth_is_supported_ethertype(proto))
@@ -56,6 +56,8 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	aggregate.id = edt_get_aggregate(ctx);
 	if (!aggregate.id)
 		return CTX_ACT_OK;
+
+	aggregate.direction = DIRECTION_EGRESS;
 
 	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
 	if (!info)
@@ -79,7 +81,7 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	 * potentially allow for per aggregate control.
 	 */
 	if (t_next - now >= info->t_horizon_drop)
-		return CTX_ACT_DROP;
+		return DROP_EDT_HORIZON;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
 out:

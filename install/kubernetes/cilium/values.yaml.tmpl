@@ -190,7 +190,7 @@ serviceAccounts:
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
 agent: true
-# -- Agent container name.
+# -- Agent daemonset name.
 name: cilium
 # -- Roll out cilium agent pods automatically when configmap is updated.
 rollOutCiliumPods: false
@@ -723,6 +723,14 @@ cni:
       memory: 10Mi
   # -- Enable route MTU for pod netns when CNI chaining is used
   enableRouteMTUForCNIChaining: false
+# @schema
+# type: [null, number]
+# @schema
+# -- (float64) Ratio of the connectivity probe frequency vs resource usage, a float in
+# [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing
+# frequency is dynamically adjusted based on the cluster size.
+# @default -- `0.5`
+connectivityProbeFrequencyRatio: ~
 # -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # @default -- `"0s"`
@@ -1534,9 +1542,12 @@ hubble:
     # -- hubble-relay pod security context
     podSecurityContext:
       fsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
     # -- hubble-relay container security context
     securityContext:
       # readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
       runAsNonRoot: true
       runAsUser: 65532
       runAsGroup: 65532
@@ -1597,13 +1608,6 @@ hubble:
         # See https://github.com/cilium/cilium/pull/28709#discussion_r1371792546
         # For GKE Dataplane V2 this should be set to relay.kube-system.svc.cluster.local
         relayName: "ui.hubble-relay.cilium.io"
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-    #
-    # This option has been deprecated and is a no-op.
-    dialTimeout: ~
     # @schema
     # type: [null, string]
     # @schema
@@ -2029,8 +2033,8 @@ keepDeprecatedLabels: false
 keepDeprecatedProbes: false
 startupProbe:
   # -- failure threshold of startup probe.
-  # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
-  failureThreshold: 105
+  # Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
+  failureThreshold: 300
   # -- interval between checks of the startup probe
   periodSeconds: 2
 livenessProbe:
@@ -2590,6 +2594,10 @@ envoy:
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
 
+# To include or exclude matched resources from cilium node identity evaluation
+# List of labels just like --labels flag (.Values.labels)
+# nodeLabels: ""
+
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
   enabled: false
@@ -2604,6 +2612,9 @@ resourceQuotas:
 # Need to document default
 ##################
 #sessionAffinity: false
+
+# -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+secretsNamespaceAnnotations: {}
 
 # -- Do not run Cilium agent when running with clean mode. Useful to completely
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
@@ -2628,7 +2639,7 @@ tls:
   secretsBackend: ~
   # @schema
   # type: [null, boolean]
-  # @schema  
+  # @schema
   # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
   #    CiliumNetworkPolicy relevant Secrets.
   #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
@@ -2649,7 +2660,7 @@ tls:
     # type: [null, boolean]
     # @schema
     # -- Enable synchronization of Secrets for TLS Interception. If disabled and
-    # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+    # tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
     enabled: ~
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
@@ -3263,6 +3274,11 @@ clustermesh:
             - ALL
       # -- lifecycle setting for the KVStoreMesh container
       lifecycle: {}
+      # -- Specify the KVStore mode when running KVStoreMesh
+      # Supported values:
+      # - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod.
+      # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
+      kvstoreMode: "internal"
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -3575,10 +3591,6 @@ clustermesh:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
           metricRelabelings: ~
-# -- Configure external workloads support
-externalWorkloads:
-  # -- Enable support for external workloads, such as VMs (false by default).
-  enabled: false
 # -- Configure cgroup related configuration
 cgroup:
   autoMount:
@@ -3842,3 +3854,4 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+

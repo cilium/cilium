@@ -686,26 +686,6 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting Cilium egress NAT policies",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				gvr := schema.GroupVersionResource{
-					Group:    "cilium.io",
-					Version:  "v2alpha1",
-					Resource: "ciliumegressnatpolicies",
-				}
-				allNamespace := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gvr, &allNamespace, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumEgressNATPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
-				}
-				return nil
-			},
-		},
-		{
 			Description: "Collecting Cilium Egress Gateway policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1466,21 +1446,6 @@ func (c *Collector) Run() error {
 					}
 				}
 				return fmt.Errorf("could not find running Cilium Pod")
-			},
-		},
-		{
-			CreatesSubtasks: true,
-			Description:     "Collecting Cilium external workloads",
-			Quick:           true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				if err := c.WriteYAML(ciliumExternalWorkloadFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				return nil
 			},
 		},
 	}

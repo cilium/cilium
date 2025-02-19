@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
@@ -41,7 +43,7 @@ type fixture struct {
 	bgpnClient cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
 }
 
-func newFixture(ctx context.Context, req *require.Assertions, enableStatusReport bool) (*fixture, func()) {
+func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enableStatusReport bool) (*fixture, func()) {
 	rws := map[string]*struct {
 		once    sync.Once
 		watchCh chan any
@@ -54,7 +56,7 @@ func newFixture(ctx context.Context, req *require.Assertions, enableStatusReport
 	}
 
 	f := &fixture{}
-	f.fakeClientSet, _ = k8s_client.NewFakeClientset()
+	f.fakeClientSet, _ = k8s_client.NewFakeClientset(hivetest.Logger(t))
 
 	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		w := action.(k8sTesting.WatchAction)

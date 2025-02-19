@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/hmarr/codeowners"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +52,8 @@ type ConnectivityTest struct {
 	// Features contains the features enabled on the running Cilium cluster
 	Features features.Set
 
+	CodeOwners codeowners.Ruleset
+
 	// ClusterName is the identifier of the local cluster.
 	ClusterName string
 
@@ -76,7 +79,6 @@ type ConnectivityTest struct {
 	echoExternalServices map[string]Service
 	ingressService       map[string]Service
 	k8sService           Service
-	externalWorkloads    map[string]ExternalWorkload
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
 	frrPods              []Pod
@@ -207,6 +209,7 @@ func NewConnectivityTest(
 	p Parameters,
 	sysdumpHooks sysdump.Hooks,
 	logger *ConcurrentLogger,
+	owners codeowners.Ruleset,
 ) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
@@ -232,7 +235,6 @@ func NewConnectivityTest(
 		echoServices:             make(map[string]Service),
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
-		externalWorkloads:        make(map[string]ExternalWorkload),
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
@@ -243,6 +245,7 @@ func NewConnectivityTest(
 		testNames:                make(map[string]struct{}),
 		lastFlowTimestamps:       make(map[string]time.Time),
 		Features:                 features.Set{},
+		CodeOwners:               owners,
 	}
 
 	return k, nil
@@ -502,11 +505,19 @@ func (ct *ConnectivityTest) report() error {
 		ct.Failf("%d/%d tests failed (%d/%d actions), %d tests skipped, %d scenarios skipped:", nf, nt-nst, fa, na, nst, nss)
 
 		// List all failed actions by test.
+		failedActions := 0
 		for _, t := range failed {
 			ct.Logf("Test [%s]:", t.Name())
 			for _, a := range t.failedActions() {
+				failedActions++
 				ct.Log("  ❌", a)
+				ct.LogOwners(a.Scenario())
 			}
+		}
+		if len(failed) > 0 && failedActions == 0 {
+			// Test failure was triggered not by a specific action
+			// failing, but some other infrastructure code.
+			ct.LogOwners(defaultTestOwners)
 		}
 
 		return fmt.Errorf("[%s] %d tests failed", ct.params.TestNamespace, nf)
@@ -1161,10 +1172,6 @@ func (ct *ConnectivityTest) IngressService() map[string]Service {
 
 func (ct *ConnectivityTest) K8sService() Service {
 	return ct.k8sService
-}
-
-func (ct *ConnectivityTest) ExternalWorkloads() map[string]ExternalWorkload {
-	return ct.externalWorkloads
 }
 
 func (ct *ConnectivityTest) HubbleClient() observer.ObserverClient {

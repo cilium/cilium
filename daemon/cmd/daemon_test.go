@@ -126,8 +126,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	var daemonPromise promise.Promise[*Daemon]
 	ds.hive = hive.New(
 		cell.Provide(
-			func() k8sClient.Clientset {
-				cs, _ := k8sClient.NewFakeClientset()
+			func(log *slog.Logger) k8sClient.Clientset {
+				cs, _ := k8sClient.NewFakeClientset(log)
 				cs.Disable()
 				return cs
 			},

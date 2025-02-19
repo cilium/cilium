@@ -150,10 +150,14 @@ func extractClientIPFromResponse(res string) net.IP {
 // - reply traffic for services
 // - reply traffic for pods
 func EgressGateway() check.Scenario {
-	return &egressGateway{}
+	return &egressGateway{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGateway struct{}
+type egressGateway struct {
+	check.ScenarioBase
+}
 
 func (s *egressGateway) Name() string {
 	return "egress-gateway"
@@ -240,7 +244,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -258,7 +262,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++
@@ -311,10 +315,14 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 //
 // This suite tests the excludedCIDRs property and ensure traffic matching an excluded CIDR does not get masqueraded with the egress IP
 func EgressGatewayExcludedCIDRs() check.Scenario {
-	return &egressGatewayExcludedCIDRs{}
+	return &egressGatewayExcludedCIDRs{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type egressGatewayExcludedCIDRs struct{}
+type egressGatewayExcludedCIDRs struct {
+	check.ScenarioBase
+}
 
 func (s *egressGatewayExcludedCIDRs) Name() string {
 	return "egress-gateway-excluded-cidrs"
@@ -385,7 +393,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {
-					t.Fatal("Request reached external echo service with wrong source IP")
+					a.Fatal("Request reached external echo service with wrong source IP")
 				}
 			})
 			i++

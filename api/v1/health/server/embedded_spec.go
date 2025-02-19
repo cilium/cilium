@@ -106,6 +106,10 @@ func init() {
       "description": "Connectivity status of a path",
       "type": "object",
       "properties": {
+        "lastProbed": {
+          "description": "Timestamp of last probe completion",
+          "type": "string"
+        },
         "latency": {
           "description": "Round trip time to node in nanoseconds",
           "type": "integer"
@@ -162,6 +166,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeStatus"
           }
+        },
+        "probeInterval": {
+          "description": "Interval in seconds between probes",
+          "type": "string"
         },
         "timestamp": {
           "type": "string"
@@ -356,6 +364,10 @@ func init() {
       "description": "Connectivity status of a path",
       "type": "object",
       "properties": {
+        "lastProbed": {
+          "description": "Timestamp of last probe completion",
+          "type": "string"
+        },
         "latency": {
           "description": "Round trip time to node in nanoseconds",
           "type": "integer"
@@ -412,6 +424,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeStatus"
           }
+        },
+        "probeInterval": {
+          "description": "Interval in seconds between probes",
+          "type": "string"
         },
         "timestamp": {
           "type": "string"

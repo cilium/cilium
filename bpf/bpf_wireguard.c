@@ -46,13 +46,17 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_OVERLAY)
 		goto out;
 
-	ret = handle_nat_fwd(ctx, 0, proto, true, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, true, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+						  METRIC_EGRESS);
 
 out:
 #endif /* ENABLE_NODEPORT */
+
+	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			  trace.reason, trace.monitor);
 
 	return TC_ACT_OK;
 }

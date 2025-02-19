@@ -19,6 +19,15 @@ spec:
     - "8080"
   resources:
   - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: '::'
+          portValue: 80
+    address:
+      socketAddress:
+        address: 0.0.0.0
+        portValue: 80
     filterChains:
     - filterChainMatch:
         transportProtocol: raw_buffer

@@ -213,10 +213,17 @@ func isWgEncap(t *check.Test) bool {
 // The checks are implemented by curl'ing a server pod from a client pod, and
 // then inspecting tcpdump captures from the client pod's node.
 func PodToPodEncryption(reqs ...features.Requirement) check.Scenario {
-	return &podToPodEncryption{reqs}
+	return &podToPodEncryption{
+		reqs:         reqs,
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type podToPodEncryption struct{ reqs []features.Requirement }
+type podToPodEncryption struct {
+	check.ScenarioBase
+
+	reqs []features.Requirement
+}
 
 func (s *podToPodEncryption) Name() string {
 	return "pod-to-pod-encryption"
@@ -373,10 +380,17 @@ func nodeToNodeEncTestPods(nodes map[check.NodeIdentity]*ciliumv2.CiliumNode, ex
 }
 
 func NodeToNodeEncryption(reqs ...features.Requirement) check.Scenario {
-	return &nodeToNodeEncryption{reqs}
+	return &nodeToNodeEncryption{
+		reqs:         reqs,
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type nodeToNodeEncryption struct{ reqs []features.Requirement }
+type nodeToNodeEncryption struct {
+	check.ScenarioBase
+
+	reqs []features.Requirement
+}
 
 func (s *nodeToNodeEncryption) Name() string {
 	return "node-to-node-encryption"

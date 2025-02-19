@@ -353,8 +353,10 @@ func (p *Pinger) updateStatistics(pkt *Packet) {
 func (p *Pinger) SetIPAddr(ipaddr *net.IPAddr) {
 	p.ipv4 = isIPv4(ipaddr.IP)
 
+	p.statsMu.Lock()
 	p.ipaddr = ipaddr
 	p.addr = ipaddr.String()
+	p.statsMu.Unlock()
 }
 
 // IPAddr returns the ip address of the target host.
@@ -407,7 +409,9 @@ func (p *Pinger) Resolve() error {
 
 	p.ipv4 = isIPv4(ipaddr.IP)
 
+	p.statsMu.Lock()
 	p.ipaddr = ipaddr
+	p.statsMu.Unlock()
 
 	return nil
 }
@@ -416,10 +420,14 @@ func (p *Pinger) Resolve() error {
 // DNS name like "www.google.com" or IP like "127.0.0.1".
 func (p *Pinger) SetAddr(addr string) error {
 	oldAddr := p.addr
+	p.statsMu.Lock()
 	p.addr = addr
+	p.statsMu.Unlock()
 	err := p.Resolve()
 	if err != nil {
+		p.statsMu.Lock()
 		p.addr = oldAddr
+		p.statsMu.Unlock()
 		return err
 	}
 	return nil
@@ -852,7 +860,9 @@ func (p *Pinger) processPacket(recv *packet) error {
 		inPkt.Seq = pkt.Seq
 		// If we've already received this sequence, ignore it.
 		if _, inflight := p.awaitingSequences[*pktUUID][pkt.Seq]; !inflight {
+			p.statsMu.Lock()
 			p.PacketsRecvDuplicates++
+			p.statsMu.Unlock()
 			if p.OnDuplicateRecv != nil {
 				p.OnDuplicateRecv(inPkt)
 			}
@@ -945,7 +955,9 @@ func (p *Pinger) sendICMP(conn packetConn) error {
 		}
 		// mark this sequence as in-flight
 		p.awaitingSequences[currentUUID][p.sequence] = struct{}{}
+		p.statsMu.Lock()
 		p.PacketsSent++
+		p.statsMu.Unlock()
 		p.sequence++
 		if p.sequence > 65535 {
 			newUUID := uuid.New()

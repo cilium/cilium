@@ -1190,19 +1190,31 @@ func Break() Cmd {
 			}
 			defer tty.Close()
 
+			// Flush any pending logs before switching to raw mode.
+			s.FlushLog()
+
+			// Hack: sleep a little bit to allow the log to be written out to stdout
+			// before we switch to raw mode (which might mess up the output)
+			time.Sleep(50 * time.Millisecond)
+
 			prev, err := term.MakeRaw(int(tty.Fd()))
 			if err != nil {
 				return nil, fmt.Errorf("cannot set /dev/tty to raw mode")
 			}
 			defer term.Restore(int(tty.Fd()), prev)
 
-			// Flush any pending logs
-			engine := s.engine
-
+			// Switch the log output to the terminal until we continue
 			term := term.NewTerminal(tty, "debug> ")
-			s.FlushLog()
+			origLogOut := s.logOut
+			defer func() {
+				s.logOut = origLogOut
+
+			}()
+			s.logOut = term
+
 			fmt.Fprintf(term, "\nBreak! Control-d to continue.\n")
 
+			engine := s.engine
 			for {
 				line, err := term.ReadLine()
 				if err != nil {
