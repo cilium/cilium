@@ -112,7 +112,7 @@ type NameManager interface {
 	// RestoreCache loads cache state from the restored system:
 	// - adds any pre-cached DNS entries
 	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-	RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo)
+	RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint)
 	CompleteBootstrap()
 }
 

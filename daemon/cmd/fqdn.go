@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -57,15 +56,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	d.dnsNameManager.StartGC(d.ctx)
 
 	// restore the global DNS cache state
-	epInfo := make([]namemanager.EndpointDNSInfo, 0, len(possibleEndpoints))
-	for _, ep := range possibleEndpoints {
-		epInfo = append(epInfo, namemanager.EndpointDNSInfo{
-			ID:         ep.StringID(),
-			DNSHistory: ep.DNSHistory,
-			DNSZombies: ep.DNSZombies,
-		})
-	}
-	d.dnsNameManager.RestoreCache(preCachePath, epInfo)
+	d.dnsNameManager.RestoreCache(preCachePath, possibleEndpoints)
 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket

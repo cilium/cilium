@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -84,35 +83,6 @@ func New(params ManagerParams) *manager {
 	}
 
 	return n
-}
-
-// getEndpointsDNSInfo is used by the NameManager to iterate through endpoints
-// without having to have access to the EndpointManager.
-//
-// Optional parameter endpointID will cause this function to only return the
-// endpoint with the ID matching the parameter.
-func (n *manager) getEndpointsDNSInfo(endpointID string) []EndpointDNSInfo {
-	var eps []*endpoint.Endpoint
-	if endpointID != "" {
-		ep, err := n.params.EPMgr.Lookup(endpointID)
-		if ep == nil || err != nil {
-			return nil
-		}
-		eps = []*endpoint.Endpoint{ep}
-	} else {
-		eps = n.params.EPMgr.GetEndpoints()
-	}
-
-	out := make([]EndpointDNSInfo, 0, len(eps))
-	for _, ep := range eps {
-		out = append(out, EndpointDNSInfo{
-			ID:         ep.StringID(),
-			ID64:       int64(ep.ID),
-			DNSHistory: ep.DNSHistory,
-			DNSZombies: ep.DNSZombies,
-		})
-	}
-	return out
 }
 
 // RegisterFQDNSelector exposes this FQDNSelector so that the identity labels

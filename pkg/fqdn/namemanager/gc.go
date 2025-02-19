@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -47,13 +48,6 @@ var (
 type serializedSelector struct {
 	Regex    string           `json:"re"`
 	Selector api.FQDNSelector `json:"sel"`
-}
-
-type EndpointDNSInfo struct {
-	ID         string
-	ID64       int64
-	DNSHistory *fqdn.DNSCache
-	DNSZombies *fqdn.DNSZombieMappings
 }
 
 // This implements some garbage collection and cleanup functions for the NameManager
@@ -88,9 +82,9 @@ func (n *manager) doGC(ctx context.Context) error {
 	maybeStaleIPs := n.cache.GetIPs()
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
-	endpoints := n.getEndpointsDNSInfo("")
+	endpoints := n.params.EPMgr.GetEndpoints()
 	for _, ep := range endpoints {
-		epID := ep.ID
+		epID := ep.StringID()
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
 			countFQDNs, countIPs := ep.DNSHistory.Count()
 			if metrics.FQDNActiveNames.IsEnabled() {
@@ -186,7 +180,7 @@ func (n *manager) StartGC(ctx context.Context) {
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
+func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
 		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
@@ -207,7 +201,7 @@ func (n *manager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInf
 	// Note: This is TTL aware, and expired data will not be used (e.g. when
 	// restoring after a long delay).
 	now := time.Now()
-	for _, possibleEP := range restoredEPs {
+	for _, possibleEP := range eps {
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
 			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
