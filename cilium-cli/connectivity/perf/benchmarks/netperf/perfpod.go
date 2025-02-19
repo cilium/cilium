@@ -67,9 +67,19 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
 			for _, server := range t.Context().PerfServerPod() {
-				if !perfParameters.Mixed && (strings.Contains(server.Pod.Name, check.PerfHostName) != strings.Contains(c.Pod.Name, check.PerfHostName)) {
+				clientHost := strings.Contains(c.Pod.Name, check.PerfHostName)
+				serverHost := strings.Contains(server.Pod.Name, check.PerfHostName)
+
+				switch {
+				case clientHost && serverHost && perfParameters.HostNet:
+				case clientHost && !serverHost && perfParameters.HostToPod:
+				case !clientHost && serverHost && perfParameters.PodToHost:
+				case !clientHost && !serverHost && perfParameters.PodNet:
+
+				default:
 					continue
 				}
+
 				scenarioName := ""
 				if strings.Contains(c.Pod.Name, check.PerfHostName) {
 					scenarioName += "host"
