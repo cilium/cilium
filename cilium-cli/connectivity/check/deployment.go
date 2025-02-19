@@ -1440,23 +1440,35 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	var err error
 
-	nodeSelector := labels.SelectorFromSet(ct.params.NodeSelector).String()
-	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelector})
+	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).String()
+	nodeSelectorClient := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorClient).String()
+
+	serverNodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelectorServer, Limit: 2})
 	if err != nil {
-		return fmt.Errorf("unable to query nodes")
+		return fmt.Errorf("unable to query nodes with selector %s", nodeSelectorServer)
 	}
 
-	if len(nodes.Items) < 2 {
-		return fmt.Errorf("Insufficient number of nodes selected with nodeSelector: %s", nodeSelector)
+	clientNodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelectorClient, Limit: 2})
+	if err != nil {
+		return fmt.Errorf("unable to query nodes with selector %s", nodeSelectorClient)
 	}
-	firstNodeName := nodes.Items[0].Name
-	firstNodeZone := nodes.Items[0].Labels[corev1.LabelTopologyZone]
-	secondNodeName := nodes.Items[1].Name
-	secondNodeZone := nodes.Items[1].Labels[corev1.LabelTopologyZone]
+
+	var serverNode, clientNode corev1.Node
+	switch {
+	case len(serverNodes.Items) >= 1 && len(clientNodes.Items) >= 1 && serverNodes.Items[0].Name != clientNodes.Items[0].Name:
+		serverNode, clientNode = serverNodes.Items[0], clientNodes.Items[0]
+	case len(serverNodes.Items) >= 1 && len(clientNodes.Items) >= 2:
+		serverNode, clientNode = serverNodes.Items[0], clientNodes.Items[1]
+	case len(serverNodes.Items) >= 2 && len(clientNodes.Items) >= 1:
+		serverNode, clientNode = serverNodes.Items[1], clientNodes.Items[0]
+	default:
+		return fmt.Errorf("Insufficient number of nodes selected with selectors: %s, %s", nodeSelectorServer, nodeSelectorClient)
+	}
+
 	ct.Info("Nodes used for performance testing:")
-	ct.Infof("Node name: %s, zone: %s", firstNodeName, firstNodeZone)
-	ct.Infof("Node name: %s, zone: %s", secondNodeName, secondNodeZone)
-	if firstNodeZone != secondNodeZone {
+	ct.Infof("* Node name: %s, zone: %s", serverNode.Name, serverNode.Labels[corev1.LabelTopologyZone])
+	ct.Infof("* Node name: %s, zone: %s", clientNode.Name, clientNode.Labels[corev1.LabelTopologyZone])
+	if serverNode.Labels[corev1.LabelTopologyZone] != clientNode.Labels[corev1.LabelTopologyZone] {
 		ct.Warn("Selected nodes have different zones, tweak nodeSelector if that's not what you intended")
 	}
 
@@ -1472,15 +1484,15 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 				"` + perClientLowPriorityDeploymentName + `": ` + lowPrioDeployAnnotations.String() + `,
 			    "` + perClientHighPriorityDeploymentName + `": ` + highPrioDeployAnnotations.String() + `
 			}`)
-		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
+		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
 		// Create low priority client on other node
-		if err = ct.createClientPerfDeployment(ctx, perClientLowPriorityDeploymentName, secondNodeName, false); err != nil {
+		if err = ct.createClientPerfDeployment(ctx, perClientLowPriorityDeploymentName, clientNode.Name, false); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
 		// Create high priority client on other node
-		if err = ct.createClientPerfDeployment(ctx, perClientHighPriorityDeploymentName, secondNodeName, false); err != nil {
+		if err = ct.createClientPerfDeployment(ctx, perClientHighPriorityDeploymentName, clientNode.Name, false); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
 
@@ -1489,42 +1501,42 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
 		if ct.params.PerfParameters.SameNode {
-			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
+			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, serverNode.Name, false); err != nil {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
-			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
+			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, clientNode.Name, false); err != nil {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.HostToPod {
-		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
+		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, serverNode.Name, false); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.HostToPod {
 		if ct.params.PerfParameters.SameNode {
-			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, firstNodeName, true); err != nil {
+			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, serverNode.Name, true); err != nil {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
 		}
 
 		if ct.params.PerfParameters.OtherNode {
 			// Create second client on other node
-			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, secondNodeName, true); err != nil {
+			if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, clientNode.Name, true); err != nil {
 				ct.Warnf("unable to create deployment: %w", err)
 			}
 		}
 	}
 
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
-		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, firstNodeName, true); err != nil {
+		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, serverNode.Name, true); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
 	}
