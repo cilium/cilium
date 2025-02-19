@@ -12,7 +12,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -52,14 +52,15 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type policyRepoParams struct {
 	cell.In
 
-	Logger          *slog.Logger
-	Lifecycle       cell.Lifecycle
-	Config          Config
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	IdentityManager identitymanager.IDManager
-	ClusterInfo     cmtypes.ClusterInfo
-	MetricsManager  api.PolicyMetrics
+	Logger            *slog.Logger
+	Lifecycle         cell.Lifecycle
+	Config            Config
+	CertManager       certificatemanager.CertificateManager
+	SecretManager     certificatemanager.SecretManager
+	IdentityManager   identitymanager.IDManager
+	ClusterInfo       cmtypes.ClusterInfo
+	MetricsManager    api.PolicyMetrics
+	L7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 }
 
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
@@ -82,10 +83,10 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
+		params.L7RulesTranslator,
 		params.IdentityManager,
 		params.MetricsManager,
 	)
-	policyRepo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
