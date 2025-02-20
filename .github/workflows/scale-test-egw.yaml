@@ -195,6 +195,7 @@ jobs:
           echo client_qps=${CLIENT_QPS} >> $GITHUB_OUTPUT
           echo eks_version=${EKS_VERSION} >> $GITHUB_OUTPUT
           echo eks_region=${EKS_REGION} >> $GITHUB_OUTPUT
+          echo eks_zone=${EKS_REGION}b >> $GITHUB_OUTPUT
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -349,6 +350,8 @@ jobs:
           - name: ng-amd64-client
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone }}
             desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
             spot: false
             privateNetworking: true
@@ -364,6 +367,8 @@ jobs:
           - name: ng-amd64-egw-node
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
@@ -379,6 +384,8 @@ jobs:
           - name: ng-amd64-heapster
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
@@ -394,6 +401,8 @@ jobs:
           - name: ng-amd64-no-cilium
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
