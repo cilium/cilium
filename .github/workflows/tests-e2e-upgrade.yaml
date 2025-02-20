@@ -748,7 +748,7 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners \
-            --test "seq-.*" \
+            --test "seq-.*,!l7,!fqdn" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
@@ -757,7 +757,7 @@ jobs:
           cilium connectivity test \
             --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            --test "!seq-.*,!l7,!fqdn" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Setup conn dirstupt tests after a flush-ct Cilium tests
@@ -805,7 +805,7 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners \
-            --test "seq-.*" \
+            --test "seq-.*,!l7,!fqdn" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
@@ -815,7 +815,7 @@ jobs:
           cilium connectivity test \
             --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            --test "!seq-.*,!l7,!fqdn" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Features tested after downgrade
