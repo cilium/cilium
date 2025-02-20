@@ -490,6 +490,7 @@ jobs:
             --prometheus-additional-monitors-path=../../.github/actions/cl2-modules/egw/prom-extra-podmons \
             --provider=aws \
             --enable-prometheus-server \
+            --prometheus-scrape-kubelets \
             --tear-down-prometheus-server=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
