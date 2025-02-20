@@ -210,6 +210,8 @@ jobs:
           echo client_qps=${CLIENT_QPS} >> $GITHUB_OUTPUT
           echo eks_version=${EKS_VERSION} >> $GITHUB_OUTPUT
           echo eks_region=${EKS_REGION} >> $GITHUB_OUTPUT
+          echo eks_zone_1=${EKS_REGION}b >> $GITHUB_OUTPUT
+          echo eks_zone_2=${EKS_REGION}c >> $GITHUB_OUTPUT
 
       - name: Ensure EGW scale utils image is available
         shell: bash
@@ -297,6 +299,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ steps.vars.outputs.eks_region }}
+          zones: "${{ steps.vars.outputs.eks_zone_1 }} ${{ steps.vars.outputs.eks_zone_2 }}"
           owner: "${{ steps.vars.outputs.owner }}"
           version: "${{ steps.vars.outputs.eks_version }}"
           addons: "coredns"
@@ -356,6 +359,8 @@ jobs:
           - name: ng-amd64-client
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone_1 }}
             desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
             spot: false
             privateNetworking: true
@@ -371,6 +376,8 @@ jobs:
           - name: ng-amd64-egw-node
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone_1 }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
@@ -386,6 +393,8 @@ jobs:
           - name: ng-amd64-heapster
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone_1 }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
@@ -401,6 +410,8 @@ jobs:
           - name: ng-amd64-no-cilium
             instanceTypes:
             - ${{ steps.vars.outputs.node_instance_type }}
+            availabilityZones:
+            - ${{ steps.vars.outputs.eks_zone_2 }}
             desiredCapacity: 1
             spot: false
             privateNetworking: true
