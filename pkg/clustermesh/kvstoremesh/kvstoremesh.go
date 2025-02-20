@@ -163,6 +163,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		serviceExports: newReflector(km.backend, name, mcsapitypes.ServiceExportStorePrefix, "", km.storeFactory, synced.resources),
 		identities:     newReflector(km.backend, name, identityCache.IdentitiesPath, identityCacheSuffix, km.storeFactory, synced.resources),
 		ipcache:        newReflector(km.backend, name, ipcache.IPIdentitiesPath, "", km.storeFactory, synced.resources),
+		config:         newClusterConfigSyncer(km.backend, name, km.storeFactory, synced.resources),
 		status:         status,
 		storeFactory:   km.storeFactory,
 		synced:         synced,
@@ -186,6 +187,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	run(rc.serviceExports.syncer.Run)
 	run(rc.identities.syncer.Run)
 	run(rc.ipcache.syncer.Run)
+	run(rc.config.syncer.Run)
 
 	run(rc.waitForConnection)
 

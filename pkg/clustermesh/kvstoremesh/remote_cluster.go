@@ -5,6 +5,7 @@ package kvstoremesh
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"sync"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -43,6 +43,7 @@ type remoteCluster struct {
 	serviceExports reflector
 	identities     reflector
 	ipcache        reflector
+	config         reflector
 
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
@@ -75,24 +76,6 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		close(rc.synced.connected)
 	}
 
-	dstcfg := types.CiliumClusterConfig{
-		ID: srccfg.ID,
-		Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries:        true,
-			Cached:                true,
-			MaxConnectedClusters:  srccfg.Capabilities.MaxConnectedClusters,
-			ServiceExportsEnabled: srccfg.Capabilities.ServiceExportsEnabled,
-		},
-	}
-
-	stopAndWait, err := cmutils.EnforceClusterConfig(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
-	defer stopAndWait()
-	if err != nil {
-		ready <- fmt.Errorf("failed to propagate cluster configuration: %w", err)
-		close(ready)
-		return
-	}
-
 	var mgr store.WatchStoreManager
 	if srccfg.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
@@ -104,6 +87,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if srccfg.Capabilities.Cached {
 		adapter = kvstore.StateToCachePrefix
 	}
+
+	mgr.Register(adapter(kvstore.ClusterConfigPrefix), func(ctx context.Context) {
+		rc.config.watcher.Watch(ctx, backend, kvstore.ClusterConfigPrefix)
+	})
 
 	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
 		rc.nodes.watcher.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
@@ -295,10 +282,14 @@ type syncer struct {
 	store.SyncStore
 	syncedDone lock.DoneFunc
 	isSynced   *atomic.Bool
+	convert    func(key store.Key) (bool, store.Key)
 }
 
 func (o *syncer) OnUpdate(key store.Key) {
-	o.UpsertKey(context.Background(), key)
+	update, newKey := o.convert(key)
+	if update {
+		o.UpsertKey(context.Background(), newKey)
+	}
 }
 
 func (o *syncer) OnDelete(key store.NamedKey) {
@@ -313,6 +304,57 @@ func (o *syncer) OnSync(ctx context.Context) {
 	}
 }
 
+func newClusterConfigSyncer(local kvstore.BackendOperations, cluster string, factory store.Factory, synced *resources) reflector {
+
+	syncer := syncer{
+		SyncStore:  factory.NewSyncStore(cluster, local, kvstore.ClusterConfigPrefix),
+		syncedDone: synced.Add(),
+		isSynced:   &atomic.Bool{},
+		convert: func(key store.Key) (bool, store.Key) {
+			var config types.CiliumClusterConfig
+			value, err := key.Marshal()
+			if err != nil {
+				logrus.WithError(err).Errorf("unable to marshal remote cluster '%s' config key", cluster)
+				return false, nil
+			}
+			if err = json.Unmarshal(value, &config); err != nil {
+				logrus.WithError(err).Errorf("unable to unmarshal remote cluster '%s' config", cluster)
+				return false, nil
+			}
+
+			if config.Capabilities.Cached {
+				// skip cached remote clusters
+				return false, nil
+			}
+
+			config.Capabilities.Cached = true
+			config.Capabilities.SyncedCanaries = true
+
+			newVal, err := json.Marshal(config)
+			if err != nil {
+				logrus.WithError(err).Errorf("unable to marshal remote cluster '%s' config", cluster)
+				return false, nil
+			}
+
+			newKey := store.KVPairCreator()
+			err = newKey.Unmarshal(key.GetKeyName(), newVal)
+			if err != nil {
+				logrus.WithError(err).Errorf("unable to unmarshal remote cluster '%s' config key", cluster)
+				return false, nil
+			}
+
+			return true, newKey
+		},
+	}
+
+	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer)
+
+	return reflector{
+		syncer:  syncer,
+		watcher: watcher,
+	}
+}
+
 func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix string, factory store.Factory, synced *resources) reflector {
 	prefix = kvstore.StateToCachePrefix(prefix)
 	syncStorePrefix := path.Join(prefix, cluster, suffix)
@@ -322,6 +364,7 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix strin
 			store.WSSWithSyncedKeyOverride(prefix)),
 		syncedDone: synced.Add(),
 		isSynced:   &atomic.Bool{},
+		convert:    func(key store.Key) (bool, store.Key) { return true, key },
 	}
 
 	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
