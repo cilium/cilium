@@ -10,6 +10,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define SERVICE_NO_BACKEND_RESPONSE
+#define ENABLE_MASQUERADE_IPV4		1
 
 #define DISABLE_LOOPBACK_LB
 
@@ -27,6 +28,8 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
 #include <bpf_host.c>
+
+ASSIGN_CONFIG(__u32, nat_ipv4_masquerade, FRONTEND_IP)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -90,8 +93,8 @@ int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "tc_nodeport_no_backend")
-int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
+static __always_inline int
+validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -110,7 +113,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 
 	test_log("Status code: %d", *status_code);
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == retval);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -123,6 +126,9 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 header out of bounds");
+
+	assert(l3->saddr == FRONTEND_IP);
+	assert(l3->daddr == CLIENT_IP);
 
 	assert(l3->ihl == 5);
 	assert(l3->version == 4);
@@ -147,4 +153,37 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(l4->checksum == bpf_htons(0x2c3f));
 
 	test_finish();
+}
+
+CHECK("tc", "tc_nodeport_no_backend")
+int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return validate_icmp_reply(ctx, CTX_ACT_REDIRECT);
+}
+
+/* Test that the ICMP error message leaves the node */
+PKTGEN("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_pktgen(struct __ctx_buff *ctx)
+{
+	/* Start with the initial request, and let SETUP() below rebuild it. */
+	return nodeport_no_backend_pktgen(ctx);
+}
+
+SETUP("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_setup(struct __ctx_buff *ctx)
+{
+	if (__tail_no_service_ipv4(ctx))
+		return TEST_ERROR;
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return validate_icmp_reply(ctx, CTX_ACT_OK);
 }
