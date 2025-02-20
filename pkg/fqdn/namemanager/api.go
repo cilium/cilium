@@ -115,7 +115,7 @@ func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMa
 					Ips:            []string{delete.IP.String()},
 					LookupTime:     strfmt.DateTime(delete.AliveAt),
 					TTL:            0,
-					ExpirationTime: strfmt.DateTime(ep.DNSZombies.NextCTGCUpdate),
+					ExpirationTime: strfmt.DateTime(ep.DNSZombies.NextCTGCUpdate()),
 					EndpointID:     int64(ep.ID),
 					Source:         DNSSourceConnection,
 				})
