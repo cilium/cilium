@@ -412,7 +412,8 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), cfg.DeviceMTU); err != nil {
+	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(),
+		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), cfg.DeviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
 	}
 
