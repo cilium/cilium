@@ -274,7 +274,6 @@ import (
 	_ "github.com/cilium/proxy/go/envoy/service/secret/v3"
 	_ "github.com/cilium/proxy/go/envoy/service/status/v3"
 	_ "github.com/cilium/proxy/go/envoy/service/tap/v3"
-	_ "github.com/cilium/proxy/go/envoy/service/trace/v3"
 	_ "github.com/cilium/proxy/go/envoy/type"
 	_ "github.com/cilium/proxy/go/envoy/type/http/v3"
 	_ "github.com/cilium/proxy/go/envoy/type/matcher"
