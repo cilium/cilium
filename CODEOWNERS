@@ -399,6 +399,7 @@ Makefile* @cilium/build
 /Documentation/Makefile @cilium/docs-structure
 /Documentation/network/bgp* @cilium/sig-bgp @cilium/docs-structure
 /Documentation/network/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
+/Documentation/network/concepts/fragmentation.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/concepts/ipam/ @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
