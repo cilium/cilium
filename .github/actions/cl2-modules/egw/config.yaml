@@ -11,8 +11,6 @@
 {{$EGWPolicyTemplate := DefaultParam .CL2_EGW_POLICY_TEMPLATE "manifests/egw-policy.yaml"}}
 {{$ManifestsDir := DefaultParam .CL2_EGW_MANIFESTS_DIR "manifests"}}
 
-{{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
-
 name: egw-scale-test-masq-delay
 namespace:
   number: 1
@@ -86,14 +84,15 @@ steps:
       desiredPodCount: 1
       timeout: 55s
 
-{{if $ADDITIONAL_MEASUREMENT_MODULES}}
-{{range $ADDITIONAL_MEASUREMENT_MODULES}}
 - module:
-    path: {{.}}
+    path: ../cilium-agent-pprofs.yaml
     params:
       action: start
-{{end}}
-{{end}}
+
+- module:
+    path: ../cilium-metrics.yaml
+    params:
+      action: start
 
 # Run a first iteration of the masquerade delay test.
 - module:
@@ -167,11 +166,12 @@ steps:
       replicas: {{$NumEGWClients}}
       metricsSuffix: HighScale
 
-{{if $ADDITIONAL_MEASUREMENT_MODULES}}
-{{range $ADDITIONAL_MEASUREMENT_MODULES}}
 - module:
-    path: {{.}}
+    path: ../cilium-metrics.yaml
     params:
       action: gather
-{{end}}
-{{end}}
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
