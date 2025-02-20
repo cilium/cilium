@@ -172,10 +172,10 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, mtu int) error {
+func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	switch mode {
 	case tunnel.Geneve:
-		if err := setupGeneveDevice(sysctl, port, mtu); err != nil {
+		if err := setupGeneveDevice(sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up geneve device: %w", err)
 		}
 		if err := removeDevice(defaults.VxlanDevice); err != nil {
@@ -183,7 +183,7 @@ func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, 
 		}
 
 	case tunnel.VXLAN:
-		if err := setupVxlanDevice(sysctl, port, mtu); err != nil {
+		if err := setupVxlanDevice(sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up vxlan device: %w", err)
 		}
 		if err := removeDevice(defaults.GeneveDevice); err != nil {
@@ -207,10 +207,13 @@ func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, 
 //
 // Changing the destination port will recreate the device. Changing the MTU will
 // modify the device without recreating it.
-func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
+func setupGeneveDevice(sysctl sysctl.Sysctl, dport, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
+	}
+	if srcPortLow > 0 || srcPortHigh > 0 {
+		log.WithField("device", defaults.GeneveDevice).Info("Source port range hint currently ignored for geneve driver (not supported)")
 	}
 
 	dev := &netlink.Geneve{
@@ -244,11 +247,13 @@ func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
 }
 
 // setupVxlanDevice ensures the cilium_vxlan device is created with the given
-// port and mtu.
+// port, source port range, and MTU.
 //
 // Changing the port will recreate the device. Changing the MTU will modify the
-// device without recreating it.
-func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
+// device without recreating it. Changing the source port range at runtime is
+// not possible, and it's also not worth to recreate. It's a best effort hint
+// for first-time creation.
+func setupVxlanDevice(sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -262,6 +267,8 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 		},
 		FlowBased: true,
 		Port:      int(port),
+		PortLow:   int(srcPortLow),
+		PortHigh:  int(srcPortHigh),
 	}
 
 	l, err := ensureDevice(sysctl, dev)
@@ -280,7 +287,9 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
 		}
 	}
-
+	if vxlan.PortLow != int(srcPortLow) || vxlan.PortHigh != int(srcPortHigh) {
+		log.WithField("device", defaults.VxlanDevice).Infof("Source port range hint (%d-%d) ignored given vxlan device already exists (range %d-%d)", int(srcPortLow), int(srcPortHigh), vxlan.PortLow, vxlan.PortHigh)
+	}
 	return nil
 }
 
