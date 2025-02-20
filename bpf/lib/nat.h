@@ -1534,6 +1534,76 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return NAT_PUNT_TO_STACK;
 }
 
+static __always_inline __maybe_unused int
+snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
+{
+	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
+	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_nat_entry *state;
+	struct ipv6hdr ip6;
+	__u16 port_off;
+	__u32 icmpoff;
+	int hdrlen;
+	int ret;
+
+	/* According to the RFC 5508, any networking equipment that is
+	 * responding with an ICMP Error packet should embed the original
+	 * packet in its response.
+	 */
+	if (ctx_load_bytes(ctx, inner_l3_off, &ip6, sizeof(ip6)) < 0)
+		return DROP_INVALID;
+
+	/* From the embedded IP headers we should be able to determine
+	 * corresponding protocol, IP src/dst of the packet sent to resolve
+	 * the NAT session.
+	 */
+	tuple.nexthdr = ip6.nexthdr;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6.daddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6.saddr);
+	tuple.flags = NAT_DIR_EGRESS;
+
+	hdrlen = ipv6_hdrlen_offset(ctx, &tuple.nexthdr, inner_l3_off);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	icmpoff = inner_l3_off + hdrlen;
+
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif /* ENABLE_SCTP */
+		/* No reasons to handle IP fragmentation for this case as it is
+		 * expected that DF isn't set for this particular context.
+		 */
+		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+			return DROP_INVALID;
+
+		port_off = TCP_DPORT_OFF;
+		break;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
+	state = snat_v6_lookup(&tuple);
+	if (!state)
+		return NAT_PUNT_TO_STACK;
+
+	/* We found SNAT entry to NAT embedded packet. The destination addr
+	 * should be NATed according to the entry.
+	 */
+	ret = snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, icmpoff,
+				      &tuple.saddr, &state->to_saddr, IPV6_DADDR_OFF,
+				      tuple.sport, state->to_sport, port_off);
+	if (IS_ERR(ret))
+		return ret;
+
+	/* Rewrite outer headers. No port rewrite needed. */
+	return snat_v6_rewrite_headers(ctx, IPPROTO_ICMPV6, ETH_HLEN, (int)off,
+				       &tuple.saddr, &state->to_saddr, IPV6_SADDR_OFF,
+				       0, 0, 0);
+}
+
 static __always_inline int
 __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	      int l4_off, bool update_tuple,
@@ -1602,6 +1672,11 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 			port_off = offsetof(struct icmp6hdr,
 					    icmp6_dataun.u_echo.identifier);
 			break;
+		case ICMPV6_DEST_UNREACH:
+			if (icmp6hdr.icmp6_code > ICMPV6_REJECT_ROUTE)
+				return DROP_UNKNOWN_ICMP6_CODE;
+
+			return snat_v6_nat_handle_icmp_error(ctx, off);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
