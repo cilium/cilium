@@ -28,9 +28,10 @@ func init() {
 }
 
 func flushRetries() {
-	ipv4, ipv6 := nat.RetriesMaps(true, getIpv6EnableStatus(), true)
+	ipv4, ipv6 := getIpEnableStatuses()
+	ipv4Map, ipv6Map := nat.RetriesMaps(ipv4, ipv6, true)
 
-	for _, m := range []nat.RetriesMap{ipv4, ipv6} {
+	for _, m := range []nat.RetriesMap{ipv4Map, ipv6Map} {
 		if m == nil {
 			continue
 		}

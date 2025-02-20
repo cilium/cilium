@@ -89,15 +89,16 @@ func parseArgs(args []string) (string, uint32, error) {
 func getMaps(t string, id uint32) []ctmap.CtMap {
 	var m []*ctmap.Map
 	var r []ctmap.CtMap
+	ipv4, ipv6 := getIpEnableStatuses()
 	if t == "global" {
-		m = ctmap.GlobalMaps(true, getIpv6EnableStatus())
+		m = ctmap.GlobalMaps(ipv4, ipv6)
 	}
 	if t == "endpoint" {
 		m = ctmap.LocalMaps(&dummyEndpoint{ID: int(id)}, true, true)
 	}
 	if t == "cluster" {
 		// Ignoring the error, as we already validated the cluster ID.
-		m, _ = ctmap.GetClusterCTMaps(id, true, getIpv6EnableStatus())
+		m, _ = ctmap.GetClusterCTMaps(id, ipv4, ipv6)
 	}
 	for _, v := range m {
 		r = append(r, v)
