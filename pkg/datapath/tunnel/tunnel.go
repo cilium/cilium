@@ -48,6 +48,8 @@ func (tp Protocol) toDpID() string {
 type Config struct {
 	protocol       Protocol
 	port           uint16
+	srcPortLow     uint16
+	srcPortHigh    uint16
 	deviceName     string
 	shouldAdaptMTU bool
 }
@@ -63,6 +65,8 @@ var (
 	configDisabled = Config{
 		protocol:       Disabled,
 		port:           0,
+		srcPortLow:     0,
+		srcPortHigh:    0,
 		deviceName:     "",
 		shouldAdaptMTU: false,
 	}
@@ -72,14 +76,20 @@ func newConfig(in newConfigIn) (Config, error) {
 	switch Protocol(in.Cfg.TunnelProtocol) {
 	case VXLAN, Geneve:
 	default:
-		return Config{}, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
+		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
 	}
 
 	cfg := Config{
 		protocol:       Protocol(in.Cfg.TunnelProtocol),
 		port:           in.Cfg.TunnelPort,
+		srcPortLow:     0,
+		srcPortHigh:    0,
 		deviceName:     "",
 		shouldAdaptMTU: false,
+	}
+
+	if _, err := fmt.Sscanf(in.Cfg.TunnelSourcePortRange, "%d-%d", &cfg.srcPortLow, &cfg.srcPortHigh); err != nil {
+		return configDisabled, fmt.Errorf("invalid tunnel source port range %q", in.Cfg.TunnelSourcePortRange)
 	}
 
 	var enabled bool
@@ -103,13 +113,11 @@ func newConfig(in newConfigIn) (Config, error) {
 	switch cfg.protocol {
 	case VXLAN:
 		cfg.deviceName = defaults.VxlanDevice
-
 		if cfg.port == 0 {
 			cfg.port = defaults.TunnelPortVXLAN
 		}
 	case Geneve:
 		cfg.deviceName = defaults.GeneveDevice
-
 		if cfg.port == 0 {
 			cfg.port = defaults.TunnelPortGeneve
 		}
@@ -144,6 +152,12 @@ func (cfg Config) Protocol() Protocol { return cfg.protocol }
 // Port returns the port used by the tunnel (0 if disabled).
 func (cfg Config) Port() uint16 { return cfg.port }
 
+// SrcPortLow returns the lower src port hint to be used by the tunnel (0 if disabled).
+func (cfg Config) SrcPortLow() uint16 { return cfg.srcPortLow }
+
+// SrcPortHigh returns the upper src port hint to be used by the tunnel (0 if disabled).
+func (cfg Config) SrcPortHigh() uint16 { return cfg.srcPortHigh }
+
 // DeviceName returns the name of the tunnel device (empty if disabled).
 func (cfg Config) DeviceName() string { return cfg.deviceName }
 
@@ -160,6 +174,8 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 		defines[fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(Geneve.String()))] = Geneve.toDpID()
 		defines["TUNNEL_PROTOCOL"] = cfg.Protocol().toDpID()
 		defines["TUNNEL_PORT"] = fmt.Sprintf("%d", cfg.Port())
+		defines["TUNNEL_SRC_PORT_LOW"] = fmt.Sprintf("%d", cfg.SrcPortLow())
+		defines["TUNNEL_SRC_PORT_HIGH"] = fmt.Sprintf("%d", cfg.SrcPortHigh())
 
 		definesFn = func() (dpcfgdef.Map, error) {
 			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
@@ -222,17 +238,20 @@ type enablerOpt func(*enabler)
 
 // userCfg wraps the tunnel-related user configurations.
 type userCfg struct {
-	TunnelProtocol string
-	TunnelPort     uint16
+	TunnelProtocol        string
+	TunnelSourcePortRange string
+	TunnelPort            uint16
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
 func (def userCfg) Flags(flags *pflag.FlagSet) {
 	flags.String("tunnel-protocol", def.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
 	flags.Uint16("tunnel-port", def.TunnelPort, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
+	flags.String("tunnel-source-port-range", def.TunnelSourcePortRange, fmt.Sprintf("Tunnel source port range hint (default %s)", defaults.TunnelSourcePortRange))
 }
 
 var defaultConfig = userCfg{
-	TunnelProtocol: defaults.TunnelProtocol,
-	TunnelPort:     0, // auto-detect based on the protocol.
+	TunnelProtocol:        defaults.TunnelProtocol,
+	TunnelSourcePortRange: defaults.TunnelSourcePortRange,
+	TunnelPort:            0, // auto-detect based on the protocol.
 }
