@@ -186,7 +186,7 @@ jobs:
             CLIENT_QPS="20"
           fi
 
-          NODE_INSTANCE_TYPE="m5.large"
+          NODE_INSTANCE_TYPE="m5.xlarge"
           TARGET_CLIENT_PODS_PER_NODE=25
 
           # Poor's man round up to derive the number of desired nodes
