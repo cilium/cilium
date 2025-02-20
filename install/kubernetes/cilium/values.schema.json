@@ -1089,6 +1089,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "scrapeTimeout": {
+                          "type": "null"
                         }
                       },
                       "type": "object"
@@ -1112,6 +1115,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "scrapeTimeout": {
+                          "type": "null"
                         }
                       },
                       "type": "object"
@@ -1130,6 +1136,9 @@
                         "null",
                         "array"
                       ]
+                    },
+                    "scrapeTimeout": {
+                      "type": "null"
                     }
                   },
                   "type": "object"
@@ -2187,6 +2196,9 @@
                     ]
                   },
                   "type": "array"
+                },
+                "scrapeTimeout": {
+                  "type": "null"
                 }
               },
               "type": "object"
@@ -2753,6 +2765,9 @@
                   },
                   "type": "array"
                 },
+                "scrapeTimeout": {
+                  "type": "null"
+                },
                 "tlsConfig": {
                   "type": "object"
                 }
@@ -3065,6 +3080,9 @@
                         "null",
                         "array"
                       ]
+                    },
+                    "scrapeTimeout": {
+                      "type": "null"
                     }
                   },
                   "type": "object"
@@ -4579,6 +4597,9 @@
                     "null",
                     "array"
                   ]
+                },
+                "scrapeTimeout": {
+                  "type": "null"
                 }
               },
               "type": "object"
@@ -4982,6 +5003,9 @@
                 ]
               },
               "type": "array"
+            },
+            "scrapeTimeout": {
+              "type": "null"
             },
             "trustCRDsExist": {
               "type": "boolean"

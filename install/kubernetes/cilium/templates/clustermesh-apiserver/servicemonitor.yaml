@@ -38,6 +38,9 @@ spec:
   {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
   - port: apiserv-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.relabelings }}
@@ -52,6 +55,9 @@ spec:
   {{- if $kvstoreMetricsEnabled }}
   - port: kvmesh-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings }}
@@ -66,6 +72,9 @@ spec:
   {{- if and .Values.clustermesh.apiserver.metrics.etcd.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
   - port: etcd-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.interval | quote }}
+    {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.relabelings }}
