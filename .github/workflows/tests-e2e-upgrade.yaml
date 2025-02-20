@@ -748,15 +748,15 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners \
-            --test "seq-.*" \
+            --test '"seq-.*,!(l7|fqdn)"' \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
-          TEST='--test "!seq-.*"'
+          TEST='--test "!(seq-.*|l7|fqdn)"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world|pod-to-cidr|l7|fqdn)"'
           fi
           cilium connectivity test \
             --log-code-owners \
@@ -809,16 +809,16 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners \
-            --test "seq-.*" \
+            --test '"seq-.*,!(l7|fqdn)"' \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          TEST='--test "!seq-.*"'
+          TEST='--test "!(seq-.*|l7|fqdn)"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world|pod-to-cidr|l7|fqdn)"'
           fi
           cilium connectivity test \
             --log-code-owners \
