@@ -65,7 +65,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI, envoyTLSWarning,
-		ciliumNodeConfigDeprecation, hubbleUIEnvVarFallback}
+		ciliumNodeConfigDeprecation, hubbleUIEnvVarFallback, k8sClientNetworkStatusError}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -358,6 +358,7 @@ const (
 	failedGetMetricsAPI         stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"      // cf. https://github.com/cilium/cilium/issues/36085
 	ciliumNodeConfigDeprecation stringMatcher = "cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16" // cf. https://github.com/cilium/cilium/issues/37249
 	hubbleUIEnvVarFallback      stringMatcher = "using fallback value for env var"                                       // cf. https://github.com/cilium/hubble-ui/pull/940
+	k8sClientNetworkStatusError stringMatcher = "Network status error received, restarting client connections"           // cf. https://github.com/cilium/cilium/issues/37712
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"
