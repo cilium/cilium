@@ -1384,11 +1384,9 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 	ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), name)
 	gracePeriod := int64(1)
 	perfClientDeployment := newDeployment(deploymentParameters{
-		Name:      name,
-		Kind:      kindPerfName,
-		NamedPort: "http-80",
-		Port:      80,
-		Image:     ct.params.PerfParameters.Image,
+		Name:  name,
+		Kind:  kindPerfName,
+		Image: ct.params.PerfParameters.Image,
 		Labels: map[string]string{
 			"client": "role",
 		},
