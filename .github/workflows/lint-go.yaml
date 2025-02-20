@@ -114,6 +114,9 @@ jobs:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
       - name: Check api generated files
+        env:
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
         run: |
           cd src/github.com/cilium/cilium
           contrib/scripts/check-api-code-gen.sh
@@ -134,6 +137,9 @@ jobs:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
       - name: Check k8s generated files
+        env:
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
         run: |
           # Set GOBIN to ensure 'go install' binaries end up in the same directory
           # as the one actions/setup-go adds to PATH, regardless of GOPATH.
