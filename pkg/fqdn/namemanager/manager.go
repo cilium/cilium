@@ -327,23 +327,20 @@ func (n *manager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
 	n.RWMutex.RLock()
 	defer n.RWMutex.RUnlock()
 
-	n.cache.RLock()
+	n.cache.RemoveKnown(maybeRemoved)
 	ipCacheUpdates := make([]ipcache.MU, 0, len(maybeRemoved))
 	for ip, names := range maybeRemoved {
 		for _, name := range names {
-			if !n.cache.EntryExistsLocked(name, ip) {
-				ipCacheUpdates = append(ipCacheUpdates, ipcache.MU{
-					Prefix:   netip.PrefixFrom(ip, ip.BitLen()),
-					Source:   source.Generated,
-					Resource: ipcacheResource(name),
-					Metadata: []ipcache.IPMetadata{
-						labels.Labels{}, // remove all labels for this (ip, name) pair
-					},
-				})
-			}
+			ipCacheUpdates = append(ipCacheUpdates, ipcache.MU{
+				Prefix:   netip.PrefixFrom(ip, ip.BitLen()),
+				Source:   source.Generated,
+				Resource: ipcacheResource(name),
+				Metadata: []ipcache.IPMetadata{
+					labels.Labels{}, // remove all labels for this (ip, name) pair
+				},
+			})
 		}
 	}
-	n.cache.RUnlock()
 	n.params.IPCache.RemoveMetadataBatch(ipCacheUpdates...)
 }
 
