@@ -44,11 +44,6 @@ const (
 	awsNodeDaemonSetFileName                 = "aws-node-daemonset-<ts>.yaml"
 	ciliumBugtoolFileName                    = "cilium-bugtool-%s-<ts>.tar.gz"
 	ciliumBPGPeeringPoliciesFileName         = "ciliumbgppeeringpolicies-<ts>.yaml"
-	ciliumBPGClusterConfigsFileName          = "ciliumbgpclusterconfigs-<ts>.yaml"
-	ciliumBPGPeerConfigsFileName             = "ciliumbgppeerconfigs-<ts>.yaml"
-	ciliumBPGAdvertisementsFileName          = "ciliumbgpadvertisements-<ts>.yaml"
-	ciliumBPGNodeConfigsFileName             = "ciliumbgpnodeconfigs-<ts>.yaml"
-	ciliumBPGNodeConfigOverridesFileName     = "ciliumbgpnodeconfigoverrides-<ts>.yaml"
 	ciliumClusterWideNetworkPoliciesFileName = "ciliumclusterwidenetworkpolicies-<ts>.yaml"
 	ciliumClusterwideEnvoyConfigsFileName    = "ciliumclusterwideenvoyconfigs-<ts>.yaml"
 	ciliumConfigMapFileName                  = "cilium-configmap-<ts>.yaml"
@@ -120,6 +115,7 @@ const (
 	udpRoutesFileName                        = "gatewayapi-udproutes-<ts>.yaml"
 	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
 	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
+	k8sResourceFileName                      = "%s-<ts>.yaml"
 )
 
 const (
