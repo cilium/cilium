@@ -402,32 +402,33 @@ func mapKeysToLowerCase(s map[string]interface{}) map[string]interface{} {
 	return m
 }
 
-// getIpv6EnableStatus api returns the EnableIPv6 status
-// by consulting the cilium-agent otherwise reads from the
-// runtime system config
-func getIpv6EnableStatus() bool {
+// getIpEnableStatuses api returns the EnableIPv6 and EnableIPv4 statuses by
+// consulting the cilium-agent otherwise reads from the runtime system config.
+func getIpEnableStatuses() (bool, bool) {
 	params := daemon.NewGetHealthzParamsWithTimeout(5 * time.Second)
 	brief := true
 	params.SetBrief(&brief)
-	// If cilium-agent is running get the ipv6 enable status
+	// If cilium-agent is running get the enable statuses
 	if _, err := client.Daemon.GetHealthz(params); err == nil {
 		if resp, err := client.ConfigGet(); err == nil {
 			if resp.Status != nil {
-				return resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled
+				ipv4 := resp.Status.Addressing.IPV4 != nil && resp.Status.Addressing.IPV4.Enabled
+				ipv6 := resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled
+				return ipv4, ipv6
 			}
 		}
-	} else { // else read the EnableIPv6 status from the file-system
+	} else { // else read the statuses from the file-system
 		agentConfigFile := filepath.Join(defaults.RuntimePath, defaults.StateDir,
 			"agent-runtime-config.json")
 
 		if byteValue, err := os.ReadFile(agentConfigFile); err == nil {
 			if err = json.Unmarshal(byteValue, &option.Config); err == nil {
-				return option.Config.EnableIPv6
+				return option.Config.EnableIPv4, option.Config.EnableIPv6
 			}
 		}
 	}
-	// returning the EnableIPv6 default status
-	return defaults.EnableIPv6
+	// returning the default statuses
+	return defaults.EnableIPv4, defaults.EnableIPv6
 }
 
 func mergeMaps(m1, m2 map[string]interface{}) map[string]interface{} {
