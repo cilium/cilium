@@ -801,7 +801,7 @@ type DNSZombieMappings struct {
 	lock.Mutex
 	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
-	NextCTGCUpdate time.Time // estimated
+	nextCTGCUpdate time.Time // estimated
 	// ctGCRevision is a serial number tracking the number of conntrack
 	// garbage collection runs. It is used to ensure that entries
 	// are not reaped until CT GC has run at least twice.
@@ -1079,9 +1079,17 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart, estNext time.Time) {
 	zombies.Lock()
 	zombies.lastCTGCUpdate = ctGCStart
-	zombies.NextCTGCUpdate = estNext
+	zombies.nextCTGCUpdate = estNext
 	zombies.ctGCRevision++
 	zombies.Unlock()
+}
+
+// NextCTGCUpdate returns the estimated next CT GC time.
+func (zombies *DNSZombieMappings) NextCTGCUpdate() time.Time {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	return zombies.nextCTGCUpdate
 }
 
 // ForceExpire is used to clear zombies irrespective of their alive status.
