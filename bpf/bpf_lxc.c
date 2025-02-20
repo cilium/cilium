@@ -727,9 +727,18 @@ ct_recreate6:
 	}
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING)) {
+#ifdef THIS_INTERFACE_PARENT_IFINDEX
+		int oif = THIS_INTERFACE_PARENT_IFINDEX;
+#else
 		int oif = 0;
-
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
+#endif
+		if (oif > 0 && ct_is_reply6(get_ct_map6(tuple), tuple)) {
+			ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
+			if (ret == CTX_ACT_OK)
+				ret = redirect_neigh(oif, NULL, 0, 0);
+		} else {
+			ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
+		}
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
@@ -1278,9 +1287,19 @@ skip_vtep:
 #endif /* TUNNEL_MODE */
 
 	if (is_defined(ENABLE_HOST_ROUTING)) {
+#ifdef THIS_INTERFACE_PARENT_IFINDEX
+		int oif = THIS_INTERFACE_PARENT_IFINDEX;
+#else
 		int oif = 0;
+#endif
+		if (oif > 0 && ct_is_reply4(get_ct_map4(tuple), tuple)) {
+			ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
+			if (ret == CTX_ACT_OK)
+				ret = redirect_neigh(oif, NULL, 0, 0);
+		} else {
+			ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
+		}
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
