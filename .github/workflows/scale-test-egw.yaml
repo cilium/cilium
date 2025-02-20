@@ -462,6 +462,7 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: "2.0"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "10s"
           CL2_PROMETHEUS_NODE_SELECTOR: 'role.scaffolding/monitoring: "true"'
           CL2_EGW_TEST_IMAGE: quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }}
           CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
