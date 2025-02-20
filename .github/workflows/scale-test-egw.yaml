@@ -128,6 +128,7 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+          SHA=795caa97262a743f157cc3655288529945871bc1
 
           # * The SHA under test will have its helm chart checked out at the following
           #   path right before the step where Cilium is installed.
