@@ -2139,6 +2139,7 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 
 func (c *Collector) getBGPControlPlaneTasks() []Task {
 	return []Task{
+		// BGPv1 resource
 		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
@@ -2153,75 +2154,41 @@ func (c *Collector) getBGPControlPlaneTasks() []Task {
 				return nil
 			},
 		},
-		{
-			Description: "Collecting Cilium BGP Cluster Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPClusterConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGClusterConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Peer Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeerConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeerConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Advertisements",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPAdvertisements(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGAdvertisementsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Node Configs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPNodeConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGNodeConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium BGP Node Config Overrides",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPNodeConfigOverrides(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGNodeConfigOverridesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
-				}
-				return nil
-			},
+		// BGPv2 resources - can be either v2 or v2alpha1 version
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpclusterconfigs", "Cilium BGP Cluster Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgppeerconfigs", "Cilium BGP Peer Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpadvertisements", "Cilium BGP Advertisements"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpnodeconfigs", "Cilium BGP Node Configs"),
+		collectCiliumV2OrV2Alpha1Resource(c, "ciliumbgpnodeconfigoverrides", "Cilium BGP Node Config Overrides"),
+	}
+}
+
+// collects objects of v2 (primarily) or v2alpha1 (fallback) version of a cilium.io resource
+func collectCiliumV2OrV2Alpha1Resource(collector *Collector, resource, title string) Task {
+	return Task{
+		Description: fmt.Sprintf("Collecting %s", title),
+		Quick:       true,
+		Task: func(ctx context.Context) error {
+			gvr := schema.GroupVersionResource{
+				Group:    "cilium.io",
+				Resource: resource,
+				Version:  "v2",
+			}
+			n := corev1.NamespaceAll
+			// try to collect the v2 version first
+			v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			if err != nil && k8sErrors.IsNotFound(err) {
+				// if the v2 version does not exist, try to collect the v2alpha1 version
+				gvr.Version = "v2alpha1"
+				v, err = collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			}
+			if err != nil {
+				return fmt.Errorf("failed to collect %s: %w", title, err)
+			}
+			if err := collector.WriteYAML(fmt.Sprintf(k8sResourceFileName, resource), v); err != nil {
+				return fmt.Errorf("failed to collect %s: %w", title, err)
+			}
+			return nil
 		},
 	}
 }
