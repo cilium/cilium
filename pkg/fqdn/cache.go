@@ -484,15 +484,23 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 	return names
 }
 
-// EntryExistsLocked returns true if this (name, IP) pair is known to the cache.
-func (c *DNSCache) EntryExistsLocked(name string, ip netip.Addr) bool {
-	names, exists := c.reverse[ip]
-	if !exists {
-		return false
-	}
+// RemoveKnown removes all ip-name associations from mappings which are known to
+// the cache.
+func (c *DNSCache) RemoveKnown(mappings map[netip.Addr][]string) {
+	c.RLock()
+	defer c.RUnlock()
 
-	_, exists = names[name]
-	return exists
+	for ip, names := range mappings {
+		rnames, exists := c.reverse[ip]
+		if !exists || len(rnames) == 0 {
+			continue
+		}
+
+		mappings[ip] = slices.DeleteFunc(names, func(name string) bool {
+			_, ok := rnames[name]
+			return ok
+		})
+	}
 }
 
 // updateWithEntryIPs adds a mapping for every IP found in `entry` to `ipEntries`
