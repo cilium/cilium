@@ -513,6 +513,9 @@ data:
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
 {{- end }}
+{{- if .Values.tunnelSourcePortRange }}
+  tunnel-source-port-range: {{ .Values.tunnelSourcePortRange | quote }}
+{{- end }}
 
 {{- if .Values.serviceNoBackendResponse }}
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
