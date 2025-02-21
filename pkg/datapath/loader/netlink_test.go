@@ -280,9 +280,8 @@ func TestSetupTunnelDevice(t *testing.T) {
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
 			require.EqualValues(t, 4567, vxlan.Port)
-			// Go lib is broken atm, currently always returning 0.
-			//require.EqualValues(t, srcMin, vxlan.PortLow)
-			//require.EqualValues(t, srcMax, vxlan.PortHigh)
+			require.EqualValues(t, srcMin, vxlan.PortLow)
+			require.EqualValues(t, srcMax, vxlan.PortHigh)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
