@@ -27,6 +27,7 @@
     - IPv6
     ip_family_policy: PreferDualStack
     load_balancer_class: cilium
+    load_balancer_source_ranges_policy: Allow
     load_balancer_source_ranges:
     - 10.0.0.0/8
     traffic_distribution: PreferClose
