@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
@@ -327,6 +328,12 @@ const (
 	k8sClientBurst = "operator-k8s-client-burst"
 )
 
+var defaultOperatorPprofConfig = operatorPprofConfig{
+	OperatorPprof:        false,
+	OperatorPprofAddress: operatorOption.PprofAddressOperator,
+	OperatorPprofPort:    operatorOption.PprofPortOperator,
+}
+
 // operatorPprofConfig holds the configuration for the operator pprof cell.
 // Differently from the agent and the clustermesh-apiserver, the operator prefixes
 // the pprof related flags with the string "operator-".
@@ -342,6 +349,14 @@ func (def operatorPprofConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(pprofOperator, def.OperatorPprof, "Enable serving pprof debugging API")
 	flags.String(pprofAddress, def.OperatorPprofAddress, "Address that pprof listens on")
 	flags.Uint16(pprofPort, def.OperatorPprofPort, "Port that pprof listens on")
+}
+
+func (def operatorPprofConfig) Config() pprof.Config {
+	return pprof.Config{
+		Pprof:        def.OperatorPprof,
+		PprofAddress: def.OperatorPprofAddress,
+		PprofPort:    def.OperatorPprofPort,
+	}
 }
 
 type operatorClientParams struct {

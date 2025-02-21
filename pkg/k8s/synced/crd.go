@@ -121,7 +121,7 @@ func AllCiliumCRDResourceNames() []string {
 // installed inside the K8s cluster. These CRDs are added by the
 // Cilium Operator. This function will block until it finds all the
 // CRDs or if a timeout occurs.
-func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string, rs *Resources, ag *APIGroups) error {
+func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string, rs *Resources, ag *APIGroups, cfg CRDSyncConfig) error {
 	crds := newCRDState(crdNames)
 
 	listerWatcher := newListWatchFromClient(
@@ -141,7 +141,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 
 	// Create a context so that we can timeout after the configured CRD wait
 	// peroid.
-	ctx, cancel := context.WithTimeout(ctx, option.Config.CRDWaitTimeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.CRDWaitTimeout)
 	defer cancel()
 
 	crds.Lock()
@@ -198,7 +198,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 						"%v timeout. Please ensure that Cilium Operator is "+
 						"running, as it's responsible for registering all "+
 						"the Cilium CRDs. The following CRDs were not found: %v",
-						option.Config.CRDWaitTimeout, crds.unSynced())
+						cfg.CRDWaitTimeout, crds.unSynced())
 			}
 			// If the context was canceled it means the daemon is being stopped
 			// so we can return the context's error.
