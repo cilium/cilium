@@ -6,6 +6,7 @@
 // $5: IPv4 CiliumInternalIP - Node3
 // $6: IPv6 CiliumInternalIP - Node3
 // $7: Report errors if proxy traffic not found - [true|false]
+// $8: Encryption type: [wireguard|ipsec]
 
 #define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
 #define MASK4 (uint32)0xFF000000
@@ -21,6 +22,7 @@
 #define AF_INET6 10
 
 #define PORT_DNS 53
+#define PORT_WIREGUARD 51871
 
 #define TYPE_PROXY_L7_IP4 1
 #define TYPE_PROXY_L7_IP6 2
@@ -92,7 +94,10 @@ kprobe:br_forward
   }
 
   if ($proto == PROTO_IPV4) {
-    if ($ip4h->protocol != PROTO_ESP) {
+    if (
+      (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
+      (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP && ($udph->dest == PORT_WIREGUARD || $udph->source == PORT_WIREGUARD)))
+      ) {
       $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
       $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
 
@@ -133,7 +138,10 @@ kprobe:br_forward
   }
 
   if ($proto == PROTO_IPV6) {
-    if ($ip6h->nexthdr != PROTO_ESP) {
+    if (
+      (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
+      (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP && ($udph->dest == PORT_WIREGUARD || $udph->source == PORT_WIREGUARD)))
+      ) {
       $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
       $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
 
