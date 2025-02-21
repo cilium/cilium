@@ -22,6 +22,7 @@ func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer
 	switch messageType := message.(type) {
 	case monitor.DebugCapture,
 		monitor.DropNotify,
+		monitor.DropNotifyV1,
 		monitor.PolicyVerdictNotify,
 		monitor.TraceNotify,
 		monitor.TraceNotifyV0,
