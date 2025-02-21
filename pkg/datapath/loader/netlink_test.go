@@ -180,6 +180,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 			require.Equal(t, ifindex, link.Attrs().Index, "ifindex must not change when changing MTU")
 			require.Equal(t, mtu-1, link.Attrs().MTU)
 
+			err = netlink.LinkDel(link)
+			require.NoError(t, err)
+
 			return nil
 		})
 	})
@@ -252,6 +255,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 
 			require.Equal(t, ifindex, link.Attrs().Index, "ifindex must not change when changing MTU")
 			require.Equal(t, mtu-1, link.Attrs().MTU)
+
+			err = netlink.LinkDel(link)
+			require.NoError(t, err)
 
 			return nil
 		})
