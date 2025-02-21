@@ -5504,6 +5504,9 @@
     "tunnelProtocol": {
       "type": "string"
     },
+    "tunnelSourcePortRange": {
+      "type": "string"
+    },
     "updateStrategy": {
       "properties": {
         "rollingUpdate": {
