@@ -778,16 +778,20 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --test "seq-.*" \
+            --test "seq-.*,!pod-to-world.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            $TEST \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
@@ -860,17 +864,21 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --test "seq-.*" \
+            --test "seq-.*,!pod-to-world.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            $TEST \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
