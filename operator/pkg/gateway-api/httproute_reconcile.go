@@ -7,11 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -107,7 +106,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	} {
 		continueCheck, err := fn(i)
 		if err != nil {
-			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, hr)
+			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), hr, original)
 		}
 
 		if !continueCheck {
@@ -115,7 +114,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if err := r.updateStatus(ctx, original, hr); err != nil {
+	if err := r.ensureStatus(ctx, hr, original); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
@@ -123,19 +122,12 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return controllerruntime.Success()
 }
 
-func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1.HTTPRoute, new *gatewayv1.HTTPRoute) error {
-	oldStatus := original.Status.DeepCopy()
-	newStatus := new.Status.DeepCopy()
-
-	opts := cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")
-	if cmp.Equal(oldStatus, newStatus, opts) {
-		return nil
-	}
-	return r.Client.Status().Update(ctx, new)
+func (r *httpRouteReconciler) ensureStatus(ctx context.Context, hr *gatewayv1.HTTPRoute, original *gatewayv1.HTTPRoute) error {
+	return r.Client.Status().Patch(ctx, hr, client.MergeFrom(original))
 }
 
-func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) (ctrl.Result, error) {
-	if err := r.updateStatus(ctx, original, modified); err != nil {
+func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, hr, original *gatewayv1.HTTPRoute) (ctrl.Result, error) {
+	if err := r.ensureStatus(ctx, hr, original); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
