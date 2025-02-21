@@ -100,6 +100,15 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: atomic
+                  loadBalancerSourceRangesPolicy:
+                    default: Allow
+                    description: |-
+                      LoadBalancerSourceRangesPolicy defines the policy for the LoadBalancerSourceRanges if the incoming traffic
+                      is allowed or denied.
+                    enum:
+                    - Allow
+                    - Deny
+                    type: string
                   trafficDistribution:
                     description: Sets the Service.Spec.TrafficDistribution in generated
                       Service objects to the given value.

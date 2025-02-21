@@ -14,6 +14,7 @@ http:
   service:
     type: NodePort
     external_traffic_policy: Local
+    load_balancer_source_ranges_policy: Allow
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway
