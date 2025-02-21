@@ -7,11 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -50,7 +49,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to retrieve reference grants: %w", err), original, tr)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to retrieve reference grants: %w", err), tr, original)
 	}
 
 	// input for the validators
@@ -91,7 +90,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		} {
 			continueCheck, err := fn(i, parent)
 			if err != nil {
-				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route check: %w", err), original, tr)
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route check: %w", err), tr, original)
 			}
 
 			if !continueCheck {
@@ -110,7 +109,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	} {
 		continueCheck, err := fn(i)
 		if err != nil {
-			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Gateway check: %w", err), original, tr)
+			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Gateway check: %w", err), tr, original)
 		}
 
 		if !continueCheck {
@@ -118,7 +117,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if err := r.updateStatus(ctx, original, tr); err != nil {
+	if err := r.ensureStatus(ctx, tr, original); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update TLSRoute status: %w", err)
 	}
 
@@ -126,19 +125,12 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return controllerruntime.Success()
 }
 
-func (r *tlsRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1alpha2.TLSRoute, new *gatewayv1alpha2.TLSRoute) error {
-	oldStatus := original.Status.DeepCopy()
-	newStatus := new.Status.DeepCopy()
-
-	opts := cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")
-	if cmp.Equal(oldStatus, newStatus, opts) {
-		return nil
-	}
-	return r.Client.Status().Update(ctx, new)
+func (r *tlsRouteReconciler) ensureStatus(ctx context.Context, new *gatewayv1alpha2.TLSRoute, original *gatewayv1alpha2.TLSRoute) error {
+	return r.Client.Status().Patch(ctx, new, client.MergeFrom(original))
 }
 
-func (r *tlsRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1alpha2.TLSRoute, modified *gatewayv1alpha2.TLSRoute) (ctrl.Result, error) {
-	if err := r.updateStatus(ctx, original, modified); err != nil {
+func (r *tlsRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, new *gatewayv1alpha2.TLSRoute, original *gatewayv1alpha2.TLSRoute) (ctrl.Result, error) {
+	if err := r.ensureStatus(ctx, new, original); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update TLSRoute status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
