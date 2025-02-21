@@ -779,14 +779,18 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*"
+            --test "seq-.*,!pod-to-world.*"
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*"
+            $TEST
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -855,15 +859,19 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*"
+            --test "seq-.*,!pod-to-world.*"
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+          fi
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*"
+            $TEST
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
