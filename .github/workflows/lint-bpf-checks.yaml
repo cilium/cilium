@@ -120,4 +120,4 @@ jobs:
           fetch-depth: 0
       - name: Run BPF tests
         run: |
-          make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+          RUN_AS_ROOT=1 make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
