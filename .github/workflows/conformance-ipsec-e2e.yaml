@@ -325,7 +325,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
@@ -355,7 +355,7 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
           # As we are not testing with proxy connections during key rotation,
           # disable the check for proxy traffic.
-          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
 
       - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-setup
@@ -377,7 +377,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
