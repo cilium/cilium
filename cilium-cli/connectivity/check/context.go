@@ -940,12 +940,9 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	return minVersion, nil
 }
 
-func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
 	cmd := []string{
-		"curl",
-		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
-		"--silent", "--fail", "--show-error",
-		"--output", "/dev/null",
+		"curl", "--silent", "--fail", "--show-error",
 	}
 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
@@ -981,33 +978,23 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 	}
 
 	cmd = append(cmd, opts...)
+	url := fmt.Sprintf("%s://%s%s",
+		peer.Scheme(),
+		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
+		peer.Path())
 
 	for range numTargets {
-		cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-			peer.Scheme(),
-			net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-			peer.Path()))
+		cmd = append(cmd, url)
 	}
 
 	return cmd
 }
 
-func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
-	cmd := []string{"curl", "--silent", "--fail", "--show-error"}
-
-	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
-		cmd = append(cmd, "--connect-timeout", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
-	}
-	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
-		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
-	}
-
-	cmd = append(cmd, opts...)
-	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-		peer.Scheme(),
-		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-		peer.Path()))
-	return cmd
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
+	return ct.CurlCommandWithOutput(peer, ipFam, append([]string{
+		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
+		"--output", "/dev/null",
+	}, opts...)...)
 }
 
 func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily, extraArgs ...string) []string {
