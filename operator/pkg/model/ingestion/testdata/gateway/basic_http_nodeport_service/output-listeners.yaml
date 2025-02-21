@@ -21,6 +21,7 @@
     timeout: {}
   service:
     type: NodePort
+    load_balancer_source_ranges_policy: Allow
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway

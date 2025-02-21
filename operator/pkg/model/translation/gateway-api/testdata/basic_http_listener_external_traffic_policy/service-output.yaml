@@ -5,6 +5,8 @@ metadata:
     io.cilium.gateway/owning-gateway: my-gateway
   name: cilium-gateway-my-gateway
   namespace: default
+  annotations:
+    service.cilium.io/src-ranges-policy: Allow
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1
     controller: true

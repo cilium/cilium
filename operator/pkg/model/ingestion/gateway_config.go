@@ -43,6 +43,12 @@ func toServiceModel(params *v2alpha1.CiliumGatewayClassConfig) *model.Service {
 	res.ExternalTrafficPolicy = string(params.Spec.Service.ExternalTrafficPolicy)
 	res.LoadBalancerClass = params.Spec.Service.LoadBalancerClass
 	res.LoadBalancerSourceRanges = params.Spec.Service.LoadBalancerSourceRanges
+	if len(params.Spec.Service.LoadBalancerSourceRangesPolicy) != 0 {
+		res.LoadBalancerSourceRangesPolicy = string(params.Spec.Service.LoadBalancerSourceRangesPolicy)
+	} else {
+		// Defaults to allowed, same as default value in CRD
+		res.LoadBalancerSourceRangesPolicy = string(v2alpha1.LoadBalancerSourceRangesPolicyAllow)
+	}
 	res.IPFamilies = toIPFamilies(params.Spec.Service.IPFamilies)
 	res.IPFamilyPolicy = (*string)(params.Spec.Service.IPFamilyPolicy)
 	res.AllocateLoadBalancerNodePorts = params.Spec.Service.AllocateLoadBalancerNodePorts
