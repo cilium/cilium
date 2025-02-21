@@ -58,7 +58,7 @@ func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]s
 	newTest(testName, ct).
 		WithCiliumVersion("!1.14.15 !1.14.16 !1.15.9 !1.15.10 !1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement
