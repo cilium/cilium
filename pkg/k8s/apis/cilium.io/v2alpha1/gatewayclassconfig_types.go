@@ -55,6 +55,16 @@ type CiliumGatewayClassConfigList struct {
 
 // +deepequal-gen=true
 
+type LoadBalancerSourceRangesPolicyType string
+
+const (
+	// LoadBalancerSourceRangesPolicyAllow allows traffic for the given source ranges.
+	LoadBalancerSourceRangesPolicyAllow LoadBalancerSourceRangesPolicyType = "Allow"
+
+	// LoadBalancerSourceRangesPolicyDeny denies traffic for the given source ranges.
+	LoadBalancerSourceRangesPolicyDeny LoadBalancerSourceRangesPolicyType = "Deny"
+)
+
 type ServiceConfig struct {
 	// Sets the Service.Spec.Type in generated Service objects to the given value.
 	//
@@ -93,6 +103,14 @@ type ServiceConfig struct {
 	// +optional
 	// +listType=atomic
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+
+	// LoadBalancerSourceRangesPolicy defines the policy for the LoadBalancerSourceRanges if the incoming traffic
+	// is allowed or denied.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=Allow;Deny
+	// +kubebuilder:default="Allow"
+	LoadBalancerSourceRangesPolicy LoadBalancerSourceRangesPolicyType `json:"loadBalancerSourceRangesPolicy,omitempty"`
 
 	// Sets the Service.Spec.TrafficDistribution in generated Service objects to the given value.
 	//

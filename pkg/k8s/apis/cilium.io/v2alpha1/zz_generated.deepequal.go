@@ -1770,6 +1770,9 @@ func (in *ServiceConfig) DeepEqual(other *ServiceConfig) bool {
 		}
 	}
 
+	if in.LoadBalancerSourceRangesPolicy != other.LoadBalancerSourceRangesPolicy {
+		return false
+	}
 	if (in.TrafficDistribution == nil) != (other.TrafficDistribution == nil) {
 		return false
 	} else if in.TrafficDistribution != nil {
