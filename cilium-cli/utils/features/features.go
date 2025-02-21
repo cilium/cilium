@@ -53,23 +53,41 @@ const (
 
 	Flavor Feature = "flavor"
 
-	// PolicySecretBackendK8s sets if Policy supports saving secrets in
-	// Kubernetes (instead of reading from local disk).
-	// It's enabled by setting tls.secretsBackend to "k8s" in
-	// Helm.
-	// This can have two possible effects, depending on if
-	// policy secret synchronization is enabled using tls.SecretSync.enabled
-	// in Helm:
-	// * If SecretSync is not enabled, then the agent will be granted read access
-	//   to _all_ Secrets in the cluster. Not desirable, included for backwards
-	//   compatibility.
-	// * If SecretSync is enabled, then the `enable-policy-secrets-sync` agent
-	//   param will be set in the configmap.
+	// The following settings control Policy Secrets tests.
 	//
-	// So, there are _two_ places where this feature will be set, either in the
-	// ClusterRole detection or the Configmap detection.
-	PolicySecretBackendK8s Feature = "secret-backend-k8s"
-	PolicySecretSync       Feature = "enable-policy-secrets-sync"
+	// Cilium can be in three states for Policy Secrets:
+	//
+	// * Policy Secrets can be read by the agent from anywhere in the cluster (via either
+	//   direct read or from the configured secret namespace via secret
+	//   synchonrization by the Cilium Operator).
+	// * Policy Secrets can be read by the agent, but only from the configured Secrets
+	//   namespace. This is an advanced use case, and is included for migration purposes.
+	// * Policy Secrets cannot be read.
+
+	// PolicySecretsOnlyFromSecretsNamespace sets if Cilium  will look only
+	// in the configured secrets namespace for Policy Secrets, or if it will look
+	// in the entire cluster.
+	//
+	// If it's `true`, then Cilium will only read Secrets from the configured namespace.
+	//
+	// If it's `false`, then the Cilium agent will be granted Read access to _all_ Secrets
+	// in the cluster.
+	//
+	// This feature replaces the existing `tls.secretsBackend: k8s` one. SecretsBackend
+	// will be removed in a future release.
+	//
+	// This feature has Helm automation to mirror the setting of secretsBackend in the meantime.
+	PolicySecretsOnlyFromSecretsNamespace Feature = "policy-secrets-only-from-secrets-namespace"
+
+	// PolicySecretSync controls whether the Cilium Operator will synchronize Secrets referenced
+	// in Network Policy into the configured Secrets namespace.
+	//
+	// This has important interactions with
+	PolicySecretSync Feature = "enable-policy-secrets-sync"
+	// For connectivity tests, we only care if Secrets can be read from the cluster
+	// _somehow_, whether that is via direct read or secret sync is not important.
+	// So, this feature tracks if we can read Policy secrets _somehow_.
+	PolicySecretsReadable Feature = "policy-secrets-readable"
 
 	CNP  Feature = "cilium-network-policy"
 	CCNP Feature = "cilium-clusterwide-network-policy"
@@ -378,8 +396,8 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	// This could be enabled via ClusterRole check as well, so only
 	// check if it's false.
-	if !fs[PolicySecretBackendK8s].Enabled {
-		fs[PolicySecretBackendK8s] = Status{
+	if !fs[PolicySecretsOnlyFromSecretsNamespace].Enabled {
+		fs[PolicySecretsOnlyFromSecretsNamespace] = Status{
 			Enabled: cm.Data[string(PolicySecretSync)] == "true",
 		}
 	}

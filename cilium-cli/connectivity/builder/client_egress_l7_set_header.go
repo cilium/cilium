@@ -31,7 +31,7 @@ func clientEgressL7SetHeaderTest(ct *check.ConnectivityTest, templates map[strin
 	// Test L7 HTTP with a header replace set in the policy
 	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithSecret(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "header-match",
