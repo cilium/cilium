@@ -96,7 +96,7 @@ func (s *bgpAdvertisements) Run(ctx context.Context, t *check.Test) {
 			i := 0
 			for _, echo := range ct.EchoPods() {
 				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%s-%d", ipFamily, i), &client, echo, ipFamily).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, ipFamily))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 				})
 				i++
 			}
@@ -105,7 +105,7 @@ func (s *bgpAdvertisements) Run(ctx context.Context, t *check.Test) {
 			if status, ok := ct.Feature(features.BPFLBExternalClusterIP); ok && status.Enabled {
 				for _, echo := range ct.EchoServices() {
 					t.NewAction(s, fmt.Sprintf("curl-echo-service-%s-%d", ipFamily, i), &client, echo, ipFamily).Run(func(a *check.Action) {
-						a.ExecInPod(ctx, ct.CurlCommand(echo, ipFamily))
+						a.ExecInPod(ctx, a.CurlCommand(echo))
 					})
 					i++
 				}
