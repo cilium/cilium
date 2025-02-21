@@ -469,6 +469,17 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct egress_gw_policy_key6 {
+    struct bpf_lpm_trie_key lpm_key;
+    union v6addr saddr;
+    union v6addr daddr;
+};
+
+struct egress_gw_policy_entry6 {
+    __u32 gateway_ip;
+    union v6addr egress_ip;
+};
+
 struct srv6_vrf_key4 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 src_ip;

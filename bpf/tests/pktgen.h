@@ -81,6 +81,17 @@ static volatile const __section(".rodata") __u8 v6_node_two[] = {0xfd, 0x06, 0, 
 static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
+/* IPv6 addresses for hosts, external to the cluster */
+static volatile const __section(".rodata") __u8 v6_ext_one[] = {0x20, 0x01, 0x0b, 0x0a, 0, 0, 0, 0,
+                                           0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __section(".rodata") __u8 v6_ext_two[] = {0x20, 0x01, 0x0c, 0x0b, 0, 0, 0, 0,
+                                           0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __section(".rodata") __u8 v6_ext_three[] = {0x20, 0x01, 0x0d, 0x0c, 0, 0, 0, 0,
+                                           0, 0, 0, 0, 0, 0, 0, 3};
+
+static volatile const __section(".rodata") __u8 v6_all[] = {0, 0, 0, 0, 0, 0, 0, 0,
+                                           0, 0, 0, 0, 0, 0, 0, 0};
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
 #define tcp_src_two	__bpf_htons(33440)
