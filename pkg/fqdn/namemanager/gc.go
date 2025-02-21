@@ -60,7 +60,7 @@ type serializedSelector struct {
 // the global DNSCache instance. The data there drives toFQDNs policy via
 // NameManager and ToFQDNs selectors. DNSCache entries expire data when the TTL
 // elapses and when the entries for a DNS name are above a limit. The data is
-// then placed into DNSZombieMappings instances. These rely on the CT doGC loop
+// then placed into DNSZombieMappings instances. These rely on the CT GC loop
 // to update liveness for each to-delete IP. When an IP is not in-use it is
 // finally deleted from the global DNSCache. Until then, each of these IPs is
 // inserted into the global cache as a synthetic DNS lookup.
