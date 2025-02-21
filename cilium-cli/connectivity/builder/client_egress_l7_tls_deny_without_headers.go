@@ -16,7 +16,7 @@ func (t clientEgressL7TlsDenyWithoutHeaders) build(ct *check.ConnectivityTest, t
 	// Fail to load site due to missing headers.
 	newTest("seq-client-egress-l7-tls-deny-without-headers", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretsOnlyFromSecretsNamespace)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(templates["clientEgressL7TLSPolicyYAML"]).   // L7 allow policy with TLS interception
