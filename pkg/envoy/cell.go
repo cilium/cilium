@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -127,6 +127,7 @@ type xdsServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
+	Logger             *slog.Logger
 	IPCache            *ipcache.IPCache
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
@@ -152,6 +153,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	CiliumXDSConfigSource.InitialFetchTimeout.Seconds = int64(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
 	xdsServer := newXDSServer(
+		params.Logger,
 		params.RestorerPromise,
 		params.IPCache,
 		params.LocalEndpointStore,
@@ -173,7 +175,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		params.SecretManager)
 
 	if !option.Config.EnableL7Proxy {
-		log.Debug("L7 proxies are disabled - not starting Envoy xDS server")
+		params.Logger.Debug("L7 proxies are disabled - not starting Envoy xDS server")
 		return xdsServer, nil
 	}
 
@@ -193,6 +195,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
 			XDSServer:                xdsServer,
+			logger:                   params.Logger,
 			runDir:                   option.Config.RunDir,
 			envoyLogPath:             params.EnvoyProxyConfig.EnvoyLog,
 			envoyDefaultLogLevel:     params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
@@ -211,25 +214,26 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	return xdsServer, nil
 }
 
-func newEnvoyAdminClient(envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
-	return NewEnvoyAdminClientForSocket(GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
+func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
+	return NewEnvoyAdminClientForSocket(logger, GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
 type accessLogServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
+	Logger             *slog.Logger
 	LocalEndpointStore *LocalEndpointStore
 	EnvoyProxyConfig   ProxyConfig
 }
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	if !option.Config.EnableL7Proxy {
-		log.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
+		params.Logger.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
 		return nil
 	}
 
-	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
+	accessLogServer := newAccessLogServer(params.Logger, GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
@@ -251,8 +255,7 @@ type versionCheckParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
-	Slog             *slog.Logger
-	Logger           logrus.FieldLogger
+	Logger           *slog.Logger
 	JobRegistry      job.Registry
 	Health           cell.Health
 	EnvoyProxyConfig ProxyConfig
@@ -264,8 +267,10 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		return
 	}
 
+	checker := &envoyVersionChecker{logger: params.Logger}
+
 	envoyVersionFunc := func() (string, error) {
-		return getRemoteEnvoyVersion(params.EnvoyAdminClient)
+		return checker.getRemoteEnvoyVersion(params.EnvoyAdminClient)
 	}
 
 	if !option.Config.ExternalEnvoyProxy {
@@ -274,7 +279,7 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
-		job.WithLogger(params.Slog),
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
 	params.Lifecycle.Append(jobGroup)
@@ -283,8 +288,8 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
 	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
-		if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
-			params.Logger.WithError(err).Error("Envoy: Version check failed")
+		if err := checker.checkEnvoyVersion(envoyVersionFunc); err != nil {
+			params.Logger.Error("Envoy: Version check failed", logfields.Error, err)
 			return err
 		}
 
@@ -298,8 +303,9 @@ func newLocalEndpointStore() *LocalEndpointStore {
 	}
 }
 
-func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
+func newArtifactCopier(lifecycle cell.Lifecycle, logger *slog.Logger) *ArtifactCopier {
 	artifactCopier := &ArtifactCopier{
+		logger:     logger,
 		sourcePath: "/envoy-artifacts",
 		targetPath: filepath.Join(option.Config.RunDir, "envoy", "artifacts"),
 	}
@@ -319,8 +325,7 @@ func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
 type syncerParams struct {
 	cell.In
 
-	Slog        *slog.Logger
-	Logger      logrus.FieldLogger
+	Logger      *slog.Logger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Health      cell.Health
@@ -360,13 +365,13 @@ func registerSecretSyncer(params syncerParams) error {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
-		job.WithLogger(params.Slog),
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
 
 	params.Lifecycle.Append(jobGroup)
 
-	secretSyncerLogger := params.Logger.WithField("controller", "secretSyncer")
+	secretSyncerLogger := params.Logger.With("controller", "secretSyncer")
 
 	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
 
