@@ -240,7 +240,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
@@ -258,7 +258,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
@@ -279,7 +279,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				echo := echo.ToNodeportService(node)
 
 				t.NewAction(s, fmt.Sprintf("curl-echo-service-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 				})
 				i++
 			}
@@ -298,7 +298,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		for _, client := range ct.ExternalEchoPods() {
 			for _, echo := range ct.EchoPods() {
 				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 				})
 				i++
 			}
@@ -389,7 +389,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {

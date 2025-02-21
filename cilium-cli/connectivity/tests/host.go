@@ -147,7 +147,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, ct.Params().EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny))
+				a.ExecInPod(ctx, a.CurlCommand(ep))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 					// Because the HostPort request is NATed, we might only
@@ -191,7 +191,7 @@ func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
 		for _, dst := range ct.EchoPods() {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &src, dst, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(dst, ipFam))
+					a.ExecInPod(ctx, a.CurlCommand(dst))
 				})
 			})
 

@@ -65,9 +65,9 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 					if s.method == "" {
-						a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam))
+						a.ExecInPod(ctx, a.CurlCommand(echo))
 					} else {
-						a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam, "-X", s.method))
+						a.ExecInPod(ctx, a.CurlCommand(echo, "-X", s.method))
 					}
 
 					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
@@ -162,7 +162,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 
 		t.NewAction(s, epName, client, ep, ipFam).Run(func(a *check.Action) {
 			curlOpts = append(curlOpts, s.retryCondition.CurlOptions(ep, ipFam, *client, ct.Params())...)
-			a.ExecInPod(ctx, ct.CurlCommand(ep, ipFam, curlOpts...))
+			a.ExecInPod(ctx, a.CurlCommand(ep, curlOpts...))
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 			a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))
@@ -179,7 +179,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 				opts = append(opts, curlOpts...)
 				opts = append(opts, "-H", "X-Very-Secret-Token: 42")
 
-				a.ExecInPod(ctx, ct.CurlCommand(ep, ipFam, opts...))
+				a.ExecInPod(ctx, a.CurlCommand(ep, opts...))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 				a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))
@@ -356,7 +356,7 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 					return
 				}
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam))
+					a.ExecInPod(ctx, a.CurlCommand(echo))
 
 					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 					a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))

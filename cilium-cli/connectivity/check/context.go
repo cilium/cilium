@@ -940,7 +940,7 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	return minVersion, nil
 }
 
-func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, expectingSuccess bool, opts []string) []string {
 	cmd := []string{
 		"curl", "--silent", "--fail", "--show-error",
 	}
@@ -972,7 +972,7 @@ func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.
 	}
 
 	numTargets := 1
-	if ct.params.CurlParallel > 0 {
+	if expectingSuccess && ct.params.CurlParallel > 0 {
 		numTargets = int(ct.params.CurlParallel)
 		cmd = append(cmd, "--parallel", "--parallel-immediate")
 	}
@@ -990,11 +990,11 @@ func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.
 	return cmd
 }
 
-func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
-	return ct.CurlCommandWithOutput(peer, ipFam, append([]string{
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, expectingSuccess bool, opts []string) []string {
+	return ct.CurlCommandWithOutput(peer, ipFam, expectingSuccess, append([]string{
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
 		"--output", "/dev/null",
-	}, opts...)...)
+	}, opts...))
 }
 
 func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily, extraArgs ...string) []string {

@@ -1083,3 +1083,15 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 		}
 	}
 }
+
+func (a *Action) expectingSuccess() bool {
+	return a.expectedExitCode() == ExitCode(0)
+}
+
+func (a *Action) CurlCommandWithOutput(peer TestPeer, opts ...string) []string {
+	return a.test.ctx.CurlCommandWithOutput(peer, a.IPFamily(), a.expectingSuccess(), opts)
+}
+
+func (a *Action) CurlCommand(peer TestPeer, opts ...string) []string {
+	return a.test.ctx.CurlCommand(peer, a.IPFamily(), a.expectingSuccess(), opts)
+}
