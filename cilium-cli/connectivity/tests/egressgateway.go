@@ -240,7 +240,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4, "-4"))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
