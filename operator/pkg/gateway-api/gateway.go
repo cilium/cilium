@@ -75,16 +75,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				_, found := object.GetLabels()[owningGatewayLabel]
 				return found
 			}))).
-		// Watch HTTP Route status changes, there is one assumption that any change in spec will
-		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1.HTTPRoute{},
-			r.enqueueRequestForOwningHTTPRoute(r.logger),
-			builder.WithPredicates(onlyStatusChanged())).
-		// Watch GRPCRoute status changes, there is one assumption that any change in spec will
-		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1.GRPCRoute{},
-			r.enqueueRequestForOwningGRPCRoute(),
-			builder.WithPredicates(onlyStatusChanged())).
+		// Watch HTTPRoute linked to Gateway
+		Watches(&gatewayv1.HTTPRoute{}, r.enqueueRequestForOwningHTTPRoute(r.logger)).
+		// Watch GRPCRoute linked to Gateway
+		Watches(&gatewayv1.GRPCRoute{}, r.enqueueRequestForOwningGRPCRoute()).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
 			r.enqueueRequestForTLSSecret(),
@@ -102,11 +96,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for _, gvk := range r.installedCRDs {
 		switch gvk.Kind {
 		case helpers.TLSRouteKind:
-			// Watch TLS Route status changes, there is one assumption that any change in spec will
-			// always update status always at least for observedGeneration value.
-			gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{},
-				r.enqueueRequestForOwningTLSRoute(r.logger),
-				builder.WithPredicates(onlyStatusChanged()))
+			// Watch TLSRoute linked to Gateway
+			gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{}, r.enqueueRequestForOwningTLSRoute(r.logger))
 		}
 	}
 	return gatewayBuilder.Complete(r)
