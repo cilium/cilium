@@ -2263,6 +2263,10 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 					break
 				}
 			}
+		case unix.IFLA_PARENT_DEV_NAME:
+			base.ParentDev = string(attr.Value[:len(attr.Value)-1])
+		case unix.IFLA_PARENT_DEV_BUS_NAME:
+			base.ParentDevBus = string(attr.Value[:len(attr.Value)-1])
 		}
 	}
 
@@ -2817,7 +2821,7 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_VXLAN_PORT_RANGE:
 			buf := bytes.NewBuffer(datum.Value[0:4])
 			var pr vxlanPortRange
-			if binary.Read(buf, binary.BigEndian, &pr) != nil {
+			if binary.Read(buf, binary.BigEndian, &pr) == nil {
 				vxlan.PortLow = int(pr.Lo)
 				vxlan.PortHigh = int(pr.Hi)
 			}
@@ -3041,7 +3045,6 @@ func parseMacvlanData(link Link, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
-// copied from pkg/net_linux.go
 func linkFlags(rawFlags uint32) net.Flags {
 	var f net.Flags
 	if rawFlags&unix.IFF_UP != 0 {
@@ -3058,6 +3061,9 @@ func linkFlags(rawFlags uint32) net.Flags {
 	}
 	if rawFlags&unix.IFF_MULTICAST != 0 {
 		f |= net.FlagMulticast
+	}
+	if rawFlags&unix.IFF_RUNNING != 0 {
+		f |= net.FlagRunning
 	}
 	return f
 }
