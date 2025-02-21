@@ -710,6 +710,10 @@ const (
 	// If both burst and rate limit are 0 or not specified, no limit is imposed.
 	BPFEventsDefaultBurstLimit = "bpf-events-default-burst-limit"
 
+	// BPFBatchUpdateChunkSize determines the maximum number of entries that the bpf
+	// system will pass to an individual bpf batch update command.
+	BPFBatchUpdateChunkSize = "bpf-batch-update-chunk-size"
+
 	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -1473,6 +1477,10 @@ type DaemonConfig struct {
 	// lest the configuration is considered invalid.
 	// If both burst and rate limit are 0 or not specified, no limit is imposed.
 	BPFEventsDefaultBurstLimit uint32
+
+	// BPFBatchUpdateChunkSize determines the maximum number of entries that the bpf
+	// system will pass to an individual bpf batch update command.
+	BPFBatchUpdateChunkSize int
 
 	// BPFMapsDynamicSizeRatio is ratio of total system memory to use for
 	// dynamic sizing of the CT, NAT, Neighbor and SockRevNAT BPF maps.
@@ -2310,8 +2318,10 @@ var (
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
-		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
-		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
+		BPFBatchUpdateChunkSize:       defaults.BPFBatchUpdateChunkSize,
+
+		EnableEnvoyConfig:           defaults.EnableEnvoyConfig,
+		EnableInternalTrafficPolicy: defaults.EnableInternalTrafficPolicy,
 
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
@@ -3204,6 +3214,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.BPFEventsDefaultRateLimit = vp.GetUint32(BPFEventsDefaultRateLimit)
 		c.BPFEventsDefaultBurstLimit = vp.GetUint32(BPFEventsDefaultBurstLimit)
 	}
+	c.BPFBatchUpdateChunkSize = vp.GetInt(BPFBatchUpdateChunkSize)
 
 	c.bpfMapEventConfigs = make(BPFEventBufferConfigs)
 	parseBPFMapEventConfigs(c.bpfMapEventConfigs, defaults.BPFEventBufferConfigs)

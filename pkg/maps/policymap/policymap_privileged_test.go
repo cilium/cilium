@@ -83,7 +83,7 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
-	fooEntry := newDenyEntry(fooKey)
+	fooEntry := NewDenyEntry(fooKey)
 	err := testMap.DenyKey(fooKey)
 	require.NoError(t, err)
 
