@@ -754,10 +754,14 @@ jobs:
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
+          TEST=""
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST="!to-cidr-external"
+          fi
           cilium connectivity test \
             --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*,!l7,!fqdn" \
+            --test "!seq-.*,!l7,!fqdn,$TEST" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Setup conn dirstupt tests after a flush-ct Cilium tests
@@ -812,10 +816,14 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
+          TEST=""
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST="!to-cidr-external"
+          fi
           cilium connectivity test \
             --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*,!l7,!fqdn" \
+            --test "!seq-.*,!l7,!fqdn,$TEST" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Features tested after downgrade
