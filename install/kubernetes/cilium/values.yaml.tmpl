@@ -2679,6 +2679,9 @@ routingMode: ""
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
+# -- Configure VXLAN and Geneve tunnel source port range hint.
+# @default -- 0-0 to let the kernel driver decide the range
+tunnelSourcePortRange: 0-0
 # -- Configure what the response should be to traffic for a service without backends.
 # Possible values:
 #  - reject (default)
