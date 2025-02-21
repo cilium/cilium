@@ -3,6 +3,7 @@
 
 #include "bpf/ctx/xdp.h"
 #include "common.h"
+#include "pktcheck.h"
 #include "pktgen.h"
 
 #define ENABLE_IPV4
@@ -211,7 +212,7 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	data += sizeof(struct iphdr);
 
-	if (l3->daddr != BACKEND_IP2) test_fatal("dst ip != backend IP");
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, IPV4_DIRECT_ROUTING, BACKEND_IP2));
 
 	if (data + sizeof(struct tcphdr) > data_end)
 		test_fatal("ctx doesn't fit tcphdr");
