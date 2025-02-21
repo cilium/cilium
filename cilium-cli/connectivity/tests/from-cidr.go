@@ -42,7 +42,7 @@ func (f *fromCIDRToPod) Run(ctx context.Context, t *check.Test) {
 			)
 
 			t.NewAction(f, "host-netns-to-pod", &clientPod, pod, ipFam).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, t.Context().CurlCommand(ep, ipFam))
+				a.ExecInPod(ctx, a.CurlCommand(ep))
 			})
 			i++
 		})
