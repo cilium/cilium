@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -161,6 +162,9 @@ type DNSProxy struct {
 
 	// UnbindAddress unbinds dns servers from socket in order to stop serving DNS traffic before proxy shutdown
 	unbindAddress func()
+
+	// DNSProxyType is the type of DNS proxy - either in built DNS proxy or standalone DNS proxy
+	DNSProxyType DNSProxyType
 }
 
 // regexCacheEntry is a lookup entry used to cache a compiled regex
@@ -189,6 +193,55 @@ type CachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
 
 // structure for restored rules that can be used while Cilium agent is restoring endpoints
 type perEPRestored map[uint64]map[restore.PortProto][]restoredIPRule
+
+// DNSServerIdentity contains the identities of the DNS servers and used to
+// determine if a DNS request is allowed or not from standalone DNS proxy.
+// It adheres the interface policy.CachedSelector and reuses the
+// embedded dns proxy filtering path.
+type DnsServerIdentity struct {
+	Identities []uint32
+}
+
+func (d DnsServerIdentity) Selects(_ *versioned.VersionHandle, identity identity.NumericIdentity) bool {
+	for _, id := range d.Identities {
+		if id == identity.Uint32() {
+			return true
+		}
+	}
+	return false
+}
+
+func (d DnsServerIdentity) String() string {
+	identityStrings := make([]string, len(d.Identities))
+	for i, id := range d.Identities {
+		identityStrings[i] = strconv.FormatUint(uint64(id), 10)
+	}
+	return strings.Join(identityStrings, ",")
+}
+
+// Not being used in the standalone dns proxy path
+func (d DnsServerIdentity) IsWildcard() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d DnsServerIdentity) IsNone() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d DnsServerIdentity) GetSelections(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+	s := make(identity.NumericIdentitySlice, len(d.Identities))
+	for i, id := range d.Identities {
+		s[i] = identity.NumericIdentity(id)
+	}
+	return s
+}
+
+// Not being used in the standalone dns proxy path
+func (d DnsServerIdentity) GetMetadataLabels() labels.LabelArray {
+	return nil
+}
 
 // restoredIPRule is the dnsproxy internal way of representing a restored IPRule
 // where we also store the actual compiled regular expression as a, as well
@@ -533,6 +586,11 @@ func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, d
 		}
 		return err
 	}
+	allow.updatePortRulesForID(cache, endpointID, destPortProto, cse)
+	return nil
+}
+
+func (allow perEPAllow) updatePortRulesForID(cache regexCache, endpointID uint64, destPortProto restore.PortProto, cse CachedSelectorREEntry) {
 	allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
 	epPortProtos, exist := allow[endpointID]
 	if !exist {
@@ -540,7 +598,6 @@ func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, d
 		allow[endpointID] = epPortProtos
 	}
 	epPortProtos[destPortProto] = cse
-	return nil
 }
 
 // setPortRulesForIDFromUnifiedFormat sets the matching rules for endpointID and destPort for
@@ -667,6 +724,11 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 	return false
 }
 
+type DNSProxyType string
+
+const DefaultDNSProxy DNSProxyType = "default"
+const StandaloneDNSProxy DNSProxyType = "standalone"
+
 // DNSProxyConfig is the configuration for the DNS proxy.
 type DNSProxyConfig struct {
 	Address                string
@@ -678,6 +740,7 @@ type DNSProxyConfig struct {
 	ConcurrencyLimit       int
 	ConcurrencyGracePeriod time.Duration
 	DisableDNSProxy        bool
+	DNSProxyType           DNSProxyType
 }
 
 // StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
@@ -706,6 +769,10 @@ func StartDNSProxy(
 		return nil, errors.New("DNS proxy must have lookupEPFunc and notifyFunc provided")
 	}
 
+	if dnsProxyConfig.DNSProxyType == "" {
+		dnsProxyConfig.DNSProxyType = DefaultDNSProxy
+	}
+
 	p := &DNSProxy{
 		LookupRegisteredEndpoint: lookupEPFunc,
 		LookupSecIDByIP:          lookupSecIDFunc,
@@ -722,6 +789,7 @@ func StartDNSProxy(
 		EnableDNSCompression:     dnsProxyConfig.EnableDNSCompression,
 		maxIPsPerRestoredDNSRule: dnsProxyConfig.MaxRestoreDNSIPs,
 		DNSClients:               NewSharedClients(),
+		DNSProxyType:             dnsProxyConfig.DNSProxyType,
 	}
 	if dnsProxyConfig.ConcurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(dnsProxyConfig.ConcurrencyLimit))
@@ -848,6 +916,57 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPortP
 	// Rules were updated based on policy, remove restored rules
 	p.removeRestoredRulesLocked(endpointID)
 	return nil
+}
+
+// Used for testing Standalone DNS Proxy
+func (p *DNSProxy) GetAllowedRulesForEndpoint(endpointID uint64) (map[restore.PortProto]CachedSelectorREEntry, error) {
+	p.RLock()
+	defer p.RUnlock()
+	return p.allowed[endpointID], nil
+}
+
+// UpdateAllowedStandaloneDnsProxy called by SDP to update per endpoint id DNS rules
+func (p *DNSProxy) UpdateAllowedStandaloneDnsProxy(epId uint64, portProto restore.PortProto, dnsRules map[policy.CachedSelector][]string) (revert.RevertFunc, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	if dnsRules == nil {
+		p.allowed.removeAndReleasePortRulesForID(p.cache, epId, portProto)
+		return nil, nil
+	}
+
+	var err error
+	var regex *regexp.Regexp
+	cse := make(CachedSelectorREEntry, len(dnsRules))
+	for sel, dnsPattern := range dnsRules {
+		pattern := GeneratePatternForRules(dnsPattern)
+		regex, err = p.cache.lookupOrCompileRegex(pattern)
+		if err != nil {
+			break
+		}
+		cse[sel] = regex
+	}
+
+	if err != nil {
+		// Unregister the registered regexes before returning the error to avoid
+		// leaving unused references in the cache
+		for k, regex := range cse {
+			p.cache.releaseRegex(regex)
+			delete(cse, k)
+		}
+		return nil, err
+	}
+
+	p.allowed.updatePortRulesForID(p.cache, epId, portProto, cse)
+	revert := func() error {
+		p.Lock()
+		defer p.Unlock()
+		if _, exists := p.allowed[epId]; exists {
+			p.allowed.updatePortRulesForID(p.cache, epId, portProto, p.allowed[epId][portProto])
+		}
+		return nil
+	}
+	return revert, err
 }
 
 // CheckAllowed checks endpointID, destPortProto, destID, destIP, and name against the rules
@@ -1101,8 +1220,16 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
 	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, request, protocol, true, &stat); err != nil {
 		scopedLog.WithError(err).Error("Failed to process DNS query")
-		p.sendErrorResponse(scopedLog, w, request, false)
-		return
+		if p.DNSProxyType == StandaloneDNSProxy {
+			// In standalone mode, we don't want to send a refused response to the client
+			// because this can happen when cilium agent is down and the DNS proxy is still
+			// running. In this case, we want to allow the DNS query to be forwarded to the
+			// upstream DNS server.
+			scopedLog.Warn("Failed to process DNS query, allowing the DNS query to be forwarded to the upstream DNS server")
+		} else {
+			p.sendErrorResponse(scopedLog, w, request, false)
+			return
+		}
 	}
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
@@ -1184,8 +1311,16 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, response, protocol, true, &stat); err != nil {
 		scopedLog.WithField(logfields.Response, response).WithError(err).Error("Failed to process DNS response")
-		p.sendErrorResponse(scopedLog, w, request, false)
-		return
+		if p.DNSProxyType == StandaloneDNSProxy {
+			// In standalone mode, we don't want to send a refused response to the client
+			// because this can happen when cilium agent is down and the DNS proxy is still
+			// running. In this case, we want to allow the DNS response to be forwarded to the
+			// client.
+			scopedLog.Warn("Failed to process DNS response, allowing the DNS response to be forwarded to the client")
+		} else {
+			p.sendErrorResponse(scopedLog, w, request, false)
+			return
+		}
 	}
 
 	scopedLog.Debug("Responding to original DNS query")
@@ -1499,6 +1634,24 @@ func GeneratePattern(l7Rules *policy.PerSelectorPolicy) (pattern string) {
 			}
 			reStrings = append(reStrings, dnsPatternAsRE)
 		}
+	}
+	return "^(?:" + strings.Join(reStrings, "|") + ")$"
+}
+
+func GeneratePatternForRules(rules []string) (pattern string) {
+	if len(rules) == 0 {
+		return matchpattern.MatchAllAnchoredPattern
+	}
+
+	reStrings := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		rulePattern := matchpattern.Sanitize(rule)
+		ruleAsRE := matchpattern.ToUnAnchoredRegexp(rulePattern)
+		if ruleAsRE == matchpattern.MatchAllUnAnchoredPattern {
+			return matchpattern.MatchAllAnchoredPattern
+		}
+		reStrings = append(reStrings, ruleAsRE)
+
 	}
 	return "^(?:" + strings.Join(reStrings, "|") + ")$"
 }

@@ -638,6 +638,7 @@ Makefile* @cilium/build
 /SECURITY.md @cilium/contributing
 /SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/release-managers
+/standalone-dns-proxy/ @cilium/proxy @cilium/fqdn
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
