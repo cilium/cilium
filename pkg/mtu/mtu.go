@@ -45,7 +45,7 @@ const (
 	//    128bit Auth:        16B
 	//			  ---
 	//    Total extra bytes:  77B
-	EncryptionIPsecOverhead = 77
+	EncryptionIPsecOverhead = 77 + 40 //TODO DONT MERGE, TESTING KEY ROTATION
 
 	// EncryptionDefaultAuthKeyLength is 16 representing 128B key recommended
 	// size for GCM(AES*) in RFC4106. Users may input other lengths via
