@@ -24,6 +24,7 @@
 #endif
 
 #include "lib/common.h"
+#include "lib/config_map.h"
 #include "lib/edt.h"
 #include "lib/arp.h"
 #include "lib/maps.h"
@@ -33,6 +34,7 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/proxy.h"
+#include "lib/policy.h"
 #include "lib/trace.h"
 #include "lib/identity.h"
 #include "lib/l3.h"
@@ -51,6 +53,8 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/l2_responder.h"
+#include "lib/vtep.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
@@ -131,7 +135,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer6);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER6 __section_maps_btf;
+} cilium_tail_call_buffer6 __section_maps_btf;
 
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
@@ -211,7 +215,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
+		if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
@@ -266,7 +270,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = WORLD_IPV6_ID;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -582,7 +586,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer4);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER4 __section_maps_btf;
+} cilium_tail_call_buffer4 __section_maps_btf;
 
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
@@ -663,7 +667,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)
+		if (map_update_elem(&cilium_tail_call_buffer4, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 
@@ -713,7 +717,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = 0;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr == 0)
@@ -802,7 +806,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
-		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
 
@@ -1052,10 +1056,9 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	struct l2_responder_v4_key key;
 	struct l2_responder_v4_stats *stats;
 	int ret;
-	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
-	__u64 *time;
+	__u64 time;
 
-	time = map_lookup_elem(&CONFIG_MAP, &index);
+	time = config_get(RUNTIME_CONFIG_AGENT_LIVENESS);
 	if (!time)
 		return CTX_ACT_OK;
 
@@ -1063,7 +1066,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	 * of the responder map anymore. So stop responding, assuming other nodes
 	 * will take over for a node without an active agent.
 	 */
-	if (ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
+	if (ktime_get_ns() - (time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
 		return CTX_ACT_OK;
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
@@ -1071,7 +1074,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 
 	key.ip4 = tip;
 	key.ifindex = ctx->ingress_ifindex;
-	stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+	stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
 	if (!stats)
 		return CTX_ACT_OK;
 

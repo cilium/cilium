@@ -13,6 +13,7 @@
 #include "lib/pcap.h"
 #include "lib/trace_sock.h"
 #include "lib/mcast.h"
+#include "lib/vtep.h"
 
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
