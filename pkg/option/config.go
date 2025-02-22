@@ -3127,6 +3127,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Info("L7 proxy is not enabled. Disabling embedded DNS proxy has no effect")
 	}
 
+	if c.EnableStandaloneDNSProxy {
+		if !c.EnableL7Proxy {
+			log.Fatalf("Standalone DNS proxy requires L7 proxy to be enabled")
+		}
+	}
+
 	// toFQDNs options
 	c.DNSMaxIPsPerRestoredRule = vp.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
