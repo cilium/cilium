@@ -44,8 +44,12 @@ type Parser struct {
 // re-usable packet to avoid reallocating gopacket datastructures
 type packet struct {
 	lock.Mutex
-	decLayer *gopacket.DecodingLayerParser
-	Layers   []gopacket.LayerType
+
+	decLayerL2Dev     *gopacket.DecodingLayerParser
+	decLayerL3DevIPv4 *gopacket.DecodingLayerParser
+	decLayerL3DevIPv6 *gopacket.DecodingLayerParser
+
+	Layers []gopacket.LayerType
 	layers.Ethernet
 	layers.IPv4
 	layers.IPv6
@@ -67,15 +71,21 @@ func New(
 	linkGetter getters.LinkGetter,
 ) (*Parser, error) {
 	packet := &packet{}
-	packet.decLayer = gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet, &packet.Ethernet,
+	decoders := []gopacket.DecodingLayer{
+		&packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
-		&packet.TCP, &packet.UDP, &packet.SCTP)
+		&packet.TCP, &packet.UDP, &packet.SCTP,
+	}
+	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
+	packet.decLayerL3DevIPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
+	packet.decLayerL3DevIPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
-	packet.decLayer.IgnoreUnsupported = true
+	packet.decLayerL2Dev.IgnoreUnsupported = true
+	packet.decLayerL3DevIPv4.IgnoreUnsupported = true
+	packet.decLayerL3DevIPv6.IgnoreUnsupported = true
 
 	return &Parser{
 		log:            log,
@@ -156,16 +166,32 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	p.packet.Lock()
 	defer p.packet.Unlock()
 
-	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
-	// https://github.com/google/gopacket/issues/846
-	// TODO: reconsider this check if the issue is fixed upstream
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet.
+	// Skip decoding and truncate layers to avoid accidental re-use.
+	// See https://github.com/google/gopacket/issues/846
 	if len(data[packetOffset:]) > 0 {
-		err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		var isL3Device, isIPv6 bool
+		if tn != nil && tn.IsL3Device() {
+			isL3Device = true
+		}
+		if tn != nil && tn.IsIPv6() {
+			isIPv6 = true
+		}
+
+		var err error
+		switch {
+		case !isL3Device:
+			err = p.packet.decLayerL2Dev.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		case isIPv6:
+			err = p.packet.decLayerL3DevIPv6.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		default:
+			err = p.packet.decLayerL3DevIPv4.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		}
+
 		if err != nil {
 			return err
 		}
 	} else {
-		// Truncate layers to avoid accidental re-use.
 		p.packet.Layers = p.packet.Layers[:0]
 	}
 
