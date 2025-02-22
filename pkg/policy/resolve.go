@@ -23,7 +23,7 @@ import (
 type SelectorPolicy interface {
 	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
 	// before a new EndpointPolicy is created.
-	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
+	RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolicyTuple]
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
@@ -369,22 +369,27 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 	})
 }
 
+type PerSelectorPolicyTuple struct {
+	Policy   *PerSelectorPolicy
+	Selector CachedSelector
+}
+
 // RedirectFilters returns an iterator for each L4Filter with a redirect in the policy.
-func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy] {
-	return func(yield func(*L4Filter, *PerSelectorPolicy) bool) {
+func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolicyTuple] {
+	return func(yield func(*L4Filter, PerSelectorPolicyTuple) bool) {
 		if p.L4Policy.Ingress.forEachRedirectFilter(yield) {
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
 }
 
-func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *PerSelectorPolicy) bool) bool {
+func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
 	ok := true
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
-			for _, ps := range l4.PerSelectorPolicies {
+			for cs, ps := range l4.PerSelectorPolicies {
 				if ps != nil && ps.IsRedirect() {
-					ok = yield(l4, ps)
+					ok = yield(l4, PerSelectorPolicyTuple{ps, cs})
 				}
 			}
 		}

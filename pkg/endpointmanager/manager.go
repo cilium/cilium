@@ -643,6 +643,10 @@ func (mgr *endpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 	return eps
 }
 
+func (mgr *endpointManager) ExposeTestEndpoint(ep *endpoint.Endpoint) error {
+	return mgr.expose(ep)
+}
+
 func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	newID, err := mgr.allocateID(ep.ID)
 	if err != nil {
