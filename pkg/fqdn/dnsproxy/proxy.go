@@ -677,6 +677,7 @@ type DNSProxyConfig struct {
 	MaxRestoreDNSIPs       int
 	ConcurrencyLimit       int
 	ConcurrencyGracePeriod time.Duration
+	DisableDNSProxy        bool
 }
 
 // StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
@@ -727,6 +728,14 @@ func StartDNSProxy(
 		p.ConcurrencyGracePeriod = dnsProxyConfig.ConcurrencyGracePeriod
 	}
 	p.rejectReply.Store(dns.RcodeRefused)
+
+	// Disable the DNS proxy if configured. This is needed when only standalone dns proxy is present.
+	// Since the DNS Proxy is in the restoration path for endpoints, we don't start
+	// the DNS proxy if it is disabled. But we still need to return a DNSProxy that
+	// can be used to restoring endpoints.
+	if dnsProxyConfig.DisableDNSProxy {
+		return p, nil
+	}
 
 	// Start the DNS listeners on UDP and TCP for IPv4 and/or IPv6
 	var (
