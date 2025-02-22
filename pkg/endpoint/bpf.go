@@ -271,9 +271,9 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	)
 
 	// create or update proxy redirects
-	for l4, perSelectorPolicy := range selectorPolicy.RedirectFilters() {
+	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
-		listener := perSelectorPolicy.GetListener()
+		listener := policySelectorTuple.Policy.GetListener()
 
 		// proxyID() returns also the destination port for the policy,
 		// which may be resolved from a named port
@@ -293,7 +293,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			continue
 		}
 
-		pp := newProxyPolicy(l4, perSelectorPolicy.L7Parser, listener, dstPort, dstProto)
+		pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, dstProto)
 		proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 		if err != nil {
 			// Skip redirects that can not be created or updated.  This
@@ -311,7 +311,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		// Update the endpoint API model to report that Cilium manages a
 		// redirect for that port.
 		statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
-		proxyStats := e.getProxyStatistics(statsKey, string(perSelectorPolicy.L7Parser), dstPort, l4.Ingress, proxyPort)
+		proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
 		updatedStats = append(updatedStats, proxyStats)
 	}
 
@@ -646,6 +646,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
 		}
+	}
+
+	// Once the policy has been calculated, we can update the standalone dns proxy as well.
+	// We need to send the snapshot of the policyRules to SDP.
+	if !e.isProperty(PropertyFakeEndpoint) && !e.IsProxyDisabled() {
+		repo := e.policyGetter.GetPolicyRepository()
+		log.Debugf("Updating SDP with policy rules")
+		policyRules := repo.GetPolicySnapshot()
+		e.proxy.UpdateSDP(policyRules)
 	}
 
 	// Any possible DNS redirects had their rules updated by 'e.regeneratePolicy' above, so we
