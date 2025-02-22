@@ -18,11 +18,13 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -64,6 +66,11 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		return nil
 	}
 
+	if option.Config.EnableStandaloneDNSProxy {
+		// Start the standalone DNS proxy grpc server
+		d.bootstrapStandaloneDNSProxyServer()
+	}
+
 	// A configured proxy port takes precedence over using the previous port.
 	port := uint16(option.Config.ToFQDNsProxyPort)
 	if port == 0 {
@@ -93,14 +100,27 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		DisableDNSProxy:        !option.Config.EnableEmbeddedDNSProxy,
 	}
 	var dnsProxy fqdnproxy.DNSProxier
 	dnsProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
 		d.notifyOnDNSMsg)
 	d.dnsProxy.Set(dnsProxy)
 	if err == nil {
+		assignedPort := dnsProxy.GetBindPort()
+
+		// If the embedded dns proxy is disabled then we use the Standalone dns proxy port as the DNS proxy port.
+		// There is an assumption here that the Standalone DNS proxy will be listening on the ToFQDNsProxyPort.
+		// It will be hard fail if the standalone DNS proxy is not enabled and cilium agent is enabled with l7proxy.
+		if !option.Config.EnableEmbeddedDNSProxy {
+			if option.Config.EnableStandaloneDNSProxy && option.Config.ToFQDNsProxyPort != 0 {
+				assignedPort = uint16(option.Config.ToFQDNsProxyPort)
+			} else {
+				log.Fatalf("Need atleast one of the dns proxy running. Embedded DNS proxy is disabled and Standalone DNS proxy is not enabled.")
+			}
+		}
 		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false)
+		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, assignedPort, false)
 		if err == nil && port == dnsProxy.GetBindPort() {
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
@@ -259,108 +279,9 @@ func (d *Daemon) notifyOnDNSMsg(
 	}
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		stat.PolicyGenerationTime.Start()
-
-		// Create a critical section especially for when multiple DNS requests
-		// are in-flight for the same name (i.e. cilium.io).
-		//
-		// In the absence of such a critical section, consider the following
-		// race condition:
-		//
-		//              G1                                    G2
-		//
-		// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
-		//
-		// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
-		//
-		// T2 ----> mutex.Lock()                 +--------------------------+
-		//                                       |No selectors need updating|
-		// T3 ----> wg := UpdatePolicyMaps()     +--------------------------+
-		//
-		// T4 ----> mutex.Unlock()               mutex.Lock() / mutex.Unlock() <-- T4
-		//
-		// T5 ----> wg.Wait()                    DNS released back to pod    <-- T5
-		//                                                    |
-		// T6 --> DNS released back to pod                    |
-		//              |                                     |
-		//              |                                     |
-		//              v                                     v
-		//       Traffic flows fine                   Leads to policy drop until T6
-		//
-		// Note how G2 releases the DNS msg back to the pod at T5 because
-		// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
-		// UpdateGenerateDNS() first at T1 and performed the necessary policy
-		// updates for the response IPs. Due to G1 performing all the work
-		// first, G2 executes T4 also as a no-op and releases the msg back to the
-		// pod at T5 before G1 would at T6.
-		//
-		// We do not do a `defer unlock()` here, as we should release the lock before
-		// doing final bookkeeping.
-		mutexAcquireStart := time.Now()
-		d.dnsNameManager.LockName(qname)
-
-		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-			log.WithFields(logrus.Fields{
-				logfields.DNSName:  qname,
-				logfields.Duration: d,
-				logfields.Expected: option.Config.DNSProxyLockTimeout,
-			}).Warnf("Name lock acquisition time took longer than expected. "+
-				"Potentially too many parallel DNS requests being processed, "+
-				"consider adjusting --%s and/or --%s",
-				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+		if err := d.updateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat); err != nil {
+			log.WithError(err).Error("cannot update DNS cache")
 		}
-
-		logDebug := log.Logger.IsLevelEnabled(logrus.DebugLevel)
-		if logDebug {
-			log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		}
-		// This must happen before the NameManager update below, to ensure that
-		// this data is included in the serialized Endpoint object.
-		// We also need to add to the cache before we purge any matching zombies
-		// because they are locked separately and we want to keep the allowed IPs
-		// consistent if a regeneration happens between the two steps. If an update
-		// doesn't happen in the case, we play it safe and don't purge the zombie
-		// in case of races.
-		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
-			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
-			ep.SyncEndpointHeaderFile()
-		}
-
-		if logDebug {
-			log.WithFields(logrus.Fields{
-				"qname": qname,
-				"ips":   responseIPs,
-			}).Debug("Updating DNS name in cache from response to query")
-		}
-
-		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
-		defer updateCancel()
-		updateStart := time.Now()
-
-		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
-			IPs: responseIPs,
-			TTL: int(TTL),
-		})
-
-		stat.PolicyGenerationTime.End(true)
-		stat.DataplaneTime.Start()
-
-		if err := <-dpUpdates; err != nil {
-			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
-			metrics.ProxyDatapathUpdateTimeout.Inc()
-		}
-
-		// Policy updates for this name have been pushed out; we can release the lock.
-		d.dnsNameManager.UnlockName(qname)
-
-		if logDebug {
-			log.WithFields(logrus.Fields{
-				logfields.Duration:   time.Since(updateStart),
-				logfields.EndpointID: ep.GetID(),
-				"qname":              qname,
-			}).Debug("Waited for endpoints to regenerate due to a DNS response")
-		}
-
 		endMetric()
 	}
 
@@ -399,4 +320,125 @@ func (d *Daemon) notifyOnDNSMsg(
 	d.proxyAccessLogger.Log(record)
 
 	return nil
+}
+
+func (d *Daemon) updateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error {
+	if stat != nil {
+		stat.PolicyGenerationTime.Start()
+	}
+
+	// Create a critical section especially for when multiple DNS requests
+	// are in-flight for the same name (i.e. cilium.io).
+	//
+	// In the absence of such a critical section, consider the following
+	// race condition:
+	//
+	//              G1                                    G2
+	//
+	// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
+	//
+	// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
+	//
+	// T2 ----> mutex.Lock()                 +--------------------------+
+	//                                       |No selectors need updating|
+	// T3 ----> wg := UpdatePolicyMaps()     +--------------------------+
+	//
+	// T4 ----> mutex.Unlock()               mutex.Lock() / mutex.Unlock() <-- T4
+	//
+	// T5 ----> wg.Wait()                    DNS released back to pod    <-- T5
+	//                                                    |
+	// T6 --> DNS released back to pod                    |
+	//              |                                     |
+	//              |                                     |
+	//              v                                     v
+	//       Traffic flows fine                   Leads to policy drop until T6
+	//
+	// Note how G2 releases the DNS msg back to the pod at T5 because
+	// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
+	// UpdateGenerateDNS() first at T1 and performed the necessary policy
+	// updates for the response IPs. Due to G1 performing all the work
+	// first, G2 executes T4 also as a no-op and releases the msg back to the
+	// pod at T5 before G1 would at T6.
+	//
+	// We do not do a `defer unlock()` here, as we should release the lock before
+	// doing final bookkeeping.
+	mutexAcquireStart := time.Now()
+	d.dnsNameManager.LockName(qname)
+
+	if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
+		log.WithFields(logrus.Fields{
+			logfields.DNSName:  qname,
+			logfields.Duration: d,
+			logfields.Expected: option.Config.DNSProxyLockTimeout,
+		}).Warnf("Name lock acquisition time took longer than expected. "+
+			"Potentially too many parallel DNS requests being processed, "+
+			"consider adjusting --%s and/or --%s",
+			option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+	}
+
+	logDebug := log.Logger.IsLevelEnabled(logrus.DebugLevel)
+	if logDebug {
+		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
+	}
+	// This must happen before the NameManager update below, to ensure that
+	// this data is included in the serialized Endpoint object.
+	// We also need to add to the cache before we purge any matching zombies
+	// because they are locked separately and we want to keep the allowed IPs
+	// consistent if a regeneration happens between the two steps. If an update
+	// doesn't happen in the case, we play it safe and don't purge the zombie
+	// in case of races.
+	if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+		ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
+		ep.SyncEndpointHeaderFile()
+	}
+
+	if logDebug {
+		log.WithFields(logrus.Fields{
+			"qname": qname,
+			"ips":   responseIPs,
+		}).Debug("Updating DNS name in cache from response to query")
+	}
+
+	updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
+	defer updateCancel()
+	updateStart := time.Now()
+
+	dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+		IPs: responseIPs,
+		TTL: int(TTL),
+	})
+
+	if stat != nil {
+		stat.PolicyGenerationTime.End(true)
+		stat.DataplaneTime.Start()
+	}
+
+	if err := <-dpUpdates; err != nil {
+		log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
+		metrics.ProxyDatapathUpdateTimeout.Inc()
+	}
+
+	// Policy updates for this name have been pushed out; we can release the lock.
+	d.dnsNameManager.UnlockName(qname)
+
+	if logDebug {
+		log.WithFields(logrus.Fields{
+			logfields.Duration:   time.Since(updateStart),
+			logfields.EndpointID: ep.GetID(),
+			"qname":              qname,
+		}).Debug("Waited for endpoints to regenerate due to a DNS response")
+	}
+
+	return nil
+}
+
+// Standalone DNS Proxy grpc server is used to communicate with the Standalone DNS Proxy
+func (d *Daemon) bootstrapStandaloneDNSProxyServer() {
+	sdpServer := service.NewServer(d.endpointManager, d.updateOnDNSMsg, d.logger)
+	proxy.GlobalStandaloneDNSProxy = sdpServer
+
+	// Add the Standalone DNS Proxy as a listener to the IPCache
+	d.ipcache.AddListener(sdpServer)
+
+	go service.RunServer(option.Config.ToFQDNsServerPort, sdpServer)
 }

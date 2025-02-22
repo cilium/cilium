@@ -9,9 +9,15 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
+)
+
+var (
+	// GlobalStandaloneDNSProxy is the global, shared, standalone DNS Proxy singleton.
+	GlobalStandaloneDNSProxy sdpPolicyUpdater
 )
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
@@ -22,6 +28,10 @@ type dnsRedirect struct {
 
 func (dr *dnsRedirect) GetRedirect() *Redirect {
 	return &dr.Redirect
+}
+
+type sdpPolicyUpdater interface {
+	UpdatePolicyRulesLocked(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
 }
 
 // setRules replaces old l7 rules of a redirect with new ones.
