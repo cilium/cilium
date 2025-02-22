@@ -272,9 +272,9 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	)
 
 	// create or update proxy redirects
-	for l4, perSelectorPolicy := range selectorPolicy.RedirectFilters() {
+	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
-		listener := perSelectorPolicy.GetListener()
+		listener := policySelectorTuple.Policy.GetListener()
 
 		// proxyID() returns also the destination port for the policy,
 		// which may be resolved from a named port
@@ -647,6 +647,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
 		}
+	}
+
+	// Once the policy has been calculated, we can update the standalone dns proxy as well.
+	// We need to send the snapshot of the policyRules to SDP.
+	if !e.isProperty(PropertyFakeEndpoint) && !e.IsProxyDisabled() {
+		repo := e.policyGetter.GetPolicyRepository()
+		log.Debugf("Updating SDP with policy rules")
+		policyRules := repo.GetPolicySnapshot()
+		e.proxy.UpdateSDP(policyRules)
 	}
 
 	// Any possible DNS redirects had their rules updated by 'e.regeneratePolicy' above, so we
