@@ -86,7 +86,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 			i := 0
 			lf := check.NewLRPFrontend(policy.Spec.RedirectFrontend)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, lf, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(lf, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommand(lf))
 				i++
 			})
 		}
@@ -103,7 +103,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 			i := 0
 			lf := check.NewLRPFrontend(policy.Spec.RedirectFrontend)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, lf, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(lf, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommand(lf))
 
 				if policy.Spec.SkipRedirectFromBackend {
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
@@ -217,7 +217,7 @@ func (s lrpWithNodeDNS) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
 			t.NewAction(s, fmt.Sprintf("lrp-node-dns-http-to-%s-%d", externalEcho, i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 			})
 			i++
 		}

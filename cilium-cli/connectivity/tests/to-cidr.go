@@ -47,7 +47,7 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 		for _, src := range ct.ClientPods() {
 			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, features.IPFamilyAny).Run(func(a *check.Action) {
 				opts := s.rc.CurlOptions(ep, features.IPFamilyAny, src, ct.Params())
-				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny, opts...))
+				a.ExecInPod(ctx, a.CurlCommand(ep, opts...))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,

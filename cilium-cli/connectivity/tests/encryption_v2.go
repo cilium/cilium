@@ -485,7 +485,7 @@ func (s *podToPodEncryptionV2) clientToServerTest(ctx context.Context, t *check.
 		t.Debugf("performing client->server curl: [client: %s] [server: %s] [family: ipv4]", s.client.Pod.Name, s.server.Pod.Name)
 		action := t.NewAction(s, fmt.Sprintf("curl-%s", features.IPFamilyV4), s.client, s.server, features.IPFamilyV4)
 		action.Run(func(a *check.Action) {
-			a.ExecInPod(ctx, t.Context().CurlCommand(s.server, features.IPFamilyV4))
+			a.ExecInPod(ctx, a.CurlCommand(s.server))
 			s.clientSniffer4.Validate(ctx, a)
 			s.serverSniffer4.Validate(ctx, a)
 		})
@@ -495,7 +495,7 @@ func (s *podToPodEncryptionV2) clientToServerTest(ctx context.Context, t *check.
 		t.Debugf("performing client->server curl: [client: %s] [server: %s] [family: ipv6]", s.client.Pod.Name, s.server.Pod.Name)
 		action := t.NewAction(s, fmt.Sprintf("curl-%s", features.IPFamilyV6), s.client, s.server, features.IPFamilyV6)
 		action.Run(func(a *check.Action) {
-			a.ExecInPod(ctx, t.Context().CurlCommand(s.server, features.IPFamilyV6))
+			a.ExecInPod(ctx, a.CurlCommand(s.server))
 			s.clientSniffer6.Validate(ctx, a)
 			s.serverSniffer6.Validate(ctx, a)
 		})

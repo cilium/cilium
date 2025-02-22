@@ -36,7 +36,7 @@ func (s *podToK8sLocal) Run(ctx context.Context, t *check.Test) {
 		for _, ipFamily := range ipFamilies {
 			actionName := fmt.Sprintf("curl-k8s-from-pod-%s-%s", pod.Name(), ipFamily)
 			t.NewAction(s, actionName, &pod, k8sSvc, ipFamily).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(k8sSvc, ipFamily))
+				a.ExecInPod(ctx, a.CurlCommand(k8sSvc))
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
 					AltDstPort:  k8sSvc.Port(),

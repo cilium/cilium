@@ -940,12 +940,9 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	return minVersion, nil
 }
 
-func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, expectingSuccess bool, opts []string) []string {
 	cmd := []string{
-		"curl",
-		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
-		"--silent", "--fail", "--show-error",
-		"--output", "/dev/null",
+		"curl", "--silent", "--fail", "--show-error",
 	}
 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
@@ -975,52 +972,9 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 	}
 
 	numTargets := 1
-	if ct.params.CurlParallel > 0 {
+	if expectingSuccess && ct.params.CurlParallel > 0 {
 		numTargets = int(ct.params.CurlParallel)
 		cmd = append(cmd, "--parallel", "--parallel-immediate")
-	}
-
-	cmd = append(cmd, opts...)
-
-	for range numTargets {
-		cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-			peer.Scheme(),
-			net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-			peer.Path()))
-	}
-
-	return cmd
-}
-
-func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
-	cmd := []string{"curl", "--silent", "--fail", "--show-error"}
-
-	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
-		cmd = append(cmd, "--connect-timeout", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
-	}
-	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
-		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
-	}
-
-	cmd = append(cmd, opts...)
-	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-		peer.Scheme(),
-		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-		peer.Path()))
-	return cmd
-}
-
-func (ct *ConnectivityTest) CurlCommandParallelWithOutput(peer TestPeer, ipFam features.IPFamily, parallel int, opts ...string) []string {
-	cmd := []string{
-		"curl", "--silent", "--fail", "--show-error",
-		"--parallel", "--parallel-immediate", "--parallel-max", fmt.Sprint(parallel),
-	}
-
-	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
-		cmd = append(cmd, "--connect-timeout", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
-	}
-	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
-		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
 	}
 
 	cmd = append(cmd, opts...)
@@ -1029,11 +983,18 @@ func (ct *ConnectivityTest) CurlCommandParallelWithOutput(peer TestPeer, ipFam f
 		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
 		peer.Path())
 
-	for i := 0; i < parallel; i++ {
+	for range numTargets {
 		cmd = append(cmd, url)
 	}
 
 	return cmd
+}
+
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, expectingSuccess bool, opts []string) []string {
+	return ct.CurlCommandWithOutput(peer, ipFam, expectingSuccess, append([]string{
+		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
+		"--output", "/dev/null",
+	}, opts...))
 }
 
 func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily, extraArgs ...string) []string {
