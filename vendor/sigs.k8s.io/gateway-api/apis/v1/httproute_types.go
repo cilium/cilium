@@ -210,7 +210,7 @@ type HTTPRouteRule struct {
 	// they are specified.
 	//
 	// Implementations MAY choose to implement this ordering strictly, rejecting
-	// any combination or order of filters that can not be supported. If implementations
+	// any combination or order of filters that cannot be supported. If implementations
 	// choose a strict interpretation of filter ordering, they MUST clearly document
 	// that behavior.
 	//
@@ -232,7 +232,7 @@ type HTTPRouteRule struct {
 	//
 	// All filters are expected to be compatible with each other except for the
 	// URLRewrite and RequestRedirect filters, which may not be combined. If an
-	// implementation can not support other combinations of filters, they must clearly
+	// implementation cannot support other combinations of filters, they must clearly
 	// document that limitation. In cases where incompatible or unsupported
 	// filters are specified and cause the `Accepted` condition to be set to status
 	// `False`, implementations may use the `IncompatibleFilters` reason to specify
@@ -382,7 +382,7 @@ type HTTPRouteRetry struct {
 	// +optional
 	Codes []HTTPRouteRetryStatusCode `json:"codes,omitempty"`
 
-	// Attempts specifies the maxmimum number of times an individual request
+	// Attempts specifies the maximum number of times an individual request
 	// from the gateway to a backend should be retried.
 	//
 	// If the maximum number of retries has been attempted without a successful
@@ -487,7 +487,7 @@ const (
 	PathMatchExact PathMatchType = "Exact"
 
 	// Matches based on a URL path prefix split by `/`. Matching is
-	// case sensitive and done on a path element by element basis. A
+	// case-sensitive and done on a path element by element basis. A
 	// path element refers to the list of labels in the path split by
 	// the `/` separator. When specified, a trailing `/` is ignored.
 	//
@@ -596,7 +596,7 @@ type HTTPHeaderMatch struct {
 	Type *HeaderMatchType `json:"type,omitempty"`
 
 	// Name is the name of the HTTP Header to be matched. Name matching MUST be
-	// case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+	// case-insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
 	//
 	// If multiple entries specify equivalent header names, only the first
 	// entry with an equivalent name MUST be considered for a match. Subsequent
@@ -947,7 +947,7 @@ const (
 // HTTPHeader represents an HTTP Header name and value as defined by RFC 7230.
 type HTTPHeader struct {
 	// Name is the name of the HTTP Header to be matched. Name matching MUST be
-	// case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+	// case-insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
 	//
 	// If multiple entries specify equivalent header names, the first entry with
 	// an equivalent name MUST be considered for a match. Subsequent entries

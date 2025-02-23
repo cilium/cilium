@@ -58,14 +58,18 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 					},
 				},
 				Backend: "infra-backend-v1",
-				MirroredTo: []http.BackendRef{
+				MirroredTo: []http.MirroredBackend{
 					{
-						Name:      "infra-backend-v2",
-						Namespace: ns,
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v2",
+							Namespace: ns,
+						},
 					},
 					{
-						Name:      "infra-backend-v3",
-						Namespace: ns,
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v3",
+							Namespace: ns,
+						},
 					},
 				},
 				Namespace: ns,
@@ -90,14 +94,18 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 				},
 				Namespace: ns,
 				Backend:   "infra-backend-v1",
-				MirroredTo: []http.BackendRef{
+				MirroredTo: []http.MirroredBackend{
 					{
-						Name:      "infra-backend-v2",
-						Namespace: ns,
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v2",
+							Namespace: ns,
+						},
 					},
 					{
-						Name:      "infra-backend-v3",
-						Namespace: ns,
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v3",
+							Namespace: ns,
+						},
 					},
 				},
 			},
