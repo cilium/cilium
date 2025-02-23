@@ -7,8 +7,15 @@ staticResources:
   - name: "envoy-prometheus-metrics-listener"
     address:
       socketAddress:
-        address: "0.0.0.0"
+        address: {{ .Values.ipv4.enabled | ternary "0.0.0.0" "::" | quote }}
         portValue: {{ .Values.envoy.prometheus.port }}
+    {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: "::"
+          portValue: {{ .Values.envoy.prometheus.port }}
+    {{- end }}
     filterChains:
     - filters:
       - name: "envoy.filters.network.http_connection_manager"
