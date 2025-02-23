@@ -341,6 +341,7 @@ cilium-agent [flags]
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-queue-size uint                                    Size of queue for policy-related events (default 100)
+      --policy-restore-timeout duration                           Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --policy-secrets-only-from-secrets-namespace                Configures the agent to only read policy Secrets from the policy-secrets-namespace
       --pprof                                                     Enable serving pprof debugging API

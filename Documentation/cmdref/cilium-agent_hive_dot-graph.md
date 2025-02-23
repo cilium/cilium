@@ -152,6 +152,7 @@ cilium-agent hive dot-graph [flags]
       --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --policy-queue-size uint                                    Size of queue for policy-related events (default 100)
+      --policy-restore-timeout duration                           Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --policy-secrets-only-from-secrets-namespace                Configures the agent to only read policy Secrets from the policy-secrets-namespace
       --pprof                                                     Enable serving pprof debugging API
