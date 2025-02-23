@@ -101,7 +101,18 @@ func (c *customChain) exists(prog runnable) (bool, error) {
 		if strings.Contains(err.Error(), fmt.Sprintf("chain `%s' in table `%s' is incompatible, use 'nft' tool.", c.name, c.table)) {
 			return false, nil
 		}
-
+		// with iptables-nft = 1.8.10, when we try to list the rules of a non existing
+		// chain, the command will return an error in the format:
+		//
+		// iptables: Incompatible with this kernel.
+		// ip6tables: Incompatible with this kernel.
+		//
+		// rather than the usual one.
+		// This is fixed in 1.8.11. RHEL 9.4 ships however 1.8.10 and is used by all the latest OpenShift versions at
+		// the time of writing: 4.16, 4.17 and 4.18
+		if strings.Contains(err.Error(), "tables: Incompatible with this kernel.") {
+			return false, nil
+		}
 		return false, fmt.Errorf("unable to list %s chain: %s (%w)", c.name, string(output), err)
 	}
 
