@@ -41,6 +41,31 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv6
+          mode: client
+
+#      - name: Setup WARP
+#        run: |
+#          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+#          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+#          sudo apt update
+#          sudo apt install -y cloudflare-warp
+#          warp-cli --accept-tos registration new
+#          warp-cli --accept-tos connect
+#          curl 'https://www.cloudflare.com/cdn-cgi/trace/'
+#          journalctl -ab
+#          curl -4 'https://ifconfig.me/'
+#          curl -6 'https://ifconfig.me/'
+
+      - name: Test IPv6
+        run: |
+          curl -4 'https://icanhazip.com/'
+          curl -6 'https://icanhazip.com/'
+#          ping -c3 -6 one.one.one.one
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
