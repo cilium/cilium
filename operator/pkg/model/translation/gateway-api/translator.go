@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/shortener"
 )
@@ -137,7 +138,7 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 				owningGatewayLabel: shortenName,
 				gatewayNameLabel:   shortenName,
 			}, labels),
-			Annotations: annotations,
+			Annotations: t.toServiceAnnotations(annotations, params),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
@@ -332,6 +333,17 @@ func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResou
 			},
 		},
 	}
+}
+
+func (t *gatewayAPITranslator) toServiceAnnotations(annotations map[string]string, params *model.Service) map[string]string {
+	if params == nil {
+		return annotations
+	}
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[annotation.ServiceSourceRangesPolicy] = params.LoadBalancerSourceRangesPolicy
+	return annotations
 }
 
 func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualifiedResource, labels, annotations map[string]string) error {
