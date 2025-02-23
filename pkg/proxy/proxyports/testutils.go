@@ -12,6 +12,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
+
+	"github.com/sirupsen/logrus"
 )
 
 type MockIPTablesManager struct{}
@@ -47,7 +49,12 @@ func proxyPortsForTest(t *testing.T) (*ProxyPorts, func()) {
 		TriggerFunc:  func(reasons []string) {},
 		ShutdownFunc: func() { close(triggerDone) },
 	})
+
+	oldLevel := log.Logger.GetLevel()
+	log.Logger.SetLevel(logrus.DebugLevel)
+
 	return p, func() {
+		log.Logger.SetLevel(oldLevel)
 		p.Trigger.Shutdown()
 		<-triggerDone
 	}
