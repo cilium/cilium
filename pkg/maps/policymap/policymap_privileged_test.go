@@ -19,6 +19,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// createStatsMapForTest creates the global policy stats map.
+func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
+	m := newStatsMap(maxStatsEntries, nil)
+	return m, m.Create()
+}
+
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	testutils.PrivilegedTest(tb)
 
@@ -28,10 +34,16 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	testMap := newMap("cilium_policy_v2_test")
+	stats, err := createStatsMapForTest(1024)
+	require.NoError(tb, err)
+	require.NotNil(tb, stats)
 
-	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_test"))
-	err := testMap.CreateUnpinned()
+	testMap, err := newMap(0, stats)
+	require.NoError(tb, err)
+	require.NotNil(tb, testMap)
+
+	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_0000"))
+	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {

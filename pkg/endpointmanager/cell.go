@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -98,6 +99,7 @@ type EndpointsModify interface {
 	AddIngressEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
@@ -108,6 +110,7 @@ type EndpointsModify interface {
 	AddHostEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,

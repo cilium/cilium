@@ -89,7 +89,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 			if s.restoring {
 				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady), false, nil
+			return endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady), false, nil
 		},
 		// LookupSecIDByIP
 		func(ip netip.Addr) (ipcache.Identity, bool) {
@@ -873,7 +873,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.False(t, allowed, "request was allowed when it should be rejected")
 
 	// Restore rules
-	ep1 := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
 	ep1.DNSRulesV2 = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -919,7 +919,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID3), endpoint.StateReady)
+	ep3 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID3), endpoint.StateReady)
 	ep3.DNSRulesV2 = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -1125,7 +1125,7 @@ func TestRestoredEndpoint(t *testing.T) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRulesV2 = restored
