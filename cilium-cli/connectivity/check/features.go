@@ -90,8 +90,8 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 	}
 
 	// This could be enabled via configmap check, so only check if it's not enabled already.
-	if !result[features.PolicySecretBackendK8s].Enabled {
-		result[features.PolicySecretBackendK8s] = features.Status{
+	if !result[features.PolicySecretsOnlyFromSecretsNamespace].Enabled {
+		result[features.PolicySecretsOnlyFromSecretsNamespace] = features.Status{
 			Enabled: canAccessK8sResourceSecret(cr),
 		}
 	}
