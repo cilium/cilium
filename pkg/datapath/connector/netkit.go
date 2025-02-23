@@ -5,6 +5,7 @@ package connector
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -49,14 +51,36 @@ func SetupNetkit(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize,
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
 func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, l2Mode bool, ep *models.EndpointChangeRequest, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+	var epHostMAC, epLXCMAC mac.MAC
+	var err error
+
 	mode := netlink.NETKIT_MODE_L3
 	if l2Mode {
 		mode = netlink.NETKIT_MODE_L2
+		// This is similar to the workaround used for veth.
+		//
+		// systemd 242+ tries to set a "persistent" MAC addr for any virtual
+		// device by default (controlled by MACAddressPolicy). As setting
+		// happens asynchronously after a device has been created, ep.Mac and
+		// ep.HostMac can become stale which has a serious consequence - the
+		// kernel will drop any packet sent to/from the endpoint. However, we
+		// can trick systemd by explicitly setting MAC addrs for both veth ends.
+		// This sets addr_assign_type for NET_ADDR_SET which prevents systemd
+		// from changing the addrs.
+		epHostMAC, err = mac.GenerateRandMAC()
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+		}
+		epLXCMAC, err = mac.GenerateRandMAC()
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+		}
 	}
 	netkit := &netlink.Netkit{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:   lxcIfName,
-			TxQLen: 1000,
+			Name:         lxcIfName,
+			TxQLen:       1000,
+			HardwareAddr: net.HardwareAddr(epHostMAC),
 		},
 		Mode:       mode,
 		Policy:     netlink.NETKIT_POLICY_FORWARD,
@@ -69,11 +93,12 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 		PeerScrub: netlink.NETKIT_SCRUB_DEFAULT,
 	}
 	peerAttr := &netlink.LinkAttrs{
-		Name: peerIfName,
+		Name:         peerIfName,
+		HardwareAddr: net.HardwareAddr(epLXCMAC),
 	}
 	netkit.SetPeerAttrs(peerAttr)
 
-	err := netlink.LinkAdd(netkit)
+	err = netlink.LinkAdd(netkit)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create netkit pair: %w", err)
 	}
