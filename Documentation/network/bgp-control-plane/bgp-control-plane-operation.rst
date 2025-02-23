@@ -155,13 +155,13 @@ In the following example, you can see BGP instance state from node ``bgpv2-cplan
     Namespace:
     Labels:       <none>
     Annotations:  <none>
-    API Version:  cilium.io/v2alpha1
+    API Version:  cilium.io/v2
     Kind:         CiliumBGPNodeConfig
     Metadata:
       Creation Timestamp:  2024-10-17T13:59:44Z
       Generation:          1
       Owner References:
-        API Version:     cilium.io/v2alpha1
+        API Version:     cilium.io/v2
         Kind:            CiliumBGPClusterConfig
         Name:            cilium-bgp
         UID:             f0c23da8-e5ca-40d7-8c94-91699cf1e03a

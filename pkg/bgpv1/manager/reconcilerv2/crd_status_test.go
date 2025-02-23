@@ -26,9 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
-	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -42,8 +41,8 @@ type crdStatusFixture struct {
 	db              *statedb.DB
 	reconcileErrTbl statedb.RWTable[*tables.BGPReconcileError]
 	fakeClientSet   *k8s_client.FakeClientset
-	bgpnClient      cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
-	bgpncMockStore  *store.MockBGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
+	bgpnClient      cilium_client_v2.CiliumBGPNodeConfigInterface
+	bgpncMockStore  *store.MockBGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 }
 
 func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.Logger) (*crdStatusFixture, func()) {
@@ -56,7 +55,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 
 	f := &crdStatusFixture{}
 	f.fakeClientSet, _ = k8s_client.NewFakeClientset(l)
-	f.bgpnClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPNodeConfigs()
+	f.bgpnClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2().CiliumBGPNodeConfigs()
 
 	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		w := action.(k8sTesting.WatchAction)
@@ -101,8 +100,8 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 		cell.Provide(func() k8s_client.Clientset {
 			return f.fakeClientSet
 		}),
-		cell.Provide(func() store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig] {
-			f.bgpncMockStore = store.NewMockBGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]()
+		cell.Provide(func() store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig] {
+			f.bgpncMockStore = store.NewMockBGPCPResourceStore[*v2.CiliumBGPNodeConfig]()
 			return f.bgpncMockStore
 		}),
 		cell.Invoke(
@@ -125,8 +124,8 @@ func TestCRDConditions(t *testing.T) {
 	var tests = []struct {
 		name               string
 		statedbData        []*tables.BGPReconcileError
-		initNodeConfig     *v2alpha1.CiliumBGPNodeConfig
-		expectedNodeConfig *v2alpha1.CiliumBGPNodeConfig
+		initNodeConfig     *v2.CiliumBGPNodeConfig
+		expectedNodeConfig *v2.CiliumBGPNodeConfig
 	}{
 		{
 			name: "new error conditions",
@@ -147,22 +146,22 @@ func TestCRDConditions(t *testing.T) {
 					Error:    "error 10",
 				},
 			},
-			initNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			initNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "node0",
 					Generation: 19,
 				},
 			},
-			expectedNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "node0",
 					Generation: 19,
 				},
-				Spec: v2alpha1.CiliumBGPNodeSpec{},
-				Status: v2alpha1.CiliumBGPNodeStatus{
+				Spec: v2.CiliumBGPNodeSpec{},
+				Status: v2.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:               v2alpha1.BGPInstanceConditionReconcileError,
+							Type:               v2.BGPInstanceConditionReconcileError,
 							Status:             metav1.ConditionTrue,
 							Reason:             "BGPReconcileError",
 							ObservedGeneration: 19,
@@ -183,15 +182,15 @@ func TestCRDConditions(t *testing.T) {
 					Error:    "error 00",
 				},
 			},
-			initNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			initNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node0",
 				},
-				Spec: v2alpha1.CiliumBGPNodeSpec{},
-				Status: v2alpha1.CiliumBGPNodeStatus{
+				Spec: v2.CiliumBGPNodeSpec{},
+				Status: v2.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   v2alpha1.BGPInstanceConditionReconcileError,
+							Type:   v2.BGPInstanceConditionReconcileError,
 							Status: metav1.ConditionTrue,
 							Reason: "BGPReconcileError",
 							Message: "bgp-instance-0: error 00\n" +
@@ -201,14 +200,14 @@ func TestCRDConditions(t *testing.T) {
 					},
 				},
 			},
-			expectedNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node0",
 				},
-				Status: v2alpha1.CiliumBGPNodeStatus{
+				Status: v2.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:    v2alpha1.BGPInstanceConditionReconcileError,
+							Type:    v2.BGPInstanceConditionReconcileError,
 							Status:  metav1.ConditionTrue,
 							Reason:  "BGPReconcileError",
 							Message: "bgp-instance-0: error 00\n",
@@ -220,15 +219,15 @@ func TestCRDConditions(t *testing.T) {
 		{
 			name:        "delete previous error conditions",
 			statedbData: []*tables.BGPReconcileError{},
-			initNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			initNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node0",
 				},
-				Spec: v2alpha1.CiliumBGPNodeSpec{},
-				Status: v2alpha1.CiliumBGPNodeStatus{
+				Spec: v2.CiliumBGPNodeSpec{},
+				Status: v2.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   v2alpha1.BGPInstanceConditionReconcileError,
+							Type:   v2.BGPInstanceConditionReconcileError,
 							Status: metav1.ConditionTrue,
 							Reason: "BGPReconcileError",
 							Message: "bgp-instance-0: error 00\n" +
@@ -238,14 +237,14 @@ func TestCRDConditions(t *testing.T) {
 					},
 				},
 			},
-			expectedNodeConfig: &v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node0",
 				},
-				Status: v2alpha1.CiliumBGPNodeStatus{
+				Status: v2.CiliumBGPNodeStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:    v2alpha1.BGPInstanceConditionReconcileError,
+							Type:    v2.BGPInstanceConditionReconcileError,
 							Status:  metav1.ConditionFalse,
 							Reason:  "BGPReconcileError",
 							Message: "",
@@ -366,17 +365,17 @@ func TestDisableStatusReport(t *testing.T) {
 			require.NoError(t, err)
 
 			// Create a NodeConfig for this node
-			_, err = cs.CiliumV2alpha1().CiliumBGPNodeConfigs().Create(
+			_, err = cs.CiliumV2().CiliumBGPNodeConfigs().Create(
 				ctx,
-				&v2alpha1.CiliumBGPNodeConfig{
+				&v2.CiliumBGPNodeConfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node0",
 					},
 					// Spec can be empty for this test
-					Spec: v2alpha1.CiliumBGPNodeSpec{},
+					Spec: v2.CiliumBGPNodeSpec{},
 					// Fill with some dummy status
-					Status: v2alpha1.CiliumBGPNodeStatus{
-						BGPInstances: []v2alpha1.CiliumBGPNodeInstanceStatus{
+					Status: v2.CiliumBGPNodeStatus{
+						BGPInstances: []v2.CiliumBGPNodeInstanceStatus{
 							{
 								Name: "foo",
 							},
@@ -389,9 +388,9 @@ func TestDisableStatusReport(t *testing.T) {
 			require.NoError(t, err)
 
 			// Ensure the status is not empty at this point
-			nc, err := cs.CiliumV2alpha1().CiliumBGPNodeConfigs().Get(ctx, "node0", metav1.GetOptions{})
+			nc, err := cs.CiliumV2().CiliumBGPNodeConfigs().Get(ctx, "node0", metav1.GetOptions{})
 			require.NoError(t, err)
-			require.False(t, nc.Status.DeepEqual(&v2alpha1.CiliumBGPNodeStatus{}), "Status is already empty before cleanup job")
+			require.False(t, nc.Status.DeepEqual(&v2.CiliumBGPNodeStatus{}), "Status is already empty before cleanup job")
 
 			// Register cleanup job. This should cleanup the status of the NodeConfig above.
 			r := &StatusReconciler{
@@ -409,11 +408,11 @@ func TestDisableStatusReport(t *testing.T) {
 
 	// Wait for status to be cleared
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		nc, err := cs.CiliumV2alpha1().CiliumBGPNodeConfigs().Get(ctx, "node0", metav1.GetOptions{})
+		nc, err := cs.CiliumV2().CiliumBGPNodeConfigs().Get(ctx, "node0", metav1.GetOptions{})
 		if !assert.NoError(ct, err) {
 			return
 		}
 		// The status should be cleared to empty
-		assert.True(ct, nc.Status.DeepEqual(&v2alpha1.CiliumBGPNodeStatus{}), "Status is not empty")
+		assert.True(ct, nc.Status.DeepEqual(&v2.CiliumBGPNodeStatus{}), "Status is not empty")
 	}, time.Second*5, time.Millisecond*100)
 }

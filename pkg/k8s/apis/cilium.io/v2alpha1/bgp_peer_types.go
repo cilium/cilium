@@ -29,7 +29,6 @@ type CiliumBGPPeerConfigList struct {
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgppeerconfig",path="ciliumbgppeerconfigs",scope="Cluster",shortName={cbgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
 
 type CiliumBGPPeerConfig struct {
 	// +deepequal-gen=false

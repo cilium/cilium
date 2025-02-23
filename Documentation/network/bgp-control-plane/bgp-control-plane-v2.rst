@@ -62,7 +62,7 @@ and two peers configured under this BGP instance.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPClusterConfig
     metadata:
       name: cilium-bgp
@@ -109,7 +109,7 @@ section, we will go over each configuration option.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -143,7 +143,7 @@ Here is an example of setting ``authSecretRef``:
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -208,7 +208,7 @@ possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -230,7 +230,7 @@ different subnet, you may need to set the TTL value to more than 1.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -258,7 +258,7 @@ the routes previously advertised by the Cilium BGP control plane.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -296,7 +296,7 @@ Here is an example of setting the transport configuration:
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -329,7 +329,7 @@ Various advertisements types are defined :ref:`here <bgp-adverts>`.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPPeerConfig
     metadata:
       name: cilium-peer
@@ -368,7 +368,7 @@ pod prefixes with the community value of "65000:99" and local preference of 99.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -458,7 +458,7 @@ When :ref:`Kubernetes <k8s_hostscope>` or :ref:`ClusterPool
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -484,7 +484,7 @@ or ``.matchExpressions``.
 .. code-block:: yaml
 
     ---
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumPodIPPool
     metadata:
       name: default
@@ -492,7 +492,7 @@ or ``.matchExpressions``.
         pool: blue
 
     ---
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: pod-ip-pool-advert
@@ -513,7 +513,7 @@ expression with a dummy key and value can be used like this:
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: pod-ip-pool-advert
@@ -569,7 +569,7 @@ or ``.matchExpressions``.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -611,7 +611,7 @@ If you only wish to advertise the ``.spec.externalIPs`` of a Service, you can sp
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -642,7 +642,7 @@ you can specify the ``virtualRouters[*].serviceAdvertisements`` field as ``Clust
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -670,7 +670,7 @@ IPs. Cilium supports assigning ingress IPs with the :ref:`Load Balancer IPAM
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -693,7 +693,7 @@ with a dummy key and value can be used like this:
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -765,7 +765,7 @@ match. One matches on the label ``vpc1`` while the other on ``vpc2``.
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: bgp-advertisements
@@ -836,7 +836,7 @@ local autonomous system number used in each peer for the node with a name ``bgpv
 
 .. code-block:: yaml
 
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumBGPNodeConfigOverride
     metadata:
       name: bgpv2-cplane-dev-multi-homing-worker

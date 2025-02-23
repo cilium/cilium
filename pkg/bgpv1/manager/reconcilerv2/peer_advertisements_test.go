@@ -12,7 +12,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -22,54 +22,54 @@ var (
 
 // test fixtures
 var (
-	redPodCIDRAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPPodCIDRAdvert,
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+	redPodCIDRAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPPodCIDRAdvert,
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65000:100",
 				},
 			},
 		},
 	}
 
-	redPodIPPoolAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPCiliumPodIPPoolAdvert,
+	redPodIPPoolAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPCiliumPodIPPoolAdvert,
 		// CiliumPodIPPool selector is not set for this test
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65000:200",
 				},
 			},
 		},
 	}
 
-	redServiceLBAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPServiceAdvert,
-		Service: &v2alpha1.BGPServiceOptions{
-			Addresses: []v2alpha1.BGPServiceAddressType{
-				v2alpha1.BGPLoadBalancerIPAddr,
+	redServiceLBAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPServiceAdvert,
+		Service: &v2.BGPServiceOptions{
+			Addresses: []v2.BGPServiceAddressType{
+				v2.BGPLoadBalancerIPAddr,
 			},
 		},
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65000:300",
 				},
 			},
 		},
 	}
 
-	redAdvert = &v2alpha1.CiliumBGPAdvertisement{
+	redAdvert = &v2.CiliumBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "red-podCIDR-advertisement",
 			Labels: map[string]string{
 				"advertise": "red_bgp",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{
 				redPodCIDRAdvert,
 				redPodIPPoolAdvert,
 				redServiceLBAdvert,
@@ -77,7 +77,7 @@ var (
 		},
 	}
 
-	redAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2alpha1.CiliumBGPAdvertisement {
+	redAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2.CiliumBGPAdvertisement {
 		cpy := redAdvert.DeepCopy()
 		for i := range cpy.Spec.Advertisements {
 			cpy.Spec.Advertisements[i].Selector = selector
@@ -85,52 +85,52 @@ var (
 		return cpy
 	}
 
-	bluePodCIDRAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPPodCIDRAdvert,
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+	bluePodCIDRAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPPodCIDRAdvert,
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65355:100",
 				},
 			},
 		},
 	}
-	bluePodIPPoolAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPCiliumPodIPPoolAdvert,
+	bluePodIPPoolAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPCiliumPodIPPoolAdvert,
 		// CiliumPodIPPool selector is not set for this test
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65355:200",
 				},
 			},
 		},
 	}
-	blueServicePodAdvert = v2alpha1.BGPAdvertisement{
-		AdvertisementType: v2alpha1.BGPServiceAdvert,
-		Service: &v2alpha1.BGPServiceOptions{
-			Addresses: []v2alpha1.BGPServiceAddressType{
-				v2alpha1.BGPLoadBalancerIPAddr,
+	blueServicePodAdvert = v2.BGPAdvertisement{
+		AdvertisementType: v2.BGPServiceAdvert,
+		Service: &v2.BGPServiceOptions{
+			Addresses: []v2.BGPServiceAddressType{
+				v2.BGPLoadBalancerIPAddr,
 			},
 		},
-		Attributes: &v2alpha1.BGPAttributes{
-			Communities: &v2alpha1.BGPCommunities{
-				Standard: []v2alpha1.BGPStandardCommunity{
+		Attributes: &v2.BGPAttributes{
+			Communities: &v2.BGPCommunities{
+				Standard: []v2.BGPStandardCommunity{
 					"65355:300",
 				},
 			},
 		},
 	}
 
-	blueAdvert = &v2alpha1.CiliumBGPAdvertisement{
+	blueAdvert = &v2.CiliumBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "blue-podCIDR-advertisement",
 			Labels: map[string]string{
 				"advertise": "blue_bgp",
 			},
 		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
+		Spec: v2.CiliumBGPAdvertisementSpec{
+			Advertisements: []v2.BGPAdvertisement{
 				bluePodCIDRAdvert,
 				bluePodIPPoolAdvert,
 				blueServicePodAdvert,
@@ -138,7 +138,7 @@ var (
 		},
 	}
 
-	blueAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2alpha1.CiliumBGPAdvertisement {
+	blueAdvertWithSelector = func(selector *slimv1.LabelSelector) *v2.CiliumBGPAdvertisement {
 		cpy := blueAdvert.DeepCopy()
 		for i := range cpy.Spec.Advertisements {
 			cpy.Spec.Advertisements[i].Selector = selector
@@ -147,14 +147,14 @@ var (
 	}
 
 	// red peer config
-	redPeerConfig = &v2alpha1.CiliumBGPPeerConfig{
+	redPeerConfig = &v2.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-red",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+		Spec: v2.CiliumBGPPeerConfigSpec{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -165,7 +165,7 @@ var (
 					},
 				},
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv6",
 						Safi: "unicast",
 					},
@@ -180,14 +180,14 @@ var (
 	}
 
 	// red peer config - v4
-	redPeerConfigV4 = &v2alpha1.CiliumBGPPeerConfig{
+	redPeerConfigV4 = &v2.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-red-v4",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+		Spec: v2.CiliumBGPPeerConfigSpec{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -202,14 +202,14 @@ var (
 	}
 
 	// blue peer config
-	bluePeerConfig = &v2alpha1.CiliumBGPPeerConfig{
+	bluePeerConfig = &v2.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "peer-config-blue",
 		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
+		Spec: v2.CiliumBGPPeerConfigSpec{
+			Families: []v2.CiliumBGPFamilyWithAdverts{
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv4",
 						Safi: "unicast",
 					},
@@ -220,7 +220,7 @@ var (
 					},
 				},
 				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
 						Afi:  "ipv6",
 						Safi: "unicast",
 					},
@@ -235,23 +235,19 @@ var (
 	}
 
 	// peer configuration
-	redPeer65001 = v2alpha1.CiliumBGPNodePeer{
+	redPeer65001 = v2.CiliumBGPNodePeer{
 		Name:        "red-peer-65001",
 		PeerAddress: ptr.To[string]("10.10.10.1"),
-		PeerConfigRef: &v2alpha1.PeerConfigReference{
-			Group: "cilium.io",
-			Kind:  "CiliumBGPPeerConfig",
-			Name:  "peer-config-red",
+		PeerConfigRef: &v2.PeerConfigReference{
+			Name: "peer-config-red",
 		},
 	}
 
-	bluePeer65001 = v2alpha1.CiliumBGPNodePeer{
+	bluePeer65001 = v2.CiliumBGPNodePeer{
 		Name:        "blue-peer-65001",
 		PeerAddress: ptr.To[string]("10.10.10.2"),
-		PeerConfigRef: &v2alpha1.PeerConfigReference{
-			Group: "cilium.io",
-			Kind:  "CiliumBGPPeerConfig",
-			Name:  "peer-config-blue",
+		PeerConfigRef: &v2.PeerConfigReference{
+			Name: "peer-config-blue",
 		},
 	}
 )
@@ -259,63 +255,59 @@ var (
 func Test_GetAdvertisements(t *testing.T) {
 	tests := []struct {
 		name               string
-		peerConfig         []*v2alpha1.CiliumBGPPeerConfig
-		advertisements     []*v2alpha1.CiliumBGPAdvertisement
-		reqAdvertTypes     []v2alpha1.BGPAdvertisementType
-		reqBGPNodeInstance *v2alpha1.CiliumBGPNodeInstance
+		peerConfig         []*v2.CiliumBGPPeerConfig
+		advertisements     []*v2.CiliumBGPAdvertisement
+		reqAdvertTypes     []v2.BGPAdvertisementType
+		reqBGPNodeInstance *v2.CiliumBGPNodeInstance
 		expectedError      bool
 		expectedAdverts    PeerAdvertisements
 	}{
 		{
 			name:       "Peer config does not exist for peer in BGPNodeInstance",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			peerConfig: []*v2.CiliumBGPPeerConfig{},
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 				},
 			},
-			reqAdvertTypes:  []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
+			reqAdvertTypes:  []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{},
 		},
 		{
 			name: "Expecting PodCIDR advertisement for single peer",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 				},
 			},
-			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
@@ -323,43 +315,39 @@ func Test_GetAdvertisements(t *testing.T) {
 		},
 		{
 			name: "Expecting PodCIDR advertisement for dual peers",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 					{
 						Name: "blue-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-blue",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-blue",
 						},
 					},
 				},
 			},
-			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
-				"blue-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"blue-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {bluePodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
@@ -367,31 +355,29 @@ func Test_GetAdvertisements(t *testing.T) {
 		},
 		{
 			name: "Expecting no advertisement, unknown label",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				// redAdvert, red advertisement not present for this test case
 				blueAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 				},
 			},
-			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: nil, // empty advertisement
 					{Afi: "ipv6", Safi: "unicast"}: nil, // empty advertisement
 				},
@@ -399,31 +385,29 @@ func Test_GetAdvertisements(t *testing.T) {
 		},
 		{
 			name: "Expecting PodCIDR and Service advertisement for single peer",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 				},
 			},
-			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert, v2alpha1.BGPServiceAdvert},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert, v2.BGPServiceAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 				},
@@ -431,43 +415,39 @@ func Test_GetAdvertisements(t *testing.T) {
 		},
 		{
 			name: "Expecting PodCIDR and Service advertisement for dual peers",
-			peerConfig: []*v2alpha1.CiliumBGPPeerConfig{
+			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,
 				bluePeerConfig,
 			},
-			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
+			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvert,
 				blueAdvert,
 			},
-			reqBGPNodeInstance: &v2alpha1.CiliumBGPNodeInstance{
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
 				Name:     "bgp-65001",
 				LocalASN: ptr.To[int64](65001),
-				Peers: []v2alpha1.CiliumBGPNodePeer{
+				Peers: []v2.CiliumBGPNodePeer{
 					{
 						Name: "red-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-red",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
 						},
 					},
 					{
 						Name: "blue-peer-65001",
-						PeerConfigRef: &v2alpha1.PeerConfigReference{
-							Group: "cilium.io",
-							Kind:  "CiliumBGPPeerConfig",
-							Name:  "peer-config-blue",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-blue",
 						},
 					},
 				},
 			},
-			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert, v2alpha1.BGPServiceAdvert},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert, v2.BGPServiceAdvert},
 			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"red-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 				},
-				"blue-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"blue-peer-65001": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {bluePodCIDRAdvert, blueServicePodAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert, blueServicePodAdvert},
 				},
@@ -480,8 +460,8 @@ func Test_GetAdvertisements(t *testing.T) {
 			req := require.New(t)
 			params := PeerAdvertisementIn{
 				Logger:          peerAdvertTestLogger,
-				PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
-				AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
+				PeerConfigStore: store.InitMockStore[*v2.CiliumBGPPeerConfig](tt.peerConfig),
+				AdvertStore:     store.InitMockStore[*v2.CiliumBGPAdvertisement](tt.advertisements),
 			}
 
 			r := NewCiliumPeerAdvertisement(params)
@@ -522,17 +502,17 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Empty FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{},
 			},
 			expectedEqual: true,
 		},
 		{
 			name: "Nil FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{},
 			},
 			peerAdvert2: PeerAdvertisements{
 				"peer-1": nil,
@@ -542,13 +522,13 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Equal FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
@@ -558,13 +538,13 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Unequal length in FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
 			},
@@ -573,13 +553,13 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Unequal value in FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				"peer-1": map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},

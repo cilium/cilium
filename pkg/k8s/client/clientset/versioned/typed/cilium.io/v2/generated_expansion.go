@@ -5,6 +5,16 @@
 
 package v2
 
+type CiliumBGPAdvertisementExpansion interface{}
+
+type CiliumBGPClusterConfigExpansion interface{}
+
+type CiliumBGPNodeConfigExpansion interface{}
+
+type CiliumBGPNodeConfigOverrideExpansion interface{}
+
+type CiliumBGPPeerConfigExpansion interface{}
+
 type CiliumClusterwideEnvoyConfigExpansion interface{}
 
 type CiliumClusterwideNetworkPolicyExpansion interface{}

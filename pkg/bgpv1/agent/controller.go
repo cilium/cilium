@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/hive"
-	v2_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -43,12 +43,12 @@ var (
 )
 
 type policyLister interface {
-	List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+	List() ([]*v2alpha1.CiliumBGPPeeringPolicy, error)
 }
 
-type policyListerFunc func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+type policyListerFunc func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error)
 
-func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func (plf policyListerFunc) List() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	return plf()
 }
 
@@ -60,15 +60,15 @@ type Controller struct {
 	// CiliumNodeResource provides a stream of events for changes to the local CiliumNode resource.
 	CiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 	// LocalCiliumNode is the CiliumNode object for the local node.
-	LocalCiliumNode *v2_api.CiliumNode
+	LocalCiliumNode *v2.CiliumNode
 	// PolicyResource provides a store of cached policies and allows us to observe changes to the objects in its
 	// store.
-	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
+	PolicyResource resource.Resource[*v2alpha1.CiliumBGPPeeringPolicy]
 	// PolicyLister is an interface which allows for the listing of all known policies
 	PolicyLister policyLister
 
 	// BGP v2 node store
-	BGPNodeConfigStore store.BGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]
+	BGPNodeConfigStore store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 
 	// Sig informs the Controller that a Kubernetes
 	// event of interest has occurred.
@@ -97,8 +97,8 @@ type ControllerParams struct {
 	Sig                     *signaler.BGPCPSignaler
 	ConfigMode              *mode.ConfigMode
 	RouteMgr                BGPRouterManager
-	PolicyResource          resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
-	BGPNodeConfigStore      store.BGPCPResourceStore[*v2alpha1api.CiliumBGPNodeConfig]
+	PolicyResource          resource.Resource[*v2alpha1.CiliumBGPPeeringPolicy]
+	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 	DaemonConfig            *option.DaemonConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 }
@@ -147,7 +147,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 				if err != nil {
 					return fmt.Errorf("error creating CiliumBGPPeeringPolicy resource store: %w", err)
 				}
-				c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				c.PolicyLister = policyListerFunc(func() ([]*v2alpha1.CiliumBGPPeeringPolicy, error) {
 					return policyStore.List(), nil
 				})
 
@@ -308,7 +308,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	return err
 }
 
-func (c *Controller) reconcileBGPP(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+func (c *Controller) reconcileBGPP(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy) error {
 	// apply policy defaults to have consistent default config across sub-systems
 	policy = policy.DeepCopy() // deepcopy to not modify the policy object in store
 	policy.SetDefaults()
@@ -337,7 +337,7 @@ func (c *Controller) cleanupBGPP(ctx context.Context) {
 	c.ConfigMode.Set(mode.Disabled)
 }
 
-func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig) error {
+func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig) error {
 	c.ConfigMode.Set(mode.BGPv2)
 	return c.BGPMgr.ReconcileInstances(ctx, bgpnc, c.LocalCiliumNode)
 }
@@ -351,7 +351,7 @@ func (c *Controller) cleanupBGPNC(ctx context.Context) {
 	c.ConfigMode.Set(mode.Disabled)
 }
 
-func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func (c *Controller) bgppSelection() (*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	// retrieve all CiliumBGPPeeringPolicies
 	policies, err := c.PolicyLister.List()
 	if err != nil {
@@ -373,14 +373,14 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 //   - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //     only a single policy may apply to a node to avoid ambiguity at this stage
 //     of development.
-func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func PolicySelection(labels map[string]string, policies []*v2alpha1.CiliumBGPPeeringPolicy) (*v2alpha1.CiliumBGPPeeringPolicy, error) {
 	var (
 		l = log.WithFields(logrus.Fields{
 			"component": "PolicySelection",
 		})
 
 		// determine which policies match our node's labels.
-		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
+		selectedPolicy *v2alpha1.CiliumBGPPeeringPolicy
 		slimLabels     = slimlabels.Set(labels)
 	)
 
@@ -425,7 +425,7 @@ func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGP
 // validatePolicy validates the CiliumBGPPeeringPolicy.
 // The validation is normally done by kube-apiserver (based on CRD validation markers),
 // this validates only those constraints that cannot be enforced by them.
-func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+func (c *Controller) validatePolicy(policy *v2alpha1.CiliumBGPPeeringPolicy) error {
 	for _, r := range policy.Spec.VirtualRouters {
 		for _, n := range r.Neighbors {
 			if err := n.Validate(); err != nil {
