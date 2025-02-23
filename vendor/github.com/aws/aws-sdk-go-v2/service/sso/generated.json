@@ -29,7 +29,7 @@
         "types/types.go",
         "validators.go"
     ],
-    "go": "1.15",
+    "go": "1.22",
     "module": "github.com/aws/aws-sdk-go-v2/service/sso",
     "unstable": false
 }
