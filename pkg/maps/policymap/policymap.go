@@ -98,16 +98,8 @@ var (
 
 type PolicyMap struct {
 	*bpf.Map
-	stats *StatsMap
+	stats *StatsMap // shared stats map
 	epID  uint16
-}
-
-func (pm *PolicyMap) Close() error {
-	if pm.stats != nil {
-		pm.stats.Close()
-		pm.stats = nil
-	}
-	return pm.Map.Close()
 }
 
 func (pe PolicyEntry) IsDeny() bool {
@@ -474,6 +466,49 @@ func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
 	return v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits)
 }
 
+func newMap(id uint16, stats *StatsMap) (*PolicyMap, error) {
+	path := bpf.LocalMapPath(MapName, id)
+	mapType := ebpf.LPMTrie
+	flags := bpf.GetPreAllocateMapFlags(mapType)
+
+	return &PolicyMap{
+		Map: bpf.NewMap(
+			path,
+			mapType,
+			&PolicyKey{},
+			&PolicyEntry{},
+			MaxEntries,
+			flags,
+		).WithGroupName("endpoint_policy"),
+		stats: stats,
+		epID:  id,
+	}, nil
+}
+
+// OpenOrCreate opens (or creates) a policy map at the specified path, which
+// is used to govern which peer identities can communicate with the endpoint
+// protected by this map.
+func openOrCreate(id uint16, stats *StatsMap) (*PolicyMap, error) {
+	m, err := newMap(id, stats)
+	if err != nil {
+		return nil, err
+	}
+	err = m.OpenOrCreate()
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Create creates a policy map at the specified path.
+func create(id uint16, stats *StatsMap) error {
+	m, err := newMap(id, stats)
+	if err != nil {
+		return err
+	}
+	return m.Create()
+}
+
 func parseEndpointID(mapPath string) (uint16, error) {
 	// Extract endpoint ID from the given path
 	var id uint16
@@ -487,65 +522,27 @@ func parseEndpointID(mapPath string) (uint16, error) {
 	} else {
 		return 0, fmt.Errorf("failed to parse endpoint ID: %w", err)
 	}
+	if mapPath != bpf.LocalMapPath(MapName, id) {
+		return 0, fmt.Errorf("invalid policy map path: %s", mapPath)
+	}
 	return id, nil
 }
 
-func newMap(mapPath string) (*PolicyMap, error) {
-	mapType := ebpf.LPMTrie
-	flags := bpf.GetPreAllocateMapFlags(mapType)
-
-	// Extract endpoint ID from the given path
-	id, err := parseEndpointID(mapPath)
-	if err != nil {
-		return nil, err
-	}
-
-	statsMap, err := OpenStatsMap()
-	if err != nil {
-		return nil, err
-	}
-
-	return &PolicyMap{
-		Map: bpf.NewMap(
-			mapPath,
-			mapType,
-			&PolicyKey{},
-			&PolicyEntry{},
-			MaxEntries,
-			flags,
-		).WithGroupName("endpoint_policy"),
-		stats: statsMap,
-		epID:  id,
-	}, nil
-}
-
-// OpenOrCreate opens (or creates) a policy map at the specified path, which
-// is used to govern which peer identities can communicate with the endpoint
-// protected by this map.
-func OpenOrCreate(path string) (*PolicyMap, error) {
-	m, err := newMap(path)
-	if err != nil {
-		return nil, err
-	}
-	err = m.OpenOrCreate()
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Create creates a policy map at the specified path.
-func Create(path string) error {
-	m, err := newMap(path)
-	if err != nil {
-		return err
-	}
-	return m.Create()
-}
-
 // Open opens the policymap at the specified path.
+// This is only used from the 'cilium-dbg bpf policy' tool.
 func Open(path string) (*PolicyMap, error) {
-	m, err := newMap(path)
+	// Extract endpoint ID from the given path
+	id, err := parseEndpointID(path)
+	if err != nil {
+		return nil, err
+	}
+
+	stats, err := OpenStatsMap()
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := newMap(id, stats)
 	if err != nil {
 		return nil, err
 	}

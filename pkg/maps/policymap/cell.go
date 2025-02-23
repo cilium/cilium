@@ -6,6 +6,7 @@ package policymap
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -20,7 +21,7 @@ var Cell = cell.Module(
 	"policymap",
 	"Policymap provides access to the datapath policy maps",
 	cell.Config(DefaultPolicyConfig),
-	cell.Provide(createStatsMap),
+	cell.Provide(createFactory),
 )
 
 type PolicyConfig struct {
@@ -47,7 +48,39 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(PolicyStatsMapMaxName, def.BpfPolicyStatsMapMax, "Maximum number of entries in bpf policy stats map")
 }
 
-func createStatsMap(in struct {
+type Factory interface {
+	OpenEndpoint(id uint16) (*PolicyMap, error)
+	CreateEndpoint(id uint16) error
+	RemoveEndpoint(id uint16) error
+
+	StatsMaxEntries() uint32
+}
+
+type factory struct {
+	stats *StatsMap
+}
+
+func newFactory(stats *StatsMap) *factory {
+	return &factory{stats: stats}
+}
+
+func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
+	return openOrCreate(id, f.stats)
+}
+
+func (f *factory) CreateEndpoint(id uint16) error {
+	return create(id, f.stats)
+}
+
+func (f *factory) RemoveEndpoint(id uint16) error {
+	return os.RemoveAll(bpf.LocalMapPath(MapName, id))
+}
+
+func (f *factory) StatsMaxEntries() uint32 {
+	return f.stats.MaxEntries()
+}
+
+func createFactory(in struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
@@ -56,17 +89,18 @@ func createStatsMap(in struct {
 }) (out struct {
 	cell.Out
 
+	Factory
 	bpf.MapOut[*StatsMap]
 	defines.NodeOut
 }) {
 	if in.BpfPolicyMapMax < option.PolicyMapMin {
-		in.Log.Warn("specified PolicyMap max entries too low",
+		in.Log.Warn("specified PolicyMap max entries too low, using minimum value instead",
 			logfields.Entries, in.BpfPolicyMapMax,
 			logfields.Minimum, option.PolicyMapMin)
 		in.BpfPolicyMapMax = option.PolicyMapMin
 	}
 	if in.BpfPolicyMapMax > option.PolicyMapMax {
-		in.Log.Warn("specified PolicyMap max entries too high",
+		in.Log.Warn("specified PolicyMap max entries too high, using maximum value instead",
 			logfields.Entries, in.BpfPolicyMapMax,
 			logfields.Maximum, option.PolicyMapMax)
 		in.BpfPolicyMapMax = option.PolicyMapMax
@@ -74,13 +108,13 @@ func createStatsMap(in struct {
 	MaxEntries = in.BpfPolicyMapMax
 
 	if in.BpfPolicyStatsMapMax < option.LimitTableMin {
-		in.Log.Warn("specified policy stats map max entries too low",
+		in.Log.Warn("specified policy stats map max entries too low, using minimum value instead",
 			logfields.Entries, in.BpfPolicyStatsMapMax,
 			logfields.Minimum, option.LimitTableMin)
 		in.BpfPolicyStatsMapMax = option.LimitTableMin
 	}
 	if in.BpfPolicyStatsMapMax > option.LimitTableMax {
-		in.Log.Warn("specified policy stats map max entries too high",
+		in.Log.Warn("specified policy stats map max entries too high, using maximum value instead",
 			logfields.Entries, in.BpfPolicyStatsMapMax,
 			logfields.Maximum, option.LimitTableMax)
 		in.BpfPolicyStatsMapMax = option.LimitTableMax
@@ -111,6 +145,7 @@ func createStatsMap(in struct {
 		},
 	})
 
+	out.Factory = Factory(newFactory(m))
 	out.MapOut = bpf.NewMapOut(m)
 	return
 }

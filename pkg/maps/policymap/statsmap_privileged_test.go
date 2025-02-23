@@ -13,12 +13,12 @@ func TestStatMap(t *testing.T) {
 	policyMap := setupPolicyMapPrivilegedTestSuite(t)
 	require.NotNil(t, policyMap)
 
-	testMap, err := createStatsMapForTest(1024)
-	require.NoError(t, err)
+	testMap := policyMap.stats
+	require.NotNil(t, testMap)
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 
-	err = testMap.ClearStat(0, fooKey)
+	err := testMap.ClearStat(0, fooKey)
 	require.NoError(t, err)
 
 	packets, bytes := testMap.GetStat(0, fooKey)

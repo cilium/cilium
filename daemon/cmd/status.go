@@ -401,6 +401,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(lxcmap.MaxEntries),
 			},
 			{
+				Name: "Policy stats",
+				Size: int64(d.policyMapFactory.StatsMaxEntries()),
+			},
+			{
 				Name: "IP cache",
 				Size: int64(ipcachemap.MaxEntries),
 			},

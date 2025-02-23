@@ -34,10 +34,11 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	_, err := createStatsMapForTest(1024)
+	stats, err := createStatsMapForTest(1024)
 	require.NoError(tb, err)
+	require.NotNil(tb, stats)
 
-	testMap, err := newMap("cilium_policy_v2_0000")
+	testMap, err := newMap(0, stats)
 	require.NoError(tb, err)
 	require.NotNil(tb, testMap)
 
