@@ -224,11 +224,11 @@ If you want to test the network performance between specific nodes, you can labe
 
 .. code-block:: shell-session
 
-    $ kubectl label nodes worker1 perf-test=true
+    $ kubectl label nodes worker1 perf-test=server
     node/worker1 labeled
-    $ kubectl label nodes worker2 perf-test=true
+    $ kubectl label nodes worker2 perf-test=client
     node/worker2 labeled
-    $ cilium connectivity perf --node-selector perf-test=true
+    $ cilium connectivity perf --node-selector-client perf-test=client --node-selector-server perf-test=server
     ...
     [=] Test [network-perf] [1/1]
     ...
