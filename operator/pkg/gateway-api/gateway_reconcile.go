@@ -120,13 +120,18 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" These should be set using the spec.addresses field in Gateway objects instead."+
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
+
+	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
+	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
+	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items)
+
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:       *gwc,
 		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
 		Gateway:            *gw,
-		HTTPRoutes:         r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
-		TLSRoutes:          r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
-		GRPCRoutes:         r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
+		HTTPRoutes:         httpRoutes,
+		TLSRoutes:          tlsRoutes,
+		GRPCRoutes:         grpcRoutes,
 		Services:           servicesList.Items,
 		ServiceImports:     serviceImportsList.Items,
 		ReferenceGrants:    grants.Items,
