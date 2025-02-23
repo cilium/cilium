@@ -174,33 +174,6 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	}
 }
 
-// RegisterNode overloads GetKeyName to ignore the cluster name, as cluster name may not be stable during node registration.
-//
-// +k8s:deepcopy-gen=true
-type RegisterNode struct {
-	Node
-}
-
-// GetKeyName Overloaded key name w/o cluster name
-func (n *RegisterNode) GetKeyName() string {
-	return n.Name
-}
-
-// DeepKeyCopy creates a deep copy of the LocalKey
-func (n *RegisterNode) DeepKeyCopy() store.LocalKey {
-	return n.DeepCopy()
-}
-
-func (n *RegisterNode) Unmarshal(_ string, data []byte) error {
-	newNode := Node{}
-	if err := json.Unmarshal(data, &newNode); err != nil {
-		return err
-	}
-
-	n.Node = newNode
-	return nil
-}
-
 // Node contains the nodes name, the list of addresses to this address
 //
 // +k8s:deepcopy-gen=true
