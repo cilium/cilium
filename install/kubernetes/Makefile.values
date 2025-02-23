@@ -53,7 +53,7 @@ export HUBBLE_UI_FRONTEND_DIGEST:=sha256:9e37c1296b802830834cc87342a9182ccbb71ff
 # renovate: datasource=docker
 export SPIRE_INIT_REPO:=docker.io/library/busybox
 export SPIRE_INIT_VERSION:=1.37.0
-export SPIRE_INIT_DIGEST:=sha256:a5d0ce49aa801d475da48f8cb163c354ab95cab073cd3c138bd458fc8257fbf1
+export SPIRE_INIT_DIGEST:=sha256:498a000f370d8c37927118ed80afe8adc38d1edcbfc071627d17b25c88efcab0
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
