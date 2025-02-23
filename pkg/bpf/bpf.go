@@ -20,7 +20,8 @@ var (
 
 const (
 	// Flags for BPF_MAP_CREATE. Must match values from linux/bpf.h
-	BPF_F_NO_PREALLOC = 1 << 0
+	BPF_F_NO_PREALLOC   = 1 << 0
+	BPF_F_NO_COMMON_LRU = 1 << 1
 )
 
 // EnableMapPreAllocation enables BPF map pre-allocation on map types that
