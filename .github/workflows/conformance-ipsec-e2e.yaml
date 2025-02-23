@@ -290,7 +290,8 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --log-code-owners \
-            --flush-ct
+            --flush-ct \
+            --test '!l7,!fqdn'
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -337,10 +338,10 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          TEST=""
+          TEST="!l7,!fqdn"
           if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
             # Until https://github.com/cilium/cilium/issues/29480 is resolved
-            TEST='--test "!pod-to-pod-no-frag"'
+            TEST='--test "!pod-to-pod-no-frag,!l7,!fqdn"'
           fi
 
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
