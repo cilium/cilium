@@ -39,11 +39,8 @@ var Cell = cell.Module(
 	cell.Provide(newHubbleIntegration),
 	cell.Config(defaultConfig),
 
-	// Provide Hubble flow log exporters
-	cell.ProvidePrivate(exportercell.NewValidatedConfig),
-	cell.ProvidePrivate(exportercell.NewHubbleStaticExporter),
-	cell.ProvidePrivate(exportercell.NewHubbleDynamicExporter),
-	cell.Config(exportercell.DefaultConfig),
+	// Hubble flow log exporters
+	exportercell.Cell,
 )
 
 type hubbleParams struct {
@@ -64,8 +61,8 @@ type hubbleParams struct {
 	Recorder          *recorder.Recorder
 
 	// NOTE: ordering is not guaranteed, do not rely on it.
-	ObserverOptions []observeroption.Option    `group:"hubble-observer-options"`
-	Exporters       []exporter.FlowLogExporter `group:"hubble-flow-log-exporters"`
+	ObserverOptions  []observeroption.Option            `group:"hubble-observer-options"`
+	ExporterBuilders []*exporter.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
@@ -94,7 +91,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.MonitorAgent,
 		params.Recorder,
 		params.ObserverOptions,
-		params.Exporters,
+		params.ExporterBuilders,
 		params.AgentConfig,
 		params.Config,
 		params.Logger,
