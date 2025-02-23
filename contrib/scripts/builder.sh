@@ -9,6 +9,10 @@ CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_
 USER_OPTION=""
 USER_PATH="/root"
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    USER_PATH="/tmp"
+fi
+
 if [ -n "${RUN_AS_NONROOT:-}" ]; then
     USER_OPTION="--user $(id -u):$(id -g)"
     USER_PATH="$HOME"
