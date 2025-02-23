@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/sirupsen/logrus"
@@ -114,18 +115,44 @@ func TestL34Decode(t *testing.T) {
 	//SOURCE          					DESTINATION           TYPE   SUMMARY
 	//192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		// NOTIFY_CAPTURE_HDR
+		4,    // Trace type
+		7,    // Observation Point
+		0, 0, // Source
+		7, 124, 26, 57, // Hash
+		66, 0, 0, 0, // Original length
+		66, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
 		0x81,       // "established" trace reason with the encrypt bit set
 		0,          // flags
 		0, 0, 0, 0, // ifindex
-		246, 141, 178, 45, 33, 217, 246, 141, 178,
-		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
-		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, // Dst MAC
+		0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, // Src MAC
+		0x08, 0x00, // IPv4 ethertype
+		// IPv4 Header
+		0x45,  // Version (4), IHL (5)
+		0,     // TOS
+		0, 52, // length
+		234, 28, // ID
+		0x40, 0, // Flags (1), Offset
+		64,      // TTL
+		6,       // Protocol (TCP)
+		120, 49, // Checksum
+		192, 168, 60, 11, // Source IP
+		10, 16, 236, 178, // Destination IP
+		25, 43, 211, 206, 42, 239, 210, 28, 180,
+		// TCP
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
-		98, 0, 90, 176, 97, 0, 0}
+		98, 0, 90, 176, 97,
+		0, 0,
+	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -247,11 +274,36 @@ func TestL34Decode(t *testing.T) {
 	//SOURCE              DESTINATION          TYPE   SUMMARY
 	//ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
-		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 255, 0, 179, 229, 18, 145,
-		6, 226, 34, 26, 134, 221, 96, 0, 0, 0, 0, 32, 58, 255, 255, 2, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 1, 255, 0, 179, 229, 240, 13, 0, 0, 0, 0, 0, 0, 10,
-		16, 0, 0, 0, 0, 145, 149, 135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
+		4,       // Trace type
+		5,       // Observation point
+		168, 11, // Source
+		95, 22, 242, 184, // Hash
+		86, 0, 0, 0, // Original length
+		86, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
+		104, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		0,          // trace reason
+		0,          // flags
+		0, 0, 0, 0, // Ifindex
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		51, 51, 255, 0, 179, 229, // Dst MAC
+		18, 145, 6, 226, 34, 26, // Src MAC
+		134, 221, // IPv6 ethertype
+		// IPv6 Header
+		0x60,    // Version, TC (half)
+		0, 0, 0, // TC (half) + flow label
+		0, 32, // Length
+		58,                                                                                             // Next header (IPv6-ICMP)
+		255,                                                                                            // Hop limit
+		0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x00, 0xB3, 0xE5, // Src IPv6 address
+		0xF0, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x10, 0x00, 0x00, 0x00, 0x00, 0x91, 0x95, // Dst IPv6 address
+		// ICMPv6
+		135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
 		0, 0, 0, 10, 16, 0, 0, 0, 0, 179, 229, 1, 1, 18, 145, 6, 226, 34, 26, 0,
 		0, 0, 0, 0, 0}
 
@@ -378,53 +430,150 @@ func TestDecodeTraceNotify(t *testing.T) {
 }
 
 func TestDecodeDropNotify(t *testing.T) {
-	buf := &bytes.Buffer{}
-	dn := monitor.DropNotify{
-		Type:     byte(monitorAPI.MessageTypeDrop),
-		File:     1, // bpf_host.c
-		Line:     42,
-		SrcLabel: 123,
-		DstLabel: 456,
-	}
-	err := binary.Write(buf, byteorder.Native, &dn)
-	require.NoError(t, err)
-	buffer := gopacket.NewSerializeBuffer()
-	err = gopacket.SerializeLayers(buffer,
+	packetBuffer := gopacket.NewSerializeBuffer()
+	if err := gopacket.SerializeLayers(packetBuffer,
 		gopacket.SerializeOptions{},
 		&layers.Ethernet{
-			SrcMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
-			DstMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
+			SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+			DstMAC:       net.HardwareAddr{4, 5, 6, 7, 8, 9},
+			EthernetType: layers.EthernetTypeIPv4,
 		},
 		&layers.IPv4{
+			IHL:   5,
 			SrcIP: net.IPv4(1, 2, 3, 4),
 			DstIP: net.IPv4(1, 2, 3, 4),
 		},
-	)
-	require.NoError(t, err)
-	buf.Write(buffer.Bytes())
-	require.NoError(t, err)
+	); err != nil {
+		t.Fatalf("SerializeLayers(...) buffer: %v", err)
+	}
+
+	SrcLabel := identity.NumericIdentity(123)
+	DstLabel := identity.NumericIdentity(456)
+
+	dropNotify := func(version uint16) monitor.DropNotifyV1 {
+		return monitor.DropNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeDrop),
+			File:     1, // bpf_host.c
+			Version:  version,
+			SrcLabel: SrcLabel,
+			DstLabel: DstLabel,
+		}
+	}
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == uint32(dn.SrcLabel) {
-				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
-			} else if securityIdentity == uint32(dn.DstLabel) {
-				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			m := map[identity.NumericIdentity][]string{
+				SrcLabel: {"k8s:src=label"},
+				DstLabel: {"k8s:dst=label"},
 			}
-			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+
+			v, ok := m[identity.NumericIdentity(securityIdentity)]
+			if !ok {
+				return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+			}
+			return &identity.Identity{Labels: labels.NewLabelsFromModel(v)}, nil
 		},
 	}
 
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
-	require.NoError(t, err)
+	testCases := []struct {
+		name      string
+		dn        any
+		srcLabels []string
+		dstLabels []string
+		want      *flowpb.Flow
+	}{
+		{
+			name:      "v1",
+			dn:        dropNotify(1),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type: flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{
+					Type: 1,
+				},
+				Summary: "IPv4",
+				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+		{
+			name: "v2",
+			dn: monitor.DropNotify{
+				DropNotifyV1: dropNotify(2),
+			},
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type: flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{
+					Type: 1,
+				},
+				Summary: "IPv4",
+				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			n := tc.dn
+			buf := &bytes.Buffer{}
+			if err := binary.Write(buf, byteorder.Native, n); err != nil {
+				t.Fatalf("Write(...) %T to buffer: %v", n, err)
+			}
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(buf.Bytes(), f)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
-	assert.NotNil(t, f.GetFile())
-	assert.Equal(t, "bpf_host.c", f.GetFile().GetName())
-	assert.Equal(t, uint32(42), f.GetFile().GetLine())
+			buf.Write(packetBuffer.Bytes())
+			parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
+			if err != nil {
+				t.Fatalf("New parser: %v", err)
+			}
+
+			f := &flowpb.Flow{}
+			if err := parser.Decode(buf.Bytes(), f); err != nil {
+				t.Fatalf("parser.Decode(bytes, f): %v", err)
+
+			}
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(tc.want, f, cmpopts.IgnoreFields(flowpb.Flow{}, "File"), protocmp.Transform()); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
@@ -558,7 +707,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 func TestDecodeDropReason(t *testing.T) {
 	reason := uint8(130)
-	dn := monitor.DropNotify{
+	dn := monitor.DropNotifyV1{
 		Type:    byte(monitorAPI.MessageTypeDrop),
 		SubType: reason,
 	}
@@ -736,7 +885,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	// DROP at unknown endpoint
-	dn := monitor.DropNotify{
+	dn := monitor.DropNotifyV1{
 		Type: byte(monitorAPI.MessageTypeDrop),
 	}
 	f := parseFlow(dn, localIP, remoteIP)
@@ -744,7 +893,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// DROP Egress
-	dn = monitor.DropNotify{
+	dn = monitor.DropNotifyV1{
 		Type:   byte(monitorAPI.MessageTypeDrop),
 		Source: localEP,
 	}
@@ -753,7 +902,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// DROP Ingress
-	dn = monitor.DropNotify{
+	dn = monitor.DropNotifyV1{
 		Type:   byte(monitorAPI.MessageTypeDrop),
 		Source: localEP,
 	}
@@ -1042,7 +1191,7 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.False(t, f.GetReply())
 
 	// DropNotify statically assumes is_reply=unknown
-	dn := monitor.DropNotify{
+	dn := monitor.DropNotifyV1{
 		Type: byte(monitorAPI.MessageTypeDrop),
 	}
 	f = parseFlow(dn, localIP, remoteIP)
@@ -1431,13 +1580,13 @@ func TestDecode_DropNotify(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		event   monitor.DropNotify
+		event   monitor.DropNotifyV1
 		ipTuple ipTuple
 		want    *flowpb.Flow
 	}{
 		{
 			name: "drop_unknown",
-			event: monitor.DropNotify{
+			event: monitor.DropNotifyV1{
 				Type: byte(monitorAPI.MessageTypeDrop),
 				File: 2,
 				Line: 42,
@@ -1453,7 +1602,7 @@ func TestDecode_DropNotify(t *testing.T) {
 		},
 		{
 			name: "drop_egress",
-			event: monitor.DropNotify{
+			event: monitor.DropNotifyV1{
 				Type:   byte(monitorAPI.MessageTypeDrop),
 				Source: localEP,
 				File:   6,
@@ -1471,7 +1620,7 @@ func TestDecode_DropNotify(t *testing.T) {
 		},
 		{
 			name: "drop_ingress",
-			event: monitor.DropNotify{
+			event: monitor.DropNotifyV1{
 				Type:   byte(monitorAPI.MessageTypeDrop),
 				Source: localEP,
 				File:   4,
@@ -1852,6 +2001,56 @@ func TestDecode_TraceNotify(t *testing.T) {
 				TraceReason:           flowpb.TraceReason_SRV6_ENCAP,
 				TrafficDirection:      flowpb.TrafficDirection_EGRESS,
 				TraceObservationPoint: flowpb.TraceObservationPoint_TO_STACK,
+			},
+		},
+		{
+
+			name: "v2_from_lxc",
+			event: monitor.TraceNotify{
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					TraceNotifyV0: monitor.TraceNotifyV0{
+						Type:     byte(monitorAPI.MessageTypeTrace),
+						Source:   localEP,
+						ObsPoint: monitorAPI.TraceFromLxc,
+						Reason:   monitor.TraceReasonUnknown,
+						Version:  monitor.TraceNotifyVersion2,
+					},
+				},
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+			},
+		},
+		{
+
+			name: "v2_from_lxc_with_ip_trace_id",
+			event: monitor.TraceNotify{
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					TraceNotifyV0: monitor.TraceNotifyV0{
+						Type:     byte(monitorAPI.MessageTypeTrace),
+						Source:   localEP,
+						ObsPoint: monitorAPI.TraceFromLxc,
+						Reason:   monitor.TraceReasonUnknown,
+						Version:  monitor.TraceNotifyVersion2,
+					},
+				},
+				IPTraceID: 1234,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 1234,
+				},
 			},
 		},
 	}

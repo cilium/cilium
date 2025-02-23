@@ -364,6 +364,7 @@ type Endpoint = flow.Endpoint
 type Workload = flow.Workload
 type TCP = flow.TCP
 type IP = flow.IP
+type IPTraceID = flow.IPTraceID
 type Ethernet = flow.Ethernet
 type TCPFlags = flow.TCPFlags
 type UDP = flow.UDP
