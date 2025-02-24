@@ -541,9 +541,10 @@ func testHive(maps experimental.LBMaps,
 			cell.Provide(
 				func() experimental.Config {
 					return experimental.Config{
-						EnableExperimentalLB: true,
-						RetryBackoffMin:      time.Millisecond,
-						RetryBackoffMax:      time.Millisecond,
+						EnableExperimentalLB:      true,
+						LBPressureMetricsInterval: 0,
+						RetryBackoffMin:           time.Millisecond,
+						RetryBackoffMax:           time.Millisecond,
 					}
 				},
 				func() experimental.ExternalConfig { return extConfig },
