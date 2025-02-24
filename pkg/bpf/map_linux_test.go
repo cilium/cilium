@@ -5,6 +5,7 @@ package bpf
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"reflect"
@@ -37,22 +38,83 @@ type TestLPMKey struct {
 	PrefixLen uint32
 	Key       uint32
 }
+type LargeTestKey struct {
+	Key uint32
+	V1  uint32
+	V2  uint32
+	V3  uint32
+	V4  uint32
+	V5  uint32
+}
 type TestValue struct {
 	Value uint32
+}
+type LargeTestValue struct {
+	Value uint32
+	V1    uint32
+	V2    uint32
+	V3    uint32
+	V4    uint32
+	V5    uint32
 }
 type TestValues []TestValue
 
 func (k *TestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
 func (k *TestKey) New() MapKey    { return &TestKey{} }
+func (k *TestKey) Size() int      { return 4 }
+func (k *TestKey) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, k.Key)
+	return b, nil
+}
+
+func (k *LargeTestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
+func (k *LargeTestKey) New() MapKey    { return &TestKey{} }
+func (k *LargeTestKey) Size() int      { return 24 }
+func (k *LargeTestKey) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 24)
+	binary.LittleEndian.PutUint32(b, k.Key)
+	binary.LittleEndian.PutUint32(b, k.V1)
+	binary.LittleEndian.PutUint32(b, k.V2)
+	binary.LittleEndian.PutUint32(b, k.V3)
+	binary.LittleEndian.PutUint32(b, k.V4)
+	binary.LittleEndian.PutUint32(b, k.V5)
+	return b, nil
+}
 
 func (k *TestLPMKey) String() string { return fmt.Sprintf("len=%d, key=%d", k.PrefixLen, k.Key) }
 func (k *TestLPMKey) New() MapKey    { return &TestLPMKey{} }
 
 func (v *TestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
 func (v *TestValue) New() MapValue  { return &TestValue{} }
+func (v *TestValue) Size() int      { return 4 }
 func (k *TestValue) NewSlice() any  { return &TestValues{} }
+func (v *TestValue) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, v.Value)
+	return b, nil
+}
+
+func (v *LargeTestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
+func (v *LargeTestValue) New() MapValue  { return &TestValue{} }
+func (v *LargeTestValue) Size() int      { return 24 }
+func (k *LargeTestValue) NewSlice() any  { return &TestValues{} }
+func (v *LargeTestValue) MarshalBinary() ([]byte, error) {
+	b := make([]byte, 24)
+	binary.LittleEndian.PutUint32(b, v.Value)
+	binary.LittleEndian.PutUint32(b, v.V1)
+	binary.LittleEndian.PutUint32(b, v.V2)
+	binary.LittleEndian.PutUint32(b, v.V3)
+	binary.LittleEndian.PutUint32(b, v.V4)
+	binary.LittleEndian.PutUint32(b, v.V5)
+	return b, nil
+}
 
 func setup(tb testing.TB) *Map {
+	return setupWithOptions(tb, maxEntries)
+}
+
+func setupWithOptions(tb testing.TB, maxEntries int) *Map {
 	testutils.PrivilegedTest(tb)
 
 	CheckOrMountFS("")
@@ -264,11 +326,11 @@ func TestBasicManipulation(t *testing.T) {
 	}
 	assertEvent := func(i int, key, value, desiredAction, action string) {
 		e := event(i)
-		if e.cacheEntry.Key != nil {
-			require.Equal(t, key, e.cacheEntry.Key.String())
+		if e.cacheEntries[0].Key != nil {
+			require.Equal(t, key, e.cacheEntries[0].Key.String())
 		}
 		require.Equal(t, e.GetValue(), value)
-		require.Equal(t, e.cacheEntry.DesiredAction.String(), desiredAction)
+		require.Equal(t, e.cacheEntries[0].DesiredAction.String(), desiredAction)
 		require.Equal(t, e.GetAction(), action)
 	}
 
@@ -280,8 +342,8 @@ func TestBasicManipulation(t *testing.T) {
 
 	// Check events buffer
 	require.Len(t, dumpEvents(), 1)
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
 	// key    val
 	// 103    203
@@ -294,8 +356,8 @@ func TestBasicManipulation(t *testing.T) {
 
 	// Check events buffer, ensure it doesn't change.
 	require.Len(t, dumpEvents(), 1)
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
 	err = existingMap.Update(key1, value2)
 	require.NoError(t, err)
@@ -308,12 +370,12 @@ func TestBasicManipulation(t *testing.T) {
 	// Check events buffer after second Update
 	require.Len(t, dumpEvents(), 2)
 	assertEvent(0, "key=103", "value=203", "sync", "update")
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
-	require.Equal(t, "sync", event(0).cacheEntry.DesiredAction.String())
-	require.Equal(t, "key=103", event(1).cacheEntry.Key.String()) // we used key1 again
-	require.Equal(t, "value=204", event(1).cacheEntry.Value.String())
-	require.Equal(t, "sync", event(1).cacheEntry.DesiredAction.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
+	require.Equal(t, "sync", event(0).cacheEntries[0].DesiredAction.String())
+	require.Equal(t, "key=103", event(1).cacheEntries[0].Key.String()) // we used key1 again
+	require.Equal(t, "value=204", event(1).cacheEntries[0].Value.String())
+	require.Equal(t, "sync", event(1).cacheEntries[0].DesiredAction.String())
 
 	err = existingMap.Update(key2, value2)
 	require.NoError(t, err)
@@ -390,10 +452,10 @@ func TestBasicManipulation(t *testing.T) {
 	require.Len(t, dumpEvents(), 9)
 	assertEvent(8, "key=104", "<nil>", "sync", "delete-all")
 
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
-	require.Equal(t, "key=103", event(1).cacheEntry.Key.String()) // we used key1 again
+	require.Equal(t, "key=103", event(1).cacheEntries[0].Key.String()) // we used key1 again
 
 	err = existingMap.Update(key2, value2)
 	require.NoError(t, err)
@@ -803,6 +865,34 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBatchUpdate(t *testing.T) {
+	testMap := setupWithOptions(t, 300)
+	if err := HasBatchOperations(); err != nil {
+		t.Skipf("Batch Operations not supported: %s", err)
+	}
+
+	keys := make([]BatchMapKey, 256)
+	values := make([]BatchMapValue, 256)
+
+	for i := range 256 {
+		keys[i] = &TestKey{Key: uint32(i)}
+		values[i] = &TestValue{Value: uint32(i)}
+	}
+
+	count, err := testMap.BatchUpdate(keys, values)
+	require.NoError(t, err)
+	require.Equal(t, 256, count)
+
+	for i := range 256 {
+		v, err := testMap.Lookup(&TestKey{Key: uint32(i)})
+		require.NoError(t, err)
+		tv, ok := v.(*TestValue)
+		require.Truef(t, ok, "Type assertion of %[1]v (%[1]T) to %T failed", v, &TestValue{})
+		require.Equal(t, uint32(i), tv.Value)
+	}
+
+}
+
 func TestGetModel(t *testing.T) {
 	testMap := setup(t)
 
@@ -1112,4 +1202,95 @@ func TestBatchIterator(t *testing.T) {
 			})
 		}
 	}
+}
+
+func BenchmarkBatchUpdate(b *testing.B) {
+	if err := HasBatchOperations(); err != nil {
+		b.Skipf("BatchOps not supported skipping: %s", err)
+	}
+	testMap := NewMap("",
+		ebpf.Hash,
+		&LargeTestKey{},
+		&LargeTestValue{},
+		b.N,
+		BPF_F_NO_PREALLOC)
+
+	if err := testMap.CreateUnpinned(); err != nil {
+		b.Fatal(err)
+	}
+	defer testMap.Close()
+
+	keys := make([]BatchMapKey, b.N)
+	values := make([]BatchMapValue, b.N)
+	for i := 0; i < b.N; i++ {
+		keys[i] = &LargeTestKey{
+			Key: uint32(i),
+			V1:  uint32(i + 1),
+			V2:  uint32(i + 2),
+			V3:  uint32(i + 3),
+			V4:  uint32(i + 4),
+			V5:  uint32(i + 5),
+		}
+		values[i] = &LargeTestValue{
+			Value: uint32(i),
+			V1:    uint32(i + 1),
+			V2:    uint32(i + 2),
+			V3:    uint32(i + 3),
+			V4:    uint32(i + 4),
+			V5:    uint32(i + 5),
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	count, err := testMap.batchUpdate(keys, values)
+	b.StopTimer()
+	require.NoError(b, err)
+	require.Equal(b, b.N, count)
+}
+
+func BenchmarkIteratedMapUpdate(b *testing.B) {
+	if err := HasBatchOperations(); err != nil {
+		b.Skipf("BatchOps not supported skipping: %s", err)
+	}
+	testMap := NewMap("",
+		ebpf.Hash,
+		&LargeTestKey{},
+		&LargeTestValue{},
+		b.N,
+		BPF_F_NO_PREALLOC)
+
+	if err := testMap.CreateUnpinned(); err != nil {
+		b.Fatal(err)
+	}
+	defer testMap.Close()
+
+	keys := make([]BatchMapKey, b.N)
+	values := make([]BatchMapValue, b.N)
+	for i := 0; i < b.N; i++ {
+		keys[i] = &LargeTestKey{
+			Key: uint32(i),
+			V1:  uint32(i + 1),
+			V2:  uint32(i + 2),
+			V3:  uint32(i + 3),
+			V4:  uint32(i + 4),
+			V5:  uint32(i + 5),
+		}
+		values[i] = &LargeTestValue{
+			Value: uint32(i),
+			V1:    uint32(i + 1),
+			V2:    uint32(i + 2),
+			V3:    uint32(i + 3),
+			V4:    uint32(i + 4),
+			V5:    uint32(i + 5),
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := testMap.Update(keys[i], values[i])
+		require.NoError(b, err)
+	}
+	b.StopTimer()
 }

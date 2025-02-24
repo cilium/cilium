@@ -7,6 +7,7 @@ package bpf
 
 import (
 	"context"
+	"encoding"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -37,6 +38,10 @@ var (
 	// been reached.
 	ErrMaxLookup = errors.New("maximum number of lookups reached")
 
+	// ErrUnsupportedOperation is returned when the bpf operation being
+	// used is not supported by the current kernel version
+	ErrUnsupportedOperation = fmt.Errorf("unsupported operation: %w", ebpf.ErrNotSupported)
+
 	bpfMapSyncControllerGroup = controller.NewGroup("bpf-map-sync")
 )
 
@@ -47,11 +52,69 @@ type MapKey interface {
 	New() MapKey
 }
 
+type BatchMapKey interface {
+	MapKey
+	Size() int
+	encoding.BinaryMarshaler
+}
+
 type MapValue interface {
 	fmt.Stringer
 
 	// New must return a pointer to a new MapValue.
 	New() MapValue
+}
+
+type BatchMapValue interface {
+	MapValue
+	Size() int
+	encoding.BinaryMarshaler
+}
+
+type BatchMapKeys []BatchMapKey
+
+type BatchMapValues []BatchMapValue
+
+func (mks BatchMapKeys) MarshalBinary() ([]byte, error) {
+	ln := len(mks)
+	if ln == 0 {
+		return nil, nil
+	}
+	sz := mks[0].Size()
+	data := make([]byte, sz*ln)
+	i := 0
+	for _, k := range mks {
+		bs, err := k.MarshalBinary()
+		if err != nil {
+			return data, err
+		}
+		for _, b := range bs {
+			data[i] = b
+			i++
+		}
+	}
+	return data, nil
+}
+
+func (mvs BatchMapValues) MarshalBinary() ([]byte, error) {
+	ln := len(mvs)
+	if ln == 0 {
+		return nil, nil
+	}
+	sz := mvs[0].Size()
+	data := make([]byte, sz*ln)
+	i := 0
+	for _, k := range mvs {
+		bs, err := k.MarshalBinary()
+		if err != nil {
+			return data, err
+		}
+		for _, b := range bs {
+			data[i] = b
+			i++
+		}
+	}
+	return data, nil
 }
 
 // MapPerCPUValue is the same as MapValue, but for per-CPU maps. Implement to be
@@ -70,6 +133,8 @@ type cacheEntry struct {
 	DesiredAction DesiredAction
 	LastError     error
 }
+
+type cacheEntries []*cacheEntry
 
 type Map struct {
 	m *ebpf.Map
@@ -1171,6 +1236,133 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	return nil
 }
 
+// BatchUpdate updates a map with a slice of keys and values.
+// BatchUpdate can partially succeed, so both return values
+// need to be evaluated to determine the keys and values that
+// were updated, if any. The real type of the Key and Value need
+// to be passed as generics, so that the ebpf library has a slice
+// that is cast to the real type as it cannot deal with slices of
+// interfaces.
+func (m *Map) BatchUpdate(keys []BatchMapKey, values []BatchMapValue) (int, error) {
+	if err := HasBatchOperations(); err != nil {
+		return 0, fmt.Errorf("%w: batch update: %w", ErrUnsupportedOperation, err)
+	}
+	keyLen, valueLen := len(keys), len(values)
+	if keyLen != valueLen {
+		return 0, fmt.Errorf("the number of keys and values must be equal; key length is %d, value length is %d", keyLen, valueLen)
+	}
+	if keyLen == 0 {
+		return 0, nil
+	}
+	if keyLen > option.Config.BPFBatchUpdateChunkSize {
+		var count int
+		chunkLen := keyLen / option.Config.BPFBatchUpdateChunkSize
+		for i := range chunkLen {
+			idx := i * option.Config.BPFBatchUpdateChunkSize
+			endLen := (i + 1) * option.Config.BPFBatchUpdateChunkSize
+			cnt, err := m.batchUpdate(keys[idx:endLen], values[idx:endLen])
+			if err != nil {
+				return count + cnt, err
+			}
+			count += cnt
+		}
+		if keyLen%option.Config.BPFBatchUpdateChunkSize != 0 {
+			idx := chunkLen * option.Config.BPFBatchUpdateChunkSize
+			cnt, err := m.batchUpdate(keys[idx:], values[idx:])
+			return cnt + count, err
+		}
+		return count, nil
+	}
+	return m.batchUpdate(keys, values)
+}
+
+// batchUpdate requires keys and values to be passed as arguments twice.
+// First as a slice of the interfaces MapKey and MapValue respectively and
+// second as an interface that can be cast to a slice of the generics.
+func (m *Map) batchUpdate(keys []BatchMapKey, values []BatchMapValue) (int, error) {
+	var (
+		err   error
+		count int
+	)
+	keyLen := len(keys)
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	defer func() {
+		var scheduleResolver bool
+		// Batch update can fail mid-update in the kernel,
+		// but have successfully added some of the keys/entries.
+		// We need to differentiate between entries with errors
+		// and those without.
+		goodEntries := make(cacheEntries, count)
+		badEntries := make(cacheEntries, keyLen-count)
+		for i := 0; i < keyLen; i++ {
+			var lastErr error
+			desiredAction := OK
+			key := keys[i]
+			value := values[i]
+			// This entry (and up) was not added and has an
+			// error associated with it.
+			badEntry := i >= count
+			if badEntry {
+				lastErr = err
+				desiredAction = Insert
+			}
+			entry := &cacheEntry{
+				Key:           key,
+				Value:         value,
+				DesiredAction: desiredAction,
+				LastError:     lastErr,
+			}
+			if badEntry {
+				badEntries[i-count] = entry
+			} else {
+				goodEntries[i] = entry
+			}
+			if m.cache != nil {
+				if m.withValueCache {
+					if lastErr != nil {
+						scheduleResolver = true
+					}
+					m.cache[key.String()] = entry
+				} else if lastErr == nil {
+					m.cache[key.String()] = nil
+				}
+			}
+		}
+		if len(goodEntries) > 0 {
+			m.addBatchOpToEventsLocked(MapBatchUpdate, goodEntries)
+		}
+		if len(badEntries) > 0 {
+			m.addBatchOpToEventsLocked(MapBatchUpdate, badEntries)
+		}
+		if scheduleResolver {
+			m.scheduleErrorResolver()
+		}
+		m.updatePressureMetric()
+	}()
+
+	if err = m.open(); err != nil {
+		return 0, err
+	}
+
+	keyI := BatchMapKeys(keys)
+	valueI := BatchMapValues(values)
+	count, err = m.m.BatchUpdate(keyI, valueI, &ebpf.BatchOptions{})
+
+	if metrics.BPFMapOps.IsEnabled() {
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+	}
+
+	if err != nil {
+		return count, fmt.Errorf("batch update map %s: %w", m.Name(), err)
+	}
+
+	return count, nil
+
+}
+
 // deleteMapEvent is run at every delete map event.
 // If cache is enabled, it will update the cache to reflect the delete.
 // As well, if event buffer is enabled, it adds a new event to the buffer.
@@ -1419,9 +1611,20 @@ func (m *Map) addToEventsLocked(action Action, entry cacheEntry) {
 		return
 	}
 	m.events.add(&Event{
-		action:     action,
-		Timestamp:  time.Now(),
-		cacheEntry: entry,
+		action:       action,
+		Timestamp:    time.Now(),
+		cacheEntries: []*cacheEntry{&entry},
+	})
+}
+
+func (m *Map) addBatchOpToEventsLocked(action Action, entries cacheEntries) {
+	if !m.eventsBufferEnabled {
+		return
+	}
+	m.events.add(&Event{
+		action:       action,
+		Timestamp:    time.Now(),
+		cacheEntries: entries,
 	})
 }
 
