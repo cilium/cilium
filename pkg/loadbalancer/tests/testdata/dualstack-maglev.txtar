@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0 --node-port-algorithm=maglev
+#! --enable-experimental-lb --lb-test-fault-probability=0.0 --node-port-algorithm=maglev --lb-pressure-metrics-interval=100ms --bpf-lb-map-max=1000
 
 # NOTE: Fault injection disabled as it leads to non-deterministic id allocation with multiple
 # frontends from single service.
@@ -24,6 +24,13 @@ db/cmp frontends frontends.table
 # Check the BPF maps
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
+
+# Check pressure metrics. We have 8 frontends and 8 backends, 4 per family.
+# For NodePort we have 2 additional backends, so we get: (4+2)*(1+2) == 18,
+# which for MaxEntries=1000 is 0.0018 entries in services maps and
+# revnat maps (one per frontend address).
+[privileged] metrics --out=metrics.actual cilium_bpf_map_pressure
+[privileged] * cmp metrics.expected metrics.actual
 
 # Cleanup
 k8s/delete service.yaml endpointslice-ipv4.yaml endpointslice-ipv6.yaml
@@ -87,6 +94,14 @@ Address                        Instances
 [fd00:10:244:2::a314]:69/UDP   default/echo-dualstack (tftp)
 [fd00:10:244:2::a314]:80/TCP   default/echo-dualstack (http)
 
+-- metrics.expected --
+Metric                    Labels                     Value
+cilium_bpf_map_pressure   map_name=lb4_backends_v3   0.004000
+cilium_bpf_map_pressure   map_name=lb4_reverse_nat   0.006000
+cilium_bpf_map_pressure   map_name=lb4_services_v2   0.018000
+cilium_bpf_map_pressure   map_name=lb6_backends_v3   0.004000
+cilium_bpf_map_pressure   map_name=lb6_reverse_nat   0.006000
+cilium_bpf_map_pressure   map_name=lb6_services_v2   0.018000
 -- service.yaml --
 apiVersion: v1
 kind: Service

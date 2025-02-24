@@ -26,6 +26,9 @@ var Cell = cell.Module(
 
 	// Provide [HaveNetNSCookieSupport] to probe for netns cookie support.
 	cell.Provide(NetnsCookieSupportFunc),
+
+	// Register a periodic job to update the BPF map pressure metrics.
+	cell.Invoke(registerPressureMetricsReporter),
 )
 
 type HaveNetNSCookieSupport func() bool
