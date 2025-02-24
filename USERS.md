@@ -274,6 +274,12 @@ Users (Alphabetically)
       L: https://documentation.elasticpath.com/cloudops-kubernetes/docs/index.html
       Q: @Neil Seward
 
+    * N: Entrywan
+      D: Entrywan provides Cilium as a CNI option in its managed kubernetes service
+      U: CNI
+      L: https://www.entrywan.com/docs#kubernetes
+      Q: @aarongroom
+
     * N: Equinix
       D: Equinix Metal is using Cilium for production and non-production environments on bare metal
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
