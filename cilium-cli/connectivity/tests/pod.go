@@ -315,7 +315,7 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	// Temporarily delete echo pods entries from ipcache
-	ipcacheGetPat := regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([\d\.]+)`)
+	ipcacheGetPat := regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([^\s]+)`)
 	for _, echo := range ct.EchoPods() {
 		echoIP := echo.Address(features.IPFamilyV4)
 		for _, ciliumPod := range ct.CiliumPods() {
