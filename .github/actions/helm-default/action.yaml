@@ -41,7 +41,10 @@ runs:
           --helm-set=clustermesh.apiserver.image.useDigest=false \
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
-          --helm-set=hubble.relay.image.useDigest=false"
+          --helm-set=hubble.relay.image.useDigest=false \
+          --helm-set=standaloneDnsProxy.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/standalone-dns-proxy-ci \
+          --helm-set=standaloneDnsProxy.image.tag=${{ inputs.image-tag }} \
+          --helm-set=standaloneDnsProxy.image.useDigest=false"
 
         if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
           CILIUM_INSTALL_DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
