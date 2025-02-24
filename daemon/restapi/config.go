@@ -415,7 +415,7 @@ func (h *getConfigHandler) getIPLocalReservedPorts() string {
 	// default, but is user configurable and thus should be included regardless.
 	// The Linux kernel documentation explicitly allows to reserve ports which
 	// are not part of the ephemeral port range, in which case this is a no-op.
-	if h.tunnelConfig.Protocol() != tunnel.Disabled {
+	if h.tunnelConfig.EncapProtocol() != tunnel.Disabled {
 		ports = append(ports, fmt.Sprintf("%d", h.tunnelConfig.Port()))
 	}
 
