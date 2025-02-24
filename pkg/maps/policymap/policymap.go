@@ -86,27 +86,10 @@ func (pef policyEntryFlags) String() string {
 	return strings.Join(str, ", ")
 }
 
-var (
-	// MaxEntries is the upper limit of entries in the per endpoint policy
-	// table ie the maximum number of peer identities that the endpoint could
-	// send/receive traffic to/from.. It is set by InitMapInfo(), but unit
-	// tests use the initial value below.
-	// The default value of this upper limit is 16384.
-	MaxEntries = 16384
-)
-
 type PolicyMap struct {
 	*bpf.Map
-	stats *StatsMap
+	stats *StatsMap // shared stats map
 	epID  uint16
-}
-
-func (pm *PolicyMap) Close() error {
-	if pm.stats != nil {
-		pm.stats.Close()
-		pm.stats = nil
-	}
-	return pm.Map.Close()
 }
 
 func (pe PolicyEntry) IsDeny() bool {
@@ -495,70 +478,49 @@ func parseEndpointID(mapPath string) (uint16, error) {
 	return 0, fmt.Errorf("malformed policy map name %q (missing '_')", mapPath)
 }
 
-func newMap(mapPath string) (*PolicyMap, error) {
+func newPolicyMap(id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error) {
+	path := bpf.LocalMapPath(MapName, id)
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetPreAllocateMapFlags(mapType)
 
+	return &PolicyMap{
+		Map: bpf.NewMap(
+			path,
+			mapType,
+			&PolicyKey{},
+			&PolicyEntry{},
+			maxEntries,
+			flags,
+		).WithGroupName("endpoint_policy"),
+		stats: stats,
+		epID:  id,
+	}, nil
+}
+
+// OpenPolicyMap opens the policymap at the specified path.
+// This is only used from the 'cilium-dbg bpf policy' tool.
+func OpenPolicyMap(path string) (*PolicyMap, error) {
 	// Extract endpoint ID from the given path
-	id, err := parseEndpointID(mapPath)
+	id, err := parseEndpointID(path)
 	if err != nil {
 		return nil, err
 	}
 
-	statsMap, err := OpenStatsMap()
+	stats, err := OpenStatsMap()
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := bpf.OpenMap(path, &PolicyKey{}, &PolicyEntry{})
 	if err != nil {
 		return nil, err
 	}
 
 	return &PolicyMap{
-		Map: bpf.NewMap(
-			mapPath,
-			mapType,
-			&PolicyKey{},
-			&PolicyEntry{},
-			MaxEntries,
-			flags,
-		).WithGroupName("endpoint_policy"),
-		stats: statsMap,
+		Map:   m,
+		stats: stats,
 		epID:  id,
 	}, nil
-}
-
-// OpenOrCreate opens (or creates) a policy map at the specified path, which
-// is used to govern which peer identities can communicate with the endpoint
-// protected by this map.
-func OpenOrCreate(path string) (*PolicyMap, error) {
-	m, err := newMap(path)
-	if err != nil {
-		return nil, err
-	}
-	err = m.OpenOrCreate()
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Create creates a policy map at the specified path.
-func Create(path string) error {
-	m, err := newMap(path)
-	if err != nil {
-		return err
-	}
-	return m.Create()
-}
-
-// Open opens the policymap at the specified path.
-func Open(path string) (*PolicyMap, error) {
-	m, err := newMap(path)
-	if err != nil {
-		return nil, err
-	}
-	err = m.Open()
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 // initCallMap creates the policy call maps in the kernel.

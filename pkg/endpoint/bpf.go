@@ -81,11 +81,6 @@ func init() {
 	}
 }
 
-// policyMapPath returns the path to the policy map of endpoint.
-func (e *Endpoint) policyMapPath() string {
-	return bpf.LocalMapPath(policymap.MapName, e.ID)
-}
-
 // callsMapPath returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) callsMapPath() string {
 	return e.owner.Loader().CallsMapPath(e.ID)
@@ -754,7 +749,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	if e.policyMap == nil {
-		e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
+		if e.policyMapFactory == nil {
+			return fmt.Errorf("endpoint has nil policyMapFactory")
+		}
+		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
 			return err
 		}
@@ -815,7 +813,10 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 
 // InitMap creates the policy map in the kernel.
 func (e *Endpoint) InitMap() error {
-	return policymap.Create(e.policyMapPath())
+	if e.policyMapFactory == nil {
+		return fmt.Errorf("endpoint has nil policyMapFactory")
+	}
+	return e.policyMapFactory.CreateEndpoint(e.ID)
 }
 
 // deleteMaps deletes the endpoint's entry from the global
@@ -867,8 +868,10 @@ func (e *Endpoint) deleteMaps() []error {
 	// removes the map's entries even if the map is still referenced by any live
 	// bpf programs, potentially resulting in missed tail calls if any packets are
 	// still in flight.
-	if err := os.RemoveAll(e.policyMapPath()); err != nil {
-		errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
+	if e.policyMapFactory != nil {
+		if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
+			errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
+		}
 	}
 	if err := os.RemoveAll(e.callsMapPath()); err != nil {
 		errors = append(errors, fmt.Errorf("removing calls map pin for endpoint %s: %w", e.StringID(), err))
@@ -1470,7 +1473,10 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
+		if e.policyMapFactory == nil {
+			return fmt.Errorf("endpoint has nil policyMapFactory")
+		}
+		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %w", err)
 		}
