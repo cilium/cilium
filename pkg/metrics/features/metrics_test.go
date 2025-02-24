@@ -15,7 +15,7 @@ import (
 )
 
 type mockFeaturesParams struct {
-	TunnelConfig                        tunnel.Protocol
+	TunnelConfig                        tunnel.EncapProtocol
 	CNIChainingMode                     string
 	MutualAuth                          bool
 	BandwidthManager                    bool
@@ -24,7 +24,7 @@ type mockFeaturesParams struct {
 	isDynamicConfigSourceKindNodeConfig bool
 }
 
-func (m mockFeaturesParams) TunnelProtocol() tunnel.Protocol {
+func (m mockFeaturesParams) TunnelProtocol() tunnel.EncapProtocol {
 	return m.TunnelConfig
 }
 
@@ -69,7 +69,7 @@ func TestUpdateNetworkMode(t *testing.T) {
 	tests := []struct {
 		name         string
 		tunnelMode   string
-		tunnelProto  tunnel.Protocol
+		tunnelProto  tunnel.EncapProtocol
 		expectedMode string
 	}{
 		{
