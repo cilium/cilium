@@ -192,3 +192,8 @@ func (gn *Geneve) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serializ
 
 	return nil
 }
+
+// CanDecode returns the layer type this DecodingLayer can decode
+func (gn *Geneve) CanDecode() gopacket.LayerClass {
+	return LayerTypeGeneve
+}
