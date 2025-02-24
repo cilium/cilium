@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -96,6 +97,16 @@ var (
 
 type PolicyMap struct {
 	*bpf.Map
+	stats *StatsMap
+	epID  uint16
+}
+
+func (pm *PolicyMap) Close() error {
+	if pm.stats != nil {
+		pm.stats.Close()
+		pm.stats = nil
+	}
+	return pm.Map.Close()
 }
 
 func (pe PolicyEntry) IsDeny() bool {
@@ -104,7 +115,7 @@ func (pe PolicyEntry) IsDeny() bool {
 
 func (pe *PolicyEntry) String() string {
 	prefixLen := pe.Flags.getPrefixLen()
-	return fmt.Sprintf("%d %d %d %d", pe.GetProxyPort(), prefixLen, pe.Packets, pe.Bytes)
+	return fmt.Sprintf("%d %d", pe.GetProxyPort(), prefixLen)
 }
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
@@ -165,8 +176,6 @@ type PolicyEntry struct {
 	ProxyPortPriority policyTypes.ProxyPortPriority `align:"proxy_port_priority"`
 	Pad1              uint8                         `align:"pad1"`
 	Pad2              uint16                        `align:"pad2"`
-	Packets           uint64                        `align:"packets"`
-	Bytes             uint64                        `align:"bytes"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -215,13 +224,9 @@ func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
 func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.ProgID), 10) }
 func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
-func (pe *PolicyEntry) Add(oPe PolicyEntry) {
-	pe.Packets += oPe.Packets
-	pe.Bytes += oPe.Bytes
-}
-
 type PolicyEntryDump struct {
 	PolicyEntry
+	StatsValue
 	Key PolicyKey
 }
 
@@ -232,8 +237,8 @@ type PolicyEntriesDump []PolicyEntryDump
 func (p PolicyEntriesDump) String() string {
 	var sb strings.Builder
 	for _, entry := range p {
-		sb.WriteString(fmt.Sprintf("%20s: %s\n",
-			entry.Key.String(), entry.PolicyEntry.String()))
+		sb.WriteString(fmt.Sprintf("%20s: %s %s\n",
+			entry.Key.String(), entry.PolicyEntry.String(), entry.StatsValue.String()))
 	}
 	return sb.String()
 }
@@ -373,6 +378,16 @@ func (pm *PolicyMap) Exists(trafficDirection trafficdirection.TrafficDirection, 
 	return err == nil
 }
 
+// Update pushes an 'entry' into the PolicyMap for the given PolicyKey 'key'.
+// Clears the associated policy stat entry, if in debug mode.
+// Returns an error if the update of the PolicyMap fails.
+func (pm *PolicyMap) Update(key *PolicyKey, entry *PolicyEntry) error {
+	if option.Config.Debug {
+		pm.stats.ZeroStat(pm.epID, *key)
+	}
+	return pm.Map.Update(key, entry)
+}
+
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
 func (pm *PolicyMap) DeleteKey(key PolicyKey) error {
@@ -422,7 +437,16 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 		entries = append(entries, eDump)
 	}
 	err := pm.DumpWithCallback(cb)
+	if err != nil {
+		return nil, err
+	}
 
+	// Fetch stats for all dumped entries
+	if pm.stats != nil {
+		for i := range entries {
+			entries[i].Packets, entries[i].Bytes = pm.stats.GetStat(pm.epID, entries[i].Key)
+		}
+	}
 	return entries, err
 }
 
@@ -459,52 +483,86 @@ func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
 	return v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits)
 }
 
-func newMap(path string) *PolicyMap {
+// parseEndpointID parses the trailing endpoint ID at the end of 'mapPath', separated by '_'.
+func parseEndpointID(mapPath string) (uint16, error) {
+	if idx := strings.LastIndexByte(mapPath, '_'); idx >= 0 {
+		if id64, err := strconv.ParseUint(mapPath[idx+1:], 10, 16); err == nil {
+			return uint16(id64), nil
+		} else {
+			return 0, fmt.Errorf("failed to parse endpoint ID: %w", err)
+		}
+	}
+	return 0, fmt.Errorf("malformed policy map name %q (missing '_')", mapPath)
+}
+
+func newMap(mapPath string) (*PolicyMap, error) {
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetPreAllocateMapFlags(mapType)
+
+	// Extract endpoint ID from the given path
+	id, err := parseEndpointID(mapPath)
+	if err != nil {
+		return nil, err
+	}
+
+	statsMap, err := OpenStatsMap()
+	if err != nil {
+		return nil, err
+	}
+
 	return &PolicyMap{
 		Map: bpf.NewMap(
-			path,
+			mapPath,
 			mapType,
 			&PolicyKey{},
 			&PolicyEntry{},
 			MaxEntries,
 			flags,
 		).WithGroupName("endpoint_policy"),
-	}
+		stats: statsMap,
+		epID:  id,
+	}, nil
 }
 
 // OpenOrCreate opens (or creates) a policy map at the specified path, which
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
 func OpenOrCreate(path string) (*PolicyMap, error) {
-	m := newMap(path)
-	err := m.OpenOrCreate()
-	return m, err
-}
-
-// Create creates a policy map at the specified path.
-func Create(path string) error {
-	m := newMap(path)
-	return m.Create()
-}
-
-// Open opens the policymap at the specified path.
-func Open(path string) (*PolicyMap, error) {
-	m := newMap(path)
-	if err := m.Open(); err != nil {
+	m, err := newMap(path)
+	if err != nil {
+		return nil, err
+	}
+	err = m.OpenOrCreate()
+	if err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// InitMapInfo updates the map info defaults for policy maps.
-func InitMapInfo(maxEntries int) {
-	MaxEntries = maxEntries
+// Create creates a policy map at the specified path.
+func Create(path string) error {
+	m, err := newMap(path)
+	if err != nil {
+		return err
+	}
+	return m.Create()
 }
 
-// InitCallMap creates the policy call maps in the kernel.
-func InitCallMaps() error {
+// Open opens the policymap at the specified path.
+func Open(path string) (*PolicyMap, error) {
+	m, err := newMap(path)
+	if err != nil {
+		return nil, err
+	}
+	err = m.Open()
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// initCallMap creates the policy call maps in the kernel.
+func initCallMaps() error {
 	policyCallMap := bpf.NewMap(PolicyCallMapName,
 		ebpf.ProgramArray,
 		&CallKey{},
@@ -512,18 +570,16 @@ func InitCallMaps() error {
 		int(PolicyCallMaxEntries),
 		0,
 	)
-	err := policyCallMap.Create()
-
-	if err == nil {
-		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-			ebpf.ProgramArray,
-			&CallKey{},
-			&CallValue{},
-			int(PolicyCallMaxEntries),
-			0,
-		)
-
-		err = policyEgressCallMap.Create()
+	if err := policyCallMap.Create(); err != nil {
+		return err
 	}
-	return err
+
+	policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
+		ebpf.ProgramArray,
+		&CallKey{},
+		&CallValue{},
+		int(PolicyCallMaxEntries),
+		0,
+	)
+	return policyEgressCallMap.Create()
 }

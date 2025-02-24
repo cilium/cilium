@@ -182,10 +182,6 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
-	if err := policymap.InitCallMaps(); err != nil {
-		return fmt.Errorf("initializing policy map: %w", err)
-	}
-
 	for _, ep := range d.endpointManager.GetEndpoints() {
 		ep.InitMap()
 	}
