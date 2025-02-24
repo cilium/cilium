@@ -456,7 +456,7 @@ func remoteNodesPodCIDRs(ctx context.Context, ciliumPod check.Pod) ([]netip.Pref
 	return prefixes, nil
 }
 
-var ipcacheGetPat = regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([\d\.]+)`)
+var ipcacheGetPat = regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([^\s]+)`)
 
 // ipcacheDeleteAndRestore removes matching ipcache entry and return a function to revert the deletion.
 func ipcacheDeleteAndRestore(
