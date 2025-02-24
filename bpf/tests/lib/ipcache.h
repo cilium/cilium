@@ -52,10 +52,10 @@ ipcache_v4_add_entry_with_mask_size(__be32 addr, __u8 cluster_id, __u32 sec_iden
 
 static __always_inline void
 __ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
-		       __u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
+		       __u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel, __u32 mask_size)
 {
 	struct ipcache_key key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V6_CACHE_KEY_LEN),
+		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(mask_size),
 		.cluster_id = cluster_id,
 		.family = ENDPOINT_KEY_IPV6,
 	};
@@ -75,12 +75,20 @@ static __always_inline void
 ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
 		     __u32 tunnel_ep, __u8 spi)
 {
-	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, false);
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, false, V6_CACHE_KEY_LEN);
 }
 
 static __always_inline void
 ipcache_v6_add_entry_with_flags(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
 				__u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
 {
-	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, flag_skip_tunnel);
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, flag_skip_tunnel, V6_CACHE_KEY_LEN);
+}
+
+static __always_inline void
+ipcache_v6_add_entry_with_mask_size(const union v6addr *addr, __u8 cluster_id,
+				    __u32 sec_identity, __u32 tunnel_ep, __u8 spi,
+				    __u32 mask_size)
+{
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, false, mask_size);
 }
