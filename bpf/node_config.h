@@ -96,15 +96,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR 0xffff0000
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
 # endif /* ENABLE_MASQUERADE_IPV4 */
-#ifdef ENABLE_NODEPORT
-#define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
-#define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
-#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-#define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
-#endif
-#define SNAT_MAPPING_IPV4_SIZE 524288
-#define NODEPORT_NEIGH4_SIZE 524288
-#endif /* ENABLE_NODEPORT */
 #define CAPTURE4_RULES cilium_capture4_rules
 #define CAPTURE4_SIZE 16384
 #endif /* ENABLE_IPV4 */
@@ -114,12 +105,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #  define IPV6_SNAT_EXCLUSION_DST_CIDR      { .addr = { 0xfa, 0xce, 0xff, 0xff, 0xff, 0x0 } }
 #  define IPV6_SNAT_EXCLUSION_DST_CIDR_MASK { .addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x0 } }
 # endif /* ENABLE_MASQUERADE_IPV6 */
-#ifdef ENABLE_NODEPORT
-#define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
-#define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
-#define SNAT_MAPPING_IPV6_SIZE 524288
-#define NODEPORT_NEIGH6_SIZE 524288
-#endif /* ENABLE_NODEPORT */
 #define CAPTURE6_RULES cilium_capture6_rules
 #define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
@@ -223,23 +208,25 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define LB6_HEALTH_MAP test_cilium_lb6_health
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
 
-#ifdef ENABLE_NODEPORT
-#ifdef ENABLE_IPV4
-#define NODEPORT_NEIGH4 test_cilium_neigh4
-#endif
-#ifdef ENABLE_IPV6
-#define NODEPORT_NEIGH6 test_cilium_neigh6
-#endif
+#ifndef DIRECT_ROUTING_DEV_IFINDEX
+# define DIRECT_ROUTING_DEV_IFINDEX 0
 #endif
 
 #ifdef ENABLE_NODEPORT
-# define DIRECT_ROUTING_DEV_IFINDEX 0
 # ifdef ENABLE_IPV4
 #  ifndef IPV4_DIRECT_ROUTING
 #   define IPV4_DIRECT_ROUTING 0
 #  endif
 #  define IPV4_RSS_PREFIX IPV4_DIRECT_ROUTING
 #  define IPV4_RSS_PREFIX_BITS 32
+#  define NODEPORT_NEIGH4 test_cilium_neigh4
+#  define NODEPORT_NEIGH4_SIZE 524288
+#  define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
+#  define SNAT_MAPPING_IPV4_SIZE 524288
+#  define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
+#  if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+#   define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
+#  endif
 # endif
 # ifdef ENABLE_IPV6
 #  ifndef IPV6_DIRECT_ROUTING
@@ -247,6 +234,11 @@ volatile const __u64 __config_ROUTER_IP_2;
 #  endif
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
+#  define NODEPORT_NEIGH6 test_cilium_neigh6
+#  define NODEPORT_NEIGH6_SIZE 524288
+#  define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
+#  define SNAT_MAPPING_IPV6_SIZE 524288
+#  define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
 # endif
 #endif
 

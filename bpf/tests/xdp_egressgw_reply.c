@@ -22,9 +22,9 @@
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
-#define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
-#define DIRECT_ROUTING_IFINDEX	25
+#define IPV4_DIRECT_ROUTING		v4_node_one /* gateway node */
+#define MASQ_PORT			__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
+#define DIRECT_ROUTING_DEV_IFINDEX	25
 
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
@@ -45,7 +45,7 @@ static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
 {
-	if (ifindex != DIRECT_ROUTING_IFINDEX)
+	if (ifindex != DIRECT_ROUTING_DEV_IFINDEX)
 		return CTX_ACT_DROP;
 
 	return CTX_ACT_REDIRECT;
@@ -55,7 +55,7 @@ static __always_inline __maybe_unused long
 mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__maybe_unused int plen, __maybe_unused __u32 flags)
 {
-	params->ifindex = DIRECT_ROUTING_IFINDEX;
+	params->ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
 	if (params->ipv4_dst == CLIENT_NODE_IP) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)gateway_mac, ETH_ALEN);
