@@ -3922,3 +3922,45 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# -- Standalone DNS Proxy Configuration
+standaloneDnsProxy:
+  # -- Enable standalone DNS proxy
+  enabled: false
+  # -- Roll out Standalone Dns proxy automatically when configmap is updated.
+  rollOutPods: false
+  # -- L7 proxy mode enables proxy for DNS traffic 
+  l7Proxy: true
+  # -- Standalone DNS proxy annotations
+  annotations: {}
+  # -- Standalone DNS proxy debug mode
+  debug: false
+  # -- Standalone DNS proxy port
+  proxyPort: 40046
+  # -- Standalone DNS proxy server port
+  serverPort: 40045
+  # -- Standalone DNS proxy DNS compression
+  dnsCompression: true
+  # -- Standalone DNS proxy Node Selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Standalone DNS proxy tolerations
+  tolerations: []
+  # -- Standalone DNS proxy auto mount service account token
+  automountServiceAccountToken: false
+  # -- Standalone DNS proxy update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  # -- Standalone DNS proxy image
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    override: ~
+    repository: ""
+    tag: ""
+    digest: ""
+    useDigest: false
+    pullPolicy: "Always"

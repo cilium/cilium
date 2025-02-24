@@ -1324,6 +1324,12 @@ data:
   {{- end }}
 {{- end }}
 
+{{- if hasKey .Values "standaloneDnsProxy" }}
+  {{- if .Values.standaloneDnsProxy.enabled }}
+  enable-standalone-dns-proxy: {{ .Values.standaloneDnsProxy.enabled | quote }}
+  {{- end }}
+{{- end }}
+
 {{- if hasKey .Values "agentNotReadyTaintKey" }}
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}

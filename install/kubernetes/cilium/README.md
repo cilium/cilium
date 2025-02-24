@@ -888,6 +888,20 @@ contributors across the globe, there is almost always someone available to help.
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | socketLB | object | `{"enabled":false}` | Configure socket LB |
 | socketLB.enabled | bool | `false` | Enable socket LB |
+| standaloneDnsProxy | object | `{"annotations":{},"automountServiceAccountToken":false,"debug":false,"dnsCompression":true,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"l7Proxy":true,"nodeSelector":{"kubernetes.io/os":"linux"},"proxyPort":40046,"rollOutPods":false,"serverPort":40045,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}` | Standalone DNS Proxy Configuration |
+| standaloneDnsProxy.annotations | object | `{}` | Standalone DNS proxy annotations |
+| standaloneDnsProxy.automountServiceAccountToken | bool | `false` | Standalone DNS proxy auto mount service account token |
+| standaloneDnsProxy.debug | bool | `false` | Standalone DNS proxy debug mode |
+| standaloneDnsProxy.dnsCompression | bool | `true` | Standalone DNS proxy DNS compression |
+| standaloneDnsProxy.enabled | bool | `false` | Enable standalone DNS proxy |
+| standaloneDnsProxy.image | object | `{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false}` | Standalone DNS proxy image |
+| standaloneDnsProxy.l7Proxy | bool | `true` | L7 proxy mode enables proxy for DNS traffic  |
+| standaloneDnsProxy.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Standalone DNS proxy Node Selector |
+| standaloneDnsProxy.proxyPort | int | `40046` | Standalone DNS proxy port |
+| standaloneDnsProxy.rollOutPods | bool | `false` | Roll out Standalone Dns proxy automatically when configmap is updated. |
+| standaloneDnsProxy.serverPort | int | `40045` | Standalone DNS proxy server port |
+| standaloneDnsProxy.tolerations | list | `[]` | Standalone DNS proxy tolerations |
+| standaloneDnsProxy.updateStrategy | object | `{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}` | Standalone DNS proxy update strategy |
 | startupProbe.failureThreshold | int | `300` | failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts). |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
 | svcSourceRangeCheck | bool | `true` | Enable check of service source ranges (currently, only for LoadBalancer). |
