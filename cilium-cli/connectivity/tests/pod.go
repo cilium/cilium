@@ -326,6 +326,10 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 			matches := ipcacheGetPat.FindStringSubmatch(output.String())
+			if matches == nil {
+				ct.Warnf(`failed to find IP cache entry: "%s"`, output.String())
+				continue
+			}
 			identity := matches[1]
 			encryptkey := matches[2]
 			tunnelendpoint := matches[3]
