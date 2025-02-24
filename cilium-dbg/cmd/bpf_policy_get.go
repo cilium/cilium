@@ -117,7 +117,7 @@ func listMap(args []string) {
 }
 
 func mapContent(file string) policymap.PolicyEntriesDump {
-	m, err := policymap.Open(file)
+	m, err := policymap.OpenPolicyMap(file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
 	}
