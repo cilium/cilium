@@ -167,6 +167,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.EnableHealthCheckNodePort != other.EnableHealthCheckNodePort {
 		return false
 	}
+	if in.LBPressureMetricsInterval != other.LBPressureMetricsInterval {
+		return false
+	}
 
 	return true
 }
