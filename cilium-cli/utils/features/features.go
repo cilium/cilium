@@ -119,6 +119,9 @@ const (
 	NodeLocalDNS Feature = "node-local-dns"
 
 	Multicast Feature = "multicast-enabled"
+
+	StandaloneDNSProxy Feature = "enable-standalone-dns-proxy"
+	EmbeddedDNSProxy   Feature = "enable-embedded-dns-proxy"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -404,6 +407,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[PolicySecretSync] = Status{
 		Enabled: cm.Data[string(PolicySecretSync)] == "true",
+	}
+
+	fs[StandaloneDNSProxy] = Status{
+		Enabled: cm.Data[string(StandaloneDNSProxy)] == "true",
 	}
 }
 
