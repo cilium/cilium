@@ -172,7 +172,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
+func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	switch mode {
 	case tunnel.Geneve:
 		if err := setupGeneveDevice(sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {

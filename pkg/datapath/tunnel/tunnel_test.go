@@ -29,7 +29,7 @@ func TestConfig(t *testing.T) {
 		enablers []any
 
 		shallFail      bool
-		proto          Protocol
+		proto          EncapProtocol
 		port           uint16
 		deviceName     string
 		shouldAdaptMTU bool
@@ -89,7 +89,7 @@ func TestConfig(t *testing.T) {
 		{
 			name: "tunnel enabled, validation function",
 			ucfg: defaultTestConfig,
-			enablers: []any{enabler(true, WithValidator(func(proto Protocol) error {
+			enablers: []any{enabler(true, WithValidator(func(proto EncapProtocol) error {
 				if proto == Geneve {
 					return errors.New("invalid protocol")
 				}
@@ -134,7 +134,7 @@ func TestConfig(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.proto, out.Protocol())
+			assert.Equal(t, tt.proto, out.EncapProtocol())
 			assert.Equal(t, tt.port, out.Port())
 			assert.Equal(t, tt.deviceName, out.DeviceName())
 			assert.Equal(t, tt.shouldAdaptMTU, out.ShouldAdaptMTU())
@@ -145,7 +145,7 @@ func TestConfig(t *testing.T) {
 func TestConfigDatapathProvider(t *testing.T) {
 	tests := []struct {
 		name     string
-		proto    Protocol
+		proto    EncapProtocol
 		expected dpcfgdef.Map
 	}{
 		{
