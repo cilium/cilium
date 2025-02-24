@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -66,6 +67,7 @@ func TestScript(t *testing.T) {
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+				metrics.Cell,
 
 				lbcell.Cell,
 

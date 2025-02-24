@@ -13,7 +13,6 @@ db/initialized
 k8s/add svc-ingress.yaml eps-ingress.yaml
 
 # Validate
-sleep 1s
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
