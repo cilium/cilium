@@ -18,6 +18,9 @@ import (
 // EncapProtocol represents the valid types of encapsulation protocols.
 type EncapProtocol string
 
+// UnderlayProtocol represents the valid types of underlay protocols for the tunnel.
+type UnderlayProtocol string
+
 const (
 	// VXLAN specifies VXLAN encapsulation
 	VXLAN EncapProtocol = "vxlan"
@@ -27,6 +30,9 @@ const (
 
 	// Disabled specifies to disable encapsulation
 	Disabled EncapProtocol = ""
+
+	IPv4 UnderlayProtocol = "ipv4"
+	IPv6 UnderlayProtocol = "ipv6"
 )
 
 func (tp EncapProtocol) String() string { return string(tp) }
@@ -46,6 +52,7 @@ func (tp EncapProtocol) toDpID() string {
 // depending on the user configuration and optional overrides required by
 // additional features.
 type Config struct {
+	underlay       UnderlayProtocol
 	protocol       EncapProtocol
 	port           uint16
 	srcPortLow     uint16
@@ -63,6 +70,7 @@ type newConfigIn struct {
 
 var (
 	configDisabled = Config{
+		underlay:       IPv4,
 		protocol:       Disabled,
 		port:           0,
 		srcPortLow:     0,
@@ -79,7 +87,14 @@ func newConfig(in newConfigIn) (Config, error) {
 		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
 	}
 
+	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
+	case IPv4, IPv6:
+	default:
+		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
+	}
+
 	cfg := Config{
+		underlay:       UnderlayProtocol(in.Cfg.UnderlayProtocol),
 		protocol:       EncapProtocol(in.Cfg.TunnelProtocol),
 		port:           in.Cfg.TunnelPort,
 		srcPortLow:     0,
@@ -148,6 +163,8 @@ func NewTestConfig(proto EncapProtocol) Config {
 // case an additional feature (e.g., egress gateway) may request some traffic to
 // be routed through a tunnel.
 func (cfg Config) EncapProtocol() EncapProtocol { return cfg.protocol }
+
+func (cfg Config) UnderlayProtocol() UnderlayProtocol { return cfg.underlay }
 
 // Port returns the port used by the tunnel (0 if disabled).
 func (cfg Config) Port() uint16 { return cfg.port }
@@ -241,6 +258,7 @@ type userCfg struct {
 	TunnelProtocol        string
 	TunnelSourcePortRange string
 	TunnelPort            uint16
+	UnderlayProtocol      string
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
@@ -248,10 +266,12 @@ func (def userCfg) Flags(flags *pflag.FlagSet) {
 	flags.String("tunnel-protocol", def.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
 	flags.Uint16("tunnel-port", def.TunnelPort, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
 	flags.String("tunnel-source-port-range", def.TunnelSourcePortRange, fmt.Sprintf("Tunnel source port range hint (default %s)", defaults.TunnelSourcePortRange))
+	flags.String("underlay-protocol", def.UnderlayProtocol, "IP family for the underlay (\"ipv4\" or \"ipv6\")")
 }
 
 var defaultConfig = userCfg{
 	TunnelProtocol:        defaults.TunnelProtocol,
 	TunnelSourcePortRange: defaults.TunnelSourcePortRange,
 	TunnelPort:            0, // auto-detect based on the protocol.
+	UnderlayProtocol:      defaults.UnderlayProtocol,
 }

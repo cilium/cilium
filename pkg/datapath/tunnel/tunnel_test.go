@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 )
 
-var defaultTestConfig = userCfg{TunnelProtocol: string(Geneve), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange}
+var defaultTestConfig = userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange}
 
 func TestConfig(t *testing.T) {
 	enabler := func(enable bool, opts ...enablerOpt) any {
@@ -36,7 +36,7 @@ func TestConfig(t *testing.T) {
 	}{
 		{
 			name:      "invalid protocol",
-			ucfg:      userCfg{TunnelProtocol: "invalid", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			ucfg:      userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: "invalid", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			shallFail: true,
 		},
 		{
@@ -52,7 +52,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, vxlan",
-			ucfg:           userCfg{TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			enablers:       []any{enabler(true), enabler(false)},
 			proto:          VXLAN,
 			port:           defaults.TunnelPortVXLAN,
@@ -61,7 +61,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, vxlan, custom port",
-			ucfg:           userCfg{TunnelProtocol: string(VXLAN), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(VXLAN), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			enablers:       []any{enabler(false), enabler(true)},
 			proto:          VXLAN,
 			port:           1234,
@@ -79,7 +79,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, geneve, custom port",
-			ucfg:           userCfg{TunnelProtocol: string(Geneve), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			enablers:       []any{enabler(true), enabler(false)},
 			proto:          Geneve,
 			port:           1234,
@@ -182,6 +182,7 @@ func TestConfigDatapathProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, _ := Config{
+				underlay:       "ipv4",
 				protocol:       tt.proto,
 				port:           1234,
 				srcPortLow:     1,
