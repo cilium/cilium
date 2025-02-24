@@ -67,6 +67,9 @@ inputs:
   bgp-control-plane:
     description: 'Enable BGP Control Plane'
     default: 'false'
+  standalone-dns-proxy:
+    description: 'Enable standalone DNS proxy'
+    default: 'false'
 outputs:
   config:
     description: 'Cilium installation config'
@@ -105,7 +108,10 @@ runs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
-            --helm-set=hubble.relay.image.useDigest=false"
+            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=standaloneDnsProxy.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/standalone-dns-proxy-ci \
+            --helm-set=standaloneDnsProxy.image.tag=${{ inputs.image-tag }} \
+            --helm-set=standaloneDnsProxy.image.useDigest=false"
           fi
 
           TUNNEL="--helm-set-string=tunnelProtocol=${{ inputs.tunnel }}"
@@ -196,5 +202,10 @@ runs:
             BGP_CONTROL_PLANE="${{ env.BGP_CONTROL_PLANE_HELM_VALUES }}"
           fi
 
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
+          STANDALONE_DNS_PROXY=""
+          if [ "${{ inputs.standalone-dns-proxy }}" == "true" ]; then
+            STANDALONE_DNS_PROXY="--helm-set=standaloneDnsProxy.enabled=true --helm-set=standaloneDnsProxy.l7Proxy=true --set-string=extraConfig.enable-embedded-dns-proxy=false"
+          fi
+
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE} ${STANDALONE_DNS_PROXY}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT

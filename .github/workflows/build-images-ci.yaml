@@ -71,6 +71,9 @@ jobs:
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
             platforms: linux/amd64,linux/arm64
 
+          - name: standalone-dns-proxy
+            dockerfile: ./images/standalone-dns-proxy/Dockerfile
+            platforms: linux/amd64,linux/arm64
     steps:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

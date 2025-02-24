@@ -8,7 +8,7 @@ inputs:
   images:
     description: 'list of images to wait for'
     required: false
-    default: 'cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci'
+    default: 'cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci standalone-dns-proxy-ci'
 runs:
   using: composite
   steps:

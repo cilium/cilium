@@ -19,6 +19,7 @@ triggers:
     - tests-datapath-verifier.yaml
     - tests-e2e-upgrade.yaml
     - tests-ipsec-upgrade.yaml
+    - tests-standalone-dns-proxy.yaml
     - hubble-cli-integration-test.yaml
   /ci-aks:
     workflows:
@@ -66,6 +67,9 @@ triggers:
   /ci-runtime:
     workflows:
     - conformance-runtime.yaml
+  /ci-standalone-dns-proxy:
+    workflows:
+    - tests-standalone-dns-proxy.yaml
   /ci-verifier:
     workflows:
     - tests-datapath-verifier.yaml
@@ -125,6 +129,8 @@ workflows:
   tests-e2e-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   tests-ipsec-upgrade.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
+  tests-standalone-dns-proxy.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
