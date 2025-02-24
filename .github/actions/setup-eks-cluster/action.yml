@@ -7,6 +7,9 @@ inputs:
   region:
     description: ''
     required: true
+  zones:
+    description: 'Space-separated list of availability zones (auto-selected if unspecified)'
+    required: false
   owner:
     description: ''
     required: true
@@ -49,5 +52,12 @@ runs:
         for addon in ${{ inputs.addons }}; do
           echo "- name: $addon" >> eks-config.yaml
         done
+
+        if [[ -n "${{ inputs.zones }}"  ]]; then
+          echo "availabilityZones:" >> eks-config.yaml
+          for zone in ${{ inputs.zones }}; do
+            echo "- $zone" >> eks-config.yaml
+          done
+        fi
 
         eksctl create cluster -f ./eks-config.yaml
