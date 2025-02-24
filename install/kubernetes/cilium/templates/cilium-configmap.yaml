@@ -1269,6 +1269,7 @@ data:
 {{- end }}
 
 {{- if .Values.dnsProxy }}
+  enable-embedded-dns-proxy: {{ .Values.dnsProxy.enabled | quote }}
   {{- if hasKey .Values.dnsProxy "enableTransparentMode" }}
   # explicit setting gets precedence
   dnsproxy-enable-transparent-mode: {{ .Values.dnsProxy.enableTransparentMode | quote }}
@@ -1305,6 +1306,12 @@ data:
   {{- end }}
   {{- if .Values.dnsProxy.proxyResponseMaxDelay }}
   tofqdns-proxy-response-max-delay: {{ .Values.dnsProxy.proxyResponseMaxDelay | quote }}
+  {{- end }}
+{{- end }}
+
+{{- if hasKey .Values "standaloneDnsProxy" }}
+  {{- if .Values.standaloneDnsProxy.enabled }}
+  enable-standalone-dns-proxy: {{ .Values.standaloneDnsProxy.enabled | quote }}
   {{- end }}
 {{- end }}
 

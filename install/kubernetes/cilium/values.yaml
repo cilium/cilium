@@ -3618,6 +3618,8 @@ enableK8sTerminatingEndpoint: true
 # When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
 agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"
 dnsProxy:
+  # -- Enable DNS proxy
+  enabled: true
   # -- Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
   socketLingerTimeout: 10
   # -- DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
@@ -3847,3 +3849,43 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# -- Standalone DNS Proxy Configuration
+standaloneDnsProxy:
+  # -- Enable standalone DNS proxy
+  enabled: false
+  # -- L7 proxy mode enables proxy for DNS traffic 
+  l7Proxy: true
+  # -- Standalone DNS proxy annotations
+  annotations: {}
+  # -- Standalone DNS proxy debug mode
+  debug: false
+  # -- Standalone DNS proxy port
+  proxyPort: 40046
+  # -- Standalone DNS proxy server port
+  serverPort: 40045
+  # -- Standalone DNS proxy DNS compression
+  dnsCompression: true
+  # -- Standalone DNS proxy Node Selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Standalone DNS proxy tolerations
+  tolerations: []
+  # -- Standalone DNS proxy auto mount service account token
+  automountServiceAccountToken: false
+  # -- Standalone DNS proxy update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  # -- Standalone DNS proxy image
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    override: ~
+    repository: ""
+    tag: ""
+    digest: ""
+    useDigest: false
+    pullPolicy: "Always"
