@@ -836,4 +836,10 @@ const (
 
 	// Target identifies a target value
 	Target = "target"
+
+	// Minimum specifies a minimum allowed value
+	Minimum = "minimum"
+
+	// Maximum specifies a maximum allowed value
+	Maximum = "maximum"
 )
