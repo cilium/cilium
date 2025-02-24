@@ -24,7 +24,6 @@ const (
 	testMapSize = 1024
 )
 
-// createStatsMapForTest creates the global policy stats map.
 func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 	m, _ := newStatsMap(maxStatsEntries, slog.Default())
 	return m, m.OpenOrCreate()
@@ -39,14 +38,15 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	_, err := createStatsMapForTest(testMapSize)
+	stats, err := createStatsMapForTest(testMapSize)
 	require.NoError(tb, err)
+	require.NotNil(tb, stats)
 
-	testMap, err := newMap("cilium_policy_v2_00000")
+	testMap, err := newPolicyMap(0, testMapSize, stats)
 	require.NoError(tb, err)
 	require.NotNil(tb, testMap)
 
-	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_00000"))
+	_ = os.RemoveAll(bpf.LocalMapPath(MapName, 0))
 	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 

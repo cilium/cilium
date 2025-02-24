@@ -6,6 +6,7 @@ package policymap
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -20,7 +21,7 @@ var Cell = cell.Module(
 	"policymap",
 	"Policymap provides access to the datapath policy maps",
 	cell.Config(DefaultPolicyConfig),
-	cell.Provide(createStatsMap),
+	cell.Provide(createFactory),
 )
 
 type PolicyConfig struct {
@@ -47,7 +48,69 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(PolicyStatsMapMaxName, def.BpfPolicyStatsMapMax, "Maximum number of entries in bpf policy stats map")
 }
 
-func createStatsMap(in struct {
+type Factory interface {
+	OpenEndpoint(id uint16) (*PolicyMap, error)
+	CreateEndpoint(id uint16) error
+	RemoveEndpoint(id uint16) error
+
+	PolicyMaxEntries() int
+	StatsMaxEntries() int
+}
+
+type factory struct {
+	// policyMapEntries is the upper limit of entries in the per endpoint policy
+	// table ie the maximum number of peer identities that the endpoint could
+	// send/receive traffic to/from.
+	policyMapEntries int
+
+	stats *StatsMap
+}
+
+func newFactory(stats *StatsMap, policyMapEntries int) *factory {
+	return &factory{
+		policyMapEntries: policyMapEntries,
+		stats:            stats,
+	}
+}
+
+// OpenEndpoint opens (or creates) a policy for the specified endpoint, which
+// is used to govern which peer identities can communicate with the endpoint
+// protected by this map.
+func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
+	m, err := newPolicyMap(id, f.policyMapEntries, f.stats)
+	if err != nil {
+		return nil, err
+	}
+	err = m.OpenOrCreate()
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// CreateEndpoint creates a policy map for the specified endpoint.
+func (f *factory) CreateEndpoint(id uint16) error {
+	m, err := newPolicyMap(id, f.policyMapEntries, f.stats)
+	if err != nil {
+		return err
+	}
+	return m.Create()
+}
+
+// CreateEndpoint removes the policy map if the specified endpoint.
+func (f *factory) RemoveEndpoint(id uint16) error {
+	return os.RemoveAll(bpf.LocalMapPath(MapName, id))
+}
+
+func (f *factory) PolicyMaxEntries() int {
+	return f.policyMapEntries
+}
+
+func (f *factory) StatsMaxEntries() int {
+	return int(f.stats.MaxEntries())
+}
+
+func createFactory(in struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
@@ -56,6 +119,7 @@ func createStatsMap(in struct {
 }) (out struct {
 	cell.Out
 
+	Factory
 	bpf.MapOut[*StatsMap]
 	defines.NodeOut
 }) {
@@ -71,7 +135,6 @@ func createStatsMap(in struct {
 			logfields.Maximum, option.PolicyMapMax)
 		in.BpfPolicyMapMax = option.PolicyMapMax
 	}
-	MaxEntries = in.BpfPolicyMapMax
 
 	if in.BpfPolicyStatsMapMax < option.LimitTableMin {
 		in.Log.Warn("specified policy stats map max entries too low, using minimum value instead",
@@ -92,7 +155,10 @@ func createStatsMap(in struct {
 			"entries", maxStatsEntries)
 	}
 
+	out.Factory = Factory(newFactory(m, in.BpfPolicyMapMax))
+
 	out.NodeDefines = map[string]string{
+		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),
 		"POLICY_STATS_MAP":      StatsMapName,
 		"POLICY_STATS_MAP_SIZE": fmt.Sprint(maxStatsEntries),
 	}
