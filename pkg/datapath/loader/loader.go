@@ -474,6 +474,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		devices = append(devices, wgTypes.IfaceName)
 	}
 
+	if option.Config.EnableIPIPTermination {
+		if option.Config.IPv4Enabled() {
+			devices = append(devices, defaults.IPIPv4Device)
+		}
+		if option.Config.IPv6Enabled() {
+			devices = append(devices, defaults.IPIPv6Device)
+		}
+	}
+
 	// Replace programs on physical devices, ignoring devices that don't exist.
 	for _, device := range devices {
 		iface, err := safenetlink.LinkByName(device)
