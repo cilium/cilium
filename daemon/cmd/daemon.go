@@ -290,7 +290,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
-		if params.TunnelConfig.Protocol() != tunnel.VXLAN {
+		if params.TunnelConfig.EncapProtocol() != tunnel.VXLAN {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling protocol")
 		}
 	}
