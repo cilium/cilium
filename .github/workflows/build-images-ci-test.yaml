@@ -228,7 +228,7 @@ jobs:
           provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          push: false
           platforms: ${{ matrix.platforms }}
           tags: ${{ steps.tag.outputs.normal_tag }}
           target: release
@@ -243,7 +243,7 @@ jobs:
           provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          push: false
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
@@ -260,7 +260,7 @@ jobs:
           provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          push: false
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.unstripped_tag }}
           target: release
