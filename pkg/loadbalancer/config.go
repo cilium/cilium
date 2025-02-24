@@ -187,6 +187,11 @@ type UserConfig struct {
 	// EnableHealthCheckNodePort enables health checking of NodePort by
 	// cilium
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
+
+	// LBPressureMetricsInterval sets the interval for updating the load-balancer BPF map
+	// pressure metrics. A batch lookup is performed for all maps periodically to count
+	// the number of elements that are then reported in the `bpf-map-pressure` metric.
+	LBPressureMetricsInterval time.Duration `mapstructure:"lb-pressure-metrics-interval"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -292,6 +297,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
 
 	flags.Bool(EnableHealthCheckNodePortName, def.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
+
+	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
+	flags.MarkHidden("lb-pressure-metrics-interval")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -429,10 +437,11 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 }
 
 var DefaultUserConfig = UserConfig{
-	EnableExperimentalLB: true,
-	RetryBackoffMin:      50 * time.Millisecond,
-	RetryBackoffMax:      time.Minute,
-	LBMapEntries:         DefaultLBMapMaxEntries,
+	EnableExperimentalLB:      true,
+	RetryBackoffMin:           50 * time.Millisecond,
+	RetryBackoffMax:           time.Minute,
+	LBMapEntries:              DefaultLBMapMaxEntries,
+	LBPressureMetricsInterval: 5 * time.Minute,
 
 	LBServiceMapEntries:     0, // Uses [LBMapEntries] if zero
 	LBBackendMapEntries:     0, // ...

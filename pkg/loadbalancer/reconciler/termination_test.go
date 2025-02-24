@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -63,6 +64,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	fooNS := &netns.NetNS{}
 
 	h := hive.New(
+		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
 		loadbalancer.ConfigCell,
@@ -70,6 +72,8 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 		cell.Provide(
 			loadbalancer.NewBackendsTable,
 			statedb.RWTable[*loadbalancer.Backend].ToTable,
+			loadbalancer.NewFrontendsTable,
+			statedb.RWTable[*loadbalancer.Frontend].ToTable,
 			func() sockets.SocketDestroyer { return mock },
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 			func() testSyncChan { return syncChan },
@@ -120,7 +124,16 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 
 	// Add a backends and wait for the job to pick it up
 	wtxn := db.WriteTxn(backends)
-	backends.Insert(wtxn, &loadbalancer.Backend{Address: beAddr})
+	be := &loadbalancer.Backend{Address: beAddr}
+	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
+		ServiceName:    loadbalancer.ServiceName{Name: "foo", Namespace: "bar"},
+		SourcePriority: 0,
+	}, loadbalancer.BackendParams{
+		Address:   beAddr,
+		State:     loadbalancer.BackendStateActive,
+		Unhealthy: false,
+	})
+	backends.Insert(wtxn, be)
 	wtxn.Commit()
 
 	// Wait until the first change has been seen
@@ -144,7 +157,6 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	} else {
 		require.ElementsMatch(t, visitedNamespaces, []*netns.NetNS{hostNS})
 	}
-
 }
 
 type mockDestroyer struct {
@@ -248,11 +260,16 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	// use an unpinned real BPF map.
 	var lbmap lbmaps.LBMaps
 	h := hive.New(
+		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
 		cell.Config(loadbalancer.DefaultUserConfig),
 		cell.Config(loadbalancer.DeprecatedConfig{}),
 		cell.Provide(
+			loadbalancer.NewBackendsTable,
+			statedb.RWTable[*loadbalancer.Backend].ToTable,
+			loadbalancer.NewFrontendsTable,
+			statedb.RWTable[*loadbalancer.Frontend].ToTable,
 			loadbalancer.NewConfig,
 			func() loadbalancer.ExternalConfig { return extConfig },
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },

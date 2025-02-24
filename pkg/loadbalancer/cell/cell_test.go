@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -31,6 +32,7 @@ func TestCell(t *testing.T) {
 		daemonk8s.TablesCell,
 		maglev.Cell,
 		node.LocalNodeStoreCell,
+		metrics.Cell,
 		Cell,
 		cell.Provide(source.NewSources),
 		cell.Provide(

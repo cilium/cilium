@@ -10,5 +10,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	goleak.VerifyTestMain(m,
+		// The metrics "status" collector tries to connect to the agent and leaves these
+		// around. We should refactor pkg/metrics to split it into "plain registry"
+		// and the agent specifics.
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+	)
 }

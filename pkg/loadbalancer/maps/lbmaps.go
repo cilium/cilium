@@ -141,6 +141,9 @@ type BPFLBMaps struct {
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 
 	maglevInnerMapSpec *ebpf.MapSpec
+
+	openMapsMu lock.Mutex
+	openMaps   []*bpf.Map
 }
 
 //
@@ -337,6 +340,7 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 	}
 
 	mapsToCreate, mapsToDelete := r.allMaps()
+	openedMaps := make([]*bpf.Map, 0, len(mapsToCreate))
 	for _, desc := range mapsToCreate {
 		m := desc.ctor(desc.maxEntries)
 		*desc.target = m
@@ -350,7 +354,9 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 				return fmt.Errorf("opening map %s: %w", m.Name(), err)
 			}
 		}
+		openedMaps = append(openedMaps, m)
 	}
+	r.openMaps = openedMaps
 
 	if !r.Pinned {
 		// nothing to unpin, return early
@@ -366,9 +372,22 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 	return nil
 }
 
+// forEachOpenMap calls [fn] for each open map. The maps cannot close during this.
+func (r *BPFLBMaps) forEachOpenMap(fn func(m *bpf.Map)) {
+	r.openMapsMu.Lock()
+	defer r.openMapsMu.Unlock()
+	for _, m := range r.openMaps {
+		fn(m)
+	}
+}
+
 // Stop implements cell.HookInterface.
 func (r *BPFLBMaps) Stop(cell.HookContext) error {
 	var errs []error
+
+	r.openMapsMu.Lock()
+	r.openMaps = nil
+	r.openMapsMu.Unlock()
 
 	mapsToCreate, _ := r.allMaps()
 	for _, desc := range mapsToCreate {
