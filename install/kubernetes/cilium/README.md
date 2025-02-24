@@ -156,6 +156,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.neighMax | int | `524288` | Configure the maximum number of entries for the neighbor table. |
 | bpf.nodeMapMax | int | `nil` | Configures the maximum number of entries for the node table. |
 | bpf.policyMapMax | int | `16384` | Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema |
+| bpf.policyStatsMapMax | int | `65536` | Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema |
 | bpf.preallocateMaps | bool | `false` | Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency. |
 | bpf.root | string | `"/sys/fs/bpf"` | Configure the mount point for the BPF filesystem |
 | bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. |

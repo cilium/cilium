@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 )
@@ -66,6 +67,9 @@ var Cell = cell.Module(
 
 	// Provides access to NAT maps.
 	nat.Cell,
+
+	// Provides access to policy maps.
+	policymap.Cell,
 )
 
 type mapApiHandlerOut struct {

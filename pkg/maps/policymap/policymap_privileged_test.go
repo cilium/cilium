@@ -4,6 +4,7 @@
 package policymap
 
 import (
+	"log/slog"
 	"os"
 	"testing"
 
@@ -19,6 +20,16 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+const (
+	testMapSize = 1024
+)
+
+// createStatsMapForTest creates the global policy stats map.
+func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
+	m, _ := newStatsMap(maxStatsEntries, slog.Default())
+	return m, m.OpenOrCreate()
+}
+
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	testutils.PrivilegedTest(tb)
 
@@ -28,10 +39,15 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	testMap := newMap("cilium_policy_v2_test")
+	_, err := createStatsMapForTest(testMapSize)
+	require.NoError(tb, err)
 
-	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_test"))
-	err := testMap.CreateUnpinned()
+	testMap, err := newMap("cilium_policy_v2_00000")
+	require.NoError(tb, err)
+	require.NotNil(tb, testMap)
+
+	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_00000"))
+	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {

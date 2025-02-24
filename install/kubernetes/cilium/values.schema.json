@@ -639,6 +639,12 @@
             "integer"
           ]
         },
+        "policyStatsMapMax": {
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "preallocateMaps": {
           "type": "boolean"
         },

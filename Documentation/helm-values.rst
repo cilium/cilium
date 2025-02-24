@@ -424,6 +424,10 @@
      - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
+   * - :spelling:ignore:`bpf.policyStatsMapMax`
+     - Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema
+     - int
+     - ``65536``
    * - :spelling:ignore:`bpf.preallocateMaps`
      - Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency.
      - bool
