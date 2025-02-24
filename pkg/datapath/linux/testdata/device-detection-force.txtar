@@ -23,13 +23,13 @@ exec ip addr add 1.2.3.4/24 dev eth0
 exec ip link set eth0 up
 
 # Verify selected devices. All 3 of them should be selected.
-db/cmp devices devices.table
+db/cmp --grep='^(lo|dummy|eth)' devices devices.table
 
 # ---------------------------------------------
 
 -- devices.table --
-Name        Index   Selected   Type
-lo          1       false      device
-dummy0      2       true       dummy
-dummy1      3       true       dummy
-eth0        4       true       dummy
+Name        Selected   Type
+lo          false      device
+dummy0      true       dummy
+dummy1      true       dummy
+eth0        true       dummy

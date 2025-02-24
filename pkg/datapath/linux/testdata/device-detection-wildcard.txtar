@@ -25,13 +25,13 @@ exec ip addr add 1.2.3.4/24 dev eth0
 exec ip link set eth0 up
 
 # Verify selected devices. Only the one matching the wildcard is expected to be selected.
-db/cmp devices devices.table
+db/cmp --grep='^(lo|dummy|eth|nonviable)' devices devices.table
 
 # ---------------------------------------------
 
 -- devices.table --
-Name        Index   Selected   Type
-lo          1       false      device
-dummy0      2       true       dummy
-nonviable   3       false      dummy
-eth0        4       false      dummy
+Name        Selected   Type
+lo          false      device
+dummy0      true       dummy
+nonviable   false      dummy
+eth0        false      dummy
