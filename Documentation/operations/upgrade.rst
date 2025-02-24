@@ -327,6 +327,8 @@ Helm Options
 Agent Options
 ~~~~~~~~~~~~~
 
+* The new agent flag ``underlay-protocol`` allows selecting the underlay protocol for tunneling. It defaults to IPv4.
+
 Bugtool Options
 ~~~~~~~~~~~~~~~
 
