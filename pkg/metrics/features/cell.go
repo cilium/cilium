@@ -90,8 +90,8 @@ type featuresParams struct {
 	DynamicConfigSource dynamicconfig.ConfigSource
 }
 
-func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
-	return fp.TunnelConfig.Protocol()
+func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {
+	return fp.TunnelConfig.EncapProtocol()
 }
 
 func (fp *featuresParams) GetChainingMode() string {
@@ -119,7 +119,7 @@ func (fp *featuresParams) IsDynamicConfigSourceKindNodeConfig() bool {
 }
 
 type enabledFeatures interface {
-	TunnelProtocol() tunnel.Protocol
+	TunnelProtocol() tunnel.EncapProtocol
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
