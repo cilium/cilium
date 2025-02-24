@@ -33,6 +33,9 @@ tests are passed.
 - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
+Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be referenced in
+`GatewayClass.parametersRef <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/#gatewayclass-parameters>`_.
+
 .. admonition:: Video
  :class: attention
 
@@ -62,6 +65,7 @@ Cilium's Gateway API features:
    https
    splitting
    header
+   parameterized-gatewayclass
 
 More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v1.2.0/examples/standard>`_.
 
