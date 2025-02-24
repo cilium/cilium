@@ -19,6 +19,7 @@ runs:
         echo "CILIUM_CLI_SKIP_BUILD=true" >> $GITHUB_ENV
         echo "PUSH_TO_DOCKER_HUB=true" >> $GITHUB_ENV
         echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
+        echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/cilium/" >> $GITHUB_ENV
 
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
         KIND_VERSION="v0.26.0"

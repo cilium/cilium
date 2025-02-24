@@ -165,13 +165,19 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
+      
+      # Set environment variable from untrusted branch to test with $CILIUM_RUNTIME_IMAGE_PREFIX
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
 
       - name: Copy runtime image tag from untrusted branch
         run: |
           cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
 
       - name: Set runtime image environment variable
-        uses: ./../cilium-base-branch/set-runtime-image
+        uses: ./../cilium-base-branch/set-runtime-image        
+        with:
+          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
