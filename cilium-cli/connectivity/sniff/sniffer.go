@@ -97,7 +97,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 				return sniffer, nil
 			}
 
-			return nil, fmt.Errorf("Failed to execute tcpdump: %w", err)
+			return nil, fmt.Errorf("Failed to execute `%s`: %w", strings.Join(sniffer.cmd, " "), err)
 		case <-time.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
 			if err != nil && !errors.Is(err, io.EOF) {
