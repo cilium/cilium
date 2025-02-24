@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -221,6 +222,7 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
+	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
 	mtuConfig mtu.MTU,
@@ -321,7 +323,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
