@@ -308,6 +308,8 @@ var badLogMessages = map[string][]string{
 	routerIPMismatch:    nil,
 	emptyIPNodeIDAlloc:  nil,
 	"DATA RACE":         nil,
+	// Slog's badkey
+	"!BADKEY": nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,
