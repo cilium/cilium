@@ -276,7 +276,7 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse URL: %v", err)
 	}
-	leafKey, err := rsa.GenerateKey(rand.Reader, 512)
+	leafKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Fatalf("failed to generate leaf key: %v", err)
 	}
