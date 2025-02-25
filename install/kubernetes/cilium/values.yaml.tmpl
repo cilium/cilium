@@ -1272,6 +1272,11 @@ hubble:
       jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # -- Relabeling configs for the ServiceMonitor hubble
       relabelings:
         - sourceLabels:
@@ -1657,6 +1662,11 @@ hubble:
         annotations: {}
         # -- Interval for scrape metrics.
         interval: "10s"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Timeout after which scrape is considered to be failed.
+        scrapeTimeout: ~
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
@@ -2276,6 +2286,11 @@ prometheus:
     jobLabel: ""
     # -- Interval for scrape metrics.
     interval: "10s"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Timeout after which scrape is considered to be failed.
+    scrapeTimeout: ~
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
@@ -2589,6 +2604,11 @@ envoy:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # -- Specify the Kubernetes namespace where Prometheus expects to find
       # service monitors configured.
       # namespace: ""
@@ -2915,6 +2935,11 @@ operator:
       jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Timeout after which scrape is considered to be failed.
+      scrapeTimeout: ~
       # @schema
       # type: [null, array]
       # @schema
@@ -3576,6 +3601,11 @@ clustermesh:
         # -- Interval for scrape metrics (apiserver metrics)
         interval: "10s"
         # @schema
+        # type: [null, string]
+        # @schema
+        # -- Timeout after which scrape is considered to be failed.
+        scrapeTimeout: ~
+        # @schema
         # type: [null, array]
         # @schema
         # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
@@ -3589,6 +3619,11 @@ clustermesh:
           # -- Interval for scrape metrics (KVStoreMesh metrics)
           interval: "10s"
           # @schema
+          # type: [null, string]
+          # @schema
+          # -- Timeout after which scrape is considered to be failed.
+          scrapeTimeout: ~
+          # @schema
           # type: [null, array]
           # @schema
           # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
@@ -3601,6 +3636,11 @@ clustermesh:
         etcd:
           # -- Interval for scrape metrics (etcd metrics)
           interval: "10s"
+          # @schema
+          # type: [null, string]
+          # @schema
+          # -- Timeout after which scrape is considered to be failed.
+          scrapeTimeout: ~
           # @schema
           # type: [null, array]
           # @schema

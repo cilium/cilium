@@ -34,6 +34,9 @@ spec:
   endpoints:
   - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
+    {{- if .Values.envoy.prometheus.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.envoy.prometheus.serviceMonitor.scrapeTimeout | quote }}
+    {{- end }}
     honorLabels: true
     path: /metrics
     {{- with .Values.envoy.prometheus.serviceMonitor.relabelings }}

@@ -31,6 +31,9 @@ spec:
   endpoints:
   - port: metrics
     interval: {{ .Values.hubble.relay.prometheus.serviceMonitor.interval | quote }}
+    {{- if .Values.hubble.relay.prometheus.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.hubble.relay.prometheus.serviceMonitor.scrapeTimeout | quote }}
+    {{- end }}
     path: /metrics
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.relabelings }}
     relabelings:
