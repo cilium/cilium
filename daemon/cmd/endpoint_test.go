@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
@@ -198,8 +199,8 @@ type fetcher struct {
 	runs uint
 }
 
-func (f *fetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
-	return &slim_corev1.Namespace{ObjectMeta: slim_metav1.ObjectMeta{Name: nsName}}, nil
+func (f *fetcher) FetchNamespace(nsName string) (daemonk8s.Namespace, bool) {
+	return daemonk8s.Namespace{Name: nsName}, true
 }
 
 func (f *fetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
