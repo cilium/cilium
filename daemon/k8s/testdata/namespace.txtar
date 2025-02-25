@@ -1,0 +1,80 @@
+#
+# Validate the reflection and indexing of Table[Namespace].
+#
+
+# Start and wait for reflector to sync up (List & Watch). This is needed
+# as the fake k8s client is dumb and would miss events between the List
+# and Watch calls.
+hive start
+db/initialized
+
+# At the start the table is empty
+db/empty k8s-namespaces
+
+# Add a namespace and validate
+k8s/add ns-default.yaml
+db/cmp k8s-namespaces namespaces.table
+db/cmp --grep=reflector-k8s-namespaces health health.table
+
+# Check the JSON and YAML exports.
+db/show --format=json --out=actual.json k8s-namespaces
+cmp expected.json actual.json
+db/show --format=yaml --out=actual.yaml k8s-namespaces
+cmp expected.yaml actual.yaml
+
+# Check that the name index works (FromString is implemented).
+db/get --index=name --out=actual.table k8s-namespaces default
+cmp namespaces.table actual.table
+
+# Remove the namespace
+k8s/delete ns-default.yaml
+
+# Table should be empty
+* db/empty k8s-namespaces
+
+-- health.table --
+Module        Component                                    Level      Message
+k8s-tables    job-k8s-reflector-k8s-namespaces-daemon-k8s  OK         1 upserted, 0 deleted, 1 total objects
+
+-- namespaces.table --
+Namespace   Labels              Annotations   Age
+default     baz=quux, foo=bar   hello=world   60s
+-- expected.json --
+{
+  "name": "default",
+  "labels": {
+    "baz": "quux",
+    "foo": "bar"
+  },
+  "annotations": {
+    "hello": "world"
+  },
+  "updatedAt": "2000-01-01T10:30:00Z"
+}
+-- expected.yaml --
+name: default
+labels:
+    baz: quux
+    foo: bar
+annotations:
+    hello: world
+updatedAt: 2000-01-01T10:30:00Z
+-- ns-default.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: "2025-02-25T08:04:18Z"
+  labels:
+    foo: bar
+    baz: quux
+  annotations:
+    hello: world
+  name: default
+  resourceVersion: "66"
+  uid: 386b7b58-7634-4d05-919c-c366f6aa7859
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active
+
