@@ -20,7 +20,6 @@ import (
 	operatorServer "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -121,5 +120,5 @@ func printAPIFlagTables(
 }
 
 func main() {
-	Hive.Run(slog.New(logging.SlogNopHandler))
+	Hive.Run(slog.New(slog.DiscardHandler))
 }
