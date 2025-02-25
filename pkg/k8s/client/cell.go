@@ -63,7 +63,11 @@ var ClientBuilderCell = cell.Module(
 	cell.Provide(NewClientBuilder),
 )
 
-var k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
+var (
+	k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
+	connTimeout                 = time.Minute
+	connRetryInterval           = 5 * time.Second
+)
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
 type (
@@ -297,10 +301,11 @@ func (c *compositeClientset) startHeartbeat() {
 
 func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	stop := make(chan struct{})
-	timeout := time.NewTimer(time.Minute)
+	timeout := time.NewTimer(connTimeout)
 	defer timeout.Stop()
 	var err error
 	wait.Until(func() {
+	retry:
 		c.log.WithField("host", c.restConfigManager.getConfig().Host).Info("Establishing connection to apiserver")
 		err = isConnReady(c)
 		if err == nil {
@@ -312,12 +317,16 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 		case <-ctx.Done():
 		case <-timeout.C:
 		default:
+			if c.restConfigManager.canRotateAPIServerURL() {
+				c.restConfigManager.rotateAPIServerURL()
+				goto retry
+			}
 			return
 		}
 
 		c.log.WithError(err).WithField(logfields.IPAddr, c.restConfigManager.getConfig().Host).Error("Unable to contact k8s api-server")
 		close(stop)
-	}, 5*time.Second, stop)
+	}, connRetryInterval, stop)
 	if err == nil {
 		c.log.Info("Connected to apiserver")
 	}
