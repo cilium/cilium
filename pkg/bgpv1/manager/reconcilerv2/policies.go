@@ -249,6 +249,16 @@ func MergeRoutePolicies(policyA *types.RoutePolicy, policyB *types.RoutePolicy) 
 		}
 	}
 
+	for n := range mergedPolicy.Statements {
+		sort.SliceStable(mergedPolicy.Statements[n].Conditions.MatchPrefixes, func(i, j int) bool {
+			return mergedPolicy.Statements[n].Conditions.MatchPrefixes[i].PrefixLenMax > mergedPolicy.Statements[n].Conditions.MatchPrefixes[j].PrefixLenMax
+		})
+	}
+
+	sort.SliceStable(mergedPolicy.Statements, func(i, j int) bool {
+		return mergedPolicy.Statements[i].Conditions.MatchPrefixes[0].PrefixLenMax > mergedPolicy.Statements[j].Conditions.MatchPrefixes[0].PrefixLenMax
+	})
+
 	return mergedPolicy, nil
 }
 
