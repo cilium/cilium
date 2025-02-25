@@ -147,11 +147,12 @@ const (
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_identity"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	_                uint16
-	Key              uint8                   `align:"key"`
-	Flags            RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
+	SecurityIdentity uint32 `align:"sec_identity"`
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	TunnelEndpoint types.IPv6 `align:"tunnel_endpoint"`
+	_              uint16
+	Key            uint8                   `align:"key"`
+	Flags          RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
@@ -160,6 +161,24 @@ func (v *RemoteEndpointInfo) String() string {
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
+
+// NewValue returns a RemoteEndpointInfo based on the provided security
+// identity, tunnel endpoint IP, IPsec key, and flags. The address family is
+// automatically detected.
+func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpointInfoFlags) RemoteEndpointInfo {
+	result := RemoteEndpointInfo{}
+
+	result.SecurityIdentity = secID
+	if ip4 := tunnelEndpoint.To4(); ip4 != nil {
+		copy(result.TunnelEndpoint[:], ip4)
+	} else {
+		copy(result.TunnelEndpoint[:], tunnelEndpoint)
+	}
+	result.Key = key
+	result.Flags = flags
+
+	return result
+}
 
 // Map represents an IPCache BPF map.
 type Map struct {

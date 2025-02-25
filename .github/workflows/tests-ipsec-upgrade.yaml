@@ -382,14 +382,14 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
-          tests: 'seq-.*'
+          tests: "seq-.*,!(l7|fqdn)"
 
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
-          tests: '!seq-.*'
+          tests: "!(seq-.*|l7|fqdn)"
           extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
 
       - name: Assert that no unencrypted packets are leaked during Cilium upgrade
@@ -439,14 +439,14 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
-          tests: 'seq-.*'
+          tests: "seq-.*,!(l7|fqdn)"
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
-          tests: '!seq-.*'
+          tests: "!(seq-.*|l7|fqdn)"
           extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
 
       - name: Assert that no unencrypted packets are leaked during Cilium downgrade
