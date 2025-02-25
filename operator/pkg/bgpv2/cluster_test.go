@@ -21,53 +21,52 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/utils/ptr"
 
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
-	cluster1 = cilium_api_v2alpha1.CiliumBGPInstance{
+	cluster1 = v2.CiliumBGPInstance{
 		Name:      "cluster-1-instance-65001",
 		LocalASN:  ptr.To[int64](65001),
 		LocalPort: ptr.To[int32](1179),
-		Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+		Peers: []v2.CiliumBGPPeer{
 			{
 				Name:        "cluster-1-instance-65002-peer-10.0.0.2",
 				PeerAddress: ptr.To[string]("10.0.0.2"),
 				PeerASN:     ptr.To[int64](65002),
-				PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+				PeerConfigRef: &v2.PeerConfigReference{
 					Name: "peer-1",
 				},
 			},
 		},
 	}
 
-	expectedNode1 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
+	expectedNode1 = v2.CiliumBGPNodeInstance{
 		Name:      "cluster-1-instance-65001",
 		LocalASN:  ptr.To[int64](65001),
 		LocalPort: ptr.To[int32](1179),
-		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
+		Peers: []v2.CiliumBGPNodePeer{
 			{
 				Name:        "cluster-1-instance-65002-peer-10.0.0.2",
 				PeerAddress: ptr.To[string]("10.0.0.2"),
 				PeerASN:     ptr.To[int64](65002),
-				PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+				PeerConfigRef: &v2.PeerConfigReference{
 					Name: "peer-1",
 				},
 			},
 		},
 	}
 
-	nodeOverride1 = cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideSpec{
-		BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeConfigInstanceOverride{
+	nodeOverride1 = v2.CiliumBGPNodeConfigOverrideSpec{
+		BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
 			{
 				Name:      "cluster-1-instance-65001",
 				RouterID:  ptr.To[string]("10.10.10.10"),
 				LocalPort: ptr.To[int32](5400),
 				LocalASN:  ptr.To[int64](65010),
-				Peers: []cilium_api_v2alpha1.CiliumBGPNodeConfigPeerOverride{
+				Peers: []v2.CiliumBGPNodeConfigPeerOverride{
 					{
 						Name:         "cluster-1-instance-65002-peer-10.0.0.2",
 						LocalAddress: ptr.To[string]("10.10.10.1"),
@@ -77,32 +76,32 @@ var (
 		},
 	}
 
-	expectedNodeWithOverride1 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
+	expectedNodeWithOverride1 = v2.CiliumBGPNodeInstance{
 		Name:      "cluster-1-instance-65001",
 		LocalASN:  ptr.To[int64](65010),
 		RouterID:  ptr.To[string]("10.10.10.10"),
 		LocalPort: ptr.To[int32](5400),
-		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
+		Peers: []v2.CiliumBGPNodePeer{
 			{
 				Name:         "cluster-1-instance-65002-peer-10.0.0.2",
 				PeerAddress:  ptr.To[string]("10.0.0.2"),
 				PeerASN:      ptr.To[int64](65002),
 				LocalAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+				PeerConfigRef: &v2.PeerConfigReference{
 					Name: "peer-1",
 				},
 			},
 		},
 	}
 
-	nodeOverride2 = cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideSpec{
-		BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeConfigInstanceOverride{
+	nodeOverride2 = v2.CiliumBGPNodeConfigOverrideSpec{
+		BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
 			{
 				Name:      "cluster-1-instance-65001",
 				RouterID:  ptr.To[string]("10.10.10.10"),
 				LocalPort: nil,
 				LocalASN:  ptr.To[int64](65010),
-				Peers: []cilium_api_v2alpha1.CiliumBGPNodeConfigPeerOverride{
+				Peers: []v2.CiliumBGPNodeConfigPeerOverride{
 					{
 						Name:         "cluster-1-instance-65002-peer-10.0.0.2",
 						LocalAddress: ptr.To[string]("10.10.10.1"),
@@ -112,18 +111,18 @@ var (
 		},
 	}
 
-	expectedNodeWithOverride2 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
+	expectedNodeWithOverride2 = v2.CiliumBGPNodeInstance{
 		Name:      "cluster-1-instance-65001",
 		LocalASN:  ptr.To[int64](65010),
 		RouterID:  ptr.To[string]("10.10.10.10"),
 		LocalPort: ptr.To[int32](1179),
-		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
+		Peers: []v2.CiliumBGPNodePeer{
 			{
 				Name:         "cluster-1-instance-65002-peer-10.0.0.2",
 				PeerAddress:  ptr.To[string]("10.0.0.2"),
 				PeerASN:      ptr.To[int64](65002),
 				LocalAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+				PeerConfigRef: &v2.PeerConfigReference{
 					Name: "peer-1",
 				},
 			},
@@ -134,28 +133,28 @@ var (
 func Test_NodeLabels(t *testing.T) {
 	tests := []struct {
 		description        string
-		node               *cilium_api_v2.CiliumNode
-		clusterConfig      *cilium_api_v2alpha1.CiliumBGPClusterConfig
-		expectedNodeConfig *cilium_api_v2alpha1.CiliumBGPNodeConfig
+		node               *v2.CiliumNode
+		clusterConfig      *v2.CiliumBGPClusterConfig
+		expectedNodeConfig *v2.CiliumBGPNodeConfig
 	}{
 		{
 			description: "node without any labels",
-			node: &cilium_api_v2.CiliumNode{
+			node: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 				},
 			},
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "bgp-cluster-config",
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack1",
 						},
 					},
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						cluster1,
 					},
 				},
@@ -164,7 +163,7 @@ func Test_NodeLabels(t *testing.T) {
 		},
 		{
 			description: "node with label and cluster config with MatchLabels",
-			node: &cilium_api_v2.CiliumNode{
+			node: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					Labels: map[string]string{
@@ -172,33 +171,33 @@ func Test_NodeLabels(t *testing.T) {
 					},
 				},
 			},
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "bgp-cluster-config",
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack1",
 						},
 					},
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						cluster1,
 					},
 				},
 			},
-			expectedNodeConfig: &cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					OwnerReferences: []meta_v1.OwnerReference{
 						{
-							Kind: cilium_api_v2alpha1.BGPCCKindDefinition,
+							Kind: v2.BGPCCKindDefinition,
 							Name: "bgp-cluster-config",
 						},
 					},
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+				Spec: v2.CiliumBGPNodeSpec{
+					BGPInstances: []v2.CiliumBGPNodeInstance{
 						expectedNode1,
 					},
 				},
@@ -206,7 +205,7 @@ func Test_NodeLabels(t *testing.T) {
 		},
 		{
 			description: "node with label and cluster config with MatchExpression",
-			node: &cilium_api_v2.CiliumNode{
+			node: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					Labels: map[string]string{
@@ -214,11 +213,11 @@ func Test_NodeLabels(t *testing.T) {
 					},
 				},
 			},
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "bgp-cluster-config",
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchExpressions: []slim_meta_v1.LabelSelectorRequirement{
 							{
@@ -228,23 +227,23 @@ func Test_NodeLabels(t *testing.T) {
 							},
 						},
 					},
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						cluster1,
 					},
 				},
 			},
-			expectedNodeConfig: &cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					OwnerReferences: []meta_v1.OwnerReference{
 						{
-							Kind: cilium_api_v2alpha1.BGPCCKindDefinition,
+							Kind: v2.BGPCCKindDefinition,
 							Name: "bgp-cluster-config",
 						},
 					},
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+				Spec: v2.CiliumBGPNodeSpec{
+					BGPInstances: []v2.CiliumBGPNodeInstance{
 						expectedNode1,
 					},
 				},
@@ -252,7 +251,7 @@ func Test_NodeLabels(t *testing.T) {
 		},
 		{
 			description: "node with label and cluster config with nil node selector",
-			node: &cilium_api_v2.CiliumNode{
+			node: &v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					Labels: map[string]string{
@@ -260,29 +259,29 @@ func Test_NodeLabels(t *testing.T) {
 					},
 				},
 			},
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "bgp-cluster-config",
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						cluster1,
 					},
 				},
 			},
-			expectedNodeConfig: &cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfig: &v2.CiliumBGPNodeConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: "node-1",
 					OwnerReferences: []meta_v1.OwnerReference{
 						{
-							Kind: cilium_api_v2alpha1.BGPCCKindDefinition,
+							Kind: v2.BGPCCKindDefinition,
 							Name: "bgp-cluster-config",
 						},
 					},
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+				Spec: v2.CiliumBGPNodeSpec{
+					BGPInstances: []v2.CiliumBGPNodeInstance{
 						expectedNode1,
 					},
 				},
@@ -345,16 +344,16 @@ func Test_ClusterConfigSteps(t *testing.T) {
 
 	steps := []struct {
 		description            string
-		clusterConfig          *cilium_api_v2alpha1.CiliumBGPClusterConfig
-		nodes                  []*cilium_api_v2.CiliumNode
-		nodeOverrides          []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride
-		expectedNodeConfigs    []*cilium_api_v2alpha1.CiliumBGPNodeConfig
+		clusterConfig          *v2.CiliumBGPClusterConfig
+		nodes                  []*v2.CiliumNode
+		nodeOverrides          []*v2.CiliumBGPNodeConfigOverride
+		expectedNodeConfigs    []*v2.CiliumBGPNodeConfig
 		expectedTrueConditions []string
 	}{
 		{
 			description:   "initial node setup",
 			clusterConfig: nil,
-			nodes: []*cilium_api_v2.CiliumNode{
+			nodes: []*v2.CiliumNode{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -377,24 +376,24 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		},
 		{
 			description: "initial bgp cluster config",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack1",
 						},
 					},
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						cluster1,
 					},
 				},
 			},
 			nodes:         nil,
 			nodeOverrides: nil,
-			expectedNodeConfigs: []*cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfigs: []*v2.CiliumBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -404,8 +403,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -419,8 +418,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -431,7 +430,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			description:   "add node override1",
 			clusterConfig: nil,
 			nodes:         nil,
-			nodeOverrides: []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride{
+			nodeOverrides: []*v2.CiliumBGPNodeConfigOverride{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -440,7 +439,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					Spec: nodeOverride1,
 				},
 			},
-			expectedNodeConfigs: []*cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfigs: []*v2.CiliumBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -450,8 +449,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNodeWithOverride1,
 						},
 					},
@@ -465,8 +464,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -477,7 +476,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			description:   "add node override2",
 			clusterConfig: nil,
 			nodes:         nil,
-			nodeOverrides: []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride{
+			nodeOverrides: []*v2.CiliumBGPNodeConfigOverride{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -486,7 +485,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					Spec: nodeOverride2,
 				},
 			},
-			expectedNodeConfigs: []*cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfigs: []*v2.CiliumBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -496,8 +495,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNodeWithOverride2,
 						},
 					},
@@ -511,8 +510,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -522,7 +521,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		{
 			description:   "add new node",
 			clusterConfig: nil,
-			nodes: []*cilium_api_v2.CiliumNode{
+			nodes: []*v2.CiliumNode{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-3",
@@ -533,7 +532,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 				},
 			},
 			nodeOverrides: nil,
-			expectedNodeConfigs: []*cilium_api_v2alpha1.CiliumBGPNodeConfig{
+			expectedNodeConfigs: []*v2.CiliumBGPNodeConfig{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -543,8 +542,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNodeWithOverride2,
 						},
 					},
@@ -558,8 +557,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -573,8 +572,8 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							},
 						},
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+					Spec: v2.CiliumBGPNodeSpec{
+						BGPInstances: []v2.CiliumBGPNodeInstance{
 							expectedNode1,
 						},
 					},
@@ -584,7 +583,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		{
 			description:   "remove node labels",
 			clusterConfig: nil,
-			nodes: []*cilium_api_v2.CiliumNode{
+			nodes: []*v2.CiliumNode{
 				{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node-1",
@@ -604,7 +603,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			nodeOverrides:       nil,
 			expectedNodeConfigs: nil,
 			expectedTrueConditions: []string{
-				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode,
+				v2.BGPClusterConfigConditionNoMatchingNode,
 			},
 		},
 	}
@@ -681,7 +680,7 @@ func TestClusterConfigConditions(t *testing.T) {
 	clusterConfigName := "cluster-config0"
 	peerConfigName := "peer-config0"
 
-	node := cilium_api_v2.CiliumNode{
+	node := v2.CiliumNode{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "node-1",
 			Labels: map[string]string{
@@ -690,7 +689,7 @@ func TestClusterConfigConditions(t *testing.T) {
 		},
 	}
 
-	peerConfig := cilium_api_v2alpha1.CiliumBGPPeerConfig{
+	peerConfig := v2.CiliumBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: peerConfigName,
 		},
@@ -698,16 +697,16 @@ func TestClusterConfigConditions(t *testing.T) {
 
 	tests := []struct {
 		name                    string
-		clusterConfig           *cilium_api_v2alpha1.CiliumBGPClusterConfig
+		clusterConfig           *v2.CiliumBGPClusterConfig
 		expectedConditionStatus map[string]meta_v1.ConditionStatus
 	}{
 		{
 			name: "NoMatchingNode False",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack1",
@@ -716,30 +715,30 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "NoMatchingNode False Nil Selector",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: nil,
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "NoMatchingNode True",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
 						MatchLabels: map[string]string{
 							"bgp": "rack2",
@@ -748,23 +747,23 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
+				v2.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
 			},
 		},
 		{
 			name: "MissingPeerConfig False",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						{
-							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+							Peers: []v2.CiliumBGPPeer{
 								{
 									Name: "peer0",
-									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+									PeerConfigRef: &v2.PeerConfigReference{
 										Name: peerConfigName,
 									},
 								},
@@ -774,20 +773,20 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingPeerConfig False nil PeerConfigRef",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						{
-							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+							Peers: []v2.CiliumBGPPeer{
 								{
 									Name: "peer0",
 								},
@@ -797,23 +796,23 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
 			},
 		},
 		{
 			name: "MissingPeerConfig True",
-			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+			clusterConfig: &v2.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: clusterConfigName,
 				},
-				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+				Spec: v2.CiliumBGPClusterConfigSpec{
 					NodeSelector: nil,
-					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+					BGPInstances: []v2.CiliumBGPInstance{
 						{
-							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+							Peers: []v2.CiliumBGPPeer{
 								{
 									Name: "peer0",
-									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+									PeerConfigRef: &v2.PeerConfigReference{
 										Name: peerConfigName + "-foo",
 									},
 								},
@@ -823,7 +822,7 @@ func TestClusterConfigConditions(t *testing.T) {
 				},
 			},
 			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
-				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+				v2.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
 			},
 		},
 	}
@@ -875,7 +874,7 @@ func TestClusterConfigConditions(t *testing.T) {
 }
 
 func TestConflictingClusterConfigCondition(t *testing.T) {
-	nodes := []*cilium_api_v2.CiliumNode{
+	nodes := []*v2.CiliumNode{
 		{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: "node-0",
@@ -1087,17 +1086,17 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			}
 
 			for _, config := range tt.clusterConfigs {
-				clusterConfig := &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				clusterConfig := &v2.CiliumBGPClusterConfig{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: config.name,
 						// Fake client doesn't set UID. Assign it manually.
 						UID: uuid.NewUUID(),
 					},
-					Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					Spec: v2.CiliumBGPClusterConfigSpec{
 						NodeSelector: config.selector,
-						BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						BGPInstances: []v2.CiliumBGPInstance{
 							{
-								Peers: []cilium_api_v2alpha1.CiliumBGPPeer{},
+								Peers: []v2.CiliumBGPPeer{},
 							},
 						},
 					},
@@ -1120,7 +1119,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 				for _, config := range configs.Items {
 					cond := meta.FindStatusCondition(
 						config.Status.Conditions,
-						cilium_api_v2alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
+						v2.BGPClusterConfigConditionConflictingClusterConfigs,
 					)
 					if !assert.NotNil(ct, cond, "Condition not found") {
 						return
@@ -1189,18 +1188,18 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 
 	watchersReady()
 
-	clusterConfig := &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+	clusterConfig := &v2.CiliumBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "config0",
 		},
-		Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{},
-		Status: cilium_api_v2alpha1.CiliumBGPClusterConfigStatus{
+		Spec: v2.CiliumBGPClusterConfigSpec{},
+		Status: v2.CiliumBGPClusterConfigStatus{
 			Conditions: []meta_v1.Condition{},
 		},
 	}
 
 	// Fill with all known conditions
-	for _, cond := range cilium_api_v2alpha1.AllBGPClusterConfigConditions {
+	for _, cond := range v2.AllBGPClusterConfigConditions {
 		clusterConfig.Status.Conditions = append(clusterConfig.Status.Conditions, meta_v1.Condition{
 			Type: cond,
 		})
@@ -1221,7 +1220,7 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	}, time.Second*3, time.Millisecond*100)
 }
 
-func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_api_v2.CiliumNode) {
+func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *v2.CiliumNode) {
 	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.nodeClient.Create(ctx, node, meta_v1.CreateOptions{})
@@ -1233,7 +1232,7 @@ func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *
 	req.NoError(err)
 }
 
-func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc *cilium_api_v2alpha1.CiliumBGPClusterConfig) {
+func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc *v2.CiliumBGPClusterConfig) {
 	if bgpcc == nil {
 		return
 	}
@@ -1249,7 +1248,7 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 	req.NoError(err)
 }
 
-func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *cilium_api_v2alpha1.CiliumBGPPeerConfig) {
+func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *v2.CiliumBGPPeerConfig) {
 	if bgppc == nil {
 		return
 	}
@@ -1265,7 +1264,7 @@ func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc
 	req.NoError(err)
 }
 
-func upsertNodeOverrides(req *require.Assertions, ctx context.Context, f *fixture, nodeOverride *cilium_api_v2alpha1.CiliumBGPNodeConfigOverride) {
+func upsertNodeOverrides(req *require.Assertions, ctx context.Context, f *fixture, nodeOverride *v2.CiliumBGPNodeConfigOverride) {
 	_, err := f.bgpncoClient.Get(ctx, nodeOverride.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpncoClient.Create(ctx, nodeOverride, meta_v1.CreateOptions{})

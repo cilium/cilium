@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -53,9 +53,9 @@ type StatusReconciler struct {
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
 	nodeName            string
-	bgpNodeConfig       store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
-	desiredStatus       *v2alpha1.CiliumBGPNodeStatus
-	runningStatus       *v2alpha1.CiliumBGPNodeStatus
+	bgpNodeConfig       store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
+	desiredStatus       *v2.CiliumBGPNodeStatus
+	runningStatus       *v2.CiliumBGPNodeStatus
 	reconcileInterval   time.Duration
 	conditionsUpdated   bool
 }
@@ -70,7 +70,7 @@ type StatusReconcilerIn struct {
 	ClientSet           k8s_client.Clientset
 	Logger              logrus.FieldLogger
 	LocalNode           daemon_k8s.LocalCiliumNodeResource
-	BGPNodeConfig       store.BGPCPResourceStore[*v2alpha1.CiliumBGPNodeConfig]
+	BGPNodeConfig       store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 }
 
 type StatusReconcilerOut struct {
@@ -96,8 +96,8 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		ReconcileErrorTable: in.ReconcileErrorTable,
 		bgpNodeConfig:       in.BGPNodeConfig,
 		reconcileInterval:   CRDStatusUpdateInterval,
-		desiredStatus:       &v2alpha1.CiliumBGPNodeStatus{},
-		runningStatus:       &v2alpha1.CiliumBGPNodeStatus{},
+		desiredStatus:       &v2.CiliumBGPNodeStatus{},
+		runningStatus:       &v2.CiliumBGPNodeStatus{},
 	}
 
 	// If the status reporting is disabled, schedule a job to cleanup
@@ -221,7 +221,7 @@ func (r *StatusReconciler) updateErrorConditions() error {
 	}
 
 	cond := metav1.Condition{
-		Type:               v2alpha1.BGPInstanceConditionReconcileError,
+		Type:               v2.BGPInstanceConditionReconcileError,
 		Status:             metav1.ConditionFalse,
 		ObservedGeneration: bgpNodeConfig.GetGeneration(),
 		Reason:             "BGPReconcileError",
@@ -253,7 +253,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileP
 	// do not reconcile if not in BGPv2 mode
 	if params.ConfigMode.Get() != mode.BGPv2 {
 		// reset status to empty if not in BGPv2 mode
-		r.desiredStatus = &v2alpha1.CiliumBGPNodeStatus{}
+		r.desiredStatus = &v2.CiliumBGPNodeStatus{}
 		return nil
 	}
 
@@ -324,7 +324,7 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 			{
 				OP:    "replace",
 				Path:  "/status",
-				Value: &v2alpha1.CiliumBGPNodeStatus{},
+				Value: &v2.CiliumBGPNodeStatus{},
 			},
 		}
 
@@ -333,7 +333,7 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 			return false, fmt.Errorf("BUG: cannot marshal empty status: %w", err)
 		}
 
-		if _, err := r.ClientSet.CiliumV2alpha1().CiliumBGPNodeConfigs().Patch(
+		if _, err := r.ClientSet.CiliumV2().CiliumBGPNodeConfigs().Patch(
 			ctx,
 			nodeName,
 			k8s_types.JSONPatchType,
@@ -353,8 +353,8 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 	})
 }
 
-func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v2alpha1.CiliumBGPNodeInstanceStatus, error) {
-	res := &v2alpha1.CiliumBGPNodeInstanceStatus{
+func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v2.CiliumBGPNodeInstanceStatus, error) {
+	res := &v2.CiliumBGPNodeInstanceStatus{
 		Name:     instance.Config.Name,
 		LocalASN: instance.Config.LocalASN,
 	}
@@ -370,7 +370,7 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 			continue
 		}
 
-		peerStatus := v2alpha1.CiliumBGPNodePeerStatus{
+		peerStatus := v2.CiliumBGPNodePeerStatus{
 			Name:        configuredPeers.Name,
 			PeerAddress: *configuredPeers.PeerAddress,
 			PeerASN:     configuredPeers.PeerASN,
@@ -396,14 +396,14 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 			}
 
 			// applied timers
-			peerStatus.Timers = &v2alpha1.CiliumBGPTimersState{
+			peerStatus.Timers = &v2.CiliumBGPTimersState{
 				AppliedHoldTimeSeconds:  ptr.To[int32](int32(runningPeerState.AppliedHoldTimeSeconds)),
 				AppliedKeepaliveSeconds: ptr.To[int32](int32(runningPeerState.AppliedKeepAliveTimeSeconds)),
 			}
 
 			// update route counts
 			for _, af := range runningPeerState.Families {
-				peerStatus.RouteCount = append(peerStatus.RouteCount, v2alpha1.BGPFamilyRouteCount{
+				peerStatus.RouteCount = append(peerStatus.RouteCount, v2.BGPFamilyRouteCount{
 					Afi:        af.Afi,
 					Safi:       af.Safi,
 					Advertised: ptr.To[int32](int32(af.Advertised)),
@@ -469,7 +469,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 		return fmt.Errorf("json.Marshal(%v) failed: %w", replaceStatus, err)
 	}
 
-	client := r.ClientSet.CiliumV2alpha1().CiliumBGPNodeConfigs()
+	client := r.ClientSet.CiliumV2().CiliumBGPNodeConfigs()
 	_, err = client.Patch(ctx, r.nodeName,
 		k8s_types.JSONPatchType, createStatusPatch, metav1.PatchOptions{
 			FieldManager: r.Name(),
@@ -478,7 +478,7 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 		if k8sErrors.IsNotFound(err) {
 			// it is possible that CiliumBGPNodeConfig is deleted, in that case we set running config to
 			// empty and return. Desired config will eventually be set to empty by state reconciler.
-			r.runningStatus = &v2alpha1.CiliumBGPNodeStatus{}
+			r.runningStatus = &v2.CiliumBGPNodeStatus{}
 			return nil
 		}
 
