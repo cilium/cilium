@@ -323,6 +323,7 @@ Helm Options
   ``k8sClientExponentialBackoff.backoffMaxDurationSeconds``. Users who were already setting these
   using ``extraEnv`` should either remove them from ``extraEnv`` or set ``k8sClientExponentialBackoff.enabled=false``.
 * The deprecated Helm option ``hubble.relay.dialTimeout`` has been removed.
+* The new Helm option ``underlayProtocol`` allows selecting the underlay protocol for tunneling. It defaults to IPv4.
 
 Agent Options
 ~~~~~~~~~~~~~
