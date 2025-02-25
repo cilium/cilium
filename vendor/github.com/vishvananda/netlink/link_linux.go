@@ -2671,8 +2671,8 @@ func (h *Handle) LinkSetGroup(link Link, group int) error {
 }
 
 func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
-	if nk.peerLinkAttrs.HardwareAddr != nil || nk.HardwareAddr != nil {
-		return fmt.Errorf("netkit doesn't support setting Ethernet")
+	if nk.Mode != NETKIT_MODE_L2 && (nk.LinkAttrs.HardwareAddr != nil || nk.peerLinkAttrs.HardwareAddr != nil) {
+		return fmt.Errorf("netkit only allows setting Ethernet in L2 mode")
 	}
 
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
@@ -2723,6 +2723,9 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 		case NsFd:
 			peer.AddRtAttr(unix.IFLA_NET_NS_FD, nl.Uint32Attr(uint32(ns)))
 		}
+	}
+	if nk.peerLinkAttrs.HardwareAddr != nil {
+		peer.AddRtAttr(unix.IFLA_ADDRESS, []byte(nk.peerLinkAttrs.HardwareAddr))
 	}
 	return nil
 }
