@@ -17,6 +17,7 @@ import (
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -147,6 +148,11 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 				return nil
 			},
 			func(node *cilium_v2.CiliumNode) error {
+				value, ok := node.Annotations[annotation.IPAMIgnore]
+				if ok && strings.ToLower(value) == "true" {
+					return nil
+				}
+
 				// node is deep copied before it is stored in pkg/aws/eni
 				s.nodeManager.Upsert(node)
 				return nil
