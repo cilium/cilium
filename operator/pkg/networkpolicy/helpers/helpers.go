@@ -6,6 +6,7 @@ package helpers
 import (
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -23,7 +24,7 @@ func GetReferencedTLSSecretsFromPortRules(ports api.PortRules, logger *slog.Logg
 				Name:      port.TerminatingTLS.Secret.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			logger.Debug("Enqueued secret reconciliation for network policy", "secret", s)
+			logger.Debug("Enqueued secret reconciliation for network policy", logfields.Name, s)
 		}
 
 		if port.OriginatingTLS != nil && port.OriginatingTLS.Secret != nil {
@@ -32,7 +33,7 @@ func GetReferencedTLSSecretsFromPortRules(ports api.PortRules, logger *slog.Logg
 				Name:      port.OriginatingTLS.Secret.Name,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			logger.Debug("Enqueued secret reconciliation for network policy", "secret", s)
+			logger.Debug("Enqueued secret reconciliation for network policy", logfields.Name, s)
 		}
 	}
 

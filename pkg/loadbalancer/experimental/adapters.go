@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/service/store"
@@ -123,18 +124,18 @@ func (s *serviceCacheAdapter) DebugStatus() string {
 
 // DeleteEndpoints implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) DeleteEndpoints(svcID k8s.EndpointSliceID, swg *lock.StoppableWaitGroup) k8s.ServiceID {
-	s.log.Debug("serviceCacheAdapter: Ignoring DeleteEndpoints", "svcID", svcID)
+	s.log.Debug("serviceCacheAdapter: Ignoring DeleteEndpoints", logfields.ServiceID, svcID)
 	return k8s.ServiceID{}
 }
 
 // DeleteService implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) DeleteService(k8sSvc *v1.Service, swg *lock.StoppableWaitGroup) {
-	s.log.Debug("serviceCacheAdapter: Ignoring DeleteService", "name", k8sSvc.Namespace+"/"+k8sSvc.Name)
+	s.log.Debug("serviceCacheAdapter: Ignoring DeleteService", logfields.Name, k8sSvc.Namespace+"/"+k8sSvc.Name)
 }
 
 // EnsureService implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) EnsureService(svcID k8s.ServiceID, swg *lock.StoppableWaitGroup) bool {
-	s.log.Debug("serviceCacheAdapter: Ignoring EnsureService", "svcID", svcID)
+	s.log.Debug("serviceCacheAdapter: Ignoring EnsureService", logfields.ServiceID, svcID)
 	return true
 }
 
@@ -313,13 +314,13 @@ func clusterServiceToServiceAndFrontends(csvc *store.ClusterService) (*Service, 
 
 // UpdateEndpoints implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) UpdateEndpoints(newEndpoints *k8s.Endpoints, swg *lock.StoppableWaitGroup) (k8s.ServiceID, *k8s.Endpoints) {
-	s.log.Debug("serviceCacheAdapter: Ignoring UpdateEndpoints", "name", newEndpoints.Namespace+"/"+newEndpoints.Name)
+	s.log.Debug("serviceCacheAdapter: Ignoring UpdateEndpoints", logfields.Name, newEndpoints.Namespace+"/"+newEndpoints.Name)
 	return k8s.ServiceID{}, newEndpoints
 }
 
 // UpdateService implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) UpdateService(k8sSvc *v1.Service, swg *lock.StoppableWaitGroup) k8s.ServiceID {
-	s.log.Debug("serviceCacheAdapter: Ignoring UpdateService", "name", k8sSvc.Namespace+"/"+k8sSvc.Name)
+	s.log.Debug("serviceCacheAdapter: Ignoring UpdateService", logfields.Name, k8sSvc.Namespace+"/"+k8sSvc.Name)
 	return k8s.ServiceID{}
 }
 
@@ -485,14 +486,14 @@ type serviceManagerAdapter struct {
 
 // DeleteService implements service.ServiceManager.
 func (s *serviceManagerAdapter) DeleteService(frontend loadbalancer.L3n4Addr) (bool, error) {
-	s.log.Debug("serviceManagerAdapter: Ignoring DeleteService", "frontend", frontend.StringWithProtocol())
+	s.log.Debug("serviceManagerAdapter: Ignoring DeleteService", logfields.Frontend, frontend.StringWithProtocol())
 	return true, nil
 }
 
 // DeleteServiceByID implements service.ServiceManager.
 func (s *serviceManagerAdapter) DeleteServiceByID(id loadbalancer.ServiceID) (bool, error) {
 	// Used by REST API.
-	s.log.Debug("serviceManagerAdapter: Ignoring DeleteServiceByID", "id", id)
+	s.log.Debug("serviceManagerAdapter: Ignoring DeleteServiceByID", logfields.ID, id)
 	return true, nil
 }
 
@@ -658,7 +659,7 @@ func (s *serviceManagerAdapter) UpdateBackendsState(backends []*loadbalancer.Bac
 // UpsertService implements service.ServiceManager.
 func (s *serviceManagerAdapter) UpsertService(svc *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 	// Used by pod watcher, LRP and REST API
-	s.log.Debug("serviceManagerAdapter: Ignoring UpsertService", "name", svc.Name)
+	s.log.Debug("serviceManagerAdapter: Ignoring UpsertService", logfields.Name, svc.Name)
 	return true, 0, nil
 }
 

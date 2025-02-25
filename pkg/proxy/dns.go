@@ -38,8 +38,9 @@ type proxyRuleUpdater interface {
 
 // setRules replaces old l7 rules of a redirect with new ones.
 func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) (revert.RevertFunc, error) {
-	dr.logger.Debug("DNS Proxy updating matchNames in allowed list during UpdateRules",
-		"newRules", newRules,
+	dr.logger.Debug(
+		"DNS Proxy updating matchNames in allowed list during UpdateRules",
+		logfields.NewRules, newRules,
 		logfields.EndpointID, dr.endpointID,
 	)
 	return dr.proxyRuleUpdater.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
