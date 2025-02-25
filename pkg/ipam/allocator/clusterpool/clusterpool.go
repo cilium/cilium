@@ -6,8 +6,7 @@ package clusterpool
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -22,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-allocator-clusterpool"))
 
 // AllocatorOperator is an implementation of IPAM allocator interface for Cilium
 // IPAM.
@@ -31,7 +30,7 @@ type AllocatorOperator struct {
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init(ctx context.Context) error {
+func (a *AllocatorOperator) Init(logger *slog.Logger, ctx context.Context) error {
 	if option.Config.EnableIPv4 {
 		if len(operatorOption.Config.ClusterPoolIPv4CIDR) == 0 {
 			return fmt.Errorf("%s must be provided when using ClusterPool", operatorOption.ClusterPoolIPv4CIDR)
@@ -64,11 +63,12 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	log.WithFields(logrus.Fields{
-		logfields.IPv4CIDRs: operatorOption.Config.ClusterPoolIPv4CIDR,
-		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,
-	}).Info("Starting ClusterPool IP allocator")
+func (a *AllocatorOperator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+	log.Info(
+		"Starting ClusterPool IP allocator",
+		slog.Any(logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR),
+		slog.Any(logfields.IPv6CIDRs, operatorOption.Config.ClusterPoolIPv6CIDR),
+	)
 
 	var (
 		iMetrics trigger.MetricsObserver
@@ -80,7 +80,7 @@ func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGe
 		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
 	}
 
-	nodeManager := podcidr.NewNodesPodCIDRManager(a.v4CIDRSet, a.v6CIDRSet, updater, iMetrics)
+	nodeManager := podcidr.NewNodesPodCIDRManager(a.v4CIDRSet, a.v6CIDRSet, getterUpdater, iMetrics)
 
 	return nodeManager, nil
 }

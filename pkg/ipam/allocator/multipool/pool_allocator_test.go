@@ -13,10 +13,11 @@ import (
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestPoolAllocator(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(logging.DefaultLogger)
 	err := p.UpsertPool("default",
 		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
@@ -232,7 +233,7 @@ func TestPoolAllocator(t *testing.T) {
 }
 
 func TestPoolAllocator_PoolErrors(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(logging.DefaultLogger)
 	p.RestoreFinished()
 
 	node := &v2.CiliumNode{
@@ -350,7 +351,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 }
 
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(logging.DefaultLogger)
 
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)

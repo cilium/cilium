@@ -16,6 +16,7 @@ import (
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 type k8sNodeMock struct {
@@ -64,7 +65,7 @@ type mockResult struct {
 }
 
 func TestNodeHandler(t *testing.T) {
-	backend := NewPoolAllocator()
+	backend := NewPoolAllocator(logging.DefaultLogger)
 	err := backend.addPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
 
@@ -93,7 +94,7 @@ func TestNodeHandler(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler(backend, nodeUpdater)
+	nh := NewNodeHandler(nil, backend, nodeUpdater)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
