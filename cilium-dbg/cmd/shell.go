@@ -128,7 +128,13 @@ func interactiveShell() {
 	defer signal.Stop(sigs)
 	signal.Notify(sigs, os.Interrupt)
 
-	console := term.NewTerminal(stdReadWriter, "cilium> ")
+	// Use the node's name as the prompt.
+	hostName, err := os.Hostname()
+	if err != nil {
+		hostName = "cilium"
+	}
+
+	console := term.NewTerminal(stdReadWriter, hostName+"> ")
 	printShellGreeting(console)
 
 	for {
