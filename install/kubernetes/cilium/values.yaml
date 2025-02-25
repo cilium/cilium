@@ -575,6 +575,11 @@ bpf:
   # type: [null, integer]
   # @schema
   policyMapMax: 16384
+  # -- Configure the maximum number of entries in global policy stats map.
+  # @schema
+  # type: [null, integer]
+  # @schema
+  policyStatsMapMax: 65536
   # @schema
   # type: [null, number]
   # @schema
