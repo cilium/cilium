@@ -1,0 +1,17 @@
+steps:
+- name: "{{ .action }} node metrics"
+  measurements:
+  - Identifier: NodeCPUUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{ .action }}
+      metricName: "Max Node CPU Usage"
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Total
+        query: max(avg_over_time(rate(container_cpu_usage_seconds_total{id="/"}[1m])[%v:10s]))
+      - name: User
+        query: max(avg_over_time(rate(container_cpu_user_seconds_total{id="/"}[1m])[%v:10s]))
+      - name: System
+        query: max(avg_over_time(rate(container_cpu_system_seconds_total{id="/"}[1m])[%v:10s]))

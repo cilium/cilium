@@ -4,17 +4,18 @@ metadata:
   name: {{.Name}}
   labels:
     app.kubernetes.io/name: egw-client
-    scaffolding.cilium.io/egw-client-is-bootstrap: "{{.ClientIsBootstrap}}"
+    app.kubernetes.io/instance: {{.Instance}}
+    index: "{{.Index}}"
 spec:
   nodeSelector:
     role.scaffolding/egw-client: "true"
   containers:
   - name: egw-client
-    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    image: {{.Image}}
     imagePullPolicy: IfNotPresent
     args:
       - "client"
-      - "--external-target-addr=${EGW_EXTERNAL_TARGET_ADDR}:1337"
+      - "--external-target-addr={{.ExternalTarget}}:1337"
       - "--test-timeout={{.ClientConnectTimeout}}"
     ports:
     - name: prometheus
