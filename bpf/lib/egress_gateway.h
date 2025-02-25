@@ -43,7 +43,9 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	if (egress_ifindex && neigh_resolver_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
-	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
+	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr,
+				  neigh_resolver_available()
+				  ? BPF_FIB_LOOKUP_SKIP_NEIGH : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
