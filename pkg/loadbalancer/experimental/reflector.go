@@ -5,8 +5,10 @@ package experimental
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"slices"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -24,12 +27,14 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -64,16 +69,18 @@ type reflectorParams struct {
 }
 
 func registerK8sReflector(p reflectorParams) {
-	if !p.Writer.IsEnabled() {
+	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
 	initComplete := p.Writer.RegisterInitializer("k8s")
 	p.JobGroup.Add(job.OneShot("reflector", func(ctx context.Context, health cell.Health) error {
-		return runResourceReflector(ctx, p, initComplete)
+		return runResourceReflector(ctx, health, p, initComplete)
 	}))
 }
 
-func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) error {
+func runResourceReflector(ctx context.Context, health cell.Health, p reflectorParams, initComplete func(WriteTxn)) error {
+	extConfig := p.ExtConfig
+
 	const (
 		bufferSize = 300
 		waitTime   = 10 * time.Millisecond
@@ -124,13 +131,18 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 		}
 	}
 
+	var prevProcessingError error
+	processingErrors := map[string]error{}
+
 	upsertService := func(txn WriteTxn, obj *slim_corev1.Service) {
-		svc, fes := convertService(obj)
+		svc, fes := convertService(extConfig, obj)
 		if svc == nil {
 			return
 		}
 		if err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...); err != nil {
-			panic("BUG: UpsertServiceAndFrontends: " + err.Error())
+			processingErrors["svc:"+svc.Name.String()] = err
+		} else {
+			delete(processingErrors, "svc:"+svc.Name.String())
 		}
 	}
 
@@ -159,7 +171,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Upsert:
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 
-					if endpointsByService[name] == 0 {
+					if endpointsByService[name] == 0 && !isHeadless(obj) {
 						// We have not yet seen backends for this service. Postpone its handling
 						// until they've been seen.
 						pendingServices[name] = obj
@@ -170,8 +182,16 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Delete:
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 					delete(pendingServices, name)
-					if err := p.Writer.DeleteServiceAndFrontends(txn, name); err != nil {
-						panic("BUG: DeleteServiceAndFrontends: " + err.Error())
+
+					// Delete any processing error we had. We shouldn't consider the error from delete
+					// as that will stick forever, and delete errors are really unexpected.
+					errName := "svc:" + name.String()
+					delete(processingErrors, errName)
+
+					err := p.Writer.DeleteServiceAndFrontends(txn, name)
+					if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
+						p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
+							logfields.Error, err)
 					}
 				}
 			}
@@ -189,7 +209,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Sync:
 					markSync(txn)
 				case resource.Upsert:
-					name, backends := convertEndpoints(obj)
+					name, backends := convertEndpoints(extConfig, obj)
 
 					if len(backends) > 0 {
 						err := p.Writer.UpsertBackends(
@@ -197,9 +217,10 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 							name,
 							source.Kubernetes,
 							backends...)
-
 						if err != nil {
-							panic("BUG: UpsertBackends: " + err.Error())
+							processingErrors["ep:"+obj.EndpointSliceName] = err
+						} else {
+							delete(processingErrors, "ep:"+obj.EndpointSliceName)
 						}
 					}
 
@@ -243,13 +264,33 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			txn := p.Writer.WriteTxn()
 			for _, change := range buf {
 				obj := change.Object.Pod
+				errName := "hostport:" + obj.Namespace + "/" + obj.Name
 				if change.Deleted {
+					delete(processingErrors, errName)
 					if err := deleteHostPort(p, txn, obj); err != nil {
-						panic(err)
+						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+							logfields.Error, err)
 					}
 				} else {
-					if err := upsertHostPort(p, txn, obj); err != nil {
-						panic(err)
+					switch obj.Status.Phase {
+					case slim_corev1.PodFailed, slim_corev1.PodSucceeded:
+						// Pod has been terminated. Clean up the HostPort already even before the Pod object
+						// has been removed to free up the HostPort for other pods.
+						delete(processingErrors, errName)
+						if err := deleteHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+								logfields.Error, err)
+						}
+					case slim_corev1.PodRunning:
+						if obj.ObjectMeta.DeletionTimestamp != nil {
+							// The pod has been marked for deletion. Stop processing HostPort changes
+							// for it.
+							continue
+						}
+
+						if err := upsertHostPort(extConfig, p.Log, txn, p.Writer, obj); err != nil {
+							processingErrors[errName] = err
+						}
 					}
 				}
 			}
@@ -262,6 +303,19 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			podsInitialized = nil
 
 		}
+
+		// Update health.
+		processingError := errors.Join(slices.Collect(maps.Values(processingErrors))...)
+		if !errors.Is(processingError, prevProcessingError) {
+			if processingError == nil {
+				health.OK("Running")
+				p.Log.Info("Recovered from errors", logfields.Error, prevProcessingError)
+			} else {
+				health.Degraded("Failures processing services and endpoints", processingError)
+				p.Log.Warn("Failures processing services and endpoints", logfields.Error, processingError)
+			}
+		}
+		prevProcessingError = processingError
 	}
 }
 
@@ -270,19 +324,30 @@ var (
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
 )
 
-func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+func isHeadless(svc *slim_corev1.Service) bool {
+	_, headless := svc.Labels[corev1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
-		// Skip headless services
-		return
+		headless = true
 	}
+	return headless
+}
 
+func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &Service{
 		Name:                name,
 		Source:              source.Kubernetes,
 		Labels:              labels.Map2Labels(svc.Labels, string(source.Kubernetes)),
+		Selector:            svc.Spec.Selector,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
+	}
+
+	if len(svc.Spec.Ports) > 0 {
+		s.PortNames = map[string]uint16{}
+		for _, port := range svc.Spec.Ports {
+			s.PortNames[port.Name] = uint16(port.Port)
+		}
 	}
 
 	for _, srcRange := range svc.Spec.LoadBalancerSourceRanges {
@@ -313,6 +378,22 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		scopes = append(scopes, loadbalancer.ScopeInternal)
 	}
 
+	// SessionAffinity
+	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
+		s.SessionAffinity = true
+
+		s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(slim_corev1.DefaultClientIPServiceAffinitySeconds))
+		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil && *cfg.ClientIP.TimeoutSeconds != 0 {
+			s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(*cfg.ClientIP.TimeoutSeconds))
+		}
+	}
+
+	// A service that is annotated as headless has no frontends, even if the service spec contains
+	// ClusterIPs etc.
+	if isHeadless(svc) {
+		return
+	}
+
 	// ClusterIP
 	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
@@ -321,6 +402,10 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	for _, ip := range clusterIPs.AsSlice() {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
+			continue
+		}
+
+		if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
 			continue
 		}
 
@@ -342,132 +427,202 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		}
 	}
 
-	// NodePort
-	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
-		for _, scope := range scopes {
-			for _, family := range svc.Spec.IPFamilies {
-				for _, port := range svc.Spec.Ports {
-					if port.NodePort == 0 {
+	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
+	// See https://github.com/cilium/cilium/issues/16197 for context.
+
+	if cfg.KubeProxyReplacement {
+		// NodePort
+		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+			for _, scope := range scopes {
+				for _, family := range getIPFamilies(svc) {
+					if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+						(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
 						continue
 					}
+					for _, port := range svc.Spec.Ports {
+						if port.NodePort == 0 {
+							continue
+						}
 
-					fe := FrontendParams{
-						Type:        loadbalancer.SVCTypeNodePort,
-						PortName:    loadbalancer.FEPortName(port.Name),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
-					}
+						fe := FrontendParams{
+							Type:        loadbalancer.SVCTypeNodePort,
+							PortName:    loadbalancer.FEPortName(port.Name),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
 
-					switch family {
-					case slim_corev1.IPv4Protocol:
-						fe.Address.AddrCluster = zeroV4
-					case slim_corev1.IPv6Protocol:
-						fe.Address.AddrCluster = zeroV6
-					default:
-						continue
-					}
+						switch family {
+						case slim_corev1.IPv4Protocol:
+							fe.Address.AddrCluster = zeroV4
+						case slim_corev1.IPv6Protocol:
+							fe.Address.AddrCluster = zeroV6
+						default:
+							continue
+						}
 
-					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-					if p == nil {
-						continue
+						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
+						if p == nil {
+							continue
+						}
+						fe.Address.Scope = scope
+						fe.Address.L4Addr = *p
+						fes = append(fes, fe)
 					}
-					fe.Address.Scope = scope
-					fe.Address.L4Addr = *p
-					fes = append(fes, fe)
 				}
 			}
 		}
-	}
 
-	// LoadBalancer
-	if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-		for _, ip := range svc.Status.LoadBalancer.Ingress {
-			if ip.IP == "" {
-				continue
+		// LoadBalancer
+		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+			for _, ip := range svc.Status.LoadBalancer.Ingress {
+				if ip.IP == "" {
+					continue
+				}
+
+				addr, err := cmtypes.ParseAddrCluster(ip.IP)
+				if err != nil {
+					continue
+				}
+				if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+					continue
+				}
+
+				for _, scope := range scopes {
+					for _, port := range svc.Spec.Ports {
+						fe := FrontendParams{
+							Type:        loadbalancer.SVCTypeLoadBalancer,
+							PortName:    loadbalancer.FEPortName(port.Name),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
+
+						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+						if p == nil {
+							continue
+						}
+						fe.Address.AddrCluster = addr
+						fe.Address.Scope = scope
+						fe.Address.L4Addr = *p
+						fes = append(fes, fe)
+					}
+				}
+
 			}
+		}
 
-			addr, err := cmtypes.ParseAddrCluster(ip.IP)
+		// ExternalIP
+		for _, ip := range svc.Spec.ExternalIPs {
+			addr, err := cmtypes.ParseAddrCluster(ip)
 			if err != nil {
 				continue
 			}
-
-			for _, scope := range scopes {
-				for _, port := range svc.Spec.Ports {
-					fe := FrontendParams{
-						Type:        loadbalancer.SVCTypeLoadBalancer,
-						PortName:    loadbalancer.FEPortName(port.Name),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
-					}
-
-					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-					if p == nil {
-						continue
-					}
-					fe.Address.AddrCluster = addr
-					fe.Address.Scope = scope
-					fe.Address.L4Addr = *p
-					fes = append(fes, fe)
-				}
-			}
-
-		}
-	}
-
-	// ExternalIP
-	for _, ip := range svc.Spec.ExternalIPs {
-		addr, err := cmtypes.ParseAddrCluster(ip)
-		if err != nil {
-			continue
-		}
-
-		for _, port := range svc.Spec.Ports {
-			fe := FrontendParams{
-				Type:        loadbalancer.SVCTypeExternalIPs,
-				PortName:    loadbalancer.FEPortName(port.Name),
-				ServiceName: name,
-				ServicePort: uint16(port.Port),
-			}
-
-			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if p == nil {
+			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
 				continue
 			}
 
-			fe.Address.AddrCluster = addr
-			fe.Address.Scope = loadbalancer.ScopeExternal
-			fe.Address.L4Addr = *p
-			fes = append(fes, fe)
+			for _, port := range svc.Spec.Ports {
+				fe := FrontendParams{
+					Type:        loadbalancer.SVCTypeExternalIPs,
+					PortName:    loadbalancer.FEPortName(port.Name),
+					ServiceName: name,
+					ServicePort: uint16(port.Port),
+				}
+
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if p == nil {
+					continue
+				}
+
+				fe.Address.AddrCluster = addr
+				fe.Address.Scope = loadbalancer.ScopeExternal
+				fe.Address.L4Addr = *p
+				fes = append(fes, fe)
+			}
 		}
 	}
 
 	return
 }
 
-func convertEndpoints(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
+func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
+	if len(svc.Spec.IPFamilies) == 0 {
+		// No IP families specified, try to deduce them from the cluster IPs
+		if len(svc.Spec.ClusterIP) == 0 || svc.Spec.ClusterIP == slim_corev1.ClusterIPNone {
+			return nil
+		}
+
+		ipv4, ipv6 := false, false
+		if len(svc.Spec.ClusterIPs) > 0 {
+			for _, cip := range svc.Spec.ClusterIPs {
+				if ip.IsIPv6(net.ParseIP(cip)) {
+					ipv6 = true
+				} else {
+					ipv4 = true
+				}
+			}
+		} else {
+			ipv6 = ip.IsIPv6(net.ParseIP(svc.Spec.ClusterIP))
+			ipv4 = !ipv6
+		}
+		families := make([]slim_corev1.IPFamily, 0, 2)
+		if ipv4 {
+			families = append(families, slim_corev1.IPv4Protocol)
+		}
+		if ipv6 {
+			families = append(families, slim_corev1.IPv4Protocol)
+		}
+		return families
+	}
+	return svc.Spec.IPFamilies
+}
+
+func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
 	name = loadbalancer.ServiceName{
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
 	}
+
+	// k8s.Endpoints may have the same backend address multiple times
+	// with a different port name. Collapse them down into single
+	// entry.
+	type entry struct {
+		portNames []string
+		backend   *k8s.Backend
+	}
+	entries := map[loadbalancer.L3n4Addr]entry{}
+
 	for addrCluster, be := range ep.Backends {
+		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
+			continue
+		}
 		for portName, l4Addr := range be.Ports {
 			l3n4Addr := loadbalancer.L3n4Addr{
 				AddrCluster: addrCluster,
 				L4Addr:      *l4Addr,
 			}
-			state := loadbalancer.BackendStateActive
-			if be.Terminating {
-				state = loadbalancer.BackendStateTerminating
+			portNames := entries[l3n4Addr].portNames
+			if portName != "" {
+				portNames = append(portNames, portName)
 			}
-			be := BackendParams{
-				L3n4Addr: l3n4Addr,
-				NodeName: be.NodeName,
-				PortName: portName,
-				Weight:   loadbalancer.DefaultBackendWeight,
-				State:    state,
+			entries[l3n4Addr] = entry{
+				portNames: portNames,
+				backend:   be,
 			}
-			out = append(out, be)
 		}
+	}
+	for l3n4Addr, entry := range entries {
+		state := loadbalancer.BackendStateActive
+		if entry.backend.Terminating {
+			state = loadbalancer.BackendStateTerminating
+		}
+		be := BackendParams{
+			L3n4Addr:  l3n4Addr,
+			NodeName:  entry.backend.NodeName,
+			PortNames: entry.portNames,
+			Weight:    loadbalancer.DefaultBackendWeight,
+			State:     state,
+		}
+		out = append(out, be)
 	}
 	return
 }
@@ -477,9 +632,21 @@ func netnsCookieSupported() bool {
 	return true
 }
 
-func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
+// hostPortServiceNamePrefix returns the common prefix for synthetic HostPort services
+// for the pod with the given name. This prefix is used as-is when cleaning up existing
+// HostPort entries for a pod. This handles the pod recreation where name stays but UID
+// changes, which we might see only as an update without any deletion.
+func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
+	return loadbalancer.ServiceName{
+		Name:      fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
+		Namespace: pod.ObjectMeta.Namespace,
+	}
+}
+
+func upsertHostPort(extConfig ExternalConfig, log *slog.Logger, wtxn WriteTxn, writer *Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
+	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 
 	updatedServices := sets.New[loadbalancer.ServiceName]()
 	for _, c := range containers {
@@ -488,10 +655,10 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				continue
 			}
 
-			if uint16(p.HostPort) >= params.ExtConfig.NodePortMin &&
-				uint16(p.HostPort) <= params.ExtConfig.NodePortMax {
-				params.Log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
-					"HostPort", p.HostPort, "NodePortMin", params.ExtConfig.NodePortMin, "NodePortMax", params.ExtConfig.NodePortMax)
+			if uint16(p.HostPort) >= extConfig.NodePortMin &&
+				uint16(p.HostPort) <= extConfig.NodePortMax {
+				log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
+					"HostPort", p.HostPort, "NodePortMin", extConfig.NodePortMin, "NodePortMax", extConfig.NodePortMax)
 				continue
 			}
 
@@ -500,10 +667,12 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				continue
 			}
 
-			serviceName := loadbalancer.ServiceName{
-				Name:      fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, p.HostPort),
-				Namespace: pod.ObjectMeta.Namespace,
-			}
+			// HostPort service names are of form:
+			// <namespace>/<name>:host-port:<port>:<uid>.
+			serviceName := serviceNamePrefix
+			serviceName.Name += fmt.Sprintf("%d:%s",
+				p.HostPort,
+				pod.ObjectMeta.UID)
 
 			var ipv4, ipv6 bool
 
@@ -512,11 +681,15 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
-					params.Log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
+					log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
+					continue
+				}
+				if (!extConfig.EnableIPv6 && addr.Is6()) || (!extConfig.EnableIPv4 && addr.Is4()) {
 					continue
 				}
 				ipv4 = ipv4 || addr.Is4()
 				ipv6 = ipv6 || addr.Is6()
+
 				bep := BackendParams{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						AddrCluster: addr,
@@ -525,6 +698,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 							Port:     uint16(p.ContainerPort),
 						},
 					},
+					Weight: loadbalancer.DefaultBackendWeight,
 				}
 				bes = append(bes, bep)
 			}
@@ -533,7 +707,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 
 			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && feIP.IsLoopback() && !netnsCookieSupported() {
-				params.Log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
+				log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
 					"hostIP", feIP)
 				continue
 			}
@@ -566,20 +740,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				}
 			}
 
-			svc := &Service{
-				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				Name:             serviceName,
-				LoopbackHostPort: loopbackHostport,
-				Source:           source.Kubernetes,
-			}
-			_, err = params.Writer.UpsertService(wtxn, svc)
-			if err != nil {
-				return fmt.Errorf("UpsertService: %w", err)
-			}
-			if err := params.Writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
-				return fmt.Errorf("UpsertBackends: %w", err)
-			}
+			fes := make([]FrontendParams, 0, len(feIPs))
 
 			for _, feIP := range feIPs {
 				addr := cmtypes.MustAddrClusterFromIP(feIP)
@@ -596,27 +757,42 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 					},
 					ServicePort: uint16(p.HostPort),
 				}
-				if _, err := params.Writer.UpsertFrontend(wtxn, fe); err != nil {
-					return fmt.Errorf("UpsertFrontend: %w", err)
-				}
+				fes = append(fes, fe)
 			}
+
+			svc := &Service{
+				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				Name:             serviceName,
+				LoopbackHostPort: loopbackHostport,
+				Source:           source.Kubernetes,
+			}
+
+			err = writer.UpsertServiceAndFrontends(wtxn, svc, fes...)
+			if err != nil {
+				return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
+			}
+			if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
+				return fmt.Errorf("SetBackends: %w", err)
+			}
+
 			updatedServices.Insert(serviceName)
 		}
 	}
 
-	// Find and remove orphaned HostPort services, frontends and backends.
-	serviceNamePrefix := loadbalancer.ServiceName{
-		Name:      pod.ObjectMeta.Name + "/host-port/",
-		Namespace: pod.ObjectMeta.Namespace,
-	}
-	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
+	// Find and remove orphaned HostPort services, frontends and backends
+	// if 'HostPort' has changed or has been unset.
+	for svc := range writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
 		}
 
-		// Delete this orphaned service and associated frontends. The backends will be removed
-		// when they become unreferenced.
-		err := params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		err := writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
+		if err != nil {
+			return fmt.Errorf("DeleteBackendsOfService: %w", err)
+		}
+
+		err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}
@@ -626,14 +802,13 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 }
 
 func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
-	serviceNamePrefix := loadbalancer.ServiceName{
-		Name:      pod.ObjectMeta.Name + "/host-port/",
-		Namespace: pod.ObjectMeta.Namespace,
-	}
+	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
-		// Delete this orphaned servicea and associated frontends. The backends will be removed
-		// when they become unreferenced.
-		err := params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
+		if err != nil {
+			return fmt.Errorf("DeleteBackendsOfService: %w", err)
+		}
+		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}

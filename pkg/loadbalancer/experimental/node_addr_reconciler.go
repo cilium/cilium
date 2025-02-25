@@ -14,6 +14,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type nodePortAddressReconcilerParams struct {
@@ -51,11 +53,16 @@ type nodePortAddrReconciler struct {
 }
 
 func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Context, health cell.Health) error {
+	// Limit the rate of processing to avoid unnecessary churn, but keep it fast enough for humans.
+	limiter := rate.NewLimiter(time.Second, 1)
+	defer limiter.Stop()
+
 	for {
 		wtxn := r.db.WriteTxn(r.frontends)
-
 		_, watch := r.nodeAddrs.ListWatch(wtxn, tables.NodeAddressNodePortIndex.Query(true))
 
+		// The node port addresses have changed, set all NodePort/HostPort frontends as pending to reconcile
+		// the new addresses.
 		for fe := range r.frontends.All(wtxn) {
 			if fe.Type != loadbalancer.SVCTypeNodePort &&
 				!(fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified()) {
@@ -78,6 +85,10 @@ func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Conte
 		case <-ctx.Done():
 			return nil
 		case <-watch:
+		}
+
+		if err := limiter.Wait(ctx); err != nil {
+			return err
 		}
 	}
 }

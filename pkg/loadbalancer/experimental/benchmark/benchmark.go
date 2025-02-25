@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"maps"
 	"math"
@@ -58,6 +59,8 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	// to handle the termination state. Eventually this should migrate to the
 	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
 
 	svcs, epSlices := ServicesAndSlices(testSize)
 
@@ -65,19 +68,33 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	var maps experimental.LBMaps
 	if testutils.IsPrivileged() {
-		maps = &experimental.BPFLBMaps{
+		bpfMaps := &experimental.BPFLBMaps{
+			Log:    log,
 			Pinned: false,
-			Cfg: experimental.LBMapsConfig{
-				MaxSockRevNatMapEntries:  3 * testSize,
-				ServiceMapMaxEntries:     3 * testSize,
-				BackendMapMaxEntries:     3 * testSize,
-				RevNatMapMaxEntries:      3 * testSize,
-				AffinityMapMaxEntries:    3 * testSize,
-				SourceRangeMapMaxEntries: 3 * testSize,
-				MaglevMapMaxEntries:      3 * testSize,
+			Cfg: experimental.ExternalConfig{
+				LBMapsConfig: experimental.LBMapsConfig{
+					MaxSockRevNatMapEntries:  3 * testSize,
+					ServiceMapMaxEntries:     3 * testSize,
+					BackendMapMaxEntries:     3 * testSize,
+					RevNatMapMaxEntries:      3 * testSize,
+					AffinityMapMaxEntries:    3 * testSize,
+					SourceRangeMapMaxEntries: 3 * testSize,
+					MaglevMapMaxEntries:      3 * testSize,
+				},
+				EnableIPv4:                      true,
+				EnableIPv6:                      true,
+				ExternalClusterIP:               true,
+				EnableHealthCheckNodePort:       true,
+				KubeProxyReplacement:            true,
+				NodePortMin:                     30000,
+				NodePortMax:                     40000,
+				NodePortAlg:                     "random",
+				LoadBalancerAlgorithmAnnotation: false,
 			},
 			MaglevCfg: maglevConfig,
 		}
+		bpfMaps.Start(context.TODO())
+		maps = bpfMaps
 	} else {
 		maps = experimental.NewFakeLBMaps()
 	}
@@ -434,7 +451,7 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if fe.Status.Kind != "Done" {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
-				backends := slices.Collect(statedb.ToSeq(fe.Backends))
+				backends := slices.Collect(statedb.ToSeq(iter.Seq2[experimental.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
 					if backends[0].AddrCluster != wantAddr {
 						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].AddrCluster, wantAddr))
@@ -465,9 +482,6 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Protocol, wantPort.Protocol))
 						}
 					}
-					if be.NodeName != wantBe.NodeName {
-						err = errors.Join(err, fmt.Errorf("Incorrect node name for backend #%06d, got %v, want %v", i, be.NodeName, wantBe.NodeName))
-					}
 				}
 				if be.Instances.Len() != 1 {
 					err = errors.Join(err, fmt.Errorf("Incorrect instances count for backend #%06d, got %v, want %v", i, be.Instances.Len(), 1))
@@ -479,8 +493,8 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
 						}
-						if instance.PortName != svcs[i].Spec.Ports[0].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortName, svcs[i].Spec.Ports[0].Name))
+						if instance.PortNames[0] != svcs[i].Spec.Ports[0].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortNames[0], svcs[i].Spec.Ports[0].Name))
 						}
 					}
 				}
@@ -508,10 +522,11 @@ func testHive(maps experimental.LBMaps,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
 	extConfig := experimental.ExternalConfig{
-		ExternalClusterIP:     false,
-		EnableSessionAffinity: true,
-		NodePortMin:           option.NodePortMinDefault,
-		NodePortMax:           option.NodePortMaxDefault,
+		EnableIPv4:        true,
+		EnableIPv6:        true,
+		ExternalClusterIP: false,
+		NodePortMin:       option.NodePortMinDefault,
+		NodePortMax:       option.NodePortMaxDefault,
 	}
 
 	return hive.New(
