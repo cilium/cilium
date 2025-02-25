@@ -1,6 +1,6 @@
 module github.com/cilium/cilium
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
