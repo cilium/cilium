@@ -309,6 +309,10 @@ func (d *Daemon) notifyOnDNSMsg(
 				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
 		}
 
+		logDebug := log.Logger.IsLevelEnabled(logrus.DebugLevel)
+		if logDebug {
+			log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
+		}
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
@@ -316,32 +320,31 @@ func (d *Daemon) notifyOnDNSMsg(
 		// consistent if a regeneration happens between the two steps. If an update
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
-		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}
 
-		log.WithFields(logrus.Fields{
-			"qname": qname,
-			"ips":   responseIPs,
-		}).Debug("Updating DNS name in cache from response to query")
+		if logDebug {
+			log.WithFields(logrus.Fields{
+				"qname": qname,
+				"ips":   responseIPs,
+			}).Debug("Updating DNS name in cache from response to query")
+		}
 
 		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
 		updateStart := time.Now()
 
-		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
-			qname: {
-				IPs: responseIPs,
-				TTL: int(TTL),
-			},
+		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+			IPs: responseIPs,
+			TTL: int(TTL),
 		})
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
 
-		if err := dpUpdates.Wait(); err != nil {
+		if err := <-dpUpdates; err != nil {
 			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
@@ -349,11 +352,13 @@ func (d *Daemon) notifyOnDNSMsg(
 		// Policy updates for this name have been pushed out; we can release the lock.
 		d.dnsNameManager.UnlockName(qname)
 
-		log.WithFields(logrus.Fields{
-			logfields.Duration:   time.Since(updateStart),
-			logfields.EndpointID: ep.GetID(),
-			"qname":              qname,
-		}).Debug("Waited for endpoints to regenerate due to a DNS response")
+		if logDebug {
+			log.WithFields(logrus.Fields{
+				logfields.Duration:   time.Since(updateStart),
+				logfields.EndpointID: ep.GetID(),
+				"qname":              qname,
+			}).Debug("Waited for endpoints to regenerate due to a DNS response")
+		}
 
 		endMetric()
 	}

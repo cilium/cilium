@@ -80,6 +80,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		},
 		IPCache: d.ipcache,
 	})
+	d.dnsNameManager.CompleteBootstrap()
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 
 	ds.d = d
@@ -95,6 +96,39 @@ func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
 // proxy path, which is called on every DNS request and response.
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {
+	var (
+		ciliumMsg = &ciliumdns.Msg{
+			MsgHdr: ciliumdns.MsgHdr{
+				Response: true,
+			},
+			Question: []ciliumdns.Question{{
+				Name: dns.FQDN("cilium.io"),
+			}},
+			Answer: []ciliumdns.RR{&ciliumdns.A{
+				Hdr: ciliumdns.RR_Header{
+					Name: dns.FQDN("cilium.io"),
+					Ttl:  3600,
+				},
+				A: net.ParseIP("192.0.2.3"),
+			}}}
+		ebpfMsg = &ciliumdns.Msg{
+			MsgHdr: ciliumdns.MsgHdr{
+				Response: true,
+			},
+			Compress: false,
+			Question: []ciliumdns.Question{{
+				Name: dns.FQDN("ebpf.io"),
+			}},
+			Answer: []ciliumdns.RR{&ciliumdns.A{
+				Hdr: ciliumdns.RR_Header{
+					Name: dns.FQDN("ebpf.io"),
+					Ttl:  3600,
+				},
+				A: net.ParseIP("192.0.2.4"),
+			}}}
+		srvAddr    = netip.MustParseAddrPort("10.96.64.1:53")
+		emptyPRCtx = &dnsproxy.ProxyRequestContext{}
+	)
 	ds := setupDaemonFQDNSuite(b)
 
 	var (
@@ -132,6 +166,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		ep.DNSHistory = fqdn.NewDNSCache(0)
 	}
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	// Simulate parallel DNS responses from the upstream DNS for cilium.io and
 	// ebpf.io, done by every endpoint.
@@ -144,30 +179,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, netip.MustParseAddrPort("10.96.64.1:53"), &ciliumdns.Msg{
-					MsgHdr: ciliumdns.MsgHdr{
-						Response: true,
-					},
-					Question: []ciliumdns.Question{{
-						Name: dns.FQDN("cilium.io"),
-					}},
-					Answer: []ciliumdns.RR{&ciliumdns.A{
-						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("cilium.io")},
-						A:   net.ParseIP("192.0.2.3"),
-					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
-
-				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, netip.MustParseAddrPort("10.96.64.1:53"), &ciliumdns.Msg{
-					MsgHdr: ciliumdns.MsgHdr{
-						Response: true,
-					},
-					Compress: false,
-					Question: []ciliumdns.Question{{
-						Name: dns.FQDN("ebpf.io"),
-					}},
-					Answer: []ciliumdns.RR{&ciliumdns.A{
-						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("ebpf.io")},
-						A:   net.ParseIP("192.0.2.4"),
-					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
+				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
 			}()
 		}
 		wg.Wait()
