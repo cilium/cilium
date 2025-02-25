@@ -663,9 +663,9 @@ enum {
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
 
-/* Lookup scope for externalTrafficPolicy=Local */
-#define LB_LOOKUP_SCOPE_EXT	0
-#define LB_LOOKUP_SCOPE_INT	1
+/* Lookup scope for internalTrafficPolicy / externalTrafficPolicy */
+#define LB_LOOKUP_SCOPE_LIMITED	0	/* == Local */
+#define LB_LOOKUP_SCOPE_FULL	1	/* == Cluster */
 
 /* Cilium metrics direction for dropping/forwarding packet */
 enum metric_dir {
