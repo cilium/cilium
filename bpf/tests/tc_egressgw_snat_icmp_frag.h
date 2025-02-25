@@ -30,7 +30,6 @@ struct icmp4_frag_test_info {
 static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 					     struct icmp4_frag_test_info *test_info)
 {
-	int ret	= TEST_FAIL;
 	struct iphdr *l3_ptr = NULL;
 	__u16 len;
 
@@ -58,7 +57,7 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 
 	len = sizeof(struct ethhdr);
 	if (data + len > data_end)
-		goto fail;
+		return TEST_FAIL;
 	memcpy(data, l2, len);
 	data += len;
 
@@ -84,7 +83,7 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 	l3_ptr = (struct iphdr *)data;
 	len = sizeof(struct iphdr);
 	if (data + len > data_end)
-		goto fail;
+		return TEST_FAIL;
 	memcpy(data, &l3, len);
 	data += len;
 
@@ -100,7 +99,7 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 		};
 		len = sizeof(struct icmphdr);
 		if (data + len > data_end)
-			goto fail;
+			return TEST_FAIL;
 		memcpy(data, &l4, len);
 		data += len;
 	}
@@ -110,7 +109,7 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 		- test_info->ip4_next_fragment_offset;
 
 	if (avail_len == 0)
-		goto fail;
+		return TEST_FAIL;
 
 	/* set current fragment offset (before it can be changed) */
 	test_info->ip4_fragment_offset = test_info->ip4_next_fragment_offset;
@@ -141,12 +140,6 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
 	len	= sizeof(struct iphdr);
 	memcpy((void *)l3_ptr, &l3, len);
 
-	/* all ok */
-	ret = TEST_PASS;
-
-out:
-	return ret;
-fail:
-	goto out;
+	return TEST_PASS;
 }
 
