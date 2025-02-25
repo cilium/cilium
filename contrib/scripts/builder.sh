@@ -13,7 +13,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     USER_PATH="/tmp"
 fi
 
-if [ -n "${RUN_AS_NONROOT:-}" ]; then
+if [ -z "${RUN_AS_ROOT:-}" ]; then
     USER_OPTION="--user $(id -u):$(id -g)"
     USER_PATH="$HOME"
 fi
