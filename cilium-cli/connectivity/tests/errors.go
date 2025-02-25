@@ -83,6 +83,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		"DATA RACE":          nil,
 		envoyErrorMessage:    nil,
 		envoyCriticalMessage: nil,
+		// Slog's badkey
+		"!BADKEY": nil,
 	}
 	if slices.Contains(checkLevels, defaults.LogLevelError) {
 		errorMsgsWithExceptions["level=error"] = errorLogExceptions
