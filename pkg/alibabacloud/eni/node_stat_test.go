@@ -13,6 +13,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestENIIPAMCapacityAccounting(t *testing.T) {
@@ -37,7 +38,8 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	})
 
 	n := &Node{
-		node: mockIPAMNode("vm1"),
+		logger: logging.DefaultLogger,
+		node:   mockIPAMNode("vm1"),
 		manager: &InstancesManager{
 			instances: m,
 		},
@@ -49,7 +51,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), n.logger)
 	assert.NoError(err)
 	// 3 ENIs, 10 IPs per ENI, 1 primary IP and one ENI is primary.
 	assert.Equal(19, stats.NodeCapacity)

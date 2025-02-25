@@ -20,6 +20,7 @@ import (
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -42,7 +43,7 @@ func setup(tb testing.TB) {
 	alibabaAPI = mock.NewAPI(subnets, vpcs, securityGroups)
 	require.NotNil(tb, alibabaAPI)
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances = NewInstancesManager(alibabaAPI)
+	instances = NewInstancesManager(logging.DefaultSlogLogger, alibabaAPI)
 	require.NotNil(tb, instances)
 
 	tb.Cleanup(func() {
@@ -87,9 +88,9 @@ func TestCreateInterface(t *testing.T) {
 		}
 		switch e.Type {
 		case eniTypes.ENITypeSecondary:
-			require.Equal(t, 1, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 1, utils.GetENIIndexFromTags(logging.DefaultSlogLogger, e.Tags))
 		case eniTypes.ENITypePrimary:
-			require.Equal(t, 0, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 0, utils.GetENIIndexFromTags(logging.DefaultSlogLogger, e.Tags))
 		}
 		return nil
 	})
@@ -99,7 +100,7 @@ func TestCreateInterface(t *testing.T) {
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
-	}, log)
+	}, logging.DefaultSlogLogger)
 	require.NoError(t, err)
 	require.Equal(t, 10, toAlloc)
 
@@ -108,7 +109,7 @@ func TestCreateInterface(t *testing.T) {
 			MaxIPsToAllocate: 11,
 		},
 		EmptyInterfaceSlots: 1,
-	}, log)
+	}, logging.DefaultSlogLogger)
 	require.NoError(t, err)
 	require.Equal(t, 10, toAlloc)
 }
@@ -127,7 +128,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	cn.Spec.AlibabaCloud.VSwitches = []string{"vsw-2"}
 	mngr.Upsert(cn)
 
-	n := &Node{}
+	n := &Node{logger: logging.DefaultSlogLogger}
 	n.k8sObj = cn
 	// Primary ENI excluded, max allocatable = 3 ( 1 (ENI) * 3 (IPv4/ENI) )
 	require.Equal(t, 3, n.GetMaximumAllocatableIPv4())
@@ -136,7 +137,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	require.Eventually(t, func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second, 1*time.Second)
 
 	node3 := mngr.Get("node3")
-	a, err := node3.Ops().PrepareIPAllocation(log)
+	a, err := node3.Ops().PrepareIPAllocation(n.logger)
 	require.NoError(t, err)
 	// 1 ENI attached, 1/3 IPs allocated, 0 empty slots left
 	require.Equal(t, 1, a.IPv4.InterfaceCandidates)
@@ -156,7 +157,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
 
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
-	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
+	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(logging.DefaultSlogLogger)
 	require.NoError(t, err)
 	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 
@@ -166,12 +167,12 @@ func TestPrepareIPAllocation(t *testing.T) {
 			MaxIPsToAllocate: 10,
 		},
 		EmptyInterfaceSlots: 2,
-	}, log)
+	}, logging.DefaultSlogLogger)
 	require.NoError(t, err)
 	require.Equal(t, 10, toAlloc)
 
 	// one eni left
-	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
+	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(logging.DefaultSlogLogger)
 	require.NoError(t, err)
 	require.Equal(t, 1, a.EmptyInterfaceSlots, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 }
