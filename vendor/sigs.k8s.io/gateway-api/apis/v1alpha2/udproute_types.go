@@ -67,7 +67,7 @@ type UDPRouteRule struct {
 	Name *SectionName `json:"name,omitempty"`
 
 	// BackendRefs defines the backend(s) where matching requests should be
-	// sent. If unspecified or invalid (refers to a non-existent resource or a
+	// sent. If unspecified or invalid (refers to a nonexistent resource or a
 	// Service with no endpoints), the underlying implementation MUST actively
 	// reject connection attempts to this backend. Packet drops must
 	// respect weight; if an invalid backend is requested to have 80% of
