@@ -1579,12 +1579,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
-			send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-					   TRACE_EP_ID_UNKNOWN, ifindex, trace.reason,
-					   trace.monitor);
-			if (tuple_out)
-				memcpy(tuple_out, tuple, sizeof(*tuple));
-			return POLICY_ACT_PROXY_REDIRECT;
+			*proxy_port = 0;
+			goto redirect_to_proxy;
 		}
 
 		/* Reverse NAT applies to return traffic only. */
@@ -1653,19 +1649,22 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			return ret;
 	}
 
-	if (*proxy_port > 0) {
-		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-				   trace.monitor);
-		if (tuple_out)
-			memcpy(tuple_out, tuple, sizeof(*tuple));
-		return POLICY_ACT_PROXY_REDIRECT;
-	}
+	if (*proxy_port > 0)
+		goto redirect_to_proxy;
+
 	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
+			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+			   trace.monitor);
+	if (tuple_out)
+		memcpy(tuple_out, tuple, sizeof(*tuple));
+	return POLICY_ACT_PROXY_REDIRECT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
@@ -1901,12 +1900,8 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
-			send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-					   TRACE_EP_ID_UNKNOWN, ifindex, trace.reason,
-					   trace.monitor);
-			if (tuple_out)
-				*tuple_out = *tuple;
-			return POLICY_ACT_PROXY_REDIRECT;
+			*proxy_port = 0;
+			goto redirect_to_proxy;
 		}
 
 		/* Reverse NAT applies to return traffic only. */
@@ -2004,19 +1999,22 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			return ret;
 	}
 
-	if (*proxy_port > 0) {
-		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-				   trace.monitor);
-		if (tuple_out)
-			*tuple_out = *tuple;
-		return POLICY_ACT_PROXY_REDIRECT;
-	}
+	if (*proxy_port > 0)
+		goto redirect_to_proxy;
+
 	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
+			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+			   trace.monitor);
+	if (tuple_out)
+		*tuple_out = *tuple;
+	return POLICY_ACT_PROXY_REDIRECT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
