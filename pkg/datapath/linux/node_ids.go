@@ -124,7 +124,10 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			// allocate a fresh ID, unmap the IPs of this node, and try again.
 			for _, addr := range node.IPAddresses {
 				if err := n.unmapNodeID(addr.IP.String()); err != nil {
-					n.log.Error("Failed to unmap stale nodeID mapping", logfields.IPAddr, ip, logfields.Error, err)
+					n.log.Error("Failed to unmap stale nodeID mapping",
+						logfields.IPAddr, ip,
+						logfields.Error, err,
+					)
 				}
 			}
 
@@ -156,7 +159,8 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
 		id := n.nodeIDsByIPs[addr.IP.String()]
 		if nodeID != id {
 			n.log.Error("Found two node IDs for the same node",
-				"first", id, "second", nodeID,
+				logfields.First, id,
+				logfields.Second, nodeID,
 				logfields.NodeName, oldNode.Name,
 				logfields.IPAddr, addr.IP,
 			)

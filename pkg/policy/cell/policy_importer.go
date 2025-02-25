@@ -316,7 +316,10 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 			}
 
 			if len(replaceLabels) >= 0 {
-				i.log.Info("Replacing policy by labels", logfields.Labels, replaceLabels, logfields.Count, len(upd.Rules))
+				i.log.Info("Replacing policy by labels",
+					logfields.Labels, replaceLabels,
+					logfields.Count, len(upd.Rules),
+				)
 			}
 			regen, endRevision, oldRuleCnt = i.repo.ReplaceByLabels(upd.Rules, replaceLabels)
 		}
@@ -325,13 +328,13 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 			i.log.Info("Deleted policy from repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
-				"deletedRules", oldRuleCnt,
+				logfields.DeletedRules, oldRuleCnt,
 				logfields.Identity, slices.Collect(truncate(regen.Members(), 100)))
 		} else {
 			i.log.Info("Upserted policy to repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
-				"deletedRules", oldRuleCnt,
+				logfields.DeletedRules, oldRuleCnt,
 				logfields.Identity, slices.Collect(truncate(regen.Members(), 100)))
 
 		}

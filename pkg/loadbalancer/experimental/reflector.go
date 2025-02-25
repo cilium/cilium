@@ -30,6 +30,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -491,7 +492,10 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			if uint16(p.HostPort) >= params.ExtConfig.NodePortMin &&
 				uint16(p.HostPort) <= params.ExtConfig.NodePortMax {
 				params.Log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
-					"HostPort", p.HostPort, "NodePortMin", params.ExtConfig.NodePortMin, "NodePortMax", params.ExtConfig.NodePortMax)
+					logfields.HostPort, p.HostPort,
+					logfields.NodePortMin, params.ExtConfig.NodePortMin,
+					logfields.NodePortMax, params.ExtConfig.NodePortMax,
+				)
 				continue
 			}
 
@@ -512,7 +516,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
-					params.Log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
+					params.Log.Warn("Invalid Pod IP address. Ignoring.", logfields.IPAddr, podIP)
 					continue
 				}
 				ipv4 = ipv4 || addr.Is4()
@@ -534,7 +538,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && feIP.IsLoopback() && !netnsCookieSupported() {
 				params.Log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
-					"hostIP", feIP)
+					logfields.HostIP, feIP)
 				continue
 			}
 

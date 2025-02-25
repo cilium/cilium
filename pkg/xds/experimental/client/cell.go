@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/cilium/hive/cell"
@@ -80,7 +81,7 @@ func newConnectionOptions() ConnectionOptions {
 // newXDSClient creates and a new instance of xDS client. XDS Server Address is
 // required to create the client.
 func newXDSClient(in input) (Client, error) {
-	in.Log.Info("Init XDS client", "address", in.Config.ServerAddr)
+	in.Log.Info("Init XDS client", logfields.Address, in.Config.ServerAddr)
 	if in.Config.ServerAddr == "" {
 		// Disabled
 		return nil, fmt.Errorf("xDS Server address was not provided")
@@ -98,7 +99,7 @@ func runXDSClient(in input, cl Client) {
 			return fmt.Errorf("Failed to get LocalNodeStore: %w", err)
 		}
 		zone := localNode.Labels[core_v1.LabelTopologyZone]
-		in.Log.Info("Get local node", "zone", zone)
+		in.Log.Info("Get local node", logfields.Zone, zone)
 		if zone == "" {
 			return fmt.Errorf("zone is nil")
 		}

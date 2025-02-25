@@ -32,6 +32,7 @@ import (
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var FakeClientCell = cell.Module(
@@ -509,10 +510,10 @@ func augmentTracker[T fakeWithTracker](log *slog.Logger, f T, watchers *lock.Map
 			}
 			watchName := showGVR(gvr)
 			if _, ok := watchers.Load(watchName); ok {
-				log.Warn("Multiple watches for resource intercepted. This highlights a potential cause for flakes", "resource", watchName)
+				log.Warn("Multiple watches for resource intercepted. This highlights a potential cause for flakes", logfields.Resource, watchName)
 			}
 
-			log.Debug("Watch started", "resource", watchName)
+			log.Debug("Watch started", logfields.Resource, watchName)
 			watchers.Store(watchName, struct{}{})
 
 			return true, watch, nil

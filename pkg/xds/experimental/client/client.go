@@ -152,7 +152,11 @@ func (c *XDSClient[ReqT, RespT]) Run(ctx context.Context, node *corepb.Node, con
 	// node is used to identify a client to xDS server. Nodes's value is retried
 	// from LocalNodeStore and it needs to be late initialized.
 	c.node = proto.Clone(node).(*corepb.Node)
-	c.log.Info("starting xDS client with node", "Id", c.node.Id, "Cluster", c.node.Cluster, "Agent", c.node.UserAgentName)
+	c.log.Info("starting xDS client with node",
+		logfields.EnvoyID, c.node.Id,
+		logfields.EnvoyCluster, c.node.Cluster,
+		logfields.UserAgent, c.node.UserAgentName,
+	)
 	backoff := backoff.Exponential{
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
@@ -375,13 +379,21 @@ func (c *XDSClient[ReqT, RespT]) handleResponse(trans transport[ReqT, RespT], re
 		return fmt.Errorf("tx: %w", err)
 	}
 	for _, transaction := range transactions {
-		c.log.Debug("cache TX: start", logfields.XDSTypeURL, transaction.typeUrl, "upserted", transaction.updated, "deleted", transaction.deleted)
+		c.log.Debug("cache TX: start",
+			logfields.XDSTypeURL, transaction.typeUrl,
+			logfields.Upserted, transaction.updated,
+			logfields.Deleted, transaction.deleted,
+		)
 		ver, updated, _ := c.cache.TX(transaction.typeUrl, transaction.updated, transaction.deleted)
-		c.log.Debug("cache TX: end", transaction.typeUrl, transaction.typeUrl, logfields.XDSCachedVersion, ver, "updated", updated)
+		c.log.Debug("cache TX: end",
+			logfields.XDSTypeURL, transaction.typeUrl,
+			logfields.XDSCachedVersion, ver,
+			logfields.Updated, updated,
+		)
 	}
 	req := c.xds.ack(c.node, resp, nil)
 
-	c.log.Debug("Send", "req", req)
+	c.log.Debug("Send", logfields.Request, req)
 	err = trans.Send(req)
 	if err != nil {
 		return fmt.Errorf("ACK send: %w", err)

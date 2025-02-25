@@ -106,8 +106,8 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 		poolSpec, err := parsePoolSpec(poolSpecStr)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools),
-				"poolName", poolName,
-				"poolSpec", poolSpecStr,
+				logfields.PoolName, poolName,
+				logfields.PoolSpec, poolSpecStr,
 				logfields.Error, err)
 			os.Exit(1)
 		}
@@ -123,14 +123,18 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 		if err != nil {
 			if k8sErrors.IsAlreadyExists(err) {
 				// Nothing to do, we will not try to update an existing resource
-				logger.Info("Found existing CiliumPodIPPool resource. Skipping creation", "poolName", poolName)
+				logger.Info("Found existing CiliumPodIPPool resource. Skipping creation",
+					logfields.PoolName, poolName)
 			} else {
-				logger.Error("Failed to create CiliumPodIPPool resource", "poolName", poolName, "obj", pool, logfields.Error, err)
+				logger.Error("Failed to create CiliumPodIPPool resource",
+					logfields.PoolName, poolName,
+					logfields.Object, pool,
+					logfields.Error, err)
 			}
 			continue
 		}
 
-		logger.Info("Created CiliumPodIPPool resource", "poolName", poolName)
+		logger.Info("Created CiliumPodIPPool resource", logfields.PoolName, poolName)
 	}
 }
 

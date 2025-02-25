@@ -76,12 +76,17 @@ func (c *cesManager) createCES(name, ns string) CESName {
 // CES object or updating an existing CES object.
 func (c *cesManager) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
-	c.logger.Debug("Insert CEP in local cache", logfields.CEPName, cepName.string())
+	c.logger.Debug("Insert CEP in local cache",
+		logfields.CEPName, cepName.string(),
+	)
 	// check the given cep is already exists in any of the CES.
 	// if yes, Update a ces with the given cep object.
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {
-		c.logger.Debug("CEP already mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+		c.logger.Debug("CEP already mapped to CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
 		return []CESKey{NewCESKey(cesName.string(), ns)}
 	}
 
@@ -93,7 +98,10 @@ func (c *cesManager) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns stri
 		cesName = c.createCES("", ns)
 	}
 	c.mapping.insertCEP(cepName, cesName)
-	c.logger.Debug("CEP mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+	c.logger.Debug("CEP mapped to CES",
+		logfields.CEPName, cepName.string(),
+		logfields.CESName, cesName.string(),
+	)
 	return []CESKey{NewCESKey(cesName.string(), ns)}
 }
 
@@ -102,7 +110,10 @@ func (c *cesManager) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns stri
 	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {
-		c.logger.Debug("Removing CEP from CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+		c.logger.Debug("Removing CEP from CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
 		c.mapping.deleteCEP(cepName)
 		if c.mapping.countCEPsInCES(cesName) == 0 {
 			c.mapping.deleteCES(cesName)

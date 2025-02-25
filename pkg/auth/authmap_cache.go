@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -92,7 +93,7 @@ func (r *authMapCache) Delete(key authKey) error {
 			return fmt.Errorf("failed to delete auth entry from map: %w", err)
 		}
 
-		r.logger.Warn("Failed to delete already deleted auth entry", "key", key)
+		r.logger.Warn("Failed to delete already deleted auth entry", logfields.Key, key)
 	}
 
 	delete(r.cacheEntries, key)
@@ -116,7 +117,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 					return fmt.Errorf("failed to delete auth entry from map: %w", err)
 				}
 
-				r.logger.Warn("Failed to delete already deleted auth entry", "key", k)
+				r.logger.Warn("Failed to delete already deleted auth entry", logfields.Key, k)
 			}
 			delete(r.cacheEntries, k)
 		}
@@ -140,7 +141,7 @@ func (r *authMapCache) restoreCache() error {
 	}
 
 	r.updatePressureMetric()
-	r.logger.Debug("Restored entries", "cached_entries", len(r.cacheEntries))
+	r.logger.Debug("Restored entries", logfields.Entries, len(r.cacheEntries))
 	return nil
 }
 
