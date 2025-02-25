@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
@@ -93,7 +94,7 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 		if predicate(k, v) {
 			if err := r.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.Debug("Failed to delete already deleted auth entry", "key", k)
+					r.logger.Debug("Failed to delete already deleted auth entry", logfields.Key, k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)

@@ -73,7 +73,7 @@ func (rlc *rateLimitConfig) updateRateLimiterWithNodes(nodes int) bool {
 	changed := rlc.updateRateLimitWithNodes(nodes, false)
 	if changed {
 		rlc.logger.Info("Updating rate limit",
-			"nodes", nodes,
+			logfields.Nodes, nodes,
 			logfields.WorkQueueQPSLimit, rlc.current.Limit,
 			logfields.WorkQueueBurstLimit, rlc.current.Burst)
 

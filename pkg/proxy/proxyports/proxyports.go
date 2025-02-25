@@ -292,7 +292,10 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	// mark proxy port as configured
 	pp.configured = true
 
-	p.logger.Debug("AllocateProxyPort: allocated proxy port", fieldProxyRedirectID, name, logfields.ProxyPort, *pp)
+	p.logger.Debug("AllocateProxyPort: allocated proxy port",
+		fieldProxyRedirectID, name,
+		logfields.ProxyPort, pp.ProxyPort,
+	)
 
 	return pp.ProxyPort, nil
 }
@@ -353,7 +356,10 @@ func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	if pp.rulesPort != pp.ProxyPort {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
-		scopedLog.Info("Adding new proxy port rules", "name", name, logfields.ProxyPort, pp.ProxyPort)
+		scopedLog.Info("Adding new proxy port rules",
+			logfields.Name, name,
+			logfields.ProxyPort, pp.ProxyPort,
+		)
 		p.datapathUpdater.InstallProxyRules(pp.ProxyPort, name)
 		pp.rulesPort = pp.ProxyPort
 
@@ -361,7 +367,7 @@ func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 		p.Trigger.Trigger()
 	}
 	pp.acknowledged = true
-	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, *pp)
+	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, pp.ProxyPort)
 	return nil
 }
 
@@ -395,7 +401,10 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 
 				if pp.nRedirects == 0 {
 					pp.releaseCancel = nil
-					p.logger.Debug("Delayed release of proxy port", fieldProxyRedirectID, name, logfields.ProxyPort, pp.ProxyPort)
+					p.logger.Debug("Delayed release of proxy port",
+						fieldProxyRedirectID, name,
+						logfields.ProxyPort, pp.ProxyPort,
+					)
 					p.reset(pp)
 
 					// Leave the datapath rules behind on the hope that they get reused
@@ -477,7 +486,10 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 			pp.addReference()
 			return listener, pp
 		}
-		p.logger.Debug("findProxyPortByType: can not find crd listener", logfields.Listener, listener, logfields.ProxyPort, p.proxyPorts)
+		p.logger.Debug("findProxyPortByType: can not find crd listener",
+			logfields.Listener, listener,
+			logfields.ProxyPort, p.proxyPorts,
+		)
 		return "", nil
 	case types.ProxyTypeDNS, types.ProxyTypeHTTP:
 		// Look up by the given type
@@ -580,7 +592,7 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 		p.allocatedPorts[pp.ProxyPort] = false
 		scopedLogger.Debug("RestoreProxyPorts: preallocated proxy port",
 			fieldProxyRedirectID, name,
-			"proxyPort", pp.ProxyPort)
+			logfields.ProxyPort, pp.ProxyPort)
 	}
 	return nil
 }
@@ -608,7 +620,7 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 		p.allocatedPorts[port] = false
 		p.logger.Debug("RestoreProxyPorts: preallocated proxy port from iptables",
 			fieldProxyRedirectID, name,
-			"proxyPort", port)
+			logfields.ProxyPort, port)
 	}
 }
 
@@ -622,7 +634,10 @@ func (p *ProxyPorts) RestoreProxyPorts() {
 
 	err := p.restoreProxyPortsFromFile(p.restoredProxyPortsStaleLimit)
 	if err != nil {
-		p.logger.Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules", logfields.Path, p.proxyPortsPath, logfields.Error, err)
+		p.logger.Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules",
+			logfields.Path, p.proxyPortsPath,
+			logfields.Error, err,
+		)
 		p.restoreProxyPortsFromIptables()
 	}
 }

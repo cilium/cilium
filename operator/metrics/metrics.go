@@ -52,7 +52,7 @@ func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	mm.server.Handler = mux
 
 	go func() {
-		mm.logger.Info("Starting metrics server", "address", mm.server.Addr)
+		mm.logger.Info("Starting metrics server", logfields.Address, mm.server.Addr)
 		if err := mm.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			mm.logger.Error("Unable to start metrics server", logfields.Error, err)
 			mm.shutdowner.Shutdown()

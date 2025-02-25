@@ -188,7 +188,10 @@ func (r *reconciler) createCID(cidName string, cidKey *key.GlobalIdentity) error
 		SecurityLabels: cidLabels,
 	}
 
-	r.logger.Info("Creating CID", "labels", cidLabels, logfields.CIDName, cidName)
+	r.logger.Info("Creating CID",
+		logfields.Labels, cidLabels,
+		logfields.CIDName, cidName,
+	)
 
 	_, err := r.clientset.CiliumV2().CiliumIdentities().Create(r.ctx, cid, metav1.CreateOptions{})
 	return err

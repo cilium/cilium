@@ -39,10 +39,10 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, logger *s
 		logger.Debug("Kubernetes service definition changed",
 			logfields.K8sSvcName, event.ID.Name,
 			logfields.K8sNamespace, event.ID.Namespace,
-			"action", event.Action,
-			"service", event.Service,
-			"endpoints", event.Endpoints,
-			"shared", event.Service.Shared,
+			logfields.Action, event.Action,
+			logfields.Service, event.Service,
+			logfields.Endpoints, event.Endpoints,
+			logfields.Shared, event.Service.Shared,
 		)
 
 		if !event.Service.Shared {
