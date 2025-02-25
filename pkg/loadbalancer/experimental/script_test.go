@@ -5,8 +5,10 @@ package experimental
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	"os"
@@ -25,17 +27,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
@@ -51,7 +57,12 @@ func TestScript(t *testing.T) {
 	// Set the node name
 	nodeTypes.SetName("testnode")
 
-	log := hivetest.Logger(t)
+	var opts []hivetest.LogOption
+	if *debug {
+		opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
+		logging.SetLogLevelToDebug()
+	}
+	log := hivetest.Logger(t, opts...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
@@ -82,7 +93,10 @@ func TestScript(t *testing.T) {
 							LBMapEntries:                    1000,
 							NodePortAlg:                     cfg.NodePortAlg,
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
+							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
+							EnableNodePort:                  true,
 							EnableK8sTerminatingEndpoint:    true,
+							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
@@ -114,7 +128,7 @@ func TestScript(t *testing.T) {
 				Cmds: cmds,
 			}
 		}, []string{
-			fmt.Sprintf("HEALTHADDR=%s", healthServerAddr),
+			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),
 		}, "testdata/*.txtar")
 }
 

@@ -24,14 +24,14 @@ Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy
 test/echo   k8s                  Local              Local           
 
 -- frontends.table --
-Address               Type         ServiceName   PortName   Backends                     Status
-1.1.1.1:80/TCP        LoadBalancer test/echo     http       10.244.1.1:80/TCP (active)   Done
-10.96.50.104:80/TCP   ClusterIP    test/echo     http       10.244.1.1:80/TCP (active)   Done
+Address               Type         ServiceName   PortName   Backends            Status
+1.1.1.1:80/TCP        LoadBalancer test/echo     http       10.244.1.1:80/TCP   Done
+10.96.50.104:80/TCP   ClusterIP    test/echo     http       10.244.1.1:80/TCP   Done
 
 -- backends.table --
-Address             State    Instances          NodeName
-10.244.1.1:80/TCP   active   test/echo (http)   testnode
-10.244.2.1:80/TCP   active   test/echo (http)   othernode
+Address             Instances          NodeName
+10.244.1.1:80/TCP   test/echo (http)   testnode
+10.244.2.1:80/TCP   test/echo (http)   othernode
 
 -- service.yaml --
 apiVersion: v1

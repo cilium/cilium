@@ -292,8 +292,9 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.NodePortAlg == option.NodePortAlgMaglev ||
-		option.Config.LoadBalancerAlgorithmAnnotation {
+	if !d.explbConfig.EnableExperimentalLB &&
+		(option.Config.NodePortAlg == option.NodePortAlgMaglev ||
+			option.Config.LoadBalancerAlgorithmAnnotation) {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.MaglevTableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}

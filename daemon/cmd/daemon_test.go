@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -135,6 +136,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			k8sSynced.RejectedCRDSyncPromise,
+			func() *experimental.TestConfig {
+				return &experimental.TestConfig{}
+			},
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,

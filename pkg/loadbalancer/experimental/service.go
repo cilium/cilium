@@ -38,6 +38,11 @@ type Service struct {
 	// Annotations associated with this service.
 	Annotations map[string]string
 
+	// Selector specifies which pods should be associated with this service. If
+	// this is empty the backends associated to this service are managed externally
+	// and not by Kubernetes.
+	Selector map[string]string
+
 	// NatPolicy defines whether we need NAT46/64 translation for backends.
 	NatPolicy loadbalancer.SVCNatPolicy
 
@@ -69,6 +74,9 @@ type Service struct {
 	// SourceRanges if non-empty will restrict access to the service to the specified
 	// client addresses.
 	SourceRanges []cidr.CIDR
+
+	// PortNames maps a port name to a port number.
+	PortNames map[string]uint16
 
 	// Properties are additional untyped properties that can carry feature
 	// specific metadata about the service.
@@ -168,12 +176,12 @@ func (svc *Service) TableRow() []string {
 		strconv.FormatUint(uint64(svc.HealthCheckNodePort), 10),
 		showBool(svc.LoopbackHostPort),
 		showSourceRanges(svc.SourceRanges),
-		svc.GetLBAlgorithmAnnotation(),
+		svc.GetLBAlgorithmAnnotation().String(),
 	}
 }
 
-func (svc *Service) GetLBAlgorithmAnnotation() string {
-	return svc.Annotations[annotation.ServiceLoadBalancingAlgorithm]
+func (svc *Service) GetLBAlgorithmAnnotation() loadbalancer.SVCLoadBalancingAlgorithm {
+	return loadbalancer.ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
 var (
