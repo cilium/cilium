@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -325,6 +327,164 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	buffer.Reset()
 	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+}
+
+func TestWriteNodeConfig_IPv6DirectRouting(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	setupConfigSuite(t)
+
+	var (
+		na   datapath.NodeAddressing
+		magl *maglev.Maglev
+	)
+	h := hive.New(
+		cell.Provide(
+			fakeTypes.NewNodeAddressing,
+		),
+		maglev.Cell,
+		cell.Invoke(func(
+			nodeaddressing datapath.NodeAddressing,
+			ml *maglev.Maglev,
+		) {
+			na = nodeaddressing
+			magl = ml
+		}),
+	)
+	tlog := hivetest.Logger(t)
+	ctx := context.Background()
+	require.NoError(t, h.Start(tlog, ctx))
+	t.Cleanup(func() { h.Stop(tlog, ctx) })
+
+	for _, dev := range []string{defaults.SecondHostDevice, defaults.HostDevice} {
+		link := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: dev,
+			},
+		}
+		defer func() {
+			netlink.LinkDel(link)
+		}()
+		if err := netlink.LinkAdd(link); err != nil {
+			t.Fatalf("Failed to add link %q: %v", dev, err)
+		}
+	}
+
+	prevNP := option.Config.EnableNodePort
+	defer func() { option.Config.EnableNodePort = prevNP }()
+	option.Config.EnableNodePort = true
+
+	prevIPv6 := option.Config.EnableIPv6
+	defer func() { option.Config.EnableIPv6 = prevIPv6 }()
+	option.Config.EnableIPv6 = true
+
+	prevIPv4 := option.Config.EnableIPv4
+	defer func() { option.Config.EnableIPv4 = prevIPv4 }()
+	option.Config.EnableIPv4 = false
+
+	testCases := []struct {
+		name    string
+		devices []tables.DeviceAddress
+		want    string
+	}{
+		{
+			name: "link_local_only",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+			},
+			want: "#define IPV6_DIRECT_ROUTING { .addr = { 0xfe, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x40, 0x1, 0xa, 0xff, 0xfe, 0x35, 0xa8, 0x5 } }",
+		},
+		{
+			name: "global_only",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+			},
+			want: "#define IPV6_DIRECT_ROUTING { .addr = { 0x26, 0x0, 0x19, 0x0, 0x40, 0x1, 0x2, 0xa1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0 } }",
+		},
+		{
+			name: "local_first",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+			},
+			want: "#define IPV6_DIRECT_ROUTING { .addr = { 0x26, 0x0, 0x19, 0x0, 0x40, 0x1, 0x2, 0xa1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0 } }",
+		},
+		{
+			name: "global_first",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+				{
+					Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+				},
+			},
+			want: "#define IPV6_DIRECT_ROUTING { .addr = { 0x26, 0x0, 0x19, 0x0, 0x40, 0x1, 0x2, 0xa1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0 } }",
+		},
+		{
+			name: "select_first_global",
+			devices: []tables.DeviceAddress{
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+				},
+				{
+					Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:3::"),
+				},
+			},
+			want: "#define IPV6_DIRECT_ROUTING { .addr = { 0x26, 0x0, 0x19, 0x0, 0x40, 0x1, 0x2, 0xa1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0 } }",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Assert that configurations are propagated when all generated extra defines are valid
+			w, err := NewHeaderfileWriter(WriterParams{
+				NodeAddressing:   na,
+				NodeExtraDefines: nil,
+				Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+				NodeMap:          fake.NewFakeNodeMapV2(),
+				Maglev:           magl,
+			})
+			if err != nil {
+				t.Fatalf("Failed to create writer: %v", err)
+			}
+
+			cfg := localNodeConfiguration(tc.devices)
+
+			var b bytes.Buffer
+			b.Reset()
+			if err := w.WriteNodeConfig(&b, cfg); err != nil {
+				t.Fatalf("WriteNodeConfig() returned an error: %v", err)
+			}
+			resp := b.String()
+			if !strings.Contains(resp, tc.want) {
+				t.Error("IPV6_DIRECT_ROUTING IP address is unexpected")
+			}
+		})
+	}
+}
+
+func localNodeConfiguration(devices []tables.DeviceAddress) *datapath.LocalNodeConfiguration {
+	return &datapath.LocalNodeConfiguration{
+		DirectRoutingDevice: &tables.Device{
+			Addrs: devices,
+		},
+		NodeIPv4:           ipv4DummyAddr.AsSlice(),
+		NodeIPv6:           ipv6DummyAddr.AsSlice(),
+		CiliumInternalIPv4: ipv4DummyAddr.AsSlice(),
+		CiliumInternalIPv6: ipv6DummyAddr.AsSlice(),
+		AllocCIDRIPv4:      cidr.MustParseCIDR("10.147.0.0/16"),
+		LoopbackIPv4:       ipv4DummyAddr.AsSlice(),
+		Devices:            []*tables.Device{},
+		NodeAddresses:      []tables.NodeAddress{},
+		HostEndpointID:     1,
+	}
 }
 
 func TestNewHeaderfileWriter(t *testing.T) {
