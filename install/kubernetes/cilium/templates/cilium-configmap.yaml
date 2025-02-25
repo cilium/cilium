@@ -541,6 +541,9 @@ data:
 {{- if .Values.tunnelSourcePortRange }}
   tunnel-source-port-range: {{ .Values.tunnelSourcePortRange | quote }}
 {{- end }}
+{{- if .Values.underlayProtocol }}
+  underlay-protocol: {{ .Values.underlayProtocol | quote }}
+{{- end }}
 
 {{- if .Values.serviceNoBackendResponse }}
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
