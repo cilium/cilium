@@ -30,8 +30,9 @@ type Namespace struct {
 	UpdatedAt time.Time `json:"updatedAt" yaml:"updatedAt"`
 }
 
-func (ns Namespace) GetName() string      { return ns.Name }
-func (ns Namespace) GetNamespace() string { return "" }
+func (ns Namespace) GetName() string              { return ns.Name }
+func (ns Namespace) GetNamespace() string         { return "" }
+func (ns Namespace) GetLabels() map[string]string { return ns.Labels }
 
 func (ns Namespace) TableHeader() []string {
 	return []string{
