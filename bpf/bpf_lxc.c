@@ -1534,11 +1534,12 @@ out:
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_label,
+ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv6_ct_tuple *tuple;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
@@ -1578,12 +1579,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
-			send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-					   TRACE_EP_ID_UNKNOWN, ifindex, trace.reason,
-					   trace.monitor);
-			if (tuple_out)
-				memcpy(tuple_out, tuple, sizeof(*tuple));
-			return POLICY_ACT_PROXY_REDIRECT;
+			*proxy_port = 0;
+			goto redirect_to_proxy;
 		}
 
 		/* Reverse NAT applies to return traffic only. */
@@ -1652,19 +1649,22 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 			return ret;
 	}
 
-	if (*proxy_port > 0) {
-		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-				   trace.monitor);
-		if (tuple_out)
-			memcpy(tuple_out, tuple, sizeof(*tuple));
-		return POLICY_ACT_PROXY_REDIRECT;
-	}
+	if (*proxy_port > 0)
+		goto redirect_to_proxy;
+
 	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
+			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+			   trace.monitor);
+	if (tuple_out)
+		memcpy(tuple_out, tuple, sizeof(*tuple));
+	return POLICY_ACT_PROXY_REDIRECT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
@@ -1692,14 +1692,16 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ipv6_policy(ctx, ip6, THIS_INTERFACE_IFINDEX, src_label, &tuple,
-			  &ext_err, &proxy_port, from_tunnel);
+	ret = ipv6_policy(ctx, ip6, src_label, &tuple, &ext_err,
+			  &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (from_tunnel)
 			ctx_change_type(ctx, PACKET_HOST);
 
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
+		/* Store meta: essential for proxy ingress, see bpf_host.c */
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -1721,9 +1723,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		goto drop_err;
-
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
@@ -1799,8 +1798,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 
-	ret = ipv6_policy(ctx, ip6, THIS_INTERFACE_IFINDEX, src_sec_identity,
-			  NULL, &ext_err, &proxy_port, false);
+	ret = ipv6_policy(ctx, ip6, src_sec_identity, NULL, &ext_err,
+			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
@@ -1846,11 +1845,12 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_label,
+ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv4_ct_tuple *tuple;
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
@@ -1899,12 +1899,8 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
-			send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-					   TRACE_EP_ID_UNKNOWN, ifindex, trace.reason,
-					   trace.monitor);
-			if (tuple_out)
-				*tuple_out = *tuple;
-			return POLICY_ACT_PROXY_REDIRECT;
+			*proxy_port = 0;
+			goto redirect_to_proxy;
 		}
 
 		/* Reverse NAT applies to return traffic only. */
@@ -2002,19 +1998,22 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 			return ret;
 	}
 
-	if (*proxy_port > 0) {
-		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-				   trace.monitor);
-		if (tuple_out)
-			*tuple_out = *tuple;
-		return POLICY_ACT_PROXY_REDIRECT;
-	}
+	if (*proxy_port > 0)
+		goto redirect_to_proxy;
+
 	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
+			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+			   trace.monitor);
+	if (tuple_out)
+		*tuple_out = *tuple;
+	return POLICY_ACT_PROXY_REDIRECT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
@@ -2044,14 +2043,16 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ipv4_policy(ctx, ip4, THIS_INTERFACE_IFINDEX, src_label, &tuple,
-			  &ext_err, &proxy_port, from_tunnel);
+	ret = ipv4_policy(ctx, ip4, src_label, &tuple, &ext_err,
+			  &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (from_tunnel)
 			ctx_change_type(ctx, PACKET_HOST);
 
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
+		/* Store meta: essential for proxy ingress, see bpf_host.c */
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -2080,9 +2081,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		goto drop_err;
-
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
@@ -2152,8 +2150,8 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 
-	ret = ipv4_policy(ctx, ip4, THIS_INTERFACE_IFINDEX, src_sec_identity,
-			  NULL, &ext_err, &proxy_port, false);
+	ret = ipv4_policy(ctx, ip4, src_sec_identity, NULL, &ext_err,
+			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
