@@ -233,6 +233,14 @@ func SetInternalIPv4Router(ip net.IP) {
 	})
 }
 
+// GetInternalIPv6Router returns the cilium internal IPv6 node address. This must not be conflated with
+// k8s internal IP as this IP address is only relevant within the Cilium-managed network (this means
+// within the node for direct routing mode and on the overlay for tunnel mode).
+func GetInternalIPv6Router() net.IP {
+	n := getLocalNode()
+	return n.GetCiliumInternalIP(true)
+}
+
 // GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
 // k8s internal IP as this IP address is only relevant within the Cilium-managed network (this means
 // within the node for direct routing mode and on the overlay for tunnel mode).
@@ -295,9 +303,17 @@ func AutoComplete(directRoutingDevice string) error {
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit() error {
-	if option.Config.EnableIPv4 || option.Config.TunnelingEnabled() {
-		if GetIPv4() == nil {
-			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
+	if option.Config.EnableIPv4 && GetIPv4() == nil {
+		return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
+	}
+
+	if option.Config.EnableIPv6 && GetIPv6() == nil {
+		return fmt.Errorf("external IPv6 node address could not be derived, please configure via --ipv6-node")
+	}
+
+	if option.Config.TunnelingEnabled() {
+		if GetIPv4() == nil && GetIPv6() == nil {
+			return fmt.Errorf("external IPv4 and IPv6 node addresses could not be derived, please configure via --ipv4-node or --ipv6-node")
 		}
 	}
 
