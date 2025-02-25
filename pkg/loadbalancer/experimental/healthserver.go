@@ -21,6 +21,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -253,7 +254,11 @@ func (s *healthServer) cleanupListeners(ctx context.Context) {
 
 func (s *healthServer) addListener(svc *Service, port uint16) {
 	if srv, exists := s.serverByPort[port]; exists {
-		s.params.Log.Warn("HealthServer: Listener already exists", "port", port, "new", svc.Name, "old", srv.name)
+		s.params.Log.Warn("HealthServer: Listener already exists",
+			logfields.Port, port,
+			logfields.New, svc.Name,
+			logfields.Old, srv.name,
+		)
 		return
 	}
 

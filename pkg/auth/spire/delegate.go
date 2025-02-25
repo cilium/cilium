@@ -149,7 +149,7 @@ func (s *SpireDelegateClient) listenForSVIDUpdates(ctx context.Context, errorCha
 				return
 			}
 
-			s.log.Debug("Received X509-SVID update", "nr_of_svids", len(resp.X509Svids))
+			s.log.Debug("Received X509-SVID update", logfields.LenSVIDs, len(resp.X509Svids))
 			s.handleX509SVIDUpdate(resp.X509Svids)
 		}
 	}
@@ -167,7 +167,7 @@ func (s *SpireDelegateClient) listenForBundleUpdates(ctx context.Context, errorC
 				return
 			}
 
-			s.log.Debug("Received X509-Bundle update", "nr_of_bundles", len(resp.CaCertificates))
+			s.log.Debug("Received X509-Bundle update", logfields.LenBundles, len(resp.CaCertificates))
 			s.handleX509BundleUpdate(resp.CaCertificates)
 		}
 	}
@@ -184,7 +184,7 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 
 		if svid.X509Svid.Id.TrustDomain != s.cfg.SpiffeTrustDomain {
 			s.log.Debug("Skipping X509-SVID update as it does not match ours",
-				"trust_domain", svid.X509Svid.Id.TrustDomain)
+				logfields.TrustDomain, svid.X509Svid.Id.TrustDomain)
 			s.svidStoreMutex.RUnlock()
 			return
 		}
@@ -197,7 +197,7 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 				updatedKeys = append(updatedKeys, key)
 			}
 		} else {
-			s.log.Debug("Adding newly discovered X509-SVID", "spiffe_id", key)
+			s.log.Debug("Adding newly discovered X509-SVID", logfields.SPIFEEID, key)
 		}
 		newSvidStore[key] = svid
 
@@ -221,16 +221,16 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 		id, err := s.spiffeIDToNumericIdentity(key)
 		if err != nil {
 			s.log.Error("Failed to convert SPIFFE ID to numeric identity",
-				"spiffe_id", key,
+				logfields.SPIFEEID, key,
 				logfields.Error, err)
 			continue
 		}
 		select {
 		case s.rotatedIdentitiesChan <- certs.CertificateRotationEvent{Identity: id, Deleted: true}:
-			s.log.Debug("X509-SVID has been deleted, signaling this", "spiffe_id", key)
+			s.log.Debug("X509-SVID has been deleted, signaling this", logfields.SPIFEEID, key)
 		default:
 			if s.logLimiter.Allow() {
-				s.log.Warn("Skip sending deleted identity as channel is full", "identity", id)
+				s.log.Warn("Skip sending deleted identity as channel is full", logfields.Identity, id)
 			}
 		}
 	}
@@ -240,16 +240,16 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 		id, err := s.spiffeIDToNumericIdentity(key)
 		if err != nil {
 			s.log.Error("Failed to convert SPIFFE ID to numeric identity",
-				"spiffe_id", key,
+				logfields.SPIFEEID, key,
 				logfields.Error, err)
 			continue
 		}
 		select {
 		case s.rotatedIdentitiesChan <- certs.CertificateRotationEvent{Identity: id}:
-			s.log.Debug("X509-SVID has changed, signaling this", "spiffe_id", key)
+			s.log.Debug("X509-SVID has changed, signaling this", logfields.SPIFEEID, key)
 		default:
 			if s.logLimiter.Allow() {
-				s.log.Warn("Skip sending rotated identity as channel is full", "identity", id)
+				s.log.Warn("Skip sending rotated identity as channel is full", logfields.Identity, id)
 			}
 		}
 	}
@@ -259,12 +259,12 @@ func (s *SpireDelegateClient) handleX509BundleUpdate(bundles map[string][]byte) 
 	pool := x509.NewCertPool()
 
 	for trustDomain, bundle := range bundles {
-		s.log.Debug("Processing trust domain cert bundle", "trust_domain", trustDomain)
+		s.log.Debug("Processing trust domain cert bundle", logfields.TrustDomain, trustDomain)
 
 		certs, err := x509.ParseCertificates(bundle)
 		if err != nil {
 			s.log.Error("Failed to parse X.509 DER bundle",
-				"trust_domain", trustDomain,
+				logfields.TrustDomain, trustDomain,
 				logfields.Error, err)
 			continue
 		}

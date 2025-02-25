@@ -287,8 +287,8 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 
 func (c *lrpController) processLRPAndPod(wtxn experimental.WriteTxn, lrp *LocalRedirectPolicy, podInfo podInfo) {
 	c.p.Log.Info("processLRPAndPod",
-		"lrp", lrp.ID,
-		"pod", podInfo.namespacedName)
+		logfields.ID, lrp.ID,
+		logfields.Pod, podInfo.namespacedName)
 
 	portNameMatches := func(portName string) bool {
 		for bePortName := range lrp.BackendPortsByPortName {
@@ -315,7 +315,10 @@ func (c *lrpController) processLRPAndPod(wtxn experimental.WriteTxn, lrp *LocalR
 	beps := make([]experimental.BackendParams, 0, len(podInfo.addrs))
 	for _, addr := range podInfo.addrs {
 		if portNameMatches != nil && !portNameMatches(addr.portName) {
-			c.p.Log.Info("Mismatching port name", "portName", addr.portName, "frontendType", lrp.FrontendType)
+			c.p.Log.Info("Mismatching port name",
+				logfields.PortName, addr.portName,
+				logfields.LRPFrontendType, lrp.FrontendType,
+			)
 			continue
 		}
 		beps = append(beps, experimental.BackendParams{
@@ -323,7 +326,7 @@ func (c *lrpController) processLRPAndPod(wtxn experimental.WriteTxn, lrp *LocalR
 			State:     lb.BackendStateActive,
 			PortNames: []string{addr.portName},
 		})
-		c.p.Log.Info("Adding backend instance", "name", toName)
+		c.p.Log.Info("Adding backend instance", logfields.Name, toName)
 	}
 	c.p.Writer.SetBackends(
 		wtxn,

@@ -40,7 +40,10 @@ func (c *Controller) processPodEvents(ctx context.Context, wg *sync.WaitGroup) e
 
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {
 			if !event.Object.Spec.HostNetwork {
-				c.logger.Debug("Got Pod event", logfields.Type, event.Kind, logfields.K8sPodName, event.Key.String())
+				c.logger.Debug("Got Pod event",
+					logfields.Type, event.Kind,
+					logfields.K8sPodName, event.Key,
+				)
 				c.enqueueReconciliation(PodItem{podResourceKey(event.Object.Name, event.Object.Namespace)}, 0)
 			}
 		}

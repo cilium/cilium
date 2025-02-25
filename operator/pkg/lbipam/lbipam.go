@@ -1178,7 +1178,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		pool, found := ipam.pools[lbRange.originPool]
 		if !found {
 			ipam.logger.Warn(fmt.Sprintf("Bad state detected, store contains lbRange for pool '%s' but missing the pool", lbRange.originPool),
-				"pool-name", lbRange.originPool)
+				logfields.PoolName, lbRange.originPool)
 			continue
 		}
 
@@ -1281,7 +1281,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	// Sanity check that we do not yet know about this pool.
 	if _, found := ipam.pools[pool.GetName()]; found {
 		ipam.logger.Warn(fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
-			"pool-name", pool.GetName())
+			logfields.PoolName, pool.GetName())
 		return nil
 	}
 
@@ -1812,10 +1812,10 @@ func (ipam *LBIPAM) markPoolConflicting(
 			ipNetStr(targetRange),
 			ipNetStr(collisionRange),
 			collisionPool.Name),
-		"pool1-name", targetPool.Name,
-		"pool1-range", ipNetStr(targetRange),
-		"pool2-name", ipNetStr(collisionRange),
-		"pool2-range", collisionPool.Name,
+		logfields.PoolName1, targetPool.Name,
+		logfields.PoolRange1, ipNetStr(targetRange),
+		logfields.PoolName2, ipNetStr(collisionRange),
+		logfields.PoolRange2, collisionPool.Name,
 	)
 
 	conflictMessage := fmt.Sprintf(

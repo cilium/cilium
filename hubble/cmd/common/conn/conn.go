@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/hubble/pkg/defaults"
 	"github.com/cilium/cilium/hubble/pkg/logger"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // GRPCOptionFunc is a function that configures a gRPC dial option.
@@ -86,7 +87,7 @@ func NewWithFlags(ctx context.Context, vp *viper.Viper) (*grpc.ClientConn, error
 		}
 
 		server = fmt.Sprintf("127.0.0.1:%d", res.ForwardedPort.Local)
-		logger.Logger.Debug("port-forward to hubble-relay pod running", "addr", server)
+		logger.Logger.Debug("port-forward to hubble-relay pod running", logfields.Address, server)
 	}
 
 	conn, err := New(server)

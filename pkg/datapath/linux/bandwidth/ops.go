@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type ops struct {
@@ -128,7 +129,9 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 		}
 		which = "fq"
 	}
-	ops.log.Info("Setting qdisc", "qdisc", which, "device", device)
+	ops.log.Info("Setting qdisc",
+		logfields.Qdisc, which,
+		logfields.Device, device)
 
 	// Set the fq parameters
 	qdiscs, err = safenetlink.QdiscList(link)

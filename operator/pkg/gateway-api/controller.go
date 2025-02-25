@@ -34,7 +34,10 @@ const (
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
 	return func(obj client.Object) bool {
-		scopedLog := logger.With(logfields.Controller, gateway, logfields.Resource, obj.GetName())
+		scopedLog := logger.With(
+			logfields.Controller, gateway,
+			logfields.Resource, obj.GetName(),
+		)
 		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
 			return false
@@ -52,7 +55,10 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 }
 
 func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object, logger *slog.Logger) []*gatewayv1.Gateway {
-	scopedLog := logger.With(logfields.Controller, gateway, logfields.Resource, obj.GetName())
+	scopedLog := logger.With(
+		logfields.Controller, gateway,
+		logfields.Resource, obj.GetName(),
+	)
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
@@ -82,7 +88,10 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 }
 
 func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object, logger *slog.Logger) []types.NamespacedName {
-	scopedLog := logger.With(logfields.Controller, gateway, logfields.K8sNamespace, ns.GetName())
+	scopedLog := logger.With(
+		logfields.Controller, gateway,
+		logfields.K8sNamespace, ns.GetName(),
+	)
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {

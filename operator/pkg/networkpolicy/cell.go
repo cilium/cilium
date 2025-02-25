@@ -113,7 +113,10 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumNetworkPolicyName, pol.Name,
+	)
 
 	var errs error
 	if pol.Spec != nil {
@@ -160,7 +163,10 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumClusterwideNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumClusterwideNetworkPolicyName, pol.Name,
+	)
 
 	var errs error
 	if pol.Spec != nil {

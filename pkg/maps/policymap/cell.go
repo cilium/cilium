@@ -152,7 +152,7 @@ func createFactory(in struct {
 	m, maxStatsEntries := newStatsMap(in.BpfPolicyStatsMapMax, in.Log)
 	if int(maxStatsEntries) != in.BpfPolicyStatsMapMax {
 		in.Log.Debug("Rounded policy stats map size down to the closest multiple of the number of possible CPUs",
-			"entries", maxStatsEntries)
+			logfields.Entries, maxStatsEntries)
 	}
 
 	out.Factory = Factory(newFactory(m, in.BpfPolicyMapMax))

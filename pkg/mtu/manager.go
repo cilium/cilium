@@ -50,7 +50,10 @@ func (m *MTUManager) Updater(ctx context.Context, health cell.Health) error {
 			baseMTU = min(baseMTU, dev.MTU)
 			deviceNames = append(deviceNames, dev.Name)
 		}
-		m.Log.Debug("Detected base MTU from devices", logfields.Devices, deviceNames, "base-mtu", baseMTU)
+		m.Log.Debug("Detected base MTU from devices",
+			logfields.Devices, deviceNames,
+			logfields.MTU, baseMTU,
+		)
 
 		routeMTU := m.Config.Calculate(baseMTU)
 

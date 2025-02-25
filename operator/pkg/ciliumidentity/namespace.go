@@ -26,7 +26,9 @@ func (c *Controller) processNamespaceEvents(ctx context.Context, wg *sync.WaitGr
 		case resource.Sync:
 			wg.Done()
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Namespace event", logfields.K8sNamespace, event.Key.String())
+			c.logger.Debug("Got Upsert Namespace event",
+				logfields.K8sNamespace, event.Key,
+			)
 
 			c.onNamespaceEvent(event.Object)
 		}
@@ -51,7 +53,10 @@ func (c *Controller) onNamespaceEvent(ns *slimcorev1.Namespace) {
 	c.oldNSSecurityLabels[ns.Name] = newIdLabels
 
 	if err := c.reconciler.reconcileNamespace(nsResourceKey(ns.Name)); err != nil {
-		c.logger.Error("Failed to process namespaces changes", logfields.K8sNamespace, ns.Name, logfields.Error, err)
+		c.logger.Error("Failed to process namespaces changes",
+			logfields.K8sNamespace, ns.Name,
+			logfields.Error, err,
+		)
 	}
 }
 

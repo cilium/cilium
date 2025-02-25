@@ -57,7 +57,9 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					if err != nil {
 						r.logger.Error("Failed to get backend service name",
 							logfields.Controller, "tlsRoute",
-							logfields.Resource, client.ObjectKeyFromObject(rawObj), logfields.Error, err)
+							logfields.Resource, client.ObjectKeyFromObject(rawObj),
+							logfields.Error, err,
+						)
 						continue
 					}
 					backendServices = append(backendServices,
@@ -167,7 +169,10 @@ func (r *tlsRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *tlsRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, tlsRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, tlsRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		rList := &gatewayv1alpha2.TLSRouteList{}
 
 		if err := r.Client.List(context.Background(), rList, &client.ListOptions{
@@ -194,7 +199,10 @@ func (r *tlsRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *tlsRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, tlsRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, tlsRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 
 		trList := &gatewayv1alpha2.TLSRouteList{}
 

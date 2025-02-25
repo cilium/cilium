@@ -372,7 +372,7 @@ const (
 	ProxyName = "proxyName"
 
 	// ProxyPort is the port number of an L7 proxy listener.
-	ProxyPort = "ProxyPort"
+	ProxyPort = "proxyPort"
 
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"
@@ -421,6 +421,9 @@ const (
 
 	// BPFMapValue is a value from a BPF map
 	BPFMapValue = "bpfMapValue"
+
+	// Qdisc is the qdisc name
+	Qdisc = "qdisc"
 
 	// Device is the device name
 	Device = "device"
@@ -650,6 +653,9 @@ const (
 	// SysParamValue is the value of the kernel parameter (sysctl)
 	SysParamValue = "sysParamValue"
 
+	// SysParamBaselineValue is the value of the base kernel parameter (sysctl)
+	SysParamBaselineValue = "baselineValue"
+
 	// HashSeed is the seed value for the hashing algorithm
 	HashSeed = "hashSeed"
 
@@ -677,6 +683,10 @@ const (
 
 	// ENPName is the name of the egress nat policy
 	ENPName = "enpName"
+
+	// AccelarationMode
+
+	AccelarationMode = "accelarationMode"
 
 	// Mode describes an operations mode
 	Mode = "mode"
@@ -842,4 +852,245 @@ const (
 
 	// Maximum specifies a maximum allowed value
 	Maximum = "maximum"
+
+	// Directory identifies a directory
+	Directory = "directory"
+	// PacketsDropped are the number of packets dropped
+	PacketsDropped = "packetsDropped"
+
+	// From represents the source
+	From = "from"
+
+	// To represents the destination
+	To = "to"
+
+	// GsoMaxSize is the GSO Max Size
+	GsoMaxSize = "gso_max_size"
+
+	// GroMaxSize is the GRO Max Size
+	GroMaxSize = "gro_max_size"
+
+	// Flag is the program flag
+	Flag = "flag"
+
+	// NewRules refers to the new rules after the update
+	NewRules = "newRules"
+
+	// L7Parser is the L7 parser used for L7 network traffic
+	L7Parser = "l7parser"
+
+	// ProxyType is the proxy type
+	ProxyType = "proxyType"
+
+	// RetryDelay the delay used for a retry
+	RetryDelay = "retryDelay"
+
+	// LastLevel is the last level for the health status
+	LastLevel = "lastLevel"
+
+	// ReporterID the reporter's ID
+	ReporterID = "reporter-id"
+
+	// Status is the status
+	Status = "status"
+
+	// DeletedRules is the length of rules deleted
+	DeletedRules = "deletedRules"
+
+	// Deleted is the length of structs deleted
+	Deleted = "deleted"
+
+	Upserted = "upserted"
+
+	Updated = "updated"
+
+	New = "new"
+
+	Old = "old"
+
+	Name = "name"
+
+	ProxyRedirect = "proxyRedirect"
+
+	Message = "message"
+
+	Zone = "zone"
+
+	Got = "got"
+
+	Want = "want"
+
+	Removed = "removed"
+
+	NetNSDir = "netns-dir"
+
+	Index = "index"
+
+	RemoteNodeID = "remoteNodeID"
+
+	RemoteNodeIP = "remoteNodeIP"
+
+	NodeIDs = "NodeIDs"
+
+	LocalIdentity = "localIdentity"
+
+	RemoteIdentity = "remoteIdentity"
+
+	Expiration = "expiration"
+
+	GCTime = "gcTime"
+
+	Backoff = "backOff"
+
+	SortedAt = "sortedAt"
+
+	SNI = "SNI"
+
+	SNIID = "SNIID"
+
+	URISan = "URISan"
+
+	SPIFEEID = "SPIFEEID"
+
+	TrustDomain = "TrustDomain"
+
+	LenSVIDs = "lenSVIDs"
+
+	LenBundles = "lenBundles"
+
+	EnvoyID = "ID"
+
+	EnvoyCluster = "cluster"
+
+	UserAgent = "userAgent"
+
+	Neighbor = "neighbor"
+
+	AllocCIDR = "allocCIDR"
+
+	Feature = "feature"
+
+	Enabled = "enabled"
+
+	QuietMode = "quietMode"
+
+	NodeIP = "nodeIP"
+
+	Actual = "actual"
+
+	ExpectedValue = "expectedValue"
+
+	ExpectedSource = "expectedSource"
+
+	NewIP = "newIP"
+
+	OldIP = "oldIP"
+
+	AddedCIDRs = "addedCIDRs"
+
+	RemovedCIDRs = "removedCIDRs"
+
+	ID = "ID"
+
+	Link = "link"
+
+	Hook = "hook"
+
+	DNSRedirect = "dnsRedirect"
+
+	EnvoyRedirect = "envoyRedirect"
+
+	Slot = "slot"
+
+	First = "first"
+
+	Second = "second"
+
+	Backend = "backend"
+
+	FrontendID = "frontendID"
+
+	ListenerID = "listenerID"
+
+	Frontend = "frontend"
+
+	HostPort = "hostPort"
+
+	NodePortMin = "nodePortMin"
+
+	NodePortMax = "nodePortMax"
+
+	Active = "active"
+
+	Previous = "previous"
+
+	HostIP = "hostIP"
+
+	PoolSpec = "poolSpec"
+
+	PoolName = "poolName"
+
+	MaxRetries = "maxRetries"
+
+	Retries = "retries"
+
+	Gateway = "gateway"
+
+	Kind = "kind"
+
+	RequiredGVK = "requiredGVK"
+
+	OptionalGVK = "optionalGVK"
+
+	ClusterConfig = "clusterConfig"
+
+	NodeConfig = "nodeConfig"
+
+	Server = "server"
+
+	PoolName1 = "poolName1"
+
+	PoolName2 = "poolName2"
+
+	PoolRange1 = "poolRange1"
+
+	PoolRange2 = "poolRange2"
+
+	Min = "min"
+
+	Max = "max"
+
+	IdentitiesToDelete = "identitiesToDelete"
+
+	CRDIdentityCount = "crdIdentityCount"
+
+	KVStoreIdentityCount = "kvstoreIdentityCount"
+
+	OnlyInCRDCount = "onlyInCrdCount"
+
+	OnlyInKVStoreCount = "onlyInKvstoreCount"
+
+	OnlyInCRDSample = "onlyInCrdSample"
+
+	OnlyInKVStoreSample = "onlyInKvstoreSample"
+
+	Service = "service"
+
+	ConfigFile = "configFile"
+
+	Registrations = "registrations"
+
+	HTTPRoute = "httpRoute"
+
+	Secret = "secret"
+
+	Nodes = "nodes"
+
+	Endpoints = "endpoints"
+
+	Shared = "shared"
+
+	Taint = "taint"
+
+	Pod = "pod"
 )

@@ -198,7 +198,7 @@ func (emu *endpointUpdater) updateHostNSDevices(rx statedb.ReadTxn, routeMtus []
 		link, err := netlink.LinkByIndex(dev.Index)
 		if err != nil {
 			emu.logger.Error("Error getting link by index",
-				"index", dev.Index,
+				logfields.Index, dev.Index,
 				logfields.Error, err,
 			)
 			errs = append(errs, err)
@@ -207,9 +207,9 @@ func (emu *endpointUpdater) updateHostNSDevices(rx statedb.ReadTxn, routeMtus []
 
 		if err := netlink.LinkSetMTU(link, defaultRouteMTU.DeviceMTU); err != nil {
 			emu.logger.Error("Error setting MTU for link",
-				"link", link.Attrs().Name,
-				"index", link.Attrs().Index,
-				"mtu", defaultRouteMTU.DeviceMTU,
+				logfields.Link, link.Attrs().Name,
+				logfields.Index, link.Attrs().Index,
+				logfields.MTU, defaultRouteMTU.DeviceMTU,
 				logfields.Error, err,
 			)
 			errs = append(errs, err)
@@ -232,7 +232,7 @@ func (emu *endpointUpdater) updateEndpoints(routeMTUs []RouteMTU) error {
 	if err != nil {
 		emu.logger.Error("Error opening the netns dir while "+
 			"updating MTU for endpoints",
-			"netns-dir", defaults.NetNsPath,
+			logfields.NetNSDir, defaults.NetNsPath,
 			logfields.Error, err,
 		)
 		return err
@@ -244,7 +244,7 @@ func (emu *endpointUpdater) updateEndpoints(routeMTUs []RouteMTU) error {
 		ns, err := netns.OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
 		if err != nil {
 			emu.logger.Error("Error opening netns",
-				"netns", file.Name(),
+				logfields.NetNSName, file.Name(),
 				logfields.Error, err,
 			)
 			errs = append(errs, err)
@@ -256,9 +256,9 @@ func (emu *endpointUpdater) updateEndpoints(routeMTUs []RouteMTU) error {
 				if err := hook(routeMTUs); err != nil {
 					errs = append(errs, err)
 					emu.logger.Error("error while updating MTU for endpoint",
-						"netns", file.Name(),
+						logfields.NetNSName, file.Name(),
 						logfields.Error, err,
-						"hook", runtime.FuncForPC(reflect.ValueOf(hook).Pointer()).Name(),
+						logfields.Hook, runtime.FuncForPC(reflect.ValueOf(hook).Pointer()).Name(),
 					)
 				}
 			}
@@ -269,7 +269,7 @@ func (emu *endpointUpdater) updateEndpoints(routeMTUs []RouteMTU) error {
 		if err != nil {
 			errs = append(errs, err)
 			emu.logger.Error("error while updating MTU for endpoint",
-				"netns", file.Name(),
+				logfields.NetNSName, file.Name(),
 				logfields.Error, err,
 			)
 			continue
@@ -386,9 +386,9 @@ func (emu *endpointUpdater) updateHealthEndpoint(routeMTUs []RouteMTU) error {
 			if err := hook(routeMTUs); err != nil {
 				errs = append(errs, err)
 				emu.logger.Error("error while updating MTU for health endpoint",
-					"netns", file,
+					logfields.NetNSName, file,
 					logfields.Error, err,
-					"hook", runtime.FuncForPC(reflect.ValueOf(hook).Pointer()).Name(),
+					logfields.Hook, runtime.FuncForPC(reflect.ValueOf(hook).Pointer()).Name(),
 				)
 			}
 		}
@@ -399,7 +399,7 @@ func (emu *endpointUpdater) updateHealthEndpoint(routeMTUs []RouteMTU) error {
 	// Even though we never return an error from ns.Do, it can still fail internally
 	if err != nil {
 		emu.logger.Error("Error updating MTU for health endpoint",
-			"pid", pid,
+			logfields.PID, pid,
 			logfields.Error, err,
 		)
 		errs = append(errs, err)

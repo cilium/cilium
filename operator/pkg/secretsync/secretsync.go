@@ -18,6 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -91,7 +93,7 @@ func NewSecretSyncReconciler(c client.Client, logger *slog.Logger, registrations
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
-	r.logger.Info("Setting up Secret synchronization", "registrations", r.registrations)
+	r.logger.Info("Setting up Secret synchronization", logfields.Registrations, r.registrations)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Source Secrets outside of the secrets namespace

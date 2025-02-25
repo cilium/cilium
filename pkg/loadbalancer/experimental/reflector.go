@@ -660,7 +660,10 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 			if uint16(p.HostPort) >= extConfig.NodePortMin &&
 				uint16(p.HostPort) <= extConfig.NodePortMax {
 				log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
-					"HostPort", p.HostPort, "NodePortMin", extConfig.NodePortMin, "NodePortMax", extConfig.NodePortMax)
+					logfields.HostPort, p.HostPort,
+					logfields.NodePortMin, extConfig.NodePortMin,
+					logfields.NodePortMax, extConfig.NodePortMax,
+				)
 				continue
 			}
 
@@ -683,7 +686,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
-					log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
+					log.Warn("Invalid Pod IP address. Ignoring.", logfields.IPAddr, podIP)
 					continue
 				}
 				if (!extConfig.EnableIPv6 && addr.Is6()) || (!extConfig.EnableIPv4 && addr.Is4()) {
@@ -710,7 +713,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && feIP.IsLoopback() && !netnsCookie() {
 				log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
-					"hostIP", feIP)
+					logfields.HostIP, feIP)
 				continue
 			}
 

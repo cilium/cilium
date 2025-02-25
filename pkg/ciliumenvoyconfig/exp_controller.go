@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
@@ -80,7 +81,10 @@ func (c *cecController) nodeLabelController(ctx context.Context, health cell.Hea
 		oldLabels := *c.NodeLabels.Load()
 
 		if !maps.Equal(newLabels, oldLabels) {
-			c.Log.Debug("Labels changed", "old", oldLabels, "new", newLabels)
+			c.Log.Debug("Labels changed",
+				logfields.Old, oldLabels,
+				logfields.New, newLabels,
+			)
 
 			// Since the labels changed, recompute 'SelectsLocalNode'
 			// for all CECs.

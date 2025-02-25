@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/hubble/cmd/watch"
 	"github.com/cilium/cilium/hubble/pkg"
 	"github.com/cilium/cilium/hubble/pkg/logger"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // New create a new root command.
@@ -61,7 +62,7 @@ func NewWithViper(vp *viper.Viper) *cobra.Command {
 		// initialize the logger after all the config parameters get loaded to viper.
 		logger.Initialize(newLogHandler(vp))
 		if err == nil {
-			logger.Logger.Debug("Using config file", "config-file", vp.ConfigFileUsed())
+			logger.Logger.Debug("Using config file", logfields.ConfigFile, vp.ConfigFileUsed())
 		}
 
 		username := vp.GetString(config.KeyBasicAuthUsername)

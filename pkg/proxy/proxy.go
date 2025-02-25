@@ -141,9 +141,9 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			p.logger.Debug("updated existing proxy instance",
 				fieldProxyRedirectID, id,
 				logfields.Listener, l4.GetListener(),
-				"l7parser", l4.GetL7Parser(),
+				logfields.L7Parser, l4.GetL7Parser(),
 				logfields.Object, logfields.Repr(existingRedirect),
-				"proxyType", existingRedirect.proxyPort.ProxyType)
+				logfields.ProxyType, existingRedirect.proxyPort.ProxyType)
 
 			// Must return the proxy port when successful
 			return existingRedirect.proxyPort.ProxyPort, nil, revert
@@ -181,8 +181,8 @@ func (p *Proxy) createNewRedirect(
 	scopedLog := p.logger.With(
 		fieldProxyRedirectID, id,
 		logfields.Listener, l4.GetListener(),
-		"l7parser", l4.GetL7Parser(),
-		"portName", ppName)
+		logfields.L7Parser, l4.GetL7Parser(),
+		logfields.PortName, ppName)
 
 	// try first with the previous port, if any
 	p.proxyPorts.Restore(pp)
@@ -277,11 +277,11 @@ func (p *Proxy) createRedirectImpl(redir Redirect, l4 policy.ProxyPolicy, wg *co
 	case policy.ParserTypeDNS:
 		// 'cb' not called for DNS redirects, which have a static proxy port
 		r, err := p.dnsIntegration.createRedirect(redir)
-		p.logger.Debug("Creating DNS Proxy redirect", "dnsRedirect", r)
+		p.logger.Debug("Creating DNS Proxy redirect", logfields.DNSRedirect, r)
 		return r, err
 	default:
 		r, err := p.envoyIntegration.createRedirect(redir, wg, cb)
-		p.logger.Debug("Creating Envoy Proxy redirect", "envoyRedirect", r)
+		p.logger.Debug("Creating Envoy Proxy redirect", logfields.EnvoyRedirect, r)
 		return r, err
 	}
 }
@@ -319,7 +319,7 @@ func (p *Proxy) removeRedirect(id string) {
 	if err != nil {
 		r.logger.Warn("Releasing proxy port failed",
 			fieldProxyRedirectID, id,
-			"proxyPort", proxyPort,
+			logfields.ProxyPort, proxyPort,
 			logfields.Error, err)
 	}
 }
