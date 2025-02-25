@@ -90,7 +90,7 @@ func (r *httpRouteReconciler) referencedBackendService(rawObj client.Object) []s
 			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 			if err != nil {
 				r.logger.Error("Failed to get backend service name",
-					logfields.Controller, "httpRoute",
+					logfields.Controller, logfields.HTTPRoute,
 					logfields.Resource, client.ObjectKeyFromObject(rawObj),
 					logfields.Error, err)
 				continue
@@ -197,7 +197,10 @@ func (r *httpRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, httpRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
@@ -216,7 +219,7 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued HTTPRoute for resource", "httpRoute", route)
+			scopedLog.Info("Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
 		}
 		return requests
 	}
@@ -224,7 +227,10 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Controller, httpRoute,
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{}); err != nil {
@@ -241,7 +247,7 @@ func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.Info("Enqueued HTTPRoute for resource", "httpRoute", route)
+			scopedLog.Info("Enqueued HTTPRoute for resource", logfields.HTTPRoute, route)
 		}
 		return requests
 	}

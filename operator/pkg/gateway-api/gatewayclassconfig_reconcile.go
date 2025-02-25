@@ -19,7 +19,10 @@ import (
 )
 
 func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, "gatewayclassconfig", logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Controller, "gatewayclassconfig",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling GatewayClassConfig")
 	original := &v2alpha1.CiliumGatewayClassConfig{}

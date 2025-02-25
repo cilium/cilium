@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type checkerParams struct {
@@ -98,11 +99,18 @@ func (c checker) computeDelta(desired map[string]dynamicconfig.DynamicConfig, ac
 			actualValueString := cast.ToString(actualValue)
 			if value.Value != actualValueString {
 				deltas = append(deltas, fmt.Sprintf("Mismatch for key [%s]: expecting %q but got %q", key, value.Value, actualValueString))
-				c.l.Warn("Mismatch found", "key", key, "actual", actualValueString, "expectedValue", value.Value, "expectedSource", value.Key.String())
+				c.l.Warn("Mismatch found",
+					logfields.Key, key,
+					logfields.Actual, actualValueString,
+					logfields.ExpectedValue, value.Value,
+					logfields.ExpectedSource, value.Key)
 			}
 		} else {
 			deltas = append(deltas, fmt.Sprintf("No entry found for key: [%s]", key))
-			c.l.Warn("No local entry found", "key", key, "expectedValue", value.Value, "expectedSource", value.Key.String())
+			c.l.Warn("No local entry found",
+				logfields.Key, key,
+				logfields.ExpectedValue, value.Value,
+				logfields.ExpectedSource, value.Key)
 		}
 	}
 	slices.Sort(deltas)

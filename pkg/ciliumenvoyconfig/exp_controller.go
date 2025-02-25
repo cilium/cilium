@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -223,7 +224,10 @@ func (c *cecController) nodeLabelController(ctx context.Context, health cell.Hea
 		oldLabels := *c.params.NodeLabels.Load()
 
 		if !maps.Equal(newLabels, oldLabels) {
-			c.params.Log.Debug("Labels changed", "old", oldLabels, "new", newLabels)
+			c.params.Log.Debug("Labels changed",
+				logfields.Old, oldLabels,
+				logfields.New, newLabels,
+			)
 
 			// Since the labels changed, recompute 'SelectsLocalNode'
 			// for all CECs.
@@ -444,7 +448,7 @@ func (c *cecController) onServiceUpsert(txn statedb.ReadTxn, svc *experimental.S
 	// Look up if there is a CiliumEnvoyConfig that references this service.
 	cec, _, found := c.params.CECs.Get(txn, CECByServiceName(svc.Name))
 	if !found {
-		c.params.Log.Debug("onServiceUpsert: CEC not found", "name", svc.Name)
+		c.params.Log.Debug("onServiceUpsert: CEC not found", logfields.ServiceName, svc.Name)
 		svc.ProxyRedirect = nil
 		return
 	}
@@ -463,10 +467,10 @@ func (c *cecController) onServiceUpsert(txn statedb.ReadTxn, svc *experimental.S
 
 	pr := getProxyRedirect(cec, svcl)
 	c.params.Log.Debug("Setting proxy redirection (on service upsert)",
-		"namespace", svcl.Namespace,
-		"name", svcl.Name,
-		"ProxyRedirect", pr,
-		"Listener", svcl.Listener)
+		logfields.K8sNamespace, svcl.Namespace,
+		logfields.Name, svcl.Name,
+		logfields.ProxyRedirect, pr,
+		logfields.Listener, svcl.Listener)
 	svc.ProxyRedirect = pr
 }
 

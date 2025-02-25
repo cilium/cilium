@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -193,10 +194,10 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
-	ops.log.Debug("Delete", "address", fe.Address)
+	ops.log.Debug("Delete", logfields.Address, fe.Address)
 
 	if err := ops.deleteFrontend(fe); err != nil {
-		ops.log.Warn("Deleting frontend failed, retrying", "error", err)
+		ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 		return err
 	}
 
@@ -209,29 +210,32 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 				fe = fe.Clone()
 				fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 				if err := ops.deleteFrontend(fe); err != nil {
-					ops.log.Warn("Deleting frontend failed, retrying", "error", err)
+					ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 					return err
 				}
 			}
 			delete(ops.nodePortAddrByService, fe.Address.Port)
 		} else {
-			ops.log.Warn("no nodePortAddrs", "port", fe.Address.Port)
+			ops.log.Warn("no nodePortAddrs", logfields.Port, fe.Address.Port)
 		}
 	}
 
-	ops.log.Debug("Delete done", "address", fe.Address)
+	ops.log.Debug("Delete done", logfields.Address, fe.Address)
 	return nil
 }
 
 func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
-		ops.log.Debug("Delete frontend: no ID found", "address", fe.Address)
+		ops.log.Debug("Delete frontend: no ID found", logfields.Address, fe.Address)
 		// Since no ID was found we can assume this frontend was never reconciled.
 		return nil
 	}
 
-	ops.log.Debug("Delete frontend", "id", feID, "address", fe.Address)
+	ops.log.Debug("Delete frontend",
+		logfields.ID, feID,
+		logfields.Address, fe.Address,
+	)
 
 	// Delete Maglev.
 	if ops.lbAlgorithm(fe) == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
@@ -251,7 +255,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	}
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, nil) {
-		ops.log.Debug("Delete orphan backend", "address", orphanState.addr)
+		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend %d: %w", orphanState.id, err)
 		}
@@ -278,7 +282,11 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	numBackends := len(ops.backendReferences[fe.Address])
 	for i := 0; i <= numBackends; i++ {
 		svcKey.SetBackendSlot(i)
-		ops.log.Debug("Delete service slot", "id", feID, "address", fe.Address, "slot", i)
+		ops.log.Debug("Delete service slot",
+			logfields.ID, feID,
+			logfields.Address, fe.Address,
+			logfields.Slot, i,
+		)
 		err := ops.LBMaps.DeleteService(svcKey.ToNetwork())
 		if err != nil {
 			return fmt.Errorf("delete from services map: %w", err)
@@ -318,7 +326,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		svcValue = svcValue.ToHost()
 		ac, ok := cmtypes.AddrClusterFromIP(svcKey.GetAddress())
 		if !ok {
-			ops.log.Warn("Prune: bad address in service key", "key", svcKey)
+			ops.log.Warn("Prune: bad address in service key", logfields.Key, svcKey)
 			return
 		}
 		addr := loadbalancer.L3n4Addr{
@@ -329,18 +337,20 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		if _, ok := ops.backendReferences[addr]; !ok {
 			addr.L4Addr.Protocol = loadbalancer.UDP
 			if _, ok := ops.backendReferences[addr]; !ok {
-				ops.log.Debug("pruneServiceMaps: enqueing for deletion", "id", svcValue.GetRevNat(), "addr", addr)
+				ops.log.Debug("pruneServiceMaps: enqueing for deletion",
+					logfields.ID, svcValue.GetRevNat(),
+					logfields.Address, addr)
 				toDelete = append(toDelete, svcKey.ToNetwork())
 			}
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
-		ops.log.Warn("Failed to prune service maps", "error", err)
+		ops.log.Warn("Failed to prune service maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
 		if err := ops.LBMaps.DeleteService(key); err != nil {
-			ops.log.Warn("Failed to delete from service map while pruning", "error", err)
+			ops.log.Warn("Failed to delete from service map while pruning", logfields.Error, err)
 		}
 	}
 	return nil
@@ -357,19 +367,22 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		if _, ok := ops.backendStates[addr]; !ok {
 			addr.L4Addr.Protocol = loadbalancer.UDP
 			if _, ok := ops.backendStates[addr]; !ok {
-				ops.log.Debug("pruneBackendMaps: enqueing for deletion", "id", beKey.GetID(), "addr", addr)
+				ops.log.Debug("pruneBackendMaps: enqueing for deletion",
+					logfields.ID, beKey.GetID(),
+					logfields.Address, addr,
+				)
 				toDelete = append(toDelete, beKey)
 			}
 
 		}
 	}
 	if err := ops.LBMaps.DumpBackend(beCB); err != nil {
-		ops.log.Warn("Failed to prune backend maps", "error", err)
+		ops.log.Warn("Failed to prune backend maps", logfields.Error, err)
 	}
 
 	for _, key := range toDelete {
 		if err := ops.LBMaps.DeleteBackend(key); err != nil {
-			ops.log.Warn("Failed to delete from backend map", "error", err)
+			ops.log.Warn("Failed to delete from backend map", logfields.Error, err)
 		}
 	}
 	return nil
@@ -404,7 +417,7 @@ func (ops *BPFOps) pruneRevNat() error {
 	cb := func(key lbmap.RevNatKey, value lbmap.RevNatValue) {
 		key = key.ToHost()
 		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetKey())]; !ok {
-			ops.log.Debug("pruneRevNat: enqueing for deletion", "id", key.GetKey())
+			ops.log.Debug("pruneRevNat: enqueing for deletion", logfields.ID, key.GetKey())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -415,7 +428,7 @@ func (ops *BPFOps) pruneRevNat() error {
 	for _, key := range toDelete {
 		err := ops.LBMaps.DeleteRevNat(key.ToNetwork())
 		if err != nil {
-			ops.log.Warn("Failed to delete from reverse nat map", "error", err)
+			ops.log.Warn("Failed to delete from reverse nat map", logfields.Error, err)
 		}
 	}
 	return nil
@@ -439,7 +452,9 @@ func (ops *BPFOps) pruneSourceRanges() error {
 			ok = ok && cidrs.Has(prefix)
 		}
 		if !ok {
-			ops.log.Debug("pruneSourceRanges: enqueing for deletion", "id", key.GetRevNATID(), "cidr", key.GetCIDR())
+			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
+				logfields.ID, key.GetRevNATID(),
+				logfields.CIDR, key.GetCIDR())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -450,7 +465,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	for _, key := range toDelete {
 		err := ops.LBMaps.DeleteSourceRange(key.ToNetwork())
 		if err != nil {
-			ops.log.Warn("Failed to delete from source range map", "error", err)
+			ops.log.Warn("Failed to delete from source range map", logfields.Error, err)
 		}
 	}
 	return nil
@@ -464,7 +479,7 @@ func (ops *BPFOps) pruneMaglev() error {
 	toDelete := []outerKeyWithIPVersion{}
 	cb := func(key lbmap.MaglevOuterKey, _ lbmap.MaglevOuterVal, _ lbmap.MaglevInnerKey, _ *lbmap.MaglevInnerVal, ipv6 bool) {
 		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.RevNatID)]; !ok {
-			ops.log.Debug("pruneMaglev: enqueing for deletion", "id", key.RevNatID)
+			ops.log.Debug("pruneMaglev: enqueing for deletion", logfields.ID, key.RevNatID)
 			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
 		}
 	}
@@ -477,8 +492,8 @@ func (ops *BPFOps) pruneMaglev() error {
 		err := ops.LBMaps.DeleteMaglev(okwiv.MaglevOuterKey, okwiv.ipv6)
 		if err != nil {
 			ops.log.Warn("Failed to delete from Maglev map",
-				"id", okwiv.MaglevOuterKey.RevNatID,
-				"error", err)
+				logfields.ID, okwiv.MaglevOuterKey.RevNatID,
+				logfields.Error, err)
 			errs = append(errs, err)
 		}
 	}
@@ -502,7 +517,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) error {
 	if err := ops.updateFrontend(fe); err != nil {
-		ops.log.Warn("Updating frontend failed, retrying", "error", err)
+		ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
 		return err
 	}
 
@@ -525,7 +540,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.updateFrontend(fe); err != nil {
-				ops.log.Warn("Updating frontend failed, retrying", "error", err)
+				ops.log.Warn("Updating frontend failed, retrying", logfields.Error, err)
 				return err
 			}
 			old.Delete(addr)
@@ -539,7 +554,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.deleteFrontend(fe); err != nil {
-				ops.log.Warn("Deleting orphan frontend failed, retrying", "error", err)
+				ops.log.Warn("Deleting orphan frontend failed, retrying", logfields.Error, err)
 				return err
 			}
 		}
@@ -607,7 +622,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
-		ops.log.Debug("Delete orphan backend", "address", orphanState.addr)
+		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
@@ -633,7 +648,11 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		}
 
 		if ops.needsUpdate(be.L3n4Addr, be.Revision) {
-			ops.log.Debug("Update backend", "backend", be, "id", beID, "addr", be.L3n4Addr)
+			ops.log.Debug("Update backend",
+				logfields.Backend, be,
+				logfields.ID, beID,
+				logfields.Address, be.L3n4Addr,
+			)
 			if err := ops.upsertBackend(beID, be.Backend); err != nil {
 				return fmt.Errorf("upsert backend: %w", err)
 			}
@@ -646,7 +665,10 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		// changed.
 		// Since backends are iterated in the order of their state with active first
 		// the slot ids here are sequential.
-		ops.log.Debug("Update service slot", "id", beID, "slot", i+1, "backendID", beID)
+		ops.log.Debug("Update service slot",
+			logfields.ID, beID,
+			logfields.Slot, i+1,
+			logfields.BackendID, beID)
 
 		svcVal.SetBackendID(beID)
 		svcVal.SetRevNat(int(feID))
@@ -681,7 +703,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	// Update Maglev
 	algorithm := ops.lbAlgorithm(fe)
 	if algorithm == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
-		ops.log.Debug("Update Maglev", "feID", feID)
+		ops.log.Debug("Update Maglev", logfields.FrontendID, feID)
 		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
 			return err
 		}
@@ -733,17 +755,23 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	// Update RevNat
-	ops.log.Debug("Update RevNat", "id", feID, "address", fe.Address)
+	ops.log.Debug("Update RevNat",
+		logfields.ID, feID,
+		logfields.Address, fe.Address,
+	)
 	if err := ops.upsertRevNat(feID, svcKey, svcVal); err != nil {
 		return fmt.Errorf("upsert reverse nat: %w", err)
 	}
 
-	ops.log.Debug("Update master service", "id", feID)
+	ops.log.Debug("Update master service", logfields.ID, feID)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount, algorithm); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
-	ops.log.Debug("Cleanup service slots", "id", feID, "active", activeCount, "previous", numPreviousBackends)
+	ops.log.Debug("Cleanup service slots",
+		logfields.ID, feID,
+		logfields.Active, activeCount,
+		logfields.Previous, numPreviousBackends)
 	if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
 		return fmt.Errorf("cleanup service slots: %w", err)
 	}
@@ -866,7 +894,7 @@ func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		RevNATID:  uint16(id),
 	}
 	var value lbmap.AffinityMatchValue
-	ops.log.Debug("upsertAffinityMatch", "key", key)
+	ops.log.Debug("upsertAffinityMatch", logfields.Key, key)
 	return ops.LBMaps.UpdateAffinityMatch(key.ToNetwork(), &value)
 }
 
@@ -879,7 +907,10 @@ func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		BackendID: beID,
 		RevNATID:  uint16(id),
 	}
-	ops.log.Debug("deleteAffinityMatch", "serviceID", id, "backendID", beID)
+	ops.log.Debug("deleteAffinityMatch",
+		logfields.ServiceID, id,
+		logfields.BackendID, beID,
+	)
 	return ops.LBMaps.DeleteAffinityMatch(key.ToNetwork())
 }
 
@@ -892,7 +923,10 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 	if revNATKey.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	ops.log.Debug("upsertRevNat", "key", revNATKey, "value", revNATValue)
+	ops.log.Debug("upsertRevNat",
+		logfields.Key, revNATKey,
+		logfields.Value, revNATValue,
+	)
 
 	err := ops.LBMaps.UpdateRevNat(revNATKey.ToNetwork(), revNATValue.ToNetwork())
 	if err != nil {

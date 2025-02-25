@@ -20,7 +20,10 @@ import (
 
 func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.With(logfields.Controller, "secrets", logfields.Resource, obj.GetName())
+		scopedLog := logger.With(
+			logfields.Controller, "secrets",
+			logfields.Resource, obj.GetName(),
+		)
 
 		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
@@ -46,7 +49,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 					Name:      string(cert.Name),
 				}
 				reqs = append(reqs, reconcile.Request{NamespacedName: s})
-				scopedLog.Debug("Enqueued secret for gateway", "secret", s)
+				scopedLog.Debug("Enqueued secret for gateway", logfields.Secret, s)
 			}
 		}
 		return reqs

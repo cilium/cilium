@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -51,6 +52,9 @@ var Cell = cell.Module(
 	),
 
 	cell.Invoke(func(c Config, l *slog.Logger) {
-		l.Info("Determined final XDP mode", "acceleration-mode", c.AccelerationMode(), "mode", c.Mode())
+		l.Info("Determined final XDP mode",
+			logfields.AccelarationMode, c.AccelerationMode(),
+			logfields.Mode, c.Mode(),
+		)
 	}),
 )

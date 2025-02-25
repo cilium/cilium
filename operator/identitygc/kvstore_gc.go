@@ -27,9 +27,9 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 	minID := idpool.ID(ciliumIdentity.GetMinimalAllocationIdentity(igc.clusterInfo.ID))
 	maxID := idpool.ID(ciliumIdentity.GetMaximumAllocationIdentity(igc.clusterInfo.ID))
 	igc.logger.Info("Garbage Collecting kvstore identities between range",
-		"min", minID,
-		"max", maxID,
-		"cluster-id", igc.clusterInfo.ID)
+		logfields.Min, minID,
+		logfields.Max, maxID,
+		logfields.ClusterID, igc.clusterInfo.ID)
 
 	igc.allocator = allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
@@ -53,7 +53,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			err = igc.runAuthGC(ctx, keysToDeletePrev)
 			if err != nil {
 				igc.logger.Warn("Unable to run kvstore auth identity garbage collector",
-					"identities-to-delete", keysToDeletePrev,
+					logfields.IdentitiesToDelete, keysToDeletePrev,
 					logfields.Error, err)
 			}
 
@@ -86,7 +86,9 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			}
 		}
 
-		igc.logger.Debug("Will delete kvstore identities if they are still unused", "identities-to-delete", keysToDeletePrev)
+		igc.logger.Debug(
+			"Will delete kvstore identities if they are still unused",
+			logfields.IdentitiesToDelete, keysToDeletePrev)
 	}
 }
 
