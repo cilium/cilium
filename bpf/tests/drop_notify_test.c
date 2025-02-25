@@ -21,9 +21,9 @@
 #include "bpf/ctx/skb.h"
 #include "node_config.h"
 
-/* Include lib/metrics.h which contains the definition of tail_call_internal first to */
+/* Include lib/maps.h which contains the definition of tail_call_internal first to */
 /* avoid it to be included again in lib/drop.h. */
-#include "lib/metrics.h"
+#include "lib/maps.h"
 
 /* Forward declare the mock func */
 int mock_tail_call(void *ctx, const void *map, __u32 index);
