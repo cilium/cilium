@@ -22,23 +22,6 @@ steps:
         query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
         threshold: 2
 
-  - Identifier: EGWLeakedPingsMetrics{{ .metricsSuffix }}
-    Method: GenericPrometheusQuery
-    Params:
-      action: {{ .action }}
-      metricName: "EGW Leaked Pings Metrics ({{ .metricsSuffix }})"
-      metricVersion: v1
-      unit: count
-      queries:
-      - name: EGW Leaked Pings - 50th Percentile
-        query: quantile(0.5, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
-      - name: EGW Leaked Pings - 90th Percentile
-        query: quantile(0.9, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
-      - name: EGW Leaked Pings - 95th Percentile
-        query: quantile(0.95, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
-      - name: EGW Leaked Pings - 99th Percentile
-        query: quantile(0.99, egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
-
   - Identifier: EGWLeakedPingsTotal{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
