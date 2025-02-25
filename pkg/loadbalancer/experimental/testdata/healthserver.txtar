@@ -4,9 +4,6 @@
 hive start
 db/initialized
 
-# Expand the addresses and ports. To make this test deterministic it uses a loopback
-# address (127.x.x.x) that is based on the process ID in order to not have the ports
-# clash with other processes in the system.
 env HEALTHPORT1=40000
 env HEALTHPORT2=40001
 cp service.yaml service2.yaml
@@ -16,12 +13,9 @@ replace '$HEALTHPORT' $HEALTHPORT2 service2.yaml
 replace '$HEALTHPORT' 0 service_no_health.yaml
 replace '$HEALTHPORT1' $HEALTHPORT1 services.table
 replace '$HEALTHPORT1' $HEALTHPORT1 health_with_service.table
-replace '$HEALTHADDR' $HEALTHADDR frontends.table
 replace '$HEALTHPORT' $HEALTHPORT1 frontends.table
 replace '$HEALTHPORT' $HEALTHPORT1 backends.table
-replace '$HEALTHADDR' $HEALTHADDR backends.table
 replace '$HEALTHPORT' $HEALTHPORT1 lbmaps.expected
-replace '$HEALTHADDR' $HEALTHADDR lbmaps.expected
 
 # HealthServer's jobs should be reported in module health
 db/cmp --grep=^loadbalancer health health_no_service.table
@@ -29,7 +23,7 @@ db/cmp --grep=^loadbalancer health health_no_service.table
 # Add a node address, service and endpoints.
 db/insert node-addresses addrv4.yaml
 db/cmp node-addresses nodeaddrs.table
-k8s/add service.yaml endpointslice.yaml
+k8s/add service.yaml endpointslice1.yaml
 db/cmp --grep=^loadbalancer health health_with_service.table
 db/cmp services services.table
 db/cmp frontends frontends.table
@@ -54,7 +48,7 @@ db/cmp backends backends.table
 
 # Check that $HEALTHPORT2 now responds and old port does not.
 * http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
-cmp healthserver.expected healthserver.actual
+* cmp healthserver.expected healthserver.actual
 !* http/get http://$HEALTHADDR:$HEALTHPORT1 healthserver.actual
 
 # Setting the traffic policy to Cluster makes the service
@@ -73,6 +67,15 @@ k8s/update service2.yaml
 * http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
 cmp healthserver.expected healthserver.actual
 
+# Test without local backends
+k8s/update endpointslice2.yaml
+replace '$HEALTHPORT' $HEALTHPORT2 frontends_nobackends.table
+db/cmp frontends frontends_nobackends.table
+
+# Response should now be 503
+http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
+* cmp healthserver-unhealthy.expected healthserver.actual
+
 # Test removing the health check port
 k8s/update service_no_health.yaml
 
@@ -82,7 +85,7 @@ k8s/update service_no_health.yaml
 !* http/get http://$HEALTHADDR:$HEALTHPORT1 healthserver.actual
 
 db/cmp frontends frontends_nohealthcheck.table
-db/cmp backends backends_nohealthcheck.table
+db/cmp backends backends_othernode.table
 
 #####
 
@@ -105,7 +108,7 @@ Module                                   Component                   Level   Mes
 loadbalancer-experimental.healthserver   job-control-loop            OK      1 health servers running
 loadbalancer-experimental.healthserver   job-listener-$HEALTHPORT1          OK      Running
 loadbalancer-experimental                job-node-addr-reconciler    OK      Running
-loadbalancer-experimental.reconciler     job-reconcile               OK      OK, 3 object(s)
+loadbalancer-experimental.reconciler     job-reconcile               OK      OK, 4 object(s)
 loadbalancer-experimental.reconciler     job-refresh                 OK      Next refresh in 30m0s
 loadbalancer-experimental.reflector      job-reflector               OK      Running
 
@@ -116,41 +119,49 @@ Address NodePort Primary DeviceName
 -- services.table --
 Name                   Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   HealthCheckNodePort
 test/echo              k8s                  Local              Local              $HEALTHPORT1
-test/echo-healthserver local                Local              Local              0
+test/echo:healthserver local                Local              Local              0
 
 -- frontends.table --
 Address               Type         ServiceName            PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
-172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
-172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo-healthserver            Done    $HEALTHADDR:$HEALTHPORT/TCP/i (active)
-
--- frontends_nohealthcheck.table --
-Address               Type         ServiceName            PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
-172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
+0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i
 
 -- frontends_tpcluster.table --
 Address               Type         ServiceName            PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active), 10.244.1.3:80/TCP (active), 10.244.1.4:80/TCP (active)
-172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active), 10.244.1.3:80/TCP (active), 10.244.1.4:80/TCP (active)
+0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP, 10.244.1.4:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP, 10.244.1.4:80/TCP
+172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP, 10.244.1.4:80/TCP
+
+-- frontends_nobackends.table --
+Address               Type         ServiceName            PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    
+10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    
+172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i
+
+-- frontends_nohealthcheck.table --
+Address               Type         ServiceName            PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    
+10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    
+172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    
 
 -- frontends_empty.table --
 Address               Type        ServiceName   PortName   Status  Backends
 
 -- backends.table --
-State    Instances              Address
-active   test/echo (http)       10.244.1.1:80/TCP
-active   test/echo (http)       10.244.1.2:80/TCP
-active   test/echo (http)       10.244.1.3:80/TCP
-active   test/echo (http)       10.244.1.4:80/TCP
-active   test/echo-healthserver $HEALTHADDR:$HEALTHPORT/TCP/i
+Instances              Address
+test/echo:healthserver 1.1.1.1:$HEALTHPORT/TCP/i
+test/echo (http)       10.244.1.1:80/TCP
+test/echo (http)       10.244.1.2:80/TCP
+test/echo (http)       10.244.1.3:80/TCP
+test/echo (http)       10.244.1.4:80/TCP
 
--- backends_nohealthcheck.table --
-Address               State    Instances              NodeName     ZoneID
-10.244.1.1:80/TCP     active   test/echo (http)       testnode     0
-10.244.1.2:80/TCP     active   test/echo (http)       testnode     0
-10.244.1.3:80/TCP     active   test/echo (http)       othernode    0
-10.244.1.4:80/TCP     active   test/echo (http)       othernode    0
+-- backends_othernode.table --
+Address               Instances              NodeName
+10.244.1.3:80/TCP     test/echo (http)       othernode
+10.244.1.4:80/TCP     test/echo (http)       othernode
 
 -- backends_empty.table --
 Address             State    Instances            NodeName           ZoneID
@@ -189,7 +200,7 @@ status:
     ingress:
     - ip: 172.16.1.1
 
--- endpointslice.yaml --
+-- endpointslice1.yaml --
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
@@ -200,10 +211,10 @@ metadata:
   labels:
     endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
     kubernetes.io/service-name: echo
-  name: echo-kvlm2
+  name: echo-eps
   namespace: test
   resourceVersion: "797"
-  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
 addressType: IPv4
 endpoints:
 - addresses:
@@ -223,27 +234,72 @@ ports:
   port: 80
   protocol: TCP
 
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-eps
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.3
+  nodeName: othernode
+- addresses:
+  - 10.244.1.4
+  nodeName: othernode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
 -- healthserver.expected --
 200 OK
 Content-Length=66
 Content-Type=application/json
 Date=<omitted>
 X-Content-Type-Options=nosniff
-X-Load-Balancing-Endpoint-Weight=4
+X-Load-Balancing-Endpoint-Weight=2
 ---
-{"service":{"namespace":"test","name":"echo"},"localEndpoints":4}
+{"service":{"namespace":"test","name":"echo"},"localEndpoints":2}
+-- healthserver-unhealthy.expected --
+503 Service Unavailable
+Content-Length=66
+Content-Type=application/json
+Date=<omitted>
+X-Content-Type-Options=nosniff
+X-Load-Balancing-Endpoint-Weight=0
+---
+{"service":{"namespace":"test","name":"echo"},"localEndpoints":0}
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
-BE: ID=3 ADDR=$HEALTHADDR:$HEALTHPORT/TCP STATE=active
+BE: ID=3 ADDR=1.1.1.1:$HEALTHPORT/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
-REV: ID=2 ADDR=172.16.1.1:80
-REV: ID=3 ADDR=172.16.1.1:$HEALTHPORT
+REV: ID=2 ADDR=0.0.0.0:30781
+REV: ID=3 ADDR=1.1.1.1:30781
+REV: ID=4 ADDR=172.16.1.1:80
+REV: ID=5 ADDR=172.16.1.1:$HEALTHPORT
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
-SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=2 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=3 ADDR=172.16.1.1:$HEALTHPORT/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=3 ADDR=172.16.1.1:$HEALTHPORT/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable
+SVC: ID=3 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
+SVC: ID=3 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
+SVC: ID=3 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal
+SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=4 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=5 ADDR=172.16.1.1:$HEALTHPORT/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=5 ADDR=172.16.1.1:$HEALTHPORT/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
