@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
@@ -500,6 +501,7 @@ var expectedHeaderMatchesPortRuleHeaderMatchSDS = []*cilium.HeaderMatch{
 		ValueSdsSecret: "cilium-secrets/secretName",
 	},
 }
+
 var expectedHeadersPortRuleHeaderMatchSDS []*envoy_config_route.HeaderMatcher
 
 var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
@@ -597,7 +599,9 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 		wildcardCachedSelector:    nil,
 	}
 
-	obtained := getWildcardNetworkPolicyRule(version, perSelectorPoliciesWithWildcard)
+	xds := testXdsServer(t)
+
+	obtained := xds.getWildcardNetworkPolicyRule(version, perSelectorPoliciesWithWildcard)
 	require.Equal(t, &cilium.PortNetworkPolicyRule{}, obtained)
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
@@ -607,7 +611,7 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 		cachedRequiresV2Selector1: nil,
 	}
 
-	obtained = getWildcardNetworkPolicyRule(version, perSelectorPolicies)
+	obtained = xds.getWildcardNetworkPolicyRule(version, perSelectorPolicies)
 	require.Equal(t, &cilium.PortNetworkPolicyRule{
 		RemotePolicies: []uint32{1001, 1002, 1003},
 	}, obtained)
@@ -630,32 +634,34 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 
 func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, false, false, "ingress", "")
+	xds := testXdsServer(t)
+	obtained := xds.getDirectionNetworkPolicy(ep, L4PolicyMap1, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies12Wildcard, obtained)
 
 	// L4+L7 with header mods
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies122HeaderMatchWildcard, obtained)
 
 	// L4+L7
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies1Wildcard, obtained)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMap5, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only with SNI
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesSNI, obtained)
 }
 
 func TestGetNetworkPolicy(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -667,7 +673,8 @@ func TestGetNetworkPolicy(t *testing.T) {
 }
 
 func TestGetNetworkPolicyWildcard(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -679,7 +686,8 @@ func TestGetNetworkPolicyWildcard(t *testing.T) {
 }
 
 func TestGetNetworkPolicyDeny(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -691,7 +699,8 @@ func TestGetNetworkPolicyDeny(t *testing.T) {
 }
 
 func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -703,7 +712,8 @@ func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 }
 
 func TestGetNetworkPolicyNil(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, nil, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, nil, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -715,7 +725,8 @@ func TestGetNetworkPolicyNil(t *testing.T) {
 }
 
 func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, false, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, false, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -727,7 +738,8 @@ func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 }
 
 func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -791,7 +803,8 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyL7(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyL7, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyL7, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -850,7 +863,8 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyKafka(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyKafka, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyKafka, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -924,7 +938,8 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyMySQL(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyMySQL, true, true, false, false, "")
+	xds := testXdsServer(t)
+	obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyMySQL, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:           []string{IPv4Addr},
 		EndpointId:            uint64(ep.GetID()),
@@ -1604,7 +1619,8 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obtained := getNetworkPolicy(ep, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
+			xds := testXdsServer(t)
+			obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
 			expected := &cilium.NetworkPolicy{
 				EndpointIps:            []string{IPv4Addr},
 				EndpointId:             uint64(ep.GetID()),
@@ -1763,4 +1779,8 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testXdsServer(t *testing.T) *xdsServer {
+	return &xdsServer{logger: hivetest.Logger(t)}
 }
