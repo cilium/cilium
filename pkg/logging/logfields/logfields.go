@@ -1086,4 +1086,38 @@ const (
 	Shared = "shared"
 
 	Taint = "taint"
+
+	Allocated = "allocated"
+
+	IPv4Limit = "ipv4Limit"
+
+	AvailableOnENI = "availableOnENI"
+
+	VSwitchID = "vSwitchID"
+
+	AvailableAddresses = "availableAddresses"
+
+	NumAddresses = "numAddresses"
+
+	NumVPCs = "numVPCs"
+
+	NumVSwitches = "numVSwitches"
+
+	NumSecurityGroups = "numSecurityGroups"
+
+	NumInstances = "numInstances"
+
+	ExcessIPs = "excessIPs"
+
+	FreeOnENICount = "freeOnENICount"
+
+	InstanceID = "instanceID"
+
+	VPCID = "vpcID"
+
+	Tags = "tags"
+
+	SecurityGroupIDs = "securityGroupIDs"
+
+	ToAllocate = "toAllocate"
 )
