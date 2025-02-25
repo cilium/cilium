@@ -149,7 +149,10 @@ func (igc *GC) gc(ctx context.Context) error {
 					continue
 				}
 
-				igc.logger.Error("Deleting unused CRD identity", logfields.Identity, identity, logfields.Error, err)
+				igc.logger.Error("Deleting unused CRD identity",
+					logfields.Identity, identity,
+					logfields.Error, err,
+				)
 				return err
 			} else {
 				deletedEntries++

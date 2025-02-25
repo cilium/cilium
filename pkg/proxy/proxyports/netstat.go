@@ -39,7 +39,10 @@ func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 	for _, file := range append(procNetTCPFiles, procNetUDPFiles...) {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			p.logger.Error("cannot read proc file", logfields.Path, file, logfields.Error, err)
+			p.logger.Error("cannot read proc file",
+				logfields.Path, file,
+				logfields.Error, err,
+			)
 			continue
 		}
 
@@ -55,7 +58,10 @@ func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 			// The port number is in hexadecimal.
 			localPort, err := strconv.ParseUint(string(groups[1]), 16, 16)
 			if err != nil {
-				p.logger.Error("failed to parse port from proc file", logfields.Path, file, logfields.Error, err)
+				p.logger.Error("failed to parse port from proc file",
+					logfields.Path, file,
+					logfields.Error, err,
+				)
 				continue
 			}
 			openLocalPorts[uint16(localPort)] = struct{}{}

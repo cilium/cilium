@@ -206,7 +206,10 @@ func parseNodeConfig(node *corev1.Node, logger *slog.Logger) map[string]string {
 			}
 			key := s[1]
 			if errs := apivalidation.IsConfigMapKey(key); len(errs) > 0 {
-				logger.Warn("Detected invalid key. Skipping", logfields.ConfigAnnotation, k, logfields.Error, errs)
+				logger.Warn("Detected invalid key. Skipping",
+					logfields.ConfigAnnotation, k,
+					logfields.Error, errs,
+				)
 				continue
 			}
 			out[key] = v

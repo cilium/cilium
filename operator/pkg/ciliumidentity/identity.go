@@ -39,7 +39,10 @@ func (c *Controller) processCiliumIdentityEvents(ctx context.Context, wg *sync.W
 		}
 
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {
-			c.logger.Debug("Got CID event", logfields.Type, event.Kind, logfields.CIDName, event.Key.String())
+			c.logger.Debug("Got CID event",
+				logfields.Type, event.Kind,
+				logfields.CIDName, event.Key,
+			)
 			c.enqueueReconciliation(CIDItem{cidResourceKey(event.Object.Name)}, 0)
 		}
 		event.Done(nil)

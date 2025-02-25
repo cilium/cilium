@@ -140,8 +140,8 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	scopedLog.DebugContext(ctx, "GAMMA translation result",
-		"service", fmt.Sprintf("%#v", svc),
-		logfields.Endpoint, fmt.Sprintf("%#v", cep))
+		logfields.Service, svc,
+		logfields.Endpoint, cep)
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)

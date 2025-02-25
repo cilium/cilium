@@ -96,8 +96,8 @@ func registerCECReflector(
 			selector, err = slim_metav1.LabelSelectorAsSelector(spec.NodeSelector)
 			if err != nil {
 				log.Warn("Skipping CiliumEnvoyConfig due to invalid NodeSelector",
-					"namespace", objMeta.GetNamespace(),
-					"name", objMeta.GetName(),
+					logfields.K8sNamespace, objMeta.GetNamespace(),
+					logfields.Name, objMeta.GetName(),
 					logfields.Error, err)
 				return nil, false
 			}
@@ -114,8 +114,8 @@ func registerCECReflector(
 		)
 		if err != nil {
 			log.Warn("Skipping CiliumEnvoyConfig due to malformed xDS resources",
-				"namespace", objMeta.GetNamespace(),
-				"name", objMeta.GetName(),
+				logfields.K8sNamespace, objMeta.GetNamespace(),
+				logfields.Name, objMeta.GetName(),
 				logfields.Error, err)
 			return nil, false
 		}
