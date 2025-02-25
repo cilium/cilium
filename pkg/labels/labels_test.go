@@ -66,7 +66,7 @@ func TestNewFrom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newLbls := NewFrom(tt.lbls)
 			// Verify that underlying maps are different
-			assert.NotSame(t, tt.lbls, newLbls)
+			assert.NotEqual(t, reflect.ValueOf(tt.lbls).UnsafePointer(), reflect.ValueOf(newLbls).UnsafePointer())
 			// Verify that the map contents are equal
 			assert.EqualValues(t, tt.want, newLbls)
 		})
