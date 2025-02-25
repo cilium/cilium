@@ -1534,11 +1534,12 @@ out:
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_label,
+ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv6_ct_tuple *tuple;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
@@ -1692,8 +1693,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ipv6_policy(ctx, ip6, THIS_INTERFACE_IFINDEX, src_label, &tuple,
-			  &ext_err, &proxy_port, from_tunnel);
+	ret = ipv6_policy(ctx, ip6, src_label, &tuple, &ext_err,
+			  &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (from_tunnel)
@@ -1799,8 +1800,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 
-	ret = ipv6_policy(ctx, ip6, THIS_INTERFACE_IFINDEX, src_sec_identity,
-			  NULL, &ext_err, &proxy_port, false);
+	ret = ipv6_policy(ctx, ip6, src_sec_identity, NULL, &ext_err,
+			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
@@ -1846,11 +1847,12 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_label,
+ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
+	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv4_ct_tuple *tuple;
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
@@ -2044,8 +2046,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ipv4_policy(ctx, ip4, THIS_INTERFACE_IFINDEX, src_label, &tuple,
-			  &ext_err, &proxy_port, from_tunnel);
+	ret = ipv4_policy(ctx, ip4, src_label, &tuple, &ext_err,
+			  &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (from_tunnel)
@@ -2152,8 +2154,8 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 
-	ret = ipv4_policy(ctx, ip4, THIS_INTERFACE_IFINDEX, src_sec_identity,
-			  NULL, &ext_err, &proxy_port, false);
+	ret = ipv4_policy(ctx, ip4, src_sec_identity, NULL, &ext_err,
+			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
