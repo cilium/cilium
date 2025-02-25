@@ -8,18 +8,28 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+type IPFamily = bool
+
+const (
+	IPFamilyIPv4 = IPFamily(false)
+	IPFamilyIPv6 = IPFamily(true)
 )
 
 // SVCType is a type of a service.
@@ -814,7 +824,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 // keys for prefix searches, e.g. "1.2.3.4".
 // This must be kept in sync with Bytes().
 func L3n4AddrFromString(key string) (index.Key, error) {
-	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"")
+	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\" or classful prefix \"10.0.0.0/8\"")
 	var out []byte
 
 	if len(key) == 0 {
@@ -837,6 +847,22 @@ func L3n4AddrFromString(key string) (index.Key, error) {
 
 	addrCluster, err := cmtypes.ParseAddrCluster(addr)
 	if err != nil {
+		// See if the address is a prefix and try to parse it as such.
+		// We only support classful searches, e.g. /8, /16, /24, /32 since
+		// indexing is byte-wise.
+		if prefix, err := netip.ParsePrefix(addr); err == nil {
+			bits := prefix.Bits()
+			if bits%8 != 0 {
+				return index.Key{}, fmt.Errorf("%w: only classful prefixes supported (/8,/16,/24,/32)", keyErr)
+			}
+			bytes := prefix.Addr().As16()
+			if prefix.Addr().Is6() {
+				return index.Key(bytes[:bits/8]), nil
+			} else {
+				// The address is in the 16-byte format, cut from the last 4 bytes.
+				return index.Key(bytes[:12+bits/8]), nil
+			}
+		}
 		return index.Key{}, fmt.Errorf("%w: %w", keyErr, err)
 	}
 	addr20 := addrCluster.As20()
@@ -947,6 +973,64 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr}, nil
 }
 
+func (l *L3n4Addr) ParseFromString(s string) error {
+	formatError := fmt.Errorf(
+		"bad address %q, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"",
+		s,
+	)
+
+	// Parse address
+	var addr string
+	if strings.HasPrefix(s, "[") {
+		addr, s, _ = strings.Cut(s[1:], "]")
+		switch {
+		case strings.HasPrefix(s, ":"):
+			s = s[1:]
+		case len(s) > 0:
+			return formatError
+		}
+	} else {
+		addr, s, _ = strings.Cut(s, ":")
+	}
+
+	var err error
+	l.AddrCluster, err = cmtypes.ParseAddrCluster(addr)
+	if err != nil {
+		return formatError
+	}
+
+	// Parse port
+	if len(s) < 1 {
+		return formatError
+	}
+
+	var portS string
+	portS, s, _ = strings.Cut(s, "/")
+	port, err := strconv.ParseUint(portS, 10, 16)
+	if err != nil {
+		return formatError
+	}
+	l.L4Addr.Port = uint16(port)
+
+	// Parse protocol
+	l.L4Addr.Protocol = TCP
+	if len(s) > 0 {
+		var proto string
+		proto, s, _ = strings.Cut(s, "/")
+		l.L4Addr.Protocol = L4Type(strings.ToUpper(proto))
+		if !slices.Contains(AllProtocols, l.L4Addr.Protocol) {
+			return formatError
+		}
+	}
+
+	// Parse scope.
+	l.Scope = ScopeExternal
+	if s == "i" {
+		l.Scope = ScopeInternal
+	}
+	return nil
+}
+
 func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	if a == nil {
 		return nil
@@ -1055,6 +1139,14 @@ func (l L3n4Addr) Bytes() []byte {
 	key = append(key, L4TypeAsByte(l.Protocol))
 	key = append(key, l.Scope)
 	return key
+}
+
+func (l L3n4Addr) MarshalYAML() (any, error) {
+	return l.StringWithProtocol(), nil
+
+}
+func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
+	return l.ParseFromString(value.Value)
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the

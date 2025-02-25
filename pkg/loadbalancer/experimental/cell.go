@@ -35,17 +35,23 @@ var Cell = cell.Module(
 	ReconcilerCell,
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
-	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+	cell.ProvidePrivate(newLBMaps),
 
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
-	//
 	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
+	// Register a background job to re-reconcile NodePort and HostPort frontends when
+	// the node addresses change.
 	cell.Invoke(registerNodePortAddressReconciler),
+
+	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
+	// implementation is enabled.
+	cell.Provide(newAdapters),
+	cell.DecorateAll(decorateAdapters),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
