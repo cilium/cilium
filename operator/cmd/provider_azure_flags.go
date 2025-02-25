@@ -25,6 +25,9 @@ func (hook *azureFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.
 	flags.String(operatorOption.AzureSubscriptionID, "", "Subscription ID to access Azure API")
 	option.BindEnvWithLegacyEnvFallback(vp, operatorOption.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
 
+	flags.String(operatorOption.AzureTenantID, "", "Tenant ID to access Azure API")
+	option.BindEnvWithLegacyEnvFallback(vp, operatorOption.AzureTenantID, "AZURE_TENANT_ID")
+
 	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
 	option.BindEnvWithLegacyEnvFallback(vp, operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
 
