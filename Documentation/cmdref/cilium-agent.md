@@ -172,6 +172,7 @@ cilium-agent [flags]
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-recorder                                           Enable BPF datapath pcap recorder
+      --enable-remote-node-snat                                   SNAT IPv4 packets from endpoints leaving the host destined to a remote node
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
