@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -179,7 +180,10 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2al
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Creating a new CiliumBGPNodeConfig", "node_config", newNodeConfig.Name, "cluster_config", config.Name)
+			b.logger.Debug("Creating a new CiliumBGPNodeConfig",
+				types.BGPNodeConfigLogField, newNodeConfig.Name,
+				types.LabelClusterConfig, config.Name,
+			)
 
 		case oldNodeConfigExists && !oldNodeConfig.Spec.DeepEqual(&newNodeConfig.Spec):
 			// Update existing NodeConfig with the new spec
@@ -188,7 +192,10 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2al
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Updating an existing CiliumBGPNodeConfig", "node_config", oldNodeConfig.Name, "cluster_config", config.Name)
+			b.logger.Debug("Updating an existing CiliumBGPNodeConfig",
+				types.BGPNodeConfigLogField, oldNodeConfig.Name,
+				types.LabelClusterConfig, config.Name,
+			)
 		}
 	}
 
@@ -210,7 +217,10 @@ func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNode
 			errs = errors.Join(err)
 			continue
 		}
-		b.logger.Debug("Deleted BGP node config", "node_config", nodeConfig.Name, "cluster_config", config.Name)
+		b.logger.Debug("Deleted BGP node config",
+			types.BGPNodeConfigLogField, nodeConfig.Name,
+			types.LabelClusterConfig, config.Name,
+		)
 	}
 	return errs
 }

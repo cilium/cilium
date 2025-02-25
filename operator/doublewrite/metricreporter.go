@@ -171,12 +171,14 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 		g.logger.Info("CRD and KVStore identities are in sync")
 	} else {
 		g.logger.Info("Detected differences between CRD and KVStore identities",
-			"crd_identity_count", len(crdIdentityIds),
-			"kvstore_identity_count", len(kvstoreIdentityIds),
-			"only_in_crd_count", onlyInCrdCount,
-			"only_in_kvstore_count", onlyInKVStoreCount,
-			"only_in_crd_sample", onlyInCrdSample,
-			"only_in_kvstore_sample", onlyInKVStoreSample)
+			logfields.CRDIdentityCount, len(crdIdentityIds),
+			logfields.KVStoreIdentityCount, len(kvstoreIdentityIds),
+			logfields.OnlyInCRDCount, onlyInCrdCount,
+			logfields.OnlyInKVStoreCount, onlyInKVStoreCount,
+			logfields.OnlyInCRDSample, onlyInCrdSample,
+			logfields.OnlyInKVStoreSample, onlyInKVStoreSample,
+		)
+
 	}
 
 	return nil

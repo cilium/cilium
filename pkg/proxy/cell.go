@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -51,7 +52,7 @@ func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		params.Logger.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
-			params.Logger.Warn("CiliumEnvoyConfig functionality isn't enabled when L7 proxies are disabled", "flag", option.EnableEnvoyConfig)
+			params.Logger.Warn("CiliumEnvoyConfig functionality isn't enabled when L7 proxies are disabled", logfields.Flag, option.EnableEnvoyConfig)
 		}
 		return nil
 	}

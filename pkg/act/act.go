@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -61,20 +62,20 @@ func NewActiveConnectionTrackingMetrics() ActiveConnectionTrackingMetrics {
 			Subsystem:  "act",
 			Namespace:  metrics.Namespace,
 			Name:       "new_connections_total",
-		}, []string{"zone", "service"}),
+		}, []string{logfields.Zone, "service"}),
 		Active: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: metrics.Namespace + "_act_active_connections_total",
 			Subsystem:  "act",
 			Namespace:  metrics.Namespace,
 			Name:       "active_connections_total",
-		}, []string{"zone", "service"}),
+		}, []string{logfields.Zone, "service"}),
 		Failed: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: metrics.Namespace + "_act_failed_connections_total",
 			Subsystem:  "act",
 			Namespace:  metrics.Namespace,
 			Name:       "failed_connections_total",
 			Help:       "number of service connections purged from conntrack table",
-		}, []string{"zone", "service"}),
+		}, []string{logfields.Zone, "service"}),
 		ProcessingTime: metric.NewHistogram(metric.HistogramOpts{
 			ConfigName: metrics.Namespace + "_act_processing_time_seconds",
 			Subsystem:  "act",
@@ -197,17 +198,17 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 				return
 			}
 			a.log.Warn("Skipping adding new metrics",
-				"msg", msg,
-				"limit", metricsCountHardLimit,
-				"count", count,
-				"svc", key.SvcID,
-				"zone", key.Zone,
+				logfields.Message, msg,
+				logfields.Limit, metricsCountHardLimit,
+				logfields.Count, count,
+				logfields.ServiceID, key.SvcID,
+				logfields.Zone, key.Zone,
 			)
 			return
 		}
 		zone, svc, err := a.keyToStrings(key)
 		if err != nil {
-			a.log.Debug("Failed to construct metrics map key in callback", "from-key", key.String())
+			a.log.Debug("Failed to construct metrics map key in callback", logfields.Key, key)
 			return
 		}
 		failed, err := a.src.RestoreFailed(key)
@@ -239,7 +240,10 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 		}
 		return
 	}
-	scopedLog := a.log.With("svc", key.SvcID, "zone", key.Zone)
+	scopedLog := a.log.With(
+		logfields.ServiceID, key.SvcID,
+		logfields.Zone, key.Zone,
+	)
 
 	// Opened/Closed are 32-bit values, so they can roll-over. Adjust
 	if opened < entry.opened {
@@ -257,7 +261,10 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 
 	active := opened - (closed + entry.failed)
 	if sumClosed := (closed + entry.failed); sumClosed > opened {
-		scopedLog.Error("Unexpected closed+failed", "got", sumClosed, "want", opened)
+		scopedLog.Error("Unexpected closed+failed",
+			logfields.Got, sumClosed,
+			logfields.Want, opened,
+		)
 		opened = closed + entry.failed
 	}
 	a.metrics.Active.WithLabelValues(entry.labelValues...).Set(float64(active))
@@ -306,7 +313,10 @@ func (a *ACT) _cleanup(ctx context.Context, cutoff time.Time) error {
 			default:
 			}
 			if entry.updated.IsZero() || entry.updated.Before(cutoff) {
-				a.log.Debug("delete", "svc", svc, "zone", zone)
+				a.log.Debug("delete",
+					logfields.ServiceID, svc,
+					logfields.Zone, zone,
+				)
 				a.dropEntry(zone, svc)
 			}
 		}
@@ -340,7 +350,10 @@ func (a *ACT) CountFailed6(svc uint16, backend uint32) {
 // countFailed looks up zone information in the backend map and then increments
 // a counter of new failed connection for a constructed (svc, zone) pair.
 func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
-	scopedLog := a.log.With("svc", byteorder.NetworkToHost16(svc), "backend", key.GetID())
+	scopedLog := a.log.With(
+		logfields.ServiceID, byteorder.NetworkToHost16(svc),
+		logfields.BackendID, key.GetID(),
+	)
 
 	val, err := key.Map().Lookup(key)
 	if err != nil {
@@ -352,9 +365,9 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 			return
 		}
 		scopedLog.Error("Skipping processing",
-			"msg", msg,
-			"key", key.String(),
-			"err", err,
+			logfields.Message, msg,
+			logfields.Key, key,
+			logfields.Error, err,
 		)
 		return
 	}
@@ -377,9 +390,9 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 			return
 		}
 		scopedLog.Error("Skipping processing",
-			"msg", msg,
-			"key", key.String(),
-			"err", err,
+			logfields.Message, msg,
+			logfields.Key, key,
+			logfields.Error, err,
 		)
 		return
 	}
@@ -418,7 +431,11 @@ func (a *ACT) removeOverflow(ctx context.Context) error {
 
 func (a *ACT) _removeOverflow(ctx context.Context, n int) error {
 	target := max(n-metricsCountSoftLimit, 100)
-	scopedLog := a.log.With("start-count", n, "limit", metricsCountSoftLimit, "target", target)
+	scopedLog := a.log.With(
+		logfields.StartTime, n,
+		logfields.Limit, metricsCountSoftLimit,
+		logfields.Target, target,
+	)
 	scopedLog.Info("Making a sweep of presented metrics")
 
 	gc := make(gcHeap, 0, target+1)
@@ -456,17 +473,19 @@ func (a *ACT) _removeOverflow(ctx context.Context, n int) error {
 			// Print an error message to logs only the first time and then every 100 occurrences.
 			if int(errMetric.Get())%100 == 1 {
 				scopedLog.Warn("Entry missing from metrics",
-					"msg", msg,
-					"svc", entry.svc,
-					"zone", entry.zone,
+					logfields.Message, msg,
+					logfields.ServiceID, entry.svc,
+					logfields.Zone, entry.zone,
 				)
 			}
 		}
 		a.dropEntry(entry.zone, entry.svc)
-		scopedLog.Debug("delete", "svc", entry.svc, "zone", entry.zone)
+		scopedLog.Debug("delete",
+			logfields.ServiceID, entry.svc,
+			logfields.Zone, entry.zone)
 		removed++
 	}
-	scopedLog.Info("Removed extra metrics", "removed", removed)
+	scopedLog.Info("Removed extra metrics", logfields.Removed, removed)
 
 	return nil
 }
@@ -487,9 +506,9 @@ func (a *ACT) saveFailed() error {
 			err := a.src.SaveFailed(mapKey, entry.failed)
 			if err != nil {
 				a.log.Info("Failed to sync failed connection counter for",
-					"zone", entry.labelValues[0],
-					"svc", entry.labelValues[1],
-					"err", err,
+					logfields.Zone, entry.labelValues[0],
+					logfields.ServiceID, entry.labelValues[1],
+					logfields.Error, err,
 				)
 				saveErrCount++
 			}
@@ -497,7 +516,7 @@ func (a *ACT) saveFailed() error {
 	}
 	if saveErrCount > 0 {
 		err := fmt.Errorf("failed connection counters not synced: %d", saveErrCount)
-		a.log.Warn("Failed to sync failed connection counters", "err", err)
+		a.log.Warn("Failed to sync failed connection counters", logfields.Error, err)
 		return err
 	}
 	return nil
@@ -534,9 +553,9 @@ func (a *ACT) reconcileServices(ctx context.Context) error {
 			err := a.src.Delete(mapKey)
 			if err != nil {
 				a.log.Info("Failed to delete map entries for",
-					"zone", entry.labelValues[0],
-					"svc", entry.labelValues[1],
-					"err", err,
+					logfields.Zone, entry.labelValues[0],
+					logfields.ServiceID, entry.labelValues[1],
+					logfields.Error, err,
 				)
 				deleteErrCount++
 			}
@@ -544,7 +563,7 @@ func (a *ACT) reconcileServices(ctx context.Context) error {
 	}
 	if deleteErrCount > 0 {
 		err := fmt.Errorf("BPF map entries not deleted: %d", deleteErrCount)
-		a.log.Warn("Failed to delete some entries", "err", err)
+		a.log.Warn("Failed to delete some entries", logfields.Error, err)
 		return err
 	}
 	return nil
