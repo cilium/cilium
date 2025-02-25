@@ -42,7 +42,7 @@ func Error(code int, err error) *APIError {
 		err = errors.New("Error pointer was nil")
 	}
 
-	return New(code, err.Error()) //nolint:govet
+	return New(code, "%v", err)
 }
 
 // Error returns the API error message.
