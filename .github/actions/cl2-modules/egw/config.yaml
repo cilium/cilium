@@ -135,9 +135,9 @@ steps:
       objectTemplatePath: manifests/synthetic-node.yaml
 
 {{ if $CreateEGWPolicy }}
-{{range $i := Loop $NumSyntheticCEGPs}}
 - name: Create extra Egress Gateway Policies
   phases:
+{{range $i := Loop $NumSyntheticCEGPs}}
   - replicasPerNamespace: 1
     tuningSet: Uniform1qps
     objectBundle:
