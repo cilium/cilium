@@ -44,7 +44,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 	endpointsChanged := !newEps.DeepEqual(oldEps)
 	// newService is true if this is the first time we observe this service
 	newService := oldSVC == nil
-	// changedService is true if the service label or selector has changed
+	// changedService is true if the service label, selector or endpoints has changed
 	changedService := !newSVC.DeepEqual(oldSVC) || endpointsChanged
 
 	// candidatePolicyKeys contains the set of policy names we need to process
