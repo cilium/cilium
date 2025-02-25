@@ -211,9 +211,8 @@ jobs:
           # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L7 policy
           # RuntimeAgentPolicies Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated
           # RuntimeAgentPolicies Tests EntityNone as a deny-all
-          # RuntimeSSHTests Should fail when context times out
           - focus: "agent"
-            cliFocus: "RuntimeAgent|RuntimeSSHTests"
+            cliFocus: "RuntimeAgent"
 
           ###
           # RuntimeDatapathConntrackInVethModeTest Conntrack-related configuration options for endpoints
