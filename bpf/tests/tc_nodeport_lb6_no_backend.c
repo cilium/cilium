@@ -10,6 +10,7 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define SERVICE_NO_BACKEND_RESPONSE
+#define ENABLE_MASQUERADE_IPV6		1
 
 #define DISABLE_LOOPBACK_LB
 
@@ -27,6 +28,11 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
 #include <bpf_host.c>
+
+/* aka FRONTEND_IP aka v6_pod_two: */
+DEFINE_IPV6(nat_ipv6_masquerade,
+	    0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+	    0, 0, 0, 0, 0, 0, 0, 0x02);
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -99,8 +105,8 @@ int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "tc_nodeport_no_backend")
-int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
+static __always_inline int
+validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -120,7 +126,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 
 	test_log("Status code: %d", *status_code);
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == retval);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -133,6 +139,9 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 		test_fatal("l3 header out of bounds");
+
+	assert(!memcmp(&l3->saddr, (const void *)FRONTEND_IP, sizeof(l3->saddr)));
+	assert(!memcmp(&l3->daddr, (const void *)CLIENT_IP, sizeof(l3->daddr)));
 
 	assert(l3->hop_limit == 64);
 	assert(l3->version == 6);
@@ -167,4 +176,66 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(value->tokens > 0);
 
 	test_finish();
+}
+
+CHECK("tc", "tc_nodeport_no_backend")
+int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return validate_icmp_reply(ctx, CTX_ACT_REDIRECT);
+}
+
+/* Test that the ICMP error message leaves the node */
+PKTGEN("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_pktgen(struct __ctx_buff *ctx)
+{
+struct pktgen builder;
+	struct icmp6hdr *icmp6;
+	struct ipv6hdr *l3;
+	struct tcphdr *l4;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	icmp6 = pktgen__push_ipv6_icmp6_packet(&builder,
+					       (__u8 *)lb_mac, (__u8 *)client_mac,
+					       (__u8 *)FRONTEND_IP, (__u8 *)CLIENT_IP,
+					       ICMPV6_DEST_UNREACH);
+	if (!icmp6)
+		return TEST_ERROR;
+
+	icmp6->icmp6_code = ICMPV6_PORT_UNREACH;
+
+	l3 = pktgen__push_default_ipv6hdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	ipv6hdr__set_addrs(l3, (__u8 *)CLIENT_IP, (__u8 *)FRONTEND_IP);
+
+	l4 = pktgen__push_default_tcphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = CLIENT_PORT;
+	l4->dest = FRONTEND_PORT;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_no_backend2_reply")
+int nodeport_no_backend2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return validate_icmp_reply(ctx, CTX_ACT_OK);
 }
