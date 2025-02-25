@@ -119,6 +119,8 @@ type PolicyRepository interface {
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error)
 
+	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
+	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
@@ -726,4 +728,12 @@ func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.
 	}
 
 	return affectedIDs, p.BumpRevision(), len(oldRules)
+}
+
+// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
+func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	return p.policyCache.GetPolicySnapshot()
 }
