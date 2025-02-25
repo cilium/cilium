@@ -66,8 +66,8 @@ k8s-tables    job-k8s-reflector-k8s-pods-daemon-k8s  OK         1 upserted, 0 de
 Name   HostNetwork   PodIPs   Phase   Age
 
 -- pods.table --
-Name           HostNetwork   PodIPs       Containers      Phase 
-default/nginx  false         10.244.1.178 nginx (80/TCP)  Running
+Name           HostNetwork   PodIPs       Containers      Phase    Age
+default/nginx  false         10.244.1.178 nginx (80/TCP)  Running  60s
 
 -- pods_name.table --
 Name
