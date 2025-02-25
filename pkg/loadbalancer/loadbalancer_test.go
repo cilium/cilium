@@ -5,7 +5,11 @@ package loadbalancer
 
 import (
 	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
@@ -128,6 +132,28 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 	for _, test := range tests {
 		if !bytes.Equal(test.addr.Bytes(), test.expected) {
 			t.Errorf("L3n4Addr.Bytes() = %v, want %v", test.addr.Bytes(), test.expected)
+		}
+	}
+}
+
+func TestL3n4AddrYAML(t *testing.T) {
+	tests := []string{
+		"0.0.0.0:0/TCP",
+		"1.1.1.1:1/UDP",
+		"1.1.1.1:65535/UDP",
+		"[2001::1]:80/TCP",
+		"[2001::1]:80/SCTP",
+	}
+	for _, test := range tests {
+		var l L3n4Addr
+		if assert.NoError(t, l.ParseFromString(test), "parse %q", test) {
+			out, err := yaml.Marshal(l)
+			if assert.NoError(t, err, "Marshal %+v", l) {
+				assert.Equal(t, strings.Trim(string(out), "\n'"), test)
+				var l2 L3n4Addr
+				assert.NoError(t, yaml.Unmarshal(out, &l2))
+				assert.True(t, l.DeepEqual(&l2))
+			}
 		}
 	}
 }

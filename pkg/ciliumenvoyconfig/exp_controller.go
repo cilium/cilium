@@ -314,7 +314,7 @@ func backendsToLoadAssignments(
 	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Partition backends by port name.
-	backendMap := map[string]map[string]*experimental.Backend{}
+	backendMap := map[string]map[string]experimental.BackendParams{}
 	backendMap[anyPort] = nil
 	for fe := range frontends {
 		portName := anyPort
@@ -337,7 +337,7 @@ func backendsToLoadAssignments(
 			}
 			backends := backendMap[portName]
 			if backends == nil {
-				backends = map[string]*experimental.Backend{}
+				backends = map[string]experimental.BackendParams{}
 				backendMap[portName] = backends
 			}
 			backends[be.L3n4Addr.String()] = be
