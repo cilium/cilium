@@ -161,7 +161,7 @@ kprobe:br_forward
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        if (!$tcph->rst) {
+        if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d(%d), iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
@@ -243,7 +243,7 @@ kprobe:br_forward
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        if (!$tcph->rst) {
+        if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d(%d), iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
