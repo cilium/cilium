@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
@@ -168,7 +169,7 @@ func TestGetVpcsAndSubnets(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr := NewInstancesManager(hivetest.Logger(t), api)
 	require.NotNil(t, mngr)
 
 	require.Nil(t, mngr.subnets["subnet-1"])

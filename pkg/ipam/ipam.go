@@ -4,9 +4,9 @@
 package ipam
 
 import (
+	"fmt"
+	"log/slog"
 	"net"
-
-	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -18,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam")
 
 // Family is the type describing all address families support by the IP
 // allocation manager
@@ -68,19 +66,9 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(
-	nodeAddressing types.NodeAddressing,
-	c *option.DaemonConfig,
-	nodeDiscovery Owner,
-	localNodeStore *node.LocalNodeStore,
-	k8sEventReg K8sEventRegister,
-	node agentK8s.LocalCiliumNodeResource,
-	mtuConfig MtuConfiguration,
-	clientset client.Clientset,
-	metadata Metadata,
-	sysctl sysctl.Sysctl,
-) *IPAM {
+func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl) *IPAM {
 	return &IPAM{
+		logger:           logger,
 		nodeAddressing:   nodeAddressing,
 		config:           c,
 		owner:            map[Pool]map[string]string{},
@@ -104,10 +92,12 @@ func NewIPAM(
 func (ipam *IPAM) ConfigureAllocator() {
 	switch ipam.config.IPAMMode() {
 	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
-		log.WithFields(logrus.Fields{
-			logfields.V4Prefix: ipam.nodeAddressing.IPv4().AllocationCIDR(),
-			logfields.V6Prefix: ipam.nodeAddressing.IPv6().AllocationCIDR(),
-		}).Infof("Initializing %s IPAM", ipam.config.IPAMMode())
+		ipam.logger.Info(
+			"Initializing IPAM",
+			logfields.Mode, ipam.config.IPAMMode(),
+			logfields.V4Prefix, ipam.nodeAddressing.IPv4().AllocationCIDR(),
+			logfields.V6Prefix, ipam.nodeAddressing.IPv6().AllocationCIDR(),
+		)
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
@@ -117,8 +107,8 @@ func (ipam *IPAM) ConfigureAllocator() {
 			ipam.IPv4Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
 	case ipamOption.IPAMMultiPool:
-		log.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.clientset.CiliumV2().CiliumNodes())
+		ipam.logger.Info("Initializing MultiPool IPAM")
+		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.clientset.CiliumV2().CiliumNodes())
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
@@ -127,16 +117,16 @@ func (ipam *IPAM) ConfigureAllocator() {
 			ipam.IPv4Allocator = manager.Allocator(IPv4)
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
-		log.Info("Initializing CRD-based IPAM")
+		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.IPv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.IPv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
-		log.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
+		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = &noOpAllocator{}
 		}
@@ -144,7 +134,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			ipam.IPv4Allocator = &noOpAllocator{}
 		}
 	default:
-		log.Fatalf("Unknown IPAM backend %s", ipam.config.IPAMMode())
+		logging.Fatal(ipam.logger, fmt.Sprintf("Unknown IPAM backend %s", ipam.config.IPAMMode()))
 	}
 }
 
