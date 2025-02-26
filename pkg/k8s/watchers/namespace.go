@@ -19,6 +19,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,7 +62,7 @@ type K8sNamespaceWatcher struct {
 }
 
 func (k *K8sNamespaceWatcher) namespacesInit() {
-	apiGroup := k8sAPIGroupNamespaceV1Core
+	apiGroup := resources.K8sAPIGroupNamespaceV1Core
 
 	var synced atomic.Bool
 

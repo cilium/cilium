@@ -33,9 +33,6 @@ import (
 )
 
 const (
-	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
-	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
-	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumCIDRGroupV2Alpha1          = "cilium/v2alpha1::CiliumCIDRGroup"
@@ -144,6 +141,7 @@ type K8sWatcher struct {
 }
 
 func newWatcher(
+	resourceGroupsFn func(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string),
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
@@ -158,7 +156,7 @@ func newWatcher(
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		resourceGroupsFn:          resourceGroups,
+		resourceGroupsFn:          resourceGroupsFn,
 		clientset:                 clientset,
 		k8sEventReporter:          k8sEventReporter,
 		k8sPodWatcher:             k8sPodWatcher,
@@ -231,35 +229,10 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
 
-// resourceGroups are all of the core Kubernetes and Cilium resource groups
-// which the Cilium agent watches to implement CNI functionality.
-func resourceGroups(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
-	k8sGroups := []string{
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		K8sAPIGroupServiceV1Core,
-
-		// Namespaces can contain labels which are essential for
-		// endpoints being restored to have the right identity.
-		k8sAPIGroupNamespaceV1Core,
-		// Pods can contain labels which are essential for endpoints
-		// being restored to have the right identity.
-		resources.K8sAPIGroupPodV1Core,
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupEndpointSliceOrEndpoint,
-	}
-
-	if cfg.K8sNetworkPolicyEnabled() {
-		// When the flag is set,
-		// We need all network policies in place before restoring to
-		// make sure we are enforcing the correct policies for each
-		// endpoint before restarting.
-		waitForCachesOnly = append(waitForCachesOnly, k8sAPIGroupNetworkingV1Core)
-	}
-
-	ciliumResources := synced.AgentCRDResourceNames()
+func GetGroupsForCiliumResources(ciliumResources []string) ([]string, []string) {
 	ciliumGroups := make([]string, 0, len(ciliumResources))
+	waitOnlyList := make([]string, 0)
+
 	for _, r := range ciliumResources {
 		groupInfo, ok := ciliumResourceToGroupMapping[r]
 		if !ok {
@@ -271,11 +244,11 @@ func resourceGroups(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly
 		case start:
 			ciliumGroups = append(ciliumGroups, groupInfo.group)
 		case waitOnly:
-			waitForCachesOnly = append(waitForCachesOnly, groupInfo.group)
+			waitOnlyList = append(waitOnlyList, groupInfo.group)
 		}
 	}
 
-	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
+	return ciliumGroups, waitOnlyList
 }
 
 // InitK8sSubsystem takes a channel for which it will be closed when all
@@ -328,7 +301,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case resources.K8sAPIGroupPodV1Core:
 			asyncControllers.Add(1)
 			go k.k8sPodWatcher.podsInit(asyncControllers)
-		case k8sAPIGroupNamespaceV1Core:
+		case resources.K8sAPIGroupNamespaceV1Core:
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
