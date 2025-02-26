@@ -214,3 +214,29 @@ func (m *Map) IsEmpty() bool {
 	var key, value interface{}
 	return !m.Iterate().Next(key, value)
 }
+
+func (m *Map) Count() int {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	var (
+		key   []byte
+		count int
+	)
+
+	// Iterate over the keys in the map to extract the count.
+	for {
+		var err error
+		if key == nil {
+			// interface{} nil confusion...
+			key, err = m.NextKeyBytes(nil)
+		} else {
+			key, err = m.NextKeyBytes(key)
+		}
+		if key == nil || err != nil {
+			break
+		}
+		count++
+	}
+	return count
+}
