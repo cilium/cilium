@@ -72,9 +72,9 @@ int test_sock4_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	};
 	__u8 val = 0;
 
-	lb_v4_add_service_with_flags(v4_svc_one, tcp_svc_one, 1, revnat_id,
+	lb_v4_add_service_with_flags(v4_svc_one, tcp_svc_one, IPPROTO_TCP, 1, revnat_id,
 				     0, SVC_FLAG_LOCALREDIRECT);
-	lb_v4_add_service_with_flags(v4_svc_two, tcp_svc_two, 1, revnat_id2,
+	lb_v4_add_service_with_flags(v4_svc_two, tcp_svc_two, IPPROTO_TCP, 1, revnat_id2,
 				     0, SVC_FLAG_LOCALREDIRECT);
 	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
 			  v4_pod_one, tcp_dst_one, IPPROTO_TCP, 0);
@@ -143,9 +143,9 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 
 	memcpy(frontend_ip1.addr, (void *)V6_SVC_ONE, 16);
 	memcpy(frontend_ip2.addr, (void *)V6_SVC_TWO, 16);
-	lb_v6_add_service_with_flags(&frontend_ip1, tcp_svc_one, 1, revnat_id,
+	lb_v6_add_service_with_flags(&frontend_ip1, tcp_svc_one, IPPROTO_TCP, 1, revnat_id,
 				     0, SVC_FLAG_LOCALREDIRECT);
-	lb_v6_add_service_with_flags(&frontend_ip2, tcp_svc_two, 1, revnat_id2,
+	lb_v6_add_service_with_flags(&frontend_ip2, tcp_svc_two, IPPROTO_TCP, 1, revnat_id2,
 				     0, SVC_FLAG_LOCALREDIRECT);
 	lb_v6_add_backend(&frontend_ip1, tcp_svc_one, 1, 124,
 			  (union v6addr *)V6_BACKEND1, tcp_dst_one, IPPROTO_TCP, 0);

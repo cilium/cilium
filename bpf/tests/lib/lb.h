@@ -3,11 +3,13 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-lb_v4_upsert_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		     __u16 rev_nat_index)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
 		.dport = port,
+		.proto = proto,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
 	struct lb4_service svc_value = {
@@ -22,10 +24,11 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_na
 }
 
 static __always_inline void
-lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		  __u16 rev_nat_index)
 {
 	/* Register with both scopes: */
-	lb_v4_upsert_service(addr, port, backend_count, rev_nat_index);
+	lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index);
 
 	/* Insert a reverse NAT entry for the above service */
 	struct lb4_reverse_nat revnat_value = {
@@ -36,12 +39,13 @@ lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_i
 }
 
 static __always_inline void
-lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index,
-			     __u8 flags, __u8 flags2)
+lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+			     __u16 rev_nat_index, __u8 flags, __u8 flags2)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
 		.dport = port,
+		.proto = proto,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
 	struct lb4_service svc_value = {
@@ -83,6 +87,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 	struct lb4_key svc_key = {
 		.address = svc_addr,
 		.dport = svc_port,
+		.proto = backend_proto,
 		.backend_slot = backend_slot,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
@@ -97,11 +102,13 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 
 #ifdef ENABLE_IPV6
 static __always_inline void
-__lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count, __u16 rev_nat_index,
+__lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
+		    __u16 backend_count, __u16 rev_nat_index,
 		    __u8 flags, __u8 flags2)
 {
 	struct lb6_key svc_key __align_stack_8 = {
 		.dport = port,
+		.proto = proto,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
 	struct lb6_service svc_value = {
@@ -126,17 +133,20 @@ __lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count, 
 }
 
 static __always_inline void
-lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count,
-		  __u16 rev_nat_index)
+lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
+		  __u16 backend_count, __u16 rev_nat_index)
 {
-	__lb_v6_add_service(addr, port, backend_count, rev_nat_index, SVC_FLAG_ROUTABLE, 0);
+	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index,
+			    SVC_FLAG_ROUTABLE, 0);
 }
 
 static __always_inline void
-lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u16 backend_count,
-			     __u16 rev_nat_index, __u8 flags, __u8 flags2)
+lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u8 proto,
+			     __u16 backend_count, __u16 rev_nat_index, __u8 flags,
+			     __u8 flags2)
 {
-	__lb_v6_add_service(addr, port, backend_count, rev_nat_index, flags, flags2);
+	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index, flags,
+			    flags2);
 }
 
 static __always_inline void
@@ -147,6 +157,7 @@ lb_v6_add_backend(const union v6addr *svc_addr, __be16 svc_port, __u16 backend_s
 	struct lb6_key svc_key __align_stack_8 = {
 		.dport = svc_port,
 		.backend_slot = backend_slot,
+		.proto = backend_proto,
 		.scope = LB_LOOKUP_SCOPE_EXT,
 	};
 	struct lb6_service svc_value = {

@@ -88,7 +88,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
-	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, IPPROTO_SCTP, 1, revnat_id);
 	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
 			  v4_pod_one, tcp_svc_one, IPPROTO_SCTP, 0);
 

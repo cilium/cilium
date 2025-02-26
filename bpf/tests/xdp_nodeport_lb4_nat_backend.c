@@ -84,7 +84,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("xdp", "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 

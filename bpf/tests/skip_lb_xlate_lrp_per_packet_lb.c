@@ -67,7 +67,7 @@ int  v4_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 SETUP("tc", "v4_local_redirect")
 int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
-	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, 1, 1,
+	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, IPPROTO_TCP, 1, 1,
 				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
 	lb_v4_add_backend(V4_SERVICE_IP, SERVICE_PORT, 1, 124,
 			  V4_BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
@@ -165,7 +165,7 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	memcpy(service_ip.addr, (void *)V6_SERVICE_IP, 16);
 	memcpy(backend_ip.addr, (void *)V6_BACKEND_IP, 16);
 
-	lb_v6_add_service_with_flags(&service_ip, SERVICE_PORT, 1, 1,
+	lb_v6_add_service_with_flags(&service_ip, SERVICE_PORT, IPPROTO_TCP, 1, 1,
 				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
 	lb_v6_add_backend(&service_ip, SERVICE_PORT, 1, 124, &backend_ip,
 			  BACKEND_PORT, IPPROTO_TCP, 0);

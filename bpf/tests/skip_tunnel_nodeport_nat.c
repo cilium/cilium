@@ -173,13 +173,13 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 */
 
 	if (v4) {
-		lb_v4_add_service(NODEPORT_IPV4, NODEPORT_PORT, 1, 1);
+		lb_v4_add_service(NODEPORT_IPV4, NODEPORT_PORT, IPPROTO_TCP, 1, 1);
 		lb_v4_add_backend(NODEPORT_IPV4, NODEPORT_PORT, 1, 124,
 				  DST_IPV4, DST_PORT, IPPROTO_TCP, 0);
 		ipcache_v4_add_entry_with_flags(DST_IPV4,
 						0, 1230, DST_TUNNEL_IP, 0, flag_skip_tunnel);
 	} else {
-		lb_v6_add_service((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, 1, 1);
+		lb_v6_add_service((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, IPPROTO_TCP, 1, 1);
 		lb_v6_add_backend((union v6addr *)NODEPORT_IPV6, NODEPORT_PORT, 1, 123,
 				  (union v6addr *)DST_IPV6, DST_PORT, IPPROTO_TCP, 0);
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
