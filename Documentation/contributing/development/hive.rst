@@ -165,8 +165,8 @@ The Hive API
 With the example hopefully having now whetted the appetite, we'll take a proper look at
 the hive API. 
 
-`pkg/hive <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive>`_ provides the Hive type and 
-`hive.New <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive#New>`_ constructor. 
+`hive <https://pkg.go.dev/github.com/cilium/hive>`_ provides the Hive type and 
+`hive.New <https://pkg.go.dev/github.com/cilium/hive#New>`_ constructor. 
 The ``hive.Hive`` type can be thought of as an application container, composed from cells:
 
 .. code-block:: go
@@ -186,7 +186,7 @@ The ``hive.Hive`` type can be thought of as an application container, composed f
     // Hive also provides a sub-command for inspecting it:
     cmd.AddCommand(hive.Command())
 
-`pkg/hive/cell <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive/cell>`_ defines the Cell interface that 
+`hive/cell <https://pkg.go.dev/github.com/hive/cell>`_ defines the Cell interface that 
 ``hive.New()`` consumes and the following functions for creating cells:
 
 - :ref:`api_module`: A named set of cells.
@@ -279,7 +279,7 @@ and ``cell.Out`` with the ``group`` struct tag:
       cell.Provide(NewHelloHandler, NewEventHandler, NewServer)
     )
 
-For a working example of group values this, see ``pkg/hive/example``.
+For a working example of group values this, see ``hive/example``.
 
 Use ``Provide()`` when you want to expose an object or an interface to the application. If there is nothing meaningful
 to expose, consider instead using ``Invoke()`` to register lifecycle hooks for an unexported object.
@@ -677,7 +677,7 @@ started, Run() waits for SIGTERM and SIGINT signals and upon receiving one
 will execute the stop hooks in reverse order to bring the hive down.
 
 Now would be a good time to try this out in practice. You'll find a small example
-application in `pkg/hive/example <https://github.com/cilium/cilium/tree/main/pkg/hive/example>`_.
+application in `hive/example <https://github.com/cilium/hive/tree/main/example>`_.
 Try running it with ``go run .`` and exploring the implementation (try what happens if a provider is commented out!).
 
 Inspecting a hive
@@ -780,6 +780,187 @@ Few guidelines one should strive to follow when implementing larger cells:
   constructor takes more than two parameters, consider using a parameter
   struct instead.
 
+
+Testing with hive script
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The hive library comes with `script <https://pkg.go.dev/github.com/cilium/hive/script>`_,
+a simple scripting engine for writing tests. It is a fork of the 
+`internal/script <https://github.com/golang/go/tree/master/src/cmd/internal/script>`_ library
+used by the Go compiler for testing the compiler CLI usage. For usage with hive it has been
+extended with support for interactive use, retrying of failures and ability to inject commands
+from Hive cells. The same scripting language and commands provided by cells is available via
+the ``cilium-dbg shell`` command for live inspection of the Cilium Agent.
+
+Hive scripts are `txtar <https://pkg.go.dev/golang.org/x/tools/txtar>`_ (text archive) files
+that contain a sequence of commands and a set of embedded input files. When the script is
+executed a temporary directory (``$WORK``) is created and the input files are extracted
+there.
+
+To understand how this is put together, let's take a look at a minimal example:
+
+.. literalinclude:: ../../../contrib/examples/script/example.go
+   :caption: contrib/examples/script/example.go
+   :language: go
+   :tab-width: 4
+
+We've now defined a module providing ``Example`` object and some commands for
+interacting with it. We can now define our test runner:
+
+.. literalinclude:: ../../../contrib/examples/script/example_test.go
+   :caption: contrib/examples/script/example_test.go
+   :language: go
+   :tab-width: 4
+
+And with the test runner in place we can now write our test script:
+
+.. literalinclude:: ../../../contrib/examples/script/testdata/example.txtar
+   :caption: contrib/examples/script/testdata/example.txtar
+   :language: shell
+
+With everything in place we can now run the tests:
+
+.. code-block:: shell-session
+
+  $ cd contrib/examples/script 
+  $ go test .
+  === RUN   TestScript
+  === RUN   TestScript/example.txtar
+    scripttest.go:251: 2025-02-26T08:32:25Z
+    scripttest.go:253: $WORK=/tmp/TestScriptexample.txtar2477299450/001
+    scripttest.go:72:
+        DATADIR=/home/jussi/go/src/github.com/cilium/cilium/contrib/examples/script/testdata
+        PWD=/tmp/TestScriptexample.txtar2477299450/001
+        WORK=/tmp/TestScriptexample.txtar2477299450/001
+        TMPDIR=/tmp/TestScriptexample.txtar2477299450/001/tmp
+
+    scripttest.go:72: #! --enable-example=true
+        # ^ an (optional) shebang can be used to configure cells
+        # This is a comment that starts a section of commands (0.000s)
+        > echo 'hello'
+        [stdout]
+        hello
+    logger.go:256: level=INFO msg="Starting hive"
+    logger.go:256: level=INFO msg="Started hive" duration=1.53µs
+    scripttest.go:72: # The test hive has not been started yet, let's start it! (0.000s)
+        > hive/start
+    logger.go:256: level=INFO msg="SayHello() called" module=example name=foo greeting=Hello,
+    scripttest.go:72: # Cells can provide custom commands (0.000s)
+        > example/hello foo
+        calling SayHello(foo, Hello,)
+        [stdout]
+        Hello, foo
+        > stdout 'Hello, foo'
+        matched: Hello, foo
+    scripttest.go:72: # Check that call count equals 1 (0.000s)
+        > example/counts
+        [stdout]
+        1 SayHello()
+        > stdout '1 SayHello()'
+        matched: 1 SayHello()
+    scripttest.go:72: # The file 'foo' should not be the same as 'bar' (0.000s)
+        > ! cmp foo bar
+        diff foo bar
+        --- foo
+        +++ bar
+        @@ -1,2 +1,1 @@
+        -foo
+        -
+        +bar
+
+    --- PASS: TestScript/example.txtar (0.00s)
+    ok      github.com/cilium/cilium/contrib/examples/script        0.003s
+
+In the test execution we can see that a temporary working directory ``$WORK`` was created
+and our test files from the ``example.txtar`` extracted there. Each command was then executed
+in order.
+
+As many of the cells bring rich set of commands it's important that they're easy to discover.
+To find the commands available, use the ``help`` command to interactively explore the available commands
+to use in tests. Try for example adding ``break`` as the last command in ``example.txtar``:
+
+.. code-block:: shell-session
+
+  $ go test .
+    ....
+        @@ -1,2 +1,1 @@
+        -foo
+        -
+        +bar
+
+        > break
+
+  Break! Control-d to continue.
+  debug> help example
+  [stdout]
+  example/counts
+          Show the call counts of the example module
+  example/hello [--greeting=string] name
+          Say hello
+  
+          Flags:
+                --greeting string   Greeting to use (default "Hello,")
+
+  debug> example/hello --greeting=Hei Jussi
+  calling SayHello(Jussi, Hei)
+  [stdout]
+  Hei Jussi
+  logger.go:256: level=INFO msg="SayHello() called" module=example name=Jussi greeting=Hei
+
+Command reference
+^^^^^^^^^^^^^^^^^
+
+The important default commands are:
+
+- ``help``: List available commands. Takes an optional regex to filter.
+- ``hive``: Dump the hive object graph
+- ``hive/start``: Start the test hive
+- ``stdout regex``: Grep the stdout buffer
+- ``cmp file1 file2``: Compare two files
+- ``exec cmd args...``: Execute an external program (``$PATH`` needs to be set!)
+- ``replace old new file``: Replace text in a file
+
+The commands can be modified with prefixes:
+
+- ``! cmd args...``: Fail if the command succeeds
+- ``* cmd args...``: Retry all commands in the section until this succeeds
+- ``!* cmd args...``: Retry all commands in the section until this fails
+
+A section is defined by a ``# comment`` line and consists of all commands between the
+comment and the next comment.
+
+New commands should use the naming scheme ``<component>/<command>``, e.g. ``hive/start`` and not
+build sub-commands. This makes ``help`` more useful and makes it easier to discover the commands.
+
+Cells with script support
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These cells when included in the test hive will bring useful commands that can be used in tests.
+
+- `FakeClientCell <https://github.com/cilium/cilium/blob/main/pkg/k8s/client/fake.go>`_: Commands for interacting with the fake client to add or delete objects. See ``help k8s``.
+- `StateDB <https://github.com/cilium/statedb/blob/main/script.go>`_: Commands for inspecting and manipulating StateDB. Also available via ``cilium-dbg shell``. See ``help db``.
+- `metrics.Cell <https://github.com/cilium/cilium/blob/main/pkg/metrics/cmd.go>`_: Commands for dumping and plotting metrics. See ``help metrics`` and ``pkg/metrics/testdata``.
+
+Note that StateDB and metrics are part of Cilium's Hive wrapper defined in ``pkg/hive``, so if you use ``(pkg/hive).New()``
+they will be included automatically.
+
+Example tests
+^^^^^^^^^^^^^
+
+To find existing tests to use as reference you can grep for usage of scripttest.Test:
+
+.. code-block:: shell-session
+
+  $ git grep 'scripttest.Test'
+  contrib/examples/script/example_test.go:        scripttest.Test(
+  ...
+
+Here's a few scripts that are worth calling out:
+
+- ``daemon/k8s/testdata/pod.txtar``: Tests populating ``Table[LocalPod]`` from K8s objects defined in YAML. Good reference for the ``k8s/*`` and ``db/*`` commands.
+- ``pkg/ciliumenvoyconfig/testdata``: Complex component integration tests that go from K8s objects down to BPF maps.
+- ``pkg/datapath/linux/testdata/device-detection.txtar``: Low-level test that manipulates network devices in a new network namespace
+
 Internals: Dependency injection with reflection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -859,7 +1040,7 @@ Cell showcase
 Logging
 ^^^^^^^
 
-Logging is provided to all cells by default with the ``logrus.FieldLogger`` interface type. The log lines will include the field ``subsys=<module id>``.
+Logging is provided to all cells by default with the ``*slog.Logger``. The log lines will include the attribute ``module=<module id>``.
 
 .. code-block:: go
 
@@ -868,8 +1049,8 @@ Logging is provided to all cells by default with the ``logrus.FieldLogger`` inte
         "log example module",
     
         cell.Provide(
-      	    func(log logrus.FieldLogger) Example {
-    	  	log.Info("Hello") // subsys=example message=Hello
+      	    func(log *slog.Logger) Example {
+    	  	    log.Info("Hello") // module=example msg=Hello
                 return Example{log: log}
     	    },
         ),
@@ -900,6 +1081,13 @@ only be used for creating and updating objects.
 
 Kubernetes Resource and Store
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+   The ``Resource[T]`` pattern is being phased out in the Cilium Agent and new code should use StateDB.
+   See `daemon/k8s/tables.go <https://github.com/cilium/cilium/blob/main/daemon/k8s/tables.go>`_,
+   `pkg/k8s/statedb.go <https://github.com/cilium/cilium/blob/main/pkg/k8s/statedb.go>`_
+   and `PR 34060 <https://github.com/cilium/cilium/pull/34060>`_.
 
 While not a cell by itself, `pkg/k8s/resource <https://pkg.go.dev/github.com/cilium/cilium/pkg/k8s/resource>`_ 
 provides an useful abstraction for providing shared event-driven access
@@ -989,6 +1177,4 @@ addition to the periodic invocations.
 
 The ``Observer`` job invokes its callback for every message sent on a ``stream.Observable``. This job
 type can be used to react to a data stream or events created by other cells.
-
-Please take a look at ``pkg/hive/examples/jobs.go`` for an example of how to use the job package.
 
