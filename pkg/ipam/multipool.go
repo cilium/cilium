@@ -36,6 +36,9 @@ const (
 	// pendingAllocationTTL is how long we wait for pending allocation to
 	// be fulfilled
 	pendingAllocationTTL = 5 * time.Minute
+
+	// refreshPoolsInterval defines the run interval of the ipam-sync-multi-pool controller
+	refreshPoolInterval = 1 * time.Minute
 )
 
 type ErrPoolNotReadyYet struct {
@@ -377,8 +380,9 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		// Note: The controller will only run after m.mutex is unlocked
 		m.controller.UpdateController(multiPoolControllerName,
 			controller.ControllerParams{
-				Group:  multiPoolControllerGroup,
-				DoFunc: m.updateCiliumNode,
+				Group:       multiPoolControllerGroup,
+				DoFunc:      m.updateCiliumNode,
+				RunInterval: refreshPoolInterval,
 			})
 	}
 
