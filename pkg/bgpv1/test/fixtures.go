@@ -7,12 +7,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
@@ -126,14 +129,51 @@ func newFixtureConf() fixtureConfig {
 	}
 }
 
-func newFixture(t testing.TB, conf fixtureConfig) *fixture {
+func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture, func()) {
 	f := &fixture{
 		config: conf,
+	}
+
+	rws := map[string]*struct {
+		once    sync.Once
+		watchCh chan any
+	}{
+		"ciliumnodes":              {watchCh: make(chan any)},
+		"ciliumbgppeeringpolicies": {watchCh: make(chan any)},
+	}
+
+	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		w := action.(k8sTesting.WatchAction)
+		gvr := w.GetResource()
+		ns := w.GetNamespace()
+		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+		if err != nil {
+			return false, nil, err
+		}
+		rw, ok := rws[w.GetResource().Resource]
+		if !ok {
+			return false, watch, nil
+		}
+		rw.once.Do(func() { close(rw.watchCh) })
+		return true, watch, nil
+	}
+
+	// make sure watchers are initialized before the test starts
+	watchersReadyFn := func() {
+		for name, rw := range rws {
+			select {
+			case <-ctx.Done():
+				t.Fatalf("Context expired while waiting for %s", name)
+			case <-rw.watchCh:
+			}
+		}
 	}
 
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset(hivetest.Logger(t))
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 	f.secretClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Secrets("bgp-secrets")
+
+	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
 
 	// create initial cilium node
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.node)
@@ -190,7 +230,7 @@ func newFixture(t testing.TB, conf fixtureConfig) *fixture {
 	}
 	f.hive = hive.New(f.cells...)
 
-	return f
+	return f, watchersReadyFn
 }
 
 func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error {
@@ -210,8 +250,8 @@ func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error 
 }
 
 // setup configures the test environment based on provided gobgp and fixture config.
-func setup(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, cleanup func(), err error) {
-	f = newFixture(t, fixConfig)
+func setup(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, ready, cleanup func(), err error) {
+	f, ready = newFixture(t, ctx, fixConfig)
 	peers, cleanup, err = start(ctx, t, peerConfigs, f)
 	return
 }
