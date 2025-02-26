@@ -2049,10 +2049,7 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(struct icmphdr), 0);
 	icmphdr->checksum = csum_fold(csum);
 
-	/* Redirect ICMP to the interface we received it on. */
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
-			   ctx_get_ifindex(ctx));
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	return 0;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NO_SERVICE)
@@ -2062,6 +2059,13 @@ int tail_no_service_ipv4(struct __ctx_buff *ctx)
 	int ret;
 
 	ret = __tail_no_service_ipv4(ctx);
+	if (!ret) {
+		/* Redirect ICMP to the interface we received it on. */
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+				   ctx_get_ifindex(ctx));
+		ret = ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_sec_identity, ret,
 			CTX_ACT_DROP, METRIC_INGRESS);
@@ -2110,25 +2114,12 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	union macaddr dmac = {};
 	struct in6_addr saddr;
 	struct in6_addr daddr;
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_ICMPV6,
-	};
-	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
-	struct ratelimit_settings settings = {
-		.bucket_size = 1000,
-		.tokens_per_topup = 100,
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	__wsum csum;
 	__u64 sample_len;
 	int i;
 	int ret;
 	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
 		sizeof(struct icmp6hdr);
-
-	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
-	if (!ratelimit_check_and_take(&rkey, &settings))
-		return DROP_RATE_LIMITED;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -2223,19 +2214,39 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 
 	icmphdr->icmp6_cksum = csum_fold(csum);
 
-	/* Redirect ICMP to the interface we received it on. */
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
-			   ctx_get_ifindex(ctx));
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	return 0;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NO_SERVICE)
 int tail_no_service_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_ICMPV6,
+	};
+	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
+	struct ratelimit_settings settings = {
+		.bucket_size = 1000,
+		.tokens_per_topup = 100,
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
 	int ret;
 
+	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
+	if (!ratelimit_check_and_take(&rkey, &settings)) {
+		ret = DROP_RATE_LIMITED;
+		goto drop_err;
+	}
+
 	ret = __tail_no_service_ipv6(ctx);
+	if (!ret) {
+		/* Redirect ICMP to the interface we received it on. */
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+				   ctx_get_ifindex(ctx));
+		ret = ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	}
+
+drop_err:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_sec_identity, ret,
 			CTX_ACT_DROP, METRIC_INGRESS);
