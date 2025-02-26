@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -100,7 +101,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 			configuredMTU := option.Config.MTU
 			if mtu := p.CNI.GetMTU(); mtu > 0 {
 				configuredMTU = mtu
-				p.Log.Info("Overwriting MTU based on CNI configuration", "mtu", configuredMTU)
+				p.Log.Info("Overwriting MTU based on CNI configuration", logfields.MTU, configuredMTU)
 			}
 
 			if configuredMTU == 0 {
@@ -115,7 +116,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 					group.Add(job.Observer("local-cilium-node-observer", mgr.observeLocalCiliumNode, p.LocalCiliumNode))
 				}
 			} else {
-				p.Log.Info("Using configured MTU", "mtu", configuredMTU)
+				p.Log.Info("Using configured MTU", logfields.MTU, configuredMTU)
 
 				txn := p.DB.WriteTxn(p.MTUTable)
 				defer txn.Abort()

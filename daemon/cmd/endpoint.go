@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -48,7 +48,7 @@ import (
 var errEndpointNotFound = errors.New("endpoint not found")
 
 func getEndpointHandler(d *Daemon, params GetEndpointParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
+	d.logger.Debug("GET /endpoint request", slog.Any(logfields.Params, params))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointList)
 	if err != nil {
@@ -128,7 +128,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 }
 
 func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/ request")
+	d.logger.Debug("DELETE /endpoint/ request", slog.Any(logfields.Params, params))
 
 	if params.Endpoint.ContainerID == "" {
 		return api.New(DeleteEndpointInvalidCode, "invalid container id")
@@ -163,7 +163,7 @@ func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Re
 }
 
 func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
+	d.logger.Debug("GET /endpoint/{id} request", slog.String(logfields.EndpointID, params.ID))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -232,7 +232,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*sl
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed due to invalid data", slog.Any(logfields.Error, err))
 	if ep != nil {
 		ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	}
@@ -245,7 +245,7 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 		// by the caller
 		NoIPRelease: true,
 	})
-	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
+	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed", slog.Any(logfields.Error, err))
 	return nil, PutEndpointIDFailedCode, err
 }
 
@@ -289,7 +289,7 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 	defer m.mutex.Unlock()
 
 	if req, ok := m.requests[cepName]; ok {
-		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same cep name")
+		ep.Logger(daemonSubsys).Warn("Cancelling obsolete endpoint creating due to new create for same cep name")
 		req.cancel()
 	}
 
@@ -324,7 +324,7 @@ func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
 
 func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
 	if m.EndCreateRequest(ep) {
-		ep.Logger(daemonSubsys).Warning("Cancelled endpoint create request due to receiving endpoint delete request")
+		ep.Logger(daemonSubsys).Warn("Cancelled endpoint create request due to receiving endpoint delete request")
 	}
 }
 
@@ -373,17 +373,18 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
 
-	log.WithFields(logrus.Fields{
-		"addressing":                 epTemplate.Addressing,
-		logfields.ContainerID:        epTemplate.ContainerID,
-		logfields.ContainerInterface: epTemplate.ContainerInterfaceName,
-		"datapathConfiguration":      epTemplate.DatapathConfiguration,
-		logfields.Interface:          epTemplate.InterfaceName,
-		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-		logfields.K8sUID:             epTemplate.K8sUID,
-		logfields.Labels:             epTemplate.Labels,
-		"sync-build":                 epTemplate.SyncBuildEndpoint,
-	}).Info("Create endpoint request")
+	d.logger.Info(
+		"Create endpoint request",
+		slog.Any("addressing", epTemplate.Addressing),
+		slog.String(logfields.ContainerID, epTemplate.ContainerID),
+		slog.String(logfields.ContainerInterface, epTemplate.ContainerInterfaceName),
+		slog.Any("datapathConfiguration", epTemplate.DatapathConfiguration),
+		slog.String(logfields.Interface, epTemplate.InterfaceName),
+		slog.String(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName),
+		slog.String(logfields.K8sUID, epTemplate.K8sUID),
+		slog.Any(logfields.Labels, epTemplate.Labels),
+		slog.Bool("sync-build", epTemplate.SyncBuildEndpoint),
+	)
 
 	// We don't need to create the endpoint with the labels. This might cause
 	// the endpoint regeneration to not be triggered further down, with the
@@ -456,10 +457,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		pod, k8sMetadata, err := d.handleOutdatedPodInformer(ctx, ep)
 		if errors.Is(err, podStoreOutdatedErr) {
-			log.WithFields(logrus.Fields{
-				logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
-				logfields.K8sUID:     ep.K8sUID,
-			}).Warn("Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.")
+			d.logger.Warn(
+				"Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.",
+				slog.String(logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName),
+				slog.String(logfields.K8sUID, ep.K8sUID),
+			)
 
 			// Fetch the latest instance of the pod because
 			// fetchK8sMetadataForEndpoint() returned a stale pod from the
@@ -469,9 +471,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if newPod, err2 := d.clientset.Slim().CoreV1().Pods(ep.K8sNamespace).Get(
 				ctx, ep.K8sPodName, metav1.GetOptions{},
 			); err2 != nil {
-				ep.Logger("api").WithError(err2).Warn(
-					"Failed to fetch Kubernetes Pod during detection of an outdated Pod UID. Endpoint will be created with the 'init' identity. " +
-						"The Endpoint will be updated with a real identity once the Kubernetes can be fetched.")
+				ep.Logger("api").Warn(
+					"Failed to fetch Kubernetes Pod during detection of an outdated Pod UID. Endpoint will be created with the 'init' identity. "+
+						"The Endpoint will be updated with a real identity once the Kubernetes can be fetched.",
+					slog.Any(logfields.Error, err2),
+				)
 				err = errors.Join(err, err2)
 			} else {
 				pod = newPod
@@ -482,31 +486,40 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		}
 
 		if err != nil {
-			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
+			ep.Logger("api").Warn("Unable to fetch kubernetes labels", slog.Any(logfields.Error, err))
 		} else {
 			ep.SetPod(pod)
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
 			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok && !d.bwManager.Enabled() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(pod.Annotations),
-				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
-					bandwidth.IngressBandwidth)
+				d.logger.Warn(
+					fmt.Sprintf(
+						"Endpoint has %s annotation which is unsupported. This annotation is ignored.",
+						bandwidth.IngressBandwidth,
+					),
+					slog.String(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName),
+					slog.Any(logfields.Annotations, pod.Annotations),
+				)
 			}
 			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(pod.Annotations),
-				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
-					bandwidth.EgressBandwidth)
+				d.logger.Warn(
+					fmt.Sprintf(
+						"Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+						bandwidth.EgressBandwidth,
+					),
+					slog.String(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName),
+					slog.Any(logfields.Annotations, pod.Annotations),
+				)
 			}
 			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
 				m, err := mac.ParseMAC(hwAddr)
 				if err != nil {
-					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).
-						WithError(err).Error("Unable to parse MAC address")
+					d.logger.Error(
+						"Unable to parse MAC address",
+						slog.Any(logfields.Error, err),
+						slog.String(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName),
+					)
 					return invalidDataError(ep, err)
 				}
 				ep.SetMac(m)
@@ -620,10 +633,11 @@ func (d *Daemon) handleOutdatedPodInformer(
 
 		if errors.Is(err2, podStoreOutdatedErr) {
 			once.Do(func() {
-				log.WithFields(logrus.Fields{
-					logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
-					logfields.K8sUID:     ep.K8sUID,
-				}).Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.")
+				d.logger.Warn(
+					"Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.",
+					slog.String(logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName),
+					slog.String(logfields.K8sUID, ep.K8sUID),
+				)
 			})
 
 			return false, nil
@@ -642,9 +656,15 @@ var podStoreOutdatedErr = errors.New("pod store outdated")
 
 func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middleware.Responder) {
 	if ep := params.Endpoint; ep != nil {
-		log.WithField("endpoint", logfields.Repr(*ep)).Debug("PUT /endpoint/{id} request")
+		d.logger.Debug(
+			"PUT /endpoint/{id} request",
+			slog.Any("endpoint", *ep),
+		)
 	} else {
-		log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+		d.logger.Debug(
+			"PUT /endpoint/{id} request",
+			slog.Any(logfields.Params, params),
+		)
 	}
 	epTemplate := params.Endpoint
 
@@ -679,9 +699,9 @@ func validPatchTransitionState(state *models.EndpointState) bool {
 }
 
 func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.Responder {
-	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
+	scopedLog := d.logger.With(slog.Any(logfields.Params, params))
 	if ep := params.Endpoint; ep != nil {
-		scopedLog = scopedLog.WithField("endpoint", logfields.Repr(*ep))
+		scopedLog = scopedLog.With(slog.Any("endpoint", *ep))
 	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
@@ -693,16 +713,17 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 
 	epTemplate := params.Endpoint
 
-	log.WithFields(logrus.Fields{
-		logfields.EndpointID:         params.ID,
-		"addressing":                 epTemplate.Addressing,
-		logfields.ContainerID:        epTemplate.ContainerID,
-		logfields.ContainerInterface: epTemplate.ContainerInterfaceName,
-		"datapathConfiguration":      epTemplate.DatapathConfiguration,
-		logfields.Interface:          epTemplate.InterfaceName,
-		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-		logfields.Labels:             epTemplate.Labels,
-	}).Info("Patch endpoint request")
+	d.logger.Info(
+		"Patch endpoint request",
+		slog.String(logfields.EndpointID, params.ID),
+		slog.Any("addressing", epTemplate.Addressing),
+		slog.String(logfields.ContainerID, epTemplate.ContainerID),
+		slog.String(logfields.ContainerInterface, epTemplate.ContainerInterfaceName),
+		slog.Any("datapathConfiguration", epTemplate.DatapathConfiguration),
+		slog.String(logfields.Interface, epTemplate.InterfaceName),
+		slog.String(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName),
+		slog.Any(logfields.Labels, epTemplate.Labels),
+	)
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
@@ -717,7 +738,10 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	// Log invalid state transitions, but do not error out for backwards
 	// compatibility.
 	if !validPatchTransitionState(epTemplate.State) {
-		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", *epTemplate.State)
+		scopedLog.Debug(
+			"PATCH /endpoint/{id} to invalid state",
+			slog.Any("invalid-state", *epTemplate.State),
+		)
 	} else {
 		validStateTransition = true
 	}
@@ -770,12 +794,15 @@ func (d *Daemon) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRelease bool) 
 	// Cancel any ongoing endpoint creation
 	d.endpointCreations.CancelCreateRequest(ep)
 
-	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 		NoIPRelease: noIPRelease,
 	})
 	for _, err := range errs {
-		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+		d.logger.Warn(
+			"Ignoring error while deleting endpoint",
+			slog.Any(logfields.Error, err),
+			slog.Uint64(logfields.EndpointID, uint64(ep.ID)),
+		)
 	}
 	return len(errs)
 }
@@ -807,20 +834,22 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 		msg := "Delete endpoint request"
 		switch containerID := ep.GetShortContainerID(); containerID {
 		case "":
-			log.WithFields(logrus.Fields{
-				logfields.IPv4:         ep.GetIPv4Address(),
-				logfields.IPv6:         ep.GetIPv6Address(),
-				logfields.EndpointID:   ep.ID,
-				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sNamespace(),
-			}).Info(msg)
+			d.logger.Info(
+				msg,
+				slog.String(logfields.IPv4, ep.GetIPv4Address()),
+				slog.String(logfields.IPv6, ep.GetIPv6Address()),
+				slog.Any(logfields.EndpointID, ep.ID),
+				slog.String(logfields.K8sPodName, ep.GetK8sPodName()),
+				slog.String(logfields.K8sNamespace, ep.GetK8sNamespace()),
+			)
 		default:
-			log.WithFields(logrus.Fields{
-				logfields.ContainerID:  containerID,
-				logfields.EndpointID:   ep.ID,
-				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sNamespace(),
-			}).Info(msg)
+			d.logger.Info(
+				msg,
+				slog.String(logfields.ContainerID, containerID),
+				slog.Any(logfields.EndpointID, ep.ID),
+				slog.String(logfields.K8sPodName, ep.GetK8sPodName()),
+				slog.String(logfields.K8sNamespace, ep.GetK8sNamespace()),
+			)
 		}
 		return d.deleteEndpoint(ep), nil
 	}
@@ -837,15 +866,15 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 	}
 
 	for _, ep := range eps {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ContainerID:  containerID,
-			logfields.EndpointID:   ep.ID,
-			logfields.K8sPodName:   ep.GetK8sPodName(),
-			logfields.K8sNamespace: ep.GetK8sNamespace(),
-		})
+		scopedLog := d.logger.With(
+			slog.String(logfields.ContainerID, containerID),
+			slog.Any(logfields.EndpointID, ep.ID),
+			slog.String(logfields.K8sPodName, ep.GetK8sPodName()),
+			slog.String(logfields.K8sNamespace, ep.GetK8sNamespace()),
+		)
 
 		if err = endpoint.APICanModify(ep); err != nil {
-			scopedLog.WithError(err).Warn("Skipped endpoint in batch delete request")
+			scopedLog.Warn("Skipped endpoint in batch delete request", slog.Any(logfields.Error, err))
 			nErrors++
 			continue
 		}
@@ -869,14 +898,12 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
 			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice(), ipam.PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
+				ep.Logger(daemonSubsys).Warn("Unable to release IPv4 address during endpoint deletion", slog.Any(logfields.Error, err))
 			}
 		}
 		if option.Config.EnableIPv6 {
 			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
+				ep.Logger(daemonSubsys).Warn("Unable to release IPv6 address during endpoint deletion", slog.Any(logfields.Error, err))
 			}
 		}
 	}
@@ -898,7 +925,7 @@ func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
 }
 
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
+	d.logger.Debug("DELETE /endpoint/{id} request", slog.Any(logfields.Params, params))
 
 	// Bypass the rate limiter for endpoints that have already been deleted.
 	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
@@ -956,7 +983,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 }
 
 func patchEndpointIDConfigHandler(d *Daemon, params PatchEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
+	d.logger.Debug("PATCH /endpoint/{id}/config request", slog.Any(logfields.Params, params))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -978,7 +1005,7 @@ func patchEndpointIDConfigHandler(d *Daemon, params PatchEndpointIDConfigParams)
 }
 
 func getEndpointIDConfigHandler(d *Daemon, params GetEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
+	d.logger.Debug("GET /endpoint/{id}/config", slog.Any(logfields.Params, params))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -1001,7 +1028,7 @@ func getEndpointIDConfigHandler(d *Daemon, params GetEndpointIDConfigParams) mid
 }
 
 func getEndpointIDLabelsHandler(d *Daemon, params GetEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
+	d.logger.Debug("GET /endpoint/{id}/labels", slog.Any(logfields.Params, params))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -1029,7 +1056,7 @@ func getEndpointIDLabelsHandler(d *Daemon, params GetEndpointIDLabelsParams) mid
 }
 
 func getEndpointIDLogHandler(d *Daemon, params GetEndpointIDLogParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
+	d.logger.Debug("GET /endpoint/{id}/log request", slog.String(logfields.EndpointID, params.ID))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -1051,7 +1078,7 @@ func getEndpointIDLogHandler(d *Daemon, params GetEndpointIDLogParams) middlewar
 }
 
 func getEndpointIDHealthzHandler(d *Daemon, params GetEndpointIDHealthzParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
+	d.logger.Debug("GET /endpoint/{id}/log request", slog.String(logfields.EndpointID, params.ID))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -1107,7 +1134,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 }
 
 func putEndpointIDLabelsHandler(d *Daemon, params PatchEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
+	d.logger.Debug("PATCH /endpoint/{id}/labels request", slog.Any(logfields.Params, params))
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -1190,7 +1217,11 @@ func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
 	version.Close()
 
 	if err != nil {
-		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Could not get DNS rules")
+		d.logger.Error(
+			"Could not get DNS rules",
+			slog.Any(logfields.Error, err),
+			slog.Uint64(logfields.EndpointID, uint64(epID)),
+		)
 		return nil
 	}
 	return rules

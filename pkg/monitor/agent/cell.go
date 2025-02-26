@@ -6,13 +6,15 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 )
 
@@ -48,7 +50,7 @@ type agentParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Log       logrus.FieldLogger
+	Log       logging.FieldLogger
 	Config    AgentConfig
 	EventsMap eventsmap.Map `optional:"true"`
 }
@@ -67,7 +69,7 @@ func newMonitorAgent(params agentParams) Agent {
 
 			err := agent.AttachToEventsMap(defaults.MonitorBufferPages)
 			if err != nil {
-				log.WithError(err).Error("encountered error when attaching the monitor agent to eventsmap")
+				log.Error("encountered error when attaching the monitor agent to eventsmap", slog.Any(logfields.Error, err))
 				return fmt.Errorf("encountered error when attaching the monitor agent: %w", err)
 			}
 
@@ -76,7 +78,7 @@ func newMonitorAgent(params agentParams) Agent {
 				if queueSize == 0 {
 					possibleCPUs, err := ebpf.PossibleCPU()
 					if err != nil {
-						log.WithError(err).Error("failed to get number of possible CPUs")
+						log.Error("failed to get number of possible CPUs", slog.Any(logfields.Error, err))
 						return fmt.Errorf("failed to get number of possible CPUs: %w", err)
 					}
 					queueSize = possibleCPUs * defaults.MonitorQueueSizePerCPU
@@ -85,9 +87,9 @@ func newMonitorAgent(params agentParams) Agent {
 					}
 				}
 
-				err = ServeMonitorAPI(ctx, agent, queueSize)
+				err = ServeMonitorAPI(ctx, params.Log, agent, queueSize)
 				if err != nil {
-					log.WithError(err).Error("encountered error serving monitor agent API")
+					log.Error("encountered error serving monitor agent API", slog.Any(logfields.Error, err))
 					return fmt.Errorf("encountered error serving monitor agent API: %w", err)
 				}
 			}

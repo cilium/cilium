@@ -6,9 +6,9 @@ package sink
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "recorder-sink")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "recorder-sink"))
 
 // record is a captured packet which will be written to file in the pcap format
 type record struct {
@@ -244,7 +244,7 @@ func (d *Dispatch) NotifyPerfEvent(data []byte, cpu int) {
 
 	rec, err := d.decodeRecordCaptureLocked(data)
 	if err != nil {
-		log.WithError(err).Warning("Failed to parse capture record")
+		log.Warn("Failed to parse capture record", slog.Any(logfields.Error, err))
 		return
 	}
 
@@ -256,10 +256,11 @@ func (d *Dispatch) NotifyPerfEvent(data []byte, cpu int) {
 
 // NotifyPerfEventLost implements consumer.MonitorConsumer
 func (d *Dispatch) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
-	log.WithFields(logrus.Fields{
-		"numEvents": numLostEvents,
-		"cpu":       cpu,
-	}).Warning("Perf ring buffer events lost. This may affect captured packets.")
+	log.Warn(
+		"Perf ring buffer events lost. This may affect captured packets.",
+		slog.Uint64("numEvents", numLostEvents),
+		slog.Int("cpu", cpu),
+	)
 }
 
 // NotifyAgentEvent implements consumer.MonitorConsumer

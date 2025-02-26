@@ -4,6 +4,8 @@
 package spanstat
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -13,7 +15,7 @@ import (
 
 var (
 	subSystem = "spanstat"
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subSystem)
+	log       = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subSystem))
 )
 
 // SpanStat measures the total duration of all time spent in between Start()

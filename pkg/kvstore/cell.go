@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -52,18 +53,19 @@ var Cell = cell.Module(
 				go func() {
 					defer wg.Done()
 
-					log := log.WithField(logfields.BackendName, cfg.KVStore)
-					log.Info("Establishing connection to kvstore")
+					logAttr := slog.String(logfields.BackendName, cfg.KVStore)
+
+					log.Info("Establishing connection to kvstore", logAttr)
 					backend, errCh := NewClient(ctx, cfg.KVStore, cfg.KVStoreOpt, opts)
 
 					if err, isErr := <-errCh; isErr {
-						log.WithError(err).Error("Failed to establish connection to kvstore")
+						log.Error("Failed to establish connection to kvstore", slog.Any(logfields.Error, err), logAttr)
 						resolver.Reject(fmt.Errorf("failed connecting to kvstore: %w", err))
 						shutdowner.Shutdown(hive.ShutdownWithError(err))
 						return
 					}
 
-					log.Info("Connection to kvstore successfully established")
+					log.Info("Connection to kvstore successfully established", logAttr)
 					resolver.Resolve(backend)
 				}()
 				return nil

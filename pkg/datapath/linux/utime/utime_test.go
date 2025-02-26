@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sagikazarmark/slog-shim"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestUTime(t *testing.T) {
@@ -32,8 +35,8 @@ func TestUTime(t *testing.T) {
 
 func TestGetBoottime(t *testing.T) {
 	boottime, err := getBoottime()
-	log.Infof("Adjusted boot time: %s", boottime)
 	require.NoError(t, err)
+	logging.DefaultLogger.Info("Adjusted boot time", slog.String("boottime", boottime.String()))
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

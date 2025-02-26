@@ -6,6 +6,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
@@ -13,6 +14,7 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/server"
 
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // goBGP configuration used in tests
@@ -240,7 +242,7 @@ func startGoBGP(ctx context.Context, conf gobgpConfig) (g *goBGP, err error) {
 
 // stopGoBGP stops server
 func (g *goBGP) stopGoBGP() {
-	log.Infof("GoBGP test instance: stopping")
+	log.Info("GoBGP test instance: stopping")
 	g.server.Stop()
 }
 
@@ -258,7 +260,7 @@ func (g *goBGP) readEvents() {
 
 				nlri, err := apiutil.UnmarshalNLRI(gobgpb.AfiSafiToRouteFamily(uint16(p.Family.Afi), uint8(p.Family.Safi)), p.Nlri)
 				if err != nil {
-					log.Errorf("failed to unmarshal path nlri %v: %v", p, err)
+					log.Error("failed to unmarshal path nlri", slog.Any(logfields.Error, err), slog.Any("path", p))
 					continue
 				}
 
@@ -270,13 +272,13 @@ func (g *goBGP) readEvents() {
 					prefix = a.Prefix.String()
 					length = a.Length
 				default:
-					log.Errorf("failed to identify nlri %v", nlri)
+					log.Error("failed to identify nlri", slog.Any("nlri", nlri))
 					continue
 				}
 
 				pattrs, err := apiutil.UnmarshalPathAttributes(p.Pattrs)
 				if err != nil {
-					log.Errorf("failed to unmarshal path attributes %v: %v", p, err)
+					log.Error("failed to unmarshal path attributes", slog.Any(logfields.Error, err), slog.Any("path", p))
 					continue
 				}
 
@@ -316,7 +318,7 @@ func (g *goBGP) waitForSessionState(ctx context.Context, expectedStates []string
 	for {
 		select {
 		case e := <-g.peerNotif:
-			log.Infof("GoBGP test instance: Peer Event: %v", e)
+			log.Info("GoBGP test instance", slog.Any("peer-event", e))
 
 			for _, state := range expectedStates {
 				if e.state == state {
@@ -336,7 +338,7 @@ func (g *goBGP) getRouteEvents(ctx context.Context, numExpectedEvents int) ([]ro
 	for i := 0; i < numExpectedEvents; i++ {
 		select {
 		case r := <-g.routeNotif:
-			log.Infof("GoBGP test instance: Route Event: %v", r)
+			log.Info("GoBGP test instance", slog.Any("route-event", r))
 			receivedEvents = append(receivedEvents, r)
 		case <-ctx.Done():
 			return receivedEvents, fmt.Errorf("time elapsed waiting for all route events - received %d, expected %d : %w",

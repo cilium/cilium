@@ -435,7 +435,9 @@ func xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState,
 	return nil, func() {
 		if err := xfrmStateCache.XfrmStateAdd(&state); err != nil {
 			scopedLog.Error("Failed to re-add old XFRM state",
-				"directory", dir, logfields.Error, err)
+				logfields.Directory, dir,
+				logfields.Error, err,
+			)
 		}
 		elapsed := time.Since(start)
 
@@ -451,7 +453,10 @@ func xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState,
 			}
 		}
 		scopedLog.Info("Temporarily removed old XFRM state",
-			"directory", dir, "packetsDropped", errorCnt, logfields.Duration, elapsed)
+			logfields.Directory, dir,
+			logfields.PacketsDropped, errorCnt,
+			logfields.Duration, elapsed,
+		)
 	}
 }
 
@@ -1148,7 +1153,10 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 
 		for _, rt := range routes {
 			if err := netlink.RouteDel(&rt); err != nil {
-				log.Warn("Unable to delete ipsec encrypt route", "route", rt.String(), logfields.Error, err)
+				log.Warn("Unable to delete ipsec encrypt route",
+					logfields.Route, rt.String(),
+					logfields.Error, err,
+				)
 			}
 		}
 	}

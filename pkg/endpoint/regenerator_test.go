@@ -5,19 +5,20 @@ package endpoint
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestRegeneratorWaitForIPCacheSync(t *testing.T) {
 	regenerator := Regenerator{
-		logger: func() logrus.FieldLogger {
-			logger := logrus.New()
-			logger.SetLevel(logrus.FatalLevel)
-			return logger
+		logger: func() logging.FieldLogger {
+			return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logging.LevelPanic}))
 		}(),
 
 		cmWaitFn: func(ctx context.Context) error {

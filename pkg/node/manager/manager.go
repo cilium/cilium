@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"log/slog"
 	"math/rand/v2"
 	"net"
 	"net/netip"
@@ -24,7 +25,6 @@ import (
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
@@ -183,9 +183,10 @@ type nodeQueueEntry struct {
 // Enqueue add a node to a controller managed queue which sets up the neighbor link.
 func (m *manager) Enqueue(n *nodeTypes.Node) {
 	if n == nil {
-		log.WithFields(logrus.Fields{
-			logfields.LogSubsys: "enqueue",
-		}).Warn("Skipping nodeNeighbor insert: No node given")
+		log.Warn(
+			"Skipping nodeNeighbor insert: No node given",
+			slog.String(logfields.LogSubsys, "enqueue"),
+		)
 	}
 	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n})
 }
@@ -200,10 +201,12 @@ func (m *manager) Subscribe(nh datapath.NodeHandler) {
 	for _, v := range m.nodes {
 		v.mutex.Lock()
 		if err := nh.NodeAdd(v.node); err != nil {
-			log.WithFields(logrus.Fields{
-				"handler": nh.Name(),
-				"node":    v.node.Name,
-			}).WithError(err).Error("Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.")
+			log.Error(
+				"Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.",
+				slog.Any(logfields.Error, err),
+				slog.String("handler", nh.Name()),
+				slog.String("node", v.node.Name),
+			)
 		}
 		v.mutex.Unlock()
 	}
@@ -355,7 +358,7 @@ func (m *manager) Stop(cell.HookContext) error {
 		close(m.checkpointerDone)
 		err := m.checkpoint()
 		if err != nil {
-			log.WithError(err).Error("Failed to write final node checkpoint.")
+			log.Error("Failed to write final node checkpoint.", slog.Any(logfields.Error, err))
 		}
 		m.nodeCheckpointer = nil
 	}
@@ -504,9 +507,15 @@ func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error 
 	for {
 		syncInterval := m.backgroundSyncInterval()
 		startWaiting := time.After(syncInterval)
-		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
+		log.Debug(
+			"Starting new iteration of background sync",
+			slog.Duration("syncInterval", syncInterval),
+		)
 		err := m.singleBackgroundLoop(ctx, syncInterval)
-		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
+		log.Debug(
+			"Finished iteration of background sync",
+			slog.Duration("syncInterval", syncInterval),
+		)
 
 		select {
 		case <-ctx.Done():
@@ -561,7 +570,10 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 	)
 	for _, nodeIdentity := range nodes {
 		if err := limiter.Wait(ctx); err != nil {
-			log.WithError(err).Debug("Error while rate limiting backgroundSync updates")
+			log.Debug(
+				"Error while rate limiting backgroundSync updates",
+				slog.Any(logfields.Error, err),
+			)
 		}
 
 		select {
@@ -582,11 +594,12 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 		{
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
+					log.Error(
+						"Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.",
+						slog.Any(logfields.Error, err),
+						slog.String("handler", nh.Name()),
+						slog.String("node", entry.node.Name),
+					)
 					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
 				}
 			})
@@ -600,24 +613,34 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 
 func (m *manager) restoreNodeCheckpoint() {
 	path := filepath.Join(m.conf.StateDir, nodesFilename)
-	l := log.WithField(logfields.Path, path)
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			// If we don't have a file to restore from, there's nothing we can
 			// do. This is expected in the upgrade path.
-			l.Debugf("No %v file found, cannot replay node deletion events for nodes"+
-				" which disappeared during downtime.", nodesFilename)
+			log.Debug(
+				fmt.Sprintf("No %v file found, cannot replay node deletion events for nodes"+
+					" which disappeared during downtime.", nodesFilename),
+				slog.String(logfields.Path, path),
+			)
 			return
 		}
-		l.WithError(err).Error("failed to read node checkpoint file")
+		log.Error(
+			"failed to read node checkpoint file",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, path),
+		)
 		return
 	}
 
 	r := jsoniter.ConfigFastest.NewDecoder(bufio.NewReader(f))
 	var nodeCheckpoint []*nodeTypes.Node
 	if err := r.Decode(&nodeCheckpoint); err != nil {
-		l.WithError(err).Error("failed to decode node checkpoint file")
+		log.Error(
+			"failed to decode node checkpoint file",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, path),
+		)
 		return
 	}
 
@@ -656,9 +679,11 @@ func (m *manager) initNodeCheckpointer(minInterval time.Duration) error {
 			m.mutex.RUnlock()
 
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.Reason: reasons,
-				}).WithError(err).Error("could not write node checkpoint")
+				log.Error(
+					"could not write node checkpoint",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.Reason, reasons),
+				)
 				health.Degraded("failed to write node checkpoint", err)
 			} else {
 				health.OK("node checkpoint written")
@@ -673,9 +698,10 @@ func (m *manager) initNodeCheckpointer(minInterval time.Duration) error {
 func (m *manager) checkpoint() error {
 	stateDir := m.conf.StateDir
 	nodesPath := filepath.Join(stateDir, nodesFilename)
-	log.WithFields(logrus.Fields{
-		logfields.Path: nodesPath,
-	}).Debug("writing node checkpoint to disk")
+	log.Debug(
+		"writing node checkpoint to disk",
+		slog.Any(logfields.Path, nodesPath),
+	)
 
 	// Write new contents to a temporary file which will be atomically renamed to the
 	// real file at the end of this function to avoid data corruption if we crash.
@@ -776,13 +802,17 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
-	log.WithFields(logrus.Fields{
-		logfields.ClusterName: n.Cluster,
-		logfields.NodeName:    n.Name,
-		logfields.SPI:         n.EncryptionKey,
-	}).Info("Node updated")
-	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		log.WithField(logfields.Node, n.LogRepr()).Debugf("Received node update event from %s", n.Source)
+	log.Info(
+		"Node updated",
+		slog.String(logfields.ClusterName, n.Cluster),
+		slog.String(logfields.NodeName, n.Name),
+		slog.Uint64(logfields.SPI, uint64(n.EncryptionKey)),
+	)
+	if log.Enabled(context.Background(), slog.LevelDebug) {
+		log.Debug(
+			fmt.Sprintf("Received node update event from %s", n.Source),
+			slog.String(logfields.Node, n.LogRepr()),
+		)
 	}
 
 	nodeIdentifier := n.Identity()
@@ -930,11 +960,12 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			var errs error
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
+					log.Error(
+						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
+						slog.Any(logfields.Error, err),
+						slog.String("handler", nh.Name()),
+						slog.String("node", entry.node.Name),
+					)
 					errs = errors.Join(errs, err)
 				}
 			})
@@ -962,11 +993,12 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		if dpUpdate {
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeAdd(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"node":    entry.node.Name,
-						"handler": nh.Name(),
-					}).WithError(err).
-						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
+					log.Error(
+						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
+						slog.Any(logfields.Error, err),
+						slog.String("handler", nh.Name()),
+						slog.String("node", entry.node.Name),
+					)
 					errs = errors.Join(errs, err)
 				}
 			})
@@ -1012,7 +1044,10 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefix) {
 			addr, ok := netipx.FromStdIP(address.IP)
 			if !ok {
-				log.WithField(logfields.IPAddr, address.IP).Error("unable to convert to netip.Addr")
+				log.Error(
+					"unable to convert to netip.Addr",
+					slog.Any(logfields.IPAddr, address.IP),
+				)
 				continue
 			}
 			if addr.Is6() {
@@ -1079,13 +1114,15 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
-	log.WithFields(logrus.Fields{
-		logfields.ClusterName: n.Cluster,
-		logfields.NodeName:    n.Name,
-	}).Info("Node deleted")
-	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		log.Debugf("Received node delete event from %s", n.Source)
-	}
+	log.Info(
+		"Node deleted",
+		slog.Any(logfields.ClusterName, n.Cluster),
+		slog.Any(logfields.NodeName, n.Name),
+	)
+	log.Debug(
+		"Received node delete event",
+		slog.Any("source", n.Source),
+	)
 
 	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
@@ -1117,11 +1154,17 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	if n.Source != entry.node.Source {
 		m.mutex.Unlock()
 		if n.IsLocal() && n.Source == source.Kubernetes {
-			log.Debugf("Kubernetes is deleting local node, close manager")
+			log.Debug(
+				"Kubernetes is deleting local node, close manager",
+			)
 			m.Stop(context.Background())
 		} else {
-			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
-				n.Name, n.Source, entry.node.Source)
+			log.Debug(
+				"Ignoring delete event of node",
+				slog.String("name", n.Name),
+				slog.Any("source", n.Source),
+				slog.Any("node-owner", entry.node.Source),
+			)
 		}
 		return
 	}
@@ -1148,10 +1191,12 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 			// this into the node managers health status.
 			// However this is a bit tricky - as leftover node deletes are not retries so this will
 			// need to be accompanied by some kind of retry mechanism.
-			log.WithFields(logrus.Fields{
-				"handler": nh.Name(),
-				"node":    n.Name,
-			}).WithError(err).Error("Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.")
+			log.Error(
+				"Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.",
+				slog.Any(logfields.Error, err),
+				slog.String("handler", nh.Name()),
+				slog.Any("node", n.Name),
+			)
 			errs = errors.Join(errs, err)
 		}
 	})
@@ -1195,16 +1240,21 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 	}
 
 	if len(m.restoredNodes) > 0 {
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		if log.Enabled(context.Background(), slog.LevelDebug) {
 			printableNodes := make([]string, 0, len(m.restoredNodes))
 			for ni := range m.restoredNodes {
 				printableNodes = append(printableNodes, ni.String())
 			}
-			log.WithFields(logrus.Fields{
-				"stale-nodes": printableNodes,
-			}).Debugf("Deleting %v stale nodes", len(m.restoredNodes))
+			log.Debug(
+				"Deleting stale nodes",
+				slog.Int("len-stale-nodes", len(m.restoredNodes)),
+				slog.Any("stale-nodes", printableNodes),
+			)
 		} else {
-			log.Infof("Deleting %v stale nodes", len(m.restoredNodes))
+			log.Info(
+				"Deleting stale nodes",
+				slog.Int("len-stale-nodes", len(m.restoredNodes)),
+			)
 		}
 	}
 	m.mutex.Unlock()
@@ -1274,7 +1324,10 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 						break
 					}
 
-					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
+					log.Debug(
+						"Refreshing node neighbor link",
+						slog.String("name", e.node.Name),
+					)
 					hr := sc.NewScope(e.node.Name)
 					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
 						hr.Degraded("Failed node neighbor link update", err)

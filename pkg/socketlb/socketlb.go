@@ -6,6 +6,7 @@ package socketlb
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -37,7 +38,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, Subsystem))
 
 	cgroupProgs = []string{
 		Connect4, SendMsg4, RecvMsg4, GetPeerName4,
@@ -61,12 +62,12 @@ func Enable(sysctl sysctl.Sysctl) error {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, "bpf_sock.o"))
+	spec, err := bpf.LoadCollectionSpec(log, filepath.Join(option.Config.StateDir, "bpf_sock.o"))
 	if err != nil {
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
 
-	coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+	coll, commit, err := bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
@@ -39,7 +40,7 @@ var MulticastGroupListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf multicast group list")
 
-		groupV4Map, err := getMulticastGroupMap()
+		groupV4Map, err := getMulticastGroupMap(logging.DefaultLogger)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
@@ -88,7 +89,7 @@ cilium-dbg bpf multicast group add 229.0.0.1`,
 			Fatalf("Invalid arguments: %s", err)
 		}
 
-		groupV4Map, err := getMulticastGroupMap()
+		groupV4Map, err := getMulticastGroupMap(logging.DefaultLogger)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
@@ -116,7 +117,7 @@ cilium-dbg bpf multicast group delete 229.0.0.1`,
 			Fatalf("Invalid arguments: %s", err)
 		}
 
-		groupV4Map, err := getMulticastGroupMap()
+		groupV4Map, err := getMulticastGroupMap(logging.DefaultLogger)
 		if err != nil {
 			Fatalf("failed to get multicast bpf map: %s", err)
 		}
@@ -128,8 +129,8 @@ cilium-dbg bpf multicast group delete 229.0.0.1`,
 	},
 }
 
-func getMulticastGroupMap() (*maps_multicast.GroupV4OuterMap, error) {
-	groupV4Map, err := maps_multicast.OpenGroupV4OuterMap(maps_multicast.GroupOuter4MapName)
+func getMulticastGroupMap(logger logging.FieldLogger) (*maps_multicast.GroupV4OuterMap, error) {
+	groupV4Map, err := maps_multicast.OpenGroupV4OuterMap(logger, maps_multicast.GroupOuter4MapName)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("multicast not enabled")

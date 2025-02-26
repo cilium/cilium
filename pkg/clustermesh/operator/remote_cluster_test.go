@@ -5,12 +5,12 @@ package operator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -88,13 +89,11 @@ func TestRemoteClusterStatus(t *testing.T) {
 			})
 
 			metrics := NewMetrics()
-			logger := logrus.New()
+			logger := slog.Default()
 			cm := clusterMesh{
-				logger:       logger,
-				storeFactory: st,
-				globalServices: common.NewGlobalServiceCache(
-					metrics.TotalGlobalServices.WithLabelValues("foo"),
-				),
+				logger:         logger,
+				storeFactory:   st,
+				globalServices: common.NewGlobalServiceCache(logging.DefaultLogger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 				globalServiceExports: NewGlobalServiceExportCache(
 					metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 				),
@@ -191,13 +190,11 @@ func TestRemoteClusterHooks(t *testing.T) {
 	})
 	st := store.NewFactory(store.MetricsProvider())
 	metrics := NewMetrics()
-	logger := logrus.New()
+	logger := slog.Default()
 	cm := clusterMesh{
-		logger:       logger,
-		storeFactory: st,
-		globalServices: common.NewGlobalServiceCache(
-			metrics.TotalGlobalServices.WithLabelValues("foo"),
-		),
+		logger:         logger,
+		storeFactory:   st,
+		globalServices: common.NewGlobalServiceCache(logging.DefaultLogger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 		globalServiceExports: NewGlobalServiceExportCache(
 			metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 		),

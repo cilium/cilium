@@ -6,12 +6,12 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"slices"
 	"sync"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -106,16 +106,16 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	cidrStr := cidr.String()
 	resourceName := newID.ID.StringID()
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       cidrStr,
-		logfields.Identity:     resourceName,
-		logfields.Modification: modType,
-	})
+	logAttrs := []any{
+		slog.String(logfields.IPAddr, cidrStr),
+		slog.String(logfields.Identity, resourceName),
+		slog.Any(logfields.Modification, modType),
+	}
 
 	// Look up the current resources for the specified Identity.
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
+		log.With(slog.Any(logfields.Error, err)).Warn("Can't lookup NPHDS cache", logAttrs...)
 		return
 	}
 
@@ -134,12 +134,12 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		}
 		err := cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 		if err != nil {
-			scopedLog.WithError(err).Warning("NPHSD upsert failed")
+			log.With(slog.Any(logfields.Error, err)).Warn("NPHSD upsert failed", logAttrs...)
 		}
 	case ipcache.Delete:
 		err := cache.handleIPDelete(npHost, resourceName, cidrStr)
 		if err != nil {
-			scopedLog.WithError(err).Warning("NPHDS delete failed")
+			log.With(slog.Any(logfields.Error, err)).Warn("NPHDS delete failed", logAttrs...)
 		}
 	}
 }

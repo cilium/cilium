@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiTypes "k8s.io/apimachinery/pkg/types"
@@ -23,6 +23,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,7 +39,7 @@ type localEndpointCache interface {
 type params struct {
 	cell.In
 
-	Logger              logrus.FieldLogger
+	Logger              logging.FieldLogger
 	Lifecycle           cell.Lifecycle
 	JobGroup            job.Group
 	Health              cell.Health
@@ -52,7 +53,7 @@ type params struct {
 }
 
 type cleanup struct {
-	log                        logrus.FieldLogger
+	log                        logging.FieldLogger
 	ciliumEndpoint             resource.Resource[*types.CiliumEndpoint]
 	ciliumEndpointSlice        resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	ciliumClient               cilium_v2.CiliumV2Interface
@@ -133,7 +134,11 @@ func (c *cleanup) run(ctx context.Context) error {
 		}
 		if err != nil {
 			retries++
-			c.log.WithError(err).WithField(logfields.Attempt, retries).Error("Failed to clean up stale CEPs")
+			c.log.Error(
+				"Failed to clean up stale CEPs",
+				slog.Any(logfields.Error, err),
+				slog.Int(logfields.Attempt, retries),
+			)
 			if resiliency.IsRetryable(err) {
 				return false, nil
 			}
@@ -142,7 +147,7 @@ func (c *cleanup) run(ctx context.Context) error {
 		return true, nil
 	})
 	if err != nil {
-		c.log.WithError(err).Error("Failed to clean up stale CEPs after multiple attempts")
+		c.log.Error("Failed to clean up stale CEPs after multiple attempts", slog.Any(logfields.Error, err))
 	}
 	return err
 }
@@ -194,11 +199,6 @@ func (c *cleanup) cleanStaleCESs(ctx context.Context) error {
 // deleteCiliumEndpoint safely deletes a CEP by name, if no UID is passed this will reverify that
 // the CEP is still local before doing a delete.
 func (c *cleanup) deleteCiliumEndpoint(ctx context.Context, cepNamespace, cepName string, cepUID *apiTypes.UID) error {
-	logwf := c.log.WithFields(logrus.Fields{
-		logfields.CEPName:      cepName,
-		logfields.K8sNamespace: cepNamespace,
-	})
-
 	// To avoid having to store CEP UIDs in CES Endpoints array, we have to get the latest
 	// referenced CEP from apiserver to verify that it still references this node.
 	// To avoid excessive api calls, we only do this if CES is enabled and the CEP
@@ -207,14 +207,28 @@ func (c *cleanup) deleteCiliumEndpoint(ctx context.Context, cepNamespace, cepNam
 		cep, err := c.ciliumClient.CiliumEndpoints(cepNamespace).Get(ctx, cepName, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				logwf.WithError(err).Info("CEP no longer exists, skipping staleness check")
+				c.log.Info(
+					"CEP no longer exists, skipping staleness check",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.CEPName, cepName),
+					slog.Any(logfields.K8sNamespace, cepNamespace),
+				)
 				return nil
 			}
-			logwf.WithError(err).Error("Failed to get possibly stale ciliumendpoints from apiserver")
+			c.log.Error(
+				"Failed to get possibly stale ciliumendpoints from apiserver",
+				slog.Any(logfields.CEPName, cepName),
+				slog.Any(logfields.K8sNamespace, cepNamespace),
+			)
 			return resiliency.Retryable(err)
 		}
 		if cep.Status.Networking.NodeIP != node.GetCiliumEndpointNodeIP() {
-			logwf.WithError(err).Debug("Stale CEP fetched apiserver no longer references this Node, skipping.")
+			c.log.Debug(
+				"Stale CEP fetched apiserver no longer references this Node, skipping.",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.CEPName, cepName),
+				slog.Any(logfields.K8sNamespace, cepNamespace),
+			)
 			return nil
 		}
 		cepUID = &cep.ObjectMeta.UID
@@ -225,7 +239,11 @@ func (c *cleanup) deleteCiliumEndpoint(ctx context.Context, cepNamespace, cepNam
 	// This may occur for various reasons:
 	// * Pod was restarted while Cilium was not running (likely prior to CNI conf being installed).
 	// * Local endpoint was deleted (i.e. due to reboot + temporary filesystem) and Cilium or the Pod where restarted.
-	logwf.Info("Found stale ciliumendpoint for local pod that is not being managed, deleting.")
+	c.log.Info(
+		"Found stale ciliumendpoint for local pod that is not being managed, deleting.",
+		slog.Any(logfields.CEPName, cepName),
+		slog.Any(logfields.K8sNamespace, cepNamespace),
+	)
 	if err := c.ciliumClient.CiliumEndpoints(cepNamespace).Delete(ctx, cepName, metav1.DeleteOptions{
 		Preconditions: &metav1.Preconditions{
 			UID: cepUID,
@@ -234,10 +252,18 @@ func (c *cleanup) deleteCiliumEndpoint(ctx context.Context, cepNamespace, cepNam
 		if k8serrors.IsNotFound(err) {
 			// CEP not found, likely already deleted. Do not log as an error as that
 			// will fail CI runs.
-			logwf.Debug("Could not delete stale CEP")
+			c.log.Debug(
+				"Could not delete stale CEP",
+				slog.Any(logfields.CEPName, cepName),
+				slog.Any(logfields.K8sNamespace, cepNamespace),
+			)
 			return nil
 		}
-		logwf.Error("Could not delete stale CEP")
+		c.log.Error(
+			"Could not delete stale CEP",
+			slog.Any(logfields.CEPName, cepName),
+			slog.Any(logfields.K8sNamespace, cepNamespace),
+		)
 		return resiliency.Retryable(err)
 	}
 

@@ -5,14 +5,15 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -33,7 +34,7 @@ type epBPFProgWatchdogParams struct {
 	cell.In
 
 	Config        epBPFProgWatchdogConfig
-	Logger        logrus.FieldLogger
+	Logger        logging.FieldLogger
 	Lifecycle     cell.Lifecycle
 	DaemonPromise promise.Promise[*Daemon]
 	Health        cell.Health
@@ -108,11 +109,13 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		}
 		loaded, err = loader.DeviceHasSKBProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
-			log.WithField(logfields.Endpoint, ep.HostInterface()).
-				WithField(logfields.EndpointID, ep.ID).
-				WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()).
-				WithError(err).
-				Warn("Unable to assert if endpoint BPF programs need to be reloaded")
+			d.logger.Warn(
+				"Unable to assert if endpoint BPF programs need to be reloaded",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Endpoint, ep.HostInterface()),
+				slog.Uint64(logfields.EndpointID, uint64(ep.ID)),
+				slog.String(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()),
+			)
 			return err
 		}
 		// We've detected missing bpf progs for this endpoint.
@@ -125,15 +128,15 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		return nil
 	}
 
-	log.WithField(logfields.Count, len(eps)).
-		Warn(
-			"Detected unexpected endpoint BPF program removal. " +
-				"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. " +
-				"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
-		)
+	d.logger.Warn(
+		"Detected unexpected endpoint BPF program removal. "+
+			"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. "+
+			"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
+		slog.Int(logfields.Count, len(eps)),
+	)
 	err = d.orchestrator.Reinitialize(d.ctx)
 	if err != nil {
-		log.WithError(err).Error("Failed to reload Cilium endpoints BPF programs")
+		d.logger.Error("Failed to reload Cilium endpoints BPF programs", slog.Any(logfields.Error, err))
 	}
 
 	return err

@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -39,11 +41,11 @@ func (dq *deletionQueue) Start(cell.HookContext) error {
 		// as we may be running after that.
 		d, err := dq.daemonPromise.Await(context.Background())
 		if err != nil {
-			log.WithError(err).Error("deletionQueue: Daemon promise failed")
+			d.logger.Error("deletionQueue: Daemon promise failed", slog.Any(logfields.Error, err))
 			return
 		}
 
-		if err := dq.lock(d.ctx); err != nil {
+		if err := dq.lock(d.logger, d.ctx); err != nil {
 			return
 		}
 
@@ -51,7 +53,7 @@ func (dq *deletionQueue) Start(cell.HookContext) error {
 		err = dq.processQueuedDeletes(d, d.ctx)
 		bootstrapStats.deleteQueue.EndError(err)
 		if err != nil {
-			log.WithError(err).Error("deletionQueue: processQueuedDeletes failed")
+			d.logger.Error("deletionQueue: processQueuedDeletes failed", slog.Any(logfields.Error, err))
 		}
 	}()
 	return nil
@@ -68,9 +70,13 @@ func newDeletionQueue(lc cell.Lifecycle, p promise.Promise[*Daemon]) *deletionQu
 	return dq
 }
 
-func (dq *deletionQueue) lock(ctx context.Context) error {
+func (dq *deletionQueue) lock(logger logging.FieldLogger, ctx context.Context) error {
 	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to ensure CNI deletion queue directory exists")
+		logger.Error(
+			"Failed to ensure CNI deletion queue directory exists",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.Path, defaults.DeleteQueueDir),
+		)
 		// Return error to avoid attempting successive df.processQueuedDeletes accessing
 		// defaults.DeleteQueueLockfile and erroring because of the non-existent directory.
 		return err
@@ -81,12 +87,12 @@ func (dq *deletionQueue) lock(ctx context.Context) error {
 	var err error
 	dq.lf, err = lockfile.NewLockfile(defaults.DeleteQueueLockfile)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
+		logger.Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.", slog.Any(logfields.Error, err), slog.Any(logfields.Path, defaults.DeleteQueueLockfile))
 		return nil
 	}
 
 	if err = dq.lf.Lock(ctx, true); err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
+		logger.Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.", slog.Any(logfields.Error, err), slog.Any(logfields.Path, defaults.DeleteQueueLockfile))
 		dq.lf.Close()
 		dq.lf = nil
 	}
@@ -106,19 +112,31 @@ func (dq *deletionQueue) lock(ctx context.Context) error {
 func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) error {
 	files, err := filepath.Glob(defaults.DeleteQueueDir + "/*.delete")
 	if err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to list queued CNI deletion requests. CNI deletions may be missed.")
+		d.logger.Error(
+			"Failed to list queued CNI deletion requests. CNI deletions may be missed.",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.Path, defaults.DeleteQueueDir),
+		)
 	}
 
-	log.Infof("Processing %d queued deletion requests", len(files))
+	d.logger.Info("Processing queued deletion requests", slog.Int("len-files", len(files)))
 
 	for _, file := range files {
 		err = d.processQueuedDeleteEntryLocked(file)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Error("Failed to read queued CNI deletion entry. Endpoint will not be deleted.")
+			d.logger.Error(
+				"Failed to read queued CNI deletion entry. Endpoint will not be deleted.",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Path, file),
+			)
 		}
 
 		if err := os.Remove(file); err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Error("Failed to remove queued CNI deletion entry, but deletion was successful.")
+			d.logger.Error(
+				"Failed to remove queued CNI deletion entry, but deletion was successful.",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Path, file),
+			)
 		}
 	}
 
@@ -154,10 +172,11 @@ func (d *Daemon) processQueuedDeleteEntryLocked(file string) error {
 	if err != nil {
 		// fall back on treating the file contents as an endpoint id (legacy behavior)
 		epID := string(contents)
-		log.
-			WithError(err).
-			WithField(logfields.EndpointID, epID).
-			Debug("Falling back on legacy deletion queue format")
+		d.logger.Debug(
+			"Falling back on legacy deletion queue format",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.EndpointID, epID),
+		)
 		_, _ = d.DeleteEndpoint(epID) // this will log errors elsewhere
 		return nil
 	}

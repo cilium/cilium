@@ -7,9 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"runtime"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
@@ -121,7 +120,7 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, 
 type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
-	PolicyDebug(fields logrus.Fields, msg string)
+	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	MapStateSize() int
 }
@@ -226,7 +225,11 @@ func (p *EndpointPolicy) Detach() {
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
 		_, file, line, _ := runtime.Caller(1)
-		log.Warningf("Detach: EndpointPolicy was not marked as Ready (%s:%d)", file, line)
+		log.Warn(
+			"Detach: EndpointPolicy was not marked as Ready",
+			slog.String("file", file),
+			slog.Int("line", line),
+		)
 	}
 	// Also release the version handle held for incremental updates, if any.
 	// This must be done after the removeUser() call above, so that we do not get a new version
@@ -417,10 +420,10 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 		}
 		p.VersionHandle = version
 
-		p.PolicyOwner.PolicyDebug(logrus.Fields{
-			logfields.Version: version,
-			logfields.Changes: changes,
-		}, msg)
+		p.PolicyOwner.PolicyDebug(msg,
+			slog.Any(logfields.Version, version),
+			slog.Any(logfields.Changes, changes),
+		)
 	}
 
 	return closer, changes

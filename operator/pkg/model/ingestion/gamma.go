@@ -5,6 +5,7 @@ package ingestion
 
 import (
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,7 +28,7 @@ type GammaInput struct {
 // It does not support TLS Routes because GAMMA is only for cleartext config -
 // it is assumed that any TLS will be performed transparently by the underlying
 // implementation in the spec.
-func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
+func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 	// GAMMA processing process:
 	// Process HTTPRoutes
 	var resHTTP []model.HTTPListener
@@ -87,7 +88,11 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 
 			parentSvc, err := getMatchingService(parentName.Name, parentName.Namespace, hr.GetNamespace(), input.Services)
 			if err != nil {
-				log.Warnf("Can't find parent Service %s/%s in input. This is a bug, please report it to the developers.", parentName.Namespace, parentName.Name)
+				log.Warn(
+					"Can't find parent Service in input. This is a bug, please report it to the developers.",
+					slog.String("parent-service-namespace", parentName.Namespace),
+					slog.String("parent-service-name", parentName.Name),
+				)
 				continue
 			}
 

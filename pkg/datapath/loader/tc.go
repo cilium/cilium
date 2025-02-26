@@ -6,18 +6,19 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -45,7 +46,11 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 		if err == nil {
 			// Created tcx link, clean up any leftover legacy tc attachments.
 			if err := removeTCFilters(device, parent); err != nil {
-				log.WithError(err).Warnf("Cleaning up legacy tc after attaching tcx program %s", progName)
+				log.Warn(
+					"Cleaning up legacy tc after attaching tcx program",
+					slog.Any(logfields.Error, err),
+					slog.String("prog-name", progName),
+				)
 			}
 			// Don't fall back to legacy tc.
 			return nil
@@ -75,7 +80,7 @@ func detachGeneric(bpffsDir, progName, what string) error {
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UnpinLink(pin)
 	if err == nil {
-		log.Infof("Removed %s link at %s", what, pin)
+		log.Info("Removed link", slog.String("link", what), slog.String("pin", pin))
 		return nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
@@ -135,7 +140,12 @@ func upsertTCProgram(device netlink.Link, prog *ebpf.Program, progName string, p
 		return fmt.Errorf("replacing tc filter for interface %s: %w", device.Attrs().Name, err)
 	}
 
-	log.Infof("Program %s with priority %d attached to device %s using legacy tc", progName, filter.Attrs().Priority, device.Attrs().Name)
+	log.Info(
+		"Program attached to device using legacy tc",
+		slog.String("prog-name", progName),
+		slog.Uint64("priority", uint64(filter.Attrs().Priority)),
+		slog.String("device", device.Attrs().Name),
+	)
 
 	if err := removeStaleTCFilters(device, parent, prio); err != nil {
 		return fmt.Errorf("removing stale tc filter %s for interface %s: %w", filter.Name, device.Attrs().Name, err)
@@ -172,7 +182,12 @@ func removeStaleTCFilters(device netlink.Link, parent uint32, newPrio uint16) er
 			return err
 		}
 
-		log.Infof("Deleted stale tc bpf filter %s with priority %d on device %s", old.Name, old.Priority, device.Attrs().Name)
+		log.Info(
+			"Deleted stale tc bpf filter",
+			slog.String("prog-name", old.Name),
+			slog.Uint64("priority", uint64(old.Priority)),
+			slog.String("device", device.Attrs().Name),
+		)
 	}
 
 	return nil

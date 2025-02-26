@@ -5,10 +5,10 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	podCIDRTestLogger = logrus.WithField("unit_test", "reconcilerv2_podcidr")
+	podCIDRTestLogger = slog.With("unit_test", "reconcilerv2_podcidr")
 )
 
 // test fixtures
@@ -149,7 +149,7 @@ var (
 )
 
 func Test_PodCIDRAdvertisement(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name                  string
@@ -317,9 +317,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				bluePeerConfig,
 			},
 			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
-				//no pod cidr advertisement configured
-				//redPodCIDRAdvert,
-				//bluePodCIDRAdvert,
+				// no pod cidr advertisement configured
+				// redPodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
@@ -364,7 +364,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
 				redAdvert,
-				//bluePodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {

@@ -6,12 +6,12 @@ package exporter
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // DefaultOptions specifies default values for Hubble exporter options.
@@ -51,7 +51,7 @@ func WithNewEncoderFunc(newEncoderFunc NewEncoderFunc) Option {
 }
 
 // WithAllowListFilter sets allowlist filter for the exporter.
-func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
+func WithAllowList(log logging.FieldLogger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
 		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {
@@ -63,7 +63,7 @@ func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 }
 
 // WithDenyListFilter sets denylist filter for the exporter.
-func WithDenyList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
+func WithDenyList(log logging.FieldLogger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
 		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {

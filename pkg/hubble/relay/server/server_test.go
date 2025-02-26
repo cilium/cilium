@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/cilium/fake"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -38,16 +38,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetOutput(io.Discard)
-}
+var log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func noopParser(t testing.TB) *parser.Parser {
 	pp, err := parser.New(
@@ -149,7 +145,7 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 func newHubblePeer(t testing.TB, ctx context.Context, address string, hubbleObserver *observer.LocalObserverServer) {
 	options := []serveroption.Option{
 		serveroption.WithInsecure(),
-		serveroption.WithUnixSocketListener(address),
+		serveroption.WithUnixSocketListener(logging.DefaultLogger, address),
 		serveroption.WithObserverService(hubbleObserver),
 	}
 

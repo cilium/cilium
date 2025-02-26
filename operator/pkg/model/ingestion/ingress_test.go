@@ -71,9 +71,9 @@ func TestIngress(t *testing.T) {
 
 			var listeners []model.HTTPListener
 			if tc.defaultSecret {
-				listeners = Ingress(input, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443, tc.requestTimeout)
+				listeners = Ingress(nil, input, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			} else {
-				listeners = Ingress(input, "", "", tc.enforceHTTPS, 80, 443, tc.requestTimeout)
+				listeners = Ingress(nil, input, "", "", tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			}
 
 			assert.Equal(t, expected, listeners, "Listeners did not match")
@@ -101,7 +101,7 @@ func TestIngressPassthrough(t *testing.T) {
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/output-listeners.yaml", baseIngressTestDataDir, rewriteTestName(name)), &expected)
 
-			listeners := IngressPassthrough(input, 443)
+			listeners := IngressPassthrough(nil, input, 443)
 
 			assert.Equal(t, expected, listeners, "Listeners did not match")
 		})

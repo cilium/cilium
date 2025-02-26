@@ -6,11 +6,14 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Cilium-specific pinning flags used in bpf C code to request specific pinning
@@ -123,7 +126,7 @@ func mapsToReplace(toReplace []string, spec *ebpf.CollectionSpec, coll *ebpf.Col
 // commitMapPins removes the given map pins and replaces them with the
 // corresponding Maps. This is to be called after the Collection's programs have
 // been attached to the required hooks. Any existing pins are overwritten.
-func commitMapPins(pins []toPin) error {
+func commitMapPins(logger logging.FieldLogger, pins []toPin) error {
 	for _, pin := range pins {
 		if err := os.Remove(pin.path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("removing map pin at %s: %w", pin.path, err)
@@ -132,7 +135,7 @@ func commitMapPins(pins []toPin) error {
 			return fmt.Errorf("pinning map to %s: %w", pin.path, err)
 		}
 
-		log.Debugf("Replaced map pin %s", pin.path)
+		logger.Debug("Replaced map pin", slog.String("pin", pin.path))
 	}
 
 	return nil

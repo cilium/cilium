@@ -8,11 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/netip"
-
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -27,6 +25,7 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 var (
@@ -162,7 +161,7 @@ func (d *Daemon) restoreLocalIdentities() error {
 	// Dump the existing BPF ipcache map
 	localPrefixes, err2 := d.dumpOldIPCache()
 	if err2 != nil {
-		log.WithError(err2).Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.")
+		d.logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", slog.Any(logfields.Error, err2))
 		err = errors.Join(err, err2)
 		// continue; we may have a partial dump
 	}
@@ -200,7 +199,7 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 			err = nil
 		}
 	}
-	log.Debugf("dumping ipache found %d local identities", len(localPrefixes))
+	d.logger.Debug("dumping ipache found local identities", slog.Int("len-local-prefixes", len(localPrefixes)))
 	return localPrefixes, err
 }
 
@@ -262,7 +261,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 					n.IPv6IngressIP = addr.AsSlice()
 				}
 			})
-			log.WithField(logfields.Ingress, prefix).Info("Restored ingress IP")
+			d.logger.Info("Restored ingress IP", slog.Any(logfields.Ingress, prefix))
 			continue
 		}
 
@@ -290,7 +289,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 			})
 			d.restoredCIDRs[prefix] = nid
 			nidsToWithhold = append(nidsToWithhold, nid)
-			log.WithField(logfields.Prefix, prefix).Debug("ipache prefix not found in allocator cache, requesting identity")
+			d.logger.Debug("ipache prefix not found in allocator cache, requesting identity", slog.Any(logfields.Ingress, prefix))
 
 		} else {
 			// The prefix's labels *have* been restored from the checkpoint.
@@ -306,10 +305,11 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 				Resource: restoredCIDRResource,
 				Metadata: []ipcache.IPMetadata{id.Labels},
 			})
-			log.WithFields(logrus.Fields{
-				logfields.Labels: id.Labels,
-				logfields.Prefix: prefix,
-			}).Debug("restoring local ipcache entry")
+			d.logger.Debug(
+				"restoring local ipcache entry",
+				slog.Any(logfields.Labels, id.Labels),
+				slog.Any(logfields.Prefix, prefix),
+			)
 
 			d.restoredCIDRs[prefix] = nid
 		}
@@ -322,7 +322,10 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 	d.ipcache.IdentityAllocator.WithholdLocalIdentities(nidsToWithhold)
 	d.ipcache.UpsertMetadataBatch(metaUpdates...)
 
-	log.Infof("restored %d out of %d possible prefixes in the ipcache", len(d.restoredCIDRs), len(localPrefixes))
+	d.logger.Info("restored prefixes in the ipcache",
+		slog.Int("restored", len(d.restoredCIDRs)),
+		slog.Int("detected", len(localPrefixes)),
+	)
 }
 
 // releaseRestoredIdentities removes the placeholder state that was inserted
@@ -354,7 +357,7 @@ func (d *Daemon) releaseRestoredIdentities() {
 		return
 	}
 
-	log.WithField(logfields.Count, len(d.restoredCIDRs)).Info("Removing identity reservations for restored identities")
+	d.logger.Info("Removing identity reservations for restored identities", slog.Int(logfields.Count, len(d.restoredCIDRs)))
 	updates := make([]ipcache.MU, 0, len(d.restoredCIDRs))
 	nids := make([]identity.NumericIdentity, 0, len(d.restoredCIDRs))
 	for prefix, nid := range d.restoredCIDRs {

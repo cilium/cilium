@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -57,22 +57,22 @@ func (a *EnvoyAdminClient) transact(query string) error {
 		return err
 	}
 	ret := strings.ReplaceAll(string(body), "\r", "")
-	log.Debugf("Envoy: Admin response to %s: %s", query, ret)
+	log.Debug("Envoy: Admin response", slog.String("query", query), slog.String("ret", ret))
 	return nil
 }
 
 // ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
-func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel logrus.Level) error {
+func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel slog.Level) error {
 	envoyLevel := mapLogLevel(agentLogLevel, a.defaultLogLevel)
 
 	if envoyLevel == a.currentLogLevel {
-		log.Debugf("Envoy: Log level is already set as: %v", envoyLevel)
+		log.Debug("Envoy: Log level is already set", slog.String("log-level", envoyLevel))
 		return nil
 	}
 
 	err := a.transact("logging?level=" + envoyLevel)
 	if err != nil {
-		log.WithError(err).Warnf("Envoy: Failed to set log level to: %v", envoyLevel)
+		log.Warn("Envoy: Failed to set log level", slog.Any(logfields.Error, err), slog.String("log-level", envoyLevel))
 	} else {
 		a.currentLogLevel = envoyLevel
 	}

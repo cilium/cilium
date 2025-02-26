@@ -187,7 +187,7 @@ func TestVerifier(t *testing.T) {
 					}
 
 					// Parse the compiled object into a CollectionSpec.
-					spec, err := bpf.LoadCollectionSpec(objFile)
+					spec, err := bpf.LoadCollectionSpec(nil, objFile)
 					if err != nil {
 						t.Fatal(err)
 					}

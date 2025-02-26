@@ -5,10 +5,10 @@ package tunnel
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -161,11 +161,12 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, en
 
 	val := newTunnelValue(endpoint, encryptKey)
 
-	log.WithFields(logrus.Fields{
-		fieldPrefix:   prefix,
-		fieldEndpoint: endpoint,
-		fieldKey:      encryptKey,
-	}).Debug("Updating tunnel map entry")
+	log.Debug(
+		"Updating tunnel map entry",
+		slog.Any(fieldPrefix, prefix),
+		slog.Any(fieldEndpoint, endpoint),
+		slog.Uint64(fieldKey, uint64(encryptKey)),
+	)
 
 	return m.Update(key, val)
 }
@@ -191,7 +192,7 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
+	log.Debug("Deleting tunnel map entry", slog.Any(fieldPrefix, prefix))
 	return m.Delete(key)
 }
 
@@ -202,7 +203,7 @@ func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
+	log.Debug("Silently deleting tunnel map entry", slog.Any(fieldPrefix, prefix))
 	_, err = m.SilentDelete(key)
 	return err
 }

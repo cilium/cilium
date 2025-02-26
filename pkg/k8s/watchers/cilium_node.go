@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nm "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -130,7 +132,7 @@ func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context, asyncControll
 			store, err := k.resources.CiliumNode.Store(subCtx)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
-					log.WithError(err).Warning("unable to retrieve CiliumNode local store, going to query kube-apiserver directly")
+					log.Warn("unable to retrieve CiliumNode local store, going to query kube-apiserver directly", slog.Any(logfields.Error, err))
 				}
 				return
 			}

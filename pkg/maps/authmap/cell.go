@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -21,8 +22,8 @@ var Cell = cell.Module(
 	cell.Provide(newAuthMap),
 )
 
-func newAuthMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
-	authMap := newMap(option.Config.AuthMapEntries)
+func newAuthMap(lifecycle cell.Lifecycle, logger logging.FieldLogger) bpf.MapOut[Map] {
+	authMap := newMap(logger, option.Config.AuthMapEntries)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {

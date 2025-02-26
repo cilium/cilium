@@ -6,10 +6,10 @@ package k8s
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -28,10 +28,12 @@ import (
 func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService, event.Endpoints, event.OldEndpoints)
 	if err != nil {
-		p.log.WithError(err).WithFields(logrus.Fields{
-			logfields.Event:     event.Action,
-			logfields.ServiceID: event.ID,
-		}).Warning("Failed to recalculate CiliumNetworkPolicy rules after service event")
+		p.log.Warn(
+			"Failed to recalculate CiliumNetworkPolicy rules after service event",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.Event, event.Action),
+			slog.Any(logfields.ServiceID, event.ID),
+		)
 	}
 }
 
@@ -63,10 +65,11 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 	for key := range candidatePolicyKeys {
 		cnp, ok := p.cnpCache[key]
 		if !ok {
-			p.log.WithFields(logrus.Fields{
-				logfields.Key:       key,
-				logfields.ServiceID: svcID,
-			}).Error("BUG: Candidate policy for service update not found. Please report this bug to Cilium developers.")
+			p.log.Error(
+				"BUG: Candidate policy for service update not found. Please report this bug to Cilium developers.",
+				slog.Any(logfields.Key, key),
+				slog.Any(logfields.ServiceID, svcID),
+			)
 			continue
 		}
 
@@ -77,12 +80,13 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 		}
 
 		if p.config.Debug {
-			p.log.WithFields(logrus.Fields{
-				logfields.CiliumNetworkPolicyName: cnp.Name,
-				logfields.K8sAPIVersion:           cnp.APIVersion,
-				logfields.K8sNamespace:            cnp.Namespace,
-				logfields.ServiceID:               svcID,
-			}).Debug("Service updated or deleted, recalculating CiliumNetworkPolicy rules")
+			p.log.Debug(
+				"Service updated or deleted, recalculating CiliumNetworkPolicy rules",
+				slog.String(logfields.CiliumNetworkPolicyName, cnp.Name),
+				slog.String(logfields.K8sAPIVersion, cnp.APIVersion),
+				slog.String(logfields.K8sNamespace, cnp.Namespace),
+				slog.Any(logfields.ServiceID, svcID),
+			)
 		}
 		initialRecvTime := time.Now()
 

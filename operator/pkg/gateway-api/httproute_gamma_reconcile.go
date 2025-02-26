@@ -127,7 +127,7 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
-	httpListeners := ingestion.GammaHTTPRoutes(ingestion.GammaInput{
+	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
 		HTTPRoutes:      []gatewayv1.HTTPRoute{*hr},
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
@@ -140,8 +140,8 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	scopedLog.DebugContext(ctx, "GAMMA translation result",
-		"service", fmt.Sprintf("%#v", svc),
-		logfields.Endpoint, fmt.Sprintf("%#v", cep))
+		logfields.Service, svc,
+		logfields.Endpoint, cep)
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)

@@ -47,7 +47,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), m.logger)
 	assert.NoError(err)
 	assert.Equal(255, stats.NodeCapacity)
 }

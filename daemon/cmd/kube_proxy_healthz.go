@@ -7,13 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -39,11 +41,19 @@ type kubeproxyHealthzHandler struct {
 func (d *Daemon) startKubeProxyHealthzHTTPService(addr string) {
 	lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
 	ln, err := lc.Listen(context.Background(), "tcp", addr)
-	addrField := logrus.Fields{"address": addr}
+	addrField := slog.String("address", addr)
 	if errors.Is(err, unix.EADDRNOTAVAIL) {
-		log.WithFields(addrField).Info("KubeProxy healthz server not available")
+		d.logger.Info(
+			"KubeProxy healthz server not available",
+			addrField,
+		)
 	} else if err != nil {
-		log.WithFields(addrField).WithError(err).Fatal("hint: kube-proxy should not be running nor listening on the same healthz-bind-address.")
+		logging.Fatal(
+			d.logger,
+			"hint: kube-proxy should not be running nor listening on the same healthz-bind-address.",
+			slog.Any(logfields.Error, err),
+			addrField,
+		)
 	}
 
 	mux := http.NewServeMux()
@@ -57,12 +67,23 @@ func (d *Daemon) startKubeProxyHealthzHTTPService(addr string) {
 	go func() {
 		err := srv.Serve(ln)
 		if errors.Is(err, http.ErrServerClosed) {
-			log.WithFields(addrField).Info("kube-proxy healthz status API server shutdown")
+			d.logger.Info(
+				"kube-proxy healthz status API server shutdown",
+				addrField,
+			)
 		} else if err != nil {
-			log.WithFields(addrField).WithError(err).Fatal("Unable to start kube-proxy healthz server")
+			logging.Fatal(
+				d.logger,
+				"Unable to start kube-proxy healthz server",
+				slog.Any(logfields.Error, err),
+				addrField,
+			)
 		}
 	}()
-	log.WithFields(addrField).Info("Started kube-proxy healthz server")
+	d.logger.Info(
+		"Started kube-proxy healthz server",
+		addrField,
+	)
 }
 
 func (h kubeproxyHealthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

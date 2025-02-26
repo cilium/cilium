@@ -8,7 +8,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -120,7 +119,7 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
-	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	// barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	var rules api.Rules
 	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
@@ -163,8 +162,8 @@ func (d DummyOwner) MapStateSize() int {
 	return d.mapStateSize
 }
 
-func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
-	log.WithFields(fields).Info(msg)
+func (d DummyOwner) PolicyDebug(msg string, attrs ...any) {
+	log.Info(msg, attrs...)
 }
 
 func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {

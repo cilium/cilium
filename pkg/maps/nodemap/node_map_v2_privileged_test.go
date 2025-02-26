@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -19,7 +20,7 @@ import (
 func setupNodeMapV2TestSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logging.DefaultLogger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
@@ -99,7 +100,7 @@ func TestNodeMapMigration(t *testing.T) {
 	var ID1 uint16 = 10
 	var ID2 uint16 = 20
 
-	nodeMapV1 := newMap(name1, Config{
+	nodeMapV1 := newMap(logging.FieldLogger, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMapV1.init()
@@ -112,7 +113,7 @@ func TestNodeMapMigration(t *testing.T) {
 	require.NoError(t, err)
 	defer nodeMapV2.bpfMap.Unpin()
 
-	encryptMap := encrypt.NewMap(emName)
+	encryptMap := encrypt.newMap(logging.FieldLogger, emName)
 	err = encryptMap.OpenOrCreate()
 	require.NoError(t, err)
 

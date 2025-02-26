@@ -140,7 +140,7 @@ func (c *Client) onStart(_ cell.HookContext) error {
 	go func() {
 		c.log.Info("Initializing SPIRE client")
 		attempts := 0
-		backoffTime := backoff.Exponential{Min: 100 * time.Millisecond, Max: 10 * time.Second}
+		backoffTime := backoff.Exponential{Logger: c.log, Min: 100 * time.Millisecond, Max: 10 * time.Second}
 		for {
 			attempts++
 			conn, err := c.connect(context.Background())
@@ -150,7 +150,9 @@ func (c *Client) onStart(_ cell.HookContext) error {
 				c.entryMutex.Unlock()
 				break
 			}
-			c.log.Warn("Unable to connect to SPIRE server", "attempt", attempts+1, logfields.Error, err)
+			c.log.Warn("Unable to connect to SPIRE server",
+				logfields.Attempt, attempts+1,
+				logfields.Error, err)
 			time.Sleep(backoffTime.Duration(attempts))
 		}
 		c.log.Info("Initialized SPIRE client")
@@ -188,14 +190,16 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(trustedDomain))
 
-	c.log.Info("Trying to connect to SPIRE server", logfields.Address, c.cfg.SpireServerAddress,
+	c.log.Info("Trying to connect to SPIRE server",
+		logfields.Address, c.cfg.SpireServerAddress,
 		logfields.IPAddr, resolvedTarget)
 	conn, err := grpc.NewClient(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection to SPIRE server: %w", err)
 	}
 
-	c.log.Info("Connected to SPIRE server", logfields.Address, c.cfg.SpireServerAddress,
+	c.log.Info("Connected to SPIRE server",
+		logfields.Address, c.cfg.SpireServerAddress,
 		logfields.IPAddr, resolvedTarget)
 	return conn, nil
 }

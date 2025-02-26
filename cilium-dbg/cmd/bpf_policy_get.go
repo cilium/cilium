@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/identity"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -57,7 +58,7 @@ func listAllMaps() {
 
 	matchFiles, err := filepath.Glob(mapMatchExpr)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(log, err.Error())
 	}
 
 	if len(matchFiles) == 0 {

@@ -5,13 +5,14 @@ package ipam
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -27,6 +28,7 @@ type AzureAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling Resync() regularly.
 type InstancesManager struct {
+	logger    logging.FieldLogger
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
 
@@ -39,8 +41,9 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(api AzureAPI) *InstancesManager {
+func NewInstancesManager(logger logging.FieldLogger, api AzureAPI) *InstancesManager {
 	return &InstancesManager{
+		logger:    logger.With(subsysLogAttr),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 	}
@@ -118,21 +121,22 @@ func (m *InstancesManager) resyncInstances(ctx context.Context) time.Time {
 
 	vnets, subnets, err := m.api.GetVpcsAndSubnets(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize Azure virtualnetworks list")
+		m.logger.Warn("Unable to synchronize Azure virtualnetworks list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
 	instances, err := m.api.GetInstances(ctx, subnets)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize Azure instances list")
+		m.logger.Warn("Unable to synchronize Azure instances list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
-	log.WithFields(logrus.Fields{
-		"numInstances":       instances.NumInstances(),
-		"numVirtualNetworks": len(vnets),
-		"numSubnets":         len(subnets),
-	}).Info("Synchronized Azure IPAM information")
+	m.logger.Info(
+		"Synchronized Azure IPAM information",
+		slog.Int("numInstances", instances.NumInstances()),
+		slog.Int("numVirtualNetworks", len(vnets)),
+		slog.Int("numSubnets", len(subnets)),
+	)
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()

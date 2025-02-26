@@ -5,10 +5,10 @@ package dial
 
 import (
 	"context"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
-
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -24,13 +24,13 @@ type dialContextFn func(context.Context, string) (net.Conn, error)
 // that map the target hostname into the corresponding IP address (or a possible
 // alias DNS name). The dialer eventually calls (&net.Dialer{}).DialContext with
 // the first successfully translated address, or the original one otherwise.
-func NewContextDialer(log logrus.FieldLogger, resolvers ...Resolver) dialContextFn {
+func NewContextDialer(log logging.FieldLogger, resolvers ...Resolver) dialContextFn {
 	return newContextDialer(log, func(ctx context.Context, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	}, resolvers...)
 }
 
-func newContextDialer(log logrus.FieldLogger, dialContext dialContextFn, resolvers ...Resolver) dialContextFn {
+func newContextDialer(log logging.FieldLogger, dialContext dialContextFn, resolvers ...Resolver) dialContextFn {
 	return func(ctx context.Context, hostport string) (conn net.Conn, e error) {
 		host, port, err := net.SplitHostPort(hostport)
 		if err != nil {
@@ -40,11 +40,12 @@ func newContextDialer(log logrus.FieldLogger, dialContext dialContextFn, resolve
 
 		for _, resolver := range resolvers {
 			if resolved, err := resolver.Resolve(ctx, host); err == nil {
-				log.WithFields(logrus.Fields{
-					logfields.Address: host,
-					logfields.Port:    port,
-					logfields.Target:  resolved,
-				}).Debug("Resolved hostname via custom dialer")
+				log.Debug(
+					"Resolved hostname via custom dialer",
+					slog.String(logfields.Address, host),
+					slog.String(logfields.Port, port),
+					slog.String(logfields.Target, resolved),
+				)
 
 				hostport = net.JoinHostPort(resolved, port)
 				break

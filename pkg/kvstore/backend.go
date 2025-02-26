@@ -6,9 +6,11 @@ package kvstore
 import (
 	"context"
 
+	"github.com/sagikazarmark/slog-shim"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -115,7 +117,7 @@ var (
 // registerBackend must be called by kvstore backends to register themselves
 func registerBackend(name string, module backendModule) {
 	if _, ok := registeredBackends[name]; ok {
-		log.Panicf("backend with name '%s' already registered", name)
+		logging.Panic(log, "backend already registered", slog.String("name", name))
 	}
 
 	registeredBackends[name] = module

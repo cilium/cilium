@@ -5,7 +5,9 @@ package cache
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -19,7 +21,9 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache")
+	log           logging.FieldLogger
+	subsysLogAttr = slog.String(logfields.LogSubsys, "identity-cache")
+	initLogger    = &sync.Once{}
 )
 
 // IdentitiesModel is a wrapper so that we can implement the sort.Interface
@@ -54,8 +58,11 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 				if gi, ok := val.(*key.GlobalIdentity); ok {
 					cache[identity.NumericIdentity(id)] = gi.LabelArray
 				} else {
-					log.Warningf("Ignoring unknown identity type '%s': %+v",
-						reflect.TypeOf(val), val)
+					log.Warn(
+						"Ignoring unknown identity type",
+						slog.Any("type", reflect.TypeOf(val)),
+						slog.Any("value", val),
+					)
 				}
 			}
 		})
@@ -121,8 +128,11 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted identity.Identi
 			added[id] = gi.LabelArray
 			return true
 		}
-		log.Warningf("collectEvent: Ignoring unknown identity type '%s': %+v",
-			reflect.TypeOf(event.Key), event.Key)
+		log.Warn(
+			"collectEvent: Ignoring unknown identity type",
+			slog.Any("type", reflect.TypeOf(event.Key)),
+			slog.Any("value", event.Key),
+		)
 		return false
 	}
 	// Reverse an add when subsequently deleted

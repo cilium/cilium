@@ -36,7 +36,10 @@ const (
 )
 
 func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, "ingress", logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Controller, "ingress",
+		logfields.Resource, req.NamespacedName,
+	)
 
 	scopedLog.Info("Reconciling Ingress")
 	ingress := &networkingv1.Ingress{}
@@ -227,9 +230,9 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 			continue
 		}
 		if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
-			m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(item, passthroughPort)...)
+			m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(r.logger, item, passthroughPort)...)
 		} else {
-			m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
+			m.HTTP = append(m.HTTP, ingestion.Ingress(r.logger, item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 		}
 	}
 
@@ -254,9 +257,9 @@ func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *
 	m := &model.Model{}
 
 	if annotations.GetAnnotationTLSPassthroughEnabled(ingress) {
-		m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(*ingress, passthroughPort)...)
+		m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(nil, *ingress, passthroughPort)...)
 	} else {
-		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
+		m.HTTP = append(m.HTTP, ingestion.Ingress(nil, *ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 	}
 
 	cec, svc, ep, err := r.dedicatedTranslator.Translate(m)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type nodePortAddressReconcilerParams struct {
@@ -68,7 +69,10 @@ func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Conte
 			_, _, err := r.frontends.Insert(wtxn, fe)
 			if err != nil {
 				// Should not happen, but let's log it anyway
-				r.log.Warn("Could not set frontend status to pending", "frontend", fe, "error", err)
+				r.log.Warn("Could not set frontend status to pending",
+					logfields.Frontend, fe,
+					logfields.Error, err,
+				)
 			}
 		}
 

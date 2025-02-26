@@ -8,9 +8,9 @@ package ipam
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -20,6 +20,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -57,7 +58,7 @@ type NodeOperations interface {
 	// (AllocationAction.EmptyInterfaceSlots > 0). This function must
 	// create the interface *and* allocate up to
 	// AllocationAction.MaxIPsToAllocate.
-	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
+	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *slog.Logger) (int, string, error)
 
 	// ResyncInterfacesAndIPs is called to synchronize the latest list of
 	// interfaces and IPs associated with the node. This function is called
@@ -66,12 +67,12 @@ type NodeOperations interface {
 	// It returns all available ip in node and remaining available interfaces
 	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
 	// and error occurred during execution.
-	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
+	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logger) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
 	// must be attached to the node.
-	PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error)
+	PrepareIPAllocation(scopedLog *slog.Logger) (*AllocationAction, error)
 
 	// AllocateIPs is called after invoking PrepareIPAllocation and needs
 	// to perform the actual allocation.
@@ -82,7 +83,7 @@ type NodeOperations interface {
 	// PrepareIPRelease is called to calculate whether any IP excess needs
 	// to be resolved. It behaves identical to PrepareIPAllocation but
 	// indicates a need to release IPs.
-	PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction
+	PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction
 
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
@@ -302,7 +303,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		// InstanceAPI is stale and the instances API is stable then do resync instancesAPI to sync instances
 		if !n.instancesAPI.HasInstance(resource.InstanceID()) && n.stableInstancesAPI {
 			if syncTime := n.instancesAPI.InstanceSync(ctx, resource.InstanceID()); syncTime.IsZero() {
-				node.logger().Warning("Failed to resync the instance from the API after new node was found")
+				node.logger().Warn("Failed to resync the instance from the API after new node was found")
 				n.stableInstancesAPI = false
 			} else {
 				n.stableInstancesAPI = true
@@ -312,6 +313,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
 		backoff := &backoff.Exponential{
+			Logger:      node.logger(),
 			Max:         5 * time.Minute,
 			Jitter:      true,
 			NodeManager: n,
@@ -324,14 +326,14 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
 			TriggerFunc: func(reasons []string) {
 				if err := node.MaintainIPPool(ctx); err != nil {
-					node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
+					node.logger().Warn("Unable to maintain ip pool of node", slog.Any(logfields.Error, err))
 					backoff.Wait(ctx)
 				}
 			},
 			ShutdownFunc: cancel,
 		})
 		if err != nil {
-			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
+			node.logger().Error("Unable to create pool-maintainer trigger", slog.Any(logfields.Error, err))
 			return
 		}
 
@@ -341,7 +343,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
 		})
 		if err != nil {
-			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
+			node.logger().Error("Unable to create pool-maintainer-retry trigger", slog.Any(logfields.Error, err))
 			return
 		}
 		node.retry = retry
@@ -356,7 +358,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		})
 		if err != nil {
 			poolMaintainer.Shutdown()
-			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
+			node.logger().Error("Unable to create k8s-sync trigger", slog.Any(logfields.Error, err))
 			return
 		}
 
@@ -373,7 +375,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		if err != nil {
 			poolMaintainer.Shutdown()
 			k8sSync.Shutdown()
-			node.logger().WithError(err).Error("Unable to create instance-sync trigger")
+			node.logger().Error("Unable to create instance-sync trigger", slog.Any(logfields.Error, err))
 			return
 		}
 		node.instanceSync = instanceSync
@@ -381,7 +383,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.poolMaintainer = poolMaintainer
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
-		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
+		log.Info("Discovered new CiliumNode custom resource", slog.Any(fieldName, resource.Name))
 	}
 	// Update the resource in the node while holding the lock, otherwise resyncs can be
 	// triggered prior to the update being applied.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -39,17 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	// ATTENTION:
-	// All logs generated from this package will have the k/v
-	// `subsys=bgp-control-plane`.
-	//
-	// Each log message will additionally contain the k/v
-	// 'component=manager.{Struct}.{Method}' or 'component=manager.{Function}' to
-	// provide further granularity on where the log is originating from.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
-)
-
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
 type LocalASNMap map[int64]*instance.ServerWithConfig
@@ -60,7 +49,7 @@ type LocalInstanceMap map[string]*instance.BGPInstance
 
 type bgpRouterManagerParams struct {
 	cell.In
-	Logger              logrus.FieldLogger
+	Logger              logging.FieldLogger
 	JobGroup            job.Group
 	DaemonConfig        *option.DaemonConfig
 	ConfigMode          *mode.ConfigMode
@@ -136,9 +125,9 @@ type State struct {
 // As part of BGPv2 development, this manager has been extended to support BGPv2
 // fields - BGPInstance and ReconcilersV2.
 type BGPRouterManager struct {
-	lock.RWMutex
+	Logger logging.FieldLogger
 
-	Logger logrus.FieldLogger
+	lock.RWMutex
 
 	// Helper to determine the mode of the agent
 	ConfigMode *mode.ConfigMode
@@ -173,7 +162,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		return &BGPRouterManager{}
 	}
 
-	activeReconcilers := reconciler.GetActiveReconcilers(params.Reconcilers)
+	activeReconcilers := reconciler.GetActiveReconcilers(params.Logger, params.Reconcilers)
 	activeReconcilersV2 := reconcilerv2.GetActiveReconcilers(params.Logger, params.ReconcilersV2)
 
 	m := &BGPRouterManager{
@@ -212,7 +201,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 				case <-m.state.reconcileSignal:
 					err := m.reconcileStateWithRetry(ctx)
 					if err != nil {
-						m.Logger.WithError(err).Error("failed to reconcile state")
+						m.Logger.Error("failed to reconcile state", slog.Any(logfields.Error, err))
 					}
 				case instanceName := <-m.state.instanceDeletionSignal:
 					m.reconcileInstanceDeletion(ctx, instanceName)
@@ -234,7 +223,7 @@ func (m *BGPRouterManager) reconcileStateWithRetry(ctx context.Context) error {
 	retryFn := func(ctx context.Context) (bool, error) {
 		err := m.reconcileState(ctx)
 		if err != nil {
-			m.Logger.WithError(err).Error("failed to reconcile state")
+			m.Logger.Error("failed to reconcile state", slog.Any(logfields.Error, err))
 			return false, nil
 		}
 		return true, nil
@@ -262,11 +251,7 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 		return fmt.Errorf("bgp router manager is not running")
 	}
 
-	l := log.WithFields(
-		logrus.Fields{
-			"component": "manager.ConfigurePeers",
-		},
-	)
+	logAttr := slog.String("component", "manager.ConfigurePeers")
 
 	// use a reconcileDiff to compute which BgpServers must be created, removed
 	// and reconciled.
@@ -279,10 +264,10 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 	rd.diff(m.Servers, policy)
 
 	if rd.empty() {
-		l.Debug("GoBGP peering topology up-to-date with CiliumBGPPeeringPolicy for this node.")
+		m.Logger.Debug("GoBGP peering topology up-to-date with CiliumBGPPeeringPolicy for this node.", logAttr)
 		return nil
 	}
-	l.WithField("diff", rd.String()).Debug("Reconciling new CiliumBGPPeeringPolicy")
+	m.Logger.Debug("Reconciling new CiliumBGPPeeringPolicy", slog.Any("diff", rd), logAttr)
 
 	if len(rd.register) > 0 {
 		m.register(ctx, rd)
@@ -301,21 +286,17 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 // register instantiates and configures BgpServer(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
-	l := log.WithFields(
-		logrus.Fields{
-			"component": "manager.add",
-		},
-	)
+	logAttr := slog.String("component", "manager.add")
 	for _, asn := range rd.register {
 		var config *v2alpha1api.CiliumBGPVirtualRouter
 		var ok bool
 		if config, ok = rd.seen[asn]; !ok {
-			l.Errorf("Work diff (add) contains unseen ASN %v, skipping", asn)
+			m.Logger.Error("Work diff (add) contains unseen ASN, skipping", slog.Int64("asn", asn), logAttr)
 			continue
 		}
 		if err := m.registerBGPServer(ctx, config, rd.ciliumNode); err != nil {
 			// we'll just log the error and attempt to register the next BgpServer.
-			l.WithError(err).Errorf("Error while registering new BGP server for local ASN %v.", config.LocalASN)
+			m.Logger.Error("Error while registering new BGP server for local ASN", slog.Int64("asn", config.LocalASN), slog.Any(logfields.Error, err), logAttr)
 		}
 	}
 }
@@ -329,13 +310,9 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
 func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 	c *v2alpha1api.CiliumBGPVirtualRouter,
 	ciliumNode *v2api.CiliumNode) error {
-	l := log.WithFields(
-		logrus.Fields{
-			"component": "manager.registerBGPServer",
-		},
-	)
+	logAttr := slog.String("component", "manager.registerBGPServer")
 
-	l.Infof("Registering BGP servers for policy with local ASN %v", c.LocalASN)
+	m.Logger.Info("Registering BGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttr)
 
 	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
 	if err != nil {
@@ -371,7 +348,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 		},
 	}
 
-	s, err := instance.NewServerWithConfig(ctx, log, globalConfig)
+	s, err := instance.NewServerWithConfig(ctx, m.Logger, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
@@ -394,7 +371,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
 
-	l.Infof("Successfully registered GoBGP servers for policy with local ASN %v", c.LocalASN)
+	m.Logger.Info("Successfully registered GoBGP servers for policy with local ASN", slog.Int64("asn", c.LocalASN), logAttr)
 
 	return err
 }
@@ -402,18 +379,14 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 // withdraw disconnects and removes BgpServer(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) error {
-	l := log.WithFields(
-		logrus.Fields{
-			"component": "manager.remove",
-		},
-	)
+	logAttrs := slog.String("component", "manager.remove")
 	for _, asn := range rd.withdraw {
 		var (
 			s  *instance.ServerWithConfig
 			ok bool
 		)
 		if s, ok = m.Servers[asn]; !ok {
-			l.Warnf("Server with local ASN %v marked for deletion but does not exist", asn)
+			m.Logger.Warn("Server with local ASN marked for deletion but does not exist", slog.Int64("asn", asn), logAttrs)
 			continue
 		}
 		for _, r := range m.Reconcilers {
@@ -421,7 +394,7 @@ func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) erro
 		}
 		s.Server.Stop()
 		delete(m.Servers, asn)
-		l.Infof("Removed BGP server with local ASN %v", asn)
+		m.Logger.Info("Removed BGP server with local ASN", slog.Int64("asn", asn), logAttrs)
 	}
 	return nil
 }
@@ -443,26 +416,22 @@ func (m *BGPRouterManager) withdrawAll(ctx context.Context, rd *reconcileDiff) e
 // reconcile evaluates existing BgpServer(s), making changes if necessary, as
 // instructed by the provided reoncileDiff.
 func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) {
-	l := log.WithFields(
-		logrus.Fields{
-			"component": "manager.reconcile",
-		},
-	)
+	logAttr := slog.String("component", "manager.reconcile")
 	for _, asn := range rd.reconcile {
 		var (
 			sc   = m.Servers[asn]
 			newc = rd.seen[asn]
 		)
 		if sc == nil {
-			l.Errorf("Virtual router with local ASN %v marked for reconciliation but missing from Manager", newc.LocalASN) // really shouldn't happen
+			m.Logger.Error("Virtual router with local ASN marked for reconciliation but missing from Manager", slog.Int64("asn", newc.LocalASN), logAttr) // really shouldn't happen
 			continue
 		}
 		if newc == nil {
-			l.Errorf("Virtual router with local ASN %v marked for reconciliation but missing from incoming configurations", sc.Config.LocalASN) // also really shouldn't happen
+			m.Logger.Error("Virtual router with local ASN marked for reconciliation but missing from incoming configurations", slog.Int64("asn", sc.Config.LocalASN), logAttr) // also really shouldn't happen
 			continue
 		}
 		if err := m.reconcileBGPConfig(ctx, sc, newc, rd.ciliumNode); err != nil {
-			l.WithError(err).Errorf("Encountered error reconciling virtual router with local ASN %v", newc.LocalASN)
+			m.Logger.Error("Encountered error reconciling virtual router with local ASN", slog.Any(logfields.Error, err), slog.Int64("asn", newc.LocalASN), logAttr)
 		}
 	}
 }
@@ -494,6 +463,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 	}
 	for _, r := range m.Reconcilers {
 		if err := r.Reconcile(ctx, reconciler.ReconcileParams{
+			Logger:        m.Logger,
 			CurrentServer: sc,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,
@@ -810,20 +780,16 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 		return nil
 	}
 
-	l := m.Logger.WithFields(logrus.Fields{
-		types.BGPNodeConfigLogField: nodeObj.Name,
-	})
-
 	err := rd.diff(m.BGPInstances, nodeObj)
 	if err != nil {
 		return err
 	}
 
 	if rd.empty() {
-		l.Debug("BGP instance up-to-date with CiliumBGPNodeConfig")
+		m.Logger.Debug("BGP instance up-to-date with CiliumBGPNodeConfig", slog.String(types.BGPNodeConfigLogField, nodeObj.Name))
 		return nil
 	}
-	l.WithField("diff", rd.String()).Debug("Reconciling BGP instances")
+	m.Logger.Debug("Reconciling BGP instances", slog.Any("diff", rd), slog.String(types.BGPNodeConfigLogField, nodeObj.Name))
 
 	// withdraw before registering to ensure re-create works properly
 	if len(rd.withdraw) > 0 {
@@ -850,14 +816,14 @@ func (m *BGPRouterManager) registerV2(ctx context.Context, rd *reconcileDiffV2) 
 		var config *v2alpha1api.CiliumBGPNodeInstance
 		var ok bool
 		if config, ok = rd.seen[name]; !ok {
-			m.Logger.WithField(types.InstanceLogField, name).Debug("Work diff (add) contains unseen instance, skipping")
+			m.Logger.Debug("Work diff (add) contains unseen instance, skipping", slog.String(types.InstanceLogField, name))
 			instancesWithError = append(instancesWithError, name)
 			lastErr = errors.New("unseen instance")
 			continue
 		}
 		if rErr := m.registerBGPInstance(ctx, config, rd.ciliumNode); rErr != nil {
 			// we'll log the error and attempt to register the next instance.
-			m.Logger.WithField(types.InstanceLogField, name).WithError(rErr).Debug("Error registering new BGP instance")
+			m.Logger.Debug("Error registering new BGP instance", slog.Any(logfields.Error, rErr), slog.String(types.InstanceLogField, name))
 			instancesWithError = append(instancesWithError, name)
 			lastErr = rErr
 		}
@@ -874,11 +840,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 	c *v2alpha1api.CiliumBGPNodeInstance,
 	ciliumNode *v2api.CiliumNode) error {
 
-	l := m.Logger.WithFields(logrus.Fields{
-		types.InstanceLogField: c.Name,
-	})
-
-	l.Info("Registering BGP instance")
+	m.Logger.Info("Registering BGP instance", slog.String(types.InstanceLogField, c.Name))
 
 	localASN, err := getLocalASN(c)
 	if err != nil {
@@ -893,12 +855,6 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		return err
 	}
 
-	l = l.WithFields(logrus.Fields{
-		types.LocalASNLogField:   localASN,
-		types.ListenPortLogField: localPort,
-		types.RouterIDLogField:   routerID,
-	})
-
 	globalConfig := types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        uint32(localASN),
@@ -911,7 +867,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
-	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), c.Name, globalConfig)
+	i, err := instance.NewBGPInstance(ctx, m.Logger.With(types.InstanceLogField, c.Name), c.Name, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP instance: %w", err)
 	}
@@ -935,7 +891,13 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		return fmt.Errorf("failed initial reconciliation of BGP instance: %w", err)
 	}
 
-	l.Info("Successfully registered BGP instance")
+	m.Logger.Info(
+		"Successfully registered BGP instance",
+		slog.Int64(types.LocalASNLogField, localASN),
+		slog.Int64(types.ListenPortLogField, int64(localPort)),
+		slog.String(types.RouterIDLogField, routerID),
+		slog.String(types.InstanceLogField, c.Name),
+	)
 
 	return err
 }
@@ -1081,7 +1043,10 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 			ok bool
 		)
 		if i, ok = m.BGPInstances[name]; !ok {
-			m.Logger.WithField(types.InstanceLogField, name).Warn("BGP instance marked for deletion but does not exist")
+			m.Logger.Warn(
+				"BGP instance marked for deletion but does not exist",
+				slog.String(types.InstanceLogField, name),
+			)
 			continue
 		}
 		for _, r := range m.ConfigReconcilers {
@@ -1095,13 +1060,20 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 		}
 		delete(m.BGPInstances, name)
 		delete(m.state.notifications, name)
+		m.Logger.Info(
+			"Removed BGP instance",
+			slog.String(types.InstanceLogField, name),
+		)
 
 		// cleanup any errors from statedb table for this instance
 		err := m.deleteErrorsFromTable(txn, name)
 		if err != nil {
-			m.Logger.WithField(types.InstanceLogField, name).WithError(err).Warn("error deleting reconcile errors from table")
+			m.Logger.Warn(
+				"error deleting reconcile errors from table",
+				slog.Any(logfields.Error, err),
+				slog.String(types.InstanceLogField, name),
+			)
 		}
-		m.Logger.WithField(types.InstanceLogField, name).Info("Removed BGP instance")
 	}
 	txn.Commit()
 }
@@ -1132,18 +1104,28 @@ func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2)
 			newc = rd.seen[name]
 		)
 		if i == nil {
-			m.Logger.WithField(types.InstanceLogField, name).Error("BUG: BGP instance marked for reconciliation but missing from Manager") // really shouldn't happen, tagging as bug
+			m.Logger.Error(
+				"BUG: BGP instance marked for reconciliation but missing from Manager", // really shouldn't happen, tagging as bug
+				slog.String(types.InstanceLogField, name),
+			)
 			instancesWithError = append(instancesWithError, name)
 			continue
 		}
 		if newc == nil {
-			m.Logger.WithField(types.InstanceLogField, name).Error("BUG: BGP instance marked for reconciliation but missing from incoming configurations") // also really shouldn't happen
+			m.Logger.Error(
+				"BUG: BGP instance marked for reconciliation but missing from incoming configurations", // also really shouldn't happen
+				slog.String(types.InstanceLogField, name),
+			)
 			instancesWithError = append(instancesWithError, name)
 			continue
 		}
 
 		if err := m.reconcileBGPConfigV2(ctx, i, newc, rd.ciliumNode); err != nil {
-			m.Logger.WithField(types.InstanceLogField, name).WithError(err).Debug("Error reconciling BGP instance")
+			m.Logger.Debug(
+				"Error reconciling BGP instance",
+				slog.Any(logfields.Error, err),
+				slog.String(types.InstanceLogField, name),
+			)
 			instancesWithError = append(instancesWithError, name)
 			lastErr = err
 		}

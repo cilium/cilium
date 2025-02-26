@@ -5,13 +5,14 @@ package endpoint
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -94,7 +95,7 @@ func copyExistingState(oldDir, newDir string) error {
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	scopedLog := e.getLogger()
-	debugLogEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
+	debugLogEnabled := logging.CanLogAt(scopedLog, slog.LevelDebug)
 
 	scopedLog.Debug("synchronizing directories")
 
@@ -109,8 +110,12 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
 		if err := copyExistingState(origDir, tmpDir); err != nil {
-			scopedLog.WithError(err).Debugf("unable to copy state "+
-				"from %s into the new directory %s.", tmpDir, origDir)
+			scopedLog.Debug(
+				"unable to copy state from tmp directory to new directory",
+				slog.Any(logfields.Error, err),
+				slog.String("tmp-directory", tmpDir),
+				slog.String("new-directory", origDir),
+			)
 		}
 
 		// Atomically exchange the two directories.
@@ -123,10 +128,11 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	default:
 		// Make temporary directory the new endpoint directory
 		if debugLogEnabled {
-			scopedLog.WithFields(logrus.Fields{
-				"temporaryDirectory": tmpDir,
-				"originalDirectory":  origDir,
-			}).Debug("attempting to make temporary directory new directory for endpoint programs")
+			scopedLog.Debug(
+				"attempting to make temporary directory new directory for endpoint programs",
+				slog.String("temporaryDirectory", tmpDir),
+				slog.String("originalDirectory", origDir),
+			)
 		}
 
 		if err := os.Rename(tmpDir, origDir); err != nil {
@@ -142,8 +148,11 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 }
 
 func (e *Endpoint) removeDirectory(path string) error {
-	if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
-		logger.WithField("directory", path).Debug("removing directory")
+	if logger := e.getLogger(); logging.CanLogAt(logger, slog.LevelDebug) {
+		logger.Debug(
+			"removing directory",
+			slog.String("directory", path),
+		)
 	}
 	return os.RemoveAll(path)
 }

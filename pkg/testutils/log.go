@@ -4,10 +4,12 @@
 package testutils
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "testutils")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "testutils"))
 )

@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -310,8 +310,7 @@ func executeForConfigType[T k8sRuntime.Object](t *testing.T,
 ) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 			manager := &fakeCECManager{
 				shouldFailFor: tc.shouldFailFor,
@@ -530,8 +529,7 @@ func TestReconcileExistingConfigs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 			manager := &fakeCECManager{
 				shouldFailFor: tc.failFor,
@@ -667,8 +665,7 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 			manager := &fakeCECManager{
 				shouldFailFor: tc.failFor,

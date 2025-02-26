@@ -8,7 +8,6 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // meshNodeInformer uses the remote clusters inside the Cilium mesh to fake nodes
@@ -31,7 +31,7 @@ type meshNodeInformer struct {
 	mutex   lock.RWMutex
 }
 
-func newMeshNodeInformer(logger logrus.FieldLogger) *meshNodeInformer {
+func newMeshNodeInformer(logger logging.FieldLogger) *meshNodeInformer {
 	return &meshNodeInformer{
 		dummyInformer: dummyInformer{name: "meshNodeInformer", logger: logger},
 		nodes:         map[string]*v1.Node{},

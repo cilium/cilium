@@ -249,7 +249,7 @@ func (s *Server) Logf(f string, args ...interface{}) {
 	if s.logger != nil {
 		s.logger.Info(fmt.Sprintf(f, args...))
 	} else if s.api != nil && s.api.Logger != nil {
-		s.api.Logger(f, args...)
+		s.api.Logger(fmt.Sprintf(f, args...))
 	} else {
 		log.Printf(f, args...)
 	}
@@ -337,7 +337,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(s.SocketPath)
+			err := api.SetDefaultPermissions(s.logger, s.SocketPath)
 			if err != nil {
 				return err
 			}

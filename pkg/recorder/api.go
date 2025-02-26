@@ -5,23 +5,27 @@ package recorder
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	recorderapi "github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type putRecorderIDHandler struct {
-	logger   logrus.FieldLogger
+	logger   logging.FieldLogger
 	recorder *Recorder
 }
 
 func (h *putRecorderIDHandler) Handle(params recorderapi.PutRecorderIDParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /recorder/{id} request")
+	h.logger.Debug(
+		"PUT /recorder/{id} request",
+		slog.Any(logfields.Params, logfields.Repr(params)),
+	)
 	if params.Config.ID == nil {
 		return api.Error(recorderapi.PutRecorderIDFailureCode, fmt.Errorf("invalid recorder ID 0"))
 	}
@@ -40,12 +44,15 @@ func (h *putRecorderIDHandler) Handle(params recorderapi.PutRecorderIDParams) mi
 }
 
 type deleteRecorderIDHandler struct {
-	logger   logrus.FieldLogger
+	logger   logging.FieldLogger
 	recorder *Recorder
 }
 
 func (h *deleteRecorderIDHandler) Handle(params recorderapi.DeleteRecorderIDParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /recorder/{id} request")
+	h.logger.Debug(
+		"DELETE /recorder/{id} request",
+		slog.Any(logfields.Params, logfields.Repr(params)),
+	)
 	found, err := h.recorder.DeleteRecorder(ID(params.ID))
 	switch {
 	case err != nil:
@@ -58,12 +65,15 @@ func (h *deleteRecorderIDHandler) Handle(params recorderapi.DeleteRecorderIDPara
 }
 
 type getRecorderIDHandler struct {
-	logger   logrus.FieldLogger
+	logger   logging.FieldLogger
 	recorder *Recorder
 }
 
 func (h *getRecorderIDHandler) Handle(params recorderapi.GetRecorderIDParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder/{id} request")
+	h.logger.Debug(
+		"GET /recorder/{id} request",
+		slog.Any(logfields.Params, logfields.Repr(params)),
+	)
 	ri, err := h.recorder.RetrieveRecorder(ID(params.ID))
 	if err != nil {
 		return recorderapi.NewGetRecorderIDNotFound()
@@ -82,12 +92,15 @@ func (h *getRecorderIDHandler) Handle(params recorderapi.GetRecorderIDParams) mi
 }
 
 type getRecorderHandler struct {
-	logger   logrus.FieldLogger
+	logger   logging.FieldLogger
 	recorder *Recorder
 }
 
 func (h *getRecorderHandler) Handle(params recorderapi.GetRecorderParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder request")
+	h.logger.Debug(
+		"GET /recorder request",
+		slog.Any(logfields.Params, logfields.Repr(params)),
+	)
 	recList := getRecorderList(h.recorder)
 	return recorderapi.NewGetRecorderOK().WithPayload(recList)
 }
@@ -109,12 +122,15 @@ func getRecorderList(rec *Recorder) []*models.Recorder {
 }
 
 type getRecorderMasksHandler struct {
-	logger   logrus.FieldLogger
+	logger   logging.FieldLogger
 	recorder *Recorder
 }
 
 func (h *getRecorderMasksHandler) Handle(params recorderapi.GetRecorderMasksParams) middleware.Responder {
-	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder/masks request")
+	h.logger.Debug(
+		"GET /recorder/masks request",
+		slog.Any(logfields.Params, logfields.Repr(params)),
+	)
 	recMaskList := getRecorderMaskList(h.recorder)
 	return recorderapi.NewGetRecorderMasksOK().WithPayload(recMaskList)
 }

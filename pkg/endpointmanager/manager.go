@@ -7,12 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"sync"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -34,10 +32,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/hive/cell"
 )
 
 var (
-	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
+	log         = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "endpoint-manager"))
 	metricsOnce sync.Once
 	launchTime  = 30 * time.Second
 
@@ -178,7 +177,7 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if err != nil {
 		return fmt.Errorf("proxy updates failed: %w", err)
 	}
-	log.Debug("Wait time for proxy updates: ", time.Since(start))
+	log.Debug("Wait time for proxy updates", slog.Duration("duration", time.Since(start)))
 
 	return nil
 }
@@ -203,7 +202,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 		// changes before waiting for the changes to be ACKed
 		epWG.Wait()
 		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
-			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
+			log.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", slog.Any(logfields.Error, err))
 		}
 		wg.Done()
 	}()
@@ -214,7 +213,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 			// Proceed only after all notifications have been delivered to endpoints
 			notifyWg.Wait()
 			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
-				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
+				ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", slog.Any(logfields.Error, err))
 			}
 			epWG.Done()
 		}(ep)
@@ -436,11 +435,13 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	// need to release it.
 	if previousState != endpoint.StateRestoring {
 		if err := mgr.ReleaseID(ep); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"state":                   previousState,
-				logfields.CNIAttachmentID: identifiers[endpointid.CNIAttachmentIdPrefix],
-				logfields.CEPName:         identifiers[endpointid.CEPNamePrefix],
-			}).Warning("Unable to release endpoint ID")
+			log.Warn(
+				"Unable to release endpoint ID",
+				slog.Any(logfields.Error, err),
+				slog.Any("state", previousState),
+				slog.Any(logfields.CNIAttachmentID, identifiers[endpointid.CNIAttachmentIdPrefix]),
+				slog.Any(logfields.CEPName, identifiers[endpointid.CEPNamePrefix]),
+			)
 		}
 	}
 
@@ -578,10 +579,7 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	eps := mgr.GetEndpoints()
 	wg.Add(len(eps))
 
-	// Dereference "reason" field outside of logging statement; see
-	// https://github.com/sirupsen/logrus/issues/1003.
-	reason := regenMetadata.Reason
-	log.WithFields(logrus.Fields{"reason": reason}).Info("regenerating all endpoints")
+	log.Info("regenerating all endpoints", slog.String("reason", regenMetadata.Reason))
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateIfAlive(regenMetadata)
@@ -602,9 +600,11 @@ func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
 func (mgr *endpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	for _, ep := range mgr.GetEndpoints() {
 		if _, err := ep.ApplyOpts(om); err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
-			log.WithError(err).WithFields(logrus.Fields{
-				"ep": ep.GetID(),
-			}).Error("Override endpoint options failed")
+			log.Error(
+				"Override endpoint options failed",
+				slog.Any(logfields.Error, err),
+				slog.Uint64("ep", ep.GetID()),
+			)
 		}
 	}
 }
@@ -697,12 +697,12 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	// when endpoint and its logger are created pod details are not populated
 	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
 	// this update will populate pod details in logger
-	ep.UpdateLogger(map[string]interface{}{
-		logfields.ContainerID: ep.GetShortContainerID(),
-		logfields.IPv4:        ep.GetIPv4Address(),
-		logfields.IPv6:        ep.GetIPv6Address(),
-		logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
-		logfields.CEPName:     ep.GetK8sNamespaceAndCEPName(),
+	ep.UpdateLogger(map[string]slog.Value{
+		logfields.ContainerID: slog.StringValue(ep.GetShortContainerID()),
+		logfields.IPv4:        slog.StringValue(ep.GetIPv4Address()),
+		logfields.IPv6:        slog.StringValue(ep.GetIPv6Address()),
+		logfields.K8sPodName:  slog.StringValue(ep.GetK8sNamespaceAndPodName()),
+		logfields.CEPName:     slog.StringValue(ep.GetK8sNamespaceAndCEPName()),
 	})
 
 	err = mgr.expose(ep)

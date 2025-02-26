@@ -1246,7 +1246,7 @@ func insertFakeRoute(t *testing.T, n *linuxNodeHandler, prefix *cidr.CIDR) {
 
 	nodeRoute.Device = dummyExternalDeviceName
 
-	err = route.Upsert(nodeRoute)
+	err = route.Upsert(nil, nodeRoute)
 	require.NoError(t, err)
 }
 

@@ -45,6 +45,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
+		log,
 		ipam.Gateway,
 		cidrs,
 		ipam.MasterMac,

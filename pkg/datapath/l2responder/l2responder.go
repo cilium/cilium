@@ -7,18 +7,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
@@ -48,7 +50,7 @@ type params struct {
 	cell.In
 
 	Lifecycle           cell.Lifecycle
-	Logger              logrus.FieldLogger
+	Logger              logging.FieldLogger
 	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
@@ -98,7 +100,7 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 	// At startup, do an initial full reconciliation
 	err = p.fullReconciliation(p.params.StateDB.ReadTxn())
 	if err != nil {
-		log.WithError(err).Error("Error(s) while reconciling l2 responder map")
+		log.Error("Error(s) while reconciling l2 responder map", slog.Any(logfields.Error, err))
 	}
 
 	for ctx.Err() == nil {
@@ -157,7 +159,7 @@ func (p *l2ResponderReconciler) cycle(
 	for change := range changes {
 		err := process(change.Object, change.Deleted)
 		if err != nil {
-			log.WithError(err).Error("error during partial reconciliation")
+			log.Error("error during partial reconciliation", slog.Any(logfields.Error, err))
 			break
 		}
 	}
@@ -177,7 +179,7 @@ func (p *l2ResponderReconciler) cycle(
 		// entries in the table for full reconciliation.
 		err := p.fullReconciliation(txn)
 		if err != nil {
-			log.WithError(err).Error("Error(s) while full reconciling l2 responder map")
+			log.Error("Error(s) while full reconciling l2 responder map", slog.Any(logfields.Error, err))
 		}
 	}
 }

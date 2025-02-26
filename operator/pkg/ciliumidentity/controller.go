@@ -250,7 +250,12 @@ func (c *Controller) processNextItem() bool {
 	err := item.Reconcile(c.reconciler)
 	if err != nil {
 		retries := c.resourceQueue.NumRequeues(item)
-		c.logger.Warn("Failed to process resource item", logfields.Key, item.Key().String(), "retries", retries, "maxRetries", maxProcessRetries, logfields.Error, err)
+		c.logger.Warn("Failed to process resource item",
+			logfields.Key, item.Key(),
+			logfields.Retries, retries,
+			logfields.MaxRetries, maxProcessRetries,
+			logfields.Error, err,
+		)
 
 		if retries < maxProcessRetries {
 			c.enqueueTimeTracker.Track(item.Key().String())
@@ -259,7 +264,11 @@ func (c *Controller) processNextItem() bool {
 		}
 
 		// Drop the pod from queue, exceeded max retries
-		c.logger.Error("Dropping item from resource queue, exceeded maxRetries", logfields.Key, item.Key().String(), "maxRetries", maxProcessRetries, logfields.Error, err)
+		c.logger.Error("Dropping item from resource queue, exceeded maxRetries",
+			logfields.Key, item.Key(),
+			logfields.MaxRetries, maxProcessRetries,
+			logfields.Error, err,
+		)
 	}
 
 	if exists {

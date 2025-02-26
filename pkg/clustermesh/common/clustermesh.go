@@ -6,6 +6,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -25,6 +27,8 @@ type RemoteClusterCreatorFunc func(name string, status StatusFunc) RemoteCluster
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
 type Configuration struct {
+	Logger logging.FieldLogger
+
 	Config
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
@@ -94,7 +98,7 @@ func NewClusterMesh(c Configuration) ClusterMesh {
 }
 
 func (cm *clusterMesh) Start(cell.HookContext) error {
-	w, err := createConfigDirectoryWatcher(cm.conf.ClusterMeshConfig, cm)
+	w, err := createConfigDirectoryWatcher(cm.conf.Logger, cm.conf.ClusterMeshConfig, cm)
 	if err != nil {
 		return fmt.Errorf("unable to create config directory watcher: %w", err)
 	}
@@ -147,7 +151,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		controllers:                    controller.NewManager(),
 		remoteConnectionControllerName: fmt.Sprintf("remote-etcd-%s", name),
 
-		logger: log.WithField(logfields.ClusterName, name),
+		logger: cm.conf.Logger.With(slog.String(logfields.ClusterName, name)),
 
 		backendFactory:     kvstore.NewClient,
 		clusterLockFactory: newClusterLock,
@@ -163,14 +167,16 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 
 func (cm *clusterMesh) add(name, path string) {
 	if name == cm.conf.ClusterInfo.Name {
-		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
+		cm.conf.Logger.Debug("Ignoring configuration for own cluster", slog.Any(fieldClusterName, name))
 		return
 	}
 
 	if err := types.ValidateClusterName(name); err != nil {
-		log.WithField(fieldClusterName, name).
-			WithError(fmt.Errorf("invalid cluster name: %w", err)).
-			Error("Cannot connect to remote cluster")
+		cm.conf.Logger.Error(
+			"Cannot connect to remote cluster",
+			slog.Any(logfields.Error, fmt.Errorf("invalid cluster name: %w", err)),
+			slog.String(fieldClusterName, name),
+		)
 		return
 	}
 
@@ -184,7 +190,7 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		// The configuration for this cluster has been recreated before the cleanup
 		// of the same cluster completed. Let's queue it for delayed processing.
 		cm.tombstones[name] = path
-		log.WithField(fieldClusterName, name).Info("Delaying configuration of remote cluster, which is still being removed")
+		cm.conf.Logger.Info("Delaying configuration of remote cluster, which is still being removed", slog.Any(fieldClusterName, name))
 		return
 	}
 
@@ -233,13 +239,13 @@ func (cm *clusterMesh) remove(name string) {
 
 		if path != removed {
 			// Let's replay the queued add event.
-			log.WithField(fieldClusterName, name).Info("Replaying delayed configuration of new remote cluster after removal")
+			cm.conf.Logger.Info("Replaying delayed configuration of new remote cluster after removal", slog.Any(fieldClusterName, name))
 			cm.addLocked(name, path)
 		}
 		cm.mutex.Unlock()
 	}()
 
-	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration removed")
+	cm.conf.Logger.Debug("Remote cluster configuration removed", slog.Any(fieldClusterName, name))
 }
 
 // NumReadyClusters returns the number of remote clusters to which a connection

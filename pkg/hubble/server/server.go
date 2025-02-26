@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -18,6 +17,7 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -27,13 +27,13 @@ var (
 
 // Server is hubble's gRPC server.
 type Server struct {
-	log  logrus.FieldLogger
+	log  logging.FieldLogger
 	srv  *grpc.Server
 	opts serveroption.Options
 }
 
 // NewServer creates a new hubble gRPC server.
-func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server, error) {
+func NewServer(log logging.FieldLogger, options ...serveroption.Option) (*Server, error) {
 	opts := serveroption.Options{}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {

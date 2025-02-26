@@ -6,10 +6,11 @@ package certloader
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +18,7 @@ func TestWatchedClientConfigIsMutualTLS(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	tests := []struct {
 		name        string
@@ -75,7 +76,7 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	expectedCaCertPool := x509.NewCertPool()
 	if ok := expectedCaCertPool.AppendCertsFromPEM(initialHubbleServerCA); !ok {
@@ -108,7 +109,7 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	expectedCaCertPool := x509.NewCertPool()
 	if ok := expectedCaCertPool.AppendCertsFromPEM(initialHubbleServerCA); !ok {
@@ -132,7 +133,7 @@ func TestWatchedClientConfigRotation(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	expectedCaCertPool := x509.NewCertPool()
 	if ok := expectedCaCertPool.AppendCertsFromPEM(rotatedHubbleServerCA); !ok {

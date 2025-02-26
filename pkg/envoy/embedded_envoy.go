@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +25,6 @@ import (
 	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
 	envoy_extensions_resource_monitors_downstream_connections "github.com/cilium/proxy/go/envoy/extensions/resource_monitors/downstream_connections/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -37,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "envoy-manager"))
 
 const (
 	envoyLogLevelOff      = "off"
@@ -51,13 +51,13 @@ const (
 
 var (
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
-	envoyLevelMap = map[logrus.Level]string{
-		logrus.PanicLevel: envoyLogLevelOff,
-		logrus.FatalLevel: envoyLogLevelCritical,
-		logrus.ErrorLevel: envoyLogLevelError,
-		logrus.WarnLevel:  envoyLogLevelWarning,
-		logrus.InfoLevel:  envoyLogLevelInfo,
-		logrus.DebugLevel: envoyLogLevelDebug,
+	envoyLevelMap = map[slog.Level]string{
+		logging.LevelPanic: envoyLogLevelOff,
+		logging.LevelFatal: envoyLogLevelCritical,
+		slog.LevelError:    envoyLogLevelError,
+		slog.LevelWarn:     envoyLogLevelWarning,
+		slog.LevelInfo:     envoyLogLevelInfo,
+		slog.LevelDebug:    envoyLogLevelDebug,
 		// spdlog "trace" not mapped
 	}
 
@@ -76,14 +76,14 @@ func EnableTracing() {
 	tracing = true
 }
 
-func mapLogLevel(agentLogLevel logrus.Level, defaultEnvoyLogLevel string) string {
+func mapLogLevel(agentLogLevel slog.Level, defaultEnvoyLogLevel string) string {
 	// Set Envoy loglevel to trace if debug AND verbose Engoy logging is enabled
-	if agentLogLevel == logrus.DebugLevel && tracing {
+	if agentLogLevel == slog.LevelDebug && tracing {
 		return envoyLogLevelTrace
 	}
 
 	// Suppress the debug level if not debugging at flow level.
-	if agentLogLevel == logrus.DebugLevel && !flowdebug.Enabled() {
+	if agentLogLevel == slog.LevelDebug && !flowdebug.Enabled() {
 		return envoyLogLevelInfo
 	}
 
@@ -150,7 +150,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		maxConcurrentRetries:     config.maxConcurrentRetries,
 	})
 
-	log.Debugf("Envoy: Starting: %v", *envoy)
+	log.Debug("Envoy: Starting", slog.Any("envoy", *envoy))
 
 	// make it a buffered channel, so we can not only
 	// read the written value but also skip it in
@@ -196,7 +196,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 			cmd.Stdout = logWriter
 
 			if err := cmd.Start(); err != nil {
-				log.WithError(err).Warn("Envoy: Failed to start proxy")
+				log.Warn("Envoy: Failed to start proxy", slog.Any(logfields.Error, err))
 				select {
 				case started <- false:
 				default:
@@ -204,7 +204,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				return
 			}
 
-			log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy started")
+			log.Info("Envoy: Proxy started", slog.Int(logfields.PID, cmd.Process.Pid))
 			metrics.SubprocessStart.WithLabelValues(ciliumEnvoyStarter).Inc()
 			select {
 			case started <- true:
@@ -221,11 +221,11 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 			crashCh := make(chan struct{})
 			go func() {
 				if err := cmd.Wait(); err != nil {
-					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Warn("Envoy: Proxy crashed")
+					log.Warn("Envoy: Proxy crashed", slog.Any(logfields.Error, err), slog.Int(logfields.PID, cmd.Process.Pid))
 					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
 					time.Sleep(100 * time.Millisecond)
 				} else {
-					log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy terminated")
+					log.Info("Envoy: Proxy terminated", slog.Int(logfields.PID, cmd.Process.Pid))
 				}
 				close(crashCh)
 			}()
@@ -235,12 +235,12 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				// Start Envoy again
 				continue
 			case <-envoy.stopCh:
-				log.WithField(logfields.PID, cmd.Process.Pid).Infof("Envoy: Stopping proxy")
+				log.Info("Envoy: Stopping proxy", slog.Int(logfields.PID, cmd.Process.Pid))
 				if err := envoy.admin.quit(); err != nil {
-					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Fatal("Envoy: Envoy admin quit failed, killing process")
+					logging.Fatal(log, "Envoy: Envoy admin quit failed, killing process", slog.Any(logfields.Error, err), slog.Int(logfields.PID, cmd.Process.Pid))
 
 					if err := cmd.Process.Kill(); err != nil {
-						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
+						logging.Fatal(log, "Envoy: Stopping Envoy failed", slog.Any(logfields.Error, err))
 						envoy.errCh <- err
 					}
 				}
@@ -263,10 +263,10 @@ func newEnvoyLogPiper() io.WriteCloser {
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(nil, 1024*1024)
 	go func() {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.LogSubsys: "unknown",
-			logfields.ThreadID:  "unknown",
-		})
+		logAttrs := []any{
+			slog.String(logfields.LogSubsys, "unknown"),
+			slog.String(logfields.ThreadID, "unknown"),
+		}
 		level := "debug"
 
 		for scanner.Scan() {
@@ -283,10 +283,10 @@ func newEnvoyLogPiper() io.WriteCloser {
 				// TODO: Parse msg to extract the source filename, line number, etc.
 				msg = fmt.Sprintf("[%s", parts[3])
 
-				scopedLog = log.WithFields(logrus.Fields{
-					logfields.LogSubsys: fmt.Sprintf("envoy-%s", loggerName),
-					logfields.ThreadID:  threadID,
-				})
+				logAttrs = []any{
+					slog.String(logfields.LogSubsys, fmt.Sprintf("envoy-%s", loggerName)),
+					slog.String(logfields.ThreadID, threadID),
+				}
 			} else {
 				// If this line can't be parsed, it continues a multi-line log
 				// message. In this case, log it at the same level and with the
@@ -301,24 +301,24 @@ func newEnvoyLogPiper() io.WriteCloser {
 			// Map the Envoy log level to a logrus level.
 			switch level {
 			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
-				scopedLog.Error(msg)
+				log.Error(msg, logAttrs...)
 			case envoyLogLevelWarning:
 				// Demote expected warnings to info level
 				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
-					scopedLog.Info(msg)
+					log.Info(msg, logAttrs...)
 					continue
 				}
-				scopedLog.Warn(msg)
+				log.Warn(msg, logAttrs...)
 			case envoyLogLevelInfo:
-				scopedLog.Info(msg)
+				log.Info(msg, logAttrs...)
 			case envoyLogLevelDebug, envoyLogLevelTrace:
-				scopedLog.Debug(msg)
+				log.Debug(msg, logAttrs...)
 			default:
-				scopedLog.Debug(msg)
+				log.Debug(msg, logAttrs...)
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			log.WithError(err).Error("Error while parsing Envoy logs")
+			log.Error("Error while parsing Envoy logs", slog.Any(logfields.Error, err))
 		}
 		reader.Close()
 	}()
@@ -528,14 +528,14 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 		},
 	}
 
-	log.Debugf("Envoy: Bootstrap: %s", bs)
+	log.Debug("Envoy: Bootstrap", slog.Any("bs", bs))
 	data, err := proto.Marshal(bs)
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error marshaling Envoy bootstrap")
+		logging.Fatal(log, "Envoy: Error marshaling Envoy bootstrap", slog.Any(logfields.Error, err))
 	}
 	err = os.WriteFile(config.filePath, data, 0644)
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
+		logging.Fatal(log, "Envoy: Error writing Envoy bootstrap file", slog.Any(logfields.Error, err))
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -49,7 +50,7 @@ var bpfNodeIDListCmd = &cobra.Command{
 			})
 		}
 
-		nodeMap, err := nodemap.LoadNodeMapV2()
+		nodeMap, err := nodemap.LoadNodeMapV2(logging.DefaultLogger)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find node bpf map")

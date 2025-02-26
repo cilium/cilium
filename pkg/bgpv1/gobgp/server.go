@@ -7,13 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -74,7 +76,7 @@ var (
 
 // GoBGPServer is wrapper on top of go bgp server implementation
 type GoBGPServer struct {
-	logger *logrus.Entry
+	logger logging.FieldLogger
 
 	// asn is local AS number
 	asn uint32
@@ -89,8 +91,8 @@ type GoBGPServer struct {
 }
 
 // NewGoBGPServer returns instance of go bgp router wrapper.
-func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
-	logger := NewServerLogger(log.Logger, LogParams{
+func NewGoBGPServer(ctx context.Context, log logging.FieldLogger, params types.ServerParameters) (types.Router, error) {
+	logger := NewServerLogger(log, LogParams{
 		AS:        params.Global.ASN,
 		Component: "gobgp.BgpServerInstance",
 		SubSys:    "bgp-control-plane",
@@ -157,7 +159,7 @@ func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerP
 				return
 			}
 
-			logger.l.Debug(p)
+			logger.l.Debug("", slog.Any("peer", p))
 
 			// if channel is nil (BGPv1) below code will not block and will act as a no-op.
 			select {
@@ -355,7 +357,7 @@ func (g *GoBGPServer) deleteDefinedSets(ctx context.Context, definedSets []*gobg
 		}
 	}
 	if errs != nil {
-		g.logger.WithError(errs).Error("Error by deleting policy defined sets")
+		g.logger.Error("Error by deleting policy defined sets", slog.Any(logfields.Error, errs))
 	}
 	return errs
 }

@@ -5,12 +5,12 @@ package endpointslicesync
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +29,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/service/store"
 )
@@ -91,7 +92,7 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var fakeClient *k8sClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
-	logger := logrus.New()
+	logger := slog.Default()
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
@@ -111,7 +112,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	}
 	defer hive.Stop(tlog, context.Background())
 
-	globalService := common.NewGlobalServiceCache(metric.NewGauge(metric.GaugeOpts{}))
+	globalService := common.NewGlobalServiceCache(logging.DefaultLogger, metric.NewGauge(metric.GaugeOpts{}))
 	podInformer := newMeshPodInformer(logger, globalService)
 	nodeInformer := newMeshNodeInformer(logger)
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(

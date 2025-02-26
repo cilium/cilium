@@ -6,12 +6,11 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging"
@@ -71,7 +70,7 @@ type Handler interface {
 	ProcessFlow(ctx context.Context, flow *pb.Flow) error
 }
 
-func InitHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in *[]NamedHandler) (*[]NamedHandler, error) {
+func InitHandlers(log logging.FieldLogger, registry *prometheus.Registry, in *[]NamedHandler) (*[]NamedHandler, error) {
 	var handlers []NamedHandler
 	for _, item := range *in {
 		if err := InitHandler(log, registry, &item); err != nil {
@@ -82,15 +81,16 @@ func InitHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in *[]N
 	return &handlers, nil
 }
 
-func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler) error {
+func InitHandler(log logging.FieldLogger, registry *prometheus.Registry, item *NamedHandler) error {
 	if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
 		return fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 	}
 
-	log.WithFields(logrus.Fields{
-		"name":   item.Name,
-		"status": item.Handler.Status(),
-	}).Info("Configured metrics plugin")
+	log.Info(
+		"Configured metrics plugin",
+		slog.String("name", item.Name),
+		slog.String("status", item.Handler.Status()),
+	)
 
 	return nil
 }
@@ -108,7 +108,7 @@ func ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint, handlers []Na
 }
 
 var registry = NewRegistry(
-	logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble"),
+	logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble")),
 )
 
 // DefaultRegistry returns the default registry of all available metric plugins

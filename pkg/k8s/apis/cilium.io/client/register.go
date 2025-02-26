@@ -7,6 +7,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -100,7 +101,7 @@ const (
 )
 
 // log is the k8s package logger object.
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsysK8s))
 
 type CRDList struct {
 	Name     string
@@ -219,7 +220,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 				return createCRD(crd.Name, crd.FullName)(clientset)
 			})
 		} else {
-			log.Fatalf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r)
+			logging.Fatal(log, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r))
 		}
 	}
 
@@ -304,7 +305,7 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes []byte
 	)
 
-	scopedLog := log.WithField("crdName", crdName)
+	logAttr := slog.String("crdName", crdName)
 
 	switch crdName {
 	case CNPCRDName:
@@ -354,13 +355,18 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 	case CGCCCRDName:
 		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	default:
-		scopedLog.Fatal("Pregenerated CRD does not exist")
+		logging.Fatal(log, "Pregenerated CRD does not exist", logAttr)
 	}
 
 	ciliumCRD := apiextensionsv1.CustomResourceDefinition{}
 	err = yaml.Unmarshal(crdBytes, &ciliumCRD)
 	if err != nil {
-		scopedLog.WithError(err).Fatal("Error unmarshalling pregenerated CRD")
+		logging.Fatal(
+			log,
+			"Error unmarshalling pregenerated CRD",
+			slog.Any(logfields.Error, err),
+			logAttr,
+		)
 	}
 
 	return ciliumCRD

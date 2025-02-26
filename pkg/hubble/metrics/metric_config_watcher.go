@@ -9,14 +9,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 
-	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -24,7 +25,7 @@ import (
 var metricReloadInterval = 10 * time.Second
 
 type metricConfigWatcher struct {
-	logger         logrus.FieldLogger
+	logger         logging.FieldLogger
 	configFilePath string
 	callback       func(ctx context.Context, hash uint64, config api.Config)
 	ticker         *time.Ticker
@@ -42,7 +43,7 @@ func NewMetricConfigWatcher(
 	callback func(ctx context.Context, hash uint64, config api.Config),
 ) *metricConfigWatcher {
 	watcher := &metricConfigWatcher{
-		logger:         logrus.New().WithField(logfields.LogSubsys, "hubble").WithField("configFilePath", configFilePath),
+		logger:         slog.Default().With(slog.String(logfields.LogSubsys, "hubble"), slog.String("configFilePath", configFilePath)),
 		configFilePath: configFilePath,
 		callback:       callback,
 		currentCfgHash: 0,
@@ -73,7 +74,7 @@ func (c *metricConfigWatcher) reload() {
 	c.logger.Debug("Attempting reload")
 	config, isSameHash, hash, err := c.readConfig()
 	if err != nil {
-		c.logger.WithError(err).Error("failed reading dynamic exporter config")
+		c.logger.Error("failed reading dynamic exporter config", slog.Any(logfields.Error, err))
 	} else {
 		if !isSameHash {
 			c.callback(context.TODO(), hash, *config)

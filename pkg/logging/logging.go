@@ -6,16 +6,16 @@ package logging
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
-	"sync/atomic"
-	"time"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/klog/v2"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,7 +45,7 @@ const (
 	DefaultLogFormatTimestamp LogFormat = LogFormatTextTimestamp
 
 	// DefaultLogLevel is the default log level we want to use for our logrus.Formatter
-	DefaultLogLevel logrus.Level = logrus.InfoLevel
+	DefaultLogLevel = slog.LevelInfo
 )
 
 // DefaultLogger is the base logrus logger. It is different from the logrus
@@ -57,14 +57,14 @@ var klogErrorOverrides = []logLevelOverride{
 		// TODO: We can drop the misspelled case here once client-go version is bumped to include:
 		//	https://github.com/kubernetes/client-go/commit/ae43527480ee9d8750fbcde3d403363873fd3d89
 		matcher:     regexp.MustCompile("Failed to update lock (optimitically|optimistically).*falling back to slow path"),
-		targetLevel: logrus.InfoLevel,
+		targetLevel: slog.LevelInfo,
 	},
 }
 
 func initializeKLog() error {
-	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
+	log := DefaultLogger.With(logfields.LogSubsys, "klog")
 
-	//Create a new flag set and set error handler
+	// Create a new flag set and set error handler
 	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
 
 	// Make sure that klog logging variables are initialized so that we can
@@ -79,15 +79,27 @@ func initializeKLog() error {
 	// necessary.
 	klogFlags.Set("skip_headers", "true")
 
-	errWriter, err := severityOverrideWriter(logrus.ErrorLevel, log, klogErrorOverrides)
+	infoWriter, err := severityOverrideWriter(slog.LevelInfo, log, nil)
+	if err != nil {
+		return fmt.Errorf("failed to setup klog error writer: %w", err)
+	}
+	warnWriter, err := severityOverrideWriter(slog.LevelWarn, log, nil)
+	if err != nil {
+		return fmt.Errorf("failed to setup klog error writer: %w", err)
+	}
+	errWriter, err := severityOverrideWriter(slog.LevelError, log, klogErrorOverrides)
+	if err != nil {
+		return fmt.Errorf("failed to setup klog error writer: %w", err)
+	}
+	fatalWriter, err := severityOverrideWriter(LevelPanic, log, nil)
 	if err != nil {
 		return fmt.Errorf("failed to setup klog error writer: %w", err)
 	}
 
-	klog.SetOutputBySeverity("INFO", log.WriterLevel(logrus.InfoLevel))
-	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
+	klog.SetOutputBySeverity("INFO", infoWriter)
+	klog.SetOutputBySeverity("WARNING", warnWriter)
 	klog.SetOutputBySeverity("ERROR", errWriter)
-	klog.SetOutputBySeverity("FATAL", log.WriterLevel(logrus.FatalLevel))
+	klog.SetOutputBySeverity("FATAL", fatalWriter)
 
 	// Do not repeat log messages on all severities in klog
 	klogFlags.Set("one_output", "true")
@@ -97,25 +109,40 @@ func initializeKLog() error {
 
 type logLevelOverride struct {
 	matcher     *regexp.Regexp
-	targetLevel logrus.Level
+	targetLevel slog.Level
 }
 
-func levelToPrintFunc(log *logrus.Entry, level logrus.Level) (func(args ...any), error) {
-	var printFunc func(args ...any)
+var (
+	LevelPanic = slog.LevelError + 8
+	LevelFatal = LevelPanic + 2
+)
+
+func levelToPrintFunc(log *slog.Logger, level slog.Level) (func(msg string, args ...any), error) {
+	var printFunc func(msg string, args ...any)
 	switch level {
-	case logrus.InfoLevel:
+	case slog.LevelInfo:
 		printFunc = log.Info
-	case logrus.WarnLevel:
+	case slog.LevelWarn:
 		printFunc = log.Warn
-	case logrus.ErrorLevel:
+	case slog.LevelError:
 		printFunc = log.Error
+	case LevelPanic:
+		printFunc = func(msg string, args ...any) {
+			log.Error(msg, args...)
+			panic(msg)
+		}
+	case LevelFatal:
+		printFunc = func(msg string, args ...any) {
+			log.Error(msg, args...)
+			os.Exit(1)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported log level %q", level)
 	}
 	return printFunc, nil
 }
 
-func severityOverrideWriter(level logrus.Level, log *logrus.Entry, overrides []logLevelOverride) (*io.PipeWriter, error) {
+func severityOverrideWriter(level slog.Level, log *slog.Logger, overrides []logLevelOverride) (*io.PipeWriter, error) {
 	printFunc, err := levelToPrintFunc(log, level)
 	if err != nil {
 		return nil, err
@@ -142,9 +169,9 @@ func severityOverrideWriter(level logrus.Level, log *logrus.Entry, overrides []l
 //
 // [1] https://github.com/sirupsen/logrus/blob/v1.9.3/writer.go#L66-L97
 func writerScanner(
-	entry *logrus.Entry,
+	entry *slog.Logger,
 	reader *io.PipeReader,
-	defaultPrintFunc func(args ...interface{}),
+	defaultPrintFunc func(msg string, args ...any),
 	overrides []logLevelOverride) {
 
 	defer reader.Close()
@@ -174,8 +201,8 @@ func writerScanner(
 		for _, override := range overrides {
 			printFn, err := levelToPrintFunc(entry, override.targetLevel)
 			if err != nil {
-				entry.WithError(err).WithField("matcher", override.matcher).
-					Error("BUG: failed to get printer for klog override matcher")
+				entry.Error("BUG: failed to get printer for klog override matcher",
+					"error", err, "matcher", override.matcher.String())
 				continue
 			}
 			if override.matcher.FindString(line) != "" {
@@ -190,7 +217,7 @@ func writerScanner(
 	}
 
 	if err := scanner.Err(); err != nil {
-		entry.WithError(err).Error("klog logrus override scanner stopped scanning with an error. " +
+		entry.Error("klog logrus override scanner stopped scanning with an error. " +
 			"This may mean that k8s client-go logs will no longer be emitted")
 	}
 }
@@ -200,24 +227,21 @@ type LogOptions map[string]string
 
 // initializeDefaultLogger returns a logrus Logger with the default logging
 // settings.
-func initializeDefaultLogger() (logger *logrus.Logger) {
-	logger = logrus.New()
-	logger.SetFormatter(GetFormatter(DefaultLogFormatTimestamp))
-	logger.SetLevel(DefaultLogLevel)
-	return
+func initializeDefaultLogger() (logger *slog.Logger) {
+	return DefaultSlogLogger
 }
 
 // GetLogLevel returns the log level specified in the provided LogOptions. If
 // it is not set in the options, it will return the default level.
-func (o LogOptions) GetLogLevel() (level logrus.Level) {
+func (o LogOptions) GetLogLevel() (level slog.Level) {
 	levelOpt, ok := o[LevelOpt]
 	if !ok {
 		return DefaultLogLevel
 	}
 
 	var err error
-	if level, err = logrus.ParseLevel(levelOpt); err != nil {
-		logrus.WithError(err).Warning("Ignoring user-configured log level")
+	if level, err = ParseLevel(levelOpt); err != nil {
+		DefaultLogger.Warn("Ignoring user-configured log level", slog.Any(logfields.Error, err))
 		return DefaultLogLevel
 	}
 
@@ -235,9 +259,10 @@ func (o LogOptions) GetLogFormat() LogFormat {
 	formatOpt = strings.ToLower(formatOpt)
 	re := regexp.MustCompile(`^(text|text-ts|json|json-ts)$`)
 	if !re.MatchString(formatOpt) {
-		logrus.WithError(
-			fmt.Errorf("incorrect log format configured '%s', expected 'text', 'text-ts', 'json' or 'json-ts'", formatOpt),
-		).Warning("Ignoring user-configured log format")
+		slog.Warn(
+			"Ignoring user-configured log format",
+			slog.Any(logfields.Error, fmt.Errorf("incorrect log format configured '%s', expected 'text', 'text-ts', 'json' or 'json-ts'", formatOpt)),
+		)
 		return DefaultLogFormatTimestamp
 	}
 
@@ -245,35 +270,33 @@ func (o LogOptions) GetLogFormat() LogFormat {
 }
 
 // SetLogLevel updates the DefaultLogger with a new logrus.Level
-func SetLogLevel(logLevel logrus.Level) {
-	DefaultLogger.SetLevel(logLevel)
+func SetLogLevel(logLevel slog.Level) {
+	slogLeveler.Set(logLevel)
 }
 
 // SetDefaultLogLevel updates the DefaultLogger with the DefaultLogLevel
 func SetDefaultLogLevel() {
-	DefaultLogger.SetLevel(DefaultLogLevel)
+	slogLeveler.Set(DefaultLogLevel)
 }
 
 // SetLogLevelToDebug updates the DefaultLogger with the logrus.DebugLevel
 func SetLogLevelToDebug() {
-	DefaultLogger.SetLevel(logrus.DebugLevel)
+	slogLeveler.Set(slog.LevelDebug)
 }
 
 // SetLogFormat updates the DefaultLogger with a new LogFormat
 func SetLogFormat(logFormat LogFormat) {
-	DefaultLogger.SetFormatter(GetFormatter(logFormat))
+	defaultMultiSlogHandler.SetHandler(GetHandler(logFormat))
 }
 
 // SetDefaultLogFormat updates the DefaultLogger with the DefaultLogFormat
 func SetDefaultLogFormat() {
-	DefaultLogger.SetFormatter(GetFormatter(DefaultLogFormatTimestamp))
+	defaultMultiSlogHandler.SetHandler(GetHandler(DefaultLogFormatTimestamp))
 }
 
 // AddHooks adds additional logrus hook to default logger
-func AddHooks(hooks ...logrus.Hook) {
-	for _, hook := range hooks {
-		DefaultLogger.AddHook(hook)
-	}
+func AddHooks(hooks ...slog.Handler) {
+	defaultMultiSlogHandler.AddHooks(hooks...)
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
@@ -288,24 +311,8 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	}
 	initializeSlog(logOpts, len(loggers) == 0)
 
-	// Updating the default log format
-	SetLogFormat(logOpts.GetLogFormat())
-
-	// Set default logger to output to stdout if no loggers are provided.
-	if len(loggers) == 0 {
-		// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
-		logrus.SetOutput(os.Stdout)
-	}
-
-	// Updating the default log level, overriding the log options if the debug arg is being set
-	if debug {
-		SetLogLevelToDebug()
-	} else {
-		SetLogLevel(logOpts.GetLogLevel())
-	}
-
 	// always suppress the default logger so libraries don't print things
-	logrus.SetLevel(logrus.PanicLevel)
+	slog.SetLogLoggerLevel(LevelPanic)
 
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
@@ -323,30 +330,38 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	return nil
 }
 
-// GetFormatter returns a configured logrus.Formatter with some specific values
+// GetHandler returns a configured slog.Handler with some specific values
 // we want to have
-func GetFormatter(format LogFormat) logrus.Formatter {
+func GetHandler(format LogFormat) slog.Handler {
 	switch format {
 	case LogFormatText:
-		return &logrus.TextFormatter{
-			DisableTimestamp: true,
-			DisableColors:    true,
-		}
+		return slog.NewTextHandler(
+			os.Stderr,
+			&slog.HandlerOptions{
+				ReplaceAttr: replaceAttrFnWithoutTimestamp,
+			},
+		)
 	case LogFormatTextTimestamp:
-		return &logrus.TextFormatter{
-			DisableTimestamp: false,
-			TimestampFormat:  time.RFC3339Nano,
-			DisableColors:    true,
-		}
+		return slog.NewTextHandler(
+			os.Stderr,
+			&slog.HandlerOptions{
+				ReplaceAttr: replaceAttrFn,
+			},
+		)
 	case LogFormatJSON:
-		return &logrus.JSONFormatter{
-			DisableTimestamp: true,
-		}
+		return slog.NewJSONHandler(
+			os.Stderr,
+			&slog.HandlerOptions{
+				ReplaceAttr: replaceAttrFnWithoutTimestamp,
+			},
+		)
 	case LogFormatJSONTimestamp:
-		return &logrus.JSONFormatter{
-			DisableTimestamp: false,
-			TimestampFormat:  time.RFC3339Nano,
-		}
+		return slog.NewJSONHandler(
+			os.Stderr,
+			&slog.HandlerOptions{
+				ReplaceAttr: replaceAttrFn,
+			},
+		)
 	}
 
 	return nil
@@ -384,7 +399,7 @@ func getLogDriverConfig(logDriver string, logOpts LogOptions) LogOptions {
 	for k, v := range logOpts {
 		ok, err := regexp.MatchString(logDriver+".*", k)
 		if err != nil {
-			DefaultLogger.Fatal(err)
+			Fatal(DefaultLogger, err.Error())
 		}
 		if ok {
 			keysToValidate[k] = v
@@ -404,11 +419,41 @@ func MultiLine(logFn func(args ...interface{}), output string) {
 
 // CanLogAt returns whether a log message at the given level would be
 // logged by the given logger.
-func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
+func CanLogAt(logger FieldLogger, level slog.Level) bool {
 	return GetLevel(logger) >= level
 }
 
 // GetLevel returns the log level of the given logger.
-func GetLevel(logger *logrus.Logger) logrus.Level {
-	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
+func GetLevel(logger FieldLogger) slog.Level {
+	switch {
+	case logger.Enabled(context.Background(), slog.LevelDebug):
+		return slog.LevelDebug
+	case logger.Enabled(context.Background(), slog.LevelInfo):
+		return slog.LevelInfo
+	case logger.Enabled(context.Background(), slog.LevelWarn):
+		return slog.LevelWarn
+	case logger.Enabled(context.Background(), slog.LevelError):
+		return slog.LevelError
+	}
+	return slog.LevelInfo
+}
+
+// ParseLevel takes a string level and returns the slog log level constant.
+func ParseLevel(lvl string) (slog.Level, error) {
+	switch strings.ToUpper(lvl) {
+	case "DEBUG":
+		return slog.LevelDebug, nil
+	case "INFO":
+		return slog.LevelInfo, nil
+	case "WARN", "WARNING":
+		return slog.LevelWarn, nil
+	case "ERROR":
+		return slog.LevelError, nil
+	case "PANIC":
+		return LevelPanic, nil
+	case "FATAL":
+		return LevelFatal, nil
+	default:
+		return slog.LevelInfo, errors.New("unknown name")
+	}
 }

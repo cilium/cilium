@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"log/slog"
 	"maps"
 	"net/netip"
 
@@ -57,7 +58,12 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		for i, c := range cidrGroup.Spec.ExternalCIDRs {
 			pfx, err := netip.ParsePrefix(string(c))
 			if err != nil {
-				p.log.WithField(logfields.CIDRGroupRef, name).WithError(err).Warnf("CIDRGroup has invalid CIDR at index %d", i)
+				p.log.Warn(
+					"CIDRGroup has invalid CIDR",
+					slog.Any(logfields.Error, err),
+					slog.String(logfields.CIDRGroupRef, name),
+					slog.Int("index", i),
+				)
 				continue
 			}
 			newCIDRs.Insert(pfx)

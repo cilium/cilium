@@ -7,14 +7,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"slices"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -142,7 +143,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 	})
 
 	if err != nil {
-		logrus.WithError(err).Error("retrieving BPF maps & programs usage")
+		slog.Error("retrieving BPF maps & programs usage", slog.Any(logfields.Error, err))
 		return
 	}
 

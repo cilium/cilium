@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"log/slog"
+
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -15,7 +17,7 @@ import (
 )
 
 func getIdentityHandler(d *Daemon, params GetIdentityParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
+	d.logger.Debug("GET /identity request", slog.Any(logfields.Params, logfields.Repr(params)))
 
 	identities := []*models.Identity{}
 	if params.Labels == nil {
@@ -37,7 +39,7 @@ func getIdentityHandler(d *Daemon, params GetIdentityParams) middleware.Responde
 func getIdentityIDHandler(d *Daemon, params GetIdentityIDParams) middleware.Responder {
 	c := d.identityAllocator
 
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/<ID> request")
+	d.logger.Debug("GET /identity/<ID> request", slog.Any(logfields.Params, logfields.Repr(params)))
 
 	nid, err := identity.ParseNumericIdentity(params.ID)
 	if err != nil {
@@ -53,7 +55,7 @@ func getIdentityIDHandler(d *Daemon, params GetIdentityIDParams) middleware.Resp
 }
 
 func getIdentityEndpointsHandler(d *Daemon, params GetIdentityEndpointsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/endpoints request")
+	d.logger.Debug("GET /identity/endpoints request", slog.Any(logfields.Params, logfields.Repr(params)))
 
 	identities := d.idmgr.GetIdentityModels()
 

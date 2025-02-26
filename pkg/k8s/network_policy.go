@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -34,7 +35,7 @@ var (
 // the Cilium annotation, the policy's name field is used instead.
 func GetPolicyLabelsv1(np *slim_networkingv1.NetworkPolicy) labels.LabelArray {
 	if np == nil {
-		log.Warningf("unable to extract policy labels because provided NetworkPolicy is nil")
+		log.Warn("unable to extract policy labels because provided NetworkPolicy is nil")
 		return nil
 	}
 
@@ -138,7 +139,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
 				} else {
 					// No label-based selectors were in NetworkPolicyPeer.
-					log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
+					log.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", slog.Any(logfields.K8sNetworkPolicyName, np.Name))
 				}
 
 				// Parse CIDR-based parts of rule.
@@ -182,7 +183,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 					if endpointSelector != nil {
 						egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
 					} else {
-						log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
+						log.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", slog.Any(logfields.K8sNetworkPolicyName, np.Name))
 					}
 				}
 				if rule.IPBlock != nil {
@@ -214,7 +215,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
-	//spec:
+	// spec:
 	//  podSelector: {}
 	//  policyTypes:
 	//	  - Ingress
@@ -227,7 +228,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
-	//spec:
+	// spec:
 	//  podSelector: {}
 	//  policyTypes:
 	//	  - Egress

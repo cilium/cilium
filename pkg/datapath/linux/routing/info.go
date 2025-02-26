@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
@@ -20,6 +21,7 @@ import (
 // This struct is mostly derived from the `ipam.AllocationResult` as the
 // information comes from IPAM.
 type RoutingInfo struct {
+	logger logging.FieldLogger
 	// IPv4Gateway is the gateway where outbound/egress traffic is directed.
 	IPv4Gateway net.IP
 
@@ -53,11 +55,11 @@ func (info *RoutingInfo) GetIPv4CIDRs() []net.IPNet {
 // (on either ENI or Azure interface) is the only supported path currently.
 // Azure does not support masquerade yet (subnets CIDRs aren't provided):
 // until it does, we forward a masquerade bool to opt out ipam.Cidrs use.
-func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
-	return parse(gateway, cidrs, mac, ifaceNum, ipamMode, masquerade)
+func NewRoutingInfo(logger logging.FieldLogger, gateway string, cidrs []string, mac, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+	return parse(logger, gateway, cidrs, mac, ifaceNum, ipamMode, masquerade)
 }
 
-func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+func parse(logger logging.FieldLogger, gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
@@ -88,6 +90,7 @@ func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, m
 	}
 
 	return &RoutingInfo{
+		logger:          logger.With(subsysLogAttr),
 		IPv4Gateway:     ip,
 		IPv4CIDRs:       parsedCIDRs,
 		MasterIfMAC:     parsedMAC,

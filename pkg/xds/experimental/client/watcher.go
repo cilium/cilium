@@ -50,7 +50,7 @@ func (c *callbackManager) Add(typeUrl string, cb WatcherCallback) watcherHandle 
 	l := &watcher{
 		typeUrl:   typeUrl,
 		cb:        cb,
-		log:       c.log.With("listener-id", c.lastID),
+		log:       c.log.With(logfields.ListenerID, c.lastID),
 		resources: c.src,
 		trigger:   make(chan struct{}, 1),
 	}
@@ -95,8 +95,8 @@ var _ xds.ResourceVersionObserver = (*watcher)(nil)
 func (w *watcher) HandleNewResourceVersion(typeUrl string, _ uint64) {
 	if typeUrl != w.typeUrl {
 		w.log.Error("Called with wrong type URL",
-			"got", typeUrl,
-			"want", w.typeUrl)
+			logfields.Got, typeUrl,
+			logfields.Want, w.typeUrl)
 		return
 	}
 	select {

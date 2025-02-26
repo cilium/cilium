@@ -8,4 +8,4 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdn/namemanager")
+var log = logging.DefaultLogger.With(logfields.LogSubsys, "fqdn/namemanager")

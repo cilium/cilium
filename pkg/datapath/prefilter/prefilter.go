@@ -9,6 +9,7 @@ import (
 	"net"
 	"path"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -39,6 +40,7 @@ type preFilterMaps [mapCount]*cidrmap.CIDRMap
 
 // PreFilter holds global info on related CIDR maps participating in prefilter
 type PreFilter struct {
+	logger   logging.FieldLogger
 	maps     preFilterMaps
 	revision int64
 	mutex    lock.RWMutex
@@ -225,7 +227,7 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		path = bpf.MapPath(cidrmap.MapName + "v6_fix")
 	}
 
-	p.maps[which], err = cidrmap.OpenMapElems(path, prefixlen, prefixdyn, maxelems)
+	p.maps[which], err = cidrmap.OpenMapElems(p.logger, path, prefixlen, prefixdyn, maxelems)
 	if err != nil {
 		return err
 	}
@@ -242,8 +244,9 @@ func (p *PreFilter) init() error {
 }
 
 // newPreFilter returns prefilter handle
-func newPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
+func newPreFilter(logger logging.FieldLogger, config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
 	p := &PreFilter{
+		logger:   logger,
 		revision: 1,
 		enabled:  config.EnableXDPPrefilter,
 	}

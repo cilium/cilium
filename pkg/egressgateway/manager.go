@@ -8,14 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
@@ -41,7 +40,6 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
 	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
 	// map to indicate no gateway was found for the given policy
 	GatewayNotFoundIPv4 = netip.IPv4Unspecified()
@@ -93,6 +91,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
 type Manager struct {
+	logger logging.FieldLogger
+
 	lock.Mutex
 
 	// allCachesSynced is true when all k8s objects we depend on have had
@@ -150,6 +150,8 @@ type Manager struct {
 type Params struct {
 	cell.In
 
+	Logger logging.FieldLogger
+
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
 	IdentityAllocator identityCache.IdentityAllocator
@@ -203,6 +205,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
+		logger:                        p.Logger,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -219,8 +222,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		Name:        "egress_gateway_reconciliation",
 		MinInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		TriggerFunc: func(reasons []string) {
-			reason := strings.Join(reasons, ", ")
-			log.WithField(logfields.Reason, reason).Debug("reconciliation triggered")
+			manager.logger.Debug("reconciliation triggered", slog.Any(logfields.Reason, reasons))
 
 			manager.Lock()
 			defer manager.Unlock()
@@ -375,11 +377,14 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 // onAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
 func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
-	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, policy.Name)
 
 	config, err := ParseCEGP(policy)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to parse CiliumEgressGatewayPolicy")
+		manager.logger.Warn(
+			"Failed to parse CiliumEgressGatewayPolicy",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.CiliumEgressGatewayPolicyName, policy.Name),
+		)
 		return err
 	}
 
@@ -387,9 +392,15 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 	defer manager.Unlock()
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
-		logger.Debug("Added CiliumEgressGatewayPolicy")
+		manager.logger.Debug(
+			"Added CiliumEgressGatewayPolicy",
+			slog.String(logfields.CiliumEgressGatewayPolicyName, policy.Name),
+		)
 	} else {
-		logger.Debug("Updated CiliumEgressGatewayPolicy")
+		manager.logger.Debug(
+			"Updated CiliumEgressGatewayPolicy",
+			slog.String(logfields.CiliumEgressGatewayPolicyName, policy.Name),
+		)
 	}
 
 	config.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
@@ -409,13 +420,17 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, configID.Name)
-
 	if manager.policyConfigs[configID] == nil {
-		logger.Warn("Can't delete CiliumEgressGatewayPolicy: policy not found")
+		manager.logger.Warn(
+			"Can't delete CiliumEgressGatewayPolicy: policy not found",
+			slog.String(logfields.CiliumEgressGatewayPolicyName, policy.Name),
+		)
 	}
 
-	logger.Debug("Deleted CiliumEgressGatewayPolicy")
+	manager.logger.Debug(
+		"Deleted CiliumEgressGatewayPolicy",
+		slog.String(logfields.CiliumEgressGatewayPolicyName, policy.Name),
+	)
 
 	delete(manager.policyConfigs, configID)
 
@@ -431,33 +446,50 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: endpoint.Name,
-		logfields.K8sNamespace:    endpoint.Namespace,
-		logfields.K8sUID:          endpoint.UID,
-	})
+	logAttrs := []any{
+		slog.String(logfields.K8sEndpointName, endpoint.Name),
+		slog.String(logfields.K8sNamespace, endpoint.Namespace),
+		slog.Any(logfields.K8sUID, endpoint.UID),
+	}
 
 	if endpoint.Identity == nil {
-		logger.Warning("Endpoint is missing identity metadata, skipping update to egress policy.")
+		manager.logger.Warn(
+			"Endpoint is missing identity metadata, skipping update to egress policy.",
+			logAttrs...,
+		)
 		return nil
 	}
 
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		logger.WithError(err).
-			Warning("Failed to get identity labels for endpoint")
+		manager.logger.With(
+			slog.Any(logfields.Error, err),
+		).Warn(
+			"Failed to get identity labels for endpoint",
+			logAttrs...,
+		)
 		return err
 	}
 
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		logger.WithError(err).
-			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
+		manager.logger.With(
+			slog.Any(logfields.Error, err),
+		).Error(
+			"Failed to get valid endpoint metadata, skipping update to egress policy.",
+			logAttrs...,
+		)
 		return nil
 	}
 
 	if _, ok := manager.epDataStore[epData.id]; ok {
-		logger.Debug("Updated CiliumEndpoint")
+		manager.logger.Error(
+			"Updated CiliumEndpoint",
+			logAttrs...,
+		)
 	} else {
-		logger.Debug("Added CiliumEndpoint")
+		manager.logger.Error(
+			"Added CiliumEndpoint",
+			logAttrs...,
+		)
 	}
 
 	manager.epDataStore[epData.id] = epData
@@ -472,13 +504,12 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: endpoint.Name,
-		logfields.K8sNamespace:    endpoint.Namespace,
-		logfields.K8sUID:          endpoint.UID,
-	})
-
-	logger.Debug("Deleted CiliumEndpoint")
+	manager.logger.Debug(
+		"Deleted CiliumEndpoint",
+		slog.String(logfields.K8sEndpointName, endpoint.Name),
+		slog.String(logfields.K8sNamespace, endpoint.Namespace),
+		slog.Any(logfields.K8sUID, endpoint.UID),
+	)
 	delete(manager.epDataStore, endpoint.UID)
 
 	manager.setEventBitmap(eventDeleteEndpoint)
@@ -606,17 +637,22 @@ func (manager *Manager) updateEgressRules() {
 			return
 		}
 
-		logger := log.WithFields(logrus.Fields{
-			logfields.SourceIP:        endpointIP,
-			logfields.DestinationCIDR: dstCIDR.String(),
-			logfields.EgressIP:        gwc.egressIP,
-			logfields.GatewayIP:       gatewayIP,
-		})
-
 		if err := manager.policyMap.Update(endpointIP, dstCIDR, gwc.egressIP, gatewayIP); err != nil {
-			logger.WithError(err).Error("Error applying egress gateway policy")
+			manager.logger.Error(
+				"Error applying egress gateway policy",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.SourceIP, endpointIP),
+				slog.Any(logfields.DestinationCIDR, dstCIDR),
+				slog.Any(logfields.EgressIP, gwc.egressIP),
+				slog.Any(logfields.GatewayIP, gatewayIP),
+			)
 		} else {
-			logger.Debug("Egress gateway policy applied")
+			manager.logger.Debug("Egress gateway policy applied",
+				slog.Any(logfields.SourceIP, endpointIP),
+				slog.Any(logfields.DestinationCIDR, dstCIDR),
+				slog.Any(logfields.EgressIP, gwc.egressIP),
+				slog.Any(logfields.GatewayIP, gatewayIP),
+			)
 		}
 	}
 
@@ -626,15 +662,19 @@ func (manager *Manager) updateEgressRules() {
 
 	// Remove all the entries marked as stale.
 	for policyKey := range stale {
-		logger := log.WithFields(logrus.Fields{
-			logfields.SourceIP:        policyKey.GetSourceIP(),
-			logfields.DestinationCIDR: policyKey.GetDestCIDR().String(),
-		})
-
 		if err := manager.policyMap.Delete(policyKey.GetSourceIP(), policyKey.GetDestCIDR()); err != nil {
-			logger.WithError(err).Error("Error removing egress gateway policy")
+			manager.logger.Error(
+				"Error removing egress gateway policy",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.SourceIP, policyKey.GetSourceIP()),
+				slog.Any(logfields.DestinationCIDR, policyKey.GetDestCIDR()),
+			)
 		} else {
-			logger.Debug("Egress gateway policy removed")
+			manager.logger.Debug(
+				"Egress gateway policy removed",
+				slog.Any(logfields.SourceIP, policyKey.GetSourceIP()),
+				slog.Any(logfields.DestinationCIDR, policyKey.GetDestCIDR()),
+			)
 		}
 	}
 }
@@ -669,9 +709,12 @@ func (manager *Manager) reconcileLocked() {
 		// Therefore, for the sake of resiliency, it is acceptable for EGW to continue reconciling gatewayConfigs
 		// even if the rp_filter setting are failing.
 		if err := manager.relaxRPFilter(); err != nil {
-			log.WithError(err).Error("Error relaxing rp_filter for gateway interfaces. "+
-				"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. ",
-				"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ")
+			manager.logger.Error(
+				"Error relaxing rp_filter for gateway interfaces. "+
+					"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. ",
+				"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ",
+				slog.Any(logfields.Error, err),
+			)
 		}
 	}
 

@@ -6,12 +6,10 @@ package test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -31,21 +29,14 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
 	// log is used in the test as well as passed to gobgp instances.
-	log = &logrus.Logger{
-		Out:   os.Stdout,
-		Hooks: make(logrus.LevelHooks),
-		Formatter: &logrus.TextFormatter{
-			DisableTimestamp: false,
-			DisableColors:    false,
-		},
-		Level: logrus.DebugLevel,
-	}
+	log = logging.DefaultLogger
 )
 
 // cilium BGP config

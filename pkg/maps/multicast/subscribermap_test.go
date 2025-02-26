@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -21,10 +22,10 @@ const (
 func TestSubscriberMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logging.DefaultLogger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
-	groupMapEBPF := NewGroupV4OuterMap(TestGroupV4OuterMapName)
+	groupMapEBPF := NewGroupV4OuterMap(nil, TestGroupV4OuterMapName)
 	err := groupMapEBPF.OpenOrCreate()
 	groupMapEBPF.Unpin()
 	assert.NoError(t, err)

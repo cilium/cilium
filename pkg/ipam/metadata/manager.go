@@ -5,6 +5,7 @@ package metadata
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -20,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-metadata-manager")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-metadata-manager"))
 
 type ManagerStoppedError struct{}
 
@@ -122,8 +123,10 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 
 	namespace, name, ok := splitK8sPodName(owner)
 	if !ok {
-		log.WithField("owner", owner).
-			Debug("IPAM metadata request for invalid pod name, falling back to default pool")
+		log.Debug(
+			"IPAM metadata request for invalid pod name, falling back to default pool",
+			slog.Any("owner", owner),
+		)
 		return ipam.PoolDefault().String(), nil
 	}
 

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/rate"
 )
 
@@ -256,7 +257,7 @@ func (t TestAllocatorKey) Value(any) any {
 func TestSelectID(t *testing.T) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
-	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID))
+	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
@@ -281,7 +282,7 @@ func TestSelectID(t *testing.T) {
 func TestPrefixMask(t *testing.T) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
-	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16))
+	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
@@ -299,7 +300,7 @@ func TestPrefixMask(t *testing.T) {
 
 func testAllocator(t *testing.T, maxID idpool.ID) {
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC(), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, allocator)
 
@@ -344,7 +345,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	}
 
 	// Create a 2nd allocator, refill it
-	allocator2, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
+	allocator2, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC(), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, allocator2)
 
@@ -406,7 +407,7 @@ func TestAllocateCached(t *testing.T) {
 
 func TestObserveAllocatorChanges(t *testing.T) {
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(idpool.ID(1)), WithMax(idpool.ID(256)), WithoutGC())
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(idpool.ID(1)), WithMax(idpool.ID(256)), WithoutGC(), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, allocator)
 
@@ -469,7 +470,7 @@ func TestHandleK8sDelete(t *testing.T) {
 	masterKeyRecreateMaxInterval = time.Millisecond
 	backend := newDummyBackend()
 
-	alloc, err := NewAllocator(TestAllocatorKey(""), backend)
+	alloc, err := NewAllocator(TestAllocatorKey(""), backend, WithLogger(logging.DefaultLogger))
 	alloc.idPool = idpool.NewIDPool(1234, 1234)
 	alloc.enableMasterKeyProtection = true
 	require.NoError(t, err)
@@ -553,7 +554,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	defer stop(cancel)
 
 	newRemoteAllocator := func(backend Backend) *Allocator {
-		remote, err := NewAllocator(TestAllocatorKey(""), backend, WithEvents(events), WithoutAutostart(), WithoutGC())
+		remote, err := NewAllocator(TestAllocatorKey(""), backend, WithEvents(events), WithoutAutostart(), WithoutGC(), WithLogger(logging.DefaultLogger))
 		require.NoError(t, err)
 
 		return remote
@@ -675,6 +676,7 @@ func TestCacheValidators(t *testing.T) {
 			}
 			return nil
 		}),
+		WithLogger(logging.DefaultLogger),
 	)
 	require.NoError(t, err)
 	allocator.mainCache.OnListDone()
@@ -707,7 +709,7 @@ func TestCacheValidators(t *testing.T) {
 func TestSyncLocalKeys(t *testing.T) {
 	numIDs := idpool.ID(3)
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(numIDs))
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(numIDs), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, allocator)
 
@@ -729,7 +731,7 @@ func TestSyncLocalKeys(t *testing.T) {
 
 	allocator.syncLocalKeys()
 
-	/// Release the use one id/delete the slave key
+	// / Release the use one id/delete the slave key
 	key, err := backend.GetByID(context.TODO(), ids[0])
 	require.NoError(t, err)
 	err = backend.Release(context.TODO(), ids[0], key)
@@ -769,7 +771,7 @@ func TestSyncLocalKeys(t *testing.T) {
 func TestSyncLocalKeysWithIdentityAllocations(t *testing.T) {
 	numIDs := idpool.ID(500)
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(100*numIDs))
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(100*numIDs), WithLogger(logging.DefaultLogger))
 	require.NoError(t, err)
 	require.NotNil(t, allocator)
 

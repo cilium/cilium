@@ -4,12 +4,13 @@
 package eni
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni")
+	subsysLogAttr = slog.String(logfields.LogSubsys, "eni")
 )
 
 const (

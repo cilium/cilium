@@ -6,13 +6,13 @@ package cmd
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -65,7 +65,7 @@ func migrateIdentityCmd() *cobra.Command {
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
-			log.Fatal(err)
+			logging.Fatal(log, err.Error())
 		}
 	}
 
@@ -113,7 +113,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 	listCtx, listCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreIDs, err := getKVStoreIdentities(listCtx, kvstoreBackend)
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
+		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", slog.Any(logfields.Error, err))
 	}
 	listCancel()
 
@@ -121,10 +121,10 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 	alreadyAllocatedKeys := make(map[idpool.ID]allocator.AllocatorKey) // IDs that are already allocated, maybe with different labels
 
 	for id, key := range kvstoreIDs {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Identity:       id,
-			logfields.IdentityLabels: key.GetKey(),
-		})
+		log := log.With(
+			slog.Any(logfields.Identity, id),
+			slog.String(logfields.IdentityLabels, key.GetKey()),
+		)
 
 		ctx, cancel := context.WithTimeout(ctx, opTimeout)
 		_, err := crdBackend.AllocateID(ctx, id, key)
@@ -133,10 +133,16 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 			alreadyAllocatedKeys[id] = key
 
 		case err != nil:
-			scopedLog.WithField(logfields.Key, key).WithError(err).Error("Cannot allocate CRD ID. This key will be allocated with a new numeric identity")
+			log.Error(
+				"Cannot allocate CRD ID. This key will be allocated with a new numeric identity",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Key, key),
+			)
 
 		default:
-			scopedLog.Info("Migrated identity")
+			log.Info(
+				"Migrated identity",
+			)
 		}
 		cancel()
 	}
@@ -146,18 +152,21 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 	// 2- The same ID but with different labels. This is not ideal. A new ID is
 	// allocated as a fallback.
 	for id, key := range alreadyAllocatedKeys {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Identity:       id,
-			logfields.IdentityLabels: key.GetKey(),
-		})
+		localLog := log.With(
+			slog.Any(logfields.Identity, id),
+			slog.String(logfields.IdentityLabels, key.GetKey()),
+		)
 
 		getCtx, getCancel := context.WithTimeout(ctx, opTimeout)
 		upstreamKey, err := crdBackend.GetByID(getCtx, id)
 		getCancel()
-		scopedLog.Debugf("Looking at upstream key with this ID: %+v", upstreamKey)
+		localLog.Debug(
+			"Looking at upstream key",
+			slog.Any("ID", upstreamKey),
+		)
 		switch {
 		case err != nil:
-			log.WithError(err).Error("ID already allocated but we cannot verify whether it is the same key. It may not be migrated")
+			localLog.Error("ID already allocated but we cannot verify whether it is the same key. It may not be migrated", slog.Any(logfields.Error, err))
 			continue
 
 		// nil returns mean the key doesn't exist. This shouldn't happen, but treat
@@ -167,33 +176,38 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 			// fallthrough
 
 		case key.GetKey() == upstreamKey.GetKey():
-			scopedLog.Info("ID was already allocated to this key. It is already migrated")
+			localLog.Info("ID was already allocated to this key. It is already migrated")
 			continue
 		}
 
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.OldIdentity:    id,
-			logfields.IdentityLabels: key.GetKey(),
-		})
-		scopedLog.Warn("ID is allocated to a different key in CRD. A new ID will be allocated for the this key")
+		localLog = log.With(
+			slog.Any(logfields.OldIdentity, id),
+			slog.String(logfields.IdentityLabels, key.GetKey()),
+		)
+		localLog.Warn("ID is allocated to a different key in CRD. A new ID will be allocated for the this key")
 
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		newID, actuallyAllocated, _, err := crdAllocator.Allocate(ctx, key)
 		switch {
 		case err != nil:
-			log.WithError(err).Errorf("Cannot allocate new CRD ID for %v", key)
+			localLog.Error(
+				"Cannot allocate CRD ID",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.Key, key),
+			)
 			continue
 
 		case !actuallyAllocated:
-			scopedLog.Debug("Expected to allocate ID but this ID->key mapping re-existed")
+			localLog.Debug("Expected to allocate ID but this ID->key mapping re-existed")
 		}
 
-		log.WithFields(logrus.Fields{
-			logfields.OldIdentity:    id,
-			logfields.Identity:       newID,
-			logfields.IdentityLabels: key.GetKey(),
-		}).Info("New ID allocated for key in CRD")
+		localLog.Info(
+			"New ID allocated for key in CRD",
+			slog.Any(logfields.OldIdentity, id),
+			slog.Any(logfields.Identity, newID),
+			slog.String(logfields.IdentityLabels, key.GetKey()),
+		)
 	}
 	return nil
 }
@@ -214,7 +228,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 		KeyFunc:  (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Cannot create CRD identity backend")
+		logging.Fatal(log, "Cannot create CRD identity backend", slog.Any(logfields.Error, err))
 	}
 
 	// Create a real allocator with CRD as the backend. This mimics the setup in
@@ -225,14 +239,16 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
 	crdAllocator, err = allocator.NewAllocator(&cacheKey.GlobalIdentity{}, crdBackend,
-		allocator.WithMax(maxID), allocator.WithMin(minID))
+		allocator.WithMax(maxID), allocator.WithMin(minID),
+		allocator.WithLogger(logging.DefaultLogger),
+	)
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
+		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", slog.Any(logfields.Error, err))
 	}
 
 	// Wait for the initial sync to complete
 	if err := crdAllocator.WaitForInitialSync(ctx); err != nil {
-		log.WithError(err).Fatal("Error waiting for k8s identity allocator to sync. No identities have been migrated.")
+		logging.Fatal(log, "Error waiting for k8s identity allocator to sync. No identities have been migrated.", slog.Any(logfields.Error, err))
 	}
 
 	return crdBackend, crdAllocator
@@ -245,13 +261,13 @@ func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	setupKvstore(ctx)
 
 	if err := <-kvstore.Client().Connected(wctx); err != nil {
-		log.WithError(err).Fatal("Cannot connect to the kvstore")
+		logging.Fatal(log, "Cannot connect to the kvstore", slog.Any(logfields.Error, err))
 	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
 	if err != nil {
-		log.WithError(err).Fatal("Cannot create kvstore identity backend")
+		logging.Fatal(log, "Cannot create kvstore identity backend", slog.Any(logfields.Error, err))
 	}
 
 	return kvstoreBackend
@@ -274,7 +290,11 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 		defer wg.Done()
 		kvstoreBackend.ListAndWatch(cctx, kvstoreListHandler{
 			onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
-				log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
+				log.Debug(
+					"kvstore listed ID",
+					slog.Any(logfields.Identity, id),
+					slog.Any(logfields.Key, key),
+				)
 				identities[id] = key
 			},
 			onListDone: func() {
