@@ -358,6 +358,35 @@ jobs:
           # TODO: After Cilium 1.15 release, update to cilium-dbg
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
+      # Due to race condition after no-interrupted-connections in bpf map entries with
+      # some lingering packets on the fly, we split the checks as follows:
+      # 1. start 1st leak detection
+      # 2.  start conn-disrupt-pods
+      # 3.   cilium upgrade
+      # 4.  check 1st leak detection
+      # 5. check conn-disrupt
+      # 6. start 2nd leak detection
+      # 7.  check other conn test
+      # 8. check 2nd leak detection
+      - name: Prepare the bpftrace parameters
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        id: bpftrace-params
+        run: |
+          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+
+      - name: Start unencrypted packets check for Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          # As we are not testing with proxy connections during upgrades/downgrades,
+          # disable the check for proxy traffic.
+          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+
       - name: Setup conn-disrupt-test before upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
@@ -374,12 +403,47 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Run tests after upgrading (${{ matrix.name }})
+      - name: Assert that no unencrypted packets are leaked during Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Run Conn Disrupt tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
-          full-test: 'true'
+          full-test: 'false'
+
+      - name: Start unencrypted packets check after Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+
+      - name: Run Other Conn tests after upgrading (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        run: |
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-other-conn-test-${{ inputs.job-name }}-<ts>" \
+            --junit-file "cilium-junits/other-conn-test-${{ inputs.job-name }}.xml" \
+            --junit-property github_job_step="Run other conn tests (${{ inputs.job-name }})" \
+            --expected-xfrm-errors "+inbound_no_state"
+
+      - name: Assert that no unencrypted packets are leaked after Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Start unencrypted packets check for Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          # As we are not testing with proxy connections during upgrades/downgrades,
+          # disable the check for proxy traffic.
+          args: ${{ steps.bpftrace-params.outputs.params }} "false"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -406,12 +470,38 @@ jobs:
           # TODO: After Cilium 1.15 release, update to cilium-dbg
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
+      - name: Assert that no unencrypted packets are leaked during Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
+
       - name: Check conn-disrupt-test after downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
-          full-test: 'true'
+          full-test: 'false'
+
+      - name: Start unencrypted packets check after Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+
+      - name: Run Other Conn tests after downgrading (${{ join(matrix.*, ', ') }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        run: |
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --flush-ct \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-other-conn-test-${{ inputs.job-name }}-<ts>" \
+            --junit-file "cilium-junits/other-conn-test-${{ inputs.job-name }}.xml" \
+            --junit-property github_job_step="Run other conn tests (${{ inputs.job-name }})" \
+            --expected-xfrm-errors "+inbound_no_state"
+
+      - name: Assert that no unencrypted packets are leaked after Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
