@@ -341,6 +341,8 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = mapState{}
 	expectedEndpointPolicy.policyMapState = mapState{}
+	// reset cached envoy http rules to avoid unnecessary diff
+	resetCachedEnvoyHTTPRules(policy)
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -456,7 +458,23 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = mapState{}
 	expectedEndpointPolicy.policyMapState = mapState{}
+	// reset cached envoy http rules to avoid unnecessary diff
+	resetCachedEnvoyHTTPRules(policy)
 	require.Equal(t, &expectedEndpointPolicy, policy)
+}
+
+func resetCachedEnvoyHTTPRules(policy *EndpointPolicy) {
+	resetEnvoyHTTPRules := func(l4 *L4Filter) bool {
+		for _, pol := range l4.PerSelectorPolicies {
+			if pol != nil {
+				pol.EnvoyHTTPRules = nil
+			}
+		}
+		return true
+	}
+
+	policy.L4Policy.Ingress.PortRules.ForEach(resetEnvoyHTTPRules)
+	policy.L4Policy.Egress.PortRules.ForEach(resetEnvoyHTTPRules)
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
