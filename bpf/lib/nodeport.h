@@ -125,9 +125,9 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			return ret;
 	}
 
-	return __encap_with_nodeid_opt(ctx, src_ip, src_port, dst_ip,
-				       src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
-				       opt, opt_len, ct_reason, monitor, ifindex);
+	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, dst_ip,
+					src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
+					opt, opt_len, ct_reason, monitor, ifindex);
 }
 # endif
 #endif /* HAVE_ENCAP */
