@@ -109,6 +109,13 @@ func (p pendingAllocationsPerPool) upsertPendingAllocation(poolName Pool, owner 
 // markAsAllocated marks a pending allocation as fulfilled. This means that the owner
 // has now been assigned an IP from the given IP family
 func (p pendingAllocationsPerPool) markAsAllocated(poolName Pool, owner string, family Family) {
+	p.logger.Debug(
+		"Marking pending allocation as allocated",
+		logfields.Owner, owner,
+		logfields.Family, family,
+		logfields.PoolName, poolName,
+	)
+
 	pool, ok := p.pools[poolName]
 	if !ok {
 		return
