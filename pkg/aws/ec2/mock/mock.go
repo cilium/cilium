@@ -11,7 +11,6 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -243,7 +242,6 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
-	log.Debugf(" ENI after initial creation %v", eni)
 	return eniID, eni.DeepCopy(), nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +65,7 @@ type mockResult struct {
 }
 
 func TestNodeHandler(t *testing.T) {
-	backend := NewPoolAllocator()
+	backend := NewPoolAllocator(hivetest.Logger(t))
 	err := backend.addPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
 
@@ -93,7 +94,7 @@ func TestNodeHandler(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler(backend, nodeUpdater)
+	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
