@@ -581,13 +581,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				return fmt.Errorf("IPv6 direct routing device not found")
 			}
 
-			var ip net.IP
-			for _, addr := range drd.Addrs {
-				if addr.Addr.Is6() {
-					ip = addr.AsIP()
-					break
-				}
-			}
+			ip := preferredIPv6Address(drd.Addrs)
 			if ip.IsUnspecified() {
 				return fmt.Errorf("IPv6 direct routing device IP not found")
 			}
@@ -1062,4 +1056,17 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
+}
+
+func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) net.IP {
+	var ip net.IP
+	for _, addr := range deviceAddresses {
+		if addr.Addr.Is6() {
+			ip = addr.AsIP()
+			if !ip.IsLinkLocalUnicast() {
+				break
+			}
+		}
+	}
+	return ip
 }
