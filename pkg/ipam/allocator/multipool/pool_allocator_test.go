@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,7 +17,7 @@ import (
 )
 
 func TestPoolAllocator(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(hivetest.Logger(t))
 	err := p.UpsertPool("default",
 		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
@@ -232,7 +233,7 @@ func TestPoolAllocator(t *testing.T) {
 }
 
 func TestPoolAllocator_PoolErrors(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(hivetest.Logger(t))
 	p.RestoreFinished()
 
 	node := &v2.CiliumNode{
@@ -350,7 +351,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 }
 
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
-	p := NewPoolAllocator()
+	p := NewPoolAllocator(hivetest.Logger(t))
 
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)

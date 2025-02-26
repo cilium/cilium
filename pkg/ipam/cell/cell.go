@@ -4,6 +4,8 @@
 package ipamcell
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
@@ -37,6 +39,8 @@ var Cell = cell.Module(
 type ipamParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	AgentConfig *option.DaemonConfig
 
 	NodeAddressing      datapathTypes.NodeAddressing
@@ -51,7 +55,7 @@ type ipamParams struct {
 }
 
 func newIPAddressManager(params ipamParams) *ipam.IPAM {
-	return ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
+	return ipam.NewIPAM(params.Logger, params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
 }
 
 type ipamAPIHandlerParams struct {

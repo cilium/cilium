@@ -6,6 +6,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -20,21 +21,22 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-aws")
+var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-aws"}
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
-	client    *ec2shim.Client
-	eniGCTags map[string]string
+	rootLogger *slog.Logger
+	logger     *slog.Logger
+	client     *ec2shim.Client
+	eniGCTags  map[string]string
 }
 
-func initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags map[string]string) {
+func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags map[string]string) {
 	// Use user-provided tags if available
 	if len(operatorOption.Config.ENIGarbageCollectionTags) != 0 {
 		return operatorOption.Config.ENIGarbageCollectionTags
@@ -54,22 +56,26 @@ func initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags 
 	// Try to auto-detect EKS cluster name
 	clusterName, err := ec2shim.DetectEKSClusterName(ctx, cfg)
 	if err != nil {
-		log.WithError(err).Debug("Auto-detection of EKS cluster name failed")
+		a.logger.Debug("Auto-detection of EKS cluster name failed", logfields.Error, err)
 	} else {
-		log.WithField(logfields.ClusterName, clusterName).
-			Info("Auto-detected EKS cluster name for ENI garbage collection")
+		a.logger.Info(
+			"Auto-detected EKS cluster name for ENI garbage collection",
+			logfields.ClusterName, clusterName,
+		)
 		eniTags[defaults.ENIGarbageCollectionTagClusterName] = clusterName
 		return eniTags
 	}
 
-	log.Info("Unable to detect EKS cluster name for ENI garbage collection. " +
+	a.logger.Info("Unable to detect EKS cluster name for ENI garbage collection. " +
 		"This operator instance may clean up dangling ENIs from other Cilium clusters. " +
 		"Set a --cluster-name or cluster-specific --eni-gc-tags to prevent this.")
 	return eniTags
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init(ctx context.Context) error {
+func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger) error {
+	a.rootLogger = logger
+	a.logger = logger.With(subsysLogAttr...)
 	var aMetrics ec2shim.MetricsAPI
 
 	cfg, err := ec2shim.NewConfig(ctx)
@@ -87,20 +93,24 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 
 	eniCreationTags := operatorOption.Config.ENITags
 	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
-		a.eniGCTags = initENIGarbageCollectionTags(ctx, cfg)
+		a.eniGCTags = a.initENIGarbageCollectionTags(ctx, cfg)
 		// Make sure GC tags are also used for ENI creation
 		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
 	optionsFunc := func(options *ec2.Options) {}
 	if ec2APIEndpoint := operatorOption.Config.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
-		log.Debugf("Using custom API endpoint %s for service %s", ec2APIEndpoint, ec2.ServiceID)
+		a.logger.Debug(
+			"Using custom API endpoint for service",
+			logfields.Endpoint, ec2APIEndpoint,
+			logfields.Service, ec2.ServiceID,
+		)
 		optionsFunc = func(options *ec2.Options) {
 			options.BaseEndpoint = aws.String("https://" + ec2APIEndpoint)
 		}
 	}
 
-	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
+	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		operatorOption.Config.AWSUsePrimaryAddress)
 
@@ -121,15 +131,15 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 	var iMetrics ipam.MetricsAPI
 
-	log.Info("Starting ENI allocator...")
+	a.logger.Info("Starting ENI allocator...")
 
 	if operatorOption.Config.EnableMetrics {
 		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, operatorMetrics.Registry)
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	instances := eni.NewInstancesManager(a.client)
-	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
+	instances := eni.NewInstancesManager(a.rootLogger, a.client)
+	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
 		operatorOption.Config.AWSEnablePrefixDelegation)
 	if err != nil {
@@ -141,7 +151,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	}
 
 	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
-		eni.StartENIGarbageCollector(ctx, a.client, eni.GarbageCollectionParams{
+		eni.StartENIGarbageCollector(ctx, a.rootLogger, a.client, eni.GarbageCollectionParams{
 			RunInterval:    operatorOption.Config.ENIGarbageCollectionInterval,
 			MaxPerInterval: defaults.ENIGarbageCollectionMaxPerInterval,
 			ENITags:        a.eniGCTags,
