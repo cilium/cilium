@@ -299,7 +299,7 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 			return
 		}
 
-		assert.Equal(ct, healthTypes.Level(healthTypes.LevelOK), o.Level)
+		assert.Equal(ct, healthTypes.Level(healthTypes.LevelStopped), o.Level)
 		assert.Equal(ct, "Cleanup job is done successfully", o.Message)
 	}, time.Second*3, time.Millisecond*100)
 }
