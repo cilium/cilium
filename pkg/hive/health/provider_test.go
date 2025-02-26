@@ -66,6 +66,7 @@ func TestProvider(t *testing.T) {
 			for _, s := range all {
 				if s.ID.String() == "foo.bar.zzz.xxx" {
 					assert.NotZero(s.Stopped)
+					assert.EqualValues(types.LevelStopped, s.Level)
 					continue
 				}
 				assert.Zero(s.Stopped)
