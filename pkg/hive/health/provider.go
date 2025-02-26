@@ -139,6 +139,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			if !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", i)
 			}
+			old.Level = types.LevelStopped
 			old.Stopped = time.Now()
 			if _, _, err := p.statusTable.Insert(tx, old); err != nil {
 				return fmt.Errorf("stopping reporter - upsert status %s: %w", old, err)
