@@ -4,6 +4,10 @@ metadata:
   name: {{.Name}}
   labels:
     app.kubernetes.io/instance: synthetic
+    # Ensure that at most 50 nodes get selected by any policy.
+    {{ if lt .Index (MultiplyInt .NumSyntheticCEGPs 50) }}
+    app.kubernetes.io/component: synthetic-{{Mod .Index .NumSyntheticCEGPs}}
+    {{ end }}
   annotations:
     cilium.io/do-not-gc: "true"
     ipam.cilium.io/ignore: "true"
