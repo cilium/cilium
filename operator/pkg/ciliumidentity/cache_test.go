@@ -18,7 +18,6 @@ import (
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -35,7 +34,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCIDState(t *testing.T) {
-	logger := slog.New(logging.SlogNopHandler)
+	logger := slog.New(slog.DiscardHandler)
 	// The subtests below share the same state to serially test insert, lookup and
 	// remove operations of CIDState.
 	state := NewCIDState(logger)
@@ -144,7 +143,7 @@ func TestCIDState(t *testing.T) {
 }
 
 func TestCIDStateThreadSafety(t *testing.T) {
-	logger := slog.New(logging.SlogNopHandler)
+	logger := slog.New(slog.DiscardHandler)
 
 	// This test ensures that no changes to the CID state break its thread safety.
 	// Multiple go routines in parallel continuously keep using CIDState.
