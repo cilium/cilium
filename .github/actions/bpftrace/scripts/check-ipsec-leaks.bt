@@ -260,7 +260,7 @@ kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
-  if ($sk->__sk_common.skc_num == PORT_DNS) {
+  if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
     @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_DNS_IP6] = true;
