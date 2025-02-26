@@ -250,8 +250,8 @@ const (
 	// CIDR is a IPv4/IPv6 subnet/CIDR
 	CIDR = "cidr"
 
-	// CIDRS is a list of IPv4/IPv6 CIDRs
-	CIDRS = "cidrs"
+	// CIDRs is a list of IPv4/IPv6 CIDRs
+	CIDRs = "cidrs"
 
 	// OldCIDR is the previous subnet/CIDR
 	OldCIDR = "oldCIDR"
@@ -1138,4 +1138,130 @@ const (
 	Taint = "taint"
 
 	Pod = "pod"
+
+	Allocated = "allocated"
+
+	IPv4Limit = "ipv4Limit"
+
+	AvailableOnENI = "availableOnENI"
+
+	VSwitchID = "vSwitchID"
+
+	AvailableAddresses = "availableAddresses"
+
+	NumAddresses = "numAddresses"
+
+	NumVPCs = "numVPCs"
+
+	NumVSwitches = "numVSwitches"
+
+	NumSecurityGroups = "numSecurityGroups"
+
+	NumInstances = "numInstances"
+
+	ExcessIPs = "excessIPs"
+
+	FreeOnENICount = "freeOnENICount"
+
+	InstanceID = "instanceID"
+
+	VPCID = "vpcID"
+
+	Tags = "tags"
+
+	SecurityGroupIDs = "securityGroupIDs"
+
+	ToAllocate = "toAllocate"
+
+	SubscriptionID = "subscriptionID"
+
+	IPv4MaskSize = "ipv4MaskSize"
+
+	IPv6MaskSize = "ipv6MaskSize"
+
+	TargetNode = "targetNode"
+
+	SourcePool = "sourcePool"
+
+	Owner = "owner"
+
+	UUID = "uuid"
+
+	Available = "available"
+
+	Required = "required"
+
+	VPCCIDR = "vpcCIDR"
+
+	Capacity = "capacity"
+
+	Used = "used"
+
+	ToRelease = "toRelease"
+
+	WaitingForPoolMaintenance = "waitingForPoolMaintenance"
+
+	ResyncNeeded = "resyncNeeded"
+
+	RemainingInterfaces = "remainingInterfaces"
+
+	SelectedInterface = "selectedInterface"
+
+	SelectedPoolID = "selectedPoolID"
+
+	MaxIPsToAllocate = "maxIPsToAllocate"
+
+	AvailableForAllocation = "availableForAllocation"
+
+	EmptyInterfaceSlots = "emptyInterfaceSlots"
+
+	NeededIPs = "neededIPs"
+
+	Releasing = "releasing"
+
+	Excess = "excess"
+
+	ReleasingAddresses = "releasingAddresses"
+
+	IPsToAllocate = "ipsToAllocate"
+
+	PoolSize = "poolSize"
+
+	ENI = "eni"
+
+	PrefixCount = "prefixCount"
+
+	LenEIPS = "lenEIPS"
+
+	EIP = "eip"
+
+	AssociationID = "associationID"
+
+	NumInterfaces = "numInterfaces"
+
+	NumSubnets = "numSubnets"
+
+	NeedIndex = "needIndex"
+
+	AddressLimit = "addressLimit"
+
+	SubnetID = "subnetID"
+
+	Addresses = "addresses"
+
+	IsPrefixDelegated = "isPrefixDelegated"
+
+	AttachmentID = "attachmentID"
+
+	FirstInterfaceIndex = "firstInterfaceIndex"
+
+	AdaptersLimit = "adaptersLimit"
+
+	PreAllocate = "preAllocate"
+
+	InstanceType = "instanceType"
+
+	NumVirtualNetworks = "numVirtualNetworks"
+
+	CanAllocatePodCIDRs = "canAllocatePodCIDRs"
 )

@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -44,7 +45,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	ipamNode.SetPoolMaintainer(&mockMaintainer{})
 	n.node = ipamNode
 
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
 	assert.NoError(err)
 	// m5a.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
@@ -52,7 +53,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	cn.Spec.ENI.UsePrimaryAddress = new(bool)
 	*cn.Spec.ENI.UsePrimaryAddress = true
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
 	assert.NoError(err)
 	// In this case, we disable using allocated primary IP,
 	// so we should be able to allocate 10*3=30 IPs.
@@ -60,7 +61,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	ipamNode.prefixDelegation = true
 	// Note: m5a.large is a nitro instance, so it supports prefix delegation.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
 	assert.NoError(err)
 	// m5a.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
@@ -71,7 +72,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Lets turn off UsePrimaryAddress.
 	*cn.Spec.ENI.UsePrimaryAddress = false
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
 	assert.NoError(err)
 	// In this case, we have prefix delegation enabled.
 	// Thus we have 16 addr * 9 addr * 3 ENIs = 432 IPs.
@@ -93,7 +94,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	// Finally, we have the case where an eni has a leftover prefix available.
 	// Thus, we add an additional 16 IPs to the capacity.
-	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
 	assert.NoError(err)
 	assert.Equal(27+16-1, stats.NodeCapacity)
 }

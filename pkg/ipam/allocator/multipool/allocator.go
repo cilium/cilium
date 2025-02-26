@@ -5,30 +5,30 @@ package multipool
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-multi-pool")
+var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-multi-pool"}
 
 // Allocator implements allocator.AllocatorProvider
 type Allocator struct {
 	poolAlloc *PoolAllocator
+	logger    *slog.Logger
 }
 
-func (a *Allocator) Init(ctx context.Context) error {
-	a.poolAlloc = NewPoolAllocator()
+func (a *Allocator) Init(ctx context.Context, logger *slog.Logger) error {
+	a.poolAlloc = NewPoolAllocator(logger)
+	a.logger = logger.With(subsysLogAttr...)
 	return nil
 }
 
 func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	return NewNodeHandler(a.poolAlloc, getterUpdater), nil
+	return NewNodeHandler(a.logger, a.poolAlloc, getterUpdater), nil
 }
 
 func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
@@ -51,13 +51,14 @@ func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.Cilium
 		}
 	}
 
-	log.WithFields(logrus.Fields{
-		"pool-name":      pool.Name,
-		"ipv4-cidrs":     ipv4CIDRs,
-		"ipv4-mask-size": ipv4MaskSize,
-		"ipv6-cidrs":     ipv6CIDRs,
-		"ipv6-mask-size": ipv6MaskSize,
-	}).Debug("upserting pool")
+	a.logger.Debug(
+		"upserting pool",
+		logfields.PoolName, pool.Name,
+		logfields.IPv4CIDRs, ipv4CIDRs,
+		logfields.IPv4MaskSize, ipv4MaskSize,
+		logfields.IPv6CIDRs, ipv6CIDRs,
+		logfields.IPv6MaskSize, ipv6MaskSize,
+	)
 
 	return a.poolAlloc.UpsertPool(
 		pool.Name,
@@ -69,9 +70,10 @@ func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.Cilium
 }
 
 func (a *Allocator) DeletePool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
-	log.WithFields(logrus.Fields{
-		"pool-name": pool.Name,
-	}).Debug("deleting pool")
+	a.logger.Debug(
+		"deleting pool",
+		logfields.PoolName, pool.Name,
+	)
 
 	return a.poolAlloc.DeletePool(pool.Name)
 }
