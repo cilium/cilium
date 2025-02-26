@@ -686,7 +686,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Start conn-disrupt-test
@@ -756,7 +756,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
@@ -800,7 +800,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
 
@@ -837,7 +837,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
