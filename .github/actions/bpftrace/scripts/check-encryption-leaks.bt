@@ -19,11 +19,14 @@
 #define CIDR6       (uint32)(pton(NODE1_INTERNAL_IPV6)[0]) << 8   // ex. 0xfd00 (fd00::/8)
 #define ENABLE_IPV6 NODE1_INTERNAL_IPV6 != "::1"
 
-#define PROTO_IPV4 0x0800
-#define PROTO_IPV6 0x86DD
-#define PROTO_TCP  6
-#define PROTO_UDP  17
-#define PROTO_ESP  50
+#define PROTO_IPV4     0x0800
+#define PROTO_IPV6     0x86DD
+#define PROTO_ICMPV4   1
+#define PROTO_ICMPV6   58
+#define PROTO_FRAGMENT 44
+#define PROTO_TCP      6
+#define PROTO_UDP      17
+#define PROTO_ESP      50
 
 #define AF_INET	 2
 #define AF_INET6 10
@@ -40,8 +43,10 @@
 // https://github.com/bpftrace/bpftrace/issues/3278
 #define CH_A   0x41 // 'A'
 #define CH_C   0x43 // 'C'
+#define CH_D   0x44 // 'D'
 #define CH_E   0x45 // 'E'
 #define CH_F   0x46 // 'F'
+#define CH_M   0x4D // 'M'
 #define CH_P   0x50 // 'P'
 #define CH_R   0x52 // 'R'
 #define CH_S   0x53 // 'S'
@@ -75,6 +80,7 @@ kprobe:br_forward
   $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
+  $icmph = ((struct icmphdr*) ($skb->head + $skb->transport_header));
 
   if ($skb->encapsulation) {
     // $skb->inner_protocol does not appear to be correctly initialized
@@ -83,6 +89,7 @@ kprobe:br_forward
     $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
+    $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
 
     if ($proto == PROTO_IPV4) {
       $pod_to_pod_via_proxy =
@@ -143,6 +150,18 @@ kprobe:br_forward
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy);
 
+          if ($ip4h->protocol == PROTO_ICMPV4) {
+            $frag_off = bswap($ip4h->frag_off);
+
+            printf("[%s] [%p] ↳ Detected ICMP message, Type: %3u, Code: %3u, Flags: .%c%c, FragOff: %5d, FragID: %5d\n",
+              $time, $skb,
+              $icmph->type, $icmph->code,
+              ($frag_off & 0x4000) >> 14 ? CH_D : CH_DOT,
+              ($frag_off & 0x2000) >> 13 ? CH_M : CH_DOT,
+              $frag_off & 0x1FFF,
+              bswap($ip4h->id));
+          }
+
           if ($ip4h->protocol == PROTO_TCP) {
             printf("[%s] [%p] ↳ Detected TCP message, Flags: %c%c%c%c%c%c%c%c, Seq: %10u, Ack: %10u\n",
               $time, $skb,
@@ -194,6 +213,24 @@ kprobe:br_forward
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy);
+
+          if ($ip6h->nexthdr == PROTO_FRAGMENT || $ip6h->nexthdr == PROTO_ICMPV6) {
+            $frag_id = 0;
+            $frag_off_res_m = 0;
+
+            if ($ip6h->nexthdr == PROTO_FRAGMENT) {
+              $frag_hdr = (struct frag_hdr *)($ip6h + 1);
+              $frag_id = bswap($frag_hdr->identification);
+              $frag_off_res_m = bswap($frag_hdr->frag_off);
+            }
+
+            printf("[%s] [%p] ↳ Detected ICMP message, Type: %3u, Code: %3u, Flags: ..%c, FragOff: %5d, FragID: %5d\n",
+              $time, $skb,
+              $icmph->type, $icmph->code,
+              $frag_off_res_m & 0x0001 ? CH_M : CH_DOT,
+              $frag_off_res_m >> 3,
+              $frag_id);
+          }
 
           if ($ip6h->nexthdr == PROTO_TCP) {
             printf("[%s] [%p] ↳ Detected TCP message, Flags: %c%c%c%c%c%c%c%c, Seq: %10u, Ack: %10u\n",
