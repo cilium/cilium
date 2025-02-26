@@ -151,7 +151,7 @@ SETUP("tc", "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 1,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP,
 			  BACKEND_CLUSTER_ID);

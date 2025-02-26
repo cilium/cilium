@@ -401,7 +401,7 @@ int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 
 	map_update_elem(&SRV6_SID_MAP, &sid, &vrf_id, 0);
 
-	lb_v4_add_service(SERVICE_IPV4, SERVICE_PORT, 1, 1);
+	lb_v4_add_service(SERVICE_IPV4, SERVICE_PORT, IPPROTO_TCP, 1, 1);
 	lb_v4_add_backend(SERVICE_IPV4, SERVICE_PORT, 1, 124,
 			  POD_IPV4, SERVICE_PORT, IPPROTO_TCP, 0);
 
@@ -544,7 +544,7 @@ int srv6_decap_to_service_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 
 	map_update_elem(&SRV6_SID_MAP, &sid, &vrf_id, 0);
 
-	lb_v6_add_service((const union v6addr *)SERVICE_IPV6, SERVICE_PORT, 1, 1);
+	lb_v6_add_service((const union v6addr *)SERVICE_IPV6, SERVICE_PORT, IPPROTO_TCP, 1, 1);
 	lb_v6_add_backend((const union v6addr *)SERVICE_IPV6, SERVICE_PORT, 1, 124,
 			  (const union v6addr *)POD_IPV6, SERVICE_PORT, IPPROTO_TCP, 0);
 
