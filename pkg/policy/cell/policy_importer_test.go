@@ -99,7 +99,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	pi := &policyImporter{
 		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(ids, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
+		repo: policy.NewPolicyRepository(ids, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
 		epm:  epm,
 		ipc:  ipc,
 
@@ -242,11 +242,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
+					repo: policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop()),
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(policyapi.EndpointSelector{
@@ -275,7 +275,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -319,7 +319,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(policyapi.EndpointSelector{
@@ -348,7 +348,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.EndpointSelector{
@@ -390,7 +390,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -416,7 +416,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.EndpointSelector{
@@ -462,7 +462,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
+				r := policy.NewPolicyRepository(nil, nil, nil, nil, policyapi.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.EndpointSelector{

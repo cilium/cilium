@@ -64,7 +64,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
-		repo:         policy.NewPolicyRepository(nil, nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:         policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
 		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
 	}
 

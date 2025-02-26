@@ -53,7 +53,6 @@ type policyRepoParams struct {
 	Lifecycle         cell.Lifecycle
 	Config            Config
 	CertManager       certificatemanager.CertificateManager
-	SecretManager     certificatemanager.SecretManager
 	IdentityManager   identitymanager.IDManager
 	ClusterInfo       cmtypes.ClusterInfo
 	MetricsManager    api.PolicyMetrics
@@ -78,7 +77,6 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	policyRepo := policy.NewPolicyRepository(
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
-		params.SecretManager,
 		params.L7RulesTranslator,
 		params.IdentityManager,
 		params.MetricsManager,
