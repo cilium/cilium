@@ -1341,7 +1341,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(version *versioned.VersionHandle, s
 				httpRules = l7Rules.EnvoyHTTPRules
 				canShortCircuit = l7Rules.CanShortCircuit
 			} else {
-				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "", policySecretsNamespace)
+				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(&l7Rules.L7Rules, "", policySecretsNamespace)
 			}
 			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: httpRules,

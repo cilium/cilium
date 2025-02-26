@@ -1669,6 +1669,6 @@ func testXdsServer(t *testing.T) *xdsServer {
 	logger := hivetest.Logger(t)
 	return &xdsServer{
 		logger:            logger,
-		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger),
+		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
 	}
 }

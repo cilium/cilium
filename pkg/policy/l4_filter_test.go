@@ -63,7 +63,7 @@ type testData struct {
 func newTestData(t testing.TB) *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(nil),
-		repo:              NewPolicyRepository(nil, &fakeCertificateManager{}, certificatemanager.NewMockSecretManagerInline(), envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t)), nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(nil, &fakeCertificateManager{}, certificatemanager.NewMockSecretManagerInline(), envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), nil, api.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc

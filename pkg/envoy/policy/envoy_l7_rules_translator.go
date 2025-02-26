@@ -20,20 +20,22 @@ import (
 )
 
 type EnvoyL7RulesTranslator interface {
-	GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool)
+	GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 type envoyL7RulesTranslator struct {
-	logger *slog.Logger
+	logger        *slog.Logger
+	secretManager certificatemanager.SecretManager
 }
 
-func NewEnvoyL7RulesTranslator(logger *slog.Logger) EnvoyL7RulesTranslator {
+func NewEnvoyL7RulesTranslator(logger *slog.Logger, secretManager certificatemanager.SecretManager) EnvoyL7RulesTranslator {
 	return &envoyL7RulesTranslator{
-		logger: logger,
+		logger:        logger,
+		secretManager: secretManager,
 	}
 }
 
-func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {
+func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -42,7 +44,7 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(secretManager certificatemana
 		canShortCircuit := true
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
-			rule, cs := r.getHTTPRule(secretManager, &l7, ns, policySecretsNamespace)
+			rule, cs := r.getHTTPRule(&l7, ns, policySecretsNamespace)
 			httpRules = append(httpRules, rule)
 			if !cs {
 				canShortCircuit = false
@@ -57,7 +59,7 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(secretManager certificatemana
 	return nil, true
 }
 
-func (r *envoyL7RulesTranslator) getHTTPRule(secretManager certificatemanager.SecretManager, h *policyapi.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
+func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
@@ -154,7 +156,7 @@ func (r *envoyL7RulesTranslator) getHTTPRule(secretManager certificatemanager.Se
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, err := r.getSecretString(secretManager, hdr, ns)
+		value, err := r.getSecretString(hdr, ns)
 		if err != nil {
 			r.logger.Warn("Failed fetching K8s Secret, header match will fail", logfields.Error, err)
 			// Envoy treats an empty exact match value as matching ANY value; adding
@@ -246,15 +248,11 @@ func (r *envoyL7RulesTranslator) getHTTPRule(secretManager certificatemanager.Se
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
-func (r *envoyL7RulesTranslator) getSecretString(secretManager certificatemanager.SecretManager, hdr *policyapi.HeaderMatch, ns string) (string, error) {
+func (r *envoyL7RulesTranslator) getSecretString(hdr *policyapi.HeaderMatch, ns string) (string, error) {
 	value := ""
 	var err error
 	if hdr.Secret != nil {
-		if secretManager == nil {
-			err = fmt.Errorf("HeaderMatches: Nil secretManager")
-		} else {
-			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
-		}
+		value, err = r.secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 	}
 	// Only use Value if secret was not obtained
 	if value == "" && hdr.Value != "" {
