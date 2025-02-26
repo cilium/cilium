@@ -148,30 +148,30 @@ var expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS = []*cilium.HeaderM
 
 func TestGetHTTPRule_NotFoundBySecretManager(t *testing.T) {
 	translator := &envoyL7RulesTranslator{logger: hivetest.Logger(t), secretManager: certificatemanager.NewMockSecretManagerNotFound()}
-	obtained, canShortCircuit := translator.getHTTPRule(PortRuleHTTP1, "", "")
+	obtained, canShortCircuit := translator.getHTTPRule(PortRuleHTTP1, "")
 	require.Equal(t, ExpectedHeaders1, obtained.Headers)
 	require.True(t, canShortCircuit)
 
-	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "", "")
+	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "")
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchSecretNilSecretManager, result.Headers)
 	require.True(t, canShortCircuit)
 }
 
 func TestGetHTTPRule_Inline(t *testing.T) {
 	translator := &envoyL7RulesTranslator{logger: hivetest.Logger(t), secretManager: certificatemanager.NewMockSecretManagerInline()}
-	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "", "")
+	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "")
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchInline, result.Headers)
 	require.True(t, canShortCircuit)
 }
 
 func TestGetHTTPRule_SDS(t *testing.T) {
 	translator := &envoyL7RulesTranslator{logger: hivetest.Logger(t), secretManager: certificatemanager.NewMockSecretManagerSDS()}
-	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "", "")
+	result, canShortCircuit := translator.getHTTPRule(PortRuleHeaderMatchSecret, "")
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchSDS, result.Headers)
 	require.False(t, canShortCircuit)
 	require.Equal(t, expectedHeaderMatchesPortRuleHeaderMatchSDS, result.HeaderMatches)
 
-	result, canShortCircuit = translator.getHTTPRule(PortRuleHeaderMatchSecretLogOnMismatch, "", "")
+	result, canShortCircuit = translator.getHTTPRule(PortRuleHeaderMatchSecretLogOnMismatch, "")
 	require.Nil(t, result.Headers)
 	require.False(t, canShortCircuit)
 	require.Equal(t, expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS, result.HeaderMatches)
