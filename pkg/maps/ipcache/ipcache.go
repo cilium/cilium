@@ -161,6 +161,25 @@ func (v *RemoteEndpointInfo) String() string {
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
 
+// NewValue returns a RemoteEndpointInfo based on the provided security
+// identity, tunnel endpoint IP, IPsec key, and flags. The address family is
+// automatically detected.
+func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpointInfoFlags) RemoteEndpointInfo {
+	result := RemoteEndpointInfo{}
+
+	result.SecurityIdentity = secID
+	result.Key = key
+	result.Flags = flags
+
+	if ip4 := tunnelEndpoint.To4(); ip4 != nil {
+		copy(result.TunnelEndpoint[:], ip4)
+	} else {
+		copy(result.TunnelEndpoint[:], tunnelEndpoint)
+	}
+
+	return result
+}
+
 // Map represents an IPCache BPF map.
 type Map struct {
 	bpf.Map
