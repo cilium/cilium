@@ -173,7 +173,58 @@ jobs:
             --set-string=extraConfig.enable-stale-cilium-endpoint-cleanup=false \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
+            --values=values-dummy-health-server.yaml \
             --nodes-without-cilium"
+
+          # We create a bunch of synthetic nodes during the test, to artificially
+          # increase the testbed scale. In order to pretend that these nodes are
+          # actually ready, let's start a dummy server locally, and redirect
+          # health probes to it.
+          cat<<EOF > values-dummy-health-server.yaml
+          extraInitContainers:
+          - name: iptables-config
+            image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA}
+            command:
+            - /bin/bash
+            - -c
+            - \$(SCRIPT)
+            env:
+            - name: SCRIPT
+              value: |
+                set -o errexit
+                set -o pipefail
+                set -o nounset
+
+                iptables -t nat -A OUTPUT -d 10.128.0.0/10 -p tcp --dport 4240 -j REDIRECT --to-ports 4241
+                iptables -t nat -A OUTPUT -d 10.128.0.0/10 -p icmp -j REDIRECT
+                iptables -t nat -vnL OUTPUT
+            securityContext:
+              capabilities:
+                add:
+                - NET_ADMIN
+                drop:
+                - ALL
+            volumeMounts:
+            - mountPath: /run/xtables.lock
+              name: xtables-lock
+
+          extraContainers:
+          - name: dummy-health-server
+            image: node:18.20.7-alpine3.21@sha256:e0340f26173b41066d68e3fe9bfbdb6571ab3cad0a4272919a52e36f4ae56925
+            command:
+            - /usr/local/bin/node
+            - -e
+            - \$(SCRIPT)
+            env:
+            - name: SCRIPT
+              value: |
+                // Credit: https://stackoverflow.com/a/72638075
+                const http = require('http');
+                http.createServer(function (req, res) {
+                    res.writeHead(200);
+                    res.end();
+                }).listen(4241);
+          EOF
 
           OWNER="${{ github.ref_name }}"
           OWNER="${OWNER//[.\/]/-}"
