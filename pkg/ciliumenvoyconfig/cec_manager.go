@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -88,6 +89,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
+		len(cecSpec.Services) > 0,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
 		true,
@@ -180,7 +182,6 @@ func (r *cecManager) syncAllHeadlessService(name string, namespace string, spec 
 		}
 	}
 	return nil
-
 }
 
 func (r *cecManager) syncHeadlessService(name string, namespace string, serviceName loadbalancer.ServiceName, servicePorts []string) error {
@@ -352,6 +353,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		oldCECObjectMeta.GetName(),
 		oldCECSpec.Resources,
 		len(oldCECSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&oldCECObjectMeta, oldCECSpec),
 		useOriginalSourceAddress(&oldCECObjectMeta),
 		false,
 	)
@@ -363,6 +365,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		newCECObjectMeta.GetName(),
 		newCECSpec.Resources,
 		len(newCECSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&newCECObjectMeta, newCECSpec),
 		useOriginalSourceAddress(&newCECObjectMeta),
 		true,
 	)
@@ -466,6 +469,7 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
+		injectCiliumEnvoyFilters(&cecObjectMeta, cecSpec),
 		useOriginalSourceAddress(&cecObjectMeta),
 		false,
 	)
@@ -590,4 +594,19 @@ func useOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
 	}
 
 	return true
+}
+
+// injectCiliumEnvoyFilters returns true if the given object indicates that Cilium Envoy Network- and L7 filters
+// should be added to all non-internal Listeners.
+// This can be an explicit annotation or the implicit presence of a L7LB service via the Services property.
+func injectCiliumEnvoyFilters(meta *metav1.ObjectMeta, spec *ciliumv2.CiliumEnvoyConfigSpec) bool {
+	if meta.GetAnnotations() != nil {
+		if v, ok := meta.GetAnnotations()[annotation.CECInjectCiliumFilters]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	return len(spec.Services) > 0
 }

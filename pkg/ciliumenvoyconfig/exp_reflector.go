@@ -44,7 +44,8 @@ type (
 func cecListerWatchers(cs client.Clientset) (out struct {
 	cell.Out
 	LW listerWatchers
-}) {
+},
+) {
 	if cs.IsEnabled() {
 		out.LW.cec = utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumEnvoyConfigs(""))
 		out.LW.ccec = utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumClusterwideEnvoyConfigs())
@@ -109,6 +110,7 @@ func registerCECReflector(
 			objMeta.GetName(),
 			spec.Resources,
 			len(spec.Services) > 0,
+			injectCiliumEnvoyFilters(objMeta, spec),
 			useOriginalSourceAddress(objMeta),
 			true,
 		)
