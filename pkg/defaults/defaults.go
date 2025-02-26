@@ -563,6 +563,9 @@ const (
 	// EnableNodeSelectorLabels is the default value for option.EnableNodeSelectorLabels
 	EnableNodeSelectorLabels = false
 
+	// BPFDistributedLRU enables per-CPU distributed backend memory
+	BPFDistributedLRU = false
+
 	// BPFEventsDropEnabled controls whether the Cilium datapath exposes "drop" events to Cilium monitor and Hubble.
 	BPFEventsDropEnabled = true
 

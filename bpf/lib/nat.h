@@ -118,6 +118,7 @@ struct {
 	__type(value, struct ipv4_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -1088,6 +1089,7 @@ struct {
 	__type(value, struct ipv6_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } SNAT_MAPPING_IPV6 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
