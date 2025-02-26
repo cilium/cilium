@@ -482,7 +482,7 @@ jobs:
             - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
           EOF
 
-          eksctl create nodegroup -f ./eks-nodegroup.yaml
+          eksctl create nodegroup -f ./eks-nodegroup.yaml --timeout=10m
 
       - name: Wait for Cilium status to be ready
         run: |
