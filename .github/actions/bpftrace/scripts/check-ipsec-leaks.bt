@@ -20,6 +20,8 @@
 
 #define PROTO_IPV4 0x0800
 #define PROTO_IPV6 0x86DD
+#define PROTO_ICMPV4 1
+#define PROTO_ICMPV6 58
 #define PROTO_TCP 6
 #define PROTO_UDP 17
 #define PROTO_ESP 50
@@ -70,6 +72,7 @@ kprobe:br_forward
   $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
+  $icmph = ((struct icmphdr*) ($skb->head + $skb->transport_header));
 
   $time = strftime("%H:%M:%S:%f", nsecs);
   $bridge = ((struct net_bridge_port *)arg0)->br->dev->name;
@@ -81,6 +84,7 @@ kprobe:br_forward
     $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
+    $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
 
     if ($proto == PROTO_IPV4) {
       $pod_to_pod_via_proxy =
@@ -139,6 +143,12 @@ kprobe:br_forward
             $bridge,
             $pod_to_pod_via_proxy);
 
+          if ($ip4h->protocol == PROTO_ICMPV4) {
+            printf("[%s] [%p] ↳ Detected ICMP message, Type: %3u, Code: %3u\n",
+              $time, $skb,
+              $icmph->type, $icmph->code);
+          }
+
           if ($ip4h->protocol == PROTO_TCP) {
             printf("[%s] [%p] ↳ Detected TCP message, Flags: %c%c%c%c%c%c%c%c, Seq: %10u, Ack: %10u\n",
               $time, $skb,
@@ -188,6 +198,12 @@ kprobe:br_forward
             $skb->dev->nd_net.net->ns.inum,
             $bridge,
             $pod_to_pod_via_proxy);
+
+          if ($ip6h->nexthdr == PROTO_ICMPV6) {
+            printf("[%s] [%p] ↳ Detected ICMP message, Type: %3u, Code: %3u\n",
+              $time, $skb,
+              $icmph->type, $icmph->code);
+          }
 
           if ($ip6h->nexthdr == PROTO_TCP) {
             printf("[%s] [%p] ↳ Detected TCP message, Flags: %c%c%c%c%c%c%c%c, Seq: %10u, Ack: %10u\n",
