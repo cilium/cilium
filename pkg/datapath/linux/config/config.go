@@ -143,6 +143,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
+	if option.Config.BPFDistributedLRU {
+		cDefinesMap["LRU_MEM_FLAVOR"] = "BPF_F_NO_COMMON_LRU"
+	} else {
+		cDefinesMap["LRU_MEM_FLAVOR"] = "0"
+	}
+
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
