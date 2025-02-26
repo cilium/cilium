@@ -22,7 +22,7 @@ func NewImmSet[T cmp.Ordered](items ...T) ImmSet[T] {
 }
 
 func NewImmSetFunc[T any](compare func(T, T) int, items ...T) ImmSet[T] {
-	s := ImmSet[T]{items, compare, cmpToEqual(compare)}
+	s := ImmSet[T]{slices.Clone(items), compare, cmpToEqual(compare)}
 	slices.SortFunc(s.xs, s.cmp)
 	s.xs = slices.CompactFunc(s.xs, s.eq)
 	return s
