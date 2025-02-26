@@ -80,7 +80,7 @@ int lxc_no_backend_setup(struct __ctx_buff *ctx)
 
 	memcpy(frontend_ip.addr, (void *)FRONTEND_IP, 16);
 
-	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, 1, revnat_id);
+	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
 
 	union v6addr backend_ip = {};
 
