@@ -273,7 +273,7 @@ jobs:
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
@@ -301,7 +301,7 @@ jobs:
       - name: Start unencrypted packets check for key rotation
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           # As we are not testing with proxy connections during key rotation,
           # disable the check for proxy traffic.
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
@@ -326,7 +326,7 @@ jobs:
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})

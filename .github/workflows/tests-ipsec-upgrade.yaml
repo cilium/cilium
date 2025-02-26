@@ -348,7 +348,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           # As we are not testing with proxy connections during upgrades/downgrades,
           # disable the check for proxy traffic.
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
@@ -384,7 +384,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run Other Conn tests after upgrading (${{ join(matrix.*, ', ') }})
@@ -406,7 +406,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           # As we are not testing with proxy connections during upgrades/downgrades,
           # disable the check for proxy traffic.
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
@@ -450,7 +450,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "ipsec"
 
       - name: Run Other Conn tests after downgrading (${{ join(matrix.*, ', ') }})
