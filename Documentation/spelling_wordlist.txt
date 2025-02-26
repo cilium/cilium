@@ -391,6 +391,7 @@ hostns
 hostonlyifs
 hostscope
 hq
+html
 http
 httpbin
 httpd
@@ -700,6 +701,7 @@ runnable
 runtimes
 sandboxing
 scalable
+scripttest
 sctl
 seccomp
 secretName
@@ -766,6 +768,7 @@ templating
 terminatingTLS
 terminationGracePeriodSeconds
 testability
+testdata
 testsuite
 testutils
 tetragon
@@ -789,6 +792,7 @@ transpiling
 tsne
 tunings
 tunnelProtocol
+txtar
 ubuntu
 udp
 ui

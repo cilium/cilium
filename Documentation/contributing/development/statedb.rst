@@ -154,11 +154,11 @@ Inspecting with cilium-dbg
 StateDB comes with script commands to inspect the tables. These can be invoked via
 ``cilium-dbg shell``.
 
-The ``tables`` command lists all registered tables:
+The ``db`` command lists all registered tables:
 
 .. code-block:: shell-session
 
-    root@kind-worker:/home/cilium# cilium-dbg shell -- db tables
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db
     Name               Object count   Deleted objects   Indexes               Initializers   Go type                       Last WriteTxn
     health             61             0                 identifier, level     []             types.Status                  health (107.3us ago, locked for 43.7us)
     sysctl             20             0                 name, status          []             *tables.Sysctl                sysctl (9.4m ago, locked for 12.8us)
@@ -174,12 +174,12 @@ The ``show`` command prints out the table using the *TableRow* and *TableHeader*
     ::/0        1500        1450       1450
     0.0.0.0/0   1500        1450       1450
 
-The ``get``, ``prefix``, ``list`` and ``lowerbound`` allow querying a table, provided that the ``Index.FromString`` method has
+The ``db/get``, ``db/prefix``, ``db/list`` and ``db/lowerbound`` allow querying a table, provided that the ``Index.FromString`` method has
 been defined:
 
 .. code-block:: shell-session
 
-    root@kind-worker:/home/cilium# cilium-dbg shell -- db prefix -index=name devices cilium
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db prefix --index=name devices cilium
     Name           Index   Selected   Type    MTU    HWAddr              Flags                    Addresses
     cilium_host    3       false      veth    1500   c2:f6:99:50:af:71   up|broadcast|multicast   10.244.1.105, fe80::c0f6:99ff:fe50:af71
     cilium_net     2       false      veth    1500   5e:70:20:4d:8a:bc   up|broadcast|multicast   fe80::5c70:20ff:fe4d:8abc
@@ -199,18 +199,26 @@ The shell session can also be run interactively:
         \__/
 
     cilium> help db
-    [stdout]
-    db cmd args...
-        Inspect and manipulate StateDB
+    db
+        Describe StateDB configuration
+
+        The 'db' command describes the StateDB configuration,
+        showing
         ...
-    
+
+    cilium> db
+    Name                   Object count   Zombie objects   Indexes                 Initializers   Go type                            Last WriteTxn
+    health                 65             0                identifier, level       []             types.Status                       health (993.6ms ago, locked for 25.7us)
+    sysctl                 20             0                name, status            []             *tables.Sysctl                     sysctl (5.3s ago, locked for 8.6us)
+    mtu                    2              0                cidr                    []             mtu.RouteMTU                       mtu (4.4s ago, locked for 3.1us)
+    ...
+
     cilium> db/show mtu
-    [stdout]
     Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
     ::/0        1500        1450       1450
     0.0.0.0/0   1500        1450       1450
 
-    cilium> db/show -o=/tmp/devices.json -format=json devices
+    cilium> db/show --out=/tmp/devices.json --format=json devices
     ...
 
 Kubernetes reflection
@@ -222,11 +230,15 @@ a table of pods and reflect them from Kubernetes into the table:
 
 .. literalinclude:: ../../../contrib/examples/statedb_k8s/pods.go
    :language: go
+   :caption: contrib/examples/statedb_k8s/pods.go
+   :tab-width: 4
 
 As earlier, we can then construct a small application to try this out:
 
 .. literalinclude:: ../../../contrib/examples/statedb_k8s/main.go
    :language: go
+   :caption: contrib/examples/statedb_k8s/main.go
+   :tab-width: 4
 
 You can run the example in ``contrib/examples/statedb_k8s`` to watch the pods in
 your current cluster:
@@ -398,13 +410,52 @@ a struct as this is the prevalent style in Cilium.
 
 For a real-world example see ``pkg/maps/bwmap/cell.go``.
 
+
+Script commands
+~~~~~~~~~~~~~~~
+
+StateDB comes with a rich set of script commands for inspecting and manipulating tables:
+
+.. code-block:: shell-session
+  :caption: example.txtar
+
+  # Show the registered tables
+  db
+
+  # Insert an object
+  db/insert my-table example.yaml
+
+  # Compare the contents of 'my-table' with a file. Retries until matches.
+  db/cmp my-table expected.table
+
+  # Show the contents of the table
+  db/show
+
+  # Write the object to a file
+  db/get my-table 'Foo' --format=yaml --out=foo.yaml
+
+  # Delete the object and assert that table is empty.
+  db/delete my-table example.yaml
+  db/empty my-table
+
+  -- expected.table --
+  Name  Color
+  Foo   Red
+
+  -- example.yaml --
+  name: Foo
+  color: Red
+
+See ``help db`` for full reference in ``cilium-dbg shell`` or in the ``break`` prompt in tests.
+A good reference is also the existing tests. These can be found with ``git grep db/insert``.
+
 Metrics
 ~~~~~~~
 
 Metrics are available for both StateDB and the reconciler, but they are disabled
 by default due to their fine granularity. These are defined in ``pkg/hive/statedb_metrics.go``
-and ``pkg/hive/reconciler_metrics.go``. As this documentation is manually maintained, it may
-be out-of-date, so if things are not working, check the source code.
+and ``pkg/hive/reconciler_metrics.go``. As this documentation is manually maintained it may
+be out-of-date so if things are not working, check the source code.
 
 The metrics can be enabled by adding them to the helm ``prometheus.metrics`` option with
 the syntax ``+cilium_<name>``, where ``<name>`` is the name of the metric in the table below.
@@ -433,6 +484,77 @@ For example, here is how to turn on all the metrics:
     - +cilium_reconciler_prune_duration_seconds
 
 These are still under development and the metric names may change.
+
+The metrics can be inspected even when disabled with the ``metrics`` and ``metrics/plot``
+script commands as Cilium keeps samples of all metrics for the past 2 hours.
+These metrics are also available in sysdump in HTML form (look for ``cilium-dbg-shell----metrics-html.html``).
+
+.. code-block:: shell-session
+
+    # kubectl exec -it -n kube-system ds/cilium -- cilium-dbg shell
+        /¯¯\
+     /¯¯\__/¯¯\
+     \__/¯¯\__/  Cilium 1.17.0-dev a5b41b93507e 2024-08-08T13:18:08+02:00 go version go1.23.1 linux/amd64
+     /¯¯\__/¯¯\  Welcome to the Cilium Shell! Type 'help' for list of commands.
+     \__/¯¯\__/
+        \__/
+
+    # Dump the sampled StateDB metrics from the last 2 hours
+    cilium> metrics --sampled statedb
+    Metric                                      Labels                                   5min                    30min          60min          120min
+    cilium_statedb_table_contention_seconds     handle=devices-controller table=devices  0s / 0s / 0s            0s / 0s / 0s   0s / 0s / 0s   0s / 0s / 0s
+    ...
+
+    # Plot the rate of change in the "health" table
+    # (indicative of number of object writes per second)
+    cilium> metrics/plot --rate statedb_table_revision.*health
+                      cilium_statedb_table_revision (rate per second)
+                                     [ table=health ]
+          ╭────────────────────────────────────────────────────────────────────╮
+      2.4 ┤    ....              ...               ...               .         │
+          │   .    .            .   .             .   .             . ..       │
+          │  .      ............     .............     .............    .......│
+      1.2 ┤  .                                                                 │
+          │ .                                                                  │
+          │ .                                                                  │
+      0.0 ┤.                                                                   │
+          ╰───┬───────────────────────────────┬──────────────────────────────┬─╯
+           -120min                         -60min                           now
+
+
+    # Plot the write transaction duration for the "devices" table
+    # (indicative of how long the table is locked during writes)
+    cilium> metrics/plot statedb_write_txn_duration.*devices
+    ... omitted p50 and p90 plots ...
+
+                      cilium_statedb_write_txn_duration_seconds (p99)
+                               [ handle=devices-controller ]
+          ╭────────────────────────────────────────────────────────────────────╮
+   47.2ms ┤                                   .                                │
+          │                                   .                                │
+          │                                  . .                               │
+   23.9ms ┤                                  .  .                              │
+          │                                 .   .                              │
+          │                 ..              .    .                   ...       │
+    0.5ms ┤.................................     ..............................│
+          ╰───┬───────────────────────────────┬──────────────────────────────┬─╯
+           -120min                         -60min                           now
+
+    # Plot the reconcilation errors for sysctl
+    cilium> metrics/plot reconciler_errors_current.*sysctl
+                             cilium_reconciler_errors_current
+                            [ module_id=agent.datapath.sysctl ]
+          ╭────────────────────────────────────────────────────────────────────╮
+      0.0 ┤                                                                    │
+          │                                                                    │
+          │                                                                    │
+      0.0 ┤                                                                    │
+          │                                                                    │
+          │                                                                    │
+      0.0 ┤....................................................................│
+          ╰───┬───────────────────────────────┬──────────────────────────────┬─╯
+           -120min                         -60min                           now
+
 
 StateDB
 ^^^^^^^
