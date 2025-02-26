@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -207,14 +208,7 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_NODE_IP, BACKEND_IP));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
@@ -304,14 +298,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed");
 
-	if (l3->saddr != BACKEND_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != CLIENT_NODE_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, BACKEND_IP, CLIENT_NODE_IP));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
@@ -403,14 +390,7 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_NODE_IP, BACKEND_IP));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
