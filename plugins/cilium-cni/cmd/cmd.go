@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -20,7 +21,6 @@ import (
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	gops "github.com/google/gops/agent"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -58,7 +58,7 @@ const (
 )
 
 var (
-	log            = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
+	log            = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "cilium-cni"))
 	getNetnsCookie = true
 )
 
@@ -173,10 +173,12 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs *types.ArgsSpec, 
 func releaseIP(client *client.Client, ip, pool string) {
 	if ip != "" {
 		if err := client.IPAMReleaseIP(ip, pool); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.IPAddr: ip,
-				"pool":           pool,
-			}).Warn("Unable to release IP")
+			log.Warn(
+				"Unable to release IP",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.IPAddr, ip),
+				slog.String("pool", pool),
+			)
 		}
 	}
 }
@@ -254,11 +256,12 @@ func allocateIPsWithDelegatedPlugin(
 }
 
 func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, link netlink.Link, ifName string) error {
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:    ip,
-		"netLink":           logfields.Repr(link),
-		logfields.Interface: ifName,
-	}).Debug("Configuring link")
+	log.Debug(
+		"Configuring link",
+		slog.String(logfields.Interface, ifName),
+		slog.Any(logfields.IPAddr, ip),
+		slog.Any("netLink", link),
+	)
 
 	addr := &netlink.Addr{IPNet: netipx.AddrIPNet(ip)}
 	if ip.Is6() {
@@ -273,7 +276,10 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, 
 	sort.Sort(route.ByMask(routes))
 
 	for _, r := range routes {
-		log.WithField("route", logfields.Repr(r)).Debug("Adding route")
+		log.Debug(
+			"Adding route",
+			slog.Any(logfields.Route, r),
+		)
 		rt := &netlink.Route{
 			LinkIndex: link.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,
@@ -297,7 +303,10 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, 
 	}
 
 	for _, r := range rules {
-		log.WithField("rule", logfields.Repr(r)).Debug("Adding rule")
+		log.Debug(
+			"Adding rule",
+			slog.Any(logfields.Rule, r),
+		)
 		var err error
 		if ip.Is4() {
 			err = route.ReplaceRule(r)
@@ -425,7 +434,9 @@ func setupLogging(n *types.NetConf) error {
 	}
 
 	if len(n.LogFile) != 0 {
-		logging.AddHooks(hooks.NewFileRotationLogHook(n.LogFile,
+		logging.AddHooks(hooks.NewFileRotationLogHook(
+			logging.GetLevel(logging.DefaultLogger),
+			n.LogFile,
 			hooks.EnableCompression(),
 			hooks.WithMaxBackups(defaultLogMaxBackups),
 		))
@@ -470,26 +481,34 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
-	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
+	logAttrs := buildLogAttrs(args, slog.Any(logfields.EventUUID, uuid.New()))
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
-			log.WithError(err).Warn("Unable to start gops")
+			log.Warn("Unable to start gops", slog.Any(logfields.Error, err))
 		} else {
 			defer gops.Close()
 		}
 	}
-	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI ADD request")
+	log.Debug(
+		"Processing CNI ADD request",
+		slog.Any("netconf", n),
+		logAttrs,
+	)
 
 	if n.PrevResult != nil {
-		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
+		log.Debug(
+			"CNI Previous result",
+			slog.Any("previousResult", n.PrevResult),
+			logAttrs,
+		)
 	}
 
 	cniArgs := &types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
-	logger = loggerWithCNIArgs(logger, cniArgs)
+	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs...)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -505,11 +524,11 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
 	if len(n.NetConf.RawPrevResult) != 0 {
-		if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+		if chainAction, err := getChainedAction(n, log.With(logAttrs)); chainAction != nil {
 			var (
 				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
-					Logger:     logger,
+					Logger:     log.With(logAttrs),
 					Args:       args,
 					CniArgs:    cniArgs,
 					NetConf:    n,
@@ -519,17 +538,17 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 			res, err = chainAction.Add(context.TODO(), ctx, c)
 			if err != nil {
-				logger.WithError(err).Warn("Chained ADD failed")
+				log.Warn("Chained ADD failed", slog.Any(logfields.Error, err), logAttrs)
 				return err
 			}
-			logger.WithField("result", logfields.Repr(res)).Debugf("Returning result")
+			log.Debug("Returning result", slog.Any("result", res), logAttrs)
 			return cniTypes.PrintResult(res, n.CNIVersion)
 		} else if err != nil {
-			logger.WithError(err).Error("Invalid chaining mode")
+			log.Error("Invalid chaining mode", slog.Any(logfields.Error, err), logAttrs)
 			return err
 		} else {
 			// no chained action supplied; this is an error
-			logger.Error("CNI PrevResult supplied, but not in chaining mode -- this is invalid, please set chaining-mode in CNI configuration")
+			log.Error("CNI PrevResult supplied, but not in chaining mode -- this is invalid, please set chaining-mode in CNI configuration", logAttrs)
 			return errors.New("CNI PrevResult supplied, but not in chaining mode -- this is invalid, please set chaining-mode in CNI configuration")
 		}
 	}
@@ -591,7 +610,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
+			veth, peer, tmpIfName, err := connector.SetupVeth(log, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
 			if err != nil {
@@ -600,7 +619,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			defer func() {
 				if err != nil {
 					if err2 := netlink.LinkDel(veth); err2 != nil {
-						logger.WithError(err2).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+						log.Warn(
+							"failed to clean up and delete veth",
+							slog.Any(logfields.Error, err2),
+							slog.String(logfields.Veth, veth.Name),
+							logAttrs,
+						)
 					}
 				}
 			}()
@@ -621,7 +645,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
+			netkit, peer, tmpIfName, err := connector.SetupNetkit(log, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
 			if err != nil {
@@ -630,7 +654,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			defer func() {
 				if err != nil {
 					if err2 := netlink.LinkDel(netkit); err2 != nil {
-						logger.WithError(err2).WithField(logfields.Netkit, netkit.Name).Warn("failed to clean up and delete netkit")
+						log.Warn(
+							"failed to clean up and delete netkit",
+							slog.Any(logfields.Error, err2),
+							slog.String(logfields.Netkit, netkit.Name),
+							logAttrs,
+						)
 					}
 				}
 			}()
@@ -698,12 +727,20 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		if err = ns.Do(func() error {
 			if err := reserveLocalIPPorts(conf, sysctl); err != nil {
-				logger.WithError(err).Warn("unable to reserve local ip ports")
+				log.Warn(
+					"unable to reserve local ip ports",
+					slog.Any(logfields.Error, err),
+					logAttrs,
+				)
 			}
 
 			if ipv6IsEnabled(ipam) {
 				if err := sysctl.Disable([]string{"net", "ipv6", "conf", "all", "disable_ipv6"}); err != nil {
-					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+					log.Warn(
+						"unable to enable ipv6 on all interfaces",
+						slog.Any(logfields.Error, err),
+						logAttrs,
+					)
 				}
 			}
 			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)
@@ -721,8 +758,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 				if errors.Is(err, unix.ENOPROTOOPT) {
 					getNetnsCookie = false
 				}
-				logger.WithError(err).WithFields(logrus.Fields{
-					logfields.ContainerID: args.ContainerID}).Info("unable to get netns cookie")
+				log.Info(
+					"unable to get netns cookie",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.ContainerID, args.ContainerID),
+					logAttrs,
+				)
 			}
 		}
 		ep.NetnsCookie = strconv.FormatUint(cookie, 10)
@@ -731,7 +772,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		ep.SyncBuildEndpoint = true
 		var newEp *models.Endpoint
 		if newEp, err = c.EndpointCreate(ep); err != nil {
-			logger.WithError(err).WithField(logfields.ContainerID, ep.ContainerID).Warn("Unable to create endpoint")
+			log.Warn(
+				"Unable to create endpoint",
+				slog.Any(logfields.Error, err),
+				slog.Any(logfields.ContainerID, ep.ContainerID),
+				logAttrs,
+			)
 			return fmt.Errorf("unable to create endpoint: %w", err)
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
@@ -751,7 +797,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			Mac:     macAddrStr,
 			Sandbox: args.Netns,
 		})
-		logger.WithError(err).WithField(logfields.ContainerID, ep.ContainerID).Debug("Endpoint successfully created")
+		log.Debug(
+			"Endpoint successfully created",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.ContainerID, ep.ContainerID),
+			logAttrs,
+		)
 	}
 
 	return cniTypes.PrintResult(res, n.CNIVersion)
@@ -774,24 +825,24 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
-	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
+	logAttrs := buildLogAttrs(args, slog.Any(logfields.EventUUID, uuid.New()))
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
-			log.WithError(err).Warn("Unable to start gops")
+			log.Warn("Unable to start gops", slog.Any(logfields.Error, err), logAttrs)
 		} else {
 			defer gops.Close()
 		}
 	}
-	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI DEL request")
+	log.Debug("Processing CNI DEL request", slog.Any("netconf", n), logAttrs)
 
 	cniArgs := &types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
-	logger = loggerWithCNIArgs(logger, cniArgs)
+	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs...)
 
-	c, err := lib.NewDeletionFallbackClient(logger)
+	c, err := lib.NewDeletionFallbackClient(log.With(logAttrs))
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium agent: %w", err)
 	}
@@ -800,10 +851,10 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	// Note: DEL always has PrevResult set, so that doesn't tell us if we're chained. Given
 	// that a CNI ADD could not have succeeded with an invalid chained mode, we should always
 	// find a valid chained mode
-	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
-				Logger:  logger,
+				Logger:  log.With(logAttrs),
 				Args:    args,
 				CniArgs: cniArgs,
 				NetConf: n,
@@ -812,7 +863,11 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 
 		return chainAction.Delete(context.TODO(), ctx, c)
 	} else if err != nil {
-		logger.WithError(err).Error("Invalid chaining mode")
+		log.Error(
+			"Invalid chaining mode",
+			slog.Any(logfields.Error, err),
+			logAttrs,
+		)
 		return err
 	}
 
@@ -824,7 +879,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		// DeleteEndpointErrors: Errors encountered while deleting,
 		//                       the endpoint is always deleted though, no
 		//                       need to retry
-		log.WithError(err).Warning("Errors encountered while deleting endpoint")
+		log.Warn("Errors encountered while deleting endpoint", slog.Any(logfields.Error, err))
 	}
 
 	if n.IPAM.Type != "" {
@@ -845,7 +900,13 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	if err = ns.Do(func() error {
 		return link.DeleteByName(args.IfName)
 	}); err != nil {
-		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
+		log.Warn(
+			"Unable to delete interface in namespace, will not delete interface",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Interface, args.IfName),
+			slog.String("namespace", args.Netns),
+			logAttrs,
+		)
 		// We are not returning an error as this is very unlikely to be recoverable
 	}
 
@@ -870,19 +931,27 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
 
-	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
+	logAttrs := buildLogAttrs(args, slog.Any(logfields.EventUUID, uuid.New()))
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
-			log.WithError(err).Warn("Unable to start gops")
+			log.Warn("Unable to start gops", slog.Any(logfields.Error, err))
 		} else {
 			defer gops.Close()
 		}
 	}
-	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI CHECK request")
+	log.Debug(
+		"Processing CNI CHECK request",
+		slog.Any("netconf", n),
+		logAttrs,
+	)
 
 	if n.PrevResult != nil {
-		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
+		log.Debug(
+			"CNI Previous result",
+			slog.Any("previousResult", n.PrevResult),
+			logAttrs,
+		)
 	}
 
 	cniArgs := &types.ArgsSpec{}
@@ -890,7 +959,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
 			fmt.Sprintf("unable to extract CNI arguments: %s", err))
 	}
-	logger = loggerWithCNIArgs(logger, cniArgs)
+	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs...)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -901,10 +970,10 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
 	// Note: CHECK always has PrevResult set, so that doesn't tell us if we're chained.
-	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs...)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
-				Logger:  logger,
+				Logger:  log.With(logAttrs),
 				Args:    args,
 				CniArgs: cniArgs,
 				NetConf: n,
@@ -913,10 +982,19 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 		// err is nil on success
 		err := chainAction.Check(context.TODO(), ctx, c)
-		logger.WithError(err).Debugf("Chained CHECK %s returned", n.Name)
+		log.Debug(
+			"Chained CHECK returned",
+			slog.Any(logfields.Error, err),
+			slog.Any("name", n.Name),
+			logAttrs,
+		)
 		return err
 	} else if err != nil {
-		logger.WithError(err).Error("Invalid chaining mode")
+		log.Error(
+			"Invalid chaining mode",
+			slog.Any(logfields.Error, err),
+			logAttrs,
+		)
 		return err
 	}
 
@@ -931,7 +1009,11 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 	// Ask the agent for the endpoint's health
 	eID := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
-	logger.WithField(logfields.EndpointID, eID).Debugf("Asking agent for healthz")
+	log.Debug(
+		"Asking agent for healthz",
+		slog.String(logfields.EndpointID, eID),
+		logAttrs,
+	)
 	epHealth, err := c.EndpointHealthGet(eID)
 	if err != nil {
 		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
@@ -942,7 +1024,12 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
 			"container is unhealthy in agent")
 	}
-	logger.Debugf("Container %s:%s has a healthy agent endpoint", args.ContainerID, args.IfName)
+	log.Debug(
+		"Container has a healthy agent endpoint",
+		slog.String(logfields.ContainerID, args.ContainerID),
+		slog.String(logfields.ContainerInterface, args.IfName),
+		logAttrs,
+	)
 
 	// Verify that the interface exists and has the desired IP address
 	// we can get the IP from the CNI previous result.
@@ -970,19 +1057,19 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
 
-	logger := loggerWithArguments(log.WithField(logfields.EventUUID, uuid.New()), args)
+	logAttrs := buildLogAttrs(args, slog.Any(logfields.EventUUID, uuid.New()))
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
-			log.WithError(err).Warn("Unable to start gops")
+			log.Warn("Unable to start gops", logAttrs, slog.Any(logfields.Error, err))
 		} else {
 			defer gops.Close()
 		}
 	}
-	logger.WithField("netconf", logfields.Repr(n)).Debugf("Processing CNI STATUS request")
+	log.Debug("Processing CNI STATUS request", logAttrs, slog.Any("netconf", logfields.Repr(n)))
 
 	if n.PrevResult != nil {
-		logger.WithField("previousResult", logfields.Repr(n.PrevResult)).Debugf("CNI Previous result")
+		log.Debug("CNI Previous result", logAttrs, slog.Any("previousResult", logfields.Repr(n.PrevResult)))
 	}
 
 	cniArgs := &types.ArgsSpec{}
@@ -990,7 +1077,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
 			fmt.Sprintf("unable to extract CNI arguments: %s", err))
 	}
-	logger = loggerWithCNIArgs(logger, cniArgs)
+	logAttrs = buildLogAttrsWithCNIArgs(cniArgs, logAttrs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -1000,10 +1087,10 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 	}
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
-	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+	if chainAction, err := getChainedAction(n, log.With(logAttrs...)); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
-				Logger:  logger,
+				Logger:  log.With(logAttrs),
 				Args:    args,
 				CniArgs: cniArgs,
 				NetConf: n,
@@ -1012,11 +1099,11 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 
 		// err is nil on success
 		err := chainAction.Status(context.TODO(), ctx, c)
-		logger.WithError(err).Debugf("Chained STATUS %s returned", n.Name)
+		log.Debug("Chained STATUS returned", slog.Any(logfields.Error, err), slog.Any("name", n.Name), logAttrs)
 
 		return err
 	} else if err != nil {
-		logger.WithError(err).Error("Invalid chaining mode")
+		log.Error("Invalid chaining mode", slog.Any(logfields.Error, err), logAttrs)
 		return err
 	}
 
@@ -1024,7 +1111,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
 			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
 	}
-	logger.Debugf("Cilium agent is healthy")
+	log.Debug("Cilium agent is healthy")
 
 	if n.IPAM.Type != "" {
 		// If using a delegated plugin for IPAM, invoke the STATUS API of the delegated
@@ -1102,14 +1189,14 @@ func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) e
 // getChainedAction retrieves the desired chained action. It returns nil if there
 // is no chained action, and error if there is a configured chained action but it is
 // invalid.
-func getChainedAction(n *types.NetConf, logger *logrus.Entry) (chainingapi.ChainingPlugin, error) {
+func getChainedAction(n *types.NetConf, logger *slog.Logger) (chainingapi.ChainingPlugin, error) {
 	if n.ChainingMode != "" {
 		chainAction := chainingapi.Lookup(n.ChainingMode)
 		if chainAction == nil {
 			return nil, fmt.Errorf("invalid chaining-mode %s", n.ChainingMode)
 		}
 
-		logger.Infof("Using chained plugin %s", n.ChainingMode)
+		logger.Info("Using chained plugin", slog.String("mode", n.ChainingMode))
 		return chainAction, nil
 	}
 
@@ -1125,7 +1212,7 @@ func getChainedAction(n *types.NetConf, logger *logrus.Entry) (chainingapi.Chain
 			return nil, nil
 		}
 
-		logger.Infof("Using chained plugin %s", n.Name)
+		logger.Info("Using chained plugin", slog.String("name", n.Name))
 		return chainAction, nil
 	}
 
@@ -1133,21 +1220,23 @@ func getChainedAction(n *types.NetConf, logger *logrus.Entry) (chainingapi.Chain
 	return nil, nil
 }
 
-func loggerWithArguments(logger *logrus.Entry, args *skel.CmdArgs) *logrus.Entry {
-	return logger.WithFields(logrus.Fields{
-		logfields.ContainerID: args.ContainerID,
-		"netns":               args.Netns,
-		"ifName":              args.IfName,
-		"args":                args.Args,
-		logfields.Path:        args.Path,
-	})
+func buildLogAttrs(args *skel.CmdArgs, attrs ...any) []any {
+	return append(
+		attrs,
+		slog.String(logfields.ContainerID, args.ContainerID),
+		slog.String("netns", args.Netns),
+		slog.String("ifName", args.IfName),
+		slog.String("args", args.Args),
+		slog.String(logfields.Path, args.Path),
+	)
 }
 
-func loggerWithCNIArgs(logger *logrus.Entry, cniArgs *types.ArgsSpec) *logrus.Entry {
-	return logger.WithFields(logrus.Fields{
-		logfields.K8sNamespace: cniArgs.K8S_POD_NAMESPACE,
-		logfields.K8sPodName:   cniArgs.K8S_POD_NAME,
-	})
+func buildLogAttrsWithCNIArgs(cniArgs *types.ArgsSpec, attrs ...any) []any {
+	return append(
+		attrs,
+		slog.Any(logfields.K8sNamespace, cniArgs.K8S_POD_NAMESPACE),
+		slog.Any(logfields.K8sPodName, cniArgs.K8S_POD_NAME),
+	)
 }
 
 // needsEndpointRoutingOnHost returns true if extra routes/rules need to be installed

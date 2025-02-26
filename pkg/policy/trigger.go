@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -14,7 +16,7 @@ import (
 // used in policy calculation has changed.
 func (u *Updater) TriggerPolicyUpdates(reason string) {
 	u.repo.BumpRevision()
-	log.WithField(logfields.Reason, reason).Info("Triggering full policy recalculation and regeneration of all endpoints")
+	log.Info("Triggering full policy recalculation and regeneration of all endpoints", slog.Any(logfields.Reason, reason))
 	u.regen.TriggerRegenerateAllEndpoints()
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
@@ -123,7 +124,7 @@ func TestWatchConfigDirectory(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(dataDir, "cluster2"), file2))
 
 	cm := newFakeLifecycle()
-	watcher, err := createConfigDirectoryWatcher(baseDir, cm)
+	watcher, err := createConfigDirectoryWatcher(logging.DefaultLogger, baseDir, cm)
 	require.NoError(t, err, "Failed to create configuration watcher")
 	t.Cleanup(watcher.close)
 
@@ -196,7 +197,7 @@ func TestWatchConfigDirectory(t *testing.T) {
 	require.ElementsMatch(t, wl, []string{baseDir})
 
 	// Attempting to watch a non existing directory should return an error
-	_, err = createConfigDirectoryWatcher(filepath.Join(baseDir, "non-existing"), cm)
+	_, err = createConfigDirectoryWatcher(logging.DefaultLogger, filepath.Join(baseDir, "non-existing"), cm)
 	require.Error(t, err, "Attempting to watch a non existing directory should return an error")
 }
 

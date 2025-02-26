@@ -9,12 +9,12 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"go.etcd.io/etcd/client/pkg/v3/logutil"
@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
@@ -256,14 +257,15 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		e.config.Endpoints = []string{endpointsOpt.value}
 	}
 
-	log.WithFields(logrus.Fields{
-		"ConfigPath":         configPath,
-		"KeepAliveHeartbeat": clientOptions.KeepAliveHeartbeat,
-		"KeepAliveTimeout":   clientOptions.KeepAliveTimeout,
-		"RateLimit":          clientOptions.RateLimit,
-		"MaxInflight":        clientOptions.MaxInflight,
-		"ListLimit":          clientOptions.ListBatchSize,
-	}).Info("Creating etcd client")
+	log.Info(
+		"Creating etcd client",
+		slog.String("ConfigPath", configPath),
+		slog.Duration("KeepAliveHeartbeat", clientOptions.KeepAliveHeartbeat),
+		slog.Duration("KeepAliveTimeout", clientOptions.KeepAliveTimeout),
+		slog.Int("RateLimit", clientOptions.RateLimit),
+		slog.Int("MaxInflight", clientOptions.MaxInflight),
+		slog.Int("ListLimit", clientOptions.ListBatchSize),
+	)
 
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
@@ -271,7 +273,7 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		backend, err := connectEtcdClient(ctx, e.config, configPath, errChan, clientOptions, opts)
 		switch {
 		case os.IsNotExist(err):
-			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
+			log.Info("Waiting for all etcd configuration files to be available", slog.Any(logfields.Error, err))
 			time.Sleep(5 * time.Second)
 		case err != nil:
 			errChan <- err
@@ -297,7 +299,7 @@ func init() {
 	// Initialize the etcd client logger.
 	l, err := logutil.CreateDefaultZapLogger(etcdClientDebugLevel())
 	if err != nil {
-		log.WithError(err).Warning("Failed to initialize etcd client logger")
+		log.Warn("Failed to initialize etcd client logger", slog.Any(logfields.Error, err))
 		l = zap.NewNop()
 	}
 	etcd3ClientLogger = l.Named("etcd-client")
@@ -313,7 +315,7 @@ func etcdClientDebugLevel() zapcore.Level {
 	}
 	var l zapcore.Level
 	if err := l.Set(envLevel); err != nil {
-		log.Warning("Invalid value for environment variable 'ETCD_CLIENT_DEBUG'. Using default level: 'info'")
+		log.Warn("Invalid value for environment variable 'ETCD_CLIENT_DEBUG'. Using default level: 'info'")
 		return zapcore.InfoLevel
 	}
 	return l
@@ -373,7 +375,7 @@ type etcdClient struct {
 	leaseExpiredObservers lock.Map[string, func(string)]
 
 	// logger is the scoped logger associated with this client
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 }
 
 type etcdMutex struct {
@@ -495,7 +497,10 @@ func (e *etcdClient) Disconnected() <-chan struct{} {
 			return session.Done()
 		}
 
-		e.logger.WithError(err).Warning("Failed to acquire lock session")
+		e.logger.Warn(
+			"Failed to acquire lock session",
+			slog.Any(logfields.Error, err),
+		)
 		limiter.Wait(context.TODO())
 	}
 }
@@ -556,10 +561,10 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		extraOptions:      opts,
 		listBatchSize:     clientOptions.ListBatchSize,
 		statusCheckErrors: make(chan error, 128),
-		logger: log.WithFields(logrus.Fields{
-			"endpoints": config.Endpoints,
-			"config":    cfgPath,
-		}),
+		logger: log.With(
+			slog.Any("endpoints", config.Endpoints),
+			slog.String("config", cfgPath),
+		),
 	}
 
 	initialLimit := clientOptions.RateLimit
@@ -567,13 +572,19 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	// initial rate limit to BootstrapRateLimit and apply the standard rate limit
 	// once the caller has signaled that bootstrap is complete by closing the channel.
 	if clientOptions.BootstrapRateLimit > 0 && opts != nil && opts.BootstrapComplete != nil {
-		ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.BootstrapRateLimit).Info("Setting client QPS limit for bootstrap")
+		ec.logger.Info(
+			"Setting client QPS limit for bootstrap",
+			slog.Int(logfields.EtcdQPSLimit, clientOptions.BootstrapRateLimit),
+		)
 		initialLimit = clientOptions.BootstrapRateLimit
 		go func() {
 			select {
 			case <-ec.client.Ctx().Done():
 			case <-opts.BootstrapComplete:
-				ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.RateLimit).Info("Bootstrap complete, updating client QPS limit")
+				ec.logger.Info(
+					"Bootstrap complete, updating client QPS limit",
+					slog.Int(logfields.EtcdQPSLimit, clientOptions.RateLimit),
+				)
 				ec.limiter.SetRateLimit(rate.Limit(clientOptions.RateLimit))
 			}
 		}()
@@ -703,9 +714,10 @@ func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
 
 func newExpBackoffRateLimiter(e *etcdClient, name string) backoff.Exponential {
 	errLimiter := backoff.Exponential{
-		Name: name,
-		Min:  50 * time.Millisecond,
-		Max:  1 * time.Minute,
+		Logger: e.logger,
+		Name:   name,
+		Min:    50 * time.Millisecond,
+		Max:    1 * time.Minute,
 	}
 
 	if e != nil && e.extraOptions != nil {
@@ -748,7 +760,7 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (locker KVLocker
 
 func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) {
 	defer func() {
-		Trace("DeletePrefix", err, logrus.Fields{fieldPrefix: path})
+		Trace("DeletePrefix", err, slog.String(fieldPrefix, path))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -775,7 +787,7 @@ func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
-	scopedLog := e.logger.WithField(fieldPrefix, prefix)
+	scopedLog := e.logger.With(slog.String(fieldPrefix, prefix))
 	scopedLog.Info("Starting watcher")
 
 	defer func() {
@@ -814,9 +826,17 @@ reList:
 			lr.Error(err, -1)
 
 			if attempt := errLimiter.Attempt(); attempt < 10 {
-				scopedLog.WithError(Hint(err)).WithField(logfields.Attempt, attempt).Info("Unable to list keys before starting watcher, will retry")
+				scopedLog.Info(
+					"Unable to list keys before starting watcher, will retry",
+					slog.Any(logfields.Error, Hint(err)),
+					slog.Int(logfields.Attempt, attempt),
+				)
 			} else {
-				scopedLog.WithError(Hint(err)).WithField(logfields.Attempt, attempt).Warn("Unable to list keys before starting watcher, will retry")
+				scopedLog.Warn(
+					"Unable to list keys before starting watcher, will retry",
+					slog.Any(logfields.Error, Hint(err)),
+					slog.Int(logfields.Attempt, attempt),
+				)
 			}
 
 			errLimiter.Wait(ctx)
@@ -825,10 +845,11 @@ reList:
 		lr.Done()
 		errLimiter.Reset()
 
-		scopedLog.WithFields(logrus.Fields{
-			logfields.Count: len(kvs),
-			fieldRev:        revision,
-		}).Info("Successfully listed keys before starting watcher")
+		scopedLog.Info(
+			"Successfully listed keys before starting watcher",
+			slog.Any(logfields.Count, len(kvs)),
+			slog.Int64(fieldRev, revision),
+		)
 
 		for _, key := range kvs {
 			t := EventTypeCreate
@@ -839,7 +860,9 @@ reList:
 			localCache.MarkInUse(key.Key)
 
 			if traceEnabled {
-				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
+				scopedLog.Debug(
+					fmt.Sprintf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value),
+				)
 			}
 
 			if !events.emit(ctx, KeyValueEvent{
@@ -863,7 +886,9 @@ reList:
 			}
 
 			if traceEnabled {
-				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+				scopedLog.Debug(
+					fmt.Sprintf("Emitting EventTypeDelete event for %s", k),
+				)
 			}
 			return events.emit(ctx, event)
 		}) {
@@ -879,7 +904,10 @@ reList:
 		}
 
 	recreateWatcher:
-		scopedLog.WithField(fieldRev, nextRev).Info("Starting to watch prefix")
+		scopedLog.Info(
+			"Starting to watch prefix",
+			slog.Int64(fieldRev, nextRev),
+		)
 
 		lr, err = e.limiter.Wait(ctx)
 		if err != nil {
@@ -909,21 +937,21 @@ reList:
 					goto recreateWatcher
 				}
 
-				scopedLog := scopedLog.WithField(fieldRev, r.Header.Revision)
+				logAttr := slog.Int64(fieldRev, r.Header.Revision)
 
 				if err := r.Err(); err != nil {
 					switch {
 					case errors.Is(err, ErrOperationAbortedByInterceptor):
 						// Aborted on purpose by a custom interceptor.
-						scopedLog.WithError(Hint(err)).Debug("Etcd watcher aborted")
+						scopedLog.Debug("Etcd watcher aborted", slog.Any(logfields.Error, Hint(err)), logAttr)
 					case errors.Is(err, v3rpcErrors.ErrCompacted):
 						// We tried to watch on a compacted
 						// revision that may no longer exist,
 						// recreate the watcher and try to
 						// watch on the next possible revision
-						scopedLog.WithError(Hint(err)).Info("Tried watching on compacted revision. Triggering relist of all keys")
+						scopedLog.Info("Tried watching on compacted revision. Triggering relist of all keys", slog.Any(logfields.Error, Hint(err)), logAttr)
 					default:
-						scopedLog.WithError(Hint(err)).Info("Etcd watcher errored. Triggering relist of all keys")
+						scopedLog.Info("Etcd watcher errored. Triggering relist of all keys", slog.Any(logfields.Error, Hint(err)), logAttr)
 					}
 
 					// mark all local keys in state for
@@ -936,7 +964,7 @@ reList:
 
 				nextRev = r.Header.Revision + 1
 				if traceEnabled {
-					scopedLog.Debugf("Received event from etcd: %+v", r)
+					scopedLog.Debug(fmt.Sprintf("Received event from etcd: %+v", r))
 				}
 
 				for _, ev := range r.Events {
@@ -958,7 +986,7 @@ reList:
 					}
 
 					if traceEnabled {
-						scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
+						scopedLog.Debug(fmt.Sprintf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value))
 					}
 					if !events.emit(ctx, event) {
 						return
@@ -969,7 +997,7 @@ reList:
 	}
 }
 
-func (e *etcdClient) paginatedList(ctx context.Context, log *logrus.Entry, prefix string) (kvs []*mvccpb.KeyValue, revision int64, err error) {
+func (e *etcdClient) paginatedList(ctx context.Context, log *slog.Logger, prefix string) (kvs []*mvccpb.KeyValue, revision int64, err error) {
 	start, end := prefix, client.GetPrefixRangeEnd(prefix)
 
 	for {
@@ -982,10 +1010,11 @@ func (e *etcdClient) paginatedList(ctx context.Context, log *logrus.Entry, prefi
 			return nil, 0, err
 		}
 
-		log.WithFields(logrus.Fields{
-			fieldNumEntries:       len(res.Kvs),
-			fieldRemainingEntries: res.Count - int64(len(res.Kvs)),
-		}).Debug("Received list response from etcd")
+		log.Debug(
+			"Received list response from etcd",
+			slog.Int(fieldNumEntries, len(res.Kvs)),
+			slog.Int64(fieldRemainingEntries, res.Count-int64(len(res.Kvs))),
+		)
 
 		if kvs == nil {
 			kvs = make([]*mvccpb.KeyValue, 0, res.Count)
@@ -1013,7 +1042,7 @@ func (e *etcdClient) determineEndpointStatus(ctx context.Context, endpointAddres
 	ctxTimeout, cancel := context.WithTimeout(ctx, statusCheckTimeout)
 	defer cancel()
 
-	e.logger.Debugf("Checking status to etcd endpoint %s", endpointAddress)
+	e.logger.Debug("Checking status to etcd endpoint", slog.String("endpoint-address", endpointAddress))
 
 	status, err := e.client.Status(ctxTimeout, endpointAddress)
 	if err != nil {
@@ -1112,8 +1141,10 @@ func (e *etcdClient) statusChecker() {
 			case e.statusCheckErrors <- err:
 			default:
 				// Channel's buffer is full, skip sending errors to the channel but log warnings instead
-				log.WithError(err).
-					Warning("Status check error channel is full, dropping this error")
+				e.logger.Warn(
+					"Status check error channel is full, dropping this error",
+					slog.Any(logfields.Error, err),
+				)
 			}
 		}
 
@@ -1139,7 +1170,7 @@ func (e *etcdClient) Status() *models.Status {
 // GetIfLocked returns value of key if the client is still holding the given lock.
 func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) (bv []byte, err error) {
 	defer func() {
-		Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
+		Trace("GetIfLocked", err, slog.String(fieldKey, key), slog.String(fieldValue, string(bv)))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1173,7 +1204,7 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 // Get returns value of key
 func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error) {
 	defer func() {
-		Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
+		Trace("Get", err, slog.String(fieldKey, key), slog.String(fieldValue, string(bv)))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1199,7 +1230,7 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
 	defer func() {
-		Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key})
+		Trace("DeleteIfLocked", err, slog.String(fieldKey, key))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1227,7 +1258,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 // Delete deletes a key
 func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 	defer func() {
-		Trace("Delete", err, logrus.Fields{fieldKey: key})
+		Trace("Delete", err, slog.String(fieldKey, key))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1251,7 +1282,7 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 // UpdateIfLocked updates a key if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (err error) {
 	defer func() {
-		Trace("UpdateIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
+		Trace("UpdateIfLocked", err, slog.String(fieldKey, key), slog.String(fieldValue, string(value)), slog.Bool(fieldAttachLease, lease))
 	}()
 	var leaseID client.LeaseID
 	if lease {
@@ -1286,7 +1317,7 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 // Update creates or updates a key
 func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease bool) (err error) {
 	defer func() {
-		Trace("Update", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
+		Trace("Update", err, slog.String(fieldKey, key), slog.String(fieldValue, string(value)), slog.Bool(fieldAttachLease, lease))
 	}()
 	var leaseID client.LeaseID
 	if lease {
@@ -1314,7 +1345,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 // UpdateIfDifferentIfLocked updates a key if the value is different and if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (recreated bool, err error) {
 	defer func() {
-		Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
+		Trace("UpdateIfDifferentIfLocked", err, slog.String(fieldKey, key), slog.Any(fieldValue, value), slog.Bool(fieldAttachLease, lease), slog.Bool("recreated", recreated))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1356,7 +1387,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 // UpdateIfDifferent updates a key if the value is different
 func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (recreated bool, err error) {
 	defer func() {
-		Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
+		Trace("UpdateIfDifferent", err, slog.String(fieldKey, key), slog.Any(fieldValue, value), slog.Bool(fieldAttachLease, lease), slog.Bool("recreated", recreated))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1386,7 +1417,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 // CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
 func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (success bool, err error) {
 	defer func() {
-		Trace("CreateOnlyIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
+		Trace("CreateOnlyIfLocked", err, slog.String(fieldKey, key), slog.Any(fieldValue, value), slog.Bool(fieldAttachLease, lease), slog.Bool("success", success))
 	}()
 	var leaseID client.LeaseID
 	if lease {
@@ -1451,7 +1482,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (success bool, err error) {
 	defer func() {
-		Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
+		Trace("CreateOnly", err, slog.String(fieldKey, key), slog.Any(fieldValue, value), slog.Bool(fieldAttachLease, lease), slog.Bool("success", success))
 	}()
 	var leaseID client.LeaseID
 	if lease {
@@ -1486,7 +1517,7 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
 	defer func() {
-		Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
+		Trace("ListPrefixIfLocked", err, slog.String(fieldPrefix, prefix), slog.Int(fieldNumEntries, len(v)))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1524,7 +1555,7 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValuePairs, err error) {
 	defer func() {
-		Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
+		Trace("ListPrefix", err, slog.String(fieldPrefix, prefix), slog.Int(fieldNumEntries, len(v)))
 	}()
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
@@ -1559,7 +1590,10 @@ func (e *etcdClient) Close() {
 	close(e.stopStatusChecker)
 
 	if err := e.client.Close(); err != nil {
-		e.logger.WithError(err).Warning("Failed to close etcd client")
+		e.logger.Warn(
+			"Failed to close etcd client",
+			slog.Any(logfields.Error, err),
+		)
 	}
 
 	// Wait until all child goroutines spawned by the lease managers have terminated.
@@ -1598,20 +1632,20 @@ func (e *etcdClient) expiredLeaseObserver(key string) {
 
 // UserEnforcePresence creates a user in etcd if not already present, and grants the specified roles.
 func (e *etcdClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {
-	scopedLog := e.logger.WithField(FieldUser, name)
+	logAttr := slog.String(FieldUser, name)
 
-	scopedLog.Debug("Creating user")
+	e.logger.Debug("Creating user", logAttr)
 	_, err := e.client.Auth.UserAddWithOptions(ctx, name, "", &client.UserAddOptions{NoPassword: true})
 	if err != nil {
 		if errors.Is(err, v3rpcErrors.ErrUserAlreadyExist) {
-			scopedLog.Debug("User already exists")
+			e.logger.Debug("User already exists", logAttr)
 		} else {
 			return err
 		}
 	}
 
 	for _, role := range roles {
-		scopedLog.WithField(FieldRole, role).Debug("Granting role to user")
+		e.logger.Debug("Granting role to user", slog.String(FieldRole, role), logAttr)
 
 		_, err := e.client.Auth.UserGrantRole(ctx, name, role)
 		if err != nil {
@@ -1624,13 +1658,13 @@ func (e *etcdClient) UserEnforcePresence(ctx context.Context, name string, roles
 
 // UserEnforcePresence deletes a user from etcd, if present.
 func (e *etcdClient) UserEnforceAbsence(ctx context.Context, name string) error {
-	scopedLog := e.logger.WithField(FieldUser, name)
+	logAttr := slog.String(FieldUser, name)
 
-	scopedLog.Debug("Deleting user")
+	e.logger.Debug("Deleting user")
 	_, err := e.client.Auth.UserDelete(ctx, name)
 	if err != nil {
 		if errors.Is(err, v3rpcErrors.ErrUserNotFound) {
-			scopedLog.Debug("User not found")
+			e.logger.Debug("User not found", logAttr)
 		} else {
 			return err
 		}

@@ -6,6 +6,7 @@ package nat
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +19,7 @@ import (
 func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logging.DefaultLogger, "")
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
 
 	// Override the map names to avoid clashing with the real ones.

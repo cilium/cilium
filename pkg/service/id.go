@@ -5,6 +5,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -12,14 +13,14 @@ import (
 
 // AcquireID acquires a service ID
 func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
-	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
+	log.Debug("Resolving service", slog.Any(logfields.L3n4Addr, logfields.Repr(l3n4Addr)))
 
 	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // RestoreID restores  previously used service ID
 func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
-	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Restoring service")
+	log.Debug("Restoring service", slog.Any(logfields.L3n4Addr, logfields.Repr(l3n4Addr)))
 
 	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
@@ -31,7 +32,7 @@ func GetID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 
 // DeleteID deletes the L3n4AddrID belonging to the given id from the kvstore.
 func DeleteID(id uint32) error {
-	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
+	log.Debug("deleting L3n4Addr by ID", slog.Any(logfields.L3n4AddrID, id))
 
 	return serviceIDAlloc.deleteLocalID(id)
 }

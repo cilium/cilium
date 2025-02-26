@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -33,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache-cell")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "identity-cache-cell"))
 
 // Cell provides the IdentityAllocator for allocating security identities
 var Cell = cell.Module(
@@ -131,7 +130,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.
-		cacheIDAlloc := cache.NewCachingIdentityAllocator(iao, allocatorConfig)
+		cacheIDAlloc := cache.NewCachingIdentityAllocator(logging.DefaultLogger, iao, allocatorConfig)
 		cacheIDAlloc.EnableCheckpointing()
 
 		idAlloc = cacheIDAlloc
@@ -194,10 +193,11 @@ func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.Iden
 
 	start := time.Now()
 
-	log.WithFields(logrus.Fields{
-		logfields.AddedPolicyID:   slices.Collect(maps.Keys(added)),
-		logfields.DeletedPolicyID: slices.Collect(maps.Keys(deleted)),
-	}).Info("Processing identity update")
+	log.Info(
+		"Processing identity update",
+		slog.Any(logfields.AddedPolicyID, slices.Collect(maps.Keys(added))),
+		slog.Any(logfields.DeletedPolicyID, slices.Collect(maps.Keys(deleted))),
+	)
 
 	wg := &sync.WaitGroup{}
 	for _, handler := range iao.identityHandlers {
@@ -235,7 +235,10 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 	iao.firstStartTime = time.Time{}
 	iao.wgsLock.Unlock()
 
-	log.WithField(logfields.Count, len(wgs)).Info("Incremental policy update: waiting for endpoint notifications to complete")
+	log.Info(
+		"Incremental policy update: waiting for endpoint notifications to complete",
+		slog.Any(logfields.Count, len(wgs)),
+	)
 
 	// Wait for all batched incremental updates to be finished with their notifications.
 	wdc := make(chan struct{})
@@ -277,7 +280,7 @@ func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 	}
 
 	if ip == nil {
-		log.Fatal("Node IP not available yet")
+		logging.Fatal(log, "Node IP not available yet")
 	}
 
 	return ip.String()

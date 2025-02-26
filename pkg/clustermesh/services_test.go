@@ -6,6 +6,7 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"testing"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -133,7 +133,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
 		FeatureMetrics:        NewClusterMeshMetricsNoop(),
-		Logger:                logrus.New(),
+		Logger:                slog.Default(),
 	})
 	require.NotNil(tb, s.mesh)
 

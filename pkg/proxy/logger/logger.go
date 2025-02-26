@@ -5,9 +5,8 @@ package logger
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
@@ -20,7 +19,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "proxy-logger"))
 
 	logMutex lock.Mutex
 	notifier LogRecordNotifier
@@ -212,34 +211,43 @@ func (lr *LogRecord) ApplyTags(tags ...LogTag) {
 	}
 }
 
-func (lr *LogRecord) getLogFields() *logrus.Entry {
-	fields := make(logrus.Fields, 8) // at most 8 entries, avoid map grow
+func (lr *LogRecord) getLogFields() *slog.Logger {
+	fields := make([]any, 0, 8) // at most 8 entries, avoid map grow
 
-	fields[FieldType] = lr.Type
-	fields[FieldVerdict] = lr.Verdict
-	fields[FieldMessage] = lr.Info
+	fields = append(
+		fields,
+		slog.Any(FieldType, lr.Type),
+		slog.Any(FieldVerdict, lr.Verdict),
+		slog.String(FieldMessage, lr.Info),
+	)
 
 	if lr.HTTP != nil {
-		fields[FieldCode] = lr.HTTP.Code
-		fields[FieldMethod] = lr.HTTP.Method
-		fields[FieldURL] = lr.HTTP.URL
-		fields[FieldProtocol] = lr.HTTP.Protocol
-		fields[FieldHeader] = lr.HTTP.Headers
+		fields = append(
+			fields,
+			slog.Int(FieldCode, lr.HTTP.Code),
+			slog.String(FieldMethod, lr.HTTP.Method),
+			slog.Any(FieldURL, lr.HTTP.URL),
+			slog.String(FieldProtocol, lr.HTTP.Protocol),
+			slog.Any(FieldHeader, lr.HTTP.Headers),
+		)
 	}
 
 	if lr.Kafka != nil {
-		fields[FieldCode] = lr.Kafka.ErrorCode
-		fields[FieldKafkaAPIKey] = lr.Kafka.APIKey
-		fields[FieldKafkaAPIVersion] = lr.Kafka.APIVersion
-		fields[FieldKafkaCorrelationID] = lr.Kafka.CorrelationID
+		fields = append(
+			fields,
+			slog.Int(FieldCode, lr.Kafka.ErrorCode),
+			slog.String(FieldKafkaAPIKey, lr.Kafka.APIKey),
+			slog.Int64(FieldKafkaAPIVersion, int64(lr.Kafka.APIVersion)),
+			slog.Int64(FieldKafkaCorrelationID, int64(lr.Kafka.CorrelationID)),
+		)
 	}
 
-	return log.WithFields(fields)
+	return log.With(fields...)
 }
 
 // Log logs a record to the logfile and flushes the buffer
 func (lr *LogRecord) Log() {
-	flowdebug.Log(func() (*logrus.Entry, string) {
+	flowdebug.Log(func() (*slog.Logger, string) {
 		return lr.getLogFields(), "Logging flow record"
 	})
 

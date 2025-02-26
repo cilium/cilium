@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/models"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -34,12 +35,12 @@ var MetricsListCmd = &cobra.Command{
 
 		res, err := c.Metrics.GetMetrics(nil)
 		if err != nil {
-			log.Fatalf("Cannot get metrics list: %s", err)
+			logging.Fatal(log, fmt.Sprintf("Cannot get metrics list: %s", err))
 		}
 
 		re, err := regexp.Compile(matchPattern)
 		if err != nil {
-			log.Fatalf("Cannot compile regex: %s", err)
+			logging.Fatal(log, fmt.Sprintf("Cannot compile regex: %s", err))
 		}
 
 		metrics := make([]*models.Metric, 0, len(res.Payload))

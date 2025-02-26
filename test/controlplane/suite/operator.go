@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/viper"
 
@@ -49,7 +50,7 @@ func populateCiliumOperatorOptions(
 	modConfig func(*option.OperatorConfig),
 	modCellConfig func(vp *viper.Viper),
 ) {
-	option.Config.Populate(vp)
+	option.Config.Populate(logging.DefaultLogger, vp)
 
 	// Apply the controlplane tests default configuration
 	vp.Set(apis.SkipCRDCreation, true)

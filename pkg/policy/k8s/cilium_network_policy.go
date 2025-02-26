@@ -6,8 +6,7 @@ package k8s
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -43,13 +42,14 @@ func (p *policyWatcher) onUpsert(
 			return nil
 		}
 
-		p.log.WithFields(logrus.Fields{
-			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
-			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-			"annotations.old":                 oldCNP.ObjectMeta.Annotations,
-			"annotations":                     cnp.ObjectMeta.Annotations,
-		}).Debug("Modified CiliumNetworkPolicy")
+		p.log.Debug(
+			"Modified CiliumNetworkPolicy",
+			slog.String(logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion),
+			slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+			slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+			slog.Any("annotations.old", oldCNP.ObjectMeta.Annotations),
+			slog.Any("annotations", cnp.ObjectMeta.Annotations),
+		)
 	}
 
 	if cnp.RequiresDerivative() {
@@ -124,13 +124,15 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 }
 
 func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID, dc chan uint64) error {
-	scopedLog := p.log.WithFields(logrus.Fields{
-		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-	})
+	scopedLog := p.log.With(
+		slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+		slog.String(logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion),
+		slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+	)
 
-	scopedLog.Debug("Adding CiliumNetworkPolicy")
+	scopedLog.Debug(
+		"Adding CiliumNetworkPolicy",
+	)
 	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 	if namespace == "" {
 		p.metricsManager.AddCCNP(cnp.CiliumNetworkPolicy)
@@ -140,7 +142,10 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 
 	rules, err := cnp.Parse()
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to add CiliumNetworkPolicy")
+		scopedLog.Warn(
+			"Unable to add CiliumNetworkPolicy",
+			slog.Any(logfields.Error, err),
+		)
 		return fmt.Errorf("failed to parse CiliumNetworkPolicy %s/%s: %w", cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name, err)
 	}
 	if dc != nil {
@@ -157,16 +162,18 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		Resource:            resourceID,
 		DoneChan:            dc,
 	})
-	scopedLog.Info("Imported CiliumNetworkPolicy")
+	scopedLog.Info(
+		"Imported CiliumNetworkPolicy",
+	)
 	return nil
 }
 
 func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID, dc chan uint64) {
-	scopedLog := p.log.WithFields(logrus.Fields{
-		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-	})
+	scopedLog := p.log.With(
+		slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+		slog.String(logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion),
+		slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+	)
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)

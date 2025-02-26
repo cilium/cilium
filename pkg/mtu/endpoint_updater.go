@@ -112,9 +112,10 @@ func (emu *endpointUpdater) Updater(ctx context.Context, health cell.Health) err
 	watch = closed
 
 	retryLimit := backoff.Exponential{
-		Name: "endpoint-mtu-updater",
-		Min:  1 * time.Second,
-		Max:  1 * time.Minute,
+		Logger: emu.logger,
+		Name:   "endpoint-mtu-updater",
+		Min:    1 * time.Second,
+		Max:    1 * time.Minute,
 	}
 
 	for {

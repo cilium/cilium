@@ -6,6 +6,7 @@ package safetime
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 
 type SafetimeSuite struct {
 	out    *bytes.Buffer // stores log output
-	logger *logrus.Entry
+	logger *slog.Logger
 }
 
 func (s *SafetimeSuite) SetUpTest(t *testing.T) {

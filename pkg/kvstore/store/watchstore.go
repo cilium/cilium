@@ -5,13 +5,14 @@ package store
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -87,7 +88,7 @@ type restartableWatchStore struct {
 	state      map[string]*rwsEntry
 	numEntries atomic.Uint64
 
-	log           *logrus.Entry
+	log           *slog.Logger
 	entriesMetric prometheus.Gauge
 	syncMetric    metric.Vec[metric.Gauge]
 }
@@ -113,7 +114,7 @@ func newRestartableWatchStore(clusterName string, keyCreator KeyCreator, observe
 		opt(rws)
 	}
 
-	rws.log = rws.log.WithField(logfields.ClusterName, rws.source)
+	rws.log = rws.log.With(slog.String(logfields.ClusterName, rws.source))
 	return rws
 }
 
@@ -128,7 +129,7 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 		prefix = prefix + "/"
 	}
 
-	rws.log = rws.log.WithField(logfields.Prefix, prefix)
+	rws.log = rws.log.With(slog.String(logfields.Prefix, prefix))
 	syncedMetric := rws.syncMetric.WithLabelValues(
 		kvstore.GetScopeFromKey(prefix), rws.source, "read")
 
@@ -136,7 +137,7 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 	syncedMetric.Set(metrics.BoolToFloat64(false))
 
 	if rws.watching.Swap(true) {
-		rws.log.Panic("Cannot start the watch store while still running")
+		logging.Fatal(rws.log, "Cannot start the watch store while still running")
 	}
 
 	defer func() {
@@ -172,10 +173,11 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 		}
 
 		key := strings.TrimPrefix(event.Key, prefix)
-		rws.log.WithFields(logrus.Fields{
-			logfields.Key:   key,
-			logfields.Event: event.Typ,
-		}).Debug("Received event from kvstore")
+		rws.log.Debug(
+			"Received event from kvstore",
+			slog.String(logfields.Key, key),
+			slog.Any(logfields.Event, event.Typ),
+		)
 
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeModify:
@@ -201,7 +203,7 @@ func (rws *restartableWatchStore) Synced() bool {
 // when no watch operation is in progress.
 func (rws *restartableWatchStore) Drain() {
 	if rws.watching.Swap(true) {
-		rws.log.Panic("Cannot drain the watch store while still running")
+		logging.Fatal(rws.log, "Cannot drain the watch store while still running")
 	}
 	defer rws.watching.Store(false)
 
@@ -216,7 +218,10 @@ func (rws *restartableWatchStore) Drain() {
 func (rws *restartableWatchStore) drainKeys(staleOnly bool) {
 	for key, entry := range rws.state {
 		if !staleOnly || entry.stale {
-			rws.log.WithField(logfields.Key, key).Debug("Emitting deletion event for stale key")
+			rws.log.Debug(
+				"Emitting deletion event for stale key",
+				slog.String(logfields.Key, key),
+			)
 			rws.handleDelete(key)
 		}
 	}
@@ -225,10 +230,12 @@ func (rws *restartableWatchStore) drainKeys(staleOnly bool) {
 func (rws *restartableWatchStore) handleUpsert(key string, value []byte) {
 	entry := &rwsEntry{key: rws.keyCreator()}
 	if err := entry.key.Unmarshal(key, value); err != nil {
-		rws.log.WithFields(logrus.Fields{
-			logfields.Key:   key,
-			logfields.Value: string(value),
-		}).WithError(err).Warning("Unable to unmarshal value")
+		rws.log.Warn(
+			"Unable to unmarshal value",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Key, key),
+			slog.String(logfields.Value, string(value)),
+		)
 		return
 	}
 
@@ -241,7 +248,10 @@ func (rws *restartableWatchStore) handleUpsert(key string, value []byte) {
 func (rws *restartableWatchStore) handleDelete(key string) {
 	entry, ok := rws.state[key]
 	if !ok {
-		rws.log.WithField(logfields.Key, key).Warning("Received deletion event for unknown key")
+		rws.log.Warn(
+			"Received deletion event for unknown key",
+			slog.String(logfields.Key, key),
+		)
 		return
 	}
 

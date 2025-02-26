@@ -138,7 +138,7 @@ func getCiliumNetIPv6() (net.IP, error) {
 // installToProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets to the proxy.
 func installToProxyRoutesIPv4() error {
-	if err := route.Upsert(route4); err != nil {
+	if err := route.Upsert(nil, route4); err != nil {
 		return fmt.Errorf("inserting ipv4 proxy route %v: %w", route4, err)
 	}
 	if err := route.ReplaceRule(toProxyRule); err != nil {
@@ -163,7 +163,7 @@ func removeToProxyRoutesIPv4() error {
 // installToProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets to the proxy.
 func installToProxyRoutesIPv6() error {
-	if err := route.Upsert(route6); err != nil {
+	if err := route.Upsert(nil, route6); err != nil {
 		return fmt.Errorf("inserting ipv6 proxy route %v: %w", route6, err)
 	}
 	if err := route.ReplaceRuleIPv6(toProxyRule); err != nil {
@@ -238,10 +238,10 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fr
 			return fmt.Errorf("inserting ipv4 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(fromProxyToCiliumHostRoute4); err != nil {
+	if err := route.Upsert(nil, fromProxyToCiliumHostRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute4, err)
 	}
-	if err := route.Upsert(fromProxyDefaultRoute4); err != nil {
+	if err := route.Upsert(nil, fromProxyDefaultRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy default route %v: %w", fromProxyDefaultRoute4, err)
 	}
 
@@ -294,10 +294,10 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fr
 			return fmt.Errorf("inserting ipv6 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(fromProxyToCiliumHostRoute6); err != nil {
+	if err := route.Upsert(nil, fromProxyToCiliumHostRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute6, err)
 	}
-	if err := route.Upsert(fromProxyDefaultRoute6); err != nil {
+	if err := route.Upsert(nil, fromProxyDefaultRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy default route %v: %w", fromProxyDefaultRoute6, err)
 	}
 

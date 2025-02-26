@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sagikazarmark/slog-shim"
 	corev1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -322,7 +324,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		return endpoints
 	}
 
-	log.Debugf("Processing %d endpoints for EndpointSlice %s", len(ep.Endpoints), ep.Name)
+	log.Debug("Processing endpoints for EndpointSlice", slog.Int("len-endpoints", len(ep.Endpoints)), slog.String("name", ep.Name))
 	for _, sub := range ep.Endpoints {
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
@@ -347,12 +349,20 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		// allow endpoints that are Serving and Terminating
 		if !isReady {
 			if !option.Config.EnableK8sTerminatingEndpoint {
-				log.Debugf("discarding Endpoint on EndpointSlice %s: not Ready and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				log.Debug(
+					"discarding Endpoint on EndpointSlice: not Ready",
+					slog.String("name", ep.Name),
+					slog.Bool("EnableK8sTerminatingEndpoint", option.Config.EnableK8sTerminatingEndpoint),
+				)
 				continue
 			}
 			// filter not Serving endpoints since those can not receive traffic
 			if !isServing {
-				log.Debugf("discarding Endpoint on EndpointSlice %s: not Serving and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				log.Debug(
+					"discarding Endpoint on EndpointSlice: not Serving",
+					slog.String("name", ep.Name),
+					slog.Bool("EnableK8sTerminatingEndpoint", option.Config.EnableK8sTerminatingEndpoint),
+				)
 				continue
 			}
 		}
@@ -360,7 +370,12 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
-				log.WithError(err).Infof("Unable to parse address %s for EndpointSlices %s", addr, ep.Name)
+				log.Info(
+					"Unable to parse address for EndpointSlices",
+					slog.Any(logfields.Error, err),
+					slog.String("address", addr),
+					slog.String("name", ep.Name),
+				)
 				continue
 			}
 
@@ -386,7 +401,11 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 				// If is not ready check if is serving and terminating
 				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&
 					isServing && isTerminating {
-					log.Debugf("Endpoint address %s on EndpointSlice %s is Terminating", addr, ep.Name)
+					log.Debug(
+						"Endpoint address on EndpointSlice is Terminating",
+						slog.String("address", addr),
+						slog.String("name", ep.Name),
+					)
 					backend.Terminating = true
 					metrics.TerminatingEndpointsEvents.Inc()
 				}
@@ -408,7 +427,11 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		}
 	}
 
-	log.Debugf("EndpointSlice %s has %d backends", ep.Name, len(endpoints.Backends))
+	log.Debug(
+		"EndpointSlice has backends",
+		slog.Int("len-backends", len(endpoints.Backends)),
+		slog.String("name", ep.Name),
+	)
 	return endpoints
 }
 

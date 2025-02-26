@@ -8,11 +8,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/kevinburke/ssh_config"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -97,12 +100,12 @@ func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
 	}
 	key, err := os.ReadFile(cfg.identityFile)
 	if err != nil {
-		log.Fatalf("unable to retrieve ssh-key on target '%s': %s", cfg.target, err)
+		logging.Fatal(log, fmt.Sprintf("unable to retrieve ssh-key on target '%s': %s", cfg.target, err))
 	}
 
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		log.Fatalf("unable to parse private key on target '%s': %s", cfg.target, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse private key on target '%s': %s", cfg.target, err))
 	}
 	return ssh.PublicKeys(signer)
 }
@@ -276,12 +279,12 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		return asyncErr
 	case <-ctx.Done():
 		if session != nil {
-			log.Warning("sending SIGHUP to session due to canceled context")
+			log.Warn("sending SIGHUP to session due to canceled context")
 			if err := session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command when context is canceled: %s", err)
 			}
 			if closeErr := session.Close(); closeErr != nil {
-				log.WithError(closeErr).Error("failed to close session")
+				log.Error("failed to close session", slog.Any(logfields.Error, closeErr))
 			}
 		} else {
 			log.Error("timeout reached; no session was able to be created")

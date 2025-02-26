@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"slices"
@@ -19,12 +20,13 @@ import (
 	"github.com/containernetworking/cni/libcni"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/renameio/v2"
-	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -37,7 +39,7 @@ type cniConfigManager struct {
 	cniConfDir  string // computed from WriteCNIConfigWhenReady
 	cniConfFile string // computed from WriteCNIConfigWhenReady
 
-	log        logrus.FieldLogger
+	log        logging.FieldLogger
 	ctx        context.Context
 	doneFunc   context.CancelFunc
 	controller *controller.Manager
@@ -83,7 +85,11 @@ func (c *cniConfigManager) GetCustomNetConf() *cnitypes.NetConf {
 
 	conf, err := cnitypes.ReadNetConf(c.config.ReadCNIConf)
 	if err != nil {
-		c.log.WithField("path", c.config.ReadCNIConf).WithError(err).Warnf("Failed to parse existing CNI configuration file")
+		c.log.Warn(
+			"Failed to parse existing CNI configuration file",
+			slog.Any(logfields.Error, err),
+			slog.String("path", c.config.ReadCNIConf),
+		)
 		return nil
 	}
 	return conf
@@ -200,10 +206,17 @@ func (c *cniConfigManager) Start(cell.HookContext) error {
 		var err error
 		c.watcher, err = fsnotify.NewWatcher()
 		if err != nil {
-			c.log.Warnf("Failed to create watcher: %v", err)
+			c.log.Warn(
+				"Failed to create watcher",
+				slog.Any(logfields.Error, err),
+			)
 		} else {
 			if err := c.watcher.Add(c.cniConfDir); err != nil {
-				c.log.Warnf("Failed to watch CNI configuration directory %s: %v", c.cniConfDir, err)
+				c.log.Warn(
+					"Failed to watch CNI configuration directory",
+					slog.Any(logfields.Error, err),
+					slog.String("configuration-directory", c.cniConfDir),
+				)
 				c.watcher = nil
 			}
 		}
@@ -216,7 +229,10 @@ func (c *cniConfigManager) Start(cell.HookContext) error {
 			DoFunc: func(ctx context.Context) error {
 				err := c.setupCNIConfFile()
 				if err != nil {
-					c.log.Printf("Failed to write CNI config file (will retry): %v", err)
+					c.log.Info(
+						"Failed to write CNI config file (will retry)",
+						slog.Any(logfields.Error, err),
+					)
 				}
 				return err
 			},
@@ -256,13 +272,19 @@ func (c *cniConfigManager) watchForDirectoryChanges() {
 			if !ok {
 				return
 			}
-			c.log.Infof("Activity in %s, re-generating CNI configuration", c.cniConfDir)
+			c.log.Info(
+				"Activity in re-generation CNI configuration",
+				slog.String("cni-configuration", c.cniConfDir),
+			)
 			c.controller.TriggerController(cniControllerName)
 		case err, ok := <-c.watcher.Errors:
 			if !ok {
 				return
 			}
-			c.log.Errorf("Error while watching CNI configuration directory: %v", err)
+			c.log.Error(
+				"Error while watching CNI configuration directory",
+				slog.Any(logfields.Error, err),
+			)
 		case <-c.ctx.Done():
 			return
 		}
@@ -296,7 +318,10 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to read source CNI config file at %s: %w", c.config.ReadCNIConf, err)
 		}
-		c.log.Infof("Reading CNI configuration file source from %s", c.config.ReadCNIConf)
+		c.log.Info(
+			"Reading CNI configuration file source",
+			slog.String("path", c.config.ReadCNIConf),
+		)
 	} else {
 		contents, err = c.renderCNIConf()
 		if err != nil {
@@ -312,16 +337,27 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 	// Check to see if existing file is the same; if so, do nothing
 	existingContents, err := os.ReadFile(dest)
 	if err == nil && bytes.Equal(existingContents, contents) {
-		c.log.Debugf("Existing CNI configuration file %s unchanged", dest)
+		c.log.Debug(
+			"Existing CNI configuration file unchanged",
+			slog.String("dest", dest),
+		)
 	} else {
 		if err != nil && !os.IsNotExist(err) {
-			c.log.Debugf("Failed to read existing CNI configuration file %s: %v", dest, err)
+			c.log.Debug(
+				"Failed to read existing CNI configuration file",
+				slog.Any(logfields.Error, err),
+				slog.String("dest", dest),
+			)
 		}
 		// commit CNI config
 		if err := renameio.WriteFile(dest, contents, 0600); err != nil {
 			return fmt.Errorf("failed to write CNI configuration file at %s: %w", dest, err)
 		}
-		c.log.Infof("Wrote CNI configuration file to %s", dest)
+		c.log.Info(
+			"Wrote CNI configuration file",
+			slog.Any(logfields.Error, err),
+			slog.String("dest", dest),
+		)
 	}
 
 	// Rename away any non-cilium CNI config files.
@@ -341,7 +377,10 @@ func (c *cniConfigManager) renderCNIConf() (cniConfig []byte, err error) {
 			return nil, err
 		}
 	} else {
-		c.log.Infof("Generating CNI configuration file with mode %s", c.config.CNIChainingMode)
+		c.log.Info(
+			"Generating CNI configuration file with mode",
+			slog.String("mode", c.config.CNIChainingMode),
+		)
 		tmpl := cniConfigs[strings.ToLower(c.config.CNIChainingMode)]
 		cniConfig = []byte(c.renderCNITemplate(tmpl))
 	}
@@ -384,7 +423,10 @@ func (c *cniConfigManager) mergeExistingCNIConfig(pluginConfig []byte) ([]byte, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to modify existing CNI config: %w", err)
 	}
-	c.log.Infof("Generated chained cilium CNI configuration from %s", c.config.CNIChainingTarget)
+	c.log.Info(
+		"Generated chained cilium CNI configuration",
+		slog.String("target", c.config.CNIChainingTarget),
+	)
 	return out, nil
 }
 
@@ -438,7 +480,11 @@ func (c *cniConfigManager) cleanupOtherCNI() error {
 			continue
 		}
 
-		c.log.Infof("Renaming non-Cilium CNI configuration file %s to %s.cilium_bak", name, name)
+		c.log.Info(
+			"Renaming non-Cilium CNI configuration file",
+			slog.String("source", name),
+			slog.String("destination", name+".cilium_bak"),
+		)
 		_ = os.Rename(path.Join(c.cniConfDir, name), path.Join(c.cniConfDir, name+".cilium_bak"))
 	}
 	return nil
@@ -461,13 +507,21 @@ func (c *cniConfigManager) findCNINetwork(wantNetwork string) ([]byte, error) {
 		}
 		contents, err := os.ReadFile(file)
 		if err != nil {
-			c.log.WithError(err).WithField("path", file).Warn("Could not read CNI configuration file, skipping.")
+			c.log.Warn(
+				"Could not read CNI configuration file, skipping.",
+				slog.Any(logfields.Error, err),
+				slog.String("path", file),
+			)
 			continue
 		}
 
 		rawConfig := make(map[string]interface{})
 		if err := json.Unmarshal(contents, &rawConfig); err != nil {
-			c.log.WithError(err).WithField("path", file).Warn("CNI configuration file has invalid json, skipping.")
+			c.log.Warn(
+				"CNI configuration file has invalid json, skipping.",
+				slog.Any(logfields.Error, err),
+				slog.String("path", file),
+			)
 			continue
 		}
 
@@ -481,7 +535,11 @@ func (c *cniConfigManager) findCNINetwork(wantNetwork string) ([]byte, error) {
 			continue
 		}
 
-		c.log.WithField("path", file).Infof("Found CNI network %s for chaining", netName)
+		c.log.Info(
+			"Found CNI network for chaining",
+			slog.String("network", netName),
+			slog.String("path", file),
+		)
 
 		// Check to see if we need to upconvert to a CNI configuration list.
 		// The presence of a "plugins" configuration key means this is a conflist

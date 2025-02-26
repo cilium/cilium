@@ -7,11 +7,10 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime/pprof"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -25,7 +24,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
 )
 
 // Status is passed to a probe when its state changes
@@ -228,9 +227,10 @@ func (c *Collector) runProbe(p *Probe) {
 
 		case <-warningThreshold:
 			// Just warn and continue waiting for probe
-			log.WithField(logfields.Probe, p.Name).
-				Warnf("No response from probe within %v seconds",
-					c.config.WarningThreshold.Seconds())
+			log.Warn("No response from probe",
+				slog.String(logfields.Probe, p.Name),
+				slog.Duration("duration", c.config.WarningThreshold),
+			)
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -276,10 +276,10 @@ func (c *Collector) updateProbeStatus(p *Probe, data interface{}, stale bool, er
 	c.Unlock()
 
 	if stale {
-		log.WithFields(logrus.Fields{
-			logfields.StartTime: startTime,
-			logfields.Probe:     p.Name,
-		}).Warn("Timeout while waiting probe")
+		log.Warn("Timeout while waiting probe",
+			slog.Time(logfields.StartTime, startTime),
+			slog.String(logfields.Probe, p.Name),
+		)
 
 		// We just had a probe time out. This is commonly caused by a deadlock.
 		// So, capture a stack dump to aid in debugging.
@@ -315,12 +315,17 @@ func (c *Collector) maybeDumpStack() {
 
 	out, err := os.Create(c.config.StackdumpPath)
 	if err != nil {
-		log.WithError(err).WithField("path", c.config.StackdumpPath).Warn("Failed to write stack dump")
+		log.Warn("Failed to write stack dump",
+			slog.Any(logfields.Error, err),
+			slog.String("path", c.config.StackdumpPath),
+		)
 	}
 	defer out.Close()
 	gzout := gzip.NewWriter(out)
 	defer gzout.Close()
 
 	profile.WriteTo(gzout, 2) // 2: print same stack format as panic
-	log.Infof("Wrote stack dump to %s", c.config.StackdumpPath)
+	log.Info("Wrote stack dump",
+		slog.String("path", c.config.StackdumpPath),
+	)
 }

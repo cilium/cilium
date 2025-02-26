@@ -5,7 +5,6 @@ package operator
 
 import (
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -13,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -43,7 +43,7 @@ type clusterMeshParams struct {
 	wait.TimeoutConfig
 	Cfg       ClusterMeshConfig
 	CfgMCSAPI MCSAPIConfig
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo

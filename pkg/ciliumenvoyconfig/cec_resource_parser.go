@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/hive/cell"
@@ -21,7 +22,6 @@ import (
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_config_types "github.com/cilium/proxy/go/envoy/type/v3"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -50,7 +51,7 @@ const (
 )
 
 type cecResourceParser struct {
-	logger        logrus.FieldLogger
+	logger        logging.FieldLogger
 	portAllocator PortAllocator
 
 	ingressIPv4 net.IP
@@ -62,7 +63,7 @@ type cecResourceParser struct {
 type parserParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	PortAllocator  PortAllocator
@@ -92,9 +93,11 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 			parser.ingressIPv6 = localNode.IPv6IngressIP
 
 			params.Logger.
-				WithField(logfields.V4IngressIP, localNode.IPv4IngressIP).
-				WithField(logfields.V6IngressIP, localNode.IPv6IngressIP).
-				Debug("Retrieved Ingress IPs from Node")
+				Debug(
+					"Retrieved Ingress IPs from Node",
+					slog.Any(logfields.V4IngressIP, localNode.IPv4IngressIP),
+					slog.Any(logfields.V6IngressIP, localNode.IPv6IngressIP),
+				)
 
 			return nil
 		},
@@ -273,7 +276,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Listeners = append(resources.Listeners, listener)
 
-			r.logger.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
+			r.logger.Debug("ParseResources: Parsed listener", slog.String("name", name), slog.Any("listener", listener))
 
 		case envoy.RouteTypeURL:
 			route, ok := message.(*envoy_config_route.RouteConfiguration)
@@ -304,7 +307,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Routes = append(resources.Routes, route)
 
-			r.logger.Debugf("ParseResources: Parsed route %q: %v", name, route)
+			r.logger.Debug("ParseResources: Parsed route", slog.String("name", name), slog.Any("route", route))
 
 		case envoy.ClusterTypeURL:
 			cluster, ok := message.(*envoy_config_cluster.Cluster)
@@ -351,7 +354,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Clusters = append(resources.Clusters, cluster)
 
-			r.logger.Debugf("ParseResources: Parsed cluster %q: %v", name, cluster)
+			r.logger.Debug("ParseResources: Parsed cluster", slog.String("name", name), slog.Any("cluster", cluster))
 
 		case envoy.EndpointTypeURL:
 			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
@@ -380,7 +383,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
 
-			r.logger.Debugf("ParseResources: Parsed endpoints for cluster %q: %v", name, endpoints)
+			r.logger.Debug("ParseResources: Parsed endpoints for cluster", slog.String("name", name), slog.Any("endpoints", endpoints))
 
 		case envoy.SecretTypeURL:
 			secret, ok := message.(*envoy_config_tls.Secret)
@@ -409,7 +412,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
-			r.logger.Debugf("ParseResources: Parsed secret: %s", name)
+			r.logger.Debug("ParseResources: Parsed secret", slog.String("name", name))
 
 		default:
 			return envoy.Resources{}, fmt.Errorf("unsupported type: %s", typeURL)
@@ -560,8 +563,8 @@ func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 			// Enforce ingress policy for Ingress
 			conf.EnforcePolicyOnL7Lb = true
 		}
-		r.logger.Debugf("%s: ipv4_source_address: %s", ciliumBPFMetadataListenerFilterName, conf.GetIpv4SourceAddress())
-		r.logger.Debugf("%s: ipv6_source_address: %s", ciliumBPFMetadataListenerFilterName, conf.GetIpv6SourceAddress())
+		r.logger.Debug(ciliumBPFMetadataListenerFilterName, slog.String("ipv4_source_address", conf.GetIpv4SourceAddress()))
+		r.logger.Debug(ciliumBPFMetadataListenerFilterName, slog.String("ipv6_source_address", conf.GetIpv6SourceAddress()))
 	}
 
 	return &envoy_config_listener.ListenerFilter{

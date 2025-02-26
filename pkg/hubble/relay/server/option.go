@@ -5,9 +5,9 @@ package server
 
 import (
 	"crypto/tls"
+	"log/slog"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
@@ -29,7 +29,7 @@ type options struct {
 	listenAddress          string
 	healthListenAddress    string
 	metricsListenAddress   string
-	log                    logrus.FieldLogger
+	log                    logging.FieldLogger
 	serverTLSConfig        certloader.ServerConfigBuilder
 	insecureServer         bool
 	clientTLSConfig        certloader.ClientConfigBuilder
@@ -47,7 +47,7 @@ var defaultOptions = options{
 	retryTimeout:        defaults.RetryTimeout,
 	listenAddress:       defaults.ListenAddress,
 	healthListenAddress: defaults.HealthListenAddress,
-	log:                 logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
+	log:                 logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble-relay")),
 }
 
 // DefaultOptions to include in the server. Other packages may extend this
@@ -136,7 +136,7 @@ func WithErrorAggregationWindow(d time.Duration) Option {
 }
 
 // WithLogger set the logger used by hubble-relay.
-func WithLogger(log logrus.FieldLogger) Option {
+func WithLogger(log logging.FieldLogger) Option {
 	return func(o *options) error {
 		o.log = log
 		return nil

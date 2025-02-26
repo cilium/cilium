@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
 
@@ -26,13 +28,13 @@ import (
 // bpf_elf_map definitions (only used for prog_arrays at the time of writing)
 // and assigns tail calls annotated with `__section_tail` macros to their
 // intended maps and slots.
-func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
+func LoadCollectionSpec(logger logging.FieldLogger, path string) (*ebpf.CollectionSpec, error) {
 	spec, err := ebpf.LoadCollectionSpec(path)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := removeUnreachableTailcalls(spec); err != nil {
+	if err := removeUnreachableTailcalls(logger, spec); err != nil {
 		return nil, err
 	}
 
@@ -47,7 +49,7 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 	return spec, nil
 }
 
-func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
+func removeUnreachableTailcalls(logger logging.FieldLogger, spec *ebpf.CollectionSpec) error {
 	type TailCall struct {
 		referenced bool
 		visited    bool
@@ -116,8 +118,13 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 
 			// Ignore static tail calls made to maps that are not the calls map
 			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
-				log.Debugf("program '%s'/'%s', found tail call at %d, reference '%s', not a calls map, skipping",
-					prog.SectionName, prog.Name, i, ref)
+				logger.Debug(
+					"found tail call not not a calls map, skipping",
+					slog.String("section", prog.SectionName),
+					slog.String("prog", prog.Name),
+					slog.Int("i", i),
+					slog.String("reference", ref),
+				)
 				continue
 			}
 
@@ -164,7 +171,11 @@ reset:
 	// Remove all tailcalls that are not referenced.
 	for _, tailcall := range tailcalls {
 		if !tailcall.referenced {
-			log.Debugf("section '%s' / prog '%s', unreferenced, deleting", tailcall.spec.SectionName, tailcall.spec.Name)
+			logger.Debug(
+				"unreferenced tail call",
+				slog.String("section", tailcall.spec.SectionName),
+				slog.String("prog", tailcall.spec.Name),
+			)
 			delete(spec.Programs, tailcall.spec.Name)
 		}
 	}
@@ -234,10 +245,10 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // LoadAndAssign loads spec into the kernel and assigns the requested eBPF
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
-func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
-	log.Debug("Loading Collection into kernel")
+func LoadAndAssign(logger logging.FieldLogger, to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
+	logger.Debug("Loading Collection into kernel")
 
-	coll, commit, err := LoadCollection(spec, opts)
+	coll, commit, err := LoadCollection(logger, spec, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -286,7 +297,7 @@ type CollectionOptions struct {
 //
 // Any maps marked as pinned in the spec are automatically loaded from the path
 // given in opts.Maps.PinPath and will be used instead of creating new ones.
-func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
+func LoadCollection(logger logging.FieldLogger, spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
 	if spec == nil {
 		return nil, nil, errors.New("can't load nil CollectionSpec")
 	}
@@ -343,7 +354,7 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 	// Load successful, return a function that must be invoked after attaching the
 	// Collection's entrypoint programs to their respective hooks.
 	commit := func() error {
-		return commitMapPins(pins)
+		return commitMapPins(logger, pins)
 	}
 	return coll, commit, nil
 }

@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -74,7 +74,7 @@ type wqSyncStore struct {
 	syncedKey       string
 	syncedCallbacks []func(context.Context)
 
-	log          *logrus.Entry
+	log          *slog.Logger
 	queuedMetric prometheus.Gauge
 	errorsMetric prometheus.Counter
 	syncedMetric prometheus.Gauge
@@ -129,14 +129,14 @@ func newWorkqueueSyncStore(clusterName string, backend SyncStoreBackend, prefix 
 		limiter:   workqueue.DefaultTypedControllerRateLimiter[workqueueKey](),
 		syncedKey: prefix,
 
-		log: log.WithField(logfields.Prefix, prefix),
+		log: log.With(slog.String(logfields.Prefix, prefix)),
 	}
 
 	for _, opt := range opts {
 		opt(wss)
 	}
 
-	wss.log = wss.log.WithField(logfields.ClusterName, wss.source)
+	wss.log = wss.log.With(slog.String(logfields.ClusterName, wss.source))
 	wss.workqueue = workqueue.NewTypedRateLimitingQueue(wss.limiter)
 	wss.queuedMetric = m.KVStoreSyncQueueSize.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source)
 	wss.errorsMetric = m.KVStoreSyncErrors.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source)
@@ -154,7 +154,7 @@ func (wss *wqSyncStore) Run(ctx context.Context) {
 	wss.backend.RegisterLeaseExpiredObserver(wss.prefix, wss.handleExpiredLease)
 	wss.backend.RegisterLeaseExpiredObserver(wss.getSyncedKey(), wss.handleExpiredLease)
 
-	wss.log.WithField(logfields.Workers, wss.workers).Info("Starting workqueue-based sync store")
+	wss.log.Info("Starting workqueue-based sync store", slog.Any(logfields.Workers, wss.workers))
 	wg.Add(int(wss.workers))
 	for i := uint(0); i < wss.workers; i++ {
 		go func() {
@@ -187,7 +187,7 @@ func (wss *wqSyncStore) UpsertKey(_ context.Context, k Key) error {
 
 	prevValue, loaded := wss.state.Swap(key, value)
 	if loaded && bytes.Equal(prevValue, value) {
-		wss.log.WithField(logfields.Key, k).Debug("ignoring upsert request for already up-to-date key")
+		wss.log.Debug("ignoring upsert request for already up-to-date key", slog.Any(logfields.Key, k))
 	} else {
 		if !wss.synced.Load() {
 			wss.pendingSync.Store(key, struct{}{})
@@ -209,7 +209,7 @@ func (wss *wqSyncStore) DeleteKey(_ context.Context, k NamedKey) error {
 		wss.workqueue.Add(workqueueKey{value: key})
 		wss.queuedMetric.Set(float64(wss.workqueue.Len()))
 	} else {
-		wss.log.WithField(logfields.Key, key).Debug("ignoring delete request for non-existing key")
+		wss.log.Debug("ignoring delete request for non-existing key", slog.Any(logfields.Key, key))
 	}
 
 	return nil
@@ -268,27 +268,27 @@ func (wss *wqSyncStore) handle(ctx context.Context, item workqueueKey) error {
 }
 
 func (wss *wqSyncStore) handleUpsert(ctx context.Context, key string, value []byte) error {
-	scopedLog := wss.log.WithField(logfields.Key, key)
+	logAttr := slog.Any(logfields.Key, key)
 
 	err := wss.backend.Update(ctx, wss.keyPath(key), value, wss.withLease)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed upserting key in kvstore. Retrying...")
+		wss.log.Warn("Failed upserting key in kvstore. Retrying...", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
 
-	scopedLog.Debug("Upserted key in kvstore")
+	wss.log.Debug("Upserted key in kvstore", logAttr)
 	return nil
 }
 
 func (wss *wqSyncStore) handleDelete(ctx context.Context, key string) error {
-	scopedLog := wss.log.WithField(logfields.Key, key)
+	logAttr := slog.Any(logfields.Key, key)
 
 	if err := wss.backend.Delete(ctx, wss.keyPath(key)); err != nil {
-		scopedLog.WithError(err).Warning("Failed deleting key from kvstore. Retrying...")
+		wss.log.Warn("Failed deleting key from kvstore. Retrying...", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
 
-	scopedLog.Debug("Deleted key from kvstore")
+	wss.log.Debug("Deleted key from kvstore", logAttr)
 	return nil
 }
 
@@ -305,15 +305,15 @@ func (wss *wqSyncStore) handleSync(ctx context.Context, skipCallbacks bool) erro
 	}
 
 	key := wss.getSyncedKey()
-	scopedLog := wss.log.WithField(logfields.Key, key)
+	logAttr := slog.Any(logfields.Key, key)
 
 	err := wss.backend.Update(ctx, key, []byte(time.Now().Format(time.RFC3339)), wss.withLease)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed upserting synced key in kvstore. Retrying...")
+		wss.log.Warn("Failed upserting synced key in kvstore. Retrying...", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
 
-	wss.log.Info("Initial synchronization from the external source completed")
+	wss.log.Info("Initial synchronization from the external source completed", logAttr)
 	wss.syncedMetric.Set(metrics.BoolToFloat64(true))
 
 	// Execute any callback that might have been registered.
@@ -341,7 +341,7 @@ func (wss *wqSyncStore) handleExpiredLease(key string) {
 	key = strings.TrimPrefix(strings.TrimPrefix(key, wss.prefix), "/")
 	_, ok := wss.state.Load(key)
 	if ok {
-		wss.log.WithField(logfields.Key, key).Debug("enqueuing upsert request for key as the attached lease expired")
+		wss.log.Debug("enqueuing upsert request for key as the attached lease expired", slog.Any(logfields.Key, key))
 		if !wss.synced.Load() {
 			wss.pendingSync.Store(key, struct{}{})
 		}

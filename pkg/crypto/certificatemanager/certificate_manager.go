@@ -6,14 +6,15 @@ package certificatemanager
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -67,11 +68,11 @@ type manager struct {
 	secretSyncNamespace            string
 	secretSyncEnabled              bool
 	secretsFromSecretSyncNamespace bool
-	Logger                         logrus.FieldLogger
+	Logger                         logging.FieldLogger
 }
 
 // NewManager returns a new manager.
-func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logrus.FieldLogger) (CertificateManager, SecretManager) {
+func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logging.FieldLogger) (CertificateManager, SecretManager) {
 	m := &manager{
 		rootPath:                       cfg.CertificatesDirectory,
 		k8sClient:                      clientset,
@@ -185,7 +186,10 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 	// If the certificate hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
 	// so we don't need to validate the values. Envoy will handle validation.
 	if !inlineSecrets {
-		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
+		m.Logger.Debug(
+			"Secret being read from Kubernetes via SDS",
+			slog.String("secret", name),
+		)
 		return "", "", "", false, nil
 	}
 
@@ -228,7 +232,7 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 
 	// TODO(youngnick): Follow up PR that will change this to a deprecation warning once we actually
 	// mark read-from-file and direct read as deprecated.
-	m.Logger.WithField("secret", name).Debug("Secret being used inline, not via SDS")
+	m.Logger.Debug("Secret being used inline, not via SDS", slog.String("secret", name))
 	return ca, public, private, true, nil
 }
 
@@ -242,7 +246,7 @@ func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns st
 	// If the value hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
 	// so we don't need to validate the values. Envoy will handle validation.
 	if len(secrets) == 0 {
-		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
+		m.Logger.Debug("Secret being read from Kubernetes via SDS", slog.String("secret", name))
 		return "", nil
 	}
 

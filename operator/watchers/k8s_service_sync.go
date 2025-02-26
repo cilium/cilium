@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -96,7 +94,7 @@ type ServiceSyncParameters struct {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, log *slog.Logger) {
 	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
@@ -124,7 +122,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, logger)
+		k8sServiceHandler(ctx, cfg.ClusterInfo, log)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints

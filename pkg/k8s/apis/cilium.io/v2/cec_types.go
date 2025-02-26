@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -16,6 +17,7 @@ import (
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -185,10 +187,12 @@ func (u *XDSResource) UnmarshalJSON(b []byte) (err error) {
 	if err != nil {
 		var buf bytes.Buffer
 		json.Indent(&buf, b, "", "\t")
-		log.Warningf("Ignoring invalid CiliumEnvoyConfig JSON (%s): %s",
-			err, buf.String())
+		log.Warn("Ignoring invalid CiliumEnvoyConfig JSON",
+			slog.Any(logfields.Error, err),
+			slog.String("CEC JSON", buf.String()),
+		)
 	} else if option.Config.Debug {
-		log.Debugf("CEC unmarshaled XDS Resource: %v", prototext.Format(u.Any))
+		log.Debug(fmt.Sprintf("CEC unmarshaled XDS Resource: %v", prototext.Format(u.Any)))
 	}
 	return nil
 }

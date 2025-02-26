@@ -5,11 +5,13 @@ package synced
 
 import (
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -70,7 +72,10 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	// Log an error caches have already synchronized, as the caller is making this call too late
 	// and the resource in question was missed in the initial cache sync.
 	if r.CacheStatus.Synchronized() {
-		log.WithField("kubernetesResource", resourceName).Errorf("BlockWaitGroupToSyncResources called after Caches have already synced")
+		log.Error(
+			"BlockWaitGroupToSyncResources called after Caches have already synced",
+			slog.String("kubernetesResource", resourceName),
+		)
 		return
 	}
 	ch := make(chan struct{})
@@ -84,13 +89,13 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	r.Unlock()
 
 	go func() {
-		scopedLog := log.WithField("kubernetesResource", resourceName)
-		scopedLog.Debug("waiting for cache to synchronize")
+		logAttr := slog.String("kubernetesResource", resourceName)
+		log.Debug("waiting for cache to synchronize", logAttr)
 		if ok := cache.WaitForCacheSync(stop, hasSyncedFunc); !ok {
 			select {
 			case <-stop:
 				// do not fatal if the channel was stopped
-				scopedLog.Debug("canceled cache synchronization")
+				log.Debug("canceled cache synchronization", logAttr)
 				r.Lock()
 				// Since the wait for cache sync was canceled we
 				// need to mark that stopWait was canceled and it
@@ -100,10 +105,14 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 				r.Unlock()
 			default:
 				// Fatally exit it resource fails to sync
-				scopedLog.Fatalf("failed to wait for cache to sync")
+				logging.Fatal(
+					log,
+					"failed to wait for cache to sync",
+					logAttr,
+				)
 			}
 		} else {
-			scopedLog.Debug("cache synced")
+			log.Debug("cache synced", logAttr)
 			r.Lock()
 			// Since the wait for cache sync was not canceled we need to
 			// mark that stopWait not canceled and it should stop
@@ -130,16 +139,16 @@ func (r *Resources) WaitForCacheSync(resourceNames ...string) {
 			continue
 		}
 		for {
-			scopedLog := log.WithField("kubernetesResource", resourceName)
+			logAttr := slog.String("kubernetesResource", resourceName)
 			<-c
 			r.RLock()
 			stopWait := r.stopWait[resourceName]
 			r.RUnlock()
 			if stopWait {
-				scopedLog.Debug("stopped waiting for caches to be synced")
+				log.Debug("stopped waiting for caches to be synced", logAttr)
 				break
 			}
-			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
+			log.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...", logAttr)
 			time.Sleep(syncedPollPeriod)
 			r.RLock()
 			c, ok = r.resources[resourceName]
@@ -195,9 +204,17 @@ func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceN
 						// We reset the timer to wait the timeout period minus the
 						// time since the last event.
 						currTimeout = timeout - time.Since(lastEvent)
-						log.Debugf("resource %q received event %s ago, waiting for additional %s before timing out", resource, time.Since(lastEvent), currTimeout)
+						log.Debug(
+							"received event for resource type, waiting before timeout",
+							slog.String("resource-type", resource),
+							slog.Duration("last-event-received", time.Since(lastEvent)),
+							slog.Duration("timeout", currTimeout),
+						)
 					case <-done:
-						log.Debugf("resource %q cache has synced, stopping timeout watcher", resource)
+						log.Debug(
+							"cache has synced, stopping timeout watcher",
+							slog.String("resource-type", resource),
+						)
 						return nil
 					}
 				}

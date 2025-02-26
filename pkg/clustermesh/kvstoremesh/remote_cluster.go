@@ -6,12 +6,12 @@ package kvstoremesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -62,7 +63,7 @@ type remoteCluster struct {
 	// cluster disconnection.
 	disableDrainOnDisconnection bool
 
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 	clock  clock.Clock
 }
 
@@ -158,7 +159,7 @@ func (rc *remoteCluster) Stop() {
 
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
-		rc.logger.Warning("Remote cluster disconnected, but cached data removal is disabled. " +
+		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +
 			"Reconnecting to the same cluster without first restarting KVStoreMesh may lead to inconsistencies")
 		return
 	}
@@ -179,13 +180,15 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 		case ctx.Err() != nil:
 			return
 		case retry == retries:
-			rc.logger.WithError(err).Error(
-				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the " +
-					"same cluster without first restarting KVStoreMesh may lead to inconsistencies")
+			rc.logger.Error(
+				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the "+
+					"same cluster without first restarting KVStoreMesh may lead to inconsistencies",
+				slog.Any(logfields.Error, err),
+			)
 			return
 		}
 
-		rc.logger.WithError(err).Warning("Failed to remove cached data from kvstore, retrying")
+		rc.logger.Warn("Failed to remove cached data from kvstore, retrying", slog.Any(logfields.Error, err))
 		select {
 		case <-rc.clock.After(backoff):
 			retry++
@@ -227,8 +230,10 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		// well). The cluster configuration is deleted before waiting to prevent
 		// new agents from connecting in this time window.
 		const drainGracePeriod = 3 * time.Minute
-		rc.logger.WithField(logfields.Duration, drainGracePeriod).
-			Info("Waiting before removing cached data from kvstore, to allow Cilium agents to disconnect")
+		rc.logger.Info(
+			"Waiting before removing cached data from kvstore, to allow Cilium agents to disconnect",
+			slog.Any(logfields.Duration, drainGracePeriod),
+		)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

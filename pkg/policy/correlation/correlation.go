@@ -4,9 +4,8 @@
 package correlation
 
 import (
+	"log/slog"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -22,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-flow-policy-correlation")
+var logger = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble-flow-policy-correlation"))
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
@@ -46,14 +45,20 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	// extract fields relevant for looking up the policy
 	direction, endpointID, remoteIdentity, proto, dport := extractFlowKey(f)
 	if dport == 0 || proto == 0 {
-		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to extract flow key")
+		logger.Debug(
+			"failed to extract flow key",
+			slog.Any(logfields.EndpointID, endpointID),
+		)
 		return
 	}
 
 	// obtain reference to endpoint on which the policy verdict was taken
 	epInfo, ok := endpointGetter.GetEndpointInfoByID(endpointID)
 	if !ok {
-		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to lookup endpoint")
+		logger.Debug(
+			"failed to lookup endpoint",
+			slog.Any(logfields.EndpointID, endpointID),
+		)
 		return
 	}
 
@@ -61,12 +66,13 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
 		f.GetPolicyMatchType())
 	if !ok {
-		logger.WithFields(logrus.Fields{
-			logfields.Identity:         remoteIdentity,
-			logfields.Port:             dport,
-			logfields.Protocol:         proto,
-			logfields.TrafficDirection: direction,
-		}).Debug("unable to find policy for policy verdict notification")
+		logger.Debug(
+			"unable to find policy for policy verdict notification",
+			slog.Any(logfields.Identity, remoteIdentity),
+			slog.Uint64(logfields.Port, uint64(dport)),
+			slog.Any(logfields.Protocol, proto),
+			slog.Any(logfields.TrafficDirection, direction),
+		)
 		return
 	}
 

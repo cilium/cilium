@@ -30,7 +30,7 @@ func (s *SearchContext) TraceEnabled() bool {
 // TRACE_ENABLED or TRACE_VERBOSE is enabled in the receiver's SearchContext.
 func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
 	if s.TraceEnabled() {
-		log.Debugf(format, a...)
+		log.Debug(format, a...)
 		if s.Logging != nil {
 			format = "%-" + s.CallDepth() + "s" + format
 			a = append([]interface{}{""}, a...)
@@ -44,7 +44,7 @@ func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
 func (s *SearchContext) PolicyTraceVerbose(format string, a ...interface{}) {
 	switch s.Trace {
 	case TRACE_VERBOSE:
-		log.Debugf(format, a...)
+		log.Debug(format, a...)
 		if s.Logging != nil {
 			s.Logging.Printf(format, a...)
 		}

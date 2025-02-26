@@ -5,6 +5,7 @@ package gobgp
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-test")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "bgp-test"))
 
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,

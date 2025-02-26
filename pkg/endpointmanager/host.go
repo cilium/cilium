@@ -5,11 +5,13 @@ package endpointmanager
 
 import (
 	"context"
+	"log/slog"
 	"maps"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -62,7 +64,7 @@ func (mgr *endpointManager) updateHostEndpointLabels(oldNodeLabels, newNodeLabel
 		// An error can only occur if either the endpoint is terminating, or the
 		// old labels are not found. Both are impossible, hence there's no point
 		// in retrying.
-		log.WithError(err).Error("Unable to update host endpoint labels")
+		log.Error("Unable to update host endpoint labels", slog.Any(logfields.Error, err))
 		return false
 	}
 	return true

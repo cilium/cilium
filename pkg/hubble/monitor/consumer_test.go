@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -20,14 +22,14 @@ import (
 
 type fakeObserver struct {
 	events chan *observerTypes.MonitorEvent
-	logger *logrus.Entry
+	logger *slog.Logger
 }
 
 func (f fakeObserver) GetEventsChannel() chan *observerTypes.MonitorEvent {
 	return f.events
 }
 
-func (f fakeObserver) GetLogger() logrus.FieldLogger {
+func (f fakeObserver) GetLogger() logging.FieldLogger {
 	return f.logger
 }
 
@@ -35,7 +37,7 @@ func TestHubbleConsumer(t *testing.T) {
 	observer := fakeObserver{
 		// For testing, we an events queue with a buffer size of 1
 		events: make(chan *observerTypes.MonitorEvent, 1),
-		logger: logrus.NewEntry(logrus.New()),
+		logger: logrus.NewEntry(slog.Default()),
 	}
 	consumer := NewConsumer(observer)
 	data := []byte{0, 1, 2, 3, 4}
@@ -134,8 +136,8 @@ func BenchmarkHubbleConsumerSendEvent(b *testing.B) {
 	body := func(b *testing.B, bt benchType) {
 		observer := fakeObserver{
 			events: make(chan *observerTypes.MonitorEvent, 1),
-			logger: func() *logrus.Entry {
-				log := logrus.New()
+			logger: func() *slog.Logger {
+				log := slog.Default()
 				log.SetOutput(io.Discard)
 				return logrus.NewEntry(log)
 			}(),

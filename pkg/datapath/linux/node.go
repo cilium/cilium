@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -526,7 +527,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	if err := route.Upsert(nodeRoute); err != nil {
+	if err := route.Upsert(nil, nodeRoute); err != nil {
 		n.log.Warn("Unable to update route",
 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
 		return err
@@ -1641,8 +1642,8 @@ func loadNeighLink(dir string) ([]string, error) {
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
 // handles the default route in the current namespace
-func NodeDeviceNameWithDefaultRoute() (string, error) {
-	link, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
+func NodeDeviceNameWithDefaultRoute(logger logging.FieldLogger) (string, error) {
+	link, err := route.NodeDeviceWithDefaultRoute(logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	if err != nil {
 		return "", err
 	}

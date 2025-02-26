@@ -6,17 +6,17 @@ package monitor
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
+	"github.com/cilium/cilium/pkg/logging"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 // monitorFilter is an implementation of OnMonitorEvent interface that filters monitor events.
 type monitorFilter struct {
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 
 	drop          bool
 	debug         bool
@@ -31,7 +31,7 @@ type monitorFilter struct {
 
 // NewMonitorFilter creates a new monitor filter.
 // If monitorEventFilters is empty, no events are allowed.
-func NewMonitorFilter(logger logrus.FieldLogger, monitorEventFilters []string) (*monitorFilter, error) {
+func NewMonitorFilter(logger logging.FieldLogger, monitorEventFilters []string) (*monitorFilter, error) {
 	monitorFilter := monitorFilter{logger: logger}
 
 	for _, filter := range monitorEventFilters {
@@ -59,7 +59,10 @@ func NewMonitorFilter(logger logrus.FieldLogger, monitorEventFilters []string) (
 		}
 	}
 
-	logger.WithField("filters", monitorEventFilters).Info("Configured Hubble with monitor event filters")
+	logger.Info(
+		"Configured Hubble with monitor event filters",
+		slog.Any("filters", monitorEventFilters),
+	)
 	return &monitorFilter, nil
 }
 

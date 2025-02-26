@@ -5,9 +5,9 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -238,7 +238,7 @@ func TestNeighborReconciler(t *testing.T) {
 				},
 			}
 
-			testInstance, err := instance.NewBGPInstance(context.Background(), logrus.WithField("unit_test", tt.name), "test-instance", srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), slog.With(slog.String("unit_test", tt.name)), "test-instance", srvParams)
 			req.NoError(err)
 
 			t.Cleanup(func() {
@@ -329,7 +329,7 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGP
 	secretStore := store.InitMockStore[*slim_corev1.Secret](secretObjs)
 
 	return NeighborReconcilerIn{
-		Logger:       logrus.WithField("unit_test", "neighbors"),
+		Logger:       slog.With(slog.String("unit_test", "neighbors")),
 		SecretStore:  secretStore,
 		PeerConfig:   peerConfigStore,
 		DaemonConfig: &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"},

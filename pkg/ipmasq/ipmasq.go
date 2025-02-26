@@ -6,6 +6,7 @@ package ipmasq
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipmasq")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipmasq"))
 
 	// The following reserved by RFCs IP addr ranges are used by
 	// https://github.com/kubernetes-sigs/ip-masq-agent
@@ -131,10 +132,10 @@ func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error
 // updates the BPF map accordingly.
 func (a *IPMasqAgent) Start() {
 	if err := a.restore(); err != nil {
-		log.WithError(err).Warn("Failed to restore")
+		log.Warn("Failed to restore", slog.Any(logfields.Error, err))
 	}
 	if err := a.Update(); err != nil {
-		log.WithError(err).Warn("Failed to update")
+		log.Warn("Failed to update", slog.Any(logfields.Error, err))
 	}
 
 	a.stop = make(chan struct{})
@@ -144,7 +145,7 @@ func (a *IPMasqAgent) Start() {
 		for {
 			select {
 			case event := <-a.watcher.Events:
-				log.Debugf("Received fsnotify event: %+v", event)
+				log.Debug("Received fsnotify event", slog.Any("event", event))
 
 				switch {
 				case event.Has(fsnotify.Create),
@@ -153,13 +154,13 @@ func (a *IPMasqAgent) Start() {
 					event.Has(fsnotify.Remove),
 					event.Has(fsnotify.Rename):
 					if err := a.Update(); err != nil {
-						log.WithError(err).Warn("Failed to update")
+						log.Warn("Failed to update", slog.Any(logfields.Error, err))
 					}
 				default:
-					log.Warnf("Watcher received unknown event: %s. Ignoring.", event)
+					log.Warn("Watcher received unknown event. Ignoring...", slog.Any("event", event))
 				}
 			case err := <-a.watcher.Errors:
-				log.WithError(err).Warn("Watcher received an error")
+				log.Warn("Watcher received an error", slog.Any(logfields.Error, err))
 			case <-a.stop:
 				log.Info("Stopping ip-masq-agent")
 				close(a.handlerFinished)
@@ -200,7 +201,7 @@ func (a *IPMasqAgent) Update() error {
 
 	for cidrStr, cidr := range a.nonMasqCIDRsFromConfig {
 		if _, ok := a.nonMasqCIDRsInMap[cidrStr]; !ok {
-			log.WithField(logfields.CIDR, cidrStr).Info("Adding CIDR")
+			log.Info("Adding CIDR", slog.Any(logfields.CIDR, cidrStr))
 			a.ipMasqMap.Update(cidr)
 			a.nonMasqCIDRsInMap[cidrStr] = cidr
 		}
@@ -208,7 +209,7 @@ func (a *IPMasqAgent) Update() error {
 
 	for cidrStr, cidr := range a.nonMasqCIDRsInMap {
 		if _, ok := a.nonMasqCIDRsFromConfig[cidrStr]; !ok {
-			log.WithField(logfields.CIDR, cidrStr).Info("Removing CIDR")
+			log.Info("Removing CIDR", slog.Any(logfields.CIDR, cidrStr))
 			a.ipMasqMap.Delete(cidr)
 			delete(a.nonMasqCIDRsInMap, cidrStr)
 		}
@@ -225,7 +226,7 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 	raw, err := os.ReadFile(a.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.WithField(logfields.Path, a.configPath).Info("Config file not found")
+			log.Info("Config file not found", slog.Any(logfields.Path, a.configPath))
 			a.nonMasqCIDRsFromConfig = map[string]netip.Prefix{}
 			a.masqLinkLocalIPv4 = false
 			a.masqLinkLocalIPv6 = false

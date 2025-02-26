@@ -5,6 +5,7 @@ package seven
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"testing"
@@ -46,7 +47,7 @@ var (
 )
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 

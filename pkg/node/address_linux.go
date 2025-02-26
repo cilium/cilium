@@ -7,10 +7,10 @@ package node
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -189,11 +189,12 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	}
 
 	if ipv4GW != nil || ipv6Router != nil {
-		log.WithFields(logrus.Fields{
-			"ipv4":   ipv4GW,
-			"ipv6":   ipv6Router,
-			"device": devName,
-		}).Info("Restored router address from device")
+		log.Info(
+			"Restored router address from device",
+			slog.Any("ipv4", ipv4GW),
+			slog.Any("ipv6", ipv6Router),
+			slog.String("device", devName),
+		)
 	}
 
 	return ipv4GW, ipv6Router

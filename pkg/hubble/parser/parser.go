@@ -6,7 +6,6 @@
 package parser
 
 import (
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/seven"
 	"github.com/cilium/cilium/pkg/hubble/parser/sock"
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
+	"github.com/cilium/cilium/pkg/logging"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -42,7 +42,7 @@ type Parser struct {
 
 // New creates a new parser
 func New(
-	log logrus.FieldLogger,
+	log logging.FieldLogger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,

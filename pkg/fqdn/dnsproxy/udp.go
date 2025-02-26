@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 	"sync"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -222,9 +224,14 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 
 	n, _, err = s.f.rawResponseConn.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	if err != nil {
-		log.WithError(err).Warning("WriteMsgIP failed")
+		log.Warn("WriteMsgIP failed", slog.Any(logfields.Error, err))
 	} else {
-		log.Debugf("dnsproxy: Wrote DNS response (%d/%d bytes) from %s to %s", n-8, l, s.laddr.String(), s.raddr.String())
+		log.Debug("dnsproxy: Wrote DNS response",
+			slog.Int64("written-bytes", int64(n-8)),
+			slog.Int64("total-bytes", int64(l)),
+			slog.Any("source", s.laddr),
+			slog.Any("destination", s.raddr),
+		)
 	}
 	return n, err
 }

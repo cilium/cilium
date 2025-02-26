@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"path"
@@ -32,6 +33,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
@@ -355,7 +357,7 @@ type Kubectl struct {
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
 // It marks the test as Fail if cannot get the ssh meta information or cannot
 // execute a `ls` on the virtual machine.
-func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
+func CreateKubectl(vmName string, log *slog.Logger) (k *Kubectl) {
 	if config.CiliumTestConfig.Kubeconfig == "" {
 		node := GetVagrantSSHMeta(vmName)
 		if node == nil {
@@ -918,7 +920,7 @@ func (kub *Kubectl) GetCNP(namespace string, cnp string) *cnpv2.CiliumNetworkPol
 	})
 	res := kub.Get(namespace, fmt.Sprintf("cnp %s", cnp))
 	if !res.WasSuccessful() {
-		log.WithField("error", res.CombineOutput()).Info("cannot get CNP")
+		log.Info("cannot get CNP", slog.Any("error", res.CombineOutput()))
 		return nil
 	}
 	var result cnpv2.CiliumNetworkPolicy
@@ -2297,7 +2299,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 
 	dnsClusterIP, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
 	if err != nil {
-		logger.WithError(err).Error("cannot get kube-dns service IP")
+		logger.Error("cannot get kube-dns service IP", slog.Any(logfields.Error, err))
 		return err
 	}
 
@@ -2831,7 +2833,7 @@ func (kub *Kubectl) CiliumEndpointIPv6(pod string, endpoint string) map[string]s
 func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
-		kub.Logger().WithError(err).Error("cannot get Cilium pods")
+		kub.Logger().Error("cannot get Cilium pods", slog.Any(logfields.Error, err))
 		return err
 	}
 
@@ -3201,7 +3203,7 @@ type ResourceLifeCycleAction string
 func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 	pods, err := kub.GetCiliumPods()
 	if err != nil {
-		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
+		kub.Logger().Error("cannot retrieve cilium pods", slog.Any(logfields.Error, err))
 		return nil, fmt.Errorf("Cannot get cilium pods: %w", err)
 	}
 
@@ -3209,7 +3211,7 @@ func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 	for _, pod := range pods {
 		revision, err := kub.CiliumPolicyRevision(pod)
 		if err != nil {
-			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
+			kub.Logger().Error("cannot retrieve cilium pod policy revision", slog.Any(logfields.Error, err))
 			return nil, fmt.Errorf("Cannot retrieve %q's policy revision: %w", pod, err)
 		}
 		revisions[pod] = revision
@@ -3360,7 +3362,7 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 
 	pods, err := kub.GetCiliumPodsContext(ctx, CiliumNamespace)
 	if err != nil {
-		kub.Logger().WithError(err).Error("cannot retrieve cilium pods on ReportDump")
+		kub.Logger().Error("cannot retrieve cilium pods on ReportDump", slog.Any(logfields.Error, err))
 	}
 	res := kub.ExecContextShort(ctx, fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
@@ -3446,7 +3448,7 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 		status := kub.CiliumExecContext(ctx, pod, "cilium-dbg status --all-controllers -o json")
 		result, err := status.Filter(controllersFilter)
 		if err != nil {
-			kub.Logger().WithError(err).Error("Cannot filter controller status output")
+			kub.Logger().Error("Cannot filter controller status output", slog.Any(logfields.Error, err))
 			continue
 		}
 		total := 0
@@ -3523,7 +3525,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 				// Keep the cilium logs for the given test in a separate file.
 				testPath, err := CreateReportDirectory()
 				if err != nil {
-					kub.Logger().WithError(err).Error("Cannot create report directory")
+					kub.Logger().Error("Cannot create report directory", slog.Any(logfields.Error, err))
 					return
 				}
 				err = os.WriteFile(
@@ -3661,7 +3663,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 
 	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
 	if err != nil {
-		kub.Logger().WithError(err).Error("cannot retrieve cilium pods on ReportDump")
+		kub.Logger().Error("cannot retrieve cilium pods on ReportDump", slog.Any(logfields.Error, err))
 		return
 	}
 
@@ -3738,7 +3740,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 	}
 	pods, err := kub.GetAllPods(ctx, ExecOptions{SkipLog: true})
 	if err != nil {
-		kub.Logger().WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
+		kub.Logger().Error("Unable to get pods from Kubernetes via kubectl", slog.Any(logfields.Error, err))
 	}
 
 	for _, pod := range pods {
@@ -4409,7 +4411,7 @@ func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) e
 			kub.Logger().
 				WithFields(logrus.Fields{"cmd": cmd}).
 				WithError(out.GetError()).
-				Warning("Failed to list bpf egress policy map")
+				Warn("Failed to list bpf egress policy map")
 
 			return false
 		}
@@ -4419,7 +4421,7 @@ func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) e
 			kub.Logger().
 				WithFields(logrus.Fields{"cmd": cmd}).
 				WithError(err).
-				Warning("Failed to parse command output")
+				Warn("Failed to parse command output")
 
 			return false
 		}
@@ -4448,7 +4450,7 @@ func (kub *Kubectl) RepeatCommandInBackground(cmd string) (quit, run chan struct
 				if !res.WasSuccessful() {
 					kub.Logger().WithFields(logrus.Fields{
 						"cmd": cmd,
-					}).Warning("Command failed running in the background")
+					}).Warn("Command failed running in the background")
 				}
 				if firstRun {
 					close(run)

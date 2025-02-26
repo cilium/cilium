@@ -6,11 +6,11 @@ package init
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/authpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
@@ -32,7 +32,7 @@ import (
 //
 // Note that this function is **not idempotent**. It expects a completely blank etcd server with no non-default users,
 // roles, permissions, or keys.
-func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv3.Client, ciliumClusterName string) error {
+func ClusterMeshEtcdInit(ctx context.Context, log *slog.Logger, client *clientv3.Client, ciliumClusterName string) error {
 	ic := initClient{
 		log:    log,
 		client: client,
@@ -44,8 +44,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Root user
 	rootUsername := username("root")
-	log.WithField("etcdUsername", rootUsername).
-		Info("Configuring root user")
+	log.Info(
+		"Configuring root user",
+		slog.Any("etcdUsername", rootUsername),
+	)
 	err := ic.addNoPasswordUser(ctx, rootUsername)
 	if err != nil {
 		return err
@@ -57,8 +59,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Admin user
 	adminUsername := usernameForClusterName("admin", ciliumClusterName)
-	log.WithField("etcdUsername", adminUsername).
-		Info("Configuring admin user")
+	log.Info(
+		"Configuring admin user",
+		slog.Any("etcdUsername", adminUsername),
+	)
 	err = ic.addNoPasswordUser(ctx, adminUsername)
 	if err != nil {
 		return err
@@ -70,8 +74,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Local user (i.e., local agents accessing information cached by KVStoreMesh)
 	localUsername := usernameForClusterName("local", ciliumClusterName)
-	log.WithField("etcdUsername", localUsername).
-		Info("Configuring local user")
+	log.Info(
+		"Configuring local user",
+		slog.Any("etcdUsername", localUsername),
+	)
 	localRolename := rolename("local")
 	err = ic.addNoPasswordUser(ctx, localUsername)
 	if err != nil {
@@ -94,8 +100,10 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 
 	// Remote user (i.e., remote clusters accessing state information)
 	remoteUsername := username("remote")
-	log.WithField("etcdUsername", remoteUsername).
-		Info("Configuring remote user")
+	log.Info(
+		"Configuring remote user",
+		slog.Any("etcdUsername", remoteUsername),
+	)
 	remoteRolename := rolename("remote")
 	err = ic.addNoPasswordUser(ctx, remoteUsername)
 	if err != nil {
@@ -140,7 +148,7 @@ func usernameForClusterName(base, clusterName string) username {
 // package. It's entirely an internal implementation detail.
 type initClient struct {
 	client *clientv3.Client
-	log    *logrus.Entry
+	log    *slog.Logger
 }
 
 // The username and rolename types exist to make it harder to mix up usernames and rolenames, which are both strings
@@ -155,8 +163,10 @@ const rootRolename = rolename("root")
 // addNoPasswordUser adds a new user to etcd with no password. This is expected as later on we'll enable auth which will
 // require other forms of authentication. This is a wrapper around the client's UserAddWithOptions method.
 func (ic initClient) addNoPasswordUser(ctx context.Context, username username) error {
-	ic.log.WithField("etcdUsername", username).
-		Debug("Adding etcd user")
+	ic.log.Debug(
+		"Adding etcd user",
+		slog.Any("etcdUsername", username),
+	)
 	_, err := ic.client.UserAddWithOptions(ctx, string(username), "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return fmt.Errorf("adding user '%s': %w", username, err)
@@ -166,8 +176,10 @@ func (ic initClient) addNoPasswordUser(ctx context.Context, username username) e
 
 // addRole adds a new role to etcd. This is a wrapper around the client's RoleAdd method.
 func (ic initClient) addRole(ctx context.Context, rolename rolename) error {
-	ic.log.WithField("etcdRolename", rolename).
-		Debug("Adding etcd role")
+	ic.log.Debug(
+		"Adding etcd role",
+		slog.Any("etcdRolename", rolename),
+	)
 	_, err := ic.client.RoleAdd(ctx, string(rolename))
 	if err != nil {
 		return fmt.Errorf("adding role '%s': %w", rolename, err)
@@ -178,9 +190,11 @@ func (ic initClient) addRole(ctx context.Context, rolename rolename) error {
 // grantRoleToUser grants a role to a user, enabling that user access to the permissions of that role. This is a wrapper
 // around the client's UserGrantRole method.
 func (ic initClient) grantRoleToUser(ctx context.Context, rolename rolename, username username) error {
-	ic.log.WithField("etcdUsername", username).
-		WithField("etcdRolename", rolename).
-		Debug("Granting role to etcd user")
+	ic.log.Debug(
+		"Granting role to etcd user",
+		slog.Any("etcdUsername", username),
+		slog.Any("etcdRolename", rolename),
+	)
 	_, err := ic.client.UserGrantRole(ctx, string(username), string(rolename))
 	if err != nil {
 		return fmt.Errorf("granting role '%s' to user '%s': %w", rolename, username, err)
@@ -231,13 +245,13 @@ func (p permission) string() string {
 // grantPermissionToRole grants permissions on a range of keys to a role. This is a wrapper around the client's
 // RoleGrantPermission method.
 func (ic initClient) grantPermissionToRole(ctx context.Context, permission permission, keyRange keyRange, rolename rolename) error {
-	ic.log.WithFields(logrus.Fields{
-		"etcdRolename":   rolename,
-		"etcdPermission": permission.string(),
-		"etcdRangeStart": keyRange.start,
-		"etcdRangeEnd":   keyRange.end,
-	}).
-		Debug("Granting permission on a range of keys to an etcd role")
+	ic.log.Debug(
+		"Granting permission on a range of keys to an etcd role",
+		slog.Any("etcdRolename", rolename),
+		slog.Any("etcdPermission", permission),
+		slog.Any("etcdRangeStart", keyRange.start),
+		slog.Any("etcdRangeEnd", keyRange.end),
+	)
 	_, err := ic.client.RoleGrantPermission(ctx, string(rolename), keyRange.start, keyRange.end, clientv3.PermissionType(permission))
 	if err != nil {
 		return fmt.Errorf("granting role '%s' permission '%s' on range '%s' to '%s': %w", rolename, permission.string(), keyRange.start, keyRange.end, err)

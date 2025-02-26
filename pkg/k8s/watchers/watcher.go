@@ -5,11 +5,12 @@ package watchers
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -57,7 +58,7 @@ func init() {
 	}
 }
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-watcher")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "k8s-watcher"))
 
 type endpointManager interface {
 	LookupCEPName(string) *endpoint.Endpoint
@@ -263,7 +264,7 @@ func resourceGroups(cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly
 	for _, r := range ciliumResources {
 		groupInfo, ok := ciliumResourceToGroupMapping[r]
 		if !ok {
-			log.Fatalf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r)
+			logging.Fatal(log, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/watchers to understand this type.", r))
 		}
 		switch groupInfo.kind {
 		case skip:
@@ -296,7 +297,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 		log.Info("Waiting until all pre-existing resources have been received")
 		allResources := append(resources, cachesOnly...)
 		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
-			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
+			logging.Fatal(log, "Timed out waiting for pre-existing resources to be received; exiting", slog.Any(logfields.Error, err))
 		}
 		close(cachesSynced)
 	}()
@@ -348,9 +349,10 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.k8sCiliumLRPWatcher.ciliumLocalRedirectPolicyInit()
 		default:
-			log.WithFields(logrus.Fields{
-				logfields.Resource: r,
-			}).Fatal("Not listening for Kubernetes resource updates for unhandled type")
+			logging.Fatal(log,
+				"Not listening for Kubernetes resource updates for unhandled type",
+				slog.Any(logfields.Resource, r),
+			)
 		}
 	}
 

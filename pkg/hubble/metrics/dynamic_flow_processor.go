@@ -6,21 +6,22 @@ package metrics
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"reflect"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // DynamicFlowProcessor represents instance of hubble exporter with dynamic
 // configuration reload.
 type DynamicFlowProcessor struct {
-	logger  logrus.FieldLogger
+	logger  logging.FieldLogger
 	watcher *metricConfigWatcher
 	// Protects against deregistering metric handlers while ProcessFlow is executing, or concurrent config reloads.
 	mutex    lock.RWMutex
@@ -49,7 +50,10 @@ func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.F
 	}
 
 	if errs != nil {
-		d.logger.WithError(errs).Error("Failed to ProcessFlow in metrics handler")
+		d.logger.Error(
+			"Failed to ProcessFlow in metrics handler",
+			slog.Any(logfields.Error, errs),
+		)
 	}
 	return false, errs
 }
@@ -70,7 +74,7 @@ func (d *DynamicFlowProcessor) Stop() error {
 }
 
 // NewDynamicFlowProcessor creates instance of dynamic hubble flow exporter.
-func NewDynamicFlowProcessor(reg *prometheus.Registry, logger logrus.FieldLogger, configFilePath string) *DynamicFlowProcessor {
+func NewDynamicFlowProcessor(reg *prometheus.Registry, logger logging.FieldLogger, configFilePath string) *DynamicFlowProcessor {
 	dynamicFlowProcessor := &DynamicFlowProcessor{
 		logger:   logger,
 		registry: reg,
@@ -100,7 +104,11 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 				h := curHandlerMap[m.Name]
 				err := h.Handler.Deinit(d.registry)
 				if err != nil {
-					d.logger.WithField("name", m.Name).WithError(err).Error("Deinit failed for handler")
+					d.logger.Error(
+						"Deinit failed for handler",
+						slog.Any(logfields.Error, err),
+						slog.String("name", m.Name),
+					)
 				}
 				delete(curHandlerMap, m.Name)
 			}
@@ -117,7 +125,11 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 			}
 			err := m.Handler.HandleConfigurationUpdate(cm)
 			if err != nil {
-				d.logger.WithField("name", cm.Name).WithError(err).Error("HandleConfigurationUpdate failed for handler")
+				d.logger.Error(
+					"HandleConfigurationUpdate failed for handler",
+					slog.Any(logfields.Error, err),
+					slog.String("name", cm.Name),
+				)
 			}
 			m.MetricConfig = cm
 		} else {
@@ -136,18 +148,22 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 func (d *DynamicFlowProcessor) addNewMetric(reg *prometheus.Registry, cm *api.MetricConfig, metricNames map[string]*api.MetricConfig, newMetrics *[]api.NamedHandler) {
 	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(reg, cm, &metricNames)
 	if err != nil {
-		d.logger.WithFields(logrus.Fields{
-			"metric name": cm.Name,
-		}).WithError(err).Error("Failed to configure metrics plugin")
+		d.logger.Error(
+			"Failed to configure metrics plugin",
+			slog.Any(logfields.Error, err),
+			slog.String("name", cm.Name),
+		)
 
 		return
 	}
 
 	err = api.InitHandler(d.logger, reg, nh)
 	if err != nil {
-		d.logger.WithFields(logrus.Fields{
-			"metric name": cm.Name,
-		}).WithError(err).Error("Failed to configure metrics plugin")
+		d.logger.Error(
+			"Failed to configure metrics plugin",
+			slog.Any(logfields.Error, err),
+			slog.String("name", cm.Name),
+		)
 
 		return
 	}

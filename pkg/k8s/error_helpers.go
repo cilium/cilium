@@ -5,10 +5,12 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"regexp"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -59,7 +61,7 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 	// trying to connect.
 	case strings.Contains(errstr, "connection refused"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("k8sError")
+			log.Error("k8sError", slog.Any(logfields.Error, e))
 		}
 
 	// k8s does not allow us to watch both ThirdPartyResource and
@@ -68,7 +70,7 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 	// that used ThirdPartyResource to define CiliumNetworkPolicy.
 	case strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: the server could not find the requested resource"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("No Cilium Network Policy CRD defined in the cluster, please set `--skip-crd-creation=false` to avoid seeing this error.")
+			log.Error("No Cilium Network Policy CRD defined in the cluster, please set `--skip-crd-creation=false` to avoid seeing this error.", slog.Any(logfields.Error, e))
 		}
 
 	// fromCIDR and toCIDR used to expect an "ip" subfield (so, they were a YAML
@@ -81,14 +83,16 @@ func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 		strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct"),
 		strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: v2.CiliumNetworkPolicyList:"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("Unable to decode k8s watch event")
+			log.Error("Unable to decode k8s watch event", slog.Any(logfields.Error, e))
 		}
 
 	case k8sObjDecodeErrRe.MatchString(errstr):
-		log.WithError(e).Error("K8s client-go error indicates failure to decode k8s objs from apiserver." +
-			" This likely indicate issues with k8s apiserver sending malformed data or errors." +
-			" Such issues may be related to corrupted k8s etcd state.")
+		log.Error("K8s client-go error indicates failure to decode k8s objs from apiserver."+
+			" This likely indicate issues with k8s apiserver sending malformed data or errors."+
+			" Such issues may be related to corrupted k8s etcd state.",
+			slog.Any(logfields.Error, e),
+		)
 	default:
-		log.WithError(e).Error("k8sError")
+		log.Error("k8sError", slog.Any(logfields.Error, e))
 	}
 }

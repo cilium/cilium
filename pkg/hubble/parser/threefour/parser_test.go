@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"testing"
@@ -46,7 +47,7 @@ import (
 var log *logrus.Logger
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 
@@ -111,8 +112,8 @@ func TestL34DecodeEmpty(t *testing.T) {
 }
 
 func TestL34Decode(t *testing.T) {
-	//SOURCE          					DESTINATION           TYPE   SUMMARY
-	//192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
+	// SOURCE          					DESTINATION           TYPE   SUMMARY
+	// 192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
 		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
 		1, 0, 0, 0, // source labels
@@ -244,8 +245,8 @@ func TestL34Decode(t *testing.T) {
 
 	// ICMP packet so no ports until that support is merged into master
 	//
-	//SOURCE              DESTINATION          TYPE   SUMMARY
-	//ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
+	// SOURCE              DESTINATION          TYPE   SUMMARY
+	// ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
 		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 255, 0, 179, 229, 18, 145,

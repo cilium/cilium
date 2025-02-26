@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -291,7 +292,7 @@ func TestWriteFeatureHeader(t *testing.T) {
 func TestExecuteSystemConfigProbes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	if err := NewProbeManager().SystemConfigProbes(); err != nil {
+	if err := NewProbeManager(logging.DefaultLogger).SystemConfigProbes(); err != nil {
 		t.Error(err)
 	}
 }
@@ -299,7 +300,7 @@ func TestExecuteSystemConfigProbes(t *testing.T) {
 func TestExecuteHeaderProbes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	if ExecuteHeaderProbes() == nil {
+	if ExecuteHeaderProbes(nil) == nil {
 		t.Error("expected probes to not be nil")
 	}
 }

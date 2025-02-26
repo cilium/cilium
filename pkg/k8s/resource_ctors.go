@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -429,8 +430,10 @@ func ciliumEndpointLocalPodIndexFunc(obj any) ([]string, error) {
 	}
 	indices := []string{}
 	if cep.Networking == nil {
-		log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
-			Debug("cannot index CiliumEndpoint by node without network status")
+		log.Debug(
+			"cannot index CiliumEndpoint by node without network status",
+			slog.Any("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()),
+		)
 		return nil, nil
 	}
 	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {

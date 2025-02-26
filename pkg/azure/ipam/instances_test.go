@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -168,7 +169,7 @@ func TestGetVpcsAndSubnets(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr := NewInstancesManager(logging.DefaultLogger, api)
 	require.NotNil(t, mngr)
 
 	require.Nil(t, mngr.subnets["subnet-1"])

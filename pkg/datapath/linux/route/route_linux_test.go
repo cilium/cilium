@@ -84,7 +84,7 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	err = Upsert(rt)
+	err = Upsert(nil, rt)
 	require.NoError(t, err)
 
 	if lookupTest {

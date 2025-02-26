@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/cmdref"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -22,7 +20,6 @@ const targetName = "cilium-health"
 
 var (
 	client  *clientPkg.Client
-	log     = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
 	logOpts = make(map[string]string)
 )
 
@@ -70,9 +67,9 @@ func initConfig() {
 	viper.AddConfigPath("$HOME")          // adding home directory as first search path
 
 	if viper.GetBool("debug") {
-		log.Level = logrus.DebugLevel
+		// log.Level = logrus.DebugLevel
 	} else {
-		log.Level = logrus.InfoLevel
+		// log.Level = logrus.InfoLevel
 	}
 
 	if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {
@@ -85,7 +82,7 @@ func initConfig() {
 func run(cmd *cobra.Command, args []string) {
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	if err := logging.SetupLogging(viper.GetStringSlice("log-driver"), logging.LogOptions(logOpts), "cilium-health", viper.GetBool("debug")); err != nil {
-		log.Fatal(err)
+		// log.Fatal(err)
 	}
 
 	cmd.Help()

@@ -5,6 +5,7 @@ package parser
 
 import (
 	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ import (
 var log *logrus.Logger
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 

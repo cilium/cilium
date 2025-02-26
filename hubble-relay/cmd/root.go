@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"log/slog"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -27,7 +29,7 @@ func New() *cobra.Command {
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 	}
-	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
+	logger := logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble-relay"))
 	vp := newViper()
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
@@ -41,7 +43,7 @@ func New() *cobra.Command {
 	}
 
 	if err := vp.ReadInConfig(); err != nil {
-		logger.WithError(err).Debugf("Failed to read config from file '%s'", configFilePath)
+		logger.Debug("Failed to read config from file", slog.Any(logfields.Error, err), slog.String("path", configFilePath))
 	}
 
 	// Check for the debug flag again now that the configuration file may has

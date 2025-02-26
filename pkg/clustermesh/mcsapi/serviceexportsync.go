@@ -5,6 +5,7 @@ package mcsapi
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -22,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mcsapi")
+var subsysLogAttr = slog.String(logfields.LogSubsys, "mcsapi")
 
 // ServiceExportResource builds the Resource[ServiceExport] object.
 func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
@@ -38,6 +39,7 @@ func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(
 }
 
 type ServiceExportSyncParameters struct {
+	Logger                  logging.FieldLogger
 	ClusterName             string
 	ClusterMeshEnableMCSAPI bool
 	Clientset               client.Clientset
@@ -53,6 +55,7 @@ type ServiceExportSyncParameters struct {
 }
 
 func StartSynchronizingServiceExports(ctx context.Context, cfg ServiceExportSyncParameters) {
+	logger := cfg.Logger.With(subsysLogAttr)
 	if cfg.store == nil {
 		if cfg.Backend == nil {
 			cfg.Backend = kvstore.Client()
@@ -81,7 +84,7 @@ func StartSynchronizingServiceExports(ctx context.Context, cfg ServiceExportSync
 	if !cfg.skipCrdCheck {
 		err := checkCRD(ctx, cfg.Clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceexports"))
 		if err != nil {
-			log.WithError(err).Warn("starting synchronizing service exports without the required CRD installed")
+			logger.Warn("starting synchronizing service exports without the required CRD installed", slog.Any(logfields.Error, err))
 			// Also pretend that the service exports are synced for the same reason
 			// as above.
 			cfg.store.Synced(ctx, cfg.SyncCallback)
@@ -92,13 +95,13 @@ func StartSynchronizingServiceExports(ctx context.Context, cfg ServiceExportSync
 	serviceEvents := cfg.Services.Events(ctx)
 	serviceStore, err := cfg.Services.Store(ctx)
 	if err != nil {
-		log.WithError(err).Error("can't init service store")
+		logger.Error("can't init service store", slog.Any(logfields.Error, err))
 		return
 	}
 	serviceExportsEvents := cfg.ServiceExports.Events(ctx)
 	serviceExportStore, err := cfg.ServiceExports.Store(ctx)
 	if err != nil {
-		log.WithError(err).Error("can't init service export store")
+		logger.Error("can't init service export store", slog.Any(logfields.Error, err))
 		return
 	}
 

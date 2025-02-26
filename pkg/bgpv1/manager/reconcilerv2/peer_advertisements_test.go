@@ -4,9 +4,9 @@
 package reconcilerv2
 
 import (
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	peerAdvertTestLogger = logrus.WithField("unit_test", "advertisements")
+	peerAdvertTestLogger = slog.With(slog.String("unit_test", "advertisements"))
 )
 
 // test fixtures

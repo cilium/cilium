@@ -9,13 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -50,7 +50,7 @@ type ConfigOverride struct {
 	DenyConfigKeys  []string `json:"denyConfigKeys"`  // List of configuration keys that are not allowed to be overridden (e.g. set from not the first source. If allow-config-keys is set, this field is ignored"
 }
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option-resolver")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "option-resolver"))
 
 func (cs *ConfigSource) String() string {
 	return fmt.Sprintf("%s:%s/%s", cs.Kind, cs.Namespace, cs.Name)
@@ -76,16 +76,19 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config source %s: %w", source.String(), err)
 		}
-		log.WithFields(logrus.Fields{
-			logfields.ConfigSource: source.String(),
-		}).Infof("Got %d config pairs from source", len(c))
+		log.Info(
+			"Got configuration source",
+			slog.Int("len-config-pairs", len(c)),
+			slog.Any(logfields.ConfigSource, source),
+		)
 		if !first {
 			for k := range c {
 				if matchKeys != nil && !(matchKeys.Has(k) == allowIfMatch) {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigSource: source.String(),
-						logfields.ConfigKey:    k,
-					}).Warnf("Source has non-overridable key")
+					log.Warn(
+						"Source has non-overridable key",
+						slog.String(logfields.ConfigKey, k),
+						slog.Any(logfields.ConfigSource, source),
+					)
 					delete(c, k)
 				}
 			}
@@ -122,10 +125,11 @@ func mergeConfig(source ConfigSource, lower, upper map[string]string) map[string
 
 	for k, v := range upper {
 		if _, set := out[k]; set {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigSource: source.String(),
-				logfields.ConfigKey:    k,
-			}).Infof("Source overrides key")
+			log.Info(
+				"Source overrides key",
+				slog.String(logfields.ConfigKey, k),
+				slog.Any(logfields.ConfigSource, source),
+			)
 		}
 		out[k] = v
 	}
@@ -147,9 +151,10 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 
 	for k, v := range data {
 		if strings.ContainsRune(k, os.PathSeparator) {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigKey: k,
-			}).Errorf("Ignoring key with path separator")
+			log.Error(
+				"Ignoring key with path separator",
+				slog.String(logfields.ConfigKey, k),
+			)
 			continue
 		}
 
@@ -179,9 +184,10 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 }
 
 func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, sources []ConfigSource, err error) {
-	log.WithFields(logrus.Fields{
-		logfields.ConfigSource: source.String(),
-	}).Infof("Reading configuration from %s", source.String())
+	log.Info(
+		"Reading configuration from source",
+		slog.Any(logfields.ConfigSource, source),
+	)
 	switch source.Kind {
 	case KindNode:
 		return readNodeOverrides(ctx, client, source.Name)
@@ -208,16 +214,19 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 			if strings.HasPrefix(k, annotation.ConfigPrefix) {
 				s := strings.SplitN(k, "/", 2)
 				if len(s) != 2 {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigAnnotation: k,
-					}).Errorf("Node annotation format invalid: should be of the format %s/<KEY>", annotation.ConfigPrefix)
+					log.Error(
+						fmt.Sprintf("Node annotation format invalid: should be of the format %s/<KEY>", annotation.ConfigPrefix),
+						slog.String(logfields.ConfigAnnotation, k),
+					)
 					continue
 				}
 				key := s[1]
 				if errs := apivalidation.IsConfigMapKey(key); len(errs) > 0 {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigKey: k,
-					}).Errorf("Node annotation format invalid: invalid key: %v", errs)
+					log.Error(
+						"Node annotation format invalid: invalid key",
+						slog.Any(logfields.Error, errs),
+						slog.String(logfields.ConfigKey, k),
+					)
 					continue
 				}
 				out[key] = v
@@ -238,9 +247,10 @@ func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSo
 	cm, err := client.CoreV1().ConfigMaps(source.Namespace).Get(ctx, source.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigSource: source.String(),
-			}).Errorf("Configmap not found, ignoring")
+			log.Error(
+				"Configmap not found, ignoring",
+				slog.Any(logfields.ConfigSource, source),
+			)
 			return nil, nil, nil
 		}
 		return nil, nil, fmt.Errorf("failed to retrieve ConfigMap %s/%s: %w", source.Namespace, source.Name, err)
@@ -258,12 +268,20 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 
 	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, client, nodeName, namespace, name)
 	if errv2 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2 not found: %s", errv2)
+		log.Error(
+			"CiliumNodeConfig v2 not found",
+			slog.Any(logfields.Error, errv2),
+			slog.String(logfields.Node, nodeName),
+		)
 	}
 
 	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, client, nodeName, namespace, name)
 	if errv2alpha1 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found: %s", errv2alpha1)
+		log.Error(
+			"CiliumNodeConfig v2alpha1 not found",
+			slog.Any(logfields.Error, errv2alpha1),
+			slog.String(logfields.Node, nodeName),
+		)
 		// return the errors for the two versions
 		if errv2 != nil {
 			return nil, nil, fmt.Errorf("CiliumNodeConfig v2 and v2alpha1 not found: %w and %w\n", errv2, errv2alpha1)
@@ -364,15 +382,19 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 	for _, name := range matchingNames {
 		for k, v := range matching[name].Spec.Defaults {
 			if errs := apivalidation.IsConfigMapKey(k); len(errs) > 0 {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Errorf("Invalid key in CiliumNodeConfigs %s/%s: %v", matching[name].Namespace, name, k)
+				log.Error(
+					"Invalid key in CiliumNodeConfigs",
+					slog.String("name", name),
+					slog.String("namespace", matching[name].Namespace),
+					slog.String(logfields.ConfigKey, k),
+				)
 				continue
 			}
 			if _, set := out[k]; set {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Warnf("Key %s set in multiple CiliumNodeConfigs", k)
+				log.Warn(
+					"Key set in multiple CiliumNodeConfigs",
+					slog.String(logfields.ConfigKey, k),
+				)
 			}
 			out[k] = v
 		}
@@ -459,15 +481,19 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 	for _, name := range matchingNames {
 		for k, v := range matching[name].Spec.Defaults {
 			if errs := apivalidation.IsConfigMapKey(k); len(errs) > 0 {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Errorf("Invalid key in CiliumNodeConfigs v2alpha1 %s/%s: %v", matching[name].Namespace, name, k)
+				log.Error(
+					"Invalid key in CiliumNodeConfigs v2alpha1",
+					slog.String("name", name),
+					slog.String("namespace", matching[name].Namespace),
+					slog.String(logfields.ConfigKey, k),
+				)
 				continue
 			}
 			if _, set := out[k]; set {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Infof("Key %s set in multiple CiliumNodeConfigs v2alpha1", k)
+				log.Info(
+					"Key set in multiple CiliumNodeConfigs v2alpha1",
+					slog.String(logfields.ConfigKey, k),
+				)
 			}
 			out[k] = v
 		}

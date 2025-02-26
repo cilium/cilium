@@ -339,8 +339,6 @@ func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPor
 // to keep the use count up-to-date.
 // Must be called with mutex held!
 func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
-	scopedLog := p.logger.With(fieldProxyRedirectID, name)
-
 	if pp.ProxyPort == 0 {
 		return fmt.Errorf("ackProxyPort: zero port on %s not allowed", name)
 	}
@@ -356,8 +354,8 @@ func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	if pp.rulesPort != pp.ProxyPort {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
-		scopedLog.Info("Adding new proxy port rules",
-			logfields.Name, name,
+		p.logger.Info("Adding new proxy port rules",
+			fieldProxyRedirectID, name,
 			logfields.ProxyPort, pp.ProxyPort,
 		)
 		p.datapathUpdater.InstallProxyRules(pp.ProxyPort, name)
@@ -367,7 +365,7 @@ func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 		p.Trigger.Trigger()
 	}
 	pp.acknowledged = true
-	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, pp.ProxyPort)
+	p.logger.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, pp.ProxyPort)
 	return nil
 }
 
@@ -519,12 +517,12 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	if p.proxyPortsPath == "" {
 		return nil // this is a unit test
 	}
-	scopedLogger := p.logger.With(logfields.Path, p.proxyPortsPath)
+	logAttr := slog.String(logfields.Path, p.proxyPortsPath)
 
 	// use renameio to prevent partial writes
 	out, err := renameio.NewPendingFile(p.proxyPortsPath, renameio.WithExistingPermissions(), renameio.WithPermissions(0o600))
 	if err != nil {
-		scopedLogger.Error("failed to prepare proxy ports file", logfields.Error, err)
+		p.logger.Error("failed to prepare proxy ports file", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
 	defer out.Cleanup()
@@ -542,14 +540,14 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	p.mutex.Unlock()
 
 	if err := jw.Encode(portsMap); err != nil {
-		scopedLogger.Error("failed to marshal proxy ports state", logfields.Error, err)
+		p.logger.Error("failed to marshal proxy ports state", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
 	if err := out.CloseAtomicallyReplace(); err != nil {
-		scopedLogger.Error("failed to write proxy ports file", logfields.Error, err)
+		p.logger.Error("failed to write proxy ports file", slog.Any(logfields.Error, err), logAttr)
 		return err
 	}
-	scopedLogger.Debug("Wrote proxy ports state")
+	p.logger.Debug("Wrote proxy ports state", logAttr)
 	return nil
 }
 
@@ -558,8 +556,6 @@ var errStaleProxyPortsFile = errors.New("proxy ports file is too old")
 // restore proxy ports from file created earlier by storeProxyPorts
 // must be called with mutex held
 func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint) error {
-	scopedLogger := p.logger.With(logfields.Path, p.proxyPortsPath)
-
 	// Check that the file exists and is not too old
 	stat, err := os.Stat(p.proxyPortsPath)
 	if err != nil {
@@ -590,9 +586,11 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 		}
 		p.proxyPorts[name] = pp
 		p.allocatedPorts[pp.ProxyPort] = false
-		scopedLogger.Debug("RestoreProxyPorts: preallocated proxy port",
-			fieldProxyRedirectID, name,
-			logfields.ProxyPort, pp.ProxyPort)
+		p.logger.Debug(
+			"RestoreProxyPorts: preallocated proxy port",
+			slog.String(fieldProxyRedirectID, name),
+			slog.Any(logfields.ProxyPort, pp.ProxyPort),
+		)
 	}
 	return nil
 }
@@ -618,9 +616,11 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 			p.proxyPorts[name] = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false, ProxyPort: port}
 		}
 		p.allocatedPorts[port] = false
-		p.logger.Debug("RestoreProxyPorts: preallocated proxy port from iptables",
-			fieldProxyRedirectID, name,
-			logfields.ProxyPort, port)
+		p.logger.Debug(
+			"RestoreProxyPorts: preallocated proxy port from iptables",
+			slog.String(fieldProxyRedirectID, name),
+			slog.Any(logfields.ProxyPort, port),
+		)
 	}
 }
 

@@ -9,11 +9,11 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -100,10 +101,12 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 			// Don't return on error (and block the endpoint creation) as this
 			// is an unusual case where data could have been malformed. Defer error
 			// logging to individual features depending on the metadata.
-			log.WithError(err).WithFields(logrus.Fields{
-				"netns_cookie": base.NetnsCookie,
-				"ep_id":        base.ID,
-			}).Error("unable to parse netns cookie for ep")
+			ep.getLogger().Error(
+				"unable to parse netns cookie for ep",
+				slog.Any(logfields.Error, err),
+				slog.String("netns_cookie", base.NetnsCookie),
+				slog.Int64("ep_id", base.ID),
+			)
 		} else {
 			ep.NetNsCookie = uint64(cookie64)
 		}

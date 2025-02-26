@@ -5,10 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -82,8 +82,8 @@ func (m mockAllocateIP) AllocateIPWithoutSyncUpstream(ip net.IP, owner string, p
 
 func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	level := logging.GetLevel(logging.DefaultLogger)
-	logging.SetLogLevel(logrus.FatalLevel)
-	logging.AddHooks()
+	// FIXME @aanm should be level fatal
+	logging.SetLogLevel(slog.LevelError)
 	t.Cleanup(func() {
 		logging.SetLogLevel(level)
 	})

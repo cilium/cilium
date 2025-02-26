@@ -5,9 +5,11 @@ package agent
 
 import (
 	"encoding/gob"
+	"log/slog"
 	"net"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
@@ -59,7 +61,7 @@ func (ml *listenerv1_2) drainQueue() {
 				return
 
 			default:
-				log.WithError(err).Warn("Removing listener due to write failure")
+				log.Warn("Removing listener due to write failure", slog.Any(logfields.Error, err))
 				return
 			}
 		}

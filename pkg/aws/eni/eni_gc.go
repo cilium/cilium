@@ -6,9 +6,12 @@ package eni
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -31,8 +34,9 @@ type GarbageCollectionParams struct {
 	ENITags types.Tags
 }
 
-func StartENIGarbageCollector(ctx context.Context, api EC2API, params GarbageCollectionParams) {
-	log.Info("Starting to garbage collect detached ENIs")
+func StartENIGarbageCollector(ctx context.Context, logger logging.FieldLogger, api EC2API, params GarbageCollectionParams) {
+	logger = logger.With(subsysLogAttr)
+	logger.Info("Starting to garbage collect detached ENIs")
 
 	var enisMarkedForDeletion []string
 	controllerManager.UpdateController(gcENIControllerName, controller.ControllerParams{
@@ -44,10 +48,10 @@ func StartENIGarbageCollector(ctx context.Context, api EC2API, params GarbageCol
 			// any ENIs. If the interface has been attached by the next run interval,
 			// the deletion will fail and the interface will not be garbage collected.
 			for _, eniID := range enisMarkedForDeletion {
-				log.WithField("eniID", eniID).Debug("Garbage collecting ENI")
+				logger.Debug("Garbage collecting ENI", slog.Any("eniID", eniID))
 				err := api.DeleteNetworkInterface(ctx, eniID)
 				if err != nil {
-					log.WithError(err).Debug("Failed to garbage collect ENI")
+					logger.Debug("Failed to garbage collect ENI", slog.Any(logfields.Error, err))
 				}
 			}
 
@@ -58,8 +62,10 @@ func StartENIGarbageCollector(ctx context.Context, api EC2API, params GarbageCol
 			}
 
 			if numENIs := len(enisMarkedForDeletion); numENIs > 0 {
-				log.WithField("numInterfaces", numENIs).
-					Debug("Marked unattached interfaces for garbage collection")
+				logger.Debug(
+					"Marked unattached interfaces for garbage collection",
+					slog.Any("numInterfaces", numENIs),
+				)
 			}
 
 			return nil

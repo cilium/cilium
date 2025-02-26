@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -95,7 +96,7 @@ func TestRegister(t *testing.T) {
 		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	t.Run("Should not register handler", func(t *testing.T) {

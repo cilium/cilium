@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -61,19 +63,19 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 }
 
 func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
-	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
+	log.Info("Starting kvstore watchdog", slog.Duration(logfields.Interval, defaults.LockLeaseTTL))
 
 	backend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
 		Backend:  kvstore.Client(),
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")
+		logging.Fatal(log, "Unable to initialize kvstore backend for identity garbage collection", slog.Any(logfields.Error, err))
 	}
 
 	minID := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
 	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
+	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID), allocator.WithLogger(logging.DefaultLogger))
 
 	keysToDelete := map[string]kvstore.Value{}
 	go func() {
@@ -82,7 +84,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			keysToDelete2, err := a.RunLocksGC(ctx, keysToDelete)
 			if err != nil {
-				log.WithError(err).Warning("Unable to run security identity garbage collector")
+				log.Warn("Unable to run security identity garbage collector", slog.Any(logfields.Error, err))
 			} else {
 				keysToDelete = keysToDelete2
 			}
@@ -98,7 +100,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
 			if err != nil {
-				log.WithError(err).Warning("Unable to update heartbeat key")
+				log.Warn("Unable to update heartbeat key", slog.Any(logfields.Error, err))
 			}
 
 			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
@@ -111,7 +113,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
-					log.WithError(err).Warning("Unable to set local cluster config")
+					log.Warn("Unable to set local cluster config", slog.Any(logfields.Error, err))
 				}
 			}
 

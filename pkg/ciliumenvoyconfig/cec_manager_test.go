@@ -6,11 +6,11 @@ package ciliumenvoyconfig
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"testing"
 
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
@@ -60,8 +60,7 @@ spec:
 `)
 
 func TestParseEnvoySpec(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -133,8 +132,7 @@ spec:
 `)
 
 func TestParseEnvoySpecWithService(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),

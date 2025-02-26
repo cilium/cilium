@@ -5,19 +5,18 @@ package cidrmap
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"path"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/ebpf"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-cidr")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "map-cidr"))
 
 const (
 	MapName    = "cilium_cidr_"
@@ -86,7 +85,11 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 	if err := cm.checkPrefixlen(&key, "update"); err != nil {
 		return err
 	}
-	log.WithField(logfields.Path, cm.path).Debugf("Inserting CIDR entry %s", cidr.String())
+	log.Debug(
+		"Inserting CIDR entry",
+		slog.String(logfields.Path, cm.path),
+		slog.Any("cidr", cidr),
+	)
 	return cm.m.Update(unsafe.Pointer(&key), unsafe.Pointer(&entry), ebpf.UpdateAny)
 }
 
@@ -96,7 +99,11 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 	if err := cm.checkPrefixlen(&key, "delete"); err != nil {
 		return err
 	}
-	log.WithField(logfields.Path, cm.path).Debugf("Removing CIDR entry %s", cidr.String())
+	log.Debug(
+		"Removing CIDR entry",
+		slog.String(logfields.Path, cm.path),
+		slog.Any("cidr", cidr),
+	)
 	return cm.m.Delete(unsafe.Pointer(&key))
 }
 
@@ -150,7 +157,7 @@ func (cm *CIDRMap) Close() error {
 }
 
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
-func OpenMapElems(pinPath string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
+func OpenMapElems(logger logging.FieldLogger, pinPath string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
 	mapType := ebpf.LPMTrie
 	prefix := 0
 
@@ -162,7 +169,7 @@ func OpenMapElems(pinPath string, prefixlen int, prefixdyn bool, maxelem uint32)
 		return nil, fmt.Errorf("prefixlen must be > 0")
 	}
 	bytes := (prefixlen-1)/8 + 1
-	m, err := bpf.OpenOrCreateMap(&ebpf.MapSpec{
+	m, err := bpf.OpenOrCreateMap(nil, &ebpf.MapSpec{
 		Name:       path.Base(pinPath),
 		Type:       mapType,
 		KeySize:    uint32(unsafe.Sizeof(uint32(0)) + uintptr(bytes)),
@@ -173,16 +180,20 @@ func OpenMapElems(pinPath string, prefixlen int, prefixdyn bool, maxelem uint32)
 	}, path.Dir(pinPath))
 
 	if err != nil {
-		scopedLog := log.WithError(err).WithField(logfields.Path, pinPath)
-		scopedLog.Warning("Failed to create CIDR map")
+		logger.Warn(
+			"Failed to create CIDR map",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, pinPath),
+		)
 		return nil, err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.Path: pinPath,
-		"fd":           m.FD(),
-		"LPM":          m.Type() == ebpf.LPMTrie,
-	}).Debug("Created CIDR map")
+	logger.Debug(
+		"Created CIDR map",
+		slog.String(logfields.Path, pinPath),
+		slog.Int("fd", m.FD()),
+		slog.Bool("LPM", m.Type() == ebpf.LPMTrie),
+	)
 
 	return &CIDRMap{
 		path:            pinPath,

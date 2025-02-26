@@ -6,11 +6,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"strings"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -30,7 +29,7 @@ const (
 var (
 	controllers controller.Manager
 
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "shared-store"))
 
 	kvstoreSyncControllerGroup = controller.NewGroup("kvstore-sync")
 )
@@ -271,7 +270,7 @@ func (s *SharedStore) Close(ctx context.Context) {
 
 	for name, key := range s.localKeys {
 		if err := s.backend.Delete(ctx, s.keyPath(key)); err != nil {
-			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+			s.getLogger().Warn("Unable to delete key in kvstore", slog.Any(logfields.Error, err))
 		}
 
 		delete(s.localKeys, name)
@@ -395,17 +394,17 @@ func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 
 	if ok {
 		if err != nil {
-			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+			s.getLogger().Warn("Unable to delete key in kvstore", slog.Any(logfields.Error, err))
 		}
 
 		s.onDelete(key)
 	}
 }
 
-func (s *SharedStore) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		"storeName": s.name,
-	})
+func (s *SharedStore) getLogger() *slog.Logger {
+	return log.With(
+		slog.String("storeName", s.name),
+	)
 }
 
 func (s *SharedStore) updateKey(name string, value []byte) error {
@@ -435,16 +434,21 @@ func (s *SharedStore) deleteSharedKey(name string) {
 			_, ok := s.sharedKeys[name]
 			s.mutex.RUnlock()
 			if ok {
-				s.getLogger().WithFields(logrus.Fields{"key": name, "timeWindow": s.conf.SharedKeyDeleteDelay}).
-					Warning("Received delete event for key which re-appeared within delay time window")
+				s.getLogger().Warn(
+					"Received delete event for key which re-appeared within delay time window",
+					slog.String("key", name),
+					slog.Duration("timeWindow", s.conf.SharedKeyDeleteDelay),
+				)
 				return
 			}
 
 			s.onDelete(existingKey)
 		}()
 	} else {
-		s.getLogger().WithField("key", name).
-			Warning("Unable to find deleted key in local state")
+		s.getLogger().Warn(
+			"Unable to find deleted key in local state",
+			slog.String("key", name),
+		)
 	}
 }
 
@@ -469,19 +473,19 @@ func (s *SharedStore) listAndStartWatcher() error {
 func (s *SharedStore) watcher(listDone chan struct{}) {
 	events := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
 
+	logger := s.getLogger()
 	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
-			s.getLogger().Debug("Initial list of objects received from kvstore")
+			logger.Debug("Initial list of objects received from kvstore")
 			close(listDone)
 			continue
 		}
 
-		logger := s.getLogger().WithFields(logrus.Fields{
-			"key":       event.Key,
-			"eventType": event.Typ,
-		})
-
-		logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
+		logger.Debug("Received key update via kvstore",
+			slog.String("value", string(event.Value)),
+			slog.String("key", event.Key),
+			slog.Any("eventType", event.Typ),
+		)
 
 		keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
 		if keyName[0] == '/' {
@@ -491,12 +495,22 @@ func (s *SharedStore) watcher(listDone chan struct{}) {
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 			if err := s.updateKey(keyName, event.Value); err != nil {
-				logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
+				logger.Warn(
+					"Unable to unmarshal store value",
+					slog.Any(logfields.Error, err),
+					slog.String("value", string(event.Value)),
+					slog.String("key", event.Key),
+					slog.Any("eventType", event.Typ),
+				)
 			}
 
 		case kvstore.EventTypeDelete:
 			if localKey := s.lookupLocalKey(keyName); localKey != nil {
-				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
+				logger.Warn(
+					"Received delete event for local key. Re-creating the key in the kvstore",
+					slog.String("key", event.Key),
+					slog.Any("eventType", event.Typ),
+				)
 
 				s.syncLocalKey(s.conf.Context, localKey, true)
 			} else {

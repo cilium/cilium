@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -18,7 +19,6 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/util/workqueue"
@@ -187,7 +187,7 @@ func assertMetricConfig(t *testing.T, expected, actual api.MetricConfig) {
 
 func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	reg := prometheus.NewPedanticRegistry()
-	dfp := DynamicFlowProcessor{registry: reg, logger: logrus.New()}
+	dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
 	assert.Nil(t, dfp.Metrics)
 
 	// Handlers: +drop
@@ -248,7 +248,7 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 	require.NoError(t, err)
 
 	reg := prometheus.NewPedanticRegistry()
-	dfp := DynamicFlowProcessor{registry: reg, logger: logrus.New()}
+	dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
 	dfp.onConfigReload(context.TODO(), 0, *cfg)
 
 	flow1 := &pb.Flow{
@@ -337,7 +337,7 @@ func ConfigureAndFetchDynamicMetrics(t *testing.T, testName string, exportedMetr
 		cfg, _, _, err := watcher.readConfig()
 		require.NoError(t, err)
 
-		dfp := DynamicFlowProcessor{registry: reg, logger: logrus.New()}
+		dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
 		dfp.onConfigReload(context.TODO(), 0, *cfg)
 
 		flow1 := &pb.Flow{

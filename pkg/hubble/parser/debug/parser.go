@@ -6,7 +6,6 @@ package debug
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -14,19 +13,20 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 // Parser is a parser for debug payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            logging.FieldLogger
 	endpointGetter getters.EndpointGetter
 	linkMonitor    getters.LinkGetter
 }
 
 // New creates a new parser
-func New(log logrus.FieldLogger, endpointGetter getters.EndpointGetter) (*Parser, error) {
+func New(log logging.FieldLogger, endpointGetter getters.EndpointGetter) (*Parser, error) {
 	return &Parser{
 		log:            log,
 		endpointGetter: endpointGetter,

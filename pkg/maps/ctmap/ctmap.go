@@ -8,14 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/netip"
 	"os"
 	"strings"
 	"sync"
-
-	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -32,10 +30,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/ebpf"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ct")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "map-ct"))
 
 	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
@@ -349,7 +348,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		// per-cluster map handling
 		natm, err := nat.GetClusterNATMap(m.clusterID, family)
 		if err != nil {
-			log.WithError(err).Error("Unable to get per-cluster NAT map")
+			log.Error("Unable to get per-cluster NAT map", slog.Any(logfields.Error, err))
 		} else {
 			natMap = natm
 		}
@@ -473,7 +472,7 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Key, ctKey.String()).Error("Unable to delete CT entry")
+				log.Error("Unable to delete CT entry", slog.Any(logfields.Error, err), slog.Any(logfields.Key, ctKey))
 			} else {
 				stats.deleted++
 			}
@@ -606,7 +605,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	}
 
 	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
-		log.WithError(err).Error("NATmap dump failed during GC")
+		log.Error("NATmap dump failed during GC", slog.Any(logfields.Error, err))
 	} else {
 		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
 	}
@@ -647,22 +646,21 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 	for _, newMap := range maps(e, true, true) {
 		path, err := newMap.Path()
 		if err != nil {
-			log.WithError(err).Warning("Failed to get path for CT map")
+			log.Warn("Failed to get path for CT map", slog.Any(logfields.Error, err))
 			continue
 		}
-		scopedLog := log.WithField(logfields.Path, path)
 
 		// Pass nil key and value types since we're not intending on accessing the
 		// map's contents.
 		oldMap, err := bpf.OpenMap(path, nil, nil)
 		if err != nil {
-			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
+			log.Debug("Couldn't open CT map for upgrade", slog.Any(logfields.Error, err), slog.String(logfields.Path, path))
 			continue
 		}
 		defer oldMap.Close()
 
 		if oldMap.CheckAndUpgrade(&newMap.Map) {
-			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
+			log.Warn("CT Map upgraded, expect brief disruption of ongoing connections", slog.String(logfields.Path, path))
 		}
 	}
 }
@@ -784,13 +782,14 @@ func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.
 	}
 
 	if newInterval != expectedPrevInterval {
-		log.WithFields(logrus.Fields{
-			"expectedPrevInterval": expectedPrevInterval,
-			"actualPrevInterval":   actualPrevInterval,
-			"newInterval":          newInterval,
-			"deleteRatio":          maxDeleteRatio,
-			"adjustedDeleteRatio":  adjustedDeleteRatio,
-		}).Info("Conntrack garbage collector interval recalculated")
+		log.Info(
+			"Conntrack garbage collector interval recalculated",
+			slog.Duration("expectedPrevInterval", expectedPrevInterval),
+			slog.Duration("actualPrevInterval", actualPrevInterval),
+			slog.Duration("newInterval", newInterval),
+			slog.Float64("deleteRatio", maxDeleteRatio),
+			slog.Float64("adjustedDeleteRatio", adjustedDeleteRatio),
+		)
 	}
 
 	return newInterval
@@ -847,11 +846,10 @@ func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
 				path, err := OpenCTMap(m)
 				if err != nil {
 					msg := "Skipping CT map pressure calculation"
-					scopedLog := log.WithError(err).WithField(logfields.Path, path)
 					if os.IsNotExist(err) {
-						scopedLog.Debug(msg)
+						log.Debug(msg, slog.Any(logfields.Error, err), slog.String(logfields.Path, path))
 					} else {
-						scopedLog.Warn(msg)
+						log.Warn(msg, slog.Any(logfields.Error, err), slog.String(logfields.Path, path))
 					}
 					continue
 				}

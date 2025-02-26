@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/sagikazarmark/slog-shim"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -34,6 +36,7 @@ const syncHostIPsInterval = time.Minute
 type syncHostIPsParams struct {
 	cell.In
 
+	Logger        logging.FieldLogger
 	Jobs          job.Registry
 	Health        cell.Health
 	DB            *statedb.DB
@@ -97,7 +100,7 @@ func (s *syncHostIPs) loop(ctx context.Context, health cell.Health) error {
 
 		err := s.sync(addrs)
 		if err != nil {
-			log.WithError(err).Errorf("Failed to sync host IPs, retrying later")
+			s.params.Logger.Error("Failed to sync host IPs, retrying later", slog.Any(logfields.Error, err))
 			health.Degraded("Failed to sync host IPs", err)
 		} else {
 			health.OK("Synchronized")
@@ -186,7 +189,10 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
 			}
 			if added {
-				log.WithField(logfields.IPAddr, ipIDLblsPair.IP).Debugf("Added local ip to endpoint map")
+				s.params.Logger.Debug(
+					"Added local ip to endpoint map",
+					slog.Any(logfields.IPAddr, ipIDLblsPair.IP),
+				)
 			}
 		}
 
@@ -211,7 +217,10 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			if err := lxcmap.DeleteEntry(ip); err != nil {
 				return fmt.Errorf("unable to delete obsolete host IP: %w", err)
 			} else {
-				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
+				s.params.Logger.Debug(
+					"Removed outdated host IP from endpoint map",
+					slog.String("host-ip", hostIP),
+				)
 			}
 			s.params.IPCache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
 		}

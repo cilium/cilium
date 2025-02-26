@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"log/slog"
 	"slices"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 // Ingress translates an Ingress resource to a HTTPListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
-func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string, enforcedHTTPS bool, insecureListenerPort, secureListenerPort uint32, defaultRequestTimeout time.Duration) []model.HTTPListener {
+func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string, enforcedHTTPS bool, insecureListenerPort, secureListenerPort uint32, defaultRequestTimeout time.Duration) []model.HTTPListener {
 	// First, we make a map of HTTPListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -46,8 +47,10 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 	}
 	if v, err := annotations.GetAnnotationRequestTimeout(&ing); err != nil {
 		// If the annotation is invalid, we log a warning and use the default value
-		log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-			Warn("Invalid request timeout annotation, using default value")
+		log.Warn(
+			"Invalid request timeout annotation, using default value",
+			slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+		)
 	} else if v != nil {
 		timeout.Request = ptr.To(*v)
 	}
@@ -82,7 +85,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 				},
 			},
 			Port:    insecureListenerPort,
-			Service: getService(ing),
+			Service: getService(log, ing),
 		}
 
 		l.Sources = model.AddSource(l.Sources, sourceResource)
@@ -108,8 +111,10 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 
 		l.Hostname = host
 		if rule.HTTP == nil {
-			log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-				Warn("Invalid Ingress rule without spec.rules.HTTP defined, skipping rule")
+			log.Warn(
+				"Invalid Ingress rule without spec.rules.HTTP defined, skipping rule",
+				slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+			)
 			continue
 		}
 
@@ -143,7 +148,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 			}
 			route.Backends = append(route.Backends, backend)
 			l.Routes = append(l.Routes, route)
-			l.Service = getService(ing)
+			l.Service = getService(nil, ing)
 		}
 
 		insecureListenerMap[host] = l
@@ -195,7 +200,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 
 			l.Port = secureListenerPort
 			l.Hostname = host
-			l.Service = getService(ing)
+			l.Service = getService(nil, ing)
 			l.ForceHTTPtoHTTPSRedirect = forceHTTPs
 			secureListenerMap[host] = l
 
@@ -243,7 +248,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 // * must have a host set
 // * rules with paths other than '/' are ignored
 // * default backends are ignored
-func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.TLSPassthroughListener {
+func IngressPassthrough(log *slog.Logger, ing networkingv1.Ingress, listenerPort uint32) []model.TLSPassthroughListener {
 	// First, we make a map of TLSListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -266,8 +271,10 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 	// Note that there's no support for default backends in SSL Passthrough
 	// mode.
 	if ing.Spec.DefaultBackend != nil {
-		log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-			Warn("Invalid SSL Passthrough Ingress rule with a default backend, skipping default backend config")
+		log.Warn(
+			"Invalid SSL Passthrough Ingress rule with a default backend, skipping default backend config",
+			slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+		)
 	}
 
 	// Now, we range across the rules, adding them in as listeners.
@@ -275,8 +282,10 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 
 		// SSL Passthrough Ingress objects must have a host set.
 		if rule.Host == "" {
-			log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-				Warn("Invalid SSL Passthrough Ingress rule without spec.rules.host defined, skipping rule")
+			log.Warn(
+				"Invalid SSL Passthrough Ingress rule without spec.rules.host defined, skipping rule",
+				slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+			)
 			continue
 		}
 
@@ -292,16 +301,20 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 		l.Hostname = host
 
 		if rule.HTTP == nil {
-			log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-				Warn("Invalid SSL Passthrough Ingress rule without spec.rules.HTTP defined, skipping rule")
+			log.Warn(
+				"Invalid SSL Passthrough Ingress rule without spec.rules.HTTP defined, skipping rule",
+				slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+			)
 			continue
 		}
 
 		for _, path := range rule.HTTP.Paths {
 			// SSL Passthrough objects must only have path of '/'
 			if path.Path != "/" {
-				log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-					Warn("Invalid SSL Passthrough Ingress rule with path not equal to '/', skipping rule")
+				log.Warn(
+					"Invalid SSL Passthrough Ingress rule with path not equal to '/', skipping rule",
+					slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+				)
 				continue
 			}
 
@@ -326,13 +339,15 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 			}
 			route.Backends = append(route.Backends, backend)
 			l.Routes = append(l.Routes, route)
-			l.Service = getService(ing)
+			l.Service = getService(nil, ing)
 		}
 
 		// If there aren't any routes, then don't add the Listener
 		if len(l.Routes) == 0 {
-			log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
-				Warn("Invalid SSL Passthrough Ingress with no valid rules, skipping")
+			log.Warn(
+				"Invalid SSL Passthrough Ingress with no valid rules, skipping",
+				slog.Any(logfields.Ingress, ing.Namespace+"/"+ing.Name),
+			)
 			continue
 		}
 
@@ -345,7 +360,7 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 	return listenerSlice
 }
 
-func getService(ing networkingv1.Ingress) *model.Service {
+func getService(log *slog.Logger, ing networkingv1.Ingress) *model.Service {
 	if annotations.GetAnnotationServiceType(&ing) != string(corev1.ServiceTypeNodePort) {
 		return nil
 	}
@@ -353,17 +368,17 @@ func getService(ing networkingv1.Ingress) *model.Service {
 	m := &model.Service{
 		Type: string(corev1.ServiceTypeNodePort),
 	}
-	scopedLog := log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name)
+	logAttr := slog.String(logfields.Ingress, ing.Namespace+"/"+ing.Name)
 	secureNodePort, err := annotations.GetAnnotationSecureNodePort(&ing)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Invalid secure node port annotation, random port will be used")
+		log.Warn("Invalid secure node port annotation, random port will be used", slog.Any(logfields.Error, err), logAttr)
 	} else {
 		m.SecureNodePort = secureNodePort
 	}
 
 	insureNodePort, err := annotations.GetAnnotationInsecureNodePort(&ing)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Invalid insecure node port annotation, random port will be used")
+		log.Warn("Invalid insecure node port annotation, random port will be used", slog.Any(logfields.Error, err), logAttr)
 	} else {
 		m.InsecureNodePort = insureNodePort
 	}

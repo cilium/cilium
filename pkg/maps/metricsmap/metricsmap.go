@@ -4,6 +4,7 @@
 package metricsmap
 
 import (
+	"log/slog"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
@@ -40,15 +41,8 @@ type metricsMap struct {
 
 var (
 	// Metrics is the bpf metrics map
-	Metrics = metricsMap{ebpf.NewMap(&ebpf.MapSpec{
-		Name:       MapName,
-		Type:       ebpf.PerCPUHash,
-		KeySize:    uint32(unsafe.Sizeof(Key{})),
-		ValueSize:  uint32(unsafe.Sizeof(Value{})),
-		MaxEntries: MaxEntries,
-		Pinning:    ebpf.PinByName,
-	})}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
+	Metrics metricsMap
+	log     = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "map-metrics"))
 )
 
 const (
@@ -278,7 +272,7 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		fwd.sum(labelSet, values)
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to read metrics from BPF map")
+		log.Warn("Failed to read metrics from BPF map", slog.Any(logfields.Error, err))
 		// Do not update partial metrics
 		return
 	}
@@ -309,9 +303,20 @@ func (mc *metricsmapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- mc.droppedByteDesc
 }
 
-func RegisterCollector() {
+func RegisterCollector(logger logging.FieldLogger) {
+	Metrics = metricsMap{ebpf.NewMap(logger, &ebpf.MapSpec{
+		Name:       MapName,
+		Type:       ebpf.PerCPUHash,
+		KeySize:    uint32(unsafe.Sizeof(Key{})),
+		ValueSize:  uint32(unsafe.Sizeof(Value{})),
+		MaxEntries: MaxEntries,
+		Pinning:    ebpf.PinByName,
+	})}
 	if err := metrics.Register(newMetricsMapCollector()); err != nil {
-		log.WithError(err).Error("Failed to register metrics map collector to Prometheus registry. " +
-			"cilium_datapath_drop/forward metrics will not be collected")
+		log.Error(
+			"Failed to register metrics map collector to Prometheus registry. "+
+				"cilium_datapath_drop/forward metrics will not be collected",
+			slog.Any(logfields.Error, err),
+		)
 	}
 }

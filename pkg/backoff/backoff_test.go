@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestJitter(t *testing.T) {
@@ -53,6 +55,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	)
 
 	nodeBackoff := &Exponential{
+		Logger:      logging.DefaultLogger,
 		Min:         time.Second,
 		Max:         2 * time.Minute,
 		NodeManager: &nodeManager,
@@ -73,6 +76,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 
 func TestJitterDistribution(t *testing.T) {
 	nodeBackoff := &Exponential{
+		Logger: logging.DefaultLogger,
 		Min:    time.Second,
 		Factor: 2.0,
 	}

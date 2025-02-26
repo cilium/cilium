@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cloudflare/cfssl/log"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -75,6 +76,7 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 	}
 
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
+		logger:    p.Logger,
 		ctx:       ctx,
 		name:      "pod CIDR",
 		component: "exportPodCIDRReconciler",

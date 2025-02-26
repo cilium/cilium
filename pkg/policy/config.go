@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"log/slog"
+
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -14,7 +16,7 @@ import (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy")
+	log          = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "policy"))
 	mutex        lock.RWMutex // Protects enablePolicy
 	enablePolicy string       // Whether policy enforcement is enabled.
 )

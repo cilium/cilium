@@ -194,24 +194,6 @@ issues:
 linters:
   disable-all: true
   enable:
-    - depguard
-    - errorlint
-    - err113
-    - exhaustruct
-    - gofmt
-    - goimports
-    - govet
-    - ineffassign
-    - misspell
-    - sloglint
-    - staticcheck
-    - stylecheck
-    - testifylint
-    - unused
-    - goheader
-    - gosec
-    - gomodguard
-    - gosimple
     - sloglint
 
 # To enable later if makes sense

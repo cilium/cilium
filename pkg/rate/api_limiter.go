@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, "rate")
+	log              = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "rate"))
 	ErrWaitCancelled = errors.New("request cancelled while waiting for rate limiting slot")
 )
 
@@ -480,16 +480,16 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 
 	totalDuration := time.Since(r.scheduleTime)
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logAPICallName:        l.name,
-		logUUID:               r.uuid,
-		logProcessingDuration: processingDuration,
-		logTotalDuration:      totalDuration,
-		logWaitDurationTotal:  r.waitDuration,
-	})
+	scopedLog := log.With(
+		slog.String(logAPICallName, l.name),
+		slog.String(logUUID, r.uuid),
+		slog.Duration(logProcessingDuration, processingDuration),
+		slog.Duration(logTotalDuration, totalDuration),
+		slog.Duration(logWaitDurationTotal, r.waitDuration),
+	)
 
 	if err != nil {
-		scopedLog = scopedLog.WithError(err)
+		scopedLog = scopedLog.With(slog.Any(logfields.Error, err))
 	}
 
 	if l.params.Log {
@@ -642,24 +642,24 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	l.requestsScheduled++
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logAPICallName:      l.name,
-		logUUID:             req.uuid,
-		logParallelRequests: l.parallelRequests,
-	})
+	scopedLog := log.With(
+		slog.String(logAPICallName, l.name),
+		slog.String(logUUID, req.uuid),
+		slog.Int(logParallelRequests, l.parallelRequests),
+	)
 
 	if l.params.MaxWaitDuration > 0 {
-		scopedLog = scopedLog.WithField(logMaxWaitDuration, l.params.MaxWaitDuration)
+		scopedLog = scopedLog.With(slog.Duration(logMaxWaitDuration, l.params.MaxWaitDuration))
 	}
 
 	if l.params.MinWaitDuration > 0 {
-		scopedLog = scopedLog.WithField(logMinWaitDuration, l.params.MinWaitDuration)
+		scopedLog = scopedLog.With(slog.Duration(logMinWaitDuration, l.params.MinWaitDuration))
 	}
 
 	select {
 	case <-ctx.Done():
 		if l.params.Log {
-			scopedLog.Warning("Not processing API request due to cancelled context")
+			scopedLog.Warn("Not processing API request due to cancelled context")
 		}
 		l.mutex.Unlock()
 		req.outcome = outcomeReqCancelled
@@ -670,7 +670,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	skip := l.params.SkipInitial > 0 && l.requestsScheduled <= int64(l.params.SkipInitial)
 	if skip {
-		scopedLog = scopedLog.WithField(logSkipped, skip)
+		scopedLog = scopedLog.With(slog.Bool(logSkipped, skip))
 	}
 
 	parallelRequests := l.parallelRequests
@@ -698,7 +698,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		err2 := l.parallelWaitSemaphore.Acquire(waitCtx, w)
 		if err2 != nil {
 			if l.params.Log {
-				scopedLog.WithError(err2).Warning("Not processing API request. Wait duration for maximum parallel requests exceeds maximum")
+				scopedLog.Warn("Not processing API request. Wait duration for maximum parallel requests exceeds maximum", slog.Any(logfields.Error, err))
 			}
 			req.outcome = outcomeParallelMaxWait
 			err = fmt.Errorf("timed out while waiting to be served with %d parallel requests: %w", parallelRequests, err2)
@@ -713,12 +713,12 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		r = l.limiter.Reserve()
 		limitWaitDuration = r.Delay()
 
-		scopedLog = scopedLog.WithFields(logrus.Fields{
-			logLimit:                  fmt.Sprintf("%.2f/s", l.limiter.Limit()),
-			logBurst:                  l.limiter.Burst(),
-			logWaitDurationLimit:      limitWaitDuration,
-			logMaxWaitDurationLimiter: l.params.MaxWaitDuration - req.waitDuration,
-		})
+		scopedLog = scopedLog.With(
+			slog.String(logLimit, fmt.Sprintf("%.2f/s", l.limiter.Limit())),
+			slog.Int(logBurst, l.limiter.Burst()),
+			slog.Duration(logWaitDurationLimit, limitWaitDuration),
+			slog.Duration(logMaxWaitDurationLimiter, l.params.MaxWaitDuration-req.waitDuration),
+		)
 	}
 	l.mutex.Unlock()
 
@@ -728,7 +728,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 
 	if (l.params.MaxWaitDuration > 0 && (limitWaitDuration+req.waitDuration) > l.params.MaxWaitDuration) || limitWaitDuration == rate.InfDuration {
 		if l.params.Log {
-			scopedLog.Warning("Not processing API request. Wait duration exceeds maximum")
+			scopedLog.Warn("Not processing API request. Wait duration exceeds maximum")
 		}
 
 		// The rate limiter should only consider a reservation valid if
@@ -757,7 +757,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		case <-time.After(limitWaitDuration):
 		case <-ctx.Done():
 			if l.params.Log {
-				scopedLog.Warning("Not processing API request due to cancelled context while waiting")
+				scopedLog.Warn("Not processing API request due to cancelled context while waiting")
 			}
 			// The rate limiter should only consider a reservation
 			// valid if the request is actually processed.
@@ -779,7 +779,7 @@ skipRateLimiter:
 	l.currentRequestsInFlight++
 	l.mutex.Unlock()
 
-	scopedLog = scopedLog.WithField(logWaitDurationTotal, req.waitDuration)
+	scopedLog = scopedLog.With(slog.Duration(logWaitDurationTotal, req.waitDuration))
 
 	if l.params.Log {
 		scopedLog.Info("API request released by rate limiter")

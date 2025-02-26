@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -31,7 +32,7 @@ const (
 )
 
 type ciliumEnvoyConfigReconciler struct {
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 
 	k8sResourceSynced *synced.Resources
 	k8sAPIGroups      *synced.APIGroups
@@ -73,29 +74,30 @@ func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Con
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		WithField(logfields.K8sNamespace, event.Key.Namespace).
-		WithField(logfields.CiliumEnvoyConfigName, event.Key.Name)
+	logAttrs := []any{
+		slog.String(logfields.K8sNamespace, event.Key.Namespace),
+		slog.String(logfields.CiliumEnvoyConfigName, event.Key.Name),
+	}
 
 	var err error
 
 	switch event.Kind {
 	case resource.Sync:
-		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
+		r.logger.Debug("Received CiliumEnvoyConfig sync event", logAttrs...)
 		r.cecSynced.Store(true)
 	case resource.Upsert:
-		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
+		r.logger.Debug("Received CiliumEnvoyConfig upsert event", logAttrs...)
 		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Info("Failed to handle CEC upsert, Hive will retry")
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC upsert, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
-		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
+		r.logger.Debug("Received CiliumEnvoyConfig delete event", logAttrs...)
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC delete, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC delete: %w", err)
 		}
 	}
@@ -106,29 +108,30 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumClusterwideEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		WithField(logfields.K8sNamespace, event.Key.Namespace).
-		WithField(logfields.CiliumClusterwideEnvoyConfigName, event.Key.Name)
+	logAttrs := []any{
+		slog.String(logfields.K8sNamespace, event.Key.Namespace),
+		slog.String(logfields.CiliumClusterwideEnvoyConfigName, event.Key.Name),
+	}
 
 	var err error
 
 	switch event.Kind {
 	case resource.Sync:
-		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig sync event")
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig sync event", logAttrs...)
 		r.ccecSynced.Store(true)
 	case resource.Upsert:
-		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig upsert event", logAttrs...)
 		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Info("Failed to handle CCEC upsert, Hive will retry")
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CCEC upsert, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
 		}
 	case resource.Delete:
-		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig delete event")
+		r.logger.Debug("Received CiliumClusterwideEnvoyConfig delete event", logAttrs...)
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
+			r.logger.With(slog.Any(logfields.Error, err)).Info("Failed to handle CEC delete, Hive will retry", logAttrs...)
 			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
 		}
 	}
@@ -142,7 +145,7 @@ func (r *ciliumEnvoyConfigReconciler) handleLocalNodeEvent(ctx context.Context, 
 	r.logger.Debug("Received LocalNode changed event")
 
 	if err := r.handleLocalNodeLabels(ctx, localNode); err != nil {
-		r.logger.WithError(err).Error("failed to handle LocalNode changed event")
+		r.logger.Error("failed to handle LocalNode changed event", slog.Any(logfields.Error, err))
 		return fmt.Errorf("failed to handle LocalNode changed event: %w", err)
 	}
 
@@ -167,7 +170,7 @@ func (r *ciliumEnvoyConfigReconciler) handleLocalNodeLabels(ctx context.Context,
 	// until the next label change on the node.
 	// It's the responsibility of the corresponding TimerJob to perform a periodic reconciliation.
 	if err := r.reconcileExistingConfigsLocked(ctx); err != nil {
-		r.logger.WithError(err).Error("failed to reconcile existing configs due to changed node labels")
+		r.logger.Error("failed to reconcile existing configs due to changed node labels", slog.Any(logfields.Error, err))
 	}
 
 	return nil
@@ -189,11 +192,9 @@ func (r *ciliumEnvoyConfigReconciler) reconcileExistingConfigsLocked(ctx context
 	var reconcileErr error
 
 	for key, cfg := range r.configs {
-		scopedLogger := r.logger.WithField("key", key)
-
 		err := r.configUpsertedInternal(ctx, key, cfg, false /* spec didn't change */)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to reconcile existing configs")
+			r.logger.Error("failed to reconcile existing configs", slog.Any(logfields.Error, err), slog.Any("key", key))
 			// don't prevent reconciliation of other configs in case of an error for a particular config
 			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
 			continue
@@ -211,7 +212,7 @@ func (r *ciliumEnvoyConfigReconciler) configUpserted(ctx context.Context, key re
 }
 
 func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context, key resource.Key, cfg *config, specMayChanged bool) error {
-	scopedLogger := r.logger.WithField("key", key)
+	logAttr := slog.Any("key", key)
 
 	selectsLocalNode, err := r.configSelectsLocalNode(cfg)
 	if err != nil {
@@ -222,31 +223,31 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 
 	switch {
 	case !isApplied && !selectsLocalNode:
-		scopedLogger.Debug("New config doesn't select the local Node")
+		r.logger.Debug("New config doesn't select the local Node", logAttr)
 
 	case !isApplied && selectsLocalNode:
-		scopedLogger.Debug("New config selects the local node - adding config")
+		r.logger.Debug("New config selects the local node - adding config", logAttr)
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config now selects the local Node - adding previously filtered config")
+		r.logger.Debug("Config now selects the local Node - adding previously filtered config", logAttr)
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode && specMayChanged:
-		scopedLogger.Debug("Config still selects the local Node - updating applied config")
+		r.logger.Debug("Config still selects the local Node - updating applied config", logAttr)
 		if err := r.manager.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && !selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config still doesn't select the local Node")
+		r.logger.Debug("Config still doesn't select the local Node", logAttr)
 
 	case isApplied && !selectsLocalNode && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config no longer selects the local Node - deleting previously applied config")
+		r.logger.Debug("Config no longer selects the local Node - deleting previously applied config", logAttr)
 		if err := r.manager.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 			return err
 		}
@@ -258,8 +259,7 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 }
 
 func (r *ciliumEnvoyConfigReconciler) configDeleted(ctx context.Context, key resource.Key) error {
-	scopedLogger := r.logger.
-		WithField("key", key)
+	logAttr := slog.Any("key", key)
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -268,13 +268,13 @@ func (r *ciliumEnvoyConfigReconciler) configDeleted(ctx context.Context, key res
 
 	switch {
 	case !isApplied:
-		scopedLogger.Warn("Deleted Envoy config has never been applied")
+		r.logger.Warn("Deleted Envoy config has never been applied", logAttr)
 
 	case isApplied && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Deleted CEC was already filtered by NodeSelector")
+		r.logger.Debug("Deleted CEC was already filtered by NodeSelector", logAttr)
 
 	case isApplied && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Deleting applied CEC")
+		r.logger.Debug("Deleting applied CEC", logAttr)
 		if err := r.manager.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 			return err
 		}
@@ -320,9 +320,12 @@ func (r *ciliumEnvoyConfigReconciler) syncEndpoints(_ context.Context, event res
 
 			serviceName := loadbalancer.ServiceName{Name: svc.Name, Namespace: svc.Namespace}
 			if err := r.manager.syncHeadlessService(cfg.meta.Name, cfg.meta.Namespace, serviceName, svc.Ports); err != nil {
-				r.logger.WithField("key", key).
-					WithField(logfields.ServiceKey, event.Key).
-					WithError(err).Error("failed to sync headless service")
+				r.logger.Error(
+					"failed to sync headless service",
+					slog.Any(logfields.Error, err),
+					slog.Any("key", key),
+					slog.Any(logfields.ServiceKey, event.Key),
+				)
 				reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to sync headless service (%s): %w", key, err))
 			}
 		}

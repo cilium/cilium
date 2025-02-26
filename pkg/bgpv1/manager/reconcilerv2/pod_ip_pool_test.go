@@ -5,10 +5,10 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	podIPPoolTestLogger = logrus.WithField("unit_test", "reconcilerv2_podippool")
+	podIPPoolTestLogger = slog.With("unit_test", "reconcilerv2_podippool")
 )
 
 var (
@@ -212,7 +212,7 @@ var (
 )
 
 func Test_PodIPPoolAdvertisements(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name                     string

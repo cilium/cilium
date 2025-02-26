@@ -6,10 +6,12 @@
 package bpf
 
 import (
+	"log/slog"
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -17,20 +19,20 @@ var (
 	mapRegister = map[string]*Map{}
 )
 
-func registerMap(path string, m *Map) {
+func registerMap(logger logging.FieldLogger, path string, m *Map) {
 	mutex.Lock()
 	mapRegister[path] = m
 	mutex.Unlock()
 
-	log.WithField("path", path).Debug("Registered BPF map")
+	logger.Debug("Registered BPF map", slog.String("path", path))
 }
 
-func unregisterMap(path string, m *Map) {
+func unregisterMap(logger logging.FieldLogger, path string, m *Map) {
 	mutex.Lock()
 	delete(mapRegister, path)
 	mutex.Unlock()
 
-	log.WithField("path", path).Debug("Unregistered BPF map")
+	logger.Debug("Unregistered BPF map", slog.String("path", path))
 }
 
 // GetMap returns the registered map with the given name or absolute path

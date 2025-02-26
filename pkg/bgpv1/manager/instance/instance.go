@@ -5,12 +5,12 @@ package instance
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // ServerWithConfig is a container for providing interface with underlying router implementation
@@ -49,7 +49,7 @@ type ServerWithConfig struct {
 //
 // Canceling the provided context will kill the BgpServer along with calling the
 // underlying BgpServer's Stop() method.
-func NewServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (*ServerWithConfig, error) {
+func NewServerWithConfig(ctx context.Context, log logging.FieldLogger, params types.ServerParameters) (*ServerWithConfig, error) {
 	s, err := gobgp.NewGoBGPServer(ctx, log, params)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ type BGPInstance struct {
 //
 // Canceling the provided context will kill the BGP instance along with calling the
 // underlying Router's Stop() method.
-func NewBGPInstance(ctx context.Context, log *logrus.Entry, name string, params types.ServerParameters) (*BGPInstance, error) {
+func NewBGPInstance(ctx context.Context, log *slog.Logger, name string, params types.ServerParameters) (*BGPInstance, error) {
 	gobgpCtx, cancel := context.WithCancel(ctx)
 	s, err := gobgp.NewGoBGPServer(gobgpCtx, log, params)
 	if err != nil {

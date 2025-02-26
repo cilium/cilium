@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
@@ -34,7 +34,7 @@ type PolicyWatcherParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 	Importer  policycell.PolicyImporter
 }
 

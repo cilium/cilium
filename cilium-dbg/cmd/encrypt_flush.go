@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
 
@@ -32,7 +33,7 @@ var encryptFlushCmd = &cobra.Command{
 	Long:  "Will cause a short connectivity disruption",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt flush")
-		runXFRMFlush()
+		runXFRMFlush(logging.DefaultLogger)
 	},
 }
 
@@ -43,7 +44,7 @@ var (
 	cleanStale     bool
 )
 
-func runXFRMFlush() {
+func runXFRMFlush(logger logging.FieldLogger) {
 	if spiToFilter == 0 && nodeIDParam == "" && !cleanStale {
 		flushEverything()
 		return
@@ -83,7 +84,7 @@ func runXFRMFlush() {
 		policies, states = filterXFRMByNodeID(policies, states)
 	}
 	if cleanStale {
-		policies, states = filterStaleXFRMs(policies, states)
+		policies, states = filterStaleXFRMs(logger, policies, states)
 	}
 
 	confirmationMsg := ""
@@ -186,12 +187,12 @@ func filterXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState,
 	return policiesToDel, statesToDel
 }
 
-func filterStaleXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
+func filterStaleXFRMs(logger logging.FieldLogger, policies []netlink.XfrmPolicy, states []netlink.XfrmState) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
 	bpfNodeIDs := map[uint16]bool{}
 	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
 		bpfNodeIDs[val.NodeID] = true
 	}
-	nodeMap, err := nodemap.LoadNodeMap()
+	nodeMap, err := nodemap.LoadNodeMap(logger)
 	if err != nil {
 		Fatalf("Cannot load node bpf map: %s", err)
 	}

@@ -5,9 +5,9 @@ package policy
 
 import (
 	"iter"
+	"log/slog"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -165,10 +165,11 @@ func (ms *mapState) forKey(k Key, f func(Key, mapStateEntry) bool) bool {
 	if ok {
 		return f(k, e)
 	}
-	log.WithFields(logrus.Fields{
-		logfields.Stacktrace: hclog.Stacktrace(),
-		logfields.PolicyKey:  k,
-	}).Errorf("Missing MapStateEntry")
+	log.Error(
+		"Missing MapStateEntry",
+		slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+		slog.Any(logfields.PolicyKey, k),
+	)
 	return true
 }
 
@@ -441,10 +442,11 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 // Get the mapStateEntry that matches the Key.
 func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
+		log.Error(
+			"mapState.Get: invalid port prefix length for wildcard port",
+			slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+			slog.Any(logfields.PolicyKey, k),
+		)
 	}
 
 	v, ok := ms.entries[k]
@@ -454,10 +456,11 @@ func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 // insert the Key and MapStateEntry into the MapState
 func (ms *mapState) insert(k Key, v mapStateEntry) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.insert: invalid port prefix length for wildcard port")
+		log.Error(
+			"mapState.insert: invalid port prefix length for wildcard port",
+			slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+			slog.Any(logfields.PolicyKey, k),
+		)
 	}
 	ms.upsert(k, v)
 }
@@ -941,14 +944,16 @@ func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
 			mc.synced = append(mc.synced, mc.changes...)
 			mc.version.Close()
 			mc.version = txn.GetVersionHandle()
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: mc.version,
-			}).Debug("SyncMapChanges: Got handle on the new version")
+			log.Debug(
+				"SyncMapChanges: Got handle on the new version",
+				slog.Any(logfields.NewVersion, mc.version),
+			)
 		} else {
-			log.WithFields(logrus.Fields{
-				logfields.Version:    mc.firstVersion,
-				logfields.OldVersion: txn,
-			}).Debug("SyncMapChanges: Discarding already applied changes")
+			log.Debug(
+				"SyncMapChanges: Discarding already applied changes",
+				slog.Any(logfields.Version, mc.firstVersion),
+				slog.Any(logfields.OldVersion, txn),
+			)
 		}
 	}
 	mc.changes = nil

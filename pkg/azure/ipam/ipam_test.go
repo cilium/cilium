@@ -20,6 +20,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -126,7 +127,7 @@ func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 		}
 	}
 
-	log.Fatalf("Not enough adddresses available to simulate usage")
+	logging.Fatal(logging.DefaultLogger, fmt.Sprintf("Not enough adddresses available to simulate usage"))
 
 	return cn
 }
@@ -145,7 +146,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	toUse := 7
 
 	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
-	instances := NewInstancesManager(api)
+	instances := NewInstancesManager(logging.DefaultLogger, api)
 	require.NotNil(t, instances)
 
 	m := ipamTypes.NewInstanceMap()
@@ -208,7 +209,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	toUse := 7
 
 	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
-	instances := NewInstancesManager(api)
+	instances := NewInstancesManager(logging.DefaultLogger, api)
 	require.NotNil(t, instances)
 
 	m := ipamTypes.NewInstanceMap()
@@ -293,7 +294,7 @@ func TestIpamManyNodes(t *testing.T) {
 				minAllocate = 1
 			)
 			api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
-			instances := NewInstancesManager(api)
+			instances := NewInstancesManager(logging.DefaultLogger, api)
 			require.NotNil(t, instances)
 
 			k8sapi := newK8sMock()
@@ -368,7 +369,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	api.SetDelay(apimock.AllOperations, delay)
 	api.SetLimiter(rateLimit, burst)
 
-	instances := NewInstancesManager(api)
+	instances := NewInstancesManager(logging.DefaultLogger, api)
 	require.NotNil(b, instances)
 
 	k8sapi := newK8sMock()

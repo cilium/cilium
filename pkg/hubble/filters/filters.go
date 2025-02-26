@@ -6,10 +6,9 @@ package filters
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // FilterFunc is the function will be used to filter the given data.
@@ -125,7 +124,7 @@ func BuildFilterList(ctx context.Context, ff []*flowpb.FlowFilter, auxFilters []
 }
 
 // DefaultFilters is the list of default filters
-func DefaultFilters(log logrus.FieldLogger) []OnBuildFilter {
+func DefaultFilters(log logging.FieldLogger) []OnBuildFilter {
 	return []OnBuildFilter{
 		&UUIDFilter{},
 		&EventTypeFilter{},

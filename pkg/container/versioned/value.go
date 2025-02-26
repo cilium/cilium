@@ -7,18 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"math"
 	"runtime"
 	"slices"
 	"strconv"
 	"sync/atomic"
 
-	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/hashicorp/go-hclog"
 )
 
 type version uint64
@@ -103,9 +102,9 @@ func versionHandleFinalizer(h *VersionHandle) {
 	if coordinator != nil && coordinator.Logger != nil {
 		logger := coordinator.Logger
 		if h.stacktrace != "" {
-			logger = logger.WithField(logfields.Stacktrace, h.stacktrace)
+			logger = logger.With(slog.Any(logfields.Stacktrace, h.stacktrace))
 		}
-		logger.WithField(logfields.Version, h.version).Error("Handle for version not closed.")
+		logger.Error("Handle for version not closed.", slog.Any(logfields.Version, h.version))
 	}
 	h.Close()
 }
@@ -159,7 +158,7 @@ type versionCount struct {
 // should be cleaned by the 'cleaner' function given to the Coordinator.
 type Coordinator struct {
 	// Logger supplied to NewCoordinator. Should be set if logging is desired.
-	Logger *logrus.Entry
+	Logger *slog.Logger
 
 	// Cleaner is called with the earliest version that must be kept.
 	// Must be set to clean up resources held for old versions.
@@ -270,10 +269,11 @@ func (v *Coordinator) releaseVersion(version version) error {
 	n, found := slices.BinarySearchFunc(v.versions, version, versionHandleCmp)
 	if !found {
 		if v.Logger != nil {
-			v.Logger.WithFields(logrus.Fields{
-				logfields.Version:    version,
-				logfields.Stacktrace: hclog.Stacktrace(),
-			}).Error("Version not found.")
+			v.Logger.Error(
+				"Version not found.",
+				slog.Any(logfields.Version, version),
+				slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+			)
 		}
 		return ErrVersionNotFound
 	}
@@ -303,15 +303,16 @@ func (v *Coordinator) clean() {
 		// The cleaner is called from a goroutine without holding any locks
 		if v.Cleaner != nil {
 			if v.Logger != nil {
-				v.Logger.WithFields(logrus.Fields{
-					logfields.OldVersion: v.oldestVersion,
-					logfields.NewVersion: keepVersion,
-				}).Debug("releaseVersion: calling cleaner")
+				v.Logger.Debug(
+					"releaseVersion: calling cleaner",
+					slog.Any(logfields.OldVersion, v.oldestVersion),
+					slog.Any(logfields.NewVersion, keepVersion),
+				)
 			}
 			go v.Cleaner(KeepVersion(keepVersion))
 			v.oldestVersion = keepVersion
 		} else if v.Logger != nil {
-			v.Logger.Warnf("VersionHandle.Close: Cleaner function not set")
+			v.Logger.Warn("VersionHandle.Close: Cleaner function not set")
 		}
 	}
 }
@@ -333,11 +334,12 @@ func (v *Coordinator) getVersionHandleLocked(version version) *VersionHandle {
 		oldVersion := version
 		version = v.oldestVersion
 		if v.Logger != nil {
-			v.Logger.WithFields(logrus.Fields{
-				logfields.Stacktrace: hclog.Stacktrace(),
-				logfields.Version:    version,
-				logfields.OldVersion: oldVersion,
-			}).Warn("GetVersionHandle: Handle to a stale version requested, returning oldest valid version instead")
+			v.Logger.Warn(
+				"GetVersionHandle: Handle to a stale version requested, returning oldest valid version instead",
+				slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+				slog.Any(logfields.Version, version),
+				slog.Any(logfields.OldVersion, oldVersion),
+			)
 		}
 	}
 	n, found := slices.BinarySearchFunc(v.versions, version, versionHandleCmp)

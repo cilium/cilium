@@ -5,6 +5,7 @@ package fqdn
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/netip"
 	"regexp"
@@ -1023,7 +1024,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 			}
 		}
 		if warnActiveDNSEntries {
-			log.Warningf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost)
+			log.Warn(fmt.Sprintf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost))
 		}
 
 		for _, dead := range dead[deadIdx:] {
@@ -1045,7 +1046,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
 		if dead[len(dead)-1].AliveAt.After(zombies.lastCTGCUpdate) {
-			log.Warning("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
+			log.Warn("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
 		}
 	}
 

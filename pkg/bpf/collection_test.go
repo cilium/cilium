@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -73,7 +74,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.Contains(t, spec.Programs, "d")
 	assert.Contains(t, spec.Programs, "e")
 
-	if err := removeUnreachableTailcalls(spec); err != nil {
+	if err := removeUnreachableTailcalls(logging.DefaultLogger, spec); err != nil {
 		t.Fatal(err)
 	}
 
@@ -101,7 +102,7 @@ func TestUpgradeMap(t *testing.T) {
 	}, ebpf.MapOptions{PinPath: temp})
 	require.NoError(t, err)
 
-	spec, err := LoadCollectionSpec("testdata/upgrade-map.o")
+	spec, err := LoadCollectionSpec(nil, "testdata/upgrade-map.o")
 	require.NoError(t, err)
 
 	// Use LoadAndAssign to make sure commit works through map upgrades. This is a
@@ -111,7 +112,7 @@ func TestUpgradeMap(t *testing.T) {
 	obj := struct {
 		UpgradedMap *ebpf.Map `ebpf:"upgraded_map"`
 	}{}
-	commit, err := LoadAndAssign(&obj, spec, &CollectionOptions{
+	commit, err := LoadAndAssign(logging.DefaultLogger, &obj, spec, &CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: temp},
 		},

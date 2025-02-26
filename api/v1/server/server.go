@@ -304,7 +304,7 @@ func NewServer(api *restapi.CiliumAPIAPI) *Server {
 // ConfigureAPI configures the API and handlers.
 func (s *Server) ConfigureAPI() {
 	if s.api != nil {
-		s.handler = configureAPI(s.api)
+		s.handler = configureAPI(s.logger, s.api)
 	}
 }
 
@@ -359,7 +359,7 @@ func (s *Server) Logf(f string, args ...interface{}) {
 	if s.logger != nil {
 		s.logger.Info(fmt.Sprintf(f, args...))
 	} else if s.api != nil && s.api.Logger != nil {
-		s.api.Logger(f, args...)
+		s.api.Logger(fmt.Sprintf(f, args...))
 	} else {
 		log.Printf(f, args...)
 	}
@@ -387,7 +387,7 @@ func (s *Server) SetAPI(api *restapi.CiliumAPIAPI) {
 	}
 
 	s.api = api
-	s.handler = configureAPI(api)
+	s.handler = configureAPI(s.logger, api)
 }
 
 // GetAPI returns the configured API. Modifications on the API must be performed
@@ -447,7 +447,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(s.SocketPath)
+			err := api.SetDefaultPermissions(s.logger, s.SocketPath)
 			if err != nil {
 				return err
 			}

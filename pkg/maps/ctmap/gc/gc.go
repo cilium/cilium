@@ -5,23 +5,23 @@ package gc
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
 )
 
 // initialGCInterval sets the time after which the agent will begin to warn
@@ -40,7 +40,7 @@ type parameters struct {
 	cell.In
 
 	Lifecycle       cell.Lifecycle
-	Logger          logrus.FieldLogger
+	Logger          logging.FieldLogger
 	DB              *statedb.DB
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
@@ -52,7 +52,7 @@ type parameters struct {
 }
 
 type GC struct {
-	logger logrus.FieldLogger
+	logger logging.FieldLogger
 
 	ipv4 bool
 	ipv6 bool
@@ -196,8 +196,9 @@ func (gc *GC) Enable() {
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
-				gc.logger.WithField("duration", time.Since(gcStart)).
-					Info("initial gc of ct and nat maps completed")
+				gc.logger.Info("initial gc of ct and nat maps completed",
+					slog.Duration("duration", time.Since(gcStart)),
+				)
 			}
 
 			triggeredBySignal = false
@@ -298,11 +299,16 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		if err != nil {
 			success = false
 			msg := "Skipping CT garbage collection"
-			scopedLog := gc.logger.WithError(err).WithField(logfields.Path, path)
 			if os.IsNotExist(err) {
-				scopedLog.Debug(msg)
+				gc.logger.Debug(msg,
+					slog.String(logfields.Path, path),
+					slog.Any(logfields.Error, err),
+				)
 			} else {
-				scopedLog.Warn(msg)
+				gc.logger.Warn(msg,
+					slog.String(logfields.Path, path),
+					slog.Any(logfields.Error, err),
+				)
 			}
 			if e != nil {
 				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("%s: %s", msg, err))
@@ -313,7 +319,9 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 
 		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
 		if err != nil {
-			gc.logger.WithError(err).Error("failed to perform CT garbage collection")
+			gc.logger.Error("failed to perform CT garbage collection",
+				slog.Any(logfields.Error, err),
+			)
 			success = false
 		}
 
@@ -322,10 +330,10 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 			if ratio > maxDeleteRatio {
 				maxDeleteRatio = ratio
 			}
-			gc.logger.WithFields(logrus.Fields{
-				logfields.Path: path,
-				"count":        deleted,
-			}).Debug("Deleted filtered entries from map")
+			gc.logger.Debug("Deleted filtered entries from map",
+				slog.Any(logfields.Path, path),
+				slog.Int("count", deleted),
+			)
 		}
 	}
 
@@ -343,14 +351,15 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
-				gc.logger.WithFields(logrus.Fields{
-					"ingressDeleted": stats.IngressDeleted,
-					"egressDeleted":  stats.EgressDeleted,
-					"ingressAlive":   stats.IngressAlive,
-					"egressAlive":    stats.EgressAlive,
-					"ctMapIPVersion": vsn,
-					"duration":       time.Since(startTime),
-				}).Info("Deleted orphan SNAT entries from map")
+				gc.logger.Info(
+					"Deleted orphan SNAT entries from map",
+					slog.Uint64("ingressDeleted", uint64(stats.IngressDeleted)),
+					slog.Uint64("egressDeleted", uint64(stats.EgressDeleted)),
+					slog.Uint64("ingressAlive", uint64(stats.IngressAlive)),
+					slog.Uint64("egressAlive", uint64(stats.EgressAlive)),
+					slog.Any("ctMapIPVersion", vsn),
+					slog.Duration("duration", time.Since(startTime)),
+				)
 			}
 		}
 	}

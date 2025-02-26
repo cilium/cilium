@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -30,15 +31,15 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle) Map {
-	return newMap(lifecycle, DefaultMaxEntries)
+func NewMap(lifecycle cell.Lifecycle, logger logging.FieldLogger) Map {
+	return newMap(lifecycle, DefaultMaxEntries, logger)
 }
 
 type l2ResponderMap struct {
 	*ebpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
+func newMap(lifecycle cell.Lifecycle, maxEntries int, logger logging.FieldLogger) *l2ResponderMap {
 	outerMap := &l2ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
@@ -48,8 +49,8 @@ func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
 				err error
 			)
 
-			if m, err = ebpf.LoadRegisterMap(MapName); err != nil {
-				m = ebpf.NewMap(&ebpf.MapSpec{
+			if m, err = ebpf.LoadRegisterMap(logger, MapName); err != nil {
+				m = ebpf.NewMap(logger, &ebpf.MapSpec{
 					Name:       MapName,
 					Type:       ebpf.Hash,
 					KeySize:    uint32(unsafe.Sizeof(L2ResponderKey{})),

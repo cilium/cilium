@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 
@@ -16,12 +17,12 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-agent")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "monitor-agent"))
 )
 
 // buildServer opens a listener socket at path. It exits with logging on all
 // errors.
-func buildServer(path string) (*net.UnixListener, error) {
+func buildServer(logger logging.FieldLogger, path string) (*net.UnixListener, error) {
 	addr, err := net.ResolveUnixAddr("unix", path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot resolve unix address %s: %w", path, err)
@@ -33,7 +34,7 @@ func buildServer(path string) (*net.UnixListener, error) {
 	}
 
 	if os.Getuid() == 0 {
-		err := api.SetDefaultPermissions(path)
+		err := api.SetDefaultPermissions(logger, path)
 		if err != nil {
 			server.Close()
 			return nil, fmt.Errorf("cannot set default permissions on socket %s: %w", path, err)
@@ -53,8 +54,8 @@ type server struct {
 // This method starts the server in the background. The server is stopped when
 // ctx is cancelled. Each incoming connection registers a new listener on
 // monitor.
-func ServeMonitorAPI(ctx context.Context, monitor Agent, queueSize int) error {
-	listener, err := buildServer(defaults.MonitorSockPath1_2)
+func ServeMonitorAPI(ctx context.Context, logger logging.FieldLogger, monitor Agent, queueSize int) error {
+	listener, err := buildServer(logger, defaults.MonitorSockPath1_2)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func ServeMonitorAPI(ctx context.Context, monitor Agent, queueSize int) error {
 		monitor:  monitor,
 	}
 
-	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
+	log.Info(fmt.Sprintf("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2))
 
 	go s.connectionHandler1_2(ctx, queueSize)
 
@@ -88,7 +89,7 @@ func (s *server) connectionHandler1_2(ctx context.Context, queueSize int) {
 			}
 			return
 		case err != nil:
-			log.WithError(err).Warn("Error accepting connection")
+			log.Warn("Error accepting connection", slog.Any(logfields.Error, err))
 			continue
 		}
 

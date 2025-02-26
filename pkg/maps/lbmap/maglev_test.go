@@ -13,6 +13,7 @@ import (
 
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -56,24 +57,24 @@ func TestInitMaps(t *testing.T) {
 	setupMaglevSuite(t)
 
 	maglevTableSize := uint(251)
-	err := InitMaglevMaps(true, false, uint32(maglevTableSize))
+	err := InitMaglevMaps(logging.DefaultLogger, true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
 
 	maglevTableSize = 509
 	// M mismatch, so the map should be removed
-	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(maglevTableSize))
+	deleted, err := deleteMapIfMNotMatch(logging.DefaultLogger, MaglevOuter4MapName, uint32(maglevTableSize))
 	require.NoError(t, err)
 	require.True(t, deleted)
 
 	// M is the same, but no entries, so the map should be removed too
-	err = InitMaglevMaps(true, false, uint32(maglevTableSize))
+	err = InitMaglevMaps(logging.DefaultLogger, true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
-	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(maglevTableSize))
+	deleted, err = deleteMapIfMNotMatch(logging.DefaultLogger, MaglevOuter4MapName, uint32(maglevTableSize))
 	require.NoError(t, err)
 	require.True(t, deleted)
 
 	// Now insert the entry, so that the map should not be removed
-	err = InitMaglevMaps(true, false, uint32(maglevTableSize))
+	err = InitMaglevMaps(logging.DefaultLogger, true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
 	ml, err := maglev.New(maglev.Config{
 		MaglevTableSize: maglevTableSize,

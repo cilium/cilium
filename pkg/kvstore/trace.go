@@ -4,7 +4,9 @@
 package kvstore
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -17,8 +19,12 @@ func EnableTracing() {
 }
 
 // Trace is used to trace kvstore debug messages
-func Trace(msg string, err error, fields logrus.Fields) {
+func Trace(msg string, err error, fields ...slog.Attr) {
 	if traceEnabled {
-		log.WithError(err).WithFields(fields).Debug(msg)
+		log.Debug(
+			msg,
+			slog.Any(logfields.Error, err),
+			fields,
+		)
 	}
 }

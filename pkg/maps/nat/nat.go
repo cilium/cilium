@@ -6,6 +6,7 @@ package nat
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-nat")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "map-nat"))
 )
 
 const (
@@ -263,7 +264,7 @@ func doFlush4(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			log.Error("Unable to delete NAT entry", slog.Any(logfields.Error, err), slog.Any(logfields.Key, key))
 		} else {
 			stats.deleted++
 		}
@@ -277,7 +278,7 @@ func doFlush6(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			log.Error("Unable to delete NAT entry", slog.Any(logfields.Error, err), slog.Any(logfields.Key, key))
 		} else {
 			stats.deleted++
 		}

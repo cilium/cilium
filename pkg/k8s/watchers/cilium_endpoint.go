@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -209,7 +210,10 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 
 	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
 	if nodeIP == nil {
-		log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
+		log.Warn(
+			"Unable to parse node IP while processing CiliumEndpoint update",
+			slog.String("nodeIP", endpoint.Networking.NodeIP),
+		)
 		return
 	}
 

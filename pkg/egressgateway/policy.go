@@ -5,9 +5,9 @@ package egressgateway
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -17,6 +17,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
@@ -38,6 +39,7 @@ type policyGatewayConfig struct {
 // that IP assigned to) or the interface (and in this case we need to find the
 // first IPv4 assigned to that).
 type gatewayConfig struct {
+	logger logging.FieldLogger
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
 	// egressIP is the IP used to SNAT traffic
@@ -113,6 +115,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	gwc := gatewayConfig{
+		logger:    manager.logger,
 		egressIP:  netip.IPv4Unspecified(),
 		gatewayIP: GatewayNotFoundIPv4,
 	}
@@ -133,12 +136,13 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
 			if err != nil {
-				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressGatewayPolicyName: config.id,
-					logfields.Interface:                     policyGwc.iface,
-					logfields.EgressIP:                      policyGwc.egressIP,
-				})
-				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				manager.logger.Error(
+					"Failed to derive policy gateway configuration",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.CiliumEgressGatewayPolicyName, config.id),
+					slog.String(logfields.Interface, policyGwc.iface),
+					slog.Any(logfields.EgressIP, policyGwc.egressIP),
+				)
 			}
 		}
 
@@ -176,7 +180,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	default:
 		// If the gateway config doesn't specify any egress IP or interface, use the
 		// interface with the IPv4 default route
-		iface, err := route.NodeDeviceWithDefaultRoute(true, false)
+		iface, err := route.NodeDeviceWithDefaultRoute(gwc.logger, true, false)
 		if err != nil {
 			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with default route: %w", err)

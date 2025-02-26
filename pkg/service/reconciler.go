@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -34,6 +37,7 @@ type syncNodePort interface {
 type serviceReconcilerParams struct {
 	cell.In
 
+	Logger         logging.FieldLogger
 	Lifecycle      cell.Lifecycle
 	Jobs           job.Registry
 	Health         cell.Health
@@ -54,6 +58,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 	// Use exponential backoff for retries. Keep small minimum time for fast tests,
 	// but backoff with aggressive factor.
 	backoff := backoff.Exponential{
+		Logger: sr.Logger,
 		Min:    10 * time.Millisecond,
 		Max:    30 * time.Second,
 		Factor: 8,
@@ -87,7 +92,11 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 				duration := backoff.Duration(retryAttempt)
 				retry = time.After(duration)
 				retryAttempt++
-				log.WithError(err).Warnf("Could not synchronize new frontend addresses, retrying in %s", duration)
+				log.Warn(
+					"Could not synchronize new frontend addresses, retrying...",
+					slog.Any(logfields.Error, err),
+					slog.Duration("duration", duration),
+				)
 				health.Degraded("Failed to sync NodePort frontends", err)
 			} else {
 				addrs = newAddrs

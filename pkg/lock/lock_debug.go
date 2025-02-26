@@ -9,15 +9,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"time"
 
-	"github.com/sasha-s/go-deadlock"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sasha-s/go-deadlock"
 )
 
 const (
@@ -31,7 +30,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "lock-lib")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "lock-lib"))
 
 	// selfishThresholdMsg is the message that will be printed when a lock was
 	// held for more than selfishThresholdSec.
@@ -102,10 +101,11 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 		goRoutineNumber = stack[:goroutineLine]
 	}
 
-	log.WithFields(logrus.Fields{
-		"seconds":   sec,
-		"goroutine": string(goRoutineNumber[len("goroutine") : len(goRoutineNumber)-1]),
-	}).Debug(selfishThresholdMsg)
+	log.Debug(
+		selfishThresholdMsg,
+		slog.Float64("seconds", sec),
+		slog.String("goroutine", string(goRoutineNumber[len("goroutine"):len(goRoutineNumber)-1])),
+	)
 
 	// A stack trace is usually in the following format:
 	// goroutine 1432 [running]:

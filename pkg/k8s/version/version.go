@@ -8,6 +8,7 @@ package version
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "k8s"))
 
 // ServerCapabilities is a list of server capabilities derived based on
 // version, the Kubernetes discovery API, or probing of individual API
@@ -188,7 +189,7 @@ func endpointSlicesFallbackDiscovery(client kubernetes.Interface) error {
 	}
 
 	if errors.IsNotFound(err) {
-		log.WithError(err).Info("Unable to retrieve EndpointSlices for default/kubernetes. Disabling EndpointSlices")
+		log.Info("Unable to retrieve EndpointSlices for default/kubernetes. Disabling EndpointSlices", slog.Any(logfields.Error, err))
 		// StatusNotFound is a safe error, EndpointSlices are
 		// disabled and the agent can continue.
 		return nil
@@ -205,7 +206,7 @@ func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bo
 	// We require to check for Leases capabilities in operator only, which uses Leases
 	// for leader election purposes in HA mode.
 	if !apiDiscoveryEnabled {
-		log.Debugf("Skipping Leases support fallback discovery")
+		log.Debug("Skipping Leases support fallback discovery")
 		return nil
 	}
 
@@ -221,7 +222,7 @@ func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bo
 	}
 
 	if errors.IsNotFound(err) {
-		log.WithError(err).Info("Unable to retrieve Leases for kube-controller-manager. Disabling LeasesResourceLock")
+		log.Info("Unable to retrieve Leases for kube-controller-manager. Disabling LeasesResourceLock", slog.Any(logfields.Error, err))
 		// StatusNotFound is a safe error, Leases are
 		// disabled and the agent can continue
 		return nil
@@ -288,7 +289,7 @@ func Update(client kubernetes.Interface, apiDiscoveryEnabled bool) error {
 			// information at a later point because the capabilities are
 			// primiarly used while the agent is starting up. Instead, fall
 			// back to probing API endpoints directly.
-			log.WithError(err).Warning("Unable to discover API groups and resources")
+			log.Warn("Unable to discover API groups and resources", slog.Any(logfields.Error, err))
 			if err := endpointSlicesFallbackDiscovery(client); err != nil {
 				return err
 			}

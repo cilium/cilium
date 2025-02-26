@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/source"
@@ -28,7 +28,7 @@ import (
 
 // Parser is a parser for L7 payloads
 type Parser struct {
-	log               logrus.FieldLogger
+	log               logging.FieldLogger
 	timestampCache    *lru.Cache[string, time.Time]
 	traceContextCache *lru.Cache[string, *flowpb.TraceContext]
 	dnsGetter         getters.DNSGetter
@@ -40,7 +40,7 @@ type Parser struct {
 
 // New returns a new L7 parser
 func New(
-	log logrus.FieldLogger,
+	log logging.FieldLogger,
 	dnsGetter getters.DNSGetter,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,

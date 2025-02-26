@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"path/filepath"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,9 +31,9 @@ const (
 
 func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl sysctl.Sysctl) {
 	// Launch cilium-health in the same process (and namespace) as cilium.
-	log.Info("Launching Cilium health daemon")
-	if ch, err := health.Launch(spec, d.loader.HostDatapathInitialized()); err != nil {
-		log.WithError(err).Fatal("Failed to launch cilium-health")
+	d.logger.Info("Launching Cilium health daemon")
+	if ch, err := health.Launch(logging.DefaultLogger, spec, d.loader.HostDatapathInitialized()); err != nil {
+		logging.Fatal(d.logger, "Failed to launch cilium-health", slog.Any(logfields.Error, err))
 	} else {
 		d.ciliumHealth = ch
 	}
@@ -42,16 +44,18 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 	}
 
 	// Launch the cilium-health-responder as an endpoint, managed by cilium.
-	log.Info("Launching Cilium health endpoint")
+	d.logger.Info("Launching Cilium health endpoint")
 	if d.clientset.IsEnabled() {
 		// When Cilium starts up in k8s mode, it is guaranteed to be
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfilePath := filepath.Join(option.Config.StateDir, defaults.PidfilePath)
 		if err := pidfile.Remove(pidfilePath); err != nil {
-			log.WithField(logfields.PIDFile, pidfilePath).
-				WithError(err).
-				Warning("Failed to remove pidfile")
+			d.logger.Warn(
+				"Failed to remove pidfile",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.PIDFile, pidfilePath),
+			)
 		}
 	}
 
@@ -81,6 +85,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 
 					client, err = health.LaunchAsEndpoint(
 						ctx,
+						logging.DefaultLogger,
 						d,
 						d,
 						d.ipcache,
@@ -102,7 +107,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 				return err
 			},
 			StopFunc: func(ctx context.Context) error {
-				log.Info("Stopping health endpoint")
+				d.logger.Info("Stopping health endpoint")
 				err := client.PingEndpoint()
 				d.cleanupHealthEndpoint()
 				return err
@@ -119,7 +124,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 func (d *Daemon) cleanupHealthEndpoint() {
 	var ep *endpoint.Endpoint
 
-	log.Info("Cleaning up Cilium health endpoint")
+	d.logger.Info("Cleaning up Cilium health endpoint")
 
 	// Clean up agent resources
 	healthIPv4 := node.GetEndpointHealthIPv4()
@@ -131,9 +136,9 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		ep = d.endpointManager.LookupIPv6(healthIPv6.String())
 	}
 	if ep == nil {
-		log.Debug("Didn't find existing cilium-health endpoint to delete")
+		d.logger.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
-		log.Debug("Removing existing cilium-health endpoint")
+		d.logger.Debug("Removing existing cilium-health endpoint")
 		d.deleteEndpointRelease(ep, true)
 	}
 
@@ -142,8 +147,8 @@ func (d *Daemon) cleanupHealthEndpoint() {
 	// device, but not remove it. Hence we need to trigger final removal.
 
 	// Delete the process
-	health.KillEndpoint()
+	health.KillEndpoint(logging.DefaultLogger)
 
 	// Remove health endpoint devices
-	health.CleanupEndpoint()
+	health.CleanupEndpoint(logging.DefaultLogger)
 }

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net"
 	"net/netip"
@@ -25,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -47,7 +47,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "config")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "config"))
 )
 
 const (
@@ -1299,7 +1299,7 @@ func BindEnvWithLegacyEnvFallback(vp *viper.Viper, optName, legacyEnvName string
 }
 
 // LogRegisteredOptions logs all options that where bound to viper.
-func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
+func LogRegisteredOptions(vp *viper.Viper, entry *slog.Logger) {
 	keys := vp.AllKeys()
 	slices.Sort(keys)
 	for _, k := range keys {
@@ -1312,9 +1312,9 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 		}
 
 		if len(ss) > 0 {
-			entry.Infof("  --%s='%s'", k, strings.Join(ss, ","))
+			entry.Info(fmt.Sprintf("  --%s='%s'", k, strings.Join(ss, ",")))
 		} else {
-			entry.Infof("  --%s='%s'", k, vp.GetString(k))
+			entry.Info(fmt.Sprintf("  --%s='%s'", k, vp.GetString(k)))
 		}
 	}
 }
@@ -2714,7 +2714,10 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 		if f.Type()&os.ModeSymlink == 0 {
 			absFileName, err := filepath.EvalSymlinks(fName)
 			if err != nil {
-				log.WithError(err).Warnf("Unable to read configuration file %q", absFileName)
+				log.Warn("Unable to read configuration file",
+					slog.Any(logfields.Error, err),
+					slog.String("filename", absFileName),
+				)
 				continue
 			}
 			fName = absFileName
@@ -2722,7 +2725,10 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 
 		fi, err := os.Stat(fName)
 		if err != nil {
-			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
+			log.Warn("Unable to read configuration file",
+				slog.Any(logfields.Error, err),
+				slog.String("filename", fName),
+			)
 			continue
 		}
 		if fi.Mode().IsDir() {
@@ -2731,7 +2737,10 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 
 		b, err := os.ReadFile(fName)
 		if err != nil {
-			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
+			log.Warn("Unable to read configuration file",
+				slog.Any(logfields.Error, err),
+				slog.String("filename", fName),
+			)
 			continue
 		}
 		m[f.Name()] = string(bytes.TrimSpace(b))
@@ -2794,13 +2803,13 @@ func (c *DaemonConfig) SetupLogging(vp *viper.Viper, tag string) {
 	c.LogDriver = vp.GetStringSlice(LogDriver)
 
 	if m, err := command.GetStringMapStringE(vp, LogOpt); err != nil {
-		log.Fatalf("unable to parse %s: %s", LogOpt, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s", LogOpt), slog.Any(logfields.Error, err))
 	} else {
 		c.LogOpt = m
 	}
 
-	if err := logging.SetupLogging(c.LogDriver, logging.LogOptions(c.LogOpt), tag, c.Debug); err != nil {
-		log.Fatal(err)
+	if err := logging.SetupLogging(c.LogDriver, c.LogOpt, tag, c.Debug); err != nil {
+		logging.Fatal(log, "Unable to set up logging", slog.Any(logfields.Error, err))
 	}
 }
 
@@ -2978,7 +2987,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	case "":
 		c.ServiceNoBackendResponse = defaults.ServiceNoBackendResponse
 	default:
-		log.Fatalf("Invalid value for --%s: %s (must be 'reject' or 'drop')", ServiceNoBackendResponse, c.ServiceNoBackendResponse)
+		logging.Fatal(log, "Invalid value for --%s: %s (must be 'reject' or 'drop')", ServiceNoBackendResponse, c.ServiceNoBackendResponse)
 	}
 
 	c.populateLoadBalancerSettings(vp)
@@ -2991,7 +3000,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	for _, vlanIDStr := range vlanBPFBypassIDs {
 		vlanID, err := strconv.Atoi(vlanIDStr)
 		if err != nil {
-			log.WithError(err).Fatalf("Cannot parse vlan ID integer from --%s option", VLANBPFBypass)
+			logging.Fatal(log, fmt.Sprintf("Cannot parse vlan ID integer from --%s option", VLANBPFBypass), slog.Any(logfields.Error, err))
 		}
 		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
 	}
@@ -3000,7 +3009,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	tcFilterPrio := vp.GetUint32(TCFilterPriority)
 	if tcFilterPrio > math.MaxUint16 {
-		log.Fatalf("%s cannot be higher than %d", TCFilterPriority, math.MaxUint16)
+		logging.Fatal(log, fmt.Sprintf("%s cannot be higher than %d", TCFilterPriority, math.MaxUint16))
 	}
 	c.TCFilterPriority = uint16(tcFilterPrio)
 
@@ -3009,7 +3018,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if vp.IsSet(AddressScopeMax) {
 		c.AddressScopeMax, err = ip.ParseScope(vp.GetString(AddressScopeMax))
 		if err != nil {
-			log.WithError(err).Fatalf("Cannot parse scope integer from --%s option", AddressScopeMax)
+			logging.Fatal(log, fmt.Sprintf("Cannot parse scope integer from --%s option", AddressScopeMax), slog.Any(logfields.Error, err))
 		}
 	} else {
 		c.AddressScopeMax = defaults.AddressScopeMax
@@ -3017,8 +3026,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	if c.EnableNat46X64Gateway || c.NodePortNat46X64 {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
-			log.Fatalf("NAT46/NAT64 requires both --%s and --%s enabled",
-				EnableIPv4Name, EnableIPv6Name)
+			logging.Fatal(log, fmt.Sprintf("%s requires both --%s and --%s enabled", EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name))
 		}
 	}
 
@@ -3031,11 +3039,11 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
 		c.EncryptionStrictModeCIDR, err = netip.ParsePrefix(strictCIDR)
 		if err != nil {
-			log.WithError(err).Fatalf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR)
+			logging.Fatal(log, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR), slog.Any(logfields.Error, err))
 		}
 
 		if !c.EncryptionStrictModeCIDR.Addr().Is4() {
-			log.Fatalf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR)
+			logging.Fatal(log, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR))
 		}
 
 		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
@@ -3047,11 +3055,11 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if ipv4NativeRoutingCIDR != "" {
 		c.IPv4NativeRoutingCIDR, err = cidr.ParseCIDR(ipv4NativeRoutingCIDR)
 		if err != nil {
-			log.WithError(err).Fatalf("Unable to parse CIDR '%s'", ipv4NativeRoutingCIDR)
+			logging.Fatal(log, fmt.Sprintf("Unable to parse CIDR '%s'", ipv4NativeRoutingCIDR), slog.Any(logfields.Error, err))
 		}
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
-			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
+			logging.Fatal(log, fmt.Sprintf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR))
 		}
 	}
 
@@ -3060,20 +3068,20 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if ipv6NativeRoutingCIDR != "" {
 		c.IPv6NativeRoutingCIDR, err = cidr.ParseCIDR(ipv6NativeRoutingCIDR)
 		if err != nil {
-			log.WithError(err).Fatalf("Unable to parse CIDR '%s'", ipv6NativeRoutingCIDR)
+			logging.Fatal(log, fmt.Sprintf("Unable to parse CIDR '%s'", ipv6NativeRoutingCIDR), slog.Any(logfields.Error, err))
 		}
 
 		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
-			log.Fatalf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR)
+			logging.Fatal(log, fmt.Sprintf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR))
 		}
 	}
 
 	if c.DirectRoutingSkipUnreachable && !c.EnableAutoDirectRouting {
-		log.Fatalf("Flag %s cannot be enabled when %s is not enabled. As if %s is then enabled, it may lead to unexpected behaviour causing network connectivity issues.", DirectRoutingSkipUnreachableName, EnableAutoDirectRoutingName, EnableAutoDirectRoutingName)
+		logging.Fatal(log, fmt.Sprintf("Flag %s cannot be enabled when %s is not enabled. As if %s is then enabled, it may lead to unexpected behaviour causing network connectivity issues.", DirectRoutingSkipUnreachableName, EnableAutoDirectRoutingName, EnableAutoDirectRoutingName))
 	}
 
 	if err := c.calculateBPFMapSizes(vp); err != nil {
-		log.Fatal(err)
+		logging.Fatal(log, err.Error())
 	}
 
 	c.ClockSource = ClockSourceKtime
@@ -3087,8 +3095,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if maxZombies := vp.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = vp.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
 	} else {
-		log.Fatalf("%s must be positive, or 0 to disable deferred connection deletion",
-			ToFQDNsMaxDeferredConnectionDeletes)
+		logging.Fatal(log, fmt.Sprintf("%s must be positive, or 0 to disable deferred connection deletion",
+			ToFQDNsMaxDeferredConnectionDeletes))
 	}
 	switch {
 	case vp.IsSet(ToFQDNsMinTTL): // set by user
@@ -3113,25 +3121,22 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(vp.GetStringSlice(IPv4PodSubnets))
 	if len(invalid) > 0 {
-		log.WithFields(
-			logrus.Fields{
-				"Subnets": invalid,
-			}).Warning("IPv4PodSubnets parameter can not be parsed.")
+		log.Warn("IPv4PodSubnets parameter can not be parsed.",
+			slog.Any("Subnets", invalid))
 	}
 	c.IPv4PodSubnets = subnets
 
 	subnets, invalid = ip.ParseCIDRs(vp.GetStringSlice(IPv6PodSubnets))
 	if len(invalid) > 0 {
-		log.WithFields(
-			logrus.Fields{
-				"Subnets": invalid,
-			}).Warning("IPv6PodSubnets parameter can not be parsed.")
+		log.Warn("IPv6PodSubnets parameter can not be parsed.",
+			slog.Any("Subnets", invalid))
 	}
 	c.IPv6PodSubnets = subnets
 
 	err = c.populateNodePortRange(vp)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to populate NodePortRange")
+		log.Error("Failed to populate NodePortRange", slog.Any(logfields.Error, err))
+		panic("Failed to populate NodePortRange")
 	}
 
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
@@ -3140,8 +3145,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		value := strings.ToLower(monitorAggregationFlags[i])
 		flag, exists := TCPFlags[value]
 		if !exists {
-			log.Fatalf("Unable to parse TCP flag %q for %s!",
-				value, MonitorAggregationFlags)
+			logging.Fatal(log, fmt.Sprintf("Unable to parse TCP flag %q for %s!", value, MonitorAggregationFlags))
 		}
 		ctMonitorReportFlags |= flag
 	}
@@ -3149,13 +3153,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Map options
 	if m := command.GetStringMapString(vp, FixedIdentityMapping); err != nil {
-		log.Fatalf("unable to parse %s: %s", FixedIdentityMapping, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", FixedIdentityMapping, err))
 	} else if len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
 
 	if m := command.GetStringMapString(vp, FixedZoneMapping); err != nil {
-		log.Fatalf("unable to parse %s: %s", FixedZoneMapping, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", FixedZoneMapping, err))
 	} else if len(m) != 0 {
 		forward := make(map[string]uint8, len(m))
 		reverse := make(map[uint8]string, len(m))
@@ -3163,10 +3167,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			bigN, _ := strconv.Atoi(v)
 			n := uint8(bigN)
 			if oldKey, ok := reverse[n]; ok && oldKey != k {
-				log.Fatalf("duplicate numeric ID entry for %s: %q and %q map to the same value %d", FixedZoneMapping, oldKey, k, n)
+				logging.Fatal(log, fmt.Sprintf("duplicate numeric ID entry for %s: %q and %q map to the same value %d", FixedZoneMapping, oldKey, k, n))
 			}
 			if oldN, ok := forward[k]; ok && oldN != n {
-				log.Fatalf("duplicate zone name entry for %s: %d and %d map to different values %s", FixedZoneMapping, oldN, n, k)
+				logging.Fatal(log, fmt.Sprintf("duplicate zone name entry for %s: %d and %d map to different values %s", FixedZoneMapping, oldN, n, k))
 			}
 			forward[k] = n
 			reverse[n] = k
@@ -3179,7 +3183,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ConntrackGCMaxInterval = vp.GetDuration(ConntrackGCMaxInterval)
 
 	if m, err := command.GetStringMapStringE(vp, KVStoreOpt); err != nil {
-		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", KVStoreOpt, err))
 	} else {
 		c.KVStoreOpt = m
 	}
@@ -3188,9 +3192,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	bpfEventsDefaultBurstLimit := vp.GetUint32(BPFEventsDefaultBurstLimit)
 	switch {
 	case bpfEventsDefaultRateLimit > 0 && bpfEventsDefaultBurstLimit == 0:
-		log.Fatalf("invalid BPF events default config: burst limit must also be specified when rate limit is provided")
+		logging.Fatal(log, "invalid BPF events default config: burst limit must also be specified when rate limit is provided")
 	case bpfEventsDefaultRateLimit == 0 && bpfEventsDefaultBurstLimit > 0:
-		log.Fatalf("invalid BPF events default config: rate limit must also be specified when burst limit is provided")
+		logging.Fatal(log, "invalid BPF events default config: rate limit must also be specified when burst limit is provided")
 	default:
 		c.BPFEventsDefaultRateLimit = vp.GetUint32(BPFEventsDefaultRateLimit)
 		c.BPFEventsDefaultBurstLimit = vp.GetUint32(BPFEventsDefaultBurstLimit)
@@ -3199,27 +3203,27 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.bpfMapEventConfigs = make(BPFEventBufferConfigs)
 	parseBPFMapEventConfigs(c.bpfMapEventConfigs, defaults.BPFEventBufferConfigs)
 	if m, err := command.GetStringMapStringE(vp, BPFMapEventBuffers); err != nil {
-		log.Fatalf("unable to parse %s: %s", BPFMapEventBuffers, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", BPFMapEventBuffers, err))
 	} else {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
 	}
 
 	c.NodeEncryptionOptOutLabelsString = vp.GetString(NodeEncryptionOptOutLabels)
 	if sel, err := k8sLabels.Parse(c.NodeEncryptionOptOutLabelsString); err != nil {
-		log.Fatalf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err))
 	} else {
 		c.NodeEncryptionOptOutLabels = sel
 	}
 
 	if err := c.parseExcludedLocalAddresses(vp.GetStringSlice(ExcludeLocalAddress)); err != nil {
-		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
+		logging.Fatal(log, "Unable to parse excluded local addresses", slog.Any(logfields.Error, err))
 	}
 
 	// Ensure CiliumEndpointSlice is enabled only if CiliumEndpointCRD is enabled too.
 	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
 	if c.EnableCiliumEndpointSlice && c.DisableCiliumEndpointCRD {
-		log.Fatalf("Running Cilium with %s=%t requires %s set to false to enable CiliumEndpoint CRDs.",
-			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName)
+		logging.Fatal(log, fmt.Sprintf("Running Cilium with %s=%t requires %s set to false to enable CiliumEndpoint CRDs.",
+			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName))
 	}
 
 	// To support K8s NetworkPolicy
@@ -3239,15 +3243,15 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD, IdentityAllocationModeDoubleWriteReadKVstore, IdentityAllocationModeDoubleWriteReadCRD:
 		// c.IdentityAllocationMode is set above
 	default:
-		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s, %s or %s / %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD, IdentityAllocationModeDoubleWriteReadKVstore, IdentityAllocationModeDoubleWriteReadCRD)
+		logging.Fatal(log, fmt.Sprintf("Invalid identity allocation mode %q. It must be one of %s, %s or %s / %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD, IdentityAllocationModeDoubleWriteReadKVstore, IdentityAllocationModeDoubleWriteReadCRD))
 	}
 	if c.KVStore == "" {
 		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
-			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
+			log.Warn(fmt.Sprintf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD))
 			c.IdentityAllocationMode = IdentityAllocationModeCRD
 		}
 		if c.DisableCiliumEndpointCRD && NetworkPolicyEnabled(c) {
-			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs when network policy enforcement system is enabled. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
+			log.Warn(fmt.Sprintf("Running Cilium with %q=%q requires endpoint CRDs when network policy enforcement system is enabled. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false))
 			c.DisableCiliumEndpointCRD = false
 		}
 	}
@@ -3263,7 +3267,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolPreAllocation); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolPreAllocation, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", IPAMMultiPoolPreAllocation, err))
 	} else {
 		c.IPAMMultiPoolPreAllocation = m
 	}
@@ -3306,7 +3310,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	for _, pattern := range nodeLabelPatterns {
 		r, err := regexp.Compile(pattern)
 		if err != nil {
-			log.WithError(err).Errorf("Unable to compile exclude node label regex pattern %s", pattern)
+			log.Error(fmt.Sprintf("Unable to compile exclude node label regex pattern %s", pattern), slog.Any(logfields.Error, err))
 			continue
 		}
 		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
@@ -3325,7 +3329,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if 0.0 <= connectivityFreqRatio && connectivityFreqRatio <= 1.0 {
 		c.ConnectivityProbeFrequencyRatio = connectivityFreqRatio
 	} else {
-		log.Warningf("specified connectivity probe frequency ratio %f must be in the range [0.0, 1.0], using default", connectivityFreqRatio)
+		log.Warn(
+			"specified connectivity probe frequency ratio must be in the range [0.0, 1.0], using default",
+			slog.Float64("ratio", connectivityFreqRatio),
+		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
 	}
 }
@@ -3342,24 +3349,24 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 		prior := c.NodePortAcceleration
 		c.NodePortAcceleration = vp.GetString(NodePortAcceleration)
 		if vp.IsSet(LoadBalancerAcceleration) && prior != c.NodePortAcceleration {
-			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerAcceleration, NodePortAcceleration, LoadBalancerAcceleration)
+			logging.Fatal(log, fmt.Sprintf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerAcceleration, NodePortAcceleration, LoadBalancerAcceleration))
 		}
 	}
 	if vp.IsSet(NodePortMode) {
 		prior := c.NodePortMode
 		c.NodePortMode = vp.GetString(NodePortMode)
 		if vp.IsSet(LoadBalancerMode) && prior != c.NodePortMode {
-			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerMode, NodePortMode, LoadBalancerMode)
+			logging.Fatal(log, fmt.Sprintf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerMode, NodePortMode, LoadBalancerMode))
 		}
 	}
 	if vp.IsSet(NodePortAlg) {
 		prior := c.NodePortAlg
 		c.NodePortAlg = vp.GetString(NodePortAlg)
 		if vp.IsSet(LoadBalancerAlgorithm) && prior != c.NodePortAlg {
-			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm)
+			logging.Fatal(log, fmt.Sprintf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm))
 		}
 	}
 }
@@ -3388,7 +3395,7 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 		}
 	case 0:
 		if vp.IsSet(NodePortRange) {
-			log.Warning("NodePort range was set but is empty.")
+			log.Warn("NodePort range was set but is empty.")
 		}
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
@@ -3446,8 +3453,8 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.PolicyMapEntries, PolicyMapMin)
 	}
 	if c.PolicyMapEntries > PolicyMapMax {
-		log.Warnf("specified PolicyMap max entries %d must not exceed maximum %d, lowering it to the maximum value",
-			c.PolicyMapEntries, PolicyMapMax)
+		log.Warn(fmt.Sprintf("specified PolicyMap max entries %d must not exceed maximum %d, lowering it to the maximum value",
+			c.PolicyMapEntries, PolicyMapMax))
 		c.PolicyMapEntries = PolicyMapMax
 	}
 
@@ -3591,7 +3598,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	if 0.0 < dynamicSizeRatio && dynamicSizeRatio <= 1.0 {
 		vms, err := memory.Get()
 		if err != nil || vms == nil {
-			log.WithError(err).Fatal("Failed to get system memory")
+			logging.Fatal(log, "Failed to get system memory", slog.Any(logfields.Error, err))
 		}
 		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
@@ -3633,21 +3640,21 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	//    4GB   265121  132560   265121
 	//   16GB  1060485  530242  1060485
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
-	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio*100, totalMemory, memoryAvailableForMaps)
+	log.Info(fmt.Sprintf("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio*100, totalMemory, memoryAvailableForMaps))
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.SizeofCTElement +
 		CTMapEntriesGlobalAnyDefault*c.SizeofCTElement +
 		NATMapEntriesGlobalDefault*c.SizeofNATElement +
 		// Neigh table has the same number of entries as NAT Map has.
 		NATMapEntriesGlobalDefault*c.SizeofNeighElement +
 		SockRevNATMapEntriesDefault*c.SizeofSockRevElement
-	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
+	log.Debug(fmt.Sprintf("Total memory for default map entries: %d", totalMapMemoryDefault))
 
 	getEntries := func(entriesDefault, min, max int) int {
 		entries := (entriesDefault * memoryAvailableForMaps) / totalMapMemoryDefault
 		if entries < min {
 			entries = min
 		} else if entries > max {
-			log.Debugf("clamped from %d to %d", entries, max)
+			log.Debug(fmt.Sprintf("clamped from %d to %d", entries, max))
 			entries = max
 		}
 		return entries
@@ -3659,51 +3666,51 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	if !vp.IsSet(CTMapEntriesGlobalTCPName) {
 		c.CTMapEntriesGlobalTCP =
 			getEntries(CTMapEntriesGlobalTCPDefault, LimitTableAutoGlobalTCPMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
+		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
+			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP))
 	} else {
-		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
+		log.Debug(fmt.Sprintf("option %s set by user to %v", CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP))
 	}
 	if !vp.IsSet(CTMapEntriesGlobalAnyName) {
 		c.CTMapEntriesGlobalAny =
 			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
+		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
+			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny))
 	} else {
-		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
+		log.Debug(fmt.Sprintf("option %s set by user to %v", CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny))
 	}
 	if !vp.IsSet(NATMapEntriesGlobalName) {
 		c.NATMapEntriesGlobal =
 			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
+			NATMapEntriesGlobalName, c.NATMapEntriesGlobal))
 		if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
 			// CT table size was specified manually, make sure that the NAT table size
 			// does not exceed maximum CT table size. See
 			// (*DaemonConfig).checkMapSizeLimits.
 			c.NATMapEntriesGlobal = (c.CTMapEntriesGlobalTCP + c.CTMapEntriesGlobalAny) * 2 / 3
-			log.Warningf("option %s would exceed maximum determined by CT table sizes, capping to %v",
-				NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+			log.Warn(fmt.Sprintf("option %s would exceed maximum determined by CT table sizes, capping to %v",
+				NATMapEntriesGlobalName, c.NATMapEntriesGlobal))
 		}
 	} else {
-		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+		log.Debug(fmt.Sprintf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal))
 	}
 	if !vp.IsSet(NeighMapEntriesGlobalName) {
 		// By default we auto-size it to the same value as the NAT map since we
 		// need to keep at least as many neigh entries.
 		c.NeighMapEntriesGlobal = c.NATMapEntriesGlobal
-		log.Infof("option %s set by dynamic sizing to %v",
-			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
+		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
+			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal))
 	} else {
-		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
+		log.Debug(fmt.Sprintf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal))
 	}
 	if !vp.IsSet(SockRevNatEntriesName) {
 		c.SockRevNatEntries =
 			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v",
-			SockRevNatEntriesName, c.SockRevNatEntries)
+		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v",
+			SockRevNatEntriesName, c.SockRevNatEntries))
 	} else {
-		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+		log.Debug(fmt.Sprintf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal))
 	}
 }
 
@@ -3899,10 +3906,11 @@ func backupFiles(dir string, backupFilenames []string) {
 		}
 		err := os.Rename(newFileName, oldestFilename)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"old-name": oldestFilename,
-				"new-name": newFileName,
-			}).Error("Unable to rename configuration files")
+			log.Error(
+				"Unable to rename configuration files",
+				slog.String("old-name", oldestFilename),
+				slog.String("new-name", newFileName),
+			)
 		}
 	}
 }
@@ -3911,11 +3919,11 @@ func sanitizeIntParam(vp *viper.Viper, paramName string, paramDefault int) int {
 	intParam := vp.GetInt(paramName)
 	if intParam <= 0 {
 		if vp.IsSet(paramName) {
-			log.WithFields(
-				logrus.Fields{
-					"parameter":    paramName,
-					"defaultValue": paramDefault,
-				}).Warning("user-provided parameter had value <= 0 , which is invalid ; setting to default")
+			log.Warn(
+				"user-provided parameter had value <= 0 , which is invalid ; setting to default",
+				slog.String("parameter", paramName),
+				slog.Int("defaultValue", paramDefault),
+			)
 		}
 		return paramDefault
 	}
@@ -3963,7 +3971,7 @@ func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) erro
 	case "stringToString":
 		_, err = command.ToStringMapStringE(value)
 	default:
-		log.Warnf("Unable to validate option %s value of type %s", key, t)
+		log.Warn(fmt.Sprintf("Unable to validate option %s value of type %s", key, t))
 	}
 	return err
 }
@@ -4003,22 +4011,22 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 
 		if Config.ConfigDir != "" {
 			if _, err := os.Stat(Config.ConfigDir); os.IsNotExist(err) {
-				log.Fatalf("Non-existent configuration directory %s", Config.ConfigDir)
+				logging.Fatal(log, fmt.Sprintf("Non-existent configuration directory %s", Config.ConfigDir))
 			}
 
 			if m, err := ReadDirConfig(Config.ConfigDir); err != nil {
-				log.WithError(err).Fatalf("Unable to read configuration directory %s", Config.ConfigDir)
+				logging.Fatal(log, fmt.Sprintf("Unable to read configuration directory %s", Config.ConfigDir), slog.Any(logfields.Error, err))
 			} else {
 				// replace deprecated fields with new fields
 				ReplaceDeprecatedFields(m)
 
 				// validate the config-map
 				if err := validateConfigMap(cmd, m); err != nil {
-					log.WithError(err).Fatal("Incorrect config-map flag value")
+					logging.Fatal(log, "Incorrect config-map flag value", slog.Any(logfields.Error, err))
 				}
 
 				if err := MergeConfig(vp, m); err != nil {
-					log.WithError(err).Fatal("Unable to merge configuration")
+					logging.Fatal(log, "Unable to merge configuration", slog.Any(logfields.Error, err))
 				}
 			}
 		}
@@ -4039,13 +4047,15 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 
 		// If a config file is found, read it in.
 		if err := vp.ReadInConfig(); err == nil {
-			log.WithField(logfields.Path, vp.ConfigFileUsed()).
-				Info("Using config from file")
+			log.Info("Using config from file", slog.String(logfields.Path, vp.ConfigFileUsed()))
 		} else if Config.ConfigFile != "" {
-			log.WithField(logfields.Path, Config.ConfigFile).WithError(err).
-				Fatal("Error reading config file")
+			logging.Fatal(log,
+				"Error reading config file",
+				slog.String(logfields.Path, vp.ConfigFileUsed()),
+				slog.Any(logfields.Error, err),
+			)
 		} else {
-			log.WithError(err).Debug("Skipped reading configuration file")
+			log.Debug("Skipped reading configuration file", slog.Any(logfields.Error, err))
 		}
 
 		// Check for the debug flag again now that the configuration file may has

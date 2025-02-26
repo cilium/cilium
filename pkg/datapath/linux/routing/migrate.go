@@ -5,11 +5,14 @@ package linuxrouting
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -45,9 +48,10 @@ import (
 func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 	rules, err := m.rpdb.RuleList(netlink.FAMILY_V4)
 	if err != nil {
-		log.WithError(err).
-			Error("Failed to migrate ENI datapath due to a failure in listing the existing rules. " +
-				"The original datapath is still in-place, however it is recommended to retry the migration.")
+		m.logger.Error("Failed to migrate ENI datapath due to a failure in listing the existing rules. "+
+			"The original datapath is still in-place, however it is recommended to retry the migration.",
+			slog.Any(logfields.Error, err),
+		)
 		return 0, -1
 	}
 
@@ -157,8 +161,11 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 	if isUpgrade {
 		for _, r := range v1Rules {
 			if routes, err := m.upgradeRule(r); err != nil {
-				log.WithError(err).WithField("rule", r).Warn("Failed to migrate endpoint to new ENI datapath. " +
-					"Previous datapath is still intact and endpoint connectivity is not affected.")
+				m.logger.Warn("Failed to migrate endpoint to new ENI datapath. "+
+					"Previous datapath is still intact and endpoint connectivity is not affected.",
+					slog.Any(logfields.Error, err),
+					slog.Any("rule", r),
+				)
 				failedTableIDs[r.Table] = struct{}{}
 				failed++
 			} else {
@@ -174,8 +181,11 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 	} else if isDowngrade {
 		for _, r := range v2Rules {
 			if routes, err := m.downgradeRule(r); err != nil {
-				log.WithError(err).WithField("rule", r).Warn("Failed to downgrade endpoint to original ENI datapath. " +
-					"Previous datapath is still intact and endpoint connectivity is not affected.")
+				m.logger.Warn("Failed to downgrade endpoint to original ENI datapath. "+
+					"Previous datapath is still intact and endpoint connectivity is not affected.",
+					slog.Any(logfields.Error, err),
+					slog.Any("rule", r),
+				)
 				failedTableIDs[r.Table] = struct{}{}
 				failed++
 			} else {
@@ -232,11 +242,15 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 				version = "original"
 			}
 
-			scopedLog := log.WithField("rule", rule)
-			scopedLog.WithError(err).WithField("routes", routes).
-				Warnf("Failed to cleanup after successfully migrating endpoint to %s ENI datapath. "+
+			m.logger.Warn(fmt.Sprintf(
+				"Failed to cleanup after successfully migrating endpoint to %s ENI datapath. "+
 					"It is recommended that these routes are cleaned up (by running `ip route del`), as it is possible in the future "+
-					"to collide with another endpoint with the same IP.", version)
+					"to collide with another endpoint with the same IP.", version,
+			),
+				slog.Any(logfields.Error, err),
+				slog.Any("rule", rule),
+				slog.Any("routes", routes),
+			)
 		}
 	}
 
@@ -247,8 +261,9 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 // use the underlying upstream netlink library to manipulate the Linux RPDB.
 // It accepts a getter for retrieving the interface number by MAC address and
 // vice versa.
-func NewMigrator(getter interfaceDB) *migrator {
+func NewMigrator(defaultLogger logging.FieldLogger, getter interfaceDB) *migrator {
 	return &migrator{
+		logger: defaultLogger.With(subsysLogAttr),
 		rpdb:   defaultRPDB{},
 		getter: getter,
 	}
@@ -270,7 +285,7 @@ func (m *migrator) upgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 	// (linux_defaults.RouteTableInterfacesOffset). See copyRoutes() for what
 	// happens with routes.
 
-	scopedLog := log.WithField("rule", rule)
+	logAttr := slog.Any("rule", rule)
 
 	routes, err := m.rpdb.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 		Table: rule.Table,
@@ -282,7 +297,7 @@ func (m *migrator) upgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 	// If there are no routes under the same table as the rule, then
 	// skip.
 	if len(routes) == 0 {
-		scopedLog.Debug("Skipping migration of egress rule due to no routes found")
+		m.logger.Debug("Skipping migration of egress rule due to no routes found", logAttr)
 		return nil, nil
 	}
 
@@ -319,7 +334,7 @@ func (m *migrator) upgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 		// are removed as they'd have no effect, but may conflict with
 		// others in the future.
 		if revErr := stack.Revert(); revErr != nil {
-			scopedLog.WithError(err).WithField("revertError", revErr).Warn(upgradeRevertWarning)
+			m.logger.Warn(upgradeRevertWarning, slog.Any(logfields.Error, err), slog.Any("revertError", revErr), logAttr)
 		}
 
 		return nil, fmt.Errorf("failed to create new rule: %w", err)
@@ -330,7 +345,7 @@ func (m *migrator) upgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 		// just created above is reverted. See long comment describing the
 		// migration in MigrateENIDatapath().
 		if revErr := stack.Revert(); revErr != nil {
-			scopedLog.WithError(err).WithField("revertError", revErr).Warn(upgradeRevertWarning)
+			m.logger.Warn(upgradeRevertWarning, slog.Any(logfields.Error, err), slog.Any("revertError", revErr), logAttr)
 		}
 
 		return nil, fmt.Errorf("failed to delete old rule: %w", err)
@@ -353,7 +368,7 @@ func (m *migrator) downgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 	// The priority has been reverted back to 110 and the table ID back to 9
 	// because the ifindex is 9. See copyRoutes() for what happens with routes.
 
-	scopedLog := log.WithField("rule", rule)
+	logAttr := slog.Any("rule", rule)
 
 	oldTable := rule.Table
 	ifaceNumber := oldTable - linux_defaults.RouteTableInterfacesOffset
@@ -388,7 +403,7 @@ func (m *migrator) downgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 	)
 	if err != nil {
 		if revErr := stack.Revert(); revErr != nil {
-			scopedLog.WithError(err).WithField("revertError", revErr).Warn(downgradeRevertWarning)
+			m.logger.Warn(downgradeRevertWarning, slog.Any(logfields.Error, err), slog.Any("revertError", revErr), logAttr)
 		}
 
 		return nil, fmt.Errorf("failed to create new rule: %w", err)
@@ -398,7 +413,7 @@ func (m *migrator) downgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 		// We avoid reverting and returning an error here because the newer
 		// datapath is already in-place. See long comment describing the
 		// migration in MigrateENIDatapath().
-		scopedLog.WithError(err).Warn(downgradeFailedRuleDeleteWarning)
+		m.logger.Warn(downgradeFailedRuleDeleteWarning, slog.Any(logfields.Error, err), logAttr)
 		return nil, nil
 	}
 
@@ -572,6 +587,7 @@ func filterRulesByPriority(rules []netlink.Rule, prio int) []netlink.Rule {
 }
 
 type migrator struct {
+	logger logging.FieldLogger
 	rpdb   rpdb
 	getter interfaceDB
 }

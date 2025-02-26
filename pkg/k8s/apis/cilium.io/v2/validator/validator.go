@@ -6,14 +6,13 @@ package validator
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
@@ -152,9 +151,10 @@ func checkInitLabelsPolicy(cnp *unstructured.Unstructured) error {
 		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
 		if spec.EndpointSelector.HasKey(podInitLbl) {
 			logOnce.Do(func() {
-				log.WithFields(logrus.Fields{
-					logfields.CiliumNetworkPolicyName: cnp.GetName(),
-				}).Error(logInitPolicyCNP)
+				log.Error(
+					logInitPolicyCNP,
+					slog.String(logfields.CiliumNetworkPolicyName, cnp.GetName()),
+				)
 			})
 			return errInitPolicyCNP
 		}

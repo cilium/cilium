@@ -11,10 +11,10 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -40,7 +40,7 @@ var Cell = cell.Module(
 		newOps,
 		newReconciler,
 
-		func(logger logrus.FieldLogger) *ipset {
+		func(logger logging.FieldLogger) *ipset {
 			return &ipset{
 				executable: funcExecutable(func(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error) {
 					cmd := exec.CommandContext(ctx, name, arg...)

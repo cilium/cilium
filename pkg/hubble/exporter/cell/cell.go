@@ -6,16 +6,18 @@ package exportercell
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type config struct {
@@ -80,7 +82,7 @@ type hubbleExportersParams struct {
 	Config    validatedConfig
 
 	// TODO: replace by slog
-	Logger logrus.FieldLogger
+	Logger logging.FieldLogger
 }
 
 type hubbleExportersOut struct {
@@ -130,7 +132,7 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 	staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 	if err != nil {
 		// non-fatal failure, log and continue
-		params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
+		params.Logger.Error("Failed to configure Hubble static exporter", slog.Any(logfields.Error, err))
 		return hubbleExportersOut{}, nil
 	}
 

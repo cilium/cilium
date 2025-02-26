@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 
 	"github.com/cilium/dns"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -77,7 +77,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
 					port = oldPort
 				} else {
-					log.WithField(logfields.Port, oldPort).Info("Unable re-use old DNS proxy port as it is already in use")
+					d.logger.Info(
+						"Unable re-use old DNS proxy port as it is already in use",
+						slog.Uint64(logfields.Port, uint64(oldPort)),
+					)
 				}
 			}
 		}
@@ -101,7 +104,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
 		if err == nil && port == proxy.DefaultDNSProxy.GetBindPort() {
-			log.Infof("Reusing previous DNS proxy port: %d", port)
+			d.logger.Info(
+				"Reusing previous DNS proxy port:",
+				slog.Uint64(logfields.Port, uint64(port)),
+			)
 		}
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 		// Restore old rules
@@ -253,7 +259,11 @@ func (d *Daemon) notifyOnDNSMsg(
 
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
-		log.WithError(err).WithField(logfields.DNSName, qname).Error("cannot extract DNS message details")
+		d.logger.Error(
+			"cannot extract DNS message details",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.DNSName, qname),
+		)
 		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
@@ -298,15 +308,18 @@ func (d *Daemon) notifyOnDNSMsg(
 		mutexAcquireStart := time.Now()
 		d.dnsNameManager.LockName(qname)
 
-		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-			log.WithFields(logrus.Fields{
-				logfields.DNSName:  qname,
-				logfields.Duration: d,
-				logfields.Expected: option.Config.DNSProxyLockTimeout,
-			}).Warnf("Name lock acquisition time took longer than expected. "+
-				"Potentially too many parallel DNS requests being processed, "+
-				"consider adjusting --%s and/or --%s",
-				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+		if duration := time.Since(mutexAcquireStart); duration >= option.Config.DNSProxyLockTimeout {
+			d.logger.Warn(
+				fmt.Sprintf(
+					"Name lock acquisition time took longer than expected. "+
+						"Potentially too many parallel DNS requests being processed, "+
+						"consider adjusting --%s and/or --%s",
+					option.DNSProxyLockCount, option.DNSProxyLockTimeout,
+				),
+				slog.String(logfields.DNSName, qname),
+				slog.Duration(logfields.Duration, duration),
+				slog.Duration(logfields.Expected, option.Config.DNSProxyLockTimeout),
+			)
 		}
 
 		// This must happen before the NameManager update below, to ensure that
@@ -316,16 +329,20 @@ func (d *Daemon) notifyOnDNSMsg(
 		// consistent if a regeneration happens between the two steps. If an update
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
-		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
+		d.logger.Debug(
+			"Recording DNS lookup in endpoint specific cache",
+			slog.Any(logfields.EndpointID, ep.ID),
+		)
 		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}
 
-		log.WithFields(logrus.Fields{
-			"qname": qname,
-			"ips":   responseIPs,
-		}).Debug("Updating DNS name in cache from response to query")
+		d.logger.Debug(
+			"Updating DNS name in cache from response to query",
+			slog.String("qname", qname),
+			slog.Any("ips", responseIPs),
+		)
 
 		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
@@ -342,18 +359,19 @@ func (d *Daemon) notifyOnDNSMsg(
 		stat.DataplaneTime.Start()
 
 		if err := dpUpdates.Wait(); err != nil {
-			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
+			d.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
 
 		// Policy updates for this name have been pushed out; we can release the lock.
 		d.dnsNameManager.UnlockName(qname)
 
-		log.WithFields(logrus.Fields{
-			logfields.Duration:   time.Since(updateStart),
-			logfields.EndpointID: ep.GetID(),
-			"qname":              qname,
-		}).Debug("Waited for endpoints to regenerate due to a DNS response")
+		d.logger.Debug(
+			"Waited for endpoints to regenerate due to a DNS response",
+			slog.Duration(logfields.Duration, time.Since(updateStart)),
+			slog.Uint64(logfields.EndpointID, ep.GetID()),
+			slog.String("qname", qname),
+		)
 
 		endMetric()
 	}

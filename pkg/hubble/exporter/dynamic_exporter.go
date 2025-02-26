@@ -6,11 +6,12 @@ package exporter
 import (
 	"context"
 	"errors"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -37,7 +38,7 @@ var _ FlowLogExporter = (*dynamicExporter)(nil)
 // dynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
 // for a set of exporters.
 type dynamicExporter struct {
-	logger          logrus.FieldLogger
+	logger          logging.FieldLogger
 	watcher         *configWatcher
 	exporterFactory ExporterFactory
 
@@ -48,7 +49,7 @@ type dynamicExporter struct {
 // NewDynamicExporter initializes a dynamic exporter.
 //
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, exporterFactory ExporterFactory, exporterConfigParser ExporterConfigParser) *dynamicExporter {
+func NewDynamicExporter(logger logging.FieldLogger, configFilePath string, exporterFactory ExporterFactory, exporterConfigParser ExporterConfigParser) *dynamicExporter {
 	dynamicExporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  exporterFactory,
@@ -56,7 +57,7 @@ func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, export
 	}
 	watcher := NewConfigWatcher(configFilePath, exporterConfigParser, func(configs map[string]ExporterConfig, hash uint64) {
 		if err := dynamicExporter.onConfigReload(configs, hash); err != nil {
-			logger.WithError(err).Errorf("Failed to reload exporter manager")
+			logger.Error("Failed to reload exporter manager", slog.Any(logfields.Error, err))
 		}
 	})
 	dynamicExporter.watcher = watcher
@@ -146,7 +147,7 @@ func (d *dynamicExporter) applyUpdatedConfig(name string, config ExporterConfig)
 
 	exporter, err := d.exporterFactory.Create(config)
 	if err != nil {
-		d.logger.Errorf("Failed to create exporter for config %q: %v", name, err)
+		d.logger.Error("Failed to create exporter for config", slog.Any(logfields.Error, err), slog.String("name", name))
 		return false
 	}
 
@@ -165,7 +166,7 @@ func (d *dynamicExporter) removeExporter(name string) bool {
 		return false
 	}
 	if err := me.exporter.Stop(); err != nil {
-		d.logger.Errorf("failed to stop exporter: %w", err)
+		d.logger.Error("failed to stop exporter", slog.Any(logfields.Error, err))
 	}
 	delete(d.managedExporters, name)
 	return true

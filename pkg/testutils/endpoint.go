@@ -4,9 +4,8 @@
 package testutils
 
 import (
+	"log/slog"
 	"net/netip"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -85,7 +84,7 @@ func (e *TestEndpoint) InterfaceName() string {
 	return "cilium_test"
 }
 
-func (e *TestEndpoint) Logger(subsystem string) *logrus.Entry {
+func (e *TestEndpoint) Logger(subsystem string) *slog.Logger {
 	return log
 }
 

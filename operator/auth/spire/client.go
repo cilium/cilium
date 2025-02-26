@@ -140,7 +140,7 @@ func (c *Client) onStart(_ cell.HookContext) error {
 	go func() {
 		c.log.Info("Initializing SPIRE client")
 		attempts := 0
-		backoffTime := backoff.Exponential{Min: 100 * time.Millisecond, Max: 10 * time.Second}
+		backoffTime := backoff.Exponential{Logger: c.log, Min: 100 * time.Millisecond, Max: 10 * time.Second}
 		for {
 			attempts++
 			conn, err := c.connect(context.Background())

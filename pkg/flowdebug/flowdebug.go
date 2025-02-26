@@ -4,7 +4,7 @@
 package flowdebug
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 var perFlowDebug = false
@@ -20,16 +20,9 @@ func Enabled() bool {
 }
 
 // Log must be used to log any debug messages emitted per request/message/connection
-func Log(f func() (l *logrus.Entry, msg string)) {
+func Log(f func() (l *slog.Logger, msg string)) {
 	if perFlowDebug {
 		l, args := f()
 		l.Debug(args)
-	}
-}
-
-// Logf must be used to log any debug messages emitted per request/message/connection
-func Logf(l *logrus.Entry, format string, args ...interface{}) {
-	if perFlowDebug {
-		l.Debugf(format, args...)
 	}
 }

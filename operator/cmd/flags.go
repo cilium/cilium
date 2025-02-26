@@ -143,7 +143,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		switch binaryName {
 		case "cilium-operator":
 			if recommendation := recommendInstead(); recommendation != "" {
-				log.Warnf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation)
+				log.Warn(fmt.Sprintf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation))
 			}
 		case "cilium-operator-aws":
 			if ipamFlagValue != ipamOption.IPAMENI {

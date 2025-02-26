@@ -7,10 +7,9 @@ package eni
 
 import (
 	"context"
+	"log/slog"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/sirupsen/logrus"
-
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -19,6 +18,8 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -45,6 +46,7 @@ type EC2API interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
+	logger         *slog.Logger
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
 
@@ -58,8 +60,9 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(api EC2API) *InstancesManager {
+func NewInstancesManager(logger logging.FieldLogger, api EC2API) *InstancesManager {
 	return &InstancesManager{
+		logger:    logger.With(subsysLogAttr),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 	}
@@ -191,19 +194,19 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 
 	vpcs, err := m.api.GetVpcs(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize EC2 VPC list")
+		m.logger.Warn("Unable to synchronize EC2 VPC list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
 	subnets, err := m.api.GetSubnets(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve EC2 subnets list")
+		m.logger.Warn("Unable to retrieve EC2 subnets list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
 	securityGroups, err := m.api.GetSecurityGroups(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve EC2 security group list")
+		m.logger.Warn("Unable to retrieve EC2 security group list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
@@ -213,16 +216,17 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	if instanceID == "" {
 		instances, err := m.api.GetInstances(ctx, vpcs, subnets)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize EC2 interface list")
+			m.logger.Warn("Unable to synchronize EC2 interface list", slog.Any(logfields.Error, err))
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"numInstances":      instances.NumInstances(),
-			"numVPCs":           len(vpcs),
-			"numSubnets":        len(subnets),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information")
+		m.logger.With(
+			"Synchronized ENI information",
+			slog.Int("numInstances", instances.NumInstances()),
+			slog.Int("numVPCs", len(vpcs)),
+			slog.Int("numSubnets", len(subnets)),
+			slog.Int("numSecurityGroups", len(securityGroups)),
+		)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
@@ -230,16 +234,17 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	} else {
 		instance, err := m.api.GetInstance(ctx, vpcs, subnets, instanceID)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize EC2 interface list")
+			m.logger.Warn("Unable to synchronize EC2 interface list", slog.Any(logfields.Error, err))
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"instance":          instanceID,
-			"numVPCs":           len(vpcs),
-			"numSubnets":        len(subnets),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information for the corresponding instance")
+		m.logger.With(
+			"Synchronized ENI information for the corresponding instance",
+			slog.String("instance", instanceID),
+			slog.Int("numVPCs", len(vpcs)),
+			slog.Int("numSubnets", len(subnets)),
+			slog.Int("numSecurityGroups", len(securityGroups)),
+		)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
@@ -252,7 +257,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
 		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
-			log.WithError(err).Warning("Unable to update instance type to adapter limits from EC2 API")
+			m.logger.Warn("Unable to update instance type to adapter limits from EC2 API", slog.Any(logfields.Error, err))
 			return time.Time{}
 		}
 	}
@@ -287,7 +292,7 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 	// list of ENIs attached to this instance. Without this,
 	// ForeachInstance() would return the ENIs of all instances.
 	if instanceID == "" {
-		log.Error("BUG: Inconsistent CiliumNode state. The InstanceID is not known")
+		m.logger.Error("BUG: Inconsistent CiliumNode state. The InstanceID is not known")
 		return
 	}
 

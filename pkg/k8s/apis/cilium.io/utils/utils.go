@@ -4,7 +4,8 @@
 package utils
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -47,7 +48,7 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsysK8s))
 )
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
@@ -343,12 +344,12 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 		if namespace != "" {
 			userNamespace, present := r.EndpointSelector.GetMatch(podPrefixLbl)
 			if present && !namespacesAreValid(namespace, userNamespace) {
-				log.WithFields(logrus.Fields{
-					logfields.K8sNamespace:              namespace,
-					logfields.CiliumNetworkPolicyName:   name,
-					logfields.K8sNamespace + ".illegal": userNamespace,
-				}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
-					" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
+				log.Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector."+
+					" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.",
+					slog.String(logfields.K8sNamespace, namespace),
+					slog.String(logfields.CiliumNetworkPolicyName, name),
+					slog.Any(logfields.K8sNamespace+".illegal", userNamespace),
+				)
 			}
 			retRule.EndpointSelector.AddMatch(podPrefixLbl, namespace)
 		}

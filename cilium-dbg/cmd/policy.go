@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -106,7 +106,7 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 func ignoredFile(name string) bool {
 	for _, n := range ignoredFileNames {
 		if name == n {
-			logrus.WithField(logfields.Path, name).Debug("Ignoring file")
+			slog.Debug("Ignoring file", slog.String(logfields.Path, name))
 			return true
 		}
 	}
@@ -118,7 +118,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 	var content []byte
 	var err error
 	var r io.Reader
-	logrus.WithField(logfields.Path, path).Debug("Loading file")
+	slog.Debug("Loading file", slog.String(logfields.Path, path))
 
 	if path == "-" {
 		r = bufio.NewReader(os.Stdin)
@@ -145,7 +145,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 }
 
 func loadPolicy(name string) (api.Rules, error) {
-	logrus.WithField(logfields.Path, name).Debug("Entering directory")
+	slog.Debug("Entering directory", slog.String(logfields.Path, name))
 
 	if name == "-" {
 		return loadPolicyFile(name)
@@ -177,7 +177,7 @@ func loadPolicy(name string) (api.Rules, error) {
 	}
 	result = append(result, ruleList...)
 
-	logrus.WithField(logfields.Path, name).Debug("Leaving directory")
+	slog.Debug("Leaving directory", slog.String(logfields.Path, name))
 
 	return result, nil
 }

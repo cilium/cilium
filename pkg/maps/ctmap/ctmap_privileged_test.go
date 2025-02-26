@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -31,7 +32,7 @@ func init() {
 func setupCTMap(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logging.DefaultLogger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }

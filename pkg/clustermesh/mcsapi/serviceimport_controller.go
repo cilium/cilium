@@ -6,12 +6,12 @@ package mcsapi
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,6 +29,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -42,14 +43,14 @@ const (
 // since we have all the info here to do so.
 type mcsAPIServiceImportReconciler struct {
 	client.Client
-	Logger logrus.FieldLogger
+	Logger logging.FieldLogger
 
 	cluster                    string
 	globalServiceExports       *operator.GlobalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger logging.FieldLogger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -534,7 +535,7 @@ func (r *mcsAPIServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error
 // needed by a regular controller-runtime controller. This prevents us from
 // implementing a more complicated/hands-on pattern of controller.
 type remoteClusterServiceExportSource struct {
-	Logger logrus.FieldLogger
+	Logger logging.FieldLogger
 
 	ctx   context.Context
 	queue workqueue.TypedRateLimitingInterface[ctrl.Request]
@@ -549,9 +550,11 @@ func (s *remoteClusterServiceExportSource) onClusterServiceExportEvent(svcExport
 	}
 
 	s.Logger.
-		WithField(logfields.K8sNamespace, svcExport.Namespace).
-		WithField("ServiceExport", svcExport.Name).
-		Debug("Queueing update from remote cluster")
+		Debug(
+			"Queueing update from remote cluster",
+			slog.String(logfields.K8sNamespace, svcExport.Namespace),
+			slog.String("ServiceExport", svcExport.Name),
+		)
 	s.queue.Add(ctrl.Request{NamespacedName: types.NamespacedName{
 		Name:      svcExport.Name,
 		Namespace: svcExport.Namespace,

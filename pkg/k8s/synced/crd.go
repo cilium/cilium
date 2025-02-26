@@ -8,7 +8,11 @@ package synced
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -203,12 +207,15 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 		case <-ctx.Done():
 			err := ctx.Err()
 			if err != nil && !errors.Is(err, context.Canceled) {
-				log.WithError(err).
-					Fatalf("Unable to find all Cilium CRDs necessary within "+
+				logging.Fatal(
+					log,
+					fmt.Sprintf("Unable to find all Cilium CRDs necessary within "+
 						"%v timeout. Please ensure that Cilium Operator is "+
 						"running, as it's responsible for registering all "+
 						"the Cilium CRDs. The following CRDs were not found: %v",
 						cfg.CRDWaitTimeout, crds.unSynced())
+					slog.Any(logfields.Error, err),
+				)
 			}
 			// If the context was canceled it means the daemon is being stopped
 			// so we can return the context's error.
@@ -222,7 +229,10 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 			count++
 			if count == 20 {
 				count = 0
-				log.Infof("Still waiting for Cilium Operator to register the following CRDs: %v", crds.unSynced())
+				log.Info(
+					"Still waiting for Cilium Operator to register CRDs",
+					slog.Any("CRDs", crds.unSynced()),
+				)
 			}
 		}
 	}

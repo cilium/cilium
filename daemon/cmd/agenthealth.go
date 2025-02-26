@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -38,7 +39,11 @@ func (d *Daemon) startAgentHealthHTTPService() {
 		if v := r.Header.Get("require-k8s-connectivity"); v != "" {
 			res, err := strconv.ParseBool(v)
 			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{"value": v}).Warn("require-k8s-connectivity should be bool")
+				d.logger.Warn(
+					"require-k8s-connectivity should be bool",
+					slog.String("value", v),
+					slog.Any(logfields.Error, err),
+				)
 			} else {
 				requireK8sConnectivity = res
 			}
@@ -53,10 +58,10 @@ func (d *Daemon) startAgentHealthHTTPService() {
 		statusCode := http.StatusOK
 		sr := d.getStatus(true, requireK8sConnectivity)
 		if isUnhealthy(&sr) {
-			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
-				logfields.State: sr.Cilium.State,
-			},
-			).Warn("/healthz returning unhealthy")
+			d.logger.Warn("/healthz returning unhealthy",
+				slog.Any(logfields.Error, sr.Cilium.Msg),
+				slog.String(logfields.State, sr.Cilium.State),
+			)
 			statusCode = http.StatusServiceUnavailable
 		}
 
@@ -67,14 +72,22 @@ func (d *Daemon) startAgentHealthHTTPService() {
 	for _, host := range hosts {
 		lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
 		addr := net.JoinHostPort(host, fmt.Sprintf("%d", option.Config.AgentHealthPort))
-		addrField := logrus.Fields{"address": addr}
+		addrField := slog.String("address", addr)
 		ln, err := lc.Listen(context.Background(), "tcp", addr)
 		if errors.Is(err, unix.EADDRNOTAVAIL) {
-			log.WithFields(addrField).Info("healthz status API server not available")
+			d.logger.Info(
+				"healthz status API server not available",
+				addrField,
+			)
 			available--
 			continue
 		} else if err != nil {
-			log.WithFields(addrField).WithError(err).Fatal("Unable to start healthz status API server")
+			logging.Fatal(
+				d.logger,
+				"Unable to start healthz status API server",
+				slog.Any(logfields.Error, err),
+				addrField,
+			)
 		}
 
 		go func(addr string, ln net.Listener) {
@@ -84,15 +97,30 @@ func (d *Daemon) startAgentHealthHTTPService() {
 			}
 			err := srv.Serve(ln)
 			if errors.Is(err, http.ErrServerClosed) {
-				log.WithFields(addrField).Info("healthz status API server shutdown")
+				d.logger.Info(
+					"healthz status API server shutdown",
+					addrField,
+				)
 			} else if err != nil {
-				log.WithFields(addrField).WithError(err).Fatal("Error serving healthz status API server")
+				logging.Fatal(
+					d.logger,
+					"Error serving healthz status API server",
+					addrField,
+					slog.Any(logfields.Error, err),
+				)
 			}
 		}(addr, ln)
-		log.WithFields(addrField).Info("Started healthz status API server")
+		d.logger.Info(
+			"Started healthz status API server",
+			addrField,
+		)
 	}
 
 	if available <= 0 {
-		log.WithField("hosts", hosts).Fatal("No healthz status API server started")
+		logging.Fatal(
+			d.logger,
+			"No healthz status API server started",
+			slog.Any("hosts", hosts),
+		)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -302,7 +303,7 @@ func (r *BPFLBMaps) Start(cell.HookContext) error {
 		if strings.HasSuffix(desc.spec.Name, "maglev") {
 			desc.spec.InnerMap.ValueSize = lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize)
 		}
-		m := ebpf.NewMap(desc.spec)
+		m := ebpf.NewMap(logging.DefaultLogger, desc.spec)
 		*desc.target = m
 
 		if err := m.OpenOrCreate(); err != nil {
@@ -546,7 +547,7 @@ func (r *BPFLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.Sou
 
 // UpdateMaglev implements lbmaps.
 func (r *BPFLBMaps) UpdateMaglev(key lbmap.MaglevOuterKey, backendIDs []loadbalancer.BackendID, ipv6 bool) error {
-	inner := ebpf.NewMap(maglevInnerMapSpec)
+	inner := ebpf.NewMap(logging.DefaultLogger, maglevInnerMapSpec)
 	if err := inner.OpenOrCreate(); err != nil {
 		return err
 	}
@@ -589,7 +590,7 @@ func (r *BPFLBMaps) DumpMaglev(cb func(lbmap.MaglevOuterKey, lbmap.MaglevOuterVa
 			RevNatID: byteorder.NetworkToHost16(key.(*lbmap.MaglevOuterKey).RevNatID),
 		}
 		maglevValue := value.(*lbmap.MaglevOuterVal)
-		inner, err := lbmap.MaglevInnerMapFromID(maglevValue.FD)
+		inner, err := lbmap.MaglevInnerMapFromID(logging.DefaultLogger, maglevValue.FD)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("cannot open inner map with fd %d: %w", maglevValue.FD, err))
 			return

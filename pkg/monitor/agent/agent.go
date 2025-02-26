@@ -9,11 +9,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -237,13 +238,14 @@ func (a *agent) RegisterNewListener(newListener listener.MonitorListener) {
 
 	default:
 		newListener.Close()
-		log.WithField("version", version).Error("Closing listener from unsupported monitor client version")
+		log.Error("Closing listener from unsupported monitor client version", slog.Any("version", version))
 	}
 
-	log.WithFields(logrus.Fields{
-		"count.listener": len(a.listeners),
-		"version":        version,
-	}).Debug("New listener connected")
+	log.Debug(
+		"New listener connected",
+		slog.Int("count.listener", len(a.listeners)),
+		slog.Any("version", version),
+	)
 }
 
 // RemoveListener deletes the MonitorListener from the list, closes its queue,
@@ -258,10 +260,11 @@ func (a *agent) RemoveListener(ml listener.MonitorListener) {
 
 	// Remove the listener and close it.
 	delete(a.listeners, ml)
-	log.WithFields(logrus.Fields{
-		"count.listener": len(a.listeners),
-		"version":        ml.Version(),
-	}).Debug("Removed listener")
+	log.Debug(
+		"Removed listener",
+		slog.Int("count.listener", len(a.listeners)),
+		slog.Any("version", ml.Version()),
+	)
 	ml.Close()
 
 	// If this was the final listener, shutdown the perf reader and unmap our
@@ -316,14 +319,14 @@ func (a *agent) RemoveConsumer(mc consumer.MonitorConsumer) {
 // Poll call but assumes enough events are generated that these blocks are
 // short.
 func (a *agent) handleEvents(stopCtx context.Context) {
-	scopedLog := log.WithField(logfields.StartTime, time.Now())
-	scopedLog.Info("Beginning to read perf buffer")
-	defer scopedLog.Info("Stopped reading perf buffer")
+	logAttrs := slog.Time(logfields.StartTime, time.Now())
+	log.Info("Beginning to read perf buffer", logAttrs)
+	defer log.Info("Stopped reading perf buffer", logAttrs)
 
 	bufferSize := int(a.Pagesize * a.Npages)
 	monitorEvents, err := perf.NewReader(a.events, bufferSize)
 	if err != nil {
-		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
+		logging.Fatal(log, "Cannot initialise BPF perf ring buffer sockets", slog.Any(logfields.Error, err), logAttrs)
 	}
 	defer func() {
 		monitorEvents.Close()
@@ -347,7 +350,7 @@ func (a *agent) handleEvents(stopCtx context.Context) {
 				a.MonitorStatus.Unknown++
 				a.Unlock()
 			} else {
-				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
+				log.Warn("Error received while reading from perf buffer", slog.Any(logfields.Error, err), logAttrs)
 				if errors.Is(err, unix.EBADFD) {
 					return
 				}
@@ -355,13 +358,13 @@ func (a *agent) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		a.processPerfRecord(scopedLog, record)
+		a.processPerfRecord(record)
 	}
 }
 
 // processPerfRecord processes a record from the datapath and sends it to any
 // registered subscribers
-func (a *agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
+func (a *agent) processPerfRecord(record perf.Record) {
 	a.Lock()
 	defer a.Unlock()
 

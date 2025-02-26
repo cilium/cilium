@@ -7,15 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	stdtime "time"
 
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/hive/cell"
 )
 
 const (
@@ -186,7 +186,7 @@ type controller struct {
 	group  Group
 	name   string
 	uuid   string
-	logger *logrus.Entry
+	logger *slog.Logger
 
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
@@ -253,7 +253,7 @@ func (c *controller) runController(params ControllerParams) {
 
 		c.mutex.Lock()
 		c.lastDuration = duration
-		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+		c.logger.Debug("Controller func executed", slog.Duration("duration", c.lastDuration))
 
 		if err != nil {
 			if params.Context.Err() != nil {
@@ -271,12 +271,15 @@ func (c *controller) runController(params ControllerParams) {
 				// Don't exit the goroutine, since that only happens when the
 				// controller is explicitly stopped. Instead, just wait for
 				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+				c.logger.Debug("Controller run succeeded; waiting for next controller update or stop")
 				interval = time.Duration(math.MaxInt64)
 
 			} else {
-				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-					WithError(err).Debug("Controller run failed")
+				c.logger.Debug(
+					"Controller run failed",
+					slog.Int(fieldConsecutiveErrors, errorRetries),
+					slog.Any(logfields.Error, err),
+				)
 				c.recordError(err, params.Health)
 
 				if !params.NoErrorRetry {
@@ -287,10 +290,11 @@ func (c *controller) runController(params ControllerParams) {
 					}
 
 					if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
-						c.getLogger().WithFields(logrus.Fields{
-							"calculatedInterval": interval,
-							"maxAllowedInterval": params.MaxRetryInterval,
-						}).Debug("Cap retry interval to max allowed value")
+						c.logger.Debug(
+							"Cap retry interval to max allowed value",
+							slog.Duration("calculatedInterval", interval),
+							slog.Duration("maxAllowedInterval", params.MaxRetryInterval),
+						)
 						interval = params.MaxRetryInterval
 					}
 
@@ -309,7 +313,7 @@ func (c *controller) runController(params ControllerParams) {
 				// Don't exit the goroutine, since that only happens when the
 				// controller is explicitly stopped. Instead, just wait for
 				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+				c.logger.Debug("Controller run succeeded; waiting for next controller update or stop")
 				interval = time.Duration(math.MaxInt64)
 			}
 		}
@@ -339,29 +343,20 @@ func (c *controller) runController(params ControllerParams) {
 	}
 
 shutdown:
-	c.getLogger().Debug("Shutting down controller")
+	c.logger.Debug("Shutting down controller")
 
 	if err := params.StopFunc(context.TODO()); err != nil {
 		c.mutex.Lock()
 		c.recordError(err, params.Health)
 		c.mutex.Unlock()
-		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-			WithError(err).Warn("Error on Controller stop")
+		c.logger.Warn(
+			"Error on Controller stop",
+			slog.Int(fieldConsecutiveErrors, errorRetries),
+			slog.Any(logfields.Error, err),
+		)
 	}
 
 	close(c.terminated)
-}
-
-// logger returns a logrus object with controllerName and UUID fields.
-func (c *controller) getLogger() *logrus.Entry {
-	if c.logger == nil {
-		c.logger = log.WithFields(logrus.Fields{
-			fieldControllerName: c.name,
-			fieldUUID:           c.uuid,
-		})
-	}
-
-	return c.logger
 }
 
 // recordError updates all statistic collection variables on error

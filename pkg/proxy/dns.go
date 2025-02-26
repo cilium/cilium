@@ -4,7 +4,7 @@
 package proxy
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -41,7 +41,7 @@ func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) (revert.RevertFunc, e
 	dr.logger.Debug(
 		"DNS Proxy updating matchNames in allowed list during UpdateRules",
 		logfields.NewRules, newRules,
-		logfields.EndpointID, dr.endpointID,
+		slog.Uint64(logfields.EndpointID, uint64(dr.endpointID)),
 	)
 	return dr.proxyRuleUpdater.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
 }
@@ -71,6 +71,6 @@ func (p *dnsProxyIntegration) createRedirect(redirect Redirect) (RedirectImpleme
 	return dr, nil
 }
 
-func (p *dnsProxyIntegration) changeLogLevel(level logrus.Level) error {
+func (p *dnsProxyIntegration) changeLogLevel(level slog.Level) error {
 	return nil
 }

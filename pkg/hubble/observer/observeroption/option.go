@@ -6,20 +6,19 @@ package observeroption
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Server gives access to the Hubble server
 type Server interface {
 	GetOptions() Options
-	GetLogger() logrus.FieldLogger
+	GetLogger() logging.FieldLogger
 }
 
 // Options stores all the configurations values for the hubble server.

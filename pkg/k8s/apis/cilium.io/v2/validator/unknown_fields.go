@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jeremywohl/flatten"
@@ -42,14 +44,12 @@ import (
 func detectUnknownFields(policy *unstructured.Unstructured) error {
 	kind := policy.GetKind()
 
-	scopedLog := log
+	var logAttr slog.Attr
 	switch kind {
 	case cilium_v2.CNPKindDefinition:
-		scopedLog = scopedLog.WithField(logfields.CiliumNetworkPolicyName,
-			policy.GetName())
+		logAttr = slog.String(logfields.CiliumNetworkPolicyName, policy.GetName())
 	case cilium_v2.CCNPKindDefinition:
-		scopedLog = scopedLog.WithField(logfields.CiliumClusterwideNetworkPolicyName,
-			policy.GetName())
+		logAttr = slog.String(logfields.CiliumClusterwideNetworkPolicyName, policy.GetName())
 	default:
 		return ErrUnknownKind{
 			kind: kind,
@@ -57,7 +57,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 	}
 
 	if _, ok := policy.Object["description"]; ok {
-		scopedLog.Warn(warnTopLevelDescriptionField)
+		log.Warn(warnTopLevelDescriptionField, logAttr)
 		return ErrTopLevelDescriptionFound
 	}
 
@@ -83,7 +83,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 	default:
 		// We've already validated above that there can only be two kinds: CNP
 		// & CCNP. This is likely to be a developer error if hit, so fatal.
-		scopedLog.WithField("kind", kind).Fatal("Unexpected kind found when processing policy")
+		logging.Fatal(log, "Unexpected kind found when processing policy", slog.String("kind", kind), logAttr)
 	}
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func detectUnknownFields(policy *unstructured.Unstructured) error {
 			return o < n
 		}),
 	) {
-		scopedLog.Warn(warnUnknownFields)
+		log.Warn(warnUnknownFields, logAttr)
 		return ErrUnknownFields{
 			extras: r.extras,
 		}

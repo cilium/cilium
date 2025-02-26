@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/google/renameio/v2"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -172,9 +172,10 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 // e.mutex must be write-locked.
 func (e *Endpoint) writeHeaderfile(prefix string) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
-	e.getLogger().WithFields(logrus.Fields{
-		logfields.Path: headerPath,
-	}).Debug("writing header file")
+	e.getLogger().Debug(
+		"writing header file",
+		slog.String(logfields.Path, headerPath),
+	)
 
 	// Write state as a plain JSON.
 	jsonState, err := e.MarshalJSON()
@@ -206,10 +207,11 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		// Note: e.DNSRulesV2 is updated by syncEndpointHeaderFile and regenerateBPF
 		// before they call into writeHeaderfile, because GetDNSRules must not be
 		// called with endpoint.mutex held.
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.Path: headerPath,
-			"DNSRulesV2":   e.DNSRulesV2,
-		}).Debug("writing header file with DNSRules")
+		e.getLogger().Debug(
+			"writing header file with DNSRules",
+			slog.String(logfields.Path, headerPath),
+			slog.Any("DNSRulesV2", e.DNSRulesV2),
+		)
 	}
 
 	if err = e.writeInformationalComments(f); err != nil {
@@ -302,7 +304,11 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			// CEC.
 			// Policy is regenerated when listeners are added or removed
 			// to fix this condition when the listener is available.
-			e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+			e.getLogger().Debug(
+				"Redirect rule with missing listener skipped, will be applied once the listener is available",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Listener, pp.GetListener()),
+			)
 			continue
 		}
 		revertStack.Push(revertFunc)
@@ -357,7 +363,10 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 		if proxyStats, ok := e.proxyStatistics[key]; ok {
 			proxyStats.AllocatedProxyPort = 0
 		} else {
-			e.getLogger().WithField(logfields.L4PolicyID, id).Warn("Proxy stats not found")
+			e.getLogger().Warn(
+				"Proxy stats not found",
+				slog.String(logfields.L4PolicyID, id),
+			)
 		}
 		e.proxyStatisticsMutex.Unlock()
 	}
@@ -419,9 +428,12 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	if datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash {
-		if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
-			logger.WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
-				Debugf("BPF endpoint configuration hashed (was: %q)", e.bpfHeaderfileHash)
+		if logger := e.getLogger(); logging.CanLogAt(logger, slog.LevelDebug) {
+			logger.Debug(
+				"BPF endpoint configuration hashed",
+				slog.String(logfields.BPFHeaderfileHash+".old", e.bpfHeaderfileHash),
+				slog.String(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash),
+			)
 		}
 
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapath
@@ -567,15 +579,20 @@ func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regene
 func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
-	debugEnabled := logging.CanLogAt(e.getLogger().Logger, logrus.DebugLevel)
+	debugEnabled := e.getLogger().Enabled(context.Background(), slog.LevelDebug)
 
 	if debugEnabled {
-		e.getLogger().WithFields(logrus.Fields{fieldRegenLevel: datapathRegenCtxt.regenerationLevel}).Debug("Preparing to compile BPF")
+		e.getLogger().Debug(
+			"Preparing to compile BPF",
+			slog.Any(fieldRegenLevel, datapathRegenCtxt.regenerationLevel),
+		)
 	}
 
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
 		if debugEnabled {
-			debugFunc := log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf
+			debugFunc := func(format string, args ...interface{}) {
+				e.getLogger().Debug(fmt.Sprintf(format, args))
+			}
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
 			defer cancel()
 			loadinfo.LogPeriodicSystemLoad(ctx, debugFunc, time.Second)
@@ -585,7 +602,10 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		templateHash, err := e.owner.Orchestrator().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
-				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
+				e.getLogger().Error(
+					"Error while reloading endpoint BPF program",
+					slog.Any(logfields.Error, err),
+				)
 			}
 			return err
 		}
@@ -597,8 +617,10 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		e.getLogger().Info("Reloaded endpoint BPF program")
 		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
 	} else if debugEnabled {
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
-			Debug("BPF header file unchanged, skipping BPF compilation and installation")
+		e.getLogger().Debug(
+			"BPF header file unchanged, skipping BPF compilation and installation",
+			slog.Any(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash),
+		)
 	}
 
 	return nil
@@ -801,13 +823,19 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		datapathRegenCtx.finalizeList.Finalize()
 	} else {
 		if err := e.lockAlive(); err != nil {
-			e.getLogger().WithError(err).Debug("Skipping unnecessary reverting of endpoint regeneration changes")
+			e.getLogger().Debug(
+				"Skipping unnecessary reverting of endpoint regeneration changes",
+				slog.Any(logfields.Error, err),
+			)
 			return
 		}
 		defer e.unlock() // In case Revert() panics
 		e.getLogger().Debug("Reverting endpoint changes after BPF regeneration failed")
 		if err := datapathRegenCtx.revertStack.Revert(); err != nil {
-			e.getLogger().WithError(err).Error("Reverting endpoint regeneration changes failed")
+			e.getLogger().Error(
+				"Reverting endpoint regeneration changes failed",
+				slog.Any(logfields.Error, err),
+			)
 		}
 		e.getLogger().Debug("Finished reverting endpoint changes after BPF regeneration failed")
 	}
@@ -897,11 +925,16 @@ func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
 	for _, m := range maps {
 		if err := m.Open(); err != nil {
 			// If the CT table doesn't exist, there's nothing to GC.
-			scopedLog := log.WithError(err).WithField(logfields.EndpointID, e.ID)
 			if os.IsNotExist(err) {
-				scopedLog.WithError(err).Debug("Skipping GC for endpoint")
+				e.getLogger().Debug(
+					"Skipping GC for endpoint",
+					slog.Any(logfields.Error, err),
+				)
 			} else {
-				scopedLog.WithError(err).Warn("Unable to open map")
+				e.getLogger().Warn(
+					"Unable to open map",
+					slog.Any(logfields.Error, err),
+				)
 			}
 			continue
 		}
@@ -989,15 +1022,20 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) bool {
 	var errno unix.Errno
 	errors.As(err, &errno)
 	if err != nil && errno != unix.ENOENT {
-		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
+		e.getLogger().Error(
+			"Failed to delete PolicyMap key",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.BPFMapKey, policymapKey),
+		)
 		return false
 	}
 
 	e.updatePolicyMapPressureMetric(0)
 
-	e.PolicyDebug(logrus.Fields{
-		logfields.BPFMapKey: keyToDelete,
-	}, "deletePolicyKey")
+	e.PolicyDebug(
+		"deletePolicyKey",
+		slog.Any(logfields.BPFMapKey, keyToDelete),
+	)
 
 	return true
 }
@@ -1007,9 +1045,10 @@ func (e *Endpoint) addPolicyKeys(adds policy.Keys) int {
 	for keyToAdd := range adds {
 		entry, exists := e.desiredPolicy.Get(keyToAdd)
 		if !exists {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.AddedPolicyID: keyToAdd,
-			}).Warn("Tried adding policy map key not in policy")
+			e.getLogger().Warn(
+				"Tried adding policy map key not in policy",
+				slog.Any(logfields.AddedPolicyID, keyToAdd),
+			)
 			continue
 		}
 
@@ -1028,19 +1067,22 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 
 	err := e.policyMap.Update(&policymapKey, &policymapEntry)
 	if err != nil {
-		e.getLogger().WithError(err).WithFields(logrus.Fields{
-			logfields.BPFMapKey: policymapKey,
-			logfields.Port:      entry.ProxyPort,
-		}).Error("Failed to add PolicyMap key")
+		e.getLogger().Error(
+			"Failed to add PolicyMap key",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.BPFMapKey, policymapKey),
+			slog.Any(logfields.Port, entry.ProxyPort),
+		)
 		return false
 	}
 
 	e.updatePolicyMapPressureMetric(0)
 
-	e.PolicyDebug(logrus.Fields{
-		logfields.BPFMapKey:   keyToAdd,
-		logfields.BPFMapValue: entry,
-	}, "addPolicyKey")
+	e.PolicyDebug(
+		"addPolicyKey",
+		slog.Any(logfields.BPFMapKey, keyToAdd),
+		slog.Any(logfields.BPFMapValue, entry),
+	)
 	return true
 }
 
@@ -1054,7 +1096,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	}
 	defer e.unlock()
 
-	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
+	e.PolicyDebug("ApplyPolicyMapChanges")
 
 	return e.applyPolicyMapChangesLocked(&regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
@@ -1068,7 +1110,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 // updated if needed. Endpoint must be locked. It returns one special error
 // that must be considered, "ErrPolicyEntryMaxExceeded".
 func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext, hasNewPolicy bool) error {
-	e.PolicyDebug(nil, "applyPolicyMapChanges")
+	e.PolicyDebug("applyPolicyMapChanges")
 
 	// Always update Envoy if policy has changed
 	updateEnvoy := hasNewPolicy
@@ -1116,9 +1158,9 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// Ingress endpoint does not need to wait.
 	// This also lets daemon/cmd integration tests to proceed
 	if e.isProperty(PropertySkipBPFPolicy) {
-		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			log.WithField(logfields.EndpointID, e.ID).Debug("Ingress Endpoint updating Network policy")
-		}
+		e.getLogger().Debug(
+			"Ingress Endpoint updating Network policy",
+		)
 		proxyWaitGroup = nil
 	}
 
@@ -1134,9 +1176,10 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// 'e.desiredPolicy' access.
 	if !e.IsProxyDisabled() {
 		if updateEnvoy {
-			e.getLogger().
-				WithField(logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle).
-				Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
+			e.getLogger().Debug(
+				"applyPolicyMapChanges: Updating Envoy NetworkPolicy",
+				slog.Any(logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle),
+			)
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
 			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
@@ -1146,18 +1189,20 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			}
 		} else if hasEnvoyRedirect {
 			// Wait for a possible ongoing update to be done if there were no current changes.
-			e.getLogger().
-				WithField(logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle).
-				Debug("applyPolicyMapChanges: Using current Networkpolicy")
+			e.getLogger().Debug(
+				"applyPolicyMapChanges: Using current Networkpolicy",
+				slog.Any(logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle),
+			)
 			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.L4Policy, proxyWaitGroup)
 		}
 	}
 
 	// Ingress endpoint has no bpf policy maps, so return before applying changes to bpf.
 	if e.isProperty(PropertySkipBPFPolicy) {
-		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		}
+		e.getLogger().Debug(
+			"Skipping bpf updates due to dry mode",
+			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+		)
 		return nil
 	}
 
@@ -1168,8 +1213,9 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	if e.policyMap == nil {
-		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to endpoint not having policy map yet")
+		log := e.getLogger()
+		if logging.CanLogAt(log, slog.LevelDebug) {
+			log.Debug("Skipping bpf updates due to endpoint not having policy map yet")
 		}
 		return nil
 	}
@@ -1186,19 +1232,21 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	} else {
 		errors += e.deletePolicyKeys(changes.Deletes, changes.Adds)
 		errors += e.addPolicyKeys(changes.Adds)
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.EndpointID: e.ID,
-		}).Warn("A policy map update had to delete changes before it added them in order to prevent a map overflow, a transient drop may have occurred.")
+		e.getLogger().Warn(
+			"A policy map update had to delete changes before it added them in order to prevent a map overflow, a transient drop may have occurred.",
+			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+		)
 	}
 
 	if errors > 0 {
 		return fmt.Errorf("updating bpf policy maps failed")
 	}
 	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.AddedPolicyID:   changes.Adds,
-			logfields.DeletedPolicyID: changes.Deletes,
-		}).Debug("Applied policy map updates due to identity changes")
+		e.getLogger().Debug(
+			"Applied policy map updates due to identity changes",
+			slog.Any(logfields.AddedPolicyID, changes.Adds),
+			slog.Any(logfields.DeletedPolicyID, changes.Deletes),
+		)
 	}
 	return nil
 }
@@ -1223,16 +1271,19 @@ func (e *Endpoint) startLockdownLocked(changeSize int) error {
 			return nil
 		}
 
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.EndpointID: e.ID,
-		}).Warnf("The policy map exceeds the max entries limit, %s is enabled, locking the endpoint down.",
-			option.EnableEndpointLockdownOnPolicyOverflow)
+		e.getLogger().Warn(
+			fmt.Sprintf("The policy map exceeds the max entries limit, %s is enabled, locking the endpoint down.",
+				option.EnableEndpointLockdownOnPolicyOverflow),
+			slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+		)
 
 		if err := e.endpointPolicyLockdown(); err != nil {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.EndpointID: e.ID,
-			}).WithError(err).Error("Failed to lockdown endpoint:" +
-				"Consider quarantining or shutting down this node.")
+			e.getLogger().Error(
+				"Failed to lockdown endpoint:"+
+					"Consider quarantining or shutting down this node.",
+				slog.Any(logfields.Error, err),
+				slog.Uint64(logfields.EndpointID, uint64(e.ID)),
+			)
 			return err
 		}
 		e.lockdown = true
@@ -1460,14 +1511,14 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
 	if err != nil {
-		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+		e.getLogger().Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state", slog.Any(logfields.Error, err))
 
 		// Close to avoid leaking of file descriptors, but still continue in case
 		// Close() does not succeed, because otherwise the map will never be
 		// opened again unless the agent is restarted.
 		err := e.policyMap.Close()
 		if err != nil {
-			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+			e.getLogger().Error("unable to close PolicyMap which was not able to be dumped", slog.Any(logfields.Error, err))
 		}
 
 		e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
@@ -1483,14 +1534,14 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	}
 
 	// Log full policy map for every dump
-	e.PolicyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
+	e.PolicyDebug("syncPolicyMapWithDump", slog.Any("dumpedPolicyMap", currentMap))
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
 	diffCount, diffs, err := e.syncPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
 
 	if diffCount > 0 {
-		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
-		e.PolicyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
+		e.getLogger().Warn("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps", slog.Int(logfields.Count, diffCount))
+		e.PolicyDebug("syncPolicyMapWithDump", slog.Any("dumpedDiffs", diffs))
 	}
 
 	return err
@@ -1593,10 +1644,11 @@ func CheckHealth(ep *Endpoint) error {
 	iface := ep.HostInterface()
 	if iface == "" {
 		handleNoHostInterfaceOnce.Do(func() {
-			log.WithFields(logrus.Fields{
-				logfields.URL:         "https://github.com/cilium/cilium/pull/14541",
-				logfields.HelpMessage: "For more information, see the linked URL. Pass endpoint-gc-interval=\"0\" to disable",
-			}).Info("Endpoint garbage collection is ineffective, ignoring endpoint")
+			ep.getLogger().Info(
+				"Endpoint garbage collection is ineffective, ignoring endpoint",
+				slog.String(logfields.URL, "https://github.com/cilium/cilium/pull/14541"),
+				slog.String(logfields.HelpMessage, "For more information, see the linked URL. Pass endpoint-gc-interval=\"0\" to disable"),
+			)
 		})
 		return nil
 	}
@@ -1606,11 +1658,13 @@ func CheckHealth(ep *Endpoint) error {
 		return fmt.Errorf("Endpoint is invalid: %w", err)
 	}
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.EndpointID:  ep.StringID(),
-			logfields.ContainerID: ep.GetShortContainerID(),
-			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
-		}).Warning("An error occurred while checking endpoint health")
+		ep.getLogger().Warn(
+			"An error occurred while checking endpoint health",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.EndpointID, ep.StringID()),
+			slog.String(logfields.ContainerID, ep.GetShortContainerID()),
+			slog.String(logfields.K8sPodName, ep.GetK8sNamespaceAndPodName()),
+		)
 	}
 	return nil
 }

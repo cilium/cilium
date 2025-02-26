@@ -5,10 +5,10 @@ package exporter
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +26,7 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 	fileName := "testdata/valid-flowlogs-config.yaml"
 
 	// when
-	logger := logrus.New()
+	logger := slog.Default()
 	exporterFactory := &exporterFactory{logger}
 	exporterConfigParser := &exporterConfigParser{logger}
 	dynamicExporter := NewDynamicExporter(logger, fileName, exporterFactory, exporterConfigParser)
@@ -51,7 +51,7 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 
 func TestAddNewExporter(t *testing.T) {
 	// given
-	logger := logrus.New()
+	logger := slog.Default()
 	exporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  &exporterFactory{logger},
@@ -81,7 +81,7 @@ func TestAddNewExporter(t *testing.T) {
 
 func TestConfigReloadChanges(t *testing.T) {
 	// given
-	logger := logrus.New()
+	logger := slog.Default()
 	exporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  &exporterFactory{logger},
@@ -128,7 +128,7 @@ func TestConfigReloadChanges(t *testing.T) {
 func TestEventPropagation(t *testing.T) {
 	// given
 	exporter := &dynamicExporter{
-		logger:           logrus.New(),
+		logger:           slog.Default(),
 		managedExporters: make(map[string]*managedExporter),
 	}
 
@@ -164,7 +164,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 	registry.MustRegister(DynamicExporterReconfigurations)
 
 	// and
-	logger := logrus.New()
+	logger := slog.Default()
 	exporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  &exporterFactory{logger},
@@ -282,7 +282,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 	registry.MustRegister(DynamicExporterConfigHash, DynamicExporterConfigLastApplied)
 
 	// and
-	logger := logrus.New()
+	logger := slog.Default()
 	exporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  &exporterFactory{logger},
@@ -299,7 +299,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 		End:            &future,
 	}
 
-	//and
+	// and
 	configHash := uint64(4367168)
 
 	// when
@@ -324,7 +324,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 
 func TestExportersMetricsReporting(t *testing.T) {
 	// given
-	logger := logrus.New()
+	logger := slog.Default()
 	exporter := &dynamicExporter{
 		logger:           logger,
 		exporterFactory:  &exporterFactory{logger},

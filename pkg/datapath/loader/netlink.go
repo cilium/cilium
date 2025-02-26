@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/ebpf"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -38,7 +40,7 @@ func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
-		log.WithError(err).WithField("device", ifName).Warn("Could not set up the link")
+		log.Warn("Could not set up the link", slog.Any(logfields.Error, err), slog.Any("device", ifName))
 		return err
 	}
 
@@ -213,7 +215,7 @@ func setupGeneveDevice(sysctl sysctl.Sysctl, dport, srcPortLow, srcPortHigh uint
 		return err
 	}
 	if srcPortLow > 0 || srcPortHigh > 0 {
-		log.WithField("device", defaults.GeneveDevice).Info("Source port range hint currently ignored for geneve driver (not supported)")
+		log.Info("Source port range hint currently ignored for geneve driver (not supported)", logfields.Device, defaults.GeneveDevice)
 	}
 
 	dev := &netlink.Geneve{
@@ -288,7 +290,12 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16
 		}
 	}
 	if vxlan.PortLow != int(srcPortLow) || vxlan.PortHigh != int(srcPortHigh) {
-		log.WithField("device", defaults.VxlanDevice).Infof("Source port range hint (%d-%d) ignored given vxlan device already exists (range %d-%d)", int(srcPortLow), int(srcPortHigh), vxlan.PortLow, vxlan.PortHigh)
+		log.Info(
+			"Source port range hint ignored given VxLAN device already exist",
+			"hint", fmt.Sprintf("(%d-%d)", int(srcPortLow), int(srcPortHigh)),
+			"range", fmt.Sprintf("(%d-%d)", vxlan.PortLow, vxlan.PortHigh),
+			logfields.Device, defaults.VxlanDevice,
+		)
 	}
 	return nil
 }

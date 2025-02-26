@@ -4,7 +4,8 @@
 package controller
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -22,5 +23,5 @@ const (
 
 var (
 	// log is the controller package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "controller")
+	syslogAttr = slog.String(logfields.LogSubsys, "controller")
 )

@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
@@ -92,7 +93,7 @@ type serverParams struct {
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	s := NewServer(p.API)
+	s := NewServer(p.Logger, p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
@@ -188,8 +189,9 @@ func newSpec(cfg ServerConfig) (*Spec, error) {
 }
 
 // NewServer creates a new api cilium health API server but does not configure it
-func NewServer(api *restapi.CiliumHealthAPIAPI) *Server {
+func NewServer(logger logging.FieldLogger, api *restapi.CiliumHealthAPIAPI) *Server {
 	s := new(Server)
+	s.logger = logger
 	s.api = api
 	return s
 }
@@ -244,7 +246,7 @@ type Server struct {
 
 	wg         sync.WaitGroup
 	shutdowner hive.Shutdowner
-	logger     *slog.Logger
+	logger     logging.FieldLogger
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
@@ -252,7 +254,7 @@ func (s *Server) Logf(f string, args ...interface{}) {
 	if s.logger != nil {
 		s.logger.Info(fmt.Sprintf(f, args...))
 	} else if s.api != nil && s.api.Logger != nil {
-		s.api.Logger(f, args...)
+		s.api.Logger(fmt.Sprintf(f, args...))
 	} else {
 		log.Printf(f, args...)
 	}
@@ -340,7 +342,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(s.SocketPath)
+			err := api.SetDefaultPermissions(s.logger, s.SocketPath)
 			if err != nil {
 				return err
 			}

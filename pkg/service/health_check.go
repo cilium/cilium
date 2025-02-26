@@ -5,11 +5,11 @@ package service
 
 import (
 	"context"
+	"log/slog"
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 )
 
 func (s *Service) healthCheckCallback(_ int, data any) {
@@ -29,11 +29,12 @@ func (s *Service) handleHealthCheckEvent(ctx context.Context, health cell.Health
 				svcAddr := d.SvcAddr
 				beAddr := d.BeAddr
 				beState := d.BeState
-				log.WithFields(logrus.Fields{
-					"svc_addr": svcAddr,
-					"be":       beAddr,
-					"state":    beState,
-				}).Debug("Health check backend update")
+				log.Debug(
+					"Health check backend update",
+					slog.Any("svc_addr", svcAddr),
+					slog.Any("be", beAddr),
+					slog.Any("state", beState),
+				)
 				be := lb.NewBackendWithState(0, beAddr.Protocol, beAddr.AddrCluster, beAddr.Port, 0, beState)
 
 				var (
@@ -46,13 +47,17 @@ func (s *Service) handleHealthCheckEvent(ctx context.Context, health cell.Health
 				}
 
 				for _, svc := range svcs {
-					log.Debugf("Notify health update subscribers for service %v", svc)
+					log.Debug(
+						"Notify health update subscribers for service",
+						slog.Any("svc", svc),
+					)
 					s.notifyHealthCheckUpdateSubscribers(svc)
 				}
 			case HealthCheckCBSvcEventData:
-				log.WithFields(logrus.Fields{
-					"svc_addr": d.SvcAddr,
-				}).Debug("Health check service update")
+				log.Debug(
+					"Health check service update",
+					slog.Any("svc_addr", d.SvcAddr),
+				)
 				svcAddr := d.SvcAddr
 				s.notifyHealthCheckUpdateSubscribers(svcAddr)
 			}

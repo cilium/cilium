@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,8 +62,7 @@ func newTroubleshootDialer(w io.Writer, disabled bool) kvstore.EtcdDbgDialer {
 		cache: make(map[types.NamespacedName]tdCacheEntry),
 	}
 
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	dialer.dial = dial.NewContextDialer(logger, dialer)
 	return dialer
 }

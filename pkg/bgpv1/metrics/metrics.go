@@ -5,15 +5,17 @@ package metrics
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -30,7 +32,7 @@ type collector struct {
 type collectorIn struct {
 	cell.In
 
-	Logger        logrus.FieldLogger
+	Logger        logging.FieldLogger
 	DaemonConfig  *option.DaemonConfig
 	Registry      *metrics.Registry
 	RouterManager agent.BGPRouterManager
@@ -85,7 +87,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	peers, err := c.in.RouterManager.GetPeers(ctx)
 	cancel()
 	if err != nil {
-		c.in.Logger.WithError(err).Error("Failed to retrieve BGP peer information. Metrics is not collected.")
+		c.in.Logger.Error("Failed to retrieve BGP peer information. Metrics is not collected.", slog.Any(logfields.Error, err))
 		return
 	}
 

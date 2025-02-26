@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir strin
 		// The program was successfully attached using tcx. Closing a link does not
 		// detach the program if the link is pinned.
 		if err := l.Close(); err != nil {
-			log.Warnf("Failed to close tcx link for program %s", progName)
+			log.Warn("Failed to close tcx link for program", slog.String("prog", progName))
 		}
 	}()
 
@@ -77,7 +78,7 @@ func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir strin
 		return fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
 	}
 
-	log.Infof("Program %s attached to device %s using tcx", progName, device.Attrs().Name)
+	log.Info("Program attached to device using tcx", slog.String("prog", progName), slog.String("device", device.Attrs().Name))
 
 	return nil
 }
@@ -100,21 +101,21 @@ func updateTCX(prog *ebpf.Program, progName, bpffsDir string) error {
 			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
-		log.Infof("Unpinned defunct link %s for program %s", pin, progName)
+		log.Info("Unpinned defunct link for program", slog.String("link", pin), slog.String("prog-name", progName))
 
 		// Wrap in os.ErrNotExist so the caller needs to look for one error.
 		return fmt.Errorf("unpinned defunct link: %w", os.ErrNotExist)
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
-		log.Debugf("No existing link found at %s for program %s", pin, progName)
+		log.Debug("No existing link found for program", slog.String("link", pin), slog.String("prog-name", progName))
 		return err
 
 	case err != nil:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
-	log.Infof("Updated link %s for program %s", pin, progName)
+	log.Info("Updated link for program", slog.String("link", pin), slog.String("prog-name", progName))
 	return nil
 }
 

@@ -3,7 +3,12 @@
 
 package endpoint
 
-import "errors"
+import (
+	"errors"
+	"log/slog"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
 
 var (
 	// ErrNotAlive is an error which indicates that the endpoint could not be
@@ -58,5 +63,5 @@ func (e *Endpoint) unconditionalRLock() {
 
 // logDisconnectedMutexAction gets the logger and logs given error with context
 func (e *Endpoint) logDisconnectedMutexAction(err error, context string) {
-	e.getLogger().WithError(err).Debug(context)
+	e.getLogger().Debug(context, slog.Any(logfields.Error, err))
 }

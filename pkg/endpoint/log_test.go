@@ -5,11 +5,11 @@ package endpoint
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/logging"
@@ -28,7 +28,8 @@ func TestEndpointLogFormat(t *testing.T) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
 	ep := NewTestEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
-	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
+	// FIXME @aanm
+	_, ok := ep.getLogger().Logger.Formatter.(*slog.TextHandler)
 	require.True(t, ok)
 
 	// Log format is JSON when configured
@@ -39,7 +40,7 @@ func TestEndpointLogFormat(t *testing.T) {
 	do = &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
 	ep = NewTestEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
-	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
+	_, ok = ep.getLogger().Logger.Formatter.(*slog.TextHandler)
 	require.True(t, ok)
 }
 
@@ -69,8 +70,8 @@ func TestPolicyLog(t *testing.T) {
 	policyLogger.Info("testing policy logging")
 
 	// Test logging with integrated nil check, no fields
-	ep.PolicyDebug(nil, "testing PolicyDebug")
-	ep.PolicyDebug(logrus.Fields{"testField": "Test Value"}, "PolicyDebug with fields")
+	ep.PolicyDebug("testing PolicyDebug")
+	ep.PolicyDebug("PolicyDebug with fields", slog.String("testField", "Test Value"))
 
 	// Disable option
 	ep.Options.SetValidated(option.DebugPolicy, option.OptionDisabled)

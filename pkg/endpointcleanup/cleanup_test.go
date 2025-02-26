@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -211,7 +211,7 @@ func TestGC(t *testing.T) {
 					return nil
 				}),
 				cell.Invoke(func(
-					logger logrus.FieldLogger,
+					logger logging.FieldLogger,
 					ciliumEndpoint resource.Resource[*types.CiliumEndpoint],
 					ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 					clientset k8sClient.Clientset,

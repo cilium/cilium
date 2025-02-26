@@ -6,12 +6,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
 	versionapi "k8s.io/apimachinery/pkg/version"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -958,10 +958,11 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 			helpMsg := "cilium-agent depends on the availability of cilium-operator/etcd-cluster. " +
 				"Check if the cilium-operator pod and etcd-cluster are running and do not have any " +
 				"warnings or error messages."
-			log.WithFields(logrus.Fields{
-				"status":              d.statusResponse.Kvstore.Msg,
-				logfields.HelpMessage: helpMsg,
-			}).Error("KVStore state not OK")
+			d.logger.Error(
+				"KVStore state not OK",
+				slog.String("status", d.statusResponse.Kvstore.Msg),
+				slog.Any(logfields.HelpMessage, helpMsg),
+			)
 
 		}
 

@@ -27,7 +27,7 @@ func TestGammaConformance(t *testing.T) {
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
 			input := readGammaInput(t, name)
-			listeners := GammaHTTPRoutes(input)
+			listeners := GammaHTTPRoutes(nil, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)

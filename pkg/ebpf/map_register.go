@@ -4,6 +4,7 @@
 package ebpf
 
 import (
+	"log/slog"
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -21,7 +22,7 @@ func registerMap(m *Map) {
 	mapRegister[m.path] = m
 	mutex.Unlock()
 
-	log.WithField("path", m.path).Debug("Registered BPF map")
+	m.logger.Debug("Registered BPF map", slog.String("path", m.path))
 }
 
 // GetMap returns the registered map with the given name or absolute path

@@ -37,7 +37,7 @@ import (
 //  kubectl run -it --rm --image=nginx  --port=80 --expose nginx
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "example")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "example"))
 )
 
 func main() {

@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
@@ -25,7 +26,7 @@ func genCmdMan() {
 	header := &doc.GenManHeader{Title: "Cilium", Section: "1"}
 	header.Source = "Copyright Authors of Cilium"
 	if err := doc.GenManTree(RootCmd, header, dir); err != nil {
-		log.Fatal(err)
+		logging.Fatal(log, err.Error())
 	}
 }
 

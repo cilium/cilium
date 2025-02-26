@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"path"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "health-server"))
 )
 
 // Config stores the configuration data for a cilium-health server.
@@ -83,7 +84,7 @@ func (s *Server) DumpUptime() string {
 func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	scopedLog := log
 	if s.CiliumURI != "" {
-		scopedLog = log.WithField("URI", s.CiliumURI)
+		scopedLog = log.With(slog.String("URI", s.CiliumURI))
 	}
 	scopedLog.Debug("Sending request for /cluster/nodes ...")
 
@@ -96,7 +97,7 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
-	log.Debug("Got cilium /cluster/nodes")
+	scopedLog.Debug("Got cilium /cluster/nodes")
 
 	if resp == nil || resp.Payload == nil {
 		return nil, nil, fmt.Errorf("received nil health response")
@@ -404,7 +405,7 @@ func (s *Server) runActiveServices() error {
 					// reset the cache by setting clientID to 0 and removing all current nodes
 					prober.server.clientID = 0
 					prober.setNodes(nil, prober.nodes)
-					log.WithError(err).Error("unable to get cluster nodes")
+					log.Error("unable to get cluster nodes", slog.Any(logfields.Error, err))
 				} else {
 					// (1) setNodes implementation doesn't override results for existing nodes.
 					// (2) Remove stale nodes so we don't report them in metrics before updating results
@@ -451,17 +452,18 @@ func (s *Server) Shutdown() {
 
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
-func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
+func (s *Server) newServer(logger logging.FieldLogger, spec *healthApi.Spec) *healthApi.Server {
+	logger = logger.With(slog.String(logfields.LogSubsys, "cilium-health-api-server"))
 	restAPI := restapi.NewCiliumHealthAPIAPI(spec.Document)
-	restAPI.Logger = log.Printf
+	restAPI.Logger = logger.Info
 
 	// Admin API
 	restAPI.GetHealthzHandler = NewGetHealthzHandler(s)
 	restAPI.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
 	restAPI.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 
-	api.DisableAPIs(spec.DeniedAPIs, restAPI.AddMiddlewareFor)
-	srv := healthApi.NewServer(restAPI)
+	api.DisableAPIs(nil, spec.DeniedAPIs, restAPI.AddMiddlewareFor)
+	srv := healthApi.NewServer(logger, restAPI)
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = defaults.SockPath
 
@@ -471,10 +473,10 @@ func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(config Config) (*Server, error) {
+func NewServer(logger logging.FieldLogger, config Config) (*Server, error) {
 	server := &Server{
-		startTime:    time.Now(),
 		Config:       config,
+		startTime:    time.Now(),
 		connectivity: &healthReport{},
 		nodesSeen:    make(map[string]struct{}),
 	}
@@ -485,7 +487,7 @@ func NewServer(config Config) (*Server, error) {
 	}
 
 	server.Client = cl
-	server.Server = *server.newServer(config.HealthAPISpec)
+	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
 	server.httpPathServer = responder.NewServers(getAddresses(), config.HTTPPathPort)
 

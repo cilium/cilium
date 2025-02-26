@@ -5,9 +5,8 @@ package clustermesh
 
 import (
 	"context"
+	"log/slog"
 	"path"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
@@ -73,7 +73,7 @@ type remoteCluster struct {
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
 
-	log logrus.FieldLogger
+	log logging.FieldLogger
 
 	// featureMetrics will track which features are enabled with in clustermesh.
 	featureMetrics ClusterMeshMetrics
@@ -200,9 +200,11 @@ func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) e
 	// stale entries for a Cluster ID that has already been released, potentially
 	// leading to inconsistencies if the same ID is acquired again in the meanwhile.
 	if rc.clusterID != cmtypes.ClusterIDUnset {
-		rc.log.WithField(logfields.ClusterID, newConfig.ID).
-			Info("Remote Cluster ID changed: draining all known entries before reconnecting. ",
-				"Expect connectivity disruption towards this cluster")
+		rc.log.Info(
+			"Remote Cluster ID changed: draining all known entries before reconnecting. ",
+			"Expect connectivity disruption towards this cluster",
+			slog.Uint64(logfields.ClusterID, uint64(newConfig.ID)),
+		)
 		rc.remoteNodes.Drain()
 		rc.remoteServices.Drain()
 		rc.ipCacheWatcher.Drain()

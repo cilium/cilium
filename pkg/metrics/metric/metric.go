@@ -5,17 +5,17 @@ package metric
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric/collections"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
-var logger = logrus.WithField(logfields.LogSubsys, "metric")
+var logger = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "metric"))
 
 // WithMetadata is the interface implemented by any metric defined in this package. These typically embed existing
 // prometheus metric types and add additional metadata. In addition, these metrics have the concept of being enabled
@@ -57,11 +57,11 @@ func (b *metric) checkLabelValues(lvs ...string) {
 		return
 	}
 	if err := b.labels.checkLabelValues(lvs); err != nil {
-		logger.WithError(err).
-			WithFields(logrus.Fields{
-				"metric": b.opts.Name,
-			}).
-			Warning("metric label constraints violated, metric will still be collected")
+		logger.Warn(
+			"metric label constraints violated, metric will still be collected",
+			slog.Any(logfields.Error, err),
+			slog.String("metric", b.opts.Name),
+		)
 	}
 }
 
@@ -71,11 +71,11 @@ func (b *metric) checkLabels(labels prometheus.Labels) {
 	}
 
 	if err := b.labels.checkLabels(labels); err != nil {
-		logger.WithError(err).
-			WithFields(logrus.Fields{
-				"metric": b.opts.Name,
-			}).
-			Warning("metric label constraints violated, metric will still be collected")
+		logger.Warn(
+			"metric label constraints violated, metric will still be collected",
+			slog.Any(logfields.Error, err),
+			slog.String("metric", b.opts.Name),
+		)
 	}
 }
 

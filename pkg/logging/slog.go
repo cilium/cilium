@@ -8,9 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	lock "sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -30,36 +29,100 @@ func (n nopHandler) WithGroup(string) slog.Handler           { return n }
 
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
-	Level:       slog.LevelInfo,
-	ReplaceAttr: replaceAttrFnWithoutTimestamp,
+	Level:       slogLeveler,
+	ReplaceAttr: replaceAttrFn,
 }
 
-// Default slog logger. Will be overwritten once initializeSlog is called.
-var DefaultSlogLogger *slog.Logger = slog.New(slog.NewTextHandler(
+var slogLeveler = func() *slog.LevelVar {
+	var levelVar slog.LevelVar
+	levelVar.Set(slog.LevelInfo)
+	return &levelVar
+}()
+
+func newMultiSlogHandler(handler slog.Handler) *multiSlogHandler {
+	return &multiSlogHandler{
+		mu:       lock.RWMutex{},
+		handlers: []slog.Handler{handler},
+	}
+}
+
+type multiSlogHandler struct {
+	mu       lock.RWMutex
+	handlers []slog.Handler
+}
+
+func (i *multiSlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	for _, h := range i.handlers {
+		return h.Enabled(ctx, level)
+	}
+	return false
+}
+
+func (i *multiSlogHandler) Handle(ctx context.Context, record slog.Record) error {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	for _, h := range i.handlers {
+		err := h.Handle(ctx, record)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i *multiSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	newHandlers := make([]slog.Handler, 0, len(i.handlers))
+	for _, h := range i.handlers {
+		newHandlers = append(newHandlers, h.WithAttrs(attrs))
+	}
+	return &multiSlogHandler{
+		handlers: newHandlers,
+	}
+}
+
+func (i *multiSlogHandler) WithGroup(name string) slog.Handler {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	newHandlers := make([]slog.Handler, 0, len(i.handlers))
+	for _, h := range i.handlers {
+		newHandlers = append(newHandlers, h.WithGroup(name))
+	}
+	return &multiSlogHandler{
+		handlers: newHandlers,
+	}
+}
+
+func (i *multiSlogHandler) AddHooks(handlers ...slog.Handler) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	for _, h := range handlers {
+		i.handlers = append(i.handlers, h)
+	}
+}
+
+func (i *multiSlogHandler) SetHandler(handler slog.Handler) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.handlers = []slog.Handler{handler}
+}
+
+var defaultMultiSlogHandler = newMultiSlogHandler(slog.NewTextHandler(
 	os.Stderr,
 	slogHandlerOpts,
 ))
 
-func slogLevel(l logrus.Level) slog.Level {
-	switch l {
-	case logrus.DebugLevel, logrus.TraceLevel:
-		return slog.LevelDebug
-	case logrus.InfoLevel:
-		return slog.LevelInfo
-	case logrus.WarnLevel:
-		return slog.LevelWarn
-	case logrus.ErrorLevel, logrus.PanicLevel, logrus.FatalLevel:
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
+// Default slog logger. Will be overwritten once initializeSlog is called.
+var DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
 func initializeSlog(logOpts LogOptions, useStdout bool) {
 	opts := *slogHandlerOpts
-	opts.Level = slogLevel(logOpts.GetLogLevel())
+	opts.Level = logOpts.GetLogLevel()
 
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
@@ -76,16 +139,20 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 
 	switch logFormat {
 	case LogFormatJSON, LogFormatJSONTimestamp:
-		DefaultSlogLogger = slog.New(slog.NewJSONHandler(
+		defaultMultiSlogHandler.SetHandler(slog.NewJSONHandler(
 			writer,
 			&opts,
 		))
 	case LogFormatText, LogFormatTextTimestamp:
-		DefaultSlogLogger = slog.New(slog.NewTextHandler(
+		defaultMultiSlogHandler.SetHandler(slog.NewTextHandler(
 			writer,
 			&opts,
 		))
 	}
+}
+
+func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {
+	return replaceAttrFn(groups, a)
 }
 
 func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
@@ -93,7 +160,7 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 	case slog.TimeKey:
 		// Adjust to timestamp format that logrus uses; except that we can't
 		// force slog to quote the value like logrus does...
-		return slog.String(slog.TimeKey, a.Value.Time().Format(time.RFC3339))
+		return slog.String(slog.TimeKey, a.Value.Time().Format(time.RFC3339Nano))
 	case slog.LevelKey:
 		// Lower-case the log level
 		return slog.Attr{

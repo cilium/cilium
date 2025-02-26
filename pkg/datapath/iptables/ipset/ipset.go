@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"sync/atomic"
@@ -16,11 +17,11 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
@@ -59,7 +60,7 @@ func (i *initializer) InitDone() {
 }
 
 type manager struct {
-	logger  logrus.FieldLogger
+	logger  logging.FieldLogger
 	enabled bool
 
 	db    *statedb.DB
@@ -136,7 +137,7 @@ func (m *manager) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 }
 
 func newIPSetManager(
-	logger logrus.FieldLogger,
+	logger logging.FieldLogger,
 	lc cell.Lifecycle,
 	jg job.Group,
 	health cell.Health,
@@ -216,7 +217,7 @@ func (m *manager) init(ctx context.Context, _ cell.Health) error {
 type ipset struct {
 	executable
 
-	log logrus.FieldLogger
+	log logging.FieldLogger
 }
 
 func (i *ipset) create(ctx context.Context, name string, family string) error {
@@ -282,7 +283,7 @@ func (i *ipset) delBatch(ctx context.Context, batch map[string][]netip.Addr) err
 }
 
 func (i *ipset) run(ctx context.Context, args ...string) ([]byte, error) {
-	i.log.Debugf("Running command %s", i.fullCommand(args...))
+	i.log.Debug("Running command", slog.Any("cmd", i.fullCommand(args...)))
 	return i.exec(ctx, "ipset", "", args...)
 }
 

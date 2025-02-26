@@ -6,6 +6,7 @@ package loadinfo
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/mackerelio/go-osstat/loadavg"
 	"github.com/mackerelio/go-osstat/memory"
 	"github.com/prometheus/procfs"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +28,7 @@ const (
 	cpuWatermark = 1.0
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadinfo")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "loadinfo"))
 
 // LogFunc is the function to used to log the system load
 type LogFunc func(format string, args ...interface{})
@@ -42,7 +42,7 @@ func toPercent(part uint64, total uint64) float64 {
 }
 
 func pids() (pids []int, err error) {
-	//scan /proc/*/exe to find all active processes
+	// scan /proc/*/exe to find all active processes
 	matches, err := filepath.Glob("/proc/[0-9]*/exe")
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func pids() (pids []int, err error) {
 
 	pids = []int{}
 	for _, file := range matches {
-		//extract the pid from the path
+		// extract the pid from the path
 		pid := filepath.Base(filepath.Dir(file))
 		ipid, _ := strconv.Atoi(pid)
 		pids = append(pids, ipid)
@@ -144,5 +144,5 @@ func LogPeriodicSystemLoad(ctx context.Context, logFunc LogFunc, interval time.D
 
 // StartBackgroundLogger starts background logging
 func StartBackgroundLogger() {
-	LogPeriodicSystemLoad(context.Background(), log.WithFields(logrus.Fields{"type": "background"}).Debugf, backgroundInterval)
+	LogPeriodicSystemLoad(context.Background(), log.With(slog.String("type", "background")).Debug, backgroundInterval)
 }

@@ -4,6 +4,8 @@
 package redirectpolicy
 
 import (
+	"log/slog"
+
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -16,7 +18,7 @@ type getLrpHandler struct {
 }
 
 func (h *getLrpHandler) Handle(params service.GetLrpParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /lrp request")
+	log.Debug("GET /lrp request", slog.Any(logfields.Params, logfields.Repr(params)))
 	return service.NewGetLrpOK().WithPayload(getLRPs(h.lrpManager))
 }
 

@@ -5,8 +5,8 @@ package groups
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -34,10 +34,11 @@ var (
 // something fails.
 func AddDerivativeCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) bool {
 	if !cnp.RequiresDerivative() {
-		log.WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-		}).Debug("CNP does not have derivative policies, skipped")
+		log.Debug(
+			"CNP does not have derivative policies, skipped",
+			slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+			slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+		)
 		return true
 	}
 	controllerManager.UpdateController(
@@ -57,9 +58,10 @@ func AddDerivativeCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.CiliumN
 // something fails.
 func AddDerivativeCCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) bool {
 	if !cnp.RequiresDerivative() {
-		log.WithFields(logrus.Fields{
-			logfields.CiliumClusterwideNetworkPolicyName: cnp.ObjectMeta.Name,
-		}).Debug("CCNP does not have derivative policies, skipped")
+		log.Debug(
+			"CCNP does not have derivative policies, skipped",
+			slog.String(logfields.CiliumClusterwideNetworkPolicyName, cnp.ObjectMeta.Name),
+		)
 		return true
 	}
 	controllerManager.UpdateController(
@@ -81,10 +83,11 @@ func AddDerivativeCCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.Cilium
 // and false otherwise.
 func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *cilium_v2.CiliumNetworkPolicy) bool {
 	if !newCNP.RequiresDerivative() && oldCNP.RequiresDerivative() {
-		log.WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicyName: newCNP.ObjectMeta.Name,
-			logfields.K8sNamespace:            newCNP.ObjectMeta.Namespace,
-		}).Info("New CNP does not have derivative policy, but old had. Deleting old policies")
+		log.Info(
+			"New CNP does not have derivative policy, but old had. Deleting old policies",
+			slog.String(logfields.CiliumNetworkPolicyName, newCNP.ObjectMeta.Name),
+			slog.String(logfields.K8sNamespace, newCNP.ObjectMeta.Namespace),
+		)
 
 		controllerManager.UpdateController(
 			"delete-derivative-cnp-"+oldCNP.ObjectMeta.Name,
@@ -120,9 +123,10 @@ func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.C
 // and false otherwise.
 func UpdateDerivativeCCNPIfNeeded(clientset client.Clientset, newCCNP *cilium_v2.CiliumNetworkPolicy, oldCCNP *cilium_v2.CiliumNetworkPolicy) bool {
 	if !newCCNP.RequiresDerivative() && oldCCNP.RequiresDerivative() {
-		log.WithFields(logrus.Fields{
-			logfields.CiliumClusterwideNetworkPolicyName: newCCNP.ObjectMeta.Name,
-		}).Info("New CCNP does not have derivative policy, but old had. Deleting old policies")
+		log.Info(
+			"New CCNP does not have derivative policy, but old had. Deleting old policies",
+			slog.String(logfields.CiliumClusterwideNetworkPolicyName, newCCNP.ObjectMeta.Name),
+		)
 
 		controllerManager.UpdateController(
 			"delete-derivative-ccnp-"+oldCCNP.ObjectMeta.Name,
@@ -159,13 +163,12 @@ func DeleteDerivativeFromCache(cnp *cilium_v2.CiliumNetworkPolicy) {
 // DeleteDerivativeCNP if the given policy has a derivative constraint,the
 // given CNP will be deleted from store and the cache.
 func DeleteDerivativeCNP(ctx context.Context, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-	})
-
 	if !cnp.RequiresDerivative() {
-		scopedLog.Debug("CNP does not have derivative policies, skipped")
+		log.Debug(
+			"CNP does not have derivative policies, skipped",
+			slog.String(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+			slog.String(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+		)
 		return nil
 	}
 
@@ -185,12 +188,11 @@ func DeleteDerivativeCNP(ctx context.Context, clientset client.Clientset, cnp *c
 // DeleteDerivativeCCNP if the given policy has a derivative constraint, the
 // given CCNP will be deleted from store and the cache.
 func DeleteDerivativeCCNP(ctx context.Context, clientset client.Clientset, ccnp *cilium_v2.CiliumNetworkPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumClusterwideNetworkPolicyName: ccnp.ObjectMeta.Name,
-	})
-
 	if !ccnp.RequiresDerivative() {
-		scopedLog.Debug("CCNP does not have derivative policies, skipped")
+		log.Debug(
+			"CCNP does not have derivative policies, skipped",
+			slog.String(logfields.CiliumClusterwideNetworkPolicyName, ccnp.ObjectMeta.Name),
+		)
 		return nil
 	}
 
@@ -208,21 +210,21 @@ func DeleteDerivativeCCNP(ctx context.Context, clientset client.Clientset, ccnp 
 
 func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) error {
 	var (
-		scopedLog          *logrus.Entry
+		scopedLog          *slog.Logger
 		derivativePolicy   v1.Object
 		derivativeCNP      *cilium_v2.CiliumNetworkPolicy
 		derivativeCCNP     *cilium_v2.CiliumClusterwideNetworkPolicy
 		derivativeErr, err error
 	)
 	if clusterScoped {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.CiliumClusterwideNetworkPolicyName: cnp.ObjectMeta.Name,
-		})
+		scopedLog = log.With(
+			slog.Any(logfields.CiliumClusterwideNetworkPolicyName, cnp.ObjectMeta.Name),
+		)
 	} else {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-		})
+		scopedLog = log.With(
+			slog.Any(logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name),
+			slog.Any(logfields.K8sNamespace, cnp.ObjectMeta.Namespace),
+		)
 	}
 
 	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
@@ -238,10 +240,10 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 
 	if derivativeErr != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
+		scopedLog.Error("Cannot create derivative rule. Installing deny-all rule.", slog.Any(logfields.Error, derivativeErr))
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
-			scopedLog.WithError(statusErr).Error("Cannot update status for derivative policy")
+			scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, statusErr))
 		}
 		return derivativeErr
 	}
@@ -257,7 +259,7 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
 			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-			scopedLog.WithError(err).Error("Cannot update status for derivative policy")
+			scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err))
 		}
 		return statusErr
 	}
@@ -265,7 +267,7 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 
 	err = updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), nil, clusterScoped)
 	if err != nil {
-		scopedLog.WithError(err).Error("Cannot update status for derivative policy")
+		scopedLog.Error("Cannot update status for derivative policy", slog.Any(logfields.Error, err))
 	}
 	return err
 }

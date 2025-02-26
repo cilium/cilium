@@ -6,11 +6,11 @@ package utils
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
@@ -102,7 +102,7 @@ func TestEnforceClusterConfig(t *testing.T) {
 
 	ctx := context.Background()
 	mb := mockBackend{}
-	log := logrus.New()
+	log := slog.Default()
 
 	cfg1 := cmtypes.CiliumClusterConfig{ID: 11, Capabilities: cmtypes.CiliumClusterConfigCapabilities{SyncedCanaries: true}}
 	cfg2 := cmtypes.CiliumClusterConfig{ID: 22, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}

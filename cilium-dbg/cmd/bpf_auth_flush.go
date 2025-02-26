@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
@@ -24,7 +25,7 @@ var bpfAuthFlushCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth flush")
 
-		authMap, err := authmap.LoadAuthMap()
+		authMap, err := authmap.LoadAuthMap(logging.DefaultLogger)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find auth bpf map")

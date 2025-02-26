@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	baseclocktest "k8s.io/utils/clock/testing"
@@ -244,7 +244,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			st := store.NewFactory(store.MetricsProvider())
 			fakeclock := baseclocktest.NewFakeClock(time.Now())
-			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: logrus.New(), clock: fakeclock}
+			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: slog.Default(), clock: fakeclock}
 
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
@@ -382,7 +382,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 
 	st := store.NewFactory(store.MetricsProvider())
 	fakeclock := baseclocktest.NewFakeClock(time.Now())
-	km := KVStoreMesh{backend: wrapper, storeFactory: st, logger: logrus.New(), clock: fakeclock}
+	km := KVStoreMesh{backend: wrapper, storeFactory: st, logger: slog.Default(), clock: fakeclock}
 	rcs := make(map[string]*remoteCluster)
 	for _, cluster := range []string{"foo", "foobar", "baz"} {
 		rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
@@ -622,7 +622,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		},
 	}
 	st := store.NewFactory(store.MetricsProvider())
-	km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: logrus.New()}
+	km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: slog.Default()}
 
 	rc := km.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{
@@ -756,7 +756,7 @@ func TestRemoteClusterSync(t *testing.T) {
 			km := KVStoreMesh{
 				config: tt.config,
 				common: mockClusterMesh,
-				logger: logrus.New(),
+				logger: slog.Default(),
 			}
 
 			rc := &remoteCluster{

@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	recorderapi "github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -28,7 +28,7 @@ type recorderParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
+	Logger    logging.FieldLogger
 
 	AgentConfig  *option.DaemonConfig
 	Orchestrator datapath.Orchestrator
@@ -67,7 +67,7 @@ type recorderApiHandlerOut struct {
 	DeleteRecorderIDHandler recorderapi.DeleteRecorderIDHandler
 }
 
-func newRecorderApiHandler(logger logrus.FieldLogger, recorder *Recorder) recorderApiHandlerOut {
+func newRecorderApiHandler(logger logging.FieldLogger, recorder *Recorder) recorderApiHandlerOut {
 	return recorderApiHandlerOut{
 		GetRecorderHandler:      &getRecorderHandler{logger: logger, recorder: recorder},
 		GetRecorderIDHandler:    &getRecorderIDHandler{logger: logger, recorder: recorder},

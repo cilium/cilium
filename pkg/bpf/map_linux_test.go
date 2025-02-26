@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -55,7 +56,7 @@ func (k *TestValue) NewSlice() any  { return &TestValues{} }
 func setup(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS("")
+	CheckOrMountFS(logging.DefaultLogger, "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -81,7 +82,7 @@ func setup(tb testing.TB) *Map {
 func setupPerCPU(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS("")
+	CheckOrMountFS(logging.DefaultLogger, "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -939,7 +940,7 @@ func BenchmarkMapLookup(b *testing.B) {
 
 func TestErrorResolver(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	CheckOrMountFS("")
+	CheckOrMountFS(logging.DefaultLogger, "")
 	require.NoError(t, rlimit.RemoveMemlock())
 
 	var (

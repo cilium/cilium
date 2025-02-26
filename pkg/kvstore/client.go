@@ -6,7 +6,10 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -19,11 +22,11 @@ var (
 )
 
 func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) error {
-	scopedLog := log.WithField(fieldKVStoreModule, module.getName())
+	scopedLog := log.With(fieldKVStoreModule, module.getName())
 	c, errChan := module.newClient(ctx, opts)
 	if c == nil {
 		err := <-errChan
-		scopedLog.WithError(err).Fatal("Unable to create kvstore client")
+		logging.Fatal(log, "Unable to create kvstore client", slog.Any(logfields.Error, err), scopedLog)
 	}
 
 	defaultClient = c
@@ -37,7 +40,7 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) e
 	go func() {
 		err, isErr := <-errChan
 		if isErr && err != nil {
-			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
+			logging.Fatal(log, "Unable to connect to kvstore", slog.Any(logfields.Error, err), scopedLog)
 		}
 	}()
 

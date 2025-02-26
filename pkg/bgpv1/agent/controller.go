@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
@@ -27,10 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
 var (
@@ -57,6 +53,8 @@ func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
+	logger logging.FieldLogger
+
 	// CiliumNodeResource provides a stream of events for changes to the local CiliumNode resource.
 	CiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 	// LocalCiliumNode is the CiliumNode object for the local node.
@@ -90,6 +88,7 @@ type Controller struct {
 type ControllerParams struct {
 	cell.In
 
+	Logger                  logging.FieldLogger
 	Lifecycle               cell.Lifecycle
 	Health                  cell.Health
 	JobGroup                job.Group
@@ -119,6 +118,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 	}
 
 	c := &Controller{
+		logger:             params.Logger,
 		Sig:                params.Sig,
 		ConfigMode:         params.ConfigMode,
 		BGPMgr:             params.RouteMgr,
@@ -170,18 +170,16 @@ func NewController(params ControllerParams) (*Controller, error) {
 // informers.
 func (c *Controller) Run(ctx context.Context) {
 	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "Controller.Run",
-		})
+		logAttr = slog.String("component", "Controller.Run")
 	)
 
-	l.Info("Cilium BGP Control Plane Controller now running...")
+	c.logger.Info("Cilium BGP Control Plane Controller now running...", logAttr)
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
 		case ev, ok := <-ciliumNodeCh:
 			if !ok {
-				l.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down")
+				c.logger.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down", logAttr)
 				return
 			}
 			switch ev.Kind {
@@ -193,15 +191,15 @@ func (c *Controller) Run(ctx context.Context) {
 			}
 			ev.Done(nil)
 		case <-ctx.Done():
-			l.Info("Cilium BGP Control Plane Controller shut down")
+			c.logger.Info("Cilium BGP Control Plane Controller shut down", logAttr)
 			return
 		case <-c.Sig.Sig:
 			if c.LocalCiliumNode == nil {
-				l.Debug("localCiliumNode has not been set yet")
+				c.logger.Debug("localCiliumNode has not been set yet")
 			} else if err := c.reconcileWithRetry(ctx); err != nil {
-				l.WithError(err).Error("Reconciliation with retries failed")
+				c.logger.With(slog.Any(logfields.Error, err)).Error("Reconciliation with retries failed", logAttr)
 			} else {
-				l.Debug("Successfully completed reconciliation")
+				c.logger.Debug("Successfully completed reconciliation", logAttr)
 			}
 		}
 	}
@@ -221,7 +219,7 @@ func (c *Controller) reconcileWithRetry(ctx context.Context) error {
 	retryFn := func(ctx context.Context) (bool, error) {
 		err = c.Reconcile(ctx)
 		if err != nil {
-			log.WithError(err).Debug("Reconciliation failed")
+			c.logger.Debug("Reconciliation failed", slog.Any(logfields.Error, err))
 			return false, nil
 		}
 		return true, nil
@@ -254,7 +252,7 @@ func (c *Controller) reconcileWithRetry(ctx context.Context) error {
 func (c *Controller) Reconcile(ctx context.Context) error {
 	bgpp, err := c.bgppSelection()
 	if err != nil {
-		log.WithError(err).Error("bgp peering policy selection failed")
+		c.logger.Error("bgp peering policy selection failed", slog.Any(logfields.Error, err))
 		return err
 	}
 	bgppExists := bgpp != nil
@@ -264,10 +262,10 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrStoreUninitialized) {
-			log.Debug("BGPNodeConfig store not yet initialized")
+			c.logger.Debug("BGPNodeConfig store not yet initialized")
 			return nil // skip the reconciliation - once the store is initialized, it will trigger new reconcile event
 		}
-		log.WithError(err).Error("failed to get BGPNodeConfig")
+		c.logger.Error("failed to get BGPNodeConfig", slog.Any(logfields.Error, err))
 		return err
 	}
 	if bgpncExists {
@@ -331,7 +329,7 @@ func (c *Controller) cleanupBGPP(ctx context.Context) {
 	err := c.BGPMgr.ConfigurePeers(ctx, nil, nil)
 	if err != nil {
 		// log cleanup error
-		log.WithError(err).Error("failed to cleanup BGP peering policy peers")
+		c.logger.Error("failed to cleanup BGP peering policy peers", slog.Any(logfields.Error, err))
 	}
 
 	c.ConfigMode.Set(mode.Disabled)
@@ -345,7 +343,7 @@ func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.Cili
 func (c *Controller) cleanupBGPNC(ctx context.Context) {
 	err := c.BGPMgr.ReconcileInstances(ctx, nil, c.LocalCiliumNode)
 	if err != nil {
-		log.WithError(err).Error("failed to cleanup BGPNodeConfig")
+		c.logger.Error("failed to cleanup BGPNodeConfig", slog.Any(logfields.Error, err))
 	}
 
 	c.ConfigMode.Set(mode.Disabled)
@@ -360,7 +358,7 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 	// perform policy selection based on node.
 	labels := c.LocalCiliumNode.Labels
 
-	return PolicySelection(labels, policies)
+	return PolicySelection(c.logger, labels, policies)
 }
 
 // PolicySelection returns a CiliumBGPPeeringPolicy which applies to the provided
@@ -373,17 +371,12 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 //   - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //     only a single policy may apply to a node to avoid ambiguity at this stage
 //     of development.
-func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+func PolicySelection(logger logging.FieldLogger, labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 	var (
-		l = log.WithFields(logrus.Fields{
-			"component": "PolicySelection",
-		})
-
 		// determine which policies match our node's labels.
 		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
 		slimLabels     = slimlabels.Set(labels)
 	)
-
 	// range over policies and see if any match this node's labels.
 	//
 	// for now, only a single BGP policy can be applied to a node. if more than
@@ -392,18 +385,23 @@ func PolicySelection(labels map[string]string, policies []*v2alpha1api.CiliumBGP
 	for _, policy := range policies {
 		var selected bool
 
-		l.WithFields(logrus.Fields{
-			"policyName":         policy.Name,
-			"nodeLabels":         slimLabels,
-			"policyNodeSelector": policy.Spec.NodeSelector.String(),
-		}).Debug("Comparing BGP policy node selector with node's labels")
+		logger.Debug(
+			"Comparing BGP policy node selector with node's labels",
+			slog.String("policyName", policy.Name),
+			slog.Any("nodeLabels", slimLabels),
+			slog.Any("policyNodeSelector", policy.Spec.NodeSelector),
+			slog.String("component", "PolicySelection"),
+		)
 
 		if policy.Spec.NodeSelector == nil {
 			selected = true
 		} else {
 			nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
 			if err != nil {
-				l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+				logger.Error(
+					"Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface",
+					slog.Any(logfields.Error, err),
+				)
 				continue
 			}
 			if nodeSelector.Matches(slimLabels) {

@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -188,11 +188,11 @@ func (h *dnsHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
 
 func (h *dnsHandler) SetFilters(cfg *api.MetricConfig) error {
 	var err error
-	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(slog.Default()))
 	if err != nil {
 		return err
 	}
-	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(slog.Default()))
 	if err != nil {
 		return err
 	}

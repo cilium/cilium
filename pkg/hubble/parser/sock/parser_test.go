@@ -8,11 +8,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -399,7 +399,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
+	p, err := New(slog.Default(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
 	assert.NoError(t, err)
 
 	for _, tc := range tt {

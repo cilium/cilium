@@ -6,6 +6,7 @@ package launch
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -72,7 +74,7 @@ func getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]ro
 		if err == nil {
 			routes = append(routes, v4Routes...)
 		} else {
-			log.Debugf("Couldn't get IPv4 routes for health routing")
+			log.Debug("Couldn't get IPv4 routes for health routing")
 		}
 	}
 
@@ -96,10 +98,10 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 		}
 		prog := cmd[0]
 		args := cmd[1:]
-		log.Debugf("Running \"%s %+v\"", prog, args)
+		log.Debug("Running program", slog.String("prog", prog), slog.Any("args", args))
 		out, err := exec.Command(prog, args...).CombinedOutput()
 		if err == nil && len(out) > 0 {
-			log.WithField("prog", prog).WithField("args", args).Warn(out)
+			log.Warn(string(out), slog.String("prog", prog), slog.Any("args", args))
 		} else if err != nil {
 			return fmt.Errorf("error running %q with args %q: %w", prog, args, err)
 		}
@@ -169,15 +171,16 @@ func (c *Client) PingEndpoint() error {
 //   - The health endpoint was run during a previous run of the Cilium agent
 //   - The health endpoint crashed during the current run of the Cilium agent
 //     and needs to be cleaned up before it is restarted.
-func KillEndpoint() {
+func KillEndpoint(logger logging.FieldLogger) {
+	log := logger.With(subsysLogAttr)
 	path := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
-	scopedLog := log.WithField(logfields.PIDFile, path)
-	scopedLog.Debug("Killing old health endpoint process")
+	logAttr := slog.String(logfields.PIDFile, path)
+	log.Debug("Killing old health endpoint process", logAttr)
 	pid, err := pidfile.Kill(path)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed to kill cilium-health-responder")
+		log.Warn("Failed to kill cilium-health-responder", slog.Any(logfields.Error, err), logAttr)
 	} else if pid != 0 {
-		scopedLog.WithField(logfields.PID, pid).Debug("Killed endpoint process")
+		log.Debug("Killed endpoint process", slog.Int(logfields.PID, pid), logAttr)
 	}
 }
 
@@ -186,7 +189,8 @@ func KillEndpoint() {
 //
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
-func CleanupEndpoint() {
+func CleanupEndpoint(logger logging.FieldLogger) {
+	log := logger.With(subsysLogAttr)
 	// Removes the interfaces used for the endpoint process.
 	//
 	// Explicit removal is performed to ensure that everything referencing the network namespace
@@ -194,15 +198,20 @@ func CleanupEndpoint() {
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		for _, iface := range []string{legacyHealthName, healthName} {
-			scopedLog := log.WithField(logfields.Interface, iface)
 			if link, err := safenetlink.LinkByName(iface); err == nil {
 				err = netlink.LinkDel(link)
 				if err != nil {
-					scopedLog.WithError(err).Infof("Couldn't delete cilium-health %s device",
-						option.Config.DatapathMode)
+					log.Info("Couldn't delete cilium-health device",
+						slog.Any(logfields.Error, err),
+						slog.String(logfields.Device, option.Config.DatapathMode),
+						slog.String(logfields.Interface, iface),
+					)
 				}
 			} else {
-				scopedLog.WithError(err).Debug("Didn't find existing device")
+				log.Debug("Didn't find existing device",
+					slog.Any(logfields.Error, err),
+					slog.String(logfields.Interface, iface),
+				)
 			}
 		}
 	}
@@ -220,6 +229,7 @@ type EndpointAdder interface {
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
+	logger logging.FieldLogger,
 	owner regeneration.Owner,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -231,6 +241,10 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	ctMapGC ctmap.GCRunner,
 	sysctl sysctl.Sysctl,
 ) (*Client, error) {
+
+	initLogger.Do(func() {
+		log = logger.With(subsysLogAttr)
+	})
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -273,7 +287,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupVethWithNames(logging.DefaultLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
 			info, sysctl)
@@ -285,7 +299,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		l2Mode := option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-		_, epLink, err := connector.SetupNetkitWithNames(healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
+		_, epLink, err := connector.SetupNetkitWithNames(logging.DefaultLogger, healthName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
 			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), l2Mode,
 			info, sysctl)
@@ -307,7 +321,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	args := []string{"--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
 	cmd.SetTarget(binaryName)
 	cmd.SetArgs(args)
-	log.Debugf("Spawning health endpoint with command %q %q", binaryName, args)
+	log.Debug("Spawning health endpoint with command", slog.String("program", binaryName), slog.Any("args", args))
 
 	// Run the health binary inside a netnamespace. Since `Do()` implicitly does
 	// `runtime.LockOSThread` the exec'd binary is guaranteed to inherit the
@@ -328,7 +342,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	deadline := time.Now().Add(1 * time.Minute)
 	for {
 		if _, err := os.Stat(pidfile); err == nil {
-			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
+			log.Debug("cilium-health agent running", slog.String("pidfile", pidfile))
 			break
 		} else if time.Now().After(deadline) {
 			return nil, fmt.Errorf("Endpoint failed to run: %w", err)

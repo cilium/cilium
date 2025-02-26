@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/health"
@@ -65,16 +64,18 @@ func New(cells ...cell.Cell) *Hive {
 			),
 		),
 
-		// The root logrus FieldLogger.
+		// The root slog FieldLogger.
 		cell.Provide(
-			func() logrus.FieldLogger { return logging.DefaultLogger },
+			func() logging.FieldLogger {
+				return logging.DefaultLogger
+			},
 		),
 	)
 
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
-		func(mid cell.ModuleID) logrus.FieldLogger {
-			return logging.DefaultLogger.WithField(logfields.LogSubsys, string(mid))
+		func(mid cell.ModuleID) logging.FieldLogger {
+			return logging.DefaultLogger.With(slog.String(logfields.LogSubsys, string(mid)))
 		},
 		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)

@@ -5,8 +5,10 @@ package ctmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -101,11 +103,15 @@ func (s *gcStats) finish() {
 		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		scopedLog := log.WithField("interrupted", s.Interrupted)
+		scopedLog := log.With(
+			slog.Uint64("interrupted", uint64(s.Interrupted)),
+		)
 		if s.dumpError != nil {
-			scopedLog = scopedLog.WithError(s.dumpError)
+			scopedLog = scopedLog.With(
+				slog.Any(logfields.Error, s.dumpError),
+			)
 		}
-		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
+		scopedLog.Warn("Garbage collection CT map failed to finish", slog.String("family", family), slog.String("proto", proto))
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()

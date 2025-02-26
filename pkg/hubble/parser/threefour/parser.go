@@ -10,7 +10,6 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy/correlation"
@@ -27,7 +27,7 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            logging.FieldLogger
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	dnsGetter      getters.DNSGetter
@@ -58,7 +58,7 @@ type packet struct {
 
 // New returns a new L3/L4 parser
 func New(
-	log logrus.FieldLogger,
+	log logging.FieldLogger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,

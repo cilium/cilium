@@ -6,13 +6,13 @@ package reconciler
 import (
 	"context"
 	"fmt"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/hive/cell"
 )
 
 type PreflightReconcilerOut struct {
@@ -32,11 +32,15 @@ type PreflightReconcilerOut struct {
 //
 // permanent configurations for BgpServers (ones that cannot be changed after creation)
 // are router ID and local listening port.
-type PreflightReconciler struct{}
+type PreflightReconciler struct {
+	logger logging.FieldLogger
+}
 
-func NewPreflightReconciler() PreflightReconcilerOut {
+func NewPreflightReconciler(logger logging.FieldLogger) PreflightReconcilerOut {
 	return PreflightReconcilerOut{
-		Reconciler: &PreflightReconciler{},
+		Reconciler: &PreflightReconciler{
+			logger: logger.With(slog.String("component", "PreflightReconciler")),
+		},
 	}
 }
 
@@ -55,25 +59,17 @@ func (r *PreflightReconciler) Init(_ *instance.ServerWithConfig) error {
 func (r *PreflightReconciler) Cleanup(_ *instance.ServerWithConfig) {}
 
 func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	var (
-		l = log.WithFields(
-			logrus.Fields{
-				"component": "PreflightReconciler",
-			},
-		)
-	)
-
 	// If we have no config attached, we don't need to perform a preflight for
 	// reconciliation.
 	//
 	// This is the first time this server is being registered and BGPRouterManager
 	// set any fields needing reconciliation in this function already.
 	if p.CurrentServer.Config == nil {
-		l.Debugf("Preflight for virtual router with ASN %v not necessary, first instantiation of this BgpServer.", p.DesiredConfig.LocalASN)
+		r.logger.Debug("Preflight for virtual router with ASN not necessary, first instantiation of this BgpServer.", slog.Int64("localASN", p.DesiredConfig.LocalASN))
 		return nil
 	}
 
-	l.Debugf("Begin preflight reoncilation for virtual router with ASN %v", p.DesiredConfig.LocalASN)
+	r.logger.Debug("Begin preflight reoncilation for virtual router with ASN", slog.Int64("localASN", p.DesiredConfig.LocalASN))
 	bgpInfo, err := p.CurrentServer.Server.GetBGP(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve BgpServer info for virtual router with ASN %v: %w", p.DesiredConfig.LocalASN, err)
@@ -106,18 +102,34 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	var shouldRecreate bool
 	if localPort != bgpInfo.Global.ListenPort {
 		shouldRecreate = true
-		l.Infof("Virtual router with ASN %v local port has changed from %v to %v", p.DesiredConfig.LocalASN, bgpInfo.Global.ListenPort, localPort)
+		r.logger.Info(
+			"Virtual router with ASN has changed local port",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			slog.Int64("from-port", int64(bgpInfo.Global.ListenPort)),
+			slog.Int64("to-port", int64(localPort)),
+		)
 	}
 	if routerID != bgpInfo.Global.RouterID {
 		shouldRecreate = true
-		l.Infof("Virtual router with ASN %v router ID has changed from %v to %v", p.DesiredConfig.LocalASN, bgpInfo.Global.RouterID, routerID)
+		r.logger.Info(
+			"Virtual router with ASN has changed route ID",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			slog.String("from-router-id", bgpInfo.Global.RouterID),
+			slog.String("to-router-id", routerID),
+		)
 	}
 	if !shouldRecreate {
-		l.Debugf("No preflight reconciliation necessary for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
+		r.logger.Info(
+			"No preflight reconciliation necessary for virtual router with local ASN",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+		)
 		return nil
 	}
 
-	l.Infof("Recreating virtual router with ASN %v for changes to take effect", p.DesiredConfig.LocalASN)
+	r.logger.Info(
+		"Recreating virtual router with ASN for changes to take effect",
+		slog.Int64("localASN", p.DesiredConfig.LocalASN),
+	)
 	globalConfig := types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        uint32(p.DesiredConfig.LocalASN),
@@ -133,9 +145,12 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	p.CurrentServer.Server.Stop()
 
 	// create a new one via ServerWithConfig constructor
-	s, err := instance.NewServerWithConfig(ctx, log, globalConfig)
+	s, err := instance.NewServerWithConfig(ctx, r.logger, globalConfig)
 	if err != nil {
-		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
+		r.logger.Error(
+			"Failed to start BGP server for virtual router with local ASN",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+		)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", p.DesiredConfig.LocalASN, err)
 	}
 

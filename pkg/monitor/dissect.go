@@ -6,6 +6,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 
@@ -41,7 +42,7 @@ var (
 	dissectLock lock.Mutex
 	parser      *gopacket.DecodingLayerParser
 
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "monitor"))
 )
 
 // getParser must be called with dissectLock held

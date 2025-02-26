@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -137,13 +136,16 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			if err != nil {
 				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil
 			}
-
-			p.logger.Debug("updated existing proxy instance",
-				fieldProxyRedirectID, id,
-				logfields.Listener, l4.GetListener(),
-				logfields.L7Parser, l4.GetL7Parser(),
-				logfields.Object, logfields.Repr(existingRedirect),
-				logfields.ProxyType, existingRedirect.proxyPort.ProxyType)
+			if logging.CanLogAt(p.logger, slog.LevelDebug) {
+				p.logger.Debug(
+					"updated existing proxy instance",
+					slog.String(fieldProxyRedirectID, id),
+					slog.String(logfields.Listener, l4.GetListener()),
+					slog.Any(logfields.Object, existingRedirect),
+					slog.Any(logfields.ProxyType, existingRedirect.proxyPort.ProxyType),
+					slog.Any(logfields.L7Parser, l4.GetL7Parser()),
+				)
+			}
 
 			// Must return the proxy port when successful
 			return existingRedirect.proxyPort.ProxyPort, nil, revert
@@ -178,11 +180,12 @@ func (p *Proxy) createNewRedirect(
 
 	redirect := initRedirect(p.logger, epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
 
-	scopedLog := p.logger.With(
-		fieldProxyRedirectID, id,
-		logfields.Listener, l4.GetListener(),
+	scoppedLog := p.logger.With(
+		slog.String(fieldProxyRedirectID, id),
+		slog.String(logfields.Listener, l4.GetListener()),
 		logfields.L7Parser, l4.GetL7Parser(),
-		logfields.PortName, ppName)
+		logfields.PortName, ppName,
+	)
 
 	// try first with the previous port, if any
 	p.proxyPorts.Restore(pp)
@@ -202,7 +205,10 @@ func (p *Proxy) createNewRedirect(
 			// implementation if regeneration fails.
 			err = p.proxyPorts.AckProxyPort(ctx, ppName, pp)
 			if err != nil {
-				scopedLog.Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed", logfields.Error, err)
+				scoppedLog.Error(
+					"Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed",
+					slog.Any(logfields.Error, err),
+				)
 			}
 		} else {
 			// Release proxy port if NACK was received. Do not release a port that has
@@ -216,9 +222,11 @@ func (p *Proxy) createNewRedirect(
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if err != nil {
 			// an error occurred and we are retrying
-			scopedLog.Warn("Unable to create proxy, retrying",
-				logfields.ProxyPort, pp.ProxyPort,
-				logfields.Error, err)
+			scoppedLog.Warn(
+				"Unable to create proxy, retrying",
+				slog.Any(logfields.Error, err),
+				slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
+			)
 		}
 
 		err = p.proxyPorts.AllocatePort(pp, nRetry > 0)
@@ -235,10 +243,11 @@ func (p *Proxy) createNewRedirect(
 
 	if err != nil {
 		// an error occurred, and we have no more retries
-		scopedLog.Error("Unable to create proxy",
-			logfields.ProxyPort, pp.ProxyPort,
-			logfields.Error, err)
-
+		scoppedLog.Error(
+			"Unable to create proxy",
+			slog.Any(logfields.Error, err),
+			slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
+		)
 		p.proxyPorts.ReleaseProxyPort(ppName)
 		return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil
 	}
@@ -250,9 +259,11 @@ func (p *Proxy) createNewRedirect(
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
 
-	scopedLog.Info("Created new proxy instance",
-		logfields.Object, logfields.Repr(redirect),
-		logfields.ProxyPort, pp.ProxyPort)
+	scoppedLog.Info(
+		"Created new proxy instance",
+		slog.Any(logfields.Object, redirect),
+		slog.Uint64(logfields.ProxyPort, uint64(pp.ProxyPort)),
+	)
 
 	p.redirects[id] = impl
 	p.updateRedirectMetrics()
@@ -299,7 +310,10 @@ func (p *Proxy) RemoveRedirect(id string) {
 
 // removeRedirect removes an existing redirect. p.mutex must be held
 func (p *Proxy) removeRedirect(id string) {
-	p.logger.Debug("Removing proxy redirect", fieldProxyRedirectID, id)
+	p.logger.Debug(
+		"Removing proxy redirect",
+		slog.Any(fieldProxyRedirectID, id),
+	)
 
 	impl, ok := p.redirects[id]
 	if !ok {
@@ -317,10 +331,12 @@ func (p *Proxy) removeRedirect(id string) {
 
 	err := p.proxyPorts.ReleaseProxyPort(listenerName)
 	if err != nil {
-		r.logger.Warn("Releasing proxy port failed",
+		r.logger.Warn(
+			"Releasing proxy port failed",
 			fieldProxyRedirectID, id,
 			logfields.ProxyPort, proxyPort,
-			logfields.Error, err)
+			logfields.Error, err,
+		)
 	}
 }
 
@@ -337,13 +353,19 @@ func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
-func (p *Proxy) ChangeLogLevel(level logrus.Level) {
+func (p *Proxy) ChangeLogLevel(level slog.Level) {
 	if err := p.envoyIntegration.changeLogLevel(level); err != nil {
-		p.logger.Debug("failed to change log level in Envoy proxy", logfields.Error, err)
+		p.logger.Debug(
+			"failed to change log level in Envoy proxy",
+			slog.Any(logfields.Error, err),
+		)
 	}
 
 	if err := p.dnsIntegration.changeLogLevel(level); err != nil {
-		p.logger.Debug("failed to change log level in DNS proxy", logfields.Error, err)
+		p.logger.Debug(
+			"failed to change log level in DNS proxy",
+			slog.Any(logfields.Error, err),
+		)
 	}
 }
 
