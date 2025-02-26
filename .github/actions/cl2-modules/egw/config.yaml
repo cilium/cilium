@@ -36,6 +36,8 @@ steps:
       objectTemplatePath: {{$EGWPolicyTemplate}}
       templateFillMap:
         ExternalTarget: {{$ExternalTarget}}
+        NodeSelector: |
+          role.scaffolding/egw-node: "true"
 {{ end }}
 
 - name: Create External Target Pod
@@ -133,6 +135,8 @@ steps:
     objectBundle:
     - basename: egw-node-synthetic
       objectTemplatePath: manifests/synthetic-node.yaml
+      templateFillMap:
+        NumSyntheticCEGPs: {{$NumSyntheticCEGPs}}
 
 {{ if $CreateEGWPolicy }}
 - name: Create extra Egress Gateway Policies
@@ -144,7 +148,9 @@ steps:
     - basename: egw-scale-test-dummy-{{ $i }}
       objectTemplatePath: {{$EGWPolicyTemplate}}
       templateFillMap:
-        ExternalTarget: 1.2.3.{{ AddInt 1 $i}}
+        ExternalTarget: 1.2.3.{{ AddInt 1 $i }}
+        NodeSelector: |
+          app.kubernetes.io/component: synthetic-{{ $i }}
 {{ end }}
 {{ end }}
 
