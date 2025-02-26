@@ -62,7 +62,7 @@ __encap_with_nodeid6(struct __ctx_buff *ctx, const union v6addr *tunnel_endpoint
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info6(ctx, tunnel_endpoint, seclabel);
+	return ctx_set_encap_info6(ctx, tunnel_endpoint, seclabel, NULL, 0);
 }
 
 static __always_inline int
@@ -152,12 +152,12 @@ tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 
 #if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int
-__encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
-			__u32 tunnel_endpoint,
-			__u32 seclabel, __u32 dstid, __u32 vni,
-			void *opt, __u32 opt_len,
-			enum trace_reason ct_reason,
-			__u32 monitor, int *ifindex)
+__encap_with_nodeid_opt4(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
+			 __u32 tunnel_endpoint,
+			 __u32 seclabel, __u32 dstid, __u32 vni,
+			 void *opt, __u32 opt_len,
+			 enum trace_reason ct_reason,
+			 __u32 monitor, int *ifindex)
 {
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -179,6 +179,32 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	return ctx_set_encap_info4(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni, opt,
 				   opt_len);
+}
+
+static __always_inline int
+__encap_with_nodeid_opt6(struct __ctx_buff *ctx,
+			 const union v6addr *tunnel_endpoint, __u32 seclabel,
+			 __u32 dstid, void *opt, __u32 opt_len,
+			 enum trace_reason ct_reason, __u32 monitor,
+			 int *ifindex)
+{
+	/* When encapsulating, a packet originating from the local host is
+	 * being considered as a packet from a remote node as it is being
+	 * received.
+	 */
+	if (seclabel == HOST_ID)
+		seclabel = LOCAL_NODE_ID;
+
+#if __ctx_is == __ctx_skb
+	*ifindex = ENCAP_IFINDEX;
+#else
+	*ifindex = 0;
+#endif
+
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
+			  *ifindex, ct_reason, monitor);
+
+	return ctx_set_encap_info6(ctx, tunnel_endpoint, seclabel, opt, opt_len);
 }
 
 static __always_inline void

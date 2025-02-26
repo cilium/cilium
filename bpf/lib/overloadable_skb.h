@@ -310,7 +310,7 @@ ctx_set_encap_info4(struct __sk_buff *ctx, __u32 src_ip,
 
 static __always_inline __maybe_unused int
 ctx_set_encap_info6(struct __sk_buff *ctx, const union v6addr *tunnel_endpoint,
-		    __u32 seclabel)
+		    __u32 seclabel, void *opt, __u32 opt_len)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -326,6 +326,12 @@ ctx_set_encap_info6(struct __sk_buff *ctx, const union v6addr *tunnel_endpoint,
 	ret = ctx_set_tunnel_key(ctx, &key, key_size, BPF_F_TUNINFO_IPV6);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
+
+	if (opt && opt_len > 0) {
+		ret = ctx_set_tunnel_opt(ctx, opt, opt_len);
+		if (unlikely(ret < 0))
+			return DROP_WRITE_ERROR;
+	}
 
 	return CTX_ACT_REDIRECT;
 }
