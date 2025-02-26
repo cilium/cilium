@@ -20,7 +20,7 @@ import (
 )
 
 type EnvoyL7RulesTranslator interface {
-	GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool)
+	GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 type envoyL7RulesTranslator struct {
@@ -35,7 +35,7 @@ func NewEnvoyL7RulesTranslator(logger *slog.Logger, secretManager certificateman
 	}
 }
 
-func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {
+func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -44,7 +44,7 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, n
 		canShortCircuit := true
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
-			rule, cs := r.getHTTPRule(&l7, ns, policySecretsNamespace)
+			rule, cs := r.getHTTPRule(&l7, ns)
 			httpRules = append(httpRules, rule)
 			if !cs {
 				canShortCircuit = false
@@ -59,7 +59,7 @@ func (r *envoyL7RulesTranslator) GetEnvoyHTTPRules(l7Rules *policyapi.L7Rules, n
 	return nil, true
 }
 
-func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
+func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
@@ -222,7 +222,7 @@ func (r *envoyL7RulesTranslator) getHTTPRule(h *policyapi.PortRuleHTTP, ns strin
 				ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
 					Namespace: hdr.Secret.Namespace,
 					Name:      hdr.Secret.Name,
-				}, policySecretsNamespace),
+				}, r.secretManager.GetSecretSyncNamespace()),
 			})
 		}
 	}
