@@ -163,8 +163,7 @@ type Repository struct {
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *policyCache
 
-	certManager   certificatemanager.CertificateManager
-	secretManager certificatemanager.SecretManager
+	certManager certificatemanager.CertificateManager
 
 	metricsManager    api.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
@@ -189,7 +188,6 @@ func NewPolicyRepository(
 	logger *slog.Logger,
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
 	metricsManager api.PolicyMetrics,
@@ -202,7 +200,6 @@ func NewPolicyRepository(
 		rulesByResource:   make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
 		selectorCache:     selectorCache,
 		certManager:       certManager,
-		secretManager:     secretManager,
 		metricsManager:    metricsManager,
 		l7RulesTranslator: l7RulesTranslator,
 	}
