@@ -5,6 +5,7 @@ package xds
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -41,7 +43,7 @@ func (c *compCheck) Err() error {
 func newCompCallback() (func(error), *compCheck) {
 	comp := newCompCheck()
 	callback := func(err error) {
-		log.WithError(err).Debug("callback called")
+		log.Debug("callback called", slog.Any(logfields.Error, err))
 		comp.ch <- err
 		close(comp.ch)
 	}

@@ -6,11 +6,11 @@ package xds
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -60,11 +60,12 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 	}
 
 	if version < w.version {
-		log.WithFields(logrus.Fields{
-			logfields.XDSCachedVersion: version,
-			logfields.XDSTypeURL:       typeURL,
-		}).Panicf("decreasing version number found for resources of type %s: %d < %d",
-			typeURL, version, w.version)
+		logging.Fatal(log,
+			"decreasing version number found for resources: xdsCachedVersion < resourceWatcherVersion",
+			slog.Uint64(logfields.XDSCachedVersion, version),
+			slog.Uint64("resourceWatcherVersion", w.version),
+			slog.String(logfields.XDSTypeURL, typeURL),
+		)
 	}
 	w.version = version
 
@@ -85,11 +86,11 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
-	watchLog := log.WithFields(logrus.Fields{
-		logfields.XDSAckedVersion: lastVersion,
-		logfields.XDSClientNode:   nodeIP,
-		logfields.XDSTypeURL:      typeURL,
-	})
+	scopedLog := log.With(
+		slog.Uint64(logfields.XDSAckedVersion, lastVersion),
+		slog.String(logfields.XDSClientNode, nodeIP),
+		slog.String(logfields.XDSTypeURL, typeURL),
+	)
 
 	var res *VersionedResources
 
@@ -122,7 +123,10 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		// Re-check w.version, since it may have been modified by calling
 		// EnsureVersion above.
 		for ctx.Err() == nil && waitForVersion && w.version <= waitVersion {
-			watchLog.Debugf("current resource version is %d, waiting for it to become > %d", w.version, waitVersion)
+			scopedLog.Debug("waiting for current version to increase up to waitVersion",
+				slog.Uint64("waitVersion", waitVersion),
+				slog.Uint64("current-version", w.version),
+			)
 			w.versionCond.Wait()
 		}
 		// In case we need to loop again, wait for any version more recent than
@@ -135,11 +139,16 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			break
 		}
 
-		watchLog.Debugf("getting %d resources from set", len(resourceNames))
+		scopedLog.Debug("getting resources from set",
+			slog.Int("len-resources", len(resourceNames)),
+		)
 		var err error
 		res, err = w.resourceSet.GetResources(typeURL, lastVersion, nodeIP, resourceNames)
 		if err != nil {
-			watchLog.WithError(err).Errorf("failed to query resources named: %v; terminating resource watch", resourceNames)
+			scopedLog.Error("failed to query resources; terminating resource watch",
+				slog.Any(logfields.Error, err),
+				slog.Any("resources", resourceNames),
+			)
 			return
 		}
 	}
@@ -157,9 +166,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	err := ctx.Err()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			watchLog.Debug("context canceled, terminating resource watch")
+			scopedLog.Debug("context canceled, terminating resource watch")
 		} else {
-			watchLog.WithError(err).Error("context error, terminating resource watch")
+			scopedLog.Error("context error, terminating resource watch", slog.Any(logfields.Error, err))
 		}
 	}
 }

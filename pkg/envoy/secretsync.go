@@ -7,13 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_extensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -44,11 +45,11 @@ const (
 // secretSyncer is responsible to sync K8s TLS Secrets in pre-defined namespaces
 // via xDS SDS to Envoy.
 type secretSyncer struct {
-	logger         logrus.FieldLogger
+	logger         logging.FieldLogger
 	envoyXdsServer XDSServer
 }
 
-func newSecretSyncer(logger logrus.FieldLogger, envoyXdsServer XDSServer) *secretSyncer {
+func newSecretSyncer(logger logging.FieldLogger, envoyXdsServer XDSServer) *secretSyncer {
 	return &secretSyncer{
 		logger:         logger,
 		envoyXdsServer: envoyXdsServer,
@@ -56,25 +57,26 @@ func newSecretSyncer(logger logrus.FieldLogger, envoyXdsServer XDSServer) *secre
 }
 
 func (r *secretSyncer) handleSecretEvent(ctx context.Context, event resource.Event[*slim_corev1.Secret]) error {
-	scopedLogger := r.logger.
-		WithField(logfields.K8sNamespace, event.Key.Namespace).
-		WithField("name", event.Key.Name)
+	logAttrs := []any{
+		slog.String(logfields.K8sNamespace, event.Key.Namespace),
+		slog.String("name", event.Key.Name),
+	}
 
 	var err error
 
 	switch event.Kind {
 	case resource.Upsert:
-		scopedLogger.Debug("Received Secret upsert event")
+		r.logger.Debug("Received Secret upsert event", logAttrs...)
 		err = r.upsertK8sSecretV1(ctx, event.Object)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle Secret upsert")
+			r.logger.With(slog.Any(logfields.Error, err)).Error("failed to handle Secret upsert", logAttrs...)
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
-		scopedLogger.Debug("Received Secret delete event")
+		r.logger.Debug("Received Secret delete event", logAttrs...)
 		err = r.deleteK8sSecretV1(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle Secret delete")
+			r.logger.With(slog.Any(logfields.Error, err)).Error("failed to handle Secret delete", logAttrs...)
 			err = fmt.Errorf("failed to handle Secret delete: %w", err)
 		}
 	}
@@ -203,10 +205,11 @@ func getTLSSessionTicketKeys(data map[string]slim_corev1.Bytes) []*envoy_config_
 	datasourceKeys := []*envoy_config_core_v3.DataSource{}
 
 	if len(data[tlsSessionTicketKeyAttribute]) != 80 {
-		log.
-			WithField("size", len(data[tlsSessionTicketKeyAttribute])).
-			WithField("key", tlsSessionTicketKeyAttribute).
-			Debug("Skipping TLS session ticket key due to not matching size of 80 chars")
+		log.Debug(
+			"Skipping TLS session ticket key due to not matching size of 80 chars",
+			slog.Int("size", len(data[tlsSessionTicketKeyAttribute])),
+			slog.String("key", tlsSessionTicketKeyAttribute),
+		)
 
 		// Skipping all additional keys
 		return nil
@@ -228,10 +231,11 @@ func getTLSSessionTicketKeys(data map[string]slim_corev1.Bytes) []*envoy_config_
 		}
 
 		if len(data[key]) != 80 {
-			log.
-				WithField("size", len(data[key])).
-				WithField("key", key).
-				Debug("Skipping TLS session ticket key due to not matching size of 80 chars")
+			log.Debug(
+				"Skipping TLS session ticket key due to not matching size of 80 chars",
+				slog.Int("size", len(data[key])),
+				slog.String("key", key),
+			)
 
 			// Skipping all additional keys
 			continue

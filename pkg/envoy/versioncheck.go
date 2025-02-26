@@ -6,6 +6,7 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/time"
@@ -27,7 +28,11 @@ func checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
 		return fmt.Errorf("envoy version %s does not match with required version %s", envoyVersion, requiredEnvoyVersionSHA)
 	}
 
-	log.Debugf("Envoy: Envoy version %s is matching required version %s", envoyVersion, requiredEnvoyVersionSHA)
+	log.Debug(
+		"Envoy: Envoy version is matching required version",
+		slog.String("envoy-version", envoyVersion),
+		slog.String("required-version", requiredEnvoyVersionSHA),
+	)
 
 	return nil
 }

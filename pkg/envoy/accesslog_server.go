@@ -8,18 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"syscall"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/time"
@@ -54,7 +55,7 @@ func (s *AccessLogServer) start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		log.Infof("Envoy: Starting access log server listening on %s", socketListener.Addr())
+		log.Info("Envoy: Starting access log server", slog.Any("socket-address", socketListener.Addr()))
 		for {
 			// Each Envoy listener opens a new connection over the Unix domain socket.
 			// Multiple worker threads serving the listener share that same connection
@@ -64,7 +65,7 @@ func (s *AccessLogServer) start() error {
 				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
 					break
 				}
-				log.WithError(err).Warn("Envoy: Failed to accept access log connection")
+				log.Warn("Envoy: Failed to accept access log connection", slog.Any(logfields.Error, err))
 				continue
 			}
 			log.Info("Envoy: Accepted access log connection")
@@ -101,7 +102,11 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(s.socketPath, -1, int(s.proxyGID)); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s", s.socketPath)
+		log.Warn(
+			"Envoy: Failed to change the group of access log listen socket",
+			slog.Any(logfields.Error, err),
+			slog.Any("socket-path", s.socketPath),
+		)
 	}
 	return accessLogListener, nil
 }
@@ -134,24 +139,25 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				log.WithError(err).Error("Envoy: Error while reading from access log connection")
+				log.Error("Envoy: Error while reading from access log connection", slog.Any(logfields.Error, err))
 			}
 			break
 		}
 		if flags&unix.MSG_TRUNC != 0 {
-			log.WithFields(logrus.Fields{
-				"access_log_buffer_size": s.bufferSize,
-			}).Warning("Envoy: Discarded truncated access log message - increase buffer size via --envoy-access-log-buffer-size")
+			log.Warn(
+				"Envoy: Discarded truncated access log message - increase buffer size via --envoy-access-log-buffer-size",
+				slog.Any("access_log_buffer_size", s.bufferSize),
+			)
 			continue
 		}
 		pblog := cilium.LogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
-			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
+			log.Warn("Envoy: Discarded invalid access log message", slog.Any(logfields.Error, err))
 			continue
 		}
 
-		flowdebug.Log(func() (*logrus.Entry, string) {
+		flowdebug.Log(func() (*slog.Logger, string) {
 			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
 		})
 
