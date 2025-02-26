@@ -119,12 +119,13 @@ type PortAllocator interface {
 // Parameters:
 //   - `cecNamespace` and `cecName` will be prepended to the Envoy resource names.
 //   - `xdsResources` are the resources from the CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig.
-//   - `isL7LB` defines whether these resources are used for L7 loadbalancing. If `true`, the Envoy Cilium Network- and L7 filters are always
-//     added to all non-internal Listeners. In addition, the info gets passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
+//   - `isL7LB` defines whether these resources are used for L7 loadbalancing. If `true`, the info gets passed to
+//     the Envoy Cilium BPF Metadata listener filter on all Listeners.
+//   - `injecCiliumEnvoyFilters` defines whether the Envoy Cilium Network- and L7 filters should always be added to all non-internal Listeners.
 //   - `useOriginalSourceAddr` is passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
 //   - `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 //     and as `false` if the resources are being removed or are the old version of the resources being updated. Only 'new' resources are validated.
-func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
+func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, injectCiliumEnvoyFilters bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
 	// only validate new resources - old ones are already applied
 	validate := newResources
 
@@ -162,13 +163,13 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 
 			// Only inject Cilium downstream filters if all of the following conditions are fulfilled
-			// * Cilium allocates listener address or it's a listener for a L7 loadbalancer
+			// * Cilium allocates listener address or it's configured to do so
 			// * It's not an internal listener
-			injectCiliumDownstreamFilters := (listener.GetAddress() == nil || isL7LB) && listener.GetInternalListener() == nil
+			injectCiliumDownstreamFilters := (listener.GetAddress() == nil || injectCiliumEnvoyFilters) && listener.GetInternalListener() == nil
 
-			// Also inject upstream filters for L7 LB when injecting the downstream
-			// HTTP enforcement filter for at least one listener
-			if injectCiliumDownstreamFilters && isL7LB {
+			// Also inject upstream filters when injecting the downstream
+			// HTTP enforcement filter for at least one listener.
+			if injectCiliumDownstreamFilters && injectCiliumEnvoyFilters {
 				injectCiliumUpstreamFilters = true
 			}
 
