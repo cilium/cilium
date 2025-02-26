@@ -27,7 +27,6 @@ import (
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -402,11 +401,14 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 	}
 
 	// ClusterIP
-	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
-	if svc.Spec.ClusterIP != "" {
-		clusterIPs = clusterIPs.Insert(svc.Spec.ClusterIP)
+	var clusterIPs []string
+	if len(svc.Spec.ClusterIPs) > 0 {
+		clusterIPs = slices.Sorted(slices.Values(svc.Spec.ClusterIPs))
+	} else {
+		clusterIPs = []string{svc.Spec.ClusterIP}
 	}
-	for _, ip := range clusterIPs.AsSlice() {
+
+	for _, ip := range clusterIPs {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue
