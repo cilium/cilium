@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1500,6 +1501,16 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
+	cell.Provide(func(p promise.Promise[*Daemon]) promise.Promise[regeneration.Owner] {
+		return promise.Map(p, func(d *Daemon) regeneration.Owner {
+			return d
+		})
+	}),
+	cell.Provide(func(p promise.Promise[*Daemon]) promise.Promise[endpoint.PolicyRepoGetter] {
+		return promise.Map(p, func(d *Daemon) endpoint.PolicyRepoGetter {
+			return d
+		})
+	}),
 	// Provide a read-only copy of the current daemon settings to be consumed
 	// by the debuginfo API
 	cell.ProvidePrivate(daemonSettings),

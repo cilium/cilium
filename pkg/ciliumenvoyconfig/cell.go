@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -23,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
@@ -74,6 +77,9 @@ type reconcilerParams struct {
 	LocalNodeStore *node.LocalNodeStore
 
 	EndpointResources resource.Resource[*k8s.Endpoints]
+
+	OwnerPromise            promise.Promise[regeneration.Owner]
+	PolicyRepositoryPromise promise.Promise[endpoint.PolicyRepoGetter]
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
@@ -87,6 +93,14 @@ func registerCECK8sReconciler(params reconcilerParams) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
+			params.Logger.Info("TAM Waiting for OwnerPromise")
+			_, _ = params.OwnerPromise.Await(context.Background())
+			params.Logger.Info("TAM All Ready")
+
+			params.Logger.Info("TAM Waiting for PolicyRepositoryPromise")
+			_, _ = params.PolicyRepositoryPromise.Await(context.Background())
+			params.Logger.Info("TAM All Ready")
+
 			localNode, err := params.LocalNodeStore.Get(startCtx)
 			if err != nil {
 				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
