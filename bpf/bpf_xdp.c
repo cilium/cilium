@@ -333,6 +333,10 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 #endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
+#ifndef xdp_early_hook
+#define xdp_early_hook(ctx, proto) CTX_ACT_OK
+#endif
+
 static __always_inline int check_filters(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
@@ -343,6 +347,10 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, XFER_MARKER, 0);
 	ctx_skip_nodeport_clear(ctx);
+
+	ret = xdp_early_hook(ctx, proto);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
