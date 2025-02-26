@@ -728,6 +728,10 @@ ct_recreate6:
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
+#ifdef THIS_INTERFACE_PARENT_IFINDEX
+		if (ct_status == CT_REPLY)
+			oif = THIS_INTERFACE_PARENT_IFINDEX;
+#endif
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
 		if (fib_ok(ret))
@@ -1279,6 +1283,10 @@ skip_vtep:
 
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
+#ifdef THIS_INTERFACE_PARENT_IFINDEX
+		if (ct_status == CT_REPLY)
+			oif = THIS_INTERFACE_PARENT_IFINDEX;
+#endif
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
 		if (fib_ok(ret))
