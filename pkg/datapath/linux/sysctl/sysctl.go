@@ -347,3 +347,42 @@ func (sysctl *reconcilingSysctl) waitForReconciliation(name []string) error {
 		}
 	}
 }
+
+type NoopSysctl struct{}
+
+// ApplySettings implements sysctl.Sysctl.
+func (n NoopSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
+	return nil
+}
+
+// Disable implements sysctl.Sysctl.
+func (n NoopSysctl) Disable(name []string) error {
+	return nil
+}
+
+// Enable implements sysctl.Sysctl.
+func (n NoopSysctl) Enable(name []string) error {
+	return nil
+}
+
+// Read implements sysctl.Sysctl.
+func (n NoopSysctl) Read(name []string) (string, error) {
+	return "", nil
+}
+
+// ReadInt implements sysctl.Sysctl.
+func (n NoopSysctl) ReadInt(name []string) (int64, error) {
+	return 0, nil
+}
+
+// Write implements sysctl.Sysctl.
+func (n NoopSysctl) Write(name []string, val string) error {
+	return nil
+}
+
+// WriteInt implements sysctl.Sysctl.
+func (n NoopSysctl) WriteInt(name []string, val int64) error {
+	return nil
+}
+
+var _ Sysctl = NoopSysctl{}

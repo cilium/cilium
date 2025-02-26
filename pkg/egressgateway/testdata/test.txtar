@@ -1,0 +1,128 @@
+# hello
+hive/start
+
+# Wait for manager to start watching these resources (might otherwise miss the events)
+k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumegressgatewaypolicies
+
+# Add CiliumNode, CiliumEgressGatewayPolicy and CiliumEndpoint matching the policy.
+# node1 is the local node.
+# The identity in ciliumendpoint.yaml has been preallocated in script_test.go.
+k8s/add node1.yaml node2.yaml cegp.yaml ciliumendpoint.yaml
+
+# Verify that egress map has been populated correctly.
+egressmap/dump egressmap.actual
+* cmp egressmap.expected egressmap.actual
+
+# Delete the policy
+k8s/delete cegp.yaml
+
+# Map should now be empty
+egressmap/dump egressmap.actual
+* cmp egressmap.empty egressmap.actual
+
+-- egressmap.expected --
+10.244.0.112 0.0.0.0/0: 172.19.0.3 0.0.0.0
+-- egressmap.empty --
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: node1
+    kubernetes.io/os: linux
+  name: node1
+spec:
+  addresses:
+  - ip: 172.19.0.2
+    type: InternalIP
+  - ip: 10.244.1.154
+    type: CiliumInternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+    pools: {}
+
+-- node2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: node2
+    node.kubernetes.io/name: node2
+    kubernetes.io/os: linux
+  name: node2
+spec:
+  addresses:
+  - ip: 172.19.0.3
+    type: InternalIP
+  - ip: 10.244.2.1
+    type: CiliumInternalIP
+  - ip: 10.168.60.100
+    type: ExternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.2.0/24
+    pools: {}
+
+-- ciliumendpoint.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  creationTimestamp: "2025-02-26T09:41:10Z"
+  generation: 1
+  labels:
+    org: empire
+  name: mediabot-1
+  namespace: default
+  resourceVersion: "726"
+  uid: fe8c8750-0fe0-43e6-b088-f02d39e10eeb
+status:
+  external-identifiers:
+    k8s-namespace: default
+    k8s-pod-name: mediabot-1
+    pod-name: default/mediabot-1
+  id: 351
+  identity:
+    id: 1000
+    labels:
+    - k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default
+    - k8s:io.kubernetes.pod.namespace=default
+    - k8s:org=empire
+  named-ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  networking:
+    addressing:
+    - ipv4: 10.244.0.112
+    node: 172.19.0.3
+  state: ready
+
+-- cegp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: egress-sample
+spec:
+  # Specify which pods should be subject to the current policy.
+  # Multiple pod selectors can be specified.
+  selectors:
+  - podSelector:
+      matchLabels:
+        org: empire
+  # Specify which destination CIDR(s) this policy applies to.
+  # Multiple CIDRs can be specified.
+  destinationCIDRs:
+  - "0.0.0.0/0"
+  # Configure the gateway node.
+  egressGateway:
+    # Specify which node should act as gateway for this policy.
+    nodeSelector:
+      matchLabels:
+        node.kubernetes.io/name: node2
+    # Specify the IP address used to SNAT traffic matched by the policy.
+    # It must exist as an IP associated with a network interface on the instance.
+    egressIP: 10.168.60.100
+    # Alternatively it's possible to specify the interface to be used for egress traffic.
+    # In this case the first IPv4 assigned to that interface will be used as egress IP.
+    # interface: enp0s8
