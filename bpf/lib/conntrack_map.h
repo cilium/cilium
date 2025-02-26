@@ -15,6 +15,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_TCP);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } CT_MAP_TCP6 __section_maps_btf;
 
 struct {
@@ -23,6 +24,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_ANY);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } CT_MAP_ANY6 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -109,6 +111,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_TCP);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } CT_MAP_TCP4 __section_maps_btf;
 
 struct {
@@ -117,6 +120,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_ANY);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } CT_MAP_ANY4 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
