@@ -4,6 +4,7 @@
 package ipam
 
 import (
+	"log/slog"
 	"net"
 
 	"github.com/davecgh/go-spew/spew"
@@ -86,6 +87,8 @@ type Allocator interface {
 
 // IPAM is the configuration used for a particular IPAM type.
 type IPAM struct {
+	logger *slog.Logger
+
 	nodeAddressing types.NodeAddressing
 	config         *option.DaemonConfig
 

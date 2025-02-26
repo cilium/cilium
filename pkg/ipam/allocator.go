@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -116,11 +116,12 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 		result.IPPoolName = PoolDefault()
 	}
 
-	log.WithFields(logrus.Fields{
-		"ip":    ip.String(),
-		"owner": owner,
-		"pool":  result.IPPoolName,
-	}).Debugf("Allocated specific IP")
+	ipam.logger.Debug(
+		"Allocated specific IP",
+		logfields.IPAddr, ip,
+		logfields.Owner, owner,
+		logfields.PoolName, result.IPPoolName,
+	)
 
 	ipam.registerIPOwner(ip, owner, pool)
 	metrics.IPAMEvent.WithLabelValues(metricAllocate, string(family)).Inc()
@@ -171,11 +172,12 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 		}
 
 		if _, ok := ipam.isIPExcluded(result.IP, pool); !ok {
-			log.WithFields(logrus.Fields{
-				"ip":    result.IP.String(),
-				"pool":  result.IPPoolName,
-				"owner": owner,
-			}).Debugf("Allocated random IP")
+			ipam.logger.Debug(
+				"Allocated random IP",
+				logfields.IPAddr, result.IP,
+				logfields.PoolName, result.IPPoolName,
+				logfields.Owner, owner,
+			)
 			ipam.registerIPOwner(result.IP, owner, pool)
 			metrics.IPAMEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 			return
@@ -288,10 +290,11 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 	}
 
 	owner := ipam.releaseIPOwner(ip, pool)
-	log.WithFields(logrus.Fields{
-		"ip":    ip.String(),
-		"owner": owner,
-	}).Debugf("Released IP")
+	ipam.logger.Debug(
+		"Released IP",
+		logfields.IPAddr, ip,
+		logfields.Owner, owner,
+	)
 
 	key := timerKey{ip: ip.String(), pool: pool}
 	if t, ok := ipam.expirationTimers[key]; ok {
@@ -405,11 +408,21 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 
 		if t, ok := ipam.expirationTimers[key]; ok {
 			if t.uuid == allocationUUID {
-				scopedLog := log.WithFields(logrus.Fields{"ip": ip, "pool": pool, "uuid": allocationUUID})
 				if err := ipam.releaseIPLocked(ip, pool); err != nil {
-					scopedLog.WithError(err).Warning("Unable to release IP after expiration")
+					ipam.logger.Warn(
+						"Unable to release IP after expiration",
+						logfields.Error, err,
+						logfields.IPAddr, ip,
+						logfields.PoolName, pool,
+						logfields.UUID, allocationUUID,
+					)
 				} else {
-					scopedLog.Warning("Released IP after expiration")
+					ipam.logger.Warn(
+						"Released IP after expiration",
+						logfields.IPAddr, ip,
+						logfields.PoolName, pool,
+						logfields.UUID, allocationUUID,
+					)
 				}
 			} else {
 				// This is an obsolete expiration timer. The IP

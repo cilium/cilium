@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -243,6 +244,7 @@ func TestNodesPodCIDRManager_Delete(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:              hivetest.Logger(t),
 			k8sReSyncController: tt.fields.k8sReSyncController,
 			k8sReSync:           tt.fields.k8sReSync,
 			canAllocatePodCIDRs: tt.fields.canAllocateNodes,
@@ -289,6 +291,7 @@ func TestNodesPodCIDRManager_Resync(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:    hivetest.Logger(t),
 			k8sReSync: tt.fields.k8sReSync,
 		}
 		n.Resync(context.Background(), time.Time{})
@@ -524,6 +527,7 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:              hivetest.Logger(t),
 			k8sReSyncController: tt.fields.k8sReSyncController,
 			k8sReSync:           tt.fields.k8sReSync,
 			canAllocatePodCIDRs: tt.fields.canAllocateNodes,
@@ -866,6 +870,7 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:              hivetest.Logger(t),
 			canAllocatePodCIDRs: tt.fields.canAllocatePodCIDRs,
 			v4CIDRAllocators:    tt.fields.v4ClusterCIDRs,
 			v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
@@ -1071,6 +1076,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:           hivetest.Logger(t),
 			v4CIDRAllocators: tt.fields.v4ClusterCIDRs,
 			v6CIDRAllocators: tt.fields.v6ClusterCIDRs,
 			nodes:            tt.fields.nodes,
@@ -1191,6 +1197,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 	for _, tt := range tests {
 		tt.fields = tt.testSetup()
 		n := &NodesPodCIDRManager{
+			logger:           hivetest.Logger(t),
 			v4CIDRAllocators: tt.fields.v4ClusterCIDRs,
 			v6CIDRAllocators: tt.fields.v6ClusterCIDRs,
 			nodes:            tt.fields.nodes,
@@ -1695,7 +1702,7 @@ func Test_syncToK8s(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.testSetup()
-		gotErr := syncToK8s(tt.args.nodeGetter, tt.args.ciliumNodesToK8s) != nil
+		gotErr := syncToK8s(hivetest.Logger(t), tt.args.nodeGetter, tt.args.ciliumNodesToK8s) != nil
 		require.Equal(t, tt.wantErr, gotErr, "Test Name: %s", tt.name)
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.args)
@@ -1726,7 +1733,7 @@ func TestNewNodesPodCIDRManager(t *testing.T) {
 	}
 	updateK8sInterval = time.Second
 
-	nm := NewNodesPodCIDRManager(nil, nil, nodeGetter, nil)
+	nm := NewNodesPodCIDRManager(hivetest.Logger(t), nil, nil, nodeGetter, nil)
 	nm.k8sReSync.Trigger()
 	// Waiting 2 times the amount of time set in the trigger
 	time.Sleep(2 * time.Second)

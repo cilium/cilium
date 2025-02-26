@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,7 +44,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			events <- "upsert"
 		},
 	}
-	c := newMultiPoolManager(fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
+	c := newMultiPoolManager(hivetest.Logger(t), fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
 	// set custom preAllocMap to not rely on option.Config in unit tests
 	c.preallocatedIPsPerPool = preAllocatePerPool{
 		"default": 16,
@@ -423,7 +424,8 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	}
 
 	pending := pendingAllocationsPerPool{
-		pools: map[Pool]pendingAllocationsPerOwner{},
+		logger: hivetest.Logger(t),
+		pools:  map[Pool]pendingAllocationsPerOwner{},
 		clock: func() time.Time {
 			return now
 		},
