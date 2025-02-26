@@ -171,7 +171,7 @@ type Repository struct {
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
-	return p.l7RulesTranslator.GetEnvoyHTTPRules(l7Rules, ns, p.secretManager.GetSecretSyncNamespace())
+	return p.l7RulesTranslator.GetEnvoyHTTPRules(l7Rules, ns)
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
