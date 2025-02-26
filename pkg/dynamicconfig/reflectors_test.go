@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option/resolver"
 )
 
@@ -159,7 +158,7 @@ func TestParseNodeConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(logging.SlogNopHandler)
+			logger := slog.New(slog.DiscardHandler)
 			got := parseNodeConfig(tt.node, logger)
 
 			if len(got) != len(tt.want) {

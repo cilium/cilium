@@ -18,16 +18,6 @@ import (
 // logrErrorKey is the key used by the logr library for the error parameter.
 const logrErrorKey = "err"
 
-// SlogNopHandler discards all logs.
-var SlogNopHandler slog.Handler = nopHandler{}
-
-type nopHandler struct{}
-
-func (nopHandler) Enabled(context.Context, slog.Level) bool  { return false }
-func (nopHandler) Handle(context.Context, slog.Record) error { return nil }
-func (n nopHandler) WithAttrs([]slog.Attr) slog.Handler      { return n }
-func (n nopHandler) WithGroup(string) slog.Handler           { return n }
-
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slog.LevelInfo,
