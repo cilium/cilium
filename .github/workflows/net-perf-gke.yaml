@@ -64,7 +64,6 @@ env:
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
-  k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 511.0.0
 
@@ -219,7 +218,7 @@ jobs:
           gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.gcp_zone }} \
-            --cluster-version ${{ env.k8s_version }} \
+            --release-channel=stable \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
