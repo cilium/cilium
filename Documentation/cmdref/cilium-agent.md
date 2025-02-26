@@ -35,6 +35,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-service-any duration                       Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration                       Timeout for established service entries in TCP CT table (default 2h13m20s)
       --bpf-ct-timeout-service-tcp-grace duration                 Timeout for graceful shutdown of service entries in TCP CT table (default 1m0s)
+      --bpf-distributed-lru                                       Enable per-CPU BPF LRU backend memory
       --bpf-events-drop-enabled                                   Expose 'drop' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-policy-verdict-enabled                         Expose 'policy verdict' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-trace-enabled                                  Expose 'trace' events for Cilium monitor and/or Hubble (default true)

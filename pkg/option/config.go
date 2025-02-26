@@ -93,6 +93,9 @@ const (
 	// discovery.
 	EnableL2NeighDiscovery = "enable-l2-neigh-discovery"
 
+	// BPFDistributedLRU enables per-CPU distributed backend memory
+	BPFDistributedLRU = "bpf-distributed-lru"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -2174,6 +2177,9 @@ type DaemonConfig struct {
 	BPFMapEventBuffersValidator func(val string) (string, error) `json:"-"`
 	bpfMapEventConfigs          BPFEventBufferConfigs
 
+	// BPFDistributedLRU enables per-CPU distributed backend memory
+	BPFDistributedLRU bool
+
 	// BPFEventsDropEnabled controls whether the Cilium datapath exposes "drop" events to Cilium monitor and Hubble.
 	BPFEventsDropEnabled bool
 
@@ -2298,6 +2304,7 @@ var (
 		PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
 		MaxConnectedClusters:                 defaults.MaxConnectedClusters,
 
+		BPFDistributedLRU:             defaults.BPFDistributedLRU,
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
@@ -2964,6 +2971,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
+	c.BPFDistributedLRU = vp.GetBool(BPFDistributedLRU)
 	c.BPFEventsDropEnabled = vp.GetBool(BPFEventsDropEnabled)
 	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)

@@ -29,6 +29,8 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define CILIUM_HOST_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
+#define LRU_MEM_FLAVOR 0
+
 #define TUNNEL_PORT 8472
 #define TUNNEL_PROTOCOL_VXLAN 1
 #define TUNNEL_PROTOCOL_GENEVE 2

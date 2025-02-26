@@ -134,6 +134,7 @@ struct {
 	__type(value, struct ipv4_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } LB4_REVERSE_NAT_SK_MAP __section_maps_btf;
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
@@ -621,6 +622,7 @@ struct {
 	__type(value, struct ipv6_revnat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
