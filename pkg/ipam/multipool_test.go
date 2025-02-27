@@ -136,17 +136,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	juptierIPv6CIDR := cidr.MustParseCIDR("fc00:33::/96")
 
 	faultyAllocation, err = c.allocateIP(net.ParseIP("192.168.1.1"), "jupiter-pod-0", "jupiter", IPv4, false)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 	// Try again. This should still fail, but not request an additional third IP
 	// (since the owner has already attempted to allocate). This however sets
 	// upstreamSync to 'true', which should populate .Spec.IPAM.Pools.Requested
 	// with pending requests for the "jupiter" pool
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, true)
-	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 
 	assert.Equal(t, "upsert", <-events)

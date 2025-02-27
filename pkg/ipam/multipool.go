@@ -38,6 +38,25 @@ const (
 	pendingAllocationTTL = 5 * time.Minute
 )
 
+type ErrPoolNotReadyYet struct {
+	poolName Pool
+	family   Family
+	ip       net.IP
+}
+
+func (e *ErrPoolNotReadyYet) Error() string {
+	if e.ip == nil {
+		return fmt.Sprintf("unable to allocate from pool %q (family %s): pool not (yet) available", e.poolName, e.family)
+	} else {
+		return fmt.Sprintf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", e.ip, e.poolName, e.family)
+	}
+}
+
+func (e *ErrPoolNotReadyYet) Is(err error) bool {
+	_, ok := err.(*ErrPoolNotReadyYet)
+	return ok
+}
+
 var multiPoolControllerGroup = controller.NewGroup(multiPoolControllerName)
 
 type poolPair struct {
@@ -647,7 +666,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-		return nil, fmt.Errorf("unable to allocate from pool %q (family %s): pool not (yet) available", poolName, family)
+		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family}
 	}
 
 	ip, err := pool.allocateNext()
@@ -673,7 +692,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-		return nil, fmt.Errorf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", ip, poolName, family)
+		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family, ip: ip}
 	}
 
 	err := pool.allocate(ip)
