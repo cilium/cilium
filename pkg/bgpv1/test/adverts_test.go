@@ -142,10 +142,13 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor
 	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
@@ -419,10 +422,13 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 	// setup topology
 	cfg := newFixtureConf()
 	cfg.ipam = ipam_option.IPAMMultiPool
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, cfg)
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, cfg)
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor
 	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
@@ -671,10 +677,13 @@ func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor
 	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
@@ -868,10 +877,13 @@ func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor
 	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
@@ -1065,10 +1077,13 @@ func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor
 	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
@@ -1253,10 +1268,13 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 	defer testDone()
 
 	// setup topology - iBGP (ASN == ciliumASN)
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfIBGP}, newFixtureConf())
+	gobgpPeers, fixture, ready, cleanup, err := setup(testCtx, t, []gobgpConfig{gobgpConfIBGP}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
+
+	// block till ready
+	ready()
 
 	// setup neighbor - iBGP (ASN == ciliumASN)
 	err = setupSingleNeighbor(testCtx, fixture, ciliumASN)

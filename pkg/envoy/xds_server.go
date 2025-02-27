@@ -212,6 +212,7 @@ type xdsServerConfig struct {
 	useSDS                        bool
 	proxyXffNumTrustedHopsIngress uint32
 	proxyXffNumTrustedHopsEgress  uint32
+	policyRestoreTimeout          time.Duration
 }
 
 // newXDSServer creates a new xDS GRPC server.

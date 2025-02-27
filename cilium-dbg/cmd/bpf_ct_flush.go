@@ -42,7 +42,8 @@ func (d dummyEndpoint) GetID() uint64 {
 func flushCt(eID string) {
 	var maps []*ctmap.Map
 	if eID == "global" {
-		maps = ctmap.GlobalMaps(true, getIpv6EnableStatus())
+		ipv4, ipv6 := getIpEnableStatuses()
+		maps = ctmap.GlobalMaps(ipv4, ipv6)
 	} else {
 		id, _ := strconv.Atoi(eID)
 		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)

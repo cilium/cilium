@@ -281,6 +281,6 @@ func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
 	return nil
 }
 
-func (r *fakeRestorer) WaitForInitialEnvoyPolicy(_ context.Context) error {
+func (r *fakeRestorer) WaitForInitialPolicy(_ context.Context) error {
 	return nil
 }

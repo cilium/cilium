@@ -2110,6 +2110,12 @@
           },
           "type": "object"
         },
+        "policyRestoreTimeoutDuration": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "priorityClassName": {
           "type": [
             "null",
@@ -5460,6 +5466,9 @@
       "type": "integer"
     },
     "tunnelProtocol": {
+      "type": "string"
+    },
+    "tunnelSourcePortRange": {
       "type": "string"
     },
     "updateStrategy": {

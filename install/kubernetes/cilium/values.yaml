@@ -2336,6 +2336,11 @@ envoy:
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyEgress: 0
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Max duration to wait for endpoint policies to be restored on restart. Default "3m".
+  policyRestoreTimeoutDuration: null
   # -- Envoy container image.
   image:
     # @schema
@@ -2662,6 +2667,9 @@ routingMode: ""
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
+# -- Configure VXLAN and Geneve tunnel source port range hint.
+# @default -- 0-0 to let the kernel driver decide the range
+tunnelSourcePortRange: 0-0
 # -- Configure what the response should be to traffic for a service without backends.
 # Possible values:
 #  - reject (default)
