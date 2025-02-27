@@ -659,7 +659,7 @@ jobs:
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
           mkdir -p cilium-junits
 
@@ -715,7 +715,7 @@ jobs:
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during upgrade
         if: ${{ matrix.encryption != '' }}
@@ -783,7 +783,7 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+      - name: Setup conn disrupt tests after a flush-ct Cilium tests
         shell: bash
         run: |
           cilium connectivity test \
@@ -821,7 +821,7 @@ jobs:
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
         if: ${{ matrix.encryption != '' }}
