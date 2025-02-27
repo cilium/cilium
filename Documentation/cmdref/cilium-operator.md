@@ -14,7 +14,6 @@ cilium-operator [flags]
       --alibaba-cloud-vpc-id string                          Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
       --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
-      --aws-instance-limit-mapping map                       Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"}
       --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --azure-resource-group string                          Resource group to use for Azure IPAM
@@ -147,7 +146,6 @@ cilium-operator [flags]
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --taint-sync-workers int                               Number of workers used to synchronize node tains and conditions (default 10)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
-      --update-ec2-adapter-limit-via-api                     Use the EC2 API to update the instance type to adapter limits (default true)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
 ```
