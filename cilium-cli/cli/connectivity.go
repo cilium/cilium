@@ -209,6 +209,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.LogCodeOwners, "log-code-owners", defaults.LogCodeOwners, "Log code owners for tests that fail")
 	cmd.Flags().MarkHidden("log-code-owners")
+	cmd.Flags().StringSliceVar(&params.ExcludeCodeOwners, "exclude-code-owners", []string{}, "Exclude specific code owners from --log-code-owners")
+	cmd.Flags().MarkHidden("exclude-code-owners")
 	cmd.Flags().StringSliceVar(&params.LogCheckLevels, "log-check-levels", defaults.LogCheckLevels, "Log levels to check for in log messages")
 	cmd.Flags().MarkHidden("log-check-levels")
 

@@ -121,8 +121,9 @@ type Parameters struct {
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
 
-	LogCodeOwners  bool
-	LogCheckLevels []string
+	LogCodeOwners     bool
+	ExcludeCodeOwners []string
+	LogCheckLevels    []string
 
 	FlushCT               bool
 	SecondaryNetworkIface string

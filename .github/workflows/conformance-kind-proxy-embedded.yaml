@@ -112,7 +112,7 @@ jobs:
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Features tested
@@ -138,7 +138,7 @@ jobs:
         run: |
           cilium connectivity test --test="l7|sni|check-log-errors" \
             --curl-parallel 3 \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
             --junit-property github_job_step="Run connectivity test with secret sync disabled"
 
