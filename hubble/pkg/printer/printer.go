@@ -248,12 +248,17 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 }
 
 func (p Printer) getSummary(f *flowpb.Flow) string {
-	auth := p.getAuth(f)
-	if auth == "" {
-		return f.GetSummary()
+	b := strings.Builder{}
+	if f.IpTraceId != nil && f.IpTraceId.TraceId > 0 {
+		b.WriteString(fmt.Sprintf("IP Trace ID: %d; ", f.IpTraceId.TraceId))
+	}
+	b.WriteString(f.GetSummary())
+
+	if auth := p.getAuth(f); auth != "" {
+		b.WriteString("; " + auth)
 	}
 
-	return fmt.Sprintf("%s; Auth: %s", f.GetSummary(), auth)
+	return b.String()
 }
 
 func (p Printer) getAuth(f *flowpb.Flow) string {

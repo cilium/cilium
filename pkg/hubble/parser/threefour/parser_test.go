@@ -2003,6 +2003,56 @@ func TestDecode_TraceNotify(t *testing.T) {
 				TraceObservationPoint: flowpb.TraceObservationPoint_TO_STACK,
 			},
 		},
+		{
+
+			name: "v2_from_lxc",
+			event: monitor.TraceNotify{
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					TraceNotifyV0: monitor.TraceNotifyV0{
+						Type:     byte(monitorAPI.MessageTypeTrace),
+						Source:   localEP,
+						ObsPoint: monitorAPI.TraceFromLxc,
+						Reason:   monitor.TraceReasonUnknown,
+						Version:  monitor.TraceNotifyVersion2,
+					},
+				},
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+			},
+		},
+		{
+
+			name: "v2_from_lxc_with_ip_trace_id",
+			event: monitor.TraceNotify{
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					TraceNotifyV0: monitor.TraceNotifyV0{
+						Type:     byte(monitorAPI.MessageTypeTrace),
+						Source:   localEP,
+						ObsPoint: monitorAPI.TraceFromLxc,
+						Reason:   monitor.TraceReasonUnknown,
+						Version:  monitor.TraceNotifyVersion2,
+					},
+				},
+				IPTraceID: 1234,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 1234,
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -85,6 +85,9 @@ message Flow {
     // Verdict = DROPPED.
     FileInfo file = 38;
 
+    // IPTraceID relates to the trace ID in the IP options of a packet.
+    IPTraceID ip_trace_id = 39;
+
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
 
@@ -299,6 +302,11 @@ message IP {
     // This field indicates whether the TraceReasonEncryptMask is set or not.
     // https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27
     bool encrypted = 4;
+}
+
+message IPTraceID {
+    uint64 trace_id = 1;
+    uint32 ip_option_type = 2;
 }
 
 message Ethernet {
@@ -618,6 +626,8 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+    // ip_trace_id filters flows by IP trace ID
+    repeated uint64 ip_trace_id = 39;
 
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.

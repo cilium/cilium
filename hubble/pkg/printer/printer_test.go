@@ -141,7 +141,8 @@ func TestPrinter_WriteProtoFlow(t *testing.T) {
 	policyDenied.IsReply = nil
 	policyDenied.TrafficDirection = flowpb.TrafficDirection_EGRESS
 	type args struct {
-		f *flowpb.Flow
+		f     *flowpb.Flow
+		merge *flowpb.Flow
 	}
 	tests := []struct {
 		name     string
@@ -220,6 +221,26 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   K
 			expected: "Jan  1 00:20:34.567 [k8s1]: " +
 				"1.1.1.1:31793 (health) -> 2.2.2.2:8080 (ID:12345) " +
 				"Policy denied DROPPED (TCP Flags: SYN)\n",
+		},
+		{
+			name: "compact-with-trace-id",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args: args{
+				f: &f,
+				merge: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{TraceId: 1234},
+				},
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567 [k8s1]: " +
+				"1.1.1.1:31793 (health) -> 2.2.2.2:8080 (ID:12345) " +
+				"Policy denied DROPPED " +
+				"(IP Trace ID: 1234; TCP Flags: SYN)\n",
 		},
 		{
 			name: "compact-reply",
@@ -361,6 +382,33 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   K
 				`"is_reply":false,"Summary":"Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r'"}}`,
 		},
 		{
+			name: "jsonpb_with_trace",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &f,
+				merge: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						IpOptionType: 136,
+						TraceId:      1234,
+					},
+				},
+			},
+			wantErr: false,
+			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"ip_trace_id":{"trace_id":"1234","ip_option_type":136},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN"}}`,
+		},
+		{
 			name: "dict",
 			options: []Option{
 				Dict(),
@@ -420,9 +468,12 @@ DESTINATION: 2.2.2.2:8080
 	for _, tt := range tests {
 		buf.Reset()
 		t.Run(tt.name, func(t *testing.T) {
+			f := proto.Clone(tt.args.f).(*flowpb.Flow)
+			proto.Merge(f, tt.args.merge)
+
 			p := New(tt.options...)
 			res := &observerpb.GetFlowsResponse{
-				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: tt.args.f},
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: f},
 			}
 			// writes a node status event into the error stream
 			if err := p.WriteProtoFlow(res); (err != nil) != tt.wantErr {
