@@ -433,19 +433,17 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 }
 
 static __always_inline
-bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6, __u32 *tunnel_endpoint,
-					    __u32 *dst_sec_identity)
+bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6,
+					    struct remote_endpoint_info **info)
 {
 	if (egress_gw_reply_matches_policy_v6(ip6)) {
-		struct remote_endpoint_info *info;
+		struct remote_endpoint_info *egw_info;
 
-		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (!info || info->tunnel_endpoint.ip4 == 0)
+		egw_info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		if (!egw_info || egw_info->tunnel_endpoint.ip4 == 0)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint.ip4;
-		*dst_sec_identity = info->sec_identity;
-
+		*info = egw_info;
 		return true;
 	}
 
