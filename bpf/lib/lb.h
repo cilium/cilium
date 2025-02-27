@@ -1084,6 +1084,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
+	if (!backend->port) {
+		ret = DROP_PUNT_PROXY;
+		goto drop_err;
+	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
 
@@ -1871,6 +1875,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		tuple->daddr = backend->address;
 
+	if (!backend->port) {
+		ret = DROP_PUNT_PROXY;
+		goto drop_err;
+	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
 
