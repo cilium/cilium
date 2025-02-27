@@ -165,8 +165,8 @@ jobs:
                                       --collect-sysdump-on-failure \
                                       --sysdump-hubble-flows-count=1000000 \
                                       --sysdump-hubble-flows-timeout=5m \
+                                      --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
                                       --flush-ct \
-                                      --log-code-owners \
                                       ${EXTRA_CLI_FLAGS[*]}"
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
