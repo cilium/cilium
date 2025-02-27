@@ -6,6 +6,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -23,20 +24,22 @@ type ExportPodCIDRReconcilerOut struct {
 
 // exportPodCIDRReconciler is a ConfigReconciler which reconciles the
 // advertisement of the private Kubernetes PodCIDR block.
-type ExportPodCIDRReconciler struct{}
+type ExportPodCIDRReconciler struct {
+	Logger *slog.Logger
+}
 
 // ExportPodCIDRReconcilerMetadata keeps a list of all advertised Paths
 type ExportPodCIDRReconcilerMetadata []*types.Path
 
-func NewExportPodCIDRReconciler(dc *option.DaemonConfig) ExportPodCIDRReconcilerOut {
+func NewExportPodCIDRReconciler(logger *slog.Logger, dc *option.DaemonConfig) ExportPodCIDRReconcilerOut {
 	// Don't provide the reconciler if the IPAM mode is not supported
 	if !types.CanAdvertisePodCIDR(dc.IPAMMode()) {
-		log.Info("Unsupported IPAM mode, disabling PodCIDR advertisements. exportPodCIDR doesn't take effect.")
+		logger.Info("Unsupported IPAM mode, disabling PodCIDR advertisements. exportPodCIDR doesn't take effect.")
 		return ExportPodCIDRReconcilerOut{}
 	}
 
 	return ExportPodCIDRReconcilerOut{
-		Reconciler: &ExportPodCIDRReconciler{},
+		Reconciler: &ExportPodCIDRReconciler{Logger: logger},
 	}
 }
 
@@ -75,6 +78,7 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 	}
 
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
+		logger:    r.Logger,
 		ctx:       ctx,
 		name:      "pod CIDR",
 		component: "exportPodCIDRReconciler",

@@ -6,10 +6,10 @@ package reconcilerv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -26,13 +26,13 @@ type PodCIDRReconcilerOut struct {
 type PodCIDRReconcilerIn struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       *slog.Logger
 	PeerAdvert   *CiliumPeerAdvertisement
 	DaemonConfig *option.DaemonConfig
 }
 
 type PodCIDRReconciler struct {
-	logger     logrus.FieldLogger
+	logger     *slog.Logger
 	peerAdvert *CiliumPeerAdvertisement
 	metadata   map[string]PodCIDRReconcilerMetadata
 }
@@ -51,7 +51,7 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 	}
 	return PodCIDRReconcilerOut{
 		Reconciler: &PodCIDRReconciler{
-			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
+			logger:     params.Logger.With(types.ReconcilerLogField, "PodCIDR"),
 			peerAdvert: params.PeerAdvert,
 			metadata:   make(map[string]PodCIDRReconcilerMetadata),
 		},
@@ -120,7 +120,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 
 	// reconcile family advertisements
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
-		Logger:       r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:       r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
 		Router:       p.BGPInstance.Router,
 		DesiredPaths: desiredFamilyAdverts,
@@ -143,7 +143,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Reconc
 
 	// reconcile route policies
 	updatedPolicies, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
-		Logger:          r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
 		DesiredPolicies: desiredRoutePolicies,

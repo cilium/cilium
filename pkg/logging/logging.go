@@ -6,9 +6,11 @@ package logging
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -64,7 +66,7 @@ var klogErrorOverrides = []logLevelOverride{
 func initializeKLog() error {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
 
-	//Create a new flag set and set error handler
+	// Create a new flag set and set error handler
 	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
 
 	// Make sure that klog logging variables are initialized so that we can
@@ -99,6 +101,11 @@ type logLevelOverride struct {
 	matcher     *regexp.Regexp
 	targetLevel logrus.Level
 }
+
+var (
+	LevelPanic = slog.LevelError + 8
+	LevelFatal = LevelPanic + 2
+)
 
 func levelToPrintFunc(log *logrus.Entry, level logrus.Level) (func(args ...any), error) {
 	var printFunc func(args ...any)
@@ -411,4 +418,23 @@ func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
 // GetLevel returns the log level of the given logger.
 func GetLevel(logger *logrus.Logger) logrus.Level {
 	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
+}
+
+// GetSlogLevel returns the log level of the given sloger.
+func GetSlogLevel(logger FieldLogger) slog.Level {
+	switch {
+	case logger.Enabled(context.Background(), slog.LevelDebug):
+		return slog.LevelDebug
+	case logger.Enabled(context.Background(), slog.LevelInfo):
+		return slog.LevelInfo
+	case logger.Enabled(context.Background(), slog.LevelWarn):
+		return slog.LevelWarn
+	case logger.Enabled(context.Background(), slog.LevelError):
+		return slog.LevelError
+	case logger.Enabled(context.Background(), LevelPanic):
+		return LevelPanic
+	case logger.Enabled(context.Background(), LevelFatal):
+		return LevelFatal
+	}
+	return slog.LevelInfo
 }

@@ -4,6 +4,8 @@
 package bgpv1
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
@@ -24,14 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
 var Cell = cell.Module(
@@ -156,7 +152,7 @@ func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *optio
 		), resource.WithMetric("CiliumPodIPPool"))
 }
 
-func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
+func newSecretResource(logger *slog.Logger, lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
 	// Do not create this resource if the BGP Control Plane is disabled
 	if !dc.BGPControlPlaneEnabled() {
 		return nil
@@ -168,7 +164,7 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonC
 
 	// Do not create this resource if the BGP namespace is not set
 	if dc.BGPSecretsNamespace == "" {
-		log.Warn("bgp-secrets-namespace not set, will not be able to use BGP control plane auth secrets")
+		logger.Warn("bgp-secrets-namespace not set, will not be able to use BGP control plane auth secrets")
 		return nil
 	}
 

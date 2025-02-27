@@ -5,10 +5,11 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -20,10 +21,6 @@ import (
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	podCIDRTestLogger = logrus.WithField("unit_test", "reconcilerv2_podcidr")
 )
 
 // test fixtures
@@ -149,7 +146,7 @@ var (
 )
 
 func Test_PodCIDRAdvertisement(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name                  string
@@ -317,9 +314,9 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				bluePeerConfig,
 			},
 			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
-				//no pod cidr advertisement configured
-				//redPodCIDRAdvert,
-				//bluePodCIDRAdvert,
+				// no pod cidr advertisement configured
+				// redPodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				// pod cidr 1,2 already advertised, reconcile should clean this as there is no matching pod cidr advertisement.
@@ -364,7 +361,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			},
 			advertisements: []*v2alpha1.CiliumBGPAdvertisement{
 				redAdvert,
-				//bluePodCIDRAdvert,
+				// bluePodCIDRAdvert,
 			},
 			preconfiguredPaths: map[types.Family]map[string]struct{}{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
@@ -423,10 +420,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 			// initialize pod cidr reconciler
 			p := PodCIDRReconcilerIn{
-				Logger: podCIDRTestLogger,
+				Logger: hivetest.Logger(t),
 				PeerAdvert: NewCiliumPeerAdvertisement(
 					PeerAdvertisementIn{
-						Logger:          podCIDRTestLogger,
+						Logger:          hivetest.Logger(t),
 						PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
 					}),
