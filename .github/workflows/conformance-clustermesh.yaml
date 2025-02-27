@@ -327,6 +327,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com. \
@@ -572,7 +573,6 @@ jobs:
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
