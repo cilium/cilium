@@ -5,10 +5,10 @@ package reconcilerv2
 
 import (
 	"errors"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -29,13 +29,13 @@ type (
 type PeerAdvertisementIn struct {
 	cell.In
 
-	Logger          logrus.FieldLogger
+	Logger          *slog.Logger
 	PeerConfigStore store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	AdvertStore     store.BGPCPResourceStore[*v2.CiliumBGPAdvertisement]
 }
 
 type CiliumPeerAdvertisement struct {
-	logger     logrus.FieldLogger
+	logger     *slog.Logger
 	peerConfig store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	adverts    store.BGPCPResourceStore[*v2.CiliumBGPAdvertisement]
 }
@@ -61,18 +61,17 @@ func NewCiliumPeerAdvertisement(p PeerAdvertisementIn) *CiliumPeerAdvertisement 
 // Linear scan [ Advertisements ] - O(k) ( number of advertisements - 3-4 types, which is again filtered)
 func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGPNodeInstance, selectAdvertTypes ...v2.BGPAdvertisementType) (PeerAdvertisements, error) {
 	result := make(PeerAdvertisements)
-	l := p.logger.WithField(types.InstanceLogField, conf.Name)
+	l := p.logger.With(types.InstanceLogField, conf.Name)
 	for _, peer := range conf.Peers {
-		lp := l.WithField(types.PeerLogField, peer.Name)
 
 		if peer.PeerConfigRef == nil || peer.PeerConfigRef.Name == "" {
-			lp.Debug("Peer config not specified, skipping advertisement check")
+			l.Debug("Peer config not specified, skipping advertisement check", types.PeerLogField, peer.Name)
 			continue
 		}
 		peerConfig, exist, err := p.peerConfig.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
-				lp.Errorf("BUG: Peer config store is not initialized")
+				l.Error("BUG: Peer config store is not initialized", types.PeerLogField, peer.Name)
 				// If store is not initialized, we can abort the reconcile loop and retry again.
 				// There is no need to continue with the rest of the reconcilers, since they
 				// will also fail because of store being not initialized.
@@ -81,7 +80,7 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGP
 			return nil, err
 		}
 		if !exist {
-			lp.Debug("Peer config not found, skipping advertisement check")
+			l.Debug("Peer config not found, skipping advertisement check", types.PeerLogField, peer.Name)
 			continue
 		}
 

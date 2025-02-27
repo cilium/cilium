@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ var testServerParameters = types.ServerParameters{
 // TestGlobalImportPolicy verifies the presence of a global import policy. This is configured
 // internally by Cilium at startup.
 func TestGlobalImportPolicy(t *testing.T) {
-	router, err := NewGoBGPServer(context.Background(), log, testServerParameters)
+	router, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), testServerParameters)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -76,7 +77,7 @@ func TestGlobalImportPolicy(t *testing.T) {
 func TestAddRemoveRoutePolicy(t *testing.T) {
 	for _, tt := range types.TestCommonRoutePolicies {
 		t.Run(tt.Name, func(t *testing.T) {
-			router, err := NewGoBGPServer(context.Background(), log, testServerParameters)
+			router, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), testServerParameters)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
