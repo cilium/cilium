@@ -998,6 +998,9 @@ const (
 
 	// EnableExtendedIPProtocols controls whether traffic with extended IP protocols is supported in datapath.
 	EnableExtendedIPProtocols = "enable-extended-ip-protocols"
+
+	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
+	IPTracingOptionType = "ip-tracing-option-type"
 )
 
 // Default string arguments
@@ -1889,6 +1892,9 @@ type DaemonConfig struct {
 
 	// EnableExtendedIPProtocols controls whether traffic with extended IP protocols is supported in datapath
 	EnableExtendedIPProtocols bool
+
+	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
+	IPTracingOptionType uint
 }
 
 var (
@@ -1947,6 +1953,8 @@ var (
 		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
 
 		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
+
+		IPTracingOptionType: defaults.IPTracingOptionType,
 	}
 )
 
@@ -2580,6 +2588,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
+	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {

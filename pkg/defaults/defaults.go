@@ -537,6 +537,9 @@ const (
 
 	// EnableExtendedIPProtocols controls whether traffic with extended IP protocols is supported in datapath.
 	EnableExtendedIPProtocols = false
+
+	// IPTracingOptionType is the default value for option.IPTracingOptionType
+	IPTracingOptionType = 0
 )
 
 var (
