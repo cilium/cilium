@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -77,7 +78,7 @@ func benchmarkAllocate(b *testing.B) {
 	maxID := idpool.ID(256 + b.N)
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID))
+	a, err := allocator.NewAllocator(hivetest.Logger(b), TestAllocatorKey(""), backend, allocator.WithMax(maxID))
 	require.NoError(b, err)
 	require.NotNil(b, a)
 	defer a.DeleteAllKeys()
@@ -102,7 +103,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
 	backend1, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
-	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend1, allocator.WithMax(maxID), allocator.WithoutGC())
+	allocator, err := allocator.NewAllocator(hivetest.Logger(b), TestAllocatorKey(""), backend1, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(b, err)
 	shortKey := TestAllocatorKey("1;")
 
@@ -209,7 +210,7 @@ func benchmarkGC(b *testing.B) {
 	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(b, err)
-	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
+	allocator, err := allocator.NewAllocator(hivetest.Logger(b), TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(b, err)
 	require.NotNil(b, allocator)
 	defer allocator.DeleteAllKeys()
@@ -264,7 +265,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	require.NoError(b, err)
 
 	maxID1 := idpool.ID(4 + b.N)
-	allocator1, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID1), allocator.WithoutGC())
+	allocator1, err := allocator.NewAllocator(hivetest.Logger(b), TestAllocatorKey(""), backend, allocator.WithMax(maxID1), allocator.WithoutGC())
 	require.NoError(b, err)
 	require.NotNil(b, allocator1)
 
@@ -287,7 +288,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 
 	minID2 := maxID1 + 1
 	maxID2 := minID2 + 4
-	allocator2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMin(minID2), allocator.WithMax(maxID2), allocator.WithoutGC())
+	allocator2, err := allocator.NewAllocator(hivetest.Logger(b), TestAllocatorKey(""), backend2, allocator.WithMin(minID2), allocator.WithMax(maxID2), allocator.WithoutGC())
 	require.NoError(b, err)
 	require.NotNil(b, allocator2)
 
@@ -340,8 +341,7 @@ func TestAllocateCached(t *testing.T) {
 func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend,
-		allocator.WithMax(maxID), allocator.WithoutGC())
+	a, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
@@ -371,8 +371,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	// Create a 2nd allocator, refill it
 	backend2, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "r", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2,
-		allocator.WithMax(maxID), allocator.WithoutGC())
+	a2, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend2, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(t, err)
 	require.NotNil(t, a2)
 
@@ -435,7 +434,7 @@ func testKeyToID(t *testing.T) {
 	allocatorName := randomTestName()
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend)
+	a, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend)
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
@@ -466,7 +465,7 @@ func testGetNoCache(t *testing.T, maxID idpool.ID) {
 	allocatorName := randomTestName()
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{allocatorName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
+	allocator, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	require.NoError(t, err)
 	require.NotNil(t, allocator)
 
@@ -550,7 +549,7 @@ func testRemoteCache(t *testing.T) {
 	testName := randomTestName()
 	backend, err := NewKVStoreBackend(KVStoreBackendConfiguration{testName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(idpool.ID(256)))
+	a, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, allocator.WithMax(idpool.ID(256)))
 	require.NoError(t, err)
 	require.NotNil(t, a)
 
@@ -593,8 +592,7 @@ func testRemoteCache(t *testing.T) {
 	// watch the prefix in the same kvstore via a 2nd watcher
 	backend2, err := NewKVStoreBackend(KVStoreBackendConfiguration{testName, "a", TestAllocatorKey(""), kvstore.Client()})
 	require.NoError(t, err)
-	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)),
-		allocator.WithoutAutostart(), allocator.WithoutGC())
+	a2, err := allocator.NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)), allocator.WithoutAutostart(), allocator.WithoutGC())
 	require.NoError(t, err)
 
 	rc := a.NewRemoteCache("remote", a2)

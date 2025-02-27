@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator/doublewrite"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -276,7 +277,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		if m.maxAllocAttempts > 0 {
 			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
 		}
-		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend, allocOptions...)
+		a, err := allocator.NewAllocator(logging.DefaultSlogLogger, &key.GlobalIdentity{}, backend, allocOptions...)
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
@@ -802,7 +803,8 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 		return nil, fmt.Errorf("error setting up remote allocator backend: %w", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend,
+	remoteAlloc, err := allocator.NewAllocator(logging.DefaultSlogLogger,
+		&key.GlobalIdentity{}, remoteAllocatorBackend,
 		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
 		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
 		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
