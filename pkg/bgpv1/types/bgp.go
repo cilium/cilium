@@ -21,8 +21,12 @@ const (
 	LabelNeighborAsn   = "neighbor_asn"
 	LabelAfi           = "afi"
 	LabelSafi          = "safi"
+	LabelResourceKind  = "resource_kind"
+	LabelResourceName  = "resource_name"
 
-	MetricsSubsystem = "bgp_control_plane"
+	MetricsSubsystem                  = "bgp_control_plane"
+	MetricReconcileErrorsTotal        = "reconcile_errors_total"
+	MetricReconcileRunDurationSeconds = "reconcile_run_duration_seconds"
 )
 
 // BGPGlobal contains high level BGP configuration for given instance.

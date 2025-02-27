@@ -11,19 +11,28 @@ import (
 
 // BGPOperatorMetrics contains all metrics for the BGP control plane operator.
 type BGPOperatorMetrics struct {
-	// BGPClusterConfigErrorCount is the number of errors during reconciliation of the cluster
-	// configuration.
-	BGPClusterConfigErrorCount metric.Vec[metric.Counter]
+	// ReconcileErrorsTotal is the number of errors during reconciliation of BGP configuration.
+	ReconcileErrorsTotal metric.Vec[metric.Counter]
+
+	// ReconcileRunDuration measures the duration of the reconciliation run. Histogram can
+	// be used to observe the total number of reconciliation runs and distribution of the run duration.
+	ReconcileRunDuration metric.Vec[metric.Observer]
 }
 
 // NewBGPOperatorMetrics returns a new BGPOperatorMetrics with all metrics initialized.
 func NewBGPOperatorMetrics() *BGPOperatorMetrics {
 	return &BGPOperatorMetrics{
-		BGPClusterConfigErrorCount: metric.NewCounterVec(metric.CounterOpts{
+		ReconcileErrorsTotal: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: types.MetricsSubsystem,
-			Name:      "cluster_config_error_count",
+			Name:      types.MetricReconcileErrorsTotal,
 			Help:      "The number of errors during reconciliation of the cluster configuration.",
-		}, []string{types.LabelClusterConfig}),
+		}, []string{types.LabelResourceKind, types.LabelResourceName}),
+		ReconcileRunDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: types.MetricsSubsystem,
+			Name:      types.MetricReconcileRunDurationSeconds,
+			Help:      "The duration of the BGP reconciliation run",
+		}, nil),
 	}
 }
