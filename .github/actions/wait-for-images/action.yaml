@@ -17,16 +17,10 @@ runs:
     - name: Wait for images
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          SHA="${{ inputs.SHA }}"
-        else
-          SHA="${{ github.sha }}"
-        fi
-
         for image in ${{ inputs.images }} ; do
-          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:$SHA &> /dev/null
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ inputs.SHA }} &> /dev/null
           do
-            echo "Waiting for quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:$SHA image to become available..."
+            echo "Waiting for quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ inputs.SHA }} image to become available..."
             sleep 45s
           done
         done
