@@ -107,6 +107,8 @@ func registerCECReflector(
 			spec.Resources,
 			len(spec.Services) > 0,
 			useOriginalSourceAddress(objMeta),
+			useL7Identity(objMeta),
+			useL7EndpointIdentity(objMeta),
 			true,
 		)
 		if err != nil {

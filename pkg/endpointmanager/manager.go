@@ -36,10 +36,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+var LaunchTime = 30 * time.Second
+
 var (
 	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
 	metricsOnce sync.Once
-	launchTime  = 30 * time.Second
 
 	endpointGCControllerGroup = controller.NewGroup("endpoint-gc")
 )
@@ -722,7 +723,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 func (mgr *endpointManager) AddIngressEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
+	policyGetter PolicyRepoGetter,
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
@@ -737,7 +738,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 		return err
 	}
 
-	ep.InitWithIngressLabels(ctx, launchTime)
+	ep.InitWithIngressLabels(ctx, LaunchTime, nil)
 
 	return nil
 }
@@ -745,7 +746,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 func (mgr *endpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
+	policyGetter PolicyRepoGetter,
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
@@ -767,7 +768,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	return nil
 }
 
-type policyRepoGetter interface {
+type PolicyRepoGetter interface {
 	GetPolicyRepository() policy.PolicyRepository
 }
 
@@ -795,7 +796,7 @@ func (mgr *endpointManager) initHostEndpointLabels(ctx context.Context, ep *endp
 		return
 	}
 
-	ep.InitWithNodeLabels(ctx, ln.Labels, launchTime)
+	ep.InitWithNodeLabels(ctx, ln.Labels, LaunchTime)
 
 	// Start the observer to keep the labels synchronized in case they change
 	mgr.startNodeLabelsObserver(ln.Labels)

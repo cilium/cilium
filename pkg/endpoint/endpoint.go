@@ -147,7 +147,7 @@ type Endpoint struct {
 	owner regeneration.Owner
 
 	// policyGetter can get the policy.Repository object.
-	policyGetter policyRepoGetter
+	policyGetter PolicyRepoGetter
 
 	// namedPortsGetter can get the ipcache.IPCache object.
 	namedPortsGetter namedPortsGetter
@@ -468,7 +468,7 @@ type namedPortsGetter interface {
 	GetNamedPorts() (npm types.NamedPortMultiMap)
 }
 
-type policyRepoGetter interface {
+type PolicyRepoGetter interface {
 	GetPolicyRepository() policy.PolicyRepository
 }
 
@@ -558,7 +558,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewTestEndpointWithState creates a new endpoint useful for testing purposes
 //
 // Note: This function is intended for testing purposes only and should not be used in production code.
-func NewTestEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
+func NewTestEndpointWithState(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
 	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
 	ep.SetPropertyValue(PropertyFakeEndpoint, true)
@@ -572,7 +572,7 @@ func NewTestEndpointWithState(owner regeneration.Owner, policyGetter policyRepoG
 	return ep
 }
 
-func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
+func createEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:            owner,
 		policyGetter:     policyGetter,
@@ -635,7 +635,7 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+func CreateIngressEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, "")
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
@@ -666,7 +666,7 @@ func CreateIngressEndpoint(owner regeneration.Owner, policyGetter policyRepoGett
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+func CreateHostEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
@@ -921,7 +921,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
+func parseEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		owner:            owner,
 		namedPortsGetter: namedPortsGetter,
@@ -1950,13 +1950,14 @@ func (e *Endpoint) IsInit() bool {
 
 // InitWithIngressLabels initializes the endpoint with reserved:ingress.
 // It should only be used for the host endpoint.
-func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Duration) {
+func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Duration, extraLabels labels.Labels) {
 	if !e.isIngress {
 		return
 	}
 
 	epLabels := labels.Labels{}
 	epLabels.MergeLabels(labels.LabelIngress)
+	epLabels.MergeLabels(extraLabels)
 
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)

@@ -40,6 +40,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
 	cell.ProvidePrivate(newPortAllocator),
+	cell.ProvidePrivate(newIngressEndpointManager),
 
 	experimentalCell,
 )
@@ -74,6 +75,8 @@ type reconcilerParams struct {
 	LocalNodeStore *node.LocalNodeStore
 
 	EndpointResources resource.Resource[*k8s.Endpoints]
+
+	IngressEndpoint *ingressEndpointManager
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {

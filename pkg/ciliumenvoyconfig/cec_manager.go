@@ -90,6 +90,8 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
+		useL7Identity(&cecObjectMeta),
+		useL7EndpointIdentity(&cecObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -353,6 +355,8 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		oldCECSpec.Resources,
 		len(oldCECSpec.Services) > 0,
 		useOriginalSourceAddress(&oldCECObjectMeta),
+		useL7Identity(&oldCECObjectMeta),
+		useL7EndpointIdentity(&oldCECObjectMeta),
 		false,
 	)
 	if err != nil {
@@ -364,6 +368,8 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		newCECSpec.Resources,
 		len(newCECSpec.Services) > 0,
 		useOriginalSourceAddress(&newCECObjectMeta),
+		useL7Identity(&oldCECObjectMeta),
+		useL7EndpointIdentity(&oldCECObjectMeta),
 		true,
 	)
 	if err != nil {
@@ -467,6 +473,8 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 		cecSpec.Resources,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
+		useL7Identity(&cecObjectMeta),
+		useL7EndpointIdentity(&cecObjectMeta),
 		false,
 	)
 	if err != nil {

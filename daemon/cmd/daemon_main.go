@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1499,6 +1500,16 @@ var daemonCell = cell.Module(
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
+		func(p promise.Promise[*Daemon]) promise.Promise[regeneration.Owner] {
+			return promise.Map(p, func(d *Daemon) regeneration.Owner {
+				return d
+			})
+		},
+		func(p promise.Promise[*Daemon]) promise.Promise[endpoint.PolicyRepoGetter] {
+			return promise.Map(p, func(d *Daemon) endpoint.PolicyRepoGetter {
+				return d
+			})
+		},
 	),
 	// Provide a read-only copy of the current daemon settings to be consumed
 	// by the debuginfo API
@@ -1736,7 +1747,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	if option.Config.EnableEnvoyConfig {
-		if !d.endpointManager.IngressEndpointExists() {
+		if !d.endpointManager.IngressEndpointExists(nil) {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
 			// allocated first. This happens earlier in the agent bootstrap.
 			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4()) == 0) ||

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -79,10 +80,10 @@ type EndpointsLookup interface {
 	HostEndpointExists() bool
 
 	// GetIngressEndpoint returns the ingress endpoint.
-	GetIngressEndpoint() *endpoint.Endpoint
+	GetIngressEndpoint(labels.Labels) *endpoint.Endpoint
 
 	// IngressEndpointExists returns true if the ingress endpoint exists.
-	IngressEndpointExists() bool
+	IngressEndpointExists(labels.Labels) bool
 
 	// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
 	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
@@ -98,7 +99,7 @@ type EndpointsModify interface {
 	AddIngressEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
-		policyGetter policyRepoGetter,
+		policyGetter PolicyRepoGetter,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
@@ -108,7 +109,7 @@ type EndpointsModify interface {
 	AddHostEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
-		policyGetter policyRepoGetter,
+		policyGetter PolicyRepoGetter,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,

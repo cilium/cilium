@@ -124,7 +124,7 @@ type PortAllocator interface {
 //   - `useOriginalSourceAddr` is passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
 //   - `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 //     and as `false` if the resources are being removed or are the old version of the resources being updated. Only 'new' resources are validated.
-func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
+func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, useOriginalSourceAddr bool, useL7Identity uint32, useL7EndpointIdentity uint32, newResources bool) (envoy.Resources, error) {
 	// only validate new  resources - old ones are already applied
 	validate := newResources
 
@@ -454,7 +454,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				// Get the listener port from the listener's (main) address
 				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
 
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port))
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, useL7Identity, useL7EndpointIdentity))
 			}
 		}
 
@@ -527,19 +527,21 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16, useL7Identity uint32, useL7PolicyIdentity uint32) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
+		L7LbIdentity:             useL7Identity,
+		L7LbPolicyIdentity:       useL7PolicyIdentity,
 	}
 
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
 	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
 	// (in such a case use of the original source address would lead to broken routing for the
-	// return traffic, as it would not be sent to the this node where upstream connection
+	// return traffic, as it would not be sent to this node where upstream connection
 	// originates from).
 	//
 	// Note: This means that all non-local traffic will be identified by the destination to be

@@ -44,6 +44,8 @@ type ciliumEnvoyConfigReconciler struct {
 	mutex           lock.Mutex
 	configs         map[resource.Key]*config
 	localNodeLabels map[string]string
+
+	ingressEndpoint *ingressEndpointManager
 }
 
 type config struct {
@@ -62,6 +64,7 @@ func newCiliumEnvoyConfigReconciler(params reconcilerParams) *ciliumEnvoyConfigR
 		k8sAPIGroups:      params.K8sAPIGroups,
 		manager:           params.Manager,
 		configs:           map[resource.Key]*config{},
+		ingressEndpoint:   params.IngressEndpoint,
 	}
 }
 
@@ -226,18 +229,30 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 
 	case !isApplied && selectsLocalNode:
 		scopedLogger.Debug("New config selects the local node - adding config")
+		_, err := r.ensureIngressEndpoint(ctx, cfg.meta)
+		if err != nil {
+			return err
+		}
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
 		scopedLogger.Debug("Config now selects the local Node - adding previously filtered config")
+		_, err := r.ensureIngressEndpoint(ctx, cfg.meta)
+		if err != nil {
+			return err
+		}
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode && specMayChanged:
 		scopedLogger.Debug("Config still selects the local Node - updating applied config")
+		_, err := r.ensureIngressEndpoint(ctx, cfg.meta)
+		if err != nil {
+			return err
+		}
 		if err := r.manager.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
 			return err
 		}
