@@ -21,6 +21,7 @@
 #include "ratelimit.h"
 #include "tailcall.h"
 #include "classifiers.h"
+#include "trace_helpers.h"
 
 #define NOTIFY_DROP_VER 2
 

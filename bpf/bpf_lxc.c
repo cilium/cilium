@@ -1515,6 +1515,7 @@ int cil_from_container(struct __ctx_buff *ctx)
 	bool valid_ethertype = validate_ethertype(ctx, &proto);
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 	/* Workaround for GH-18311 where veth driver might have recorded
 	 * veth's RX queue mapping instead of leaving it at 0. This can
@@ -2388,6 +2389,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 #if defined(ENABLE_L7_LB)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
