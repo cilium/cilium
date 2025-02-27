@@ -871,6 +871,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableExtendedIPProtocols, defaults.EnableExtendedIPProtocols, "Enable traffic with extended IP protocols in datapath")
 	option.BindEnv(vp, option.EnableExtendedIPProtocols)
 
+	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
+	option.BindEnv(vp, option.IPTracingOptionType)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}
