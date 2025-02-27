@@ -348,6 +348,9 @@ Changed Metrics
 * ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_crd_only_identities``
 * ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_kvstore_only_identities``
 * The type of the ``cilium_agent_bootstrap_seconds`` metric has been changed from histogram to gauge.
+* ``cilium_agent_bgp_control_plane_reconcile_error_count`` has been renamed to ``cilium_agent_bgp_control_plane_reconcile_errors_total``.
+* ``cilium_operator_bgp_control_plane_cluster_config_error_count`` has been renamed to ``cilium_operator_bgp_control_plane_reconcile_errors_total``
+  and its label ``bgp_cluster_config`` has been replaced with labels ``resource_kind`` and ``resource_name``.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
