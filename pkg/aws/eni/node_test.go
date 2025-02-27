@@ -6,6 +6,7 @@ package eni
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/aws/eni/types"
@@ -13,7 +14,10 @@ import (
 )
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
-	n := &Node{}
+	n := &Node{
+		rootLogger: hivetest.Logger(t),
+	}
+	n.logger.Store(n.rootLogger)
 
 	// With no k8sObj defined, it should return 0
 	require.Equal(t, 0, n.GetMaximumAllocatableIPv4())

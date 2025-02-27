@@ -5,8 +5,7 @@ package eni
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
@@ -14,6 +13,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -36,6 +36,8 @@ type AlibabaCloudAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
+	logger *slog.Logger
+
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
 
@@ -49,8 +51,9 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(api AlibabaCloudAPI) *InstancesManager {
+func NewInstancesManager(logger *slog.Logger, api AlibabaCloudAPI) *InstancesManager {
 	return &InstancesManager{
+		logger:    logger.With(subsysLogAttr...),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 	}
@@ -58,7 +61,7 @@ func NewInstancesManager(api AlibabaCloudAPI) *InstancesManager {
 
 // CreateNode
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *ipam.Node) ipam.NodeOperations {
-	return &Node{k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
+	return &Node{logger: m.logger, k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
 }
 
 // HasInstance returns whether the instance is in instances
@@ -107,19 +110,19 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 
 	vpcs, err := m.api.GetVPCs(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize VPC list")
+		m.logger.Warn("Unable to synchronize VPC list", logfields.Error, err)
 		return time.Time{}
 	}
 
 	vSwitches, err := m.api.GetVSwitches(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve VPC vSwitches list")
+		m.logger.Warn("Unable to retrieve VPC vSwitches list", logfields.Error, err)
 		return time.Time{}
 	}
 
 	securityGroups, err := m.api.GetSecurityGroups(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve ECS security group list")
+		m.logger.Warn("Unable to retrieve ECS security group list", logfields.Error, err)
 		return time.Time{}
 	}
 
@@ -129,16 +132,17 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	if instanceID == "" {
 		instances, err := m.api.GetInstances(ctx, vpcs, vSwitches)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize ECS interface list")
+			m.logger.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"numInstances":      instances.NumInstances(),
-			"numVPCs":           len(vpcs),
-			"numVSwitches":      len(vSwitches),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information")
+		m.logger.Info(
+			"Synchronized ENI information",
+			logfields.NumInstances, instances.NumInstances(),
+			logfields.NumVPCs, len(vpcs),
+			logfields.NumVSwitches, len(vSwitches),
+			logfields.NumSecurityGroups, len(securityGroups),
+		)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
@@ -146,16 +150,17 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	} else {
 		instance, err := m.api.GetInstance(ctx, vpcs, vSwitches, instanceID)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize ECS interface list")
+			m.logger.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"instance":          instanceID,
-			"numVPCs":           len(vpcs),
-			"numVSwitches":      len(vSwitches),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information for the corresponding instance")
+		m.logger.Info(
+			"Synchronized ENI information for the corresponding instance",
+			logfields.InstanceID, instanceID,
+			logfields.NumVPCs, len(vpcs),
+			logfields.NumVSwitches, len(vSwitches),
+			logfields.NumSecurityGroups, len(securityGroups),
+		)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()

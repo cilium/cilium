@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -19,25 +21,25 @@ const (
 )
 
 // GetSubscriptionID retrieves the Azure subscriptionID from the Azure Instance Metadata Service
-func GetSubscriptionID(ctx context.Context) (string, error) {
-	return getMetadataString(ctx, "instance/compute/subscriptionId")
+func GetSubscriptionID(ctx context.Context, logger logging.FieldLogger) (string, error) {
+	return getMetadataString(ctx, logger, "instance/compute/subscriptionId")
 }
 
 // GetResourceGroupName retrieves the current resource group name in which the host running the Cilium Operator is located
 // This is retrieved via the Azure Instance Metadata Service
-func GetResourceGroupName(ctx context.Context) (string, error) {
-	return getMetadataString(ctx, "instance/compute/resourceGroupName")
+func GetResourceGroupName(ctx context.Context, logger logging.FieldLogger) (string, error) {
+	return getMetadataString(ctx, logger, "instance/compute/resourceGroupName")
 }
 
 // GetAzureCloudName retrieves the current Azure cloud name in which the host running the Cilium Operator is located
 // This is retrieved via the Azure Instance Metadata Service
-func GetAzureCloudName(ctx context.Context) (string, error) {
-	return getMetadataString(ctx, "instance/compute/azEnvironment")
+func GetAzureCloudName(ctx context.Context, logger logging.FieldLogger) (string, error) {
+	return getMetadataString(ctx, logger, "instance/compute/azEnvironment")
 }
 
 // getMetadataString returns the text representation of a field from the Azure IMS (instance metadata service)
 // more can be found at https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service#instance-api
-func getMetadataString(ctx context.Context, path string) (string, error) {
+func getMetadataString(ctx context.Context, logger logging.FieldLogger, path string) (string, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}
@@ -60,7 +62,11 @@ func getMetadataString(ctx context.Context, path string) (string, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.WithError(err).Errorf("Failed to close body for request %s", url)
+			subsysLog := logger.With(subsysLogAttr)
+			subsysLog.Error("Failed to close body for request",
+				logfields.Error, err,
+				logfields.URL, url,
+			)
 		}
 	}()
 

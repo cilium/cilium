@@ -51,6 +51,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -509,7 +510,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	}
 	peerSvc := peer.NewService(h.nodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
-		serveroption.WithUnixSocketListener(sockPath),
+		serveroption.WithUnixSocketListener(logging.DefaultSlogLogger, sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(hubbleObserver),
 		serveroption.WithPeerService(peerSvc),

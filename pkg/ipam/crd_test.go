@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +20,8 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -75,7 +78,7 @@ func newFakeNodeStore(conf *option.DaemonConfig, t *testing.T) *nodeStore {
 		TriggerFunc: func(reasons []string) {},
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize CiliumNode synchronization trigger")
+		logging.Fatal(hivetest.Logger(t), "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
 	}
 	store := &nodeStore{
 		allocators:         []*crdAllocator{},
@@ -100,7 +103,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 		sharedNodeStore.ownNode = cn
 	})
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil)
 	ipam.ConfigureAllocator()
 	sharedNodeStore.updateLocalNodeResource(cn)
 

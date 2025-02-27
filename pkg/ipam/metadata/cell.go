@@ -4,6 +4,8 @@
 package metadata
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
@@ -25,6 +27,8 @@ var Cell = cell.Module(
 type managerParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle    cell.Lifecycle
 	DaemonConfig *option.DaemonConfig
 
@@ -39,6 +43,7 @@ func newIPAMMetadataManager(params managerParams) Manager {
 	}
 
 	manager := &manager{
+		logger:            params.Logger,
 		db:                params.DB,
 		namespaceResource: params.NamespaceResource,
 		pods:              params.Pods,
