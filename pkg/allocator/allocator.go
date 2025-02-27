@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -23,7 +24,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
+	subsysLogAttr = []any{logfields.LogSubsys, "allocator"}
 )
 
 const (
@@ -85,6 +86,8 @@ const (
 //  3. If the node goes down, all slave keys of that node are removed after
 //     the TTL expires (auto release).
 type Allocator struct {
+	logger *slog.Logger
+
 	// events is a channel which will receive AllocatorEvent as IDs are
 	// added, modified or removed from the allocator
 	events AllocatorEventSendChan
@@ -178,8 +181,9 @@ type CacheValidator func(kind AllocatorChangeKind, id idpool.ID, key AllocatorKe
 // The allocator can be configured by passing in additional options:
 //   - WithMin(id) - minimum ID to allocate (default: 1)
 //   - WithMax(id) - maximum ID to allocate (default max(uint64))
-func NewAllocatorForGC(backend Backend, opts ...AllocatorOption) *Allocator {
+func NewAllocatorForGC(rootLogger *slog.Logger, backend Backend, opts ...AllocatorOption) *Allocator {
 	a := &Allocator{
+		logger:  rootLogger.With(subsysLogAttr...),
 		backend: backend,
 		min:     idpool.ID(1),
 		max:     idpool.ID(^uint64(0)),
@@ -304,8 +308,9 @@ type Backend interface {
 //
 // After creation, IDs can be allocated with Allocate() and released with
 // Release()
-func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
+func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
 	a := &Allocator{
+		logger:       rootLogger.With(subsysLogAttr...),
 		keyType:      typ,
 		backend:      backend,
 		min:          idpool.ID(1),
@@ -355,7 +360,7 @@ func (a *Allocator) start() {
 			select {
 			case <-a.initialListDone:
 			case <-time.After(option.Config.AllocatorListTimeout):
-				log.Fatalf("Timeout while waiting for initial allocator state")
+				logging.Fatal(a.logger, "Timeout while waiting for initial allocator state")
 			}
 			a.startLocalKeySync()
 		}()
@@ -562,14 +567,14 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		}
 
 		if firstUse {
-			log.WithField(fieldKey, k).Debug("Reserved new local key")
+			a.logger.Debug("Reserved new local key", logfields.Key, k)
 		} else {
-			log.WithField(fieldKey, k).Debug("Reusing existing local key")
+			a.logger.Debug("Reusing existing local key", logfields.Key, k)
 		}
 	}
 
 	if value != 0 {
-		log.WithField(fieldKey, k).Info("Reusing existing global key")
+		a.logger.Info("Reusing existing global key", logfields.Key, k)
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
@@ -578,13 +583,13 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 		// mark the key as verified in the local cache
 		if err := a.localKeys.verify(k); err != nil {
-			log.WithError(err).Error("BUG: Unable to verify local key")
+			a.logger.Error("BUG: Unable to verify local key", logfields.Error, err)
 		}
 
 		return value, false, firstUse, nil
 	}
 
-	log.WithField(fieldKey, k).Debug("Allocating new master ID")
+	a.logger.Debug("Allocating new master ID", logfields.Key, k)
 	id, strID, unmaskedID := a.selectAvailableID()
 	if id == 0 {
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
@@ -646,10 +651,10 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// mark the key as verified in the local cache
 	if err := a.localKeys.verify(k); err != nil {
-		log.WithError(err).Error("BUG: Unable to verify local key")
+		a.logger.Error("BUG: Unable to verify local key", logfields.Error, err)
 	}
 
-	log.WithField(fieldKey, k).Info("Allocated new global key")
+	a.logger.Info("Allocated new global key", logfields.Key, k)
 
 	return id, true, firstUse, nil
 }
@@ -673,7 +678,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		firstUse bool
 	)
 
-	log.WithField(fieldKey, key).Debug("Allocating key")
+	a.logger.Debug("Allocating key", logfields.Key, key)
 
 	select {
 	case <-a.initialListDone:
@@ -714,21 +719,27 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		value, isNew, firstUse, err = a.lockedAllocate(ctx, key)
 		if err == nil {
 			a.mainCache.insert(key, value)
-			log.WithField(fieldKey, key).WithField(fieldID, value).Debug("Allocated key")
+			a.logger.Debug("Allocated key",
+				logfields.Key, key,
+				logfields.ID, value,
+			)
 			return value, isNew, firstUse, nil
 		}
 
-		scopedLog := log.WithFields(logrus.Fields{
-			fieldKey:          key,
-			logfields.Attempt: attempt,
-		})
-
 		select {
 		case <-ctx.Done():
-			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
+			a.logger.Warn("Ongoing key allocation has been cancelled",
+				logfields.Error, ctx.Err(),
+				logfields.Key, key,
+				logfields.Attempt, attempt,
+			)
 			return 0, false, false, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
 		default:
-			scopedLog.WithError(err).Warning("Key allocation attempt failed")
+			a.logger.Warn("Key allocation attempt failed",
+				logfields.Error, err,
+				logfields.Key, key,
+				logfields.Attempt, attempt,
+			)
 		}
 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
@@ -768,21 +779,27 @@ func (a *Allocator) GetWithRetry(ctx context.Context, key AllocatorKey) (idpool.
 			return id, nil
 		}
 
-		scopedLog := log.WithFields(logrus.Fields{
-			fieldKey:          key,
-			logfields.Attempt: attempt,
-		})
-
 		select {
 		case <-ctx.Done():
-			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
+			a.logger.Warn("Ongoing key allocation has been cancelled",
+				logfields.Error, ctx.Err(),
+				logfields.Key, key,
+				logfields.Attempt, attempt,
+			)
 			return idpool.NoID, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
 		default:
-			scopedLog.WithError(err).Debug("CiliumIdentity not yet created by cilium-operator, retrying...")
+			a.logger.Debug("CiliumIdentity not yet created by cilium-operator, retrying...",
+				logfields.Error, err,
+				logfields.Key, key,
+				logfields.Attempt, attempt,
+			)
 		}
 
 		if waitErr := boff.Wait(ctx); waitErr != nil {
-			scopedLog.Warning("timed out waiting for cilium-operator to allocate CiliumIdentity")
+			a.logger.Warn("timed out waiting for cilium-operator to allocate CiliumIdentity",
+				logfields.Key, key,
+				logfields.Attempt, attempt,
+			)
 			return idpool.NoID, fmt.Errorf("timed out waiting for cilium-operator to allocate CiliumIdentity for key %v, error: %w", key.GetKey(), waitErr)
 		}
 	}
@@ -892,11 +909,11 @@ func (a *Allocator) GetByIDIncludeRemoteCaches(ctx context.Context, id idpool.ID
 // the returned lastUse value is true.
 func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error) {
 	if a.operatorIDManagement {
-		log.WithField(fieldKey, key).Debug("Skipping key release when cilium-operator ID management is enabled")
+		a.logger.Debug("Skipping key release when cilium-operator ID management is enabled", logfields.Key, key)
 		return false, nil
 	}
 
-	log.WithField(fieldKey, key).Info("Releasing key")
+	a.logger.Info("Releasing key", logfields.Key, key)
 
 	select {
 	case <-a.initialListDone:
@@ -969,10 +986,11 @@ func (a *Allocator) syncLocalKey(ctx context.Context, id idpool.ID, key Allocato
 	}
 	err := a.backend.UpdateKey(ctx, id, key, false)
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			fieldKey: key,
-			fieldID:  id,
-		}).Warning("Error updating key")
+		a.logger.Warn(
+			"Error updating key",
+			logfields.Key, key,
+			logfields.ID, id,
+		)
 	}
 
 	// Check if the key is still in use locally. Given its expected it's still
@@ -992,16 +1010,19 @@ func (a *Allocator) syncLocalKey(ctx context.Context, id idpool.ID, key Allocato
 	if newId := a.localKeys.lookupKey(encodedKey); newId == idpool.NoID {
 		ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
 		defer cancel()
-		log.WithFields(logrus.Fields{
-			fieldKey: key,
-			fieldID:  id,
-		}).Warning("Releasing now unused key that was re-recreated")
+		a.logger.Warn(
+			"Releasing now unused key that was re-recreated",
+			logfields.Key, key,
+			logfields.ID, id,
+		)
 		err = a.backend.Release(ctx, id, key)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				fieldKey: key,
-				fieldID:  id,
-			}).Warning("Error releasing unused key")
+			a.logger.Warn(
+				"Error releasing unused key",
+				logfields.Error, err,
+				logfields.Key, key,
+				logfields.ID, id,
+			)
 		}
 	}
 }
@@ -1013,7 +1034,7 @@ func (a *Allocator) startLocalKeySync() {
 
 			select {
 			case <-a.stopGC:
-				log.Debug("Stopped master key sync routine")
+				a.logger.Debug("Stopped master key sync routine")
 				return
 			case <-time.After(option.Config.KVstorePeriodicSync):
 			}
@@ -1074,7 +1095,7 @@ func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) Re
 // start being reported in the identities returned by the ForeachCache()
 // function. RemoteName should be unique per logical "remote".
 func (a *Allocator) watchRemoteKVStore(ctx context.Context, rc *remoteCache, onSync func(context.Context)) {
-	scopedLog := log.WithField(logfields.ClusterName, rc.name)
+	scopedLog := a.logger.With(logfields.ClusterName, rc.name)
 	scopedLog.Info("Starting remote kvstore watcher")
 
 	rc.allocator.start()
@@ -1148,7 +1169,7 @@ func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 
 	if old != nil {
 		old.cache.drain()
-		log.WithField(logfields.ClusterName, remoteName).Info("Remote kvstore watcher unregistered")
+		a.logger.Info("Remote kvstore watcher unregistered", logfields.ClusterName, remoteName)
 	}
 }
 
