@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -21,6 +20,13 @@ func (p *ProxyPorts) released(pp *ProxyPort) bool {
 	defer p.mutex.Unlock()
 
 	return pp.nRedirects == 0 && pp.ProxyPort == 0 && !pp.configured && !pp.acknowledged
+}
+
+func (p *ProxyPorts) zeroProxyPort(pp *ProxyPort) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	return pp.ProxyPort == 0
 }
 
 func TestPortAllocator(t *testing.T) {
@@ -280,7 +286,9 @@ func TestRestoredPort(t *testing.T) {
 
 	// wait for port reuse wait to pass
 	// waiting time is set up to 1s (instead of exactly 1ms) to avoid potential flake in CI
-	require.Eventually(t, func() bool { return assert.Zero(t, pp.ProxyPort) }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool {
+		return p.zeroProxyPort(pp)
+	}, time.Second, time.Millisecond)
 	require.False(t, pp.configured)
 	require.False(t, pp.acknowledged)
 
