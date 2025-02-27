@@ -363,5 +363,6 @@
   kpr: 'false'
   ipv6: 'true'
   ipv4: 'false'
-  tunnel: 'disabled'
+  tunnel: 'vxlan'
+  underlay: 'ipv6'
   skip-upgrade: 'true'

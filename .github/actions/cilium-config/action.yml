@@ -19,6 +19,9 @@ inputs:
   ipv6:
     description: 'Enable IPv6'
     default: 'true'
+  underlay:
+    description: 'Underlay protocol for the VXLAN or GENEVE tunnels'
+    default: 'ipv4'
   kpr:
     description: 'Enable kube-proxy replacement'
     default: 'false'
@@ -137,6 +140,9 @@ runs:
           IPV6=""
           if [ "${{ inputs.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
+            if [ "${{ inputs.underlay }}" == "ipv6" ]; then
+              IPV6+=" --helm-set=underlayProtocol=ipv6"
+            fi
           fi
 
           MASQ=""
