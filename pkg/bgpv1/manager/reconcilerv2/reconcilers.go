@@ -6,12 +6,13 @@ package reconcilerv2
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -68,7 +69,7 @@ var ConfigReconcilers = cell.Provide(
 )
 
 // GetActiveReconcilers returns a list of reconcilers in order of priority that should be used to reconcile the BGP config.
-func GetActiveReconcilers(log logrus.FieldLogger, reconcilers []ConfigReconciler) []ConfigReconciler {
+func GetActiveReconcilers(logger *slog.Logger, reconcilers []ConfigReconciler) []ConfigReconciler {
 	recMap := make(map[string]ConfigReconciler)
 	for _, r := range reconcilers {
 		if r == nil {
@@ -76,23 +77,38 @@ func GetActiveReconcilers(log logrus.FieldLogger, reconcilers []ConfigReconciler
 		}
 		if existing, exists := recMap[r.Name()]; exists {
 			if existing.Priority() == r.Priority() {
-				log.Warnf("Skipping duplicate BGP v2 reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				logger.Warn(
+					"Skipping duplicate BGP v2 reconciler with the same priority",
+					types.ReconcilerLogField, existing.Name(),
+					types.ExistingPriorityLogField, existing.Priority(),
+				)
 				continue
 			}
 			if existing.Priority() < r.Priority() {
-				log.Debugf("Skipping BGP v2 reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
-					r.Name(), r.Priority(), existing.Priority())
+				logger.Debug(
+					"Skipping BGP v2 reconciler as it has lower priority than the existing one",
+					types.ReconcilerLogField, r.Name(),
+					types.PriorityLogField, r.Priority(),
+					types.ExistingPriorityLogField, existing.Priority(),
+				)
 				continue
 			}
-			log.Debugf("Overriding existing BGP v2 reconciler %s (priority %d) with higher priority one (%d)",
-				existing.Name(), existing.Priority(), r.Priority())
+			logger.Debug(
+				"Overriding existing BGP v2 reconciler with a higher priority one",
+				types.ReconcilerLogField, existing.Name(),
+				types.ExistingPriorityLogField, existing.Priority(),
+				types.PriorityLogField, r.Priority(),
+			)
 		}
 		recMap[r.Name()] = r
 	}
 
 	var activeReconcilers []ConfigReconciler
 	for _, r := range recMap {
-		log.Debugf("Adding BGP v2 reconciler: %v (priority %d)", r.Name(), r.Priority())
+		logger.Debug("Adding BGP v2 reconciler",
+			types.ReconcilerLogField, r.Name(),
+			types.PriorityLogField, r.Priority(),
+		)
 		activeReconcilers = append(activeReconcilers, r)
 	}
 	sort.Slice(activeReconcilers, func(i, j int) bool {

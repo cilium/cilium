@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -197,6 +198,7 @@ func TestControllerSanity(t *testing.T) {
 			}
 
 			c := agent.Controller{
+				Logger:             hivetest.Logger(t),
 				PolicyLister:       policyLister,
 				BGPMgr:             rtmgr,
 				LocalCiliumNode:    node,
@@ -263,6 +265,7 @@ func TestDeselection(t *testing.T) {
 	}
 
 	c := agent.Controller{
+		Logger:             hivetest.Logger(t),
 		PolicyLister:       policyLister,
 		BGPMgr:             rtmgr,
 		LocalCiliumNode:    node,
@@ -538,7 +541,7 @@ func TestPolicySelection(t *testing.T) {
 				}
 			}
 			// call function under test
-			policy, err := agent.PolicySelection(tt.nodeLabels, policies)
+			policy, err := agent.PolicySelection(hivetest.Logger(t), tt.nodeLabels, policies)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("expected err: %v", (tt.err == nil))
 			}
@@ -726,6 +729,7 @@ func TestBGPModeSelection(t *testing.T) {
 			cm.Set(tt.initialMode)
 
 			c := agent.Controller{
+				Logger: hivetest.Logger(t),
 				PolicyLister: &agent.MockCiliumBGPPeeringPolicyLister{
 					List_: policyLister,
 				},
