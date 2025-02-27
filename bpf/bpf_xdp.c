@@ -362,6 +362,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 __section_entry
 int cil_xdp_entry(struct __ctx_buff *ctx)
 {
+	check_and_store_ip_trace_id(ctx);
 	return check_filters(ctx);
 }
 
