@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -166,7 +167,7 @@ func TestGetRoutes(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
 			require.NoError(t, err)
 
 			testSC.Config = &v2alpha1.CiliumBGPVirtualRouter{

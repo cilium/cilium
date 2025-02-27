@@ -6,13 +6,11 @@ package test
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
@@ -36,19 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	// log is used in the test as well as passed to gobgp instances.
-	log = &logrus.Logger{
-		Out:   os.Stdout,
-		Hooks: make(logrus.LevelHooks),
-		Formatter: &logrus.TextFormatter{
-			DisableTimestamp: false,
-			DisableColors:    false,
-		},
-		Level: logrus.DebugLevel,
-	}
 )
 
 // cilium BGP config
@@ -259,9 +244,12 @@ func setup(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, fixConf
 // start configures dummy links, starts gobgp and cilium bgp cell.
 func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixture) (peers []*goBGP, cleanup func(), err error) {
 	// cleanup old dummy links if they are hanging around
-	_ = teardownLinks()
+	// start goBGP
+	tlog := hivetest.Logger(t)
 
-	err = setupLinks()
+	_ = teardownLinks(tlog)
+
+	err = setupLinks(tlog)
 	if err != nil {
 		return
 	}
@@ -271,10 +259,9 @@ func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixt
 		return
 	}
 
-	// start goBGP
 	for _, pConf := range peerConfigs {
 		var peer *goBGP
-		peer, err = startGoBGP(ctx, pConf)
+		peer, err = startGoBGP(ctx, tlog, pConf)
 		if err != nil {
 			return
 		}
@@ -282,7 +269,6 @@ func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixt
 	}
 
 	// start cilium
-	tlog := hivetest.Logger(t)
 	err = f.hive.Start(tlog, ctx)
 	if err != nil {
 		return
@@ -294,7 +280,7 @@ func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixt
 		}
 
 		f.hive.Stop(tlog, ctx)
-		teardownLinks()
+		teardownLinks(tlog)
 	}
 
 	return

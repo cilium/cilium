@@ -4,6 +4,7 @@
 package test
 
 import (
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -60,8 +61,8 @@ var getIP = func(envPrefix, defPrefix string) netip.Prefix {
 }
 
 // setupLinks creates links defined in dummies
-func setupLinks() error {
-	log.Info("adding dummy links")
+func setupLinks(logger *slog.Logger) error {
+	logger.Info("adding dummy links")
 
 	for name := range dummies {
 		err := netlink.LinkAdd(&netlink.Dummy{
@@ -77,8 +78,8 @@ func setupLinks() error {
 }
 
 // teardownLinks deletes links defined in dummies
-func teardownLinks() error {
-	log.Info("deleting dummy links")
+func teardownLinks(logger *slog.Logger) error {
+	logger.Info("deleting dummy links")
 
 	for name := range dummies {
 		err := netlink.LinkDel(&netlink.Dummy{

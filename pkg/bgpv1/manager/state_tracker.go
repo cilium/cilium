@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -19,7 +20,10 @@ var (
 // and signals state reconciler. It will be returned when tracker go routine is closed.
 func (m *BGPRouterManager) trackInstanceStateChange(instance string, tracker chan struct{}) {
 	for range tracker {
-		m.Logger.WithField(types.InstanceLogField, instance).Debug("Event change detected for instance")
+		m.logger.Debug(
+			"Event change detected for instance",
+			types.InstanceLogField, instance,
+		)
 
 		// insert this instance in pending state modified list
 		// we can be waiting here for long since lock is also taken by main reconcile loop.
@@ -41,7 +45,10 @@ func (m *BGPRouterManager) trackInstanceStateChange(instance string, tracker cha
 	// tracker is closed, signal the main reconcile loop that this instance is deleted so it
 	// can do any necessary cleanup.
 	m.state.instanceDeletionSignal <- instance
-	m.Logger.WithField(types.InstanceLogField, instance).Debug("Instance deleted, stopping state tracker")
+	m.logger.Debug(
+		"Instance deleted, stopping state tracker",
+		types.InstanceLogField, instance,
+	)
 }
 
 // reconcileState is the main loop that reconciles the state of all instances that have pending state changes.
@@ -54,8 +61,10 @@ func (m *BGPRouterManager) reconcileState(ctx context.Context) error {
 	m.state.pendingInstancesMutex.Lock()
 	defer m.state.pendingInstancesMutex.Unlock()
 
-	m.Logger.WithField("UpdatedInstances", m.state.pendingInstances.Len()).
-		Debug("Reconciling state for instances with pending state changes")
+	m.logger.Debug(
+		"Reconciling state for instances with pending state changes",
+		types.UpdatedInstancesLogField, m.state.pendingInstances.Len(),
+	)
 
 	// process all pending instances, failed instances will be retried in next reconcile loop.
 	for instanceName := range m.state.pendingInstances {
@@ -80,9 +89,11 @@ func (m *BGPRouterManager) reconcileInstanceDeletion(ctx context.Context, instan
 			DeletedInstance: instanceName,
 		})
 		if err != nil {
-			m.Logger.WithError(err).
-				WithField(types.InstanceLogField, instanceName).
-				Error("Error while reconciling state")
+			m.logger.Error(
+				"Error while reconciling state",
+				logfields.Error, err,
+				types.InstanceLogField, instanceName,
+			)
 		}
 	}
 }

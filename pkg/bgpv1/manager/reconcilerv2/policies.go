@@ -13,12 +13,13 @@ import (
 	"strings"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -33,7 +34,7 @@ type ResourceRoutePolicyMap map[resource.Key]RoutePolicyMap
 type RoutePolicyMap map[string]*types.RoutePolicy
 
 type ReconcileRoutePoliciesParams struct {
-	Logger          logrus.FieldLogger
+	Logger          logging.FieldLogger
 	Ctx             context.Context
 	Router          types.Router
 	DesiredPolicies RoutePolicyMap
@@ -68,9 +69,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// add missing policies
 	for _, p := range toAdd {
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Adding route policy")
+		rp.Logger.Debug(
+			"Adding route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		err := rp.Router.AddRoutePolicy(rp.Ctx, types.RoutePolicyRequest{
 			DefaultExportAction: types.RoutePolicyActionReject, // do not advertise routes by default
@@ -88,9 +90,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 	for _, p := range toUpdate {
 		// As proper implementation of an update operation for complex policies would be quite involved,
 		// we resort to recreating the policies that need an update here.
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Updating (re-creating) route policy")
+		rp.Logger.Debug(
+			"Updating (re-creating) route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		existing := rp.CurrentPolicies[p.Name]
 		err := rp.Router.RemoveRoutePolicy(rp.Ctx, types.RoutePolicyRequest{Policy: existing})
@@ -113,9 +116,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 
 	// remove old policies
 	for _, p := range toRemove {
-		rp.Logger.WithFields(logrus.Fields{
-			types.PolicyLogField: p.Name,
-		}).Debug("Removing route policy")
+		rp.Logger.Debug(
+			"Removing route policy",
+			types.PolicyLogField, p.Name,
+		)
 
 		err := rp.Router.RemoveRoutePolicy(rp.Ctx, types.RoutePolicyRequest{Policy: p})
 		if err != nil {
@@ -132,9 +136,10 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 			continue
 		}
 
-		rp.Logger.WithFields(logrus.Fields{
-			types.PeerLogField: peer,
-		}).Debug("Resetting peer due to a routing policy change")
+		rp.Logger.Debug(
+			"Resetting peer due to a routing policy change",
+			types.PeerLogField, peer,
+		)
 
 		req := types.ResetNeighborRequest{
 			PeerAddress:        peer,
@@ -145,9 +150,11 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 		err = rp.Router.ResetNeighbor(rp.Ctx, req)
 		if err != nil {
 			// non-fatal error (may happen if the neighbor is not up), just log it
-			rp.Logger.WithFields(logrus.Fields{
-				types.PeerLogField: peer,
-			}).WithError(err).Debug("resetting peer failed after a routing policy change")
+			rp.Logger.Debug(
+				"resetting peer failed after a routing policy change",
+				logfields.Error, err,
+				types.PeerLogField, peer,
+			)
 		}
 	}
 

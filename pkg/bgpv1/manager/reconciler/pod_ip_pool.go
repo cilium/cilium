@@ -6,12 +6,12 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -35,19 +36,21 @@ type PodIPPoolReconcilerOut struct {
 }
 
 type PodIPPoolReconciler struct {
+	logger    *slog.Logger
 	poolStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
 }
 
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
 type PodIPPoolReconcilerMetadata map[resource.Key][]*types.Path
 
-func NewPodIPPoolReconciler(poolStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]) PodIPPoolReconcilerOut {
+func NewPodIPPoolReconciler(logger *slog.Logger, poolStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]) PodIPPoolReconcilerOut {
 	if poolStore == nil {
 		return PodIPPoolReconcilerOut{}
 	}
 
 	return PodIPPoolReconcilerOut{
 		Reconciler: &PodIPPoolReconciler{
+			logger:    logger,
 			poolStore: poolStore,
 		},
 	}
@@ -88,11 +91,7 @@ func (r *PodIPPoolReconciler) getMetadata(sc *instance.ServerWithConfig) PodIPPo
 // keyed by the pool name.
 func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) map[string][]netip.Prefix {
 	var (
-		l = log.WithFields(
-			logrus.Fields{
-				"component": "PodIPPoolReconciler",
-			},
-		)
+		l = r.logger.With(types.ComponentLogField, "PodIPPoolReconciler")
 	)
 
 	if localNode == nil {
@@ -106,7 +105,11 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) ma
 			if p, err := cidr.ToPrefix(); err == nil {
 				prefixes = append(prefixes, *p)
 			} else {
-				l.Errorf("invalid ipam pool cidr %v: %v", cidr, err)
+				l.Error(
+					"invalid ipam pool cidr",
+					logfields.Error, err,
+					logfields.CIDR, cidr,
+				)
 			}
 		}
 		lp[pool.Pool] = prefixes
