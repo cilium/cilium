@@ -896,8 +896,9 @@ enum {
 enum {
 	SVC_FLAG_LOCALREDIRECT     = (1 << 0),	/* Local redirect service */
 	SVC_FLAG_NAT_46X64         = (1 << 1),	/* NAT-46/64 entry */
-	SVC_FLAG_L7LOADBALANCER    = (1 << 2),	/* tproxy redirect to local l7 loadbalancer */
+	SVC_FLAG_L7_LOADBALANCER   = (1 << 2),	/* TPROXY redirect to local L7 load-balancer */
 	SVC_FLAG_LOOPBACK          = (1 << 3),	/* HostPort with a loopback hostIP */
+	SVC_FLAG_L7_DELEGATE       = (1 << 3),	/* If set then delegate unmodified to local L7 proxy */
 	SVC_FLAG_INT_LOCAL_SCOPE   = (1 << 4),	/* internalTrafficPolicy=Local */
 	SVC_FLAG_TWO_SCOPES        = (1 << 5),	/* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED       = (1 << 6),	/* Backend slot (key: backend_slot > 0) is quarantined */
@@ -1071,7 +1072,7 @@ struct lb4_service {
 		 */
 		__u32 affinity_timeout;
 		/* For master entry: proxy port in host byte order,
-		 * only when flags2 & SVC_FLAG_L7LOADBALANCER is set.
+		 * only when flags2 & SVC_FLAG_L7_LOADBALANCER is set.
 		 */
 		__u32 l7_lb_proxy_port;
 	};
