@@ -98,7 +98,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 	restAPI.MetricsGetMetricsHandler = s.metricsHandler
 	restAPI.ClusterGetClusterHandler = s.clusterHandler
 
-	api.DisableAPIs(s.apiSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
+	api.DisableAPIs(s.logger, s.apiSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
 	srv := operatorApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"http"}
 	srv.ConfigureAPI()

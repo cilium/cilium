@@ -7,6 +7,7 @@ package serveroption
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -19,7 +20,7 @@ import (
 // WithUnixSocketListener configures a unix domain socket listener with the
 // given file path. When the process runs in privileged mode, the file group
 // owner is set to socketGroup.
-func WithUnixSocketListener(path string) Option {
+func WithUnixSocketListener(scopedLog *slog.Logger, path string) Option {
 	return func(o *Options) error {
 		if o.Listener != nil {
 			return fmt.Errorf("listener already configured")
@@ -31,7 +32,7 @@ func WithUnixSocketListener(path string) Option {
 			return err
 		}
 		if os.Getuid() == 0 {
-			if err := api.SetDefaultPermissions(socketPath); err != nil {
+			if err := api.SetDefaultPermissions(scopedLog, socketPath); err != nil {
 				socket.Close()
 				return err
 			}

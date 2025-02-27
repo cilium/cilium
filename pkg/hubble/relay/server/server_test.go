@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cilium/fake"
+	"github.com/cilium/hive/hivetest"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -149,7 +150,7 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 func newHubblePeer(t testing.TB, ctx context.Context, address string, hubbleObserver *observer.LocalObserverServer) {
 	options := []serveroption.Option{
 		serveroption.WithInsecure(),
-		serveroption.WithUnixSocketListener(address),
+		serveroption.WithUnixSocketListener(hivetest.Logger(t), address),
 		serveroption.WithObserverService(hubbleObserver),
 	}
 

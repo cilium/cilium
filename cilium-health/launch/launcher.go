@@ -106,7 +106,7 @@ func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
 		scopedLog.WithError(err).Debugf("Cannot find socket")
 		time.Sleep(1 * time.Second)
 	}
-	if err := api.SetDefaultPermissions(defaults.SockPath); err != nil {
+	if err := api.SetDefaultPermissions(logging.DefaultSlogLogger, defaults.SockPath); err != nil {
 		scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 	}
 
