@@ -462,7 +462,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	if (svc && (lb4_svc_is_nodeport(svc) ||
 		    lb4_svc_is_external_ip(svc) ||
 		    lb4_svc_is_loadbalancer(svc)) &&
-	    !lb4_svc_is_l7loadbalancer(svc))
+	    !__lb4_svc_is_l7loadbalancer(svc))
 		return -EADDRINUSE;
 
 	return 0;
@@ -853,7 +853,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	if (svc && (lb6_svc_is_nodeport(svc) ||
 		    lb6_svc_is_external_ip(svc) ||
 		    lb6_svc_is_loadbalancer(svc)) &&
-	    !lb6_svc_is_l7loadbalancer(svc))
+	    !__lb6_svc_is_l7loadbalancer(svc))
 		return -EADDRINUSE;
 
 	return 0;
