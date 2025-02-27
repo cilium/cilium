@@ -1397,10 +1397,14 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		state: testMapState(mapStateMap{
 			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
 			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+			egressKey(43, 6, 80, 16): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+			egressKey(43, 6, 81, 16): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 16): {},
+			egressKey(43, 6, 81, 16): {},
 		},
 		deletes: Keys{},
 	}, {
@@ -1415,10 +1419,14 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		state: testMapState(mapStateMap{
 			egressKey(43, 6, 0, 0):   proxyPriorityEntry(1, 1),
 			egressKey(43, 6, 80, 12): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+			egressKey(43, 6, 80, 16): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
+			egressKey(43, 6, 81, 16): proxyPriorityEntry(1, 1).withExplicitAuth(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 12): {},
+			egressKey(43, 6, 80, 16): {},
+			egressKey(43, 6, 81, 16): {},
 		},
 		deletes: Keys{},
 	}, {
