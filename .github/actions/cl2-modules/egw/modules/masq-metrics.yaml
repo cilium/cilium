@@ -42,7 +42,7 @@ steps:
       unit: pod
       queries:
       - name: EGW Total Number of Client Pods
-        query: count(count(egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"}) by (pod))
+        query: count(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
       - name: EGW Total Number of Failed Client Pods
-        query: count(count(egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"}==0) by (pod))
+        query: sum(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
         threshold: 0
