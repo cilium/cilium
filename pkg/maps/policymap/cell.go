@@ -159,7 +159,6 @@ func createFactory(in struct {
 
 	out.NodeDefines = map[string]string{
 		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),
-		"POLICY_STATS_MAP":      StatsMapName,
 		"POLICY_STATS_MAP_SIZE": fmt.Sprint(maxStatsEntries),
 	}
 
