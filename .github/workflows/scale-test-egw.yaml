@@ -531,6 +531,7 @@ jobs:
             --testconfig=../../.github/actions/cl2-modules/egw/config.yaml \
             --prometheus-additional-monitors-path=../../.github/actions/cl2-modules/egw/prom-extra-podmons \
             --provider=aws \
+            --enable-exec-service=false \
             --enable-prometheus-server \
             --prometheus-scrape-kubelets \
             --tear-down-prometheus-server=false \
