@@ -215,7 +215,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --collect-sysdump-on-failure --external-target amazon.com."
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT

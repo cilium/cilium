@@ -203,6 +203,7 @@ jobs:
             --helm-set=azure.resourceGroup=${{ env.name }} \
             --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16" # To avoid clashing with the default Service CIDR of AKS (10.0.0.0/16)
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --hubble=false --collect-sysdump-on-failure --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
