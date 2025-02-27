@@ -21,13 +21,16 @@ import (
 // the policy repository and ready to be distilled against a set of identities
 // to compute datapath-level policy configuration.
 type SelectorPolicy interface {
-	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
+	// RedirectFilters is used to ensure the endpoint has created all the needed redirects
 	// before a new EndpointPolicy is created.
 	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
 	DistillPolicy(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+
+	// L4Policy method
+	// L4Policy()
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -55,6 +58,10 @@ type selectorPolicy struct {
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
 	p.L4Policy.Attach(ctx)
+}
+
+// PolicyUser interface to accommodate both EndpointPolicy and IngressPolicy as selector policy User
+type PolicyUser interface {
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all
@@ -90,6 +97,24 @@ type EndpointPolicy struct {
 	// If any redirects are missing a new policy will be computed to rectify it, so this is
 	// constant for the lifetime of this EndpointPolicy.
 	Redirects map[string]uint16
+}
+
+type IngressPolicy struct {
+	// Note that all Endpoints sharing the same identity will be
+	// referring to a shared selectorPolicy!
+	*selectorPolicy
+
+	// VersionHandle represents the version of the SelectorCache 'policyMapState' was generated
+	// from.
+	// Changes after this version appear in 'policyMapChanges'.
+	// This is updated when incremental changes are applied.
+	VersionHandle *versioned.VersionHandle
+
+	// policyMapChanges collects pending changes to the PolicyMapState
+	policyMapChanges MapChanges
+
+	// PolicyOwner describes any type which consumes this EndpointPolicy object.
+	PolicyOwner PolicyOwner
 }
 
 // LookupRedirectPort returns the redirect L4 proxy port for the given input parameters.
@@ -137,13 +162,13 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
-func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
+func (p *selectorPolicy) insertUser(user PolicyUser) {
 	p.L4Policy.insertUser(user)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
-func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
+func (p *selectorPolicy) removeUser(user PolicyUser) {
 	p.L4Policy.removeUser(user)
 }
 
@@ -152,6 +177,24 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 // modified in any way, so that it can be used concurrently.
 func (p *selectorPolicy) Detach() {
 	p.L4Policy.Detach(p.SelectorCache)
+}
+
+func (p *selectorPolicy) DistillIngressPolicy(policyOwner PolicyOwner) *IngressPolicy {
+	var calculatedPolicy *IngressPolicy
+
+	p.SelectorCache.GetVersionHandleFunc(func(version *versioned.VersionHandle) {
+		calculatedPolicy = &IngressPolicy{
+			selectorPolicy: p,
+			VersionHandle:  version,
+			policyMapChanges: MapChanges{
+				firstVersion: version.Version(),
+			},
+			PolicyOwner: policyOwner,
+		}
+		// Register the new EndpointPolicy as a receiver of incremental
+		// updates before selector cache lock is released by 'GetCurrentVersionHandleFunc'.
+		p.insertUser(calculatedPolicy)
+	})
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts

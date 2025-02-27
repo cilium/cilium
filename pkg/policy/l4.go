@@ -1594,7 +1594,7 @@ type L4Policy struct {
 	// This mutex is taken while Endpoint mutex is held, so Endpoint lock
 	// MUST always be taken before this mutex.
 	mutex lock.RWMutex
-	users map[*EndpointPolicy]struct{}
+	users map[PolicyUser]struct{}
 }
 
 // NewL4Policy creates a new L4Policy
@@ -1603,14 +1603,14 @@ func NewL4Policy(revision uint64) L4Policy {
 		Ingress:  newL4DirectionPolicy(),
 		Egress:   newL4DirectionPolicy(),
 		Revision: revision,
-		users:    make(map[*EndpointPolicy]struct{}),
+		users:    make(map[PolicyUser]struct{}),
 	}
 }
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+func (l4 *L4Policy) insertUser(user PolicyUser) {
 	l4.mutex.Lock()
 
 	// 'users' is set to nil when the policy is detached. This
@@ -1623,6 +1623,7 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	// endpoint reached this point. In this case the endpoint's
 	// policy is going to be recomputed soon after and we do
 	// nothing here.
+	// nothing here.
 	if l4.users != nil {
 		l4.users[user] = struct{}{}
 	}
@@ -1632,7 +1633,7 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 
 // removeUser removes a user that no longer needs incremental updates
 // from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+func (l4 *L4Policy) removeUser(user PolicyUser) {
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is

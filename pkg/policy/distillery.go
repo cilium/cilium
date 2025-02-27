@@ -63,14 +63,14 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	return ok
 }
 
-// updateSelectorPolicy resolves the policy for the security identity of the
+// UpdateSelectorPolicy resolves the policy for the security identity of the
 // specified endpoint and stores it internally. It will skip policy resolution
 // if the cached policy is already at the revision specified in the repo.
 //
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*selectorPolicy, bool, error) {
+func (cache *policyCache) UpdateSelectorPolicy(identity *identityPkg.Identity) (*selectorPolicy, bool, error) {
 	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint

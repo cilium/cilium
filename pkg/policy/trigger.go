@@ -15,6 +15,8 @@ import (
 func (u *Updater) TriggerPolicyUpdates(reason string) {
 	u.repo.BumpRevision()
 	log.WithField(logfields.Reason, reason).Info("Triggering full policy recalculation and regeneration of all endpoints")
+	// TAM checking this Ingress policy for Envoy
+	// The flow is EndpointManager -> new manager -> trigger
 	u.regen.TriggerRegenerateAllEndpoints()
 }
 
@@ -37,4 +39,7 @@ type Updater struct {
 type regenerator interface {
 	// RegenerateAllEndpoints should trigger a regeneration of all endpoints.
 	TriggerRegenerateAllEndpoints()
+
+	//
+	//TriggerRegenerateAllIngressPolicies()
 }

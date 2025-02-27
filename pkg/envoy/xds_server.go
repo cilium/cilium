@@ -1831,7 +1831,16 @@ func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy 
 	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
-func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy,
+// Tam: might narrow the endpoint.EndpointUpdater interface
+// Ignore GetNamedPort()
+// ContrackName --> hard coded to 'global'
+type NetworkPolicyUpdater interface {
+	GetID() uint64
+	GetIPv4Address() string
+	GetIPv6Address() string
+}
+
+func (s *xdsServer) UpdateNetworkPolicy(ep NetworkPolicyUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup,
 ) (error, func() error) {
 	s.mutex.Lock()

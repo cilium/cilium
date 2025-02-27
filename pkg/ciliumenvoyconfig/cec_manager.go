@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"github.com/cilium/cilium/pkg/identity"
 	"maps"
 	"slices"
 	"strconv"
@@ -49,6 +50,20 @@ type cecManager struct {
 	endpoints resource.Resource[*k8s.Endpoints]
 
 	metricsManager CECMetrics
+
+	// key here is ingress name
+	ingressLocalIdentity map[string]identity.Identity
+
+	// ingress policies controller with the name matching lb7 ingress policy
+	// Need local identity to call policyCache.UpdateSelectorPolicy (from policy package),
+	// and store SelectorPolicy into the below map
+
+	// not to remove the entry if multiple Ingress keys are poiting to same policy.SelectorPolicy
+	ingressPolicies map[identity.NumericIdentity]policy.SelectorPolicy
+
+	// Update the above policies for:
+	// - any policy changes
+	// - any identity changes
 }
 
 func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
