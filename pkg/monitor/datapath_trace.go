@@ -25,6 +25,8 @@ const (
 	traceNotifyV0Len = 32
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
 	traceNotifyV1Len = 48
+	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2.
+	traceNotifyV2Len = 56
 )
 
 const (
@@ -36,6 +38,7 @@ const (
 const (
 	TraceNotifyVersion0 = iota
 	TraceNotifyVersion1
+	TraceNotifyVersion2
 )
 
 // TraceNotifyV0 is the common message format for versions 0 and 1.
@@ -152,13 +155,39 @@ func (tn *TraceNotifyV1) decodeTraceNotifyVersion1(data []byte) error {
 	return nil
 }
 
+// TraceNotifyV2 is the version 2 message format. This struct needs to be kept
+// in sync with the decodeTraceNotifyVersion2 func.
+type TraceNotifyV2 struct {
+	TraceNotifyV1
+	IPTraceID uint64
+	// data
+}
+
+// decodeTraceNotifyVersion1 decodes the trace notify message in 'data' into
+// the struct. This function needs to be kept in sync with the TraceNotifyV1
+// struct.
+func (tn *TraceNotifyV2) decodeTraceNotifyVersion2(data []byte) error {
+	if l := len(data); l < traceNotifyV2Len {
+		return fmt.Errorf("unexpected TraceNotifyV2 data length, expected %d but got %d", traceNotifyV2Len, l)
+	}
+
+	if err := tn.decodeTraceNotifyVersion1(data); err != nil {
+		return err
+	}
+
+	tn.IPTraceID = byteorder.Native.Uint64(data[48:56])
+
+	return nil
+}
+
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
-type TraceNotify TraceNotifyV1
+type TraceNotify TraceNotifyV2
 
 var (
 	traceNotifyLength = map[uint16]uint{
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
+		TraceNotifyVersion2: traceNotifyV2Len,
 	}
 )
 
@@ -204,7 +233,9 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 	case TraceNotifyVersion0:
 		return tn.decodeTraceNotifyVersion0(data)
 	case TraceNotifyVersion1:
-		return ((*TraceNotifyV1)(tn)).decodeTraceNotifyVersion1(data)
+		return tn.decodeTraceNotifyVersion1(data)
+	case TraceNotifyVersion2:
+		return ((*TraceNotifyV2)(tn)).decodeTraceNotifyVersion2(data)
 	}
 	return fmt.Errorf("Unrecognized trace event (version %d)", version)
 }
@@ -303,16 +334,24 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	}
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ ip-trace-id = %d ]", id)
+	}
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n",
+		n.traceReasonString(), ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
 	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
-		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
+	fmt.Fprintf(buf, "%s MARK %#x", prefix, n.Hash)
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ IP-TRACE-ID = %d ]", id)
+	}
+	fmt.Fprintf(buf, " FROM %d %s: %d bytes (%d captured), state %s",
+		n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
 
 	if n.Ifindex != 0 {
 		ifname := linkMonitor.Name(n.Ifindex)
@@ -373,11 +412,12 @@ type TraceNotifyVerbose struct {
 	ObservationPoint string `json:"observationPoint"`
 	TraceSummary     string `json:"traceSummary"`
 
-	Source   uint16                   `json:"source"`
-	Bytes    uint32                   `json:"bytes"`
-	SrcLabel identity.NumericIdentity `json:"srcLabel"`
-	DstLabel identity.NumericIdentity `json:"dstLabel"`
-	DstID    uint16                   `json:"dstID"`
+	Source    uint16                   `json:"source"`
+	Bytes     uint32                   `json:"bytes"`
+	SrcLabel  identity.NumericIdentity `json:"srcLabel"`
+	DstLabel  identity.NumericIdentity `json:"dstLabel"`
+	DstID     uint16                   `json:"dstID"`
+	IPTraceID uint64                   `json:"IpTraceID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -397,5 +437,6 @@ func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceN
 		SrcLabel:         n.SrcLabel,
 		DstLabel:         n.DstLabel,
 		DstID:            n.DstID,
+		IPTraceID:        n.IPTraceID,
 	}
 }
