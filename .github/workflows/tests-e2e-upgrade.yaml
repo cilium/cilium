@@ -492,6 +492,8 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             ingress-controller: 'true'
+            skip-upgrade: 'true'
+            ipv6-underlay: 'true'
 
           - name: '32'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
