@@ -33,6 +33,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Cell implements the cilium health API REST API server when provided
@@ -54,6 +55,8 @@ type apiParams struct {
 	cell.In
 
 	Spec *Spec
+
+	Logger *slog.Logger
 
 	Middleware middleware.Builder `name:"cilium-health-api-middleware" optional:"true"`
 
@@ -77,6 +80,8 @@ func newAPI(p apiParams) *restapi.CiliumHealthAPIAPI {
 			return p.Middleware(api.Context().APIHandler(builder))
 		}
 	}
+
+	api.Logger = p.Logger.Info
 
 	return api
 }
@@ -197,7 +202,7 @@ func NewServer(api *restapi.CiliumHealthAPIAPI) *Server {
 // ConfigureAPI configures the API and handlers.
 func (s *Server) ConfigureAPI() {
 	if s.api != nil {
-		s.handler = configureAPI(s.api)
+		s.handler = configureAPI(s.logger, s.api)
 	}
 }
 
@@ -280,7 +285,7 @@ func (s *Server) SetAPI(api *restapi.CiliumHealthAPIAPI) {
 	}
 
 	s.api = api
-	s.handler = configureAPI(api)
+	s.handler = configureAPI(s.logger, api)
 }
 
 // GetAPI returns the configured API. Modifications on the API must be performed
@@ -340,7 +345,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(s.SocketPath)
+			err := api.SetDefaultPermissions(logging.DefaultSlogLogger, s.SocketPath)
 			if err != nil {
 				return err
 			}

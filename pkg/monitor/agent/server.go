@@ -33,7 +33,7 @@ func buildServer(path string) (*net.UnixListener, error) {
 	}
 
 	if os.Getuid() == 0 {
-		err := api.SetDefaultPermissions(path)
+		err := api.SetDefaultPermissions(logging.DefaultSlogLogger, path)
 		if err != nil {
 			server.Close()
 			return nil, fmt.Errorf("cannot set default permissions on socket %s: %w", path, err)
