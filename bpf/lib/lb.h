@@ -369,7 +369,28 @@ bool lb6_svc_is_localredirect(const struct lb6_service *svc)
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline
+bool __lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+#else
+	return false;
+#endif
+}
+
+static __always_inline
 bool lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	/* Also test for l7_lb_proxy_port, since l7_lb_proxy_port == 0 is reserved. */
+	return __lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
+#else
+	return false;
+#endif
+}
+
+static __always_inline
+bool __lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
 	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
@@ -382,7 +403,8 @@ static __always_inline
 bool lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
-	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+	/* Also test for l7_lb_proxy_port, since l7_lb_proxy_port == 0 is reserved. */
+	return __lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
 #else
 	return false;
 #endif
