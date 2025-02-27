@@ -31,7 +31,7 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 		logfields.Max, maxID,
 		logfields.ClusterID, igc.clusterInfo.ID)
 
-	igc.allocator = allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
+	igc.allocator = allocator.NewAllocatorForGC(igc.logger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	return igc.wp.Submit("kvstore-identity-gc", igc.runKVStoreModeGC)
 }

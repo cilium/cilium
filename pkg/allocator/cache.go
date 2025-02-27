@@ -5,10 +5,10 @@ package allocator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -28,6 +28,7 @@ type idMap map[idpool.ID]AllocatorKey
 type keyMap map[string]idpool.ID
 
 type cache struct {
+	logger      *slog.Logger
 	controllers *controller.Manager
 
 	allocator *Allocator
@@ -72,6 +73,7 @@ type cache struct {
 func newCache(a *Allocator) (c cache) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c = cache{
+		logger:      a.logger,
 		allocator:   a,
 		cache:       idMap{},
 		keyCache:    keyMap{},
@@ -116,7 +118,7 @@ func (c *cache) OnListDone() {
 	c.keyCache = c.nextKeyCache
 	c.mutex.Unlock()
 
-	log.Debug("Initial list of identities received")
+	c.logger.Debug("Initial list of identities received")
 
 	// report that the list operation has
 	// been completed and the allocator is
@@ -127,10 +129,12 @@ func (c *cache) OnListDone() {
 func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 	for _, validator := range c.allocator.cacheValidators {
 		if err := validator(AllocatorChangeUpsert, id, key); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Identity: id,
-				logfields.Event:    AllocatorChangeUpsert,
-			}).Warning("Skipping event for invalid identity")
+			c.logger.Warn(
+				"Skipping event for invalid identity",
+				logfields.Error, err,
+				logfields.Identity, id,
+				logfields.Event, AllocatorChangeUpsert,
+			)
 			return
 		}
 	}
@@ -157,10 +161,12 @@ func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	for _, validator := range c.allocator.cacheValidators {
 		if err := validator(AllocatorChangeDelete, id, key); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Identity: id,
-				logfields.Event:    AllocatorChangeDelete,
-			}).Warning("Skipping event for invalid identity")
+			c.logger.Warn(
+				"Skipping event for invalid identity",
+				logfields.Error, err,
+				logfields.Identity, id,
+				logfields.Event, AllocatorChangeDelete,
+			)
 			return
 		}
 	}
@@ -209,10 +215,17 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLo
 					// Otherwise we will attempt to create the key, this process repeats until
 					// the key is created.
 					if err := a.backend.UpdateKey(ctx, id, value, true); err != nil {
-						log.WithField("id", id).WithError(err).Error("OnDelete MasterKeyProtection update for key")
+						c.logger.Error(
+							"OnDelete MasterKeyProtection update for key",
+							logfields.Error, err,
+							logfields.ID, id,
+						)
 						return err
 					}
-					log.WithField("id", id).Info("OnDelete MasterKeyProtection update succeeded")
+					c.logger.Info(
+						"OnDelete MasterKeyProtection update succeeded",
+						logfields.ID, id,
+					)
 					return nil
 				},
 			})
@@ -290,8 +303,11 @@ func (c *cache) drainIf(isStale func(id idpool.ID) bool) {
 	for id, key := range c.nextCache {
 		if isStale(id) {
 			c.onDeleteLocked(id, key, false)
-			log.WithFields(logrus.Fields{fieldID: id, fieldKey: key}).
-				Debug("Stale identity deleted")
+			c.logger.Debug(
+				"Stale identity deleted",
+				logfields.ID, id,
+				logfields.Key, key,
+			)
 		}
 	}
 	c.mutex.Unlock()
