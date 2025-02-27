@@ -98,6 +98,10 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			return ret;
 	}
 
+	if (info->flag_ipv6_tunnel_ep)
+		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
+					    src_sec_identity, info->sec_identity,
+					    ct_reason, monitor, ifindex);
 	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
 				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
 				    ct_reason, monitor, ifindex);
@@ -127,6 +131,11 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			return ret;
 	}
 
+	if (info->flag_ipv6_tunnel_ep)
+		return __encap_with_nodeid_opt6(ctx, &info->tunnel_endpoint.ip6,
+						src_sec_identity, info->sec_identity,
+						opt, opt_len, ct_reason, monitor,
+						ifindex);
 	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
 					src_sec_identity, info->sec_identity, NOT_VTEP_DST,
 					opt, opt_len, ct_reason, monitor, ifindex);
@@ -341,7 +350,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (!info || info->tunnel_endpoint.ip4 == 0)
+	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
@@ -897,7 +906,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #endif
 #ifdef TUNNEL_MODE
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel) {
+		if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 			src_sec_identity = REMOTE_NODE_ID;
 			goto encap_redirect;
 		}
@@ -1129,7 +1138,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel)
+	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel)
 		target.addr = CONFIG(router_ipv6);
 #endif
 
@@ -1152,7 +1161,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
-	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
+	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 		__be16 src_port;
 
 		src_port = tunnel_gen_src_port_v6(&tuple);
@@ -1631,7 +1640,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 #endif
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (!info || info->tunnel_endpoint.ip4 == 0)
+	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	tunnel_endpoint = info->tunnel_endpoint.ip4;
@@ -2170,7 +2179,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #endif
 #if defined(TUNNEL_MODE)
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel) {
+		if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 			tunnel_endpoint = info->tunnel_endpoint.ip4;
 			src_sec_identity = REMOTE_NODE_ID;
 			dst_sec_identity = info->sec_identity;
@@ -2426,7 +2435,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
-	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
+	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 		tunnel_endpoint = info->tunnel_endpoint.ip4;
 
 		target.addr = IPV4_GATEWAY;
