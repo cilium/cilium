@@ -209,6 +209,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
@@ -352,6 +353,8 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -430,6 +433,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	cfg.InterfaceIfindex = uint32(ifindex)
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -594,6 +599,8 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
+
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
@@ -706,6 +713,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	}
 
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
@@ -753,6 +761,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg := config.NewBPFWireguard(nodeConfig(lnc))
+	cfg.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	if !option.Config.EnableHostLegacyRouting {

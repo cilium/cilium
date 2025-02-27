@@ -9,9 +9,12 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// The IP option type to use for packet tracing.
+	TracingIPOptionType uint8 `config:"tracing_ip_option_type"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{0x0, node}
 }

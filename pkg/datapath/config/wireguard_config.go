@@ -26,6 +26,8 @@ type BPFWireguard struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
+	// The IP option type to use for packet tracing.
+	TracingIPOptionType uint8 `config:"tracing_ip_option_type"`
 
 	Node
 }
@@ -34,5 +36,5 @@ func NewBPFWireguard(node Node) *BPFWireguard {
 	return &BPFWireguard{0x5dc, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, node}
+		false, 0x0, node}
 }
