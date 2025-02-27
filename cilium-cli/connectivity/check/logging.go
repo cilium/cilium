@@ -149,19 +149,26 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
 		workflowOwners = workflowRule.Owners
 	}
 
+	excludeOwners := make(map[string]struct{})
+	for _, owner := range ct.Params().ExcludeCodeOwners {
+		excludeOwners[owner] = struct{}{}
+	}
+
 	ct.Log("    ⛑️ The following owners are responsible for reliability of the testsuite: ")
 	for scenario, rule := range rules {
 		for _, o := range rule.Owners {
-			ct.Log("        - " + o.String() + " (" + scenario.Name() + ")")
+			owner := o.String()
+			if _, ok := excludeOwners[owner]; ok {
+				continue
+			}
+			ct.Log("        - " + owner + " (" + scenario.Name() + ")")
 		}
 		for _, o := range workflowOwners {
 			owner := o.String()
-			switch owner {
-			case "@cilium/github-sec":
-				// Skip
-			default:
-				ct.Log("        - " + owner + " (" + ghWorkflow + ")")
+			if _, ok := excludeOwners[owner]; ok {
+				continue
 			}
+			ct.Log("        - " + owner + " (" + ghWorkflow + ")")
 		}
 	}
 }
