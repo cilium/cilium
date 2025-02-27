@@ -483,15 +483,15 @@ jobs:
           - name: '31'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '6.12-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
+            kube-proxy: 'iptables'
+            kpr: 'false'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
             lb-mode: 'snat'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
+            skip-upgrade: 'true'
+            underlay: 'ipv6'
 
           - name: '32'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
