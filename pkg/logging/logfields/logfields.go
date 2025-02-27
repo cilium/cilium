@@ -1264,4 +1264,12 @@ const (
 	NumVirtualNetworks = "numVirtualNetworks"
 
 	CanAllocatePodCIDRs = "canAllocatePodCIDRs"
+
+	Group = "group"
+
+	Method = "method"
+
+	Client = "client"
+
+	PanicMessage = "panicMessage"
 )
