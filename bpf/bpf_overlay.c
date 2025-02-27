@@ -664,6 +664,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
+	check_and_store_ip_trace_id(ctx);
+
 	bpf_clear_meta(ctx);
 	ctx_skip_nodeport_clear(ctx);
 

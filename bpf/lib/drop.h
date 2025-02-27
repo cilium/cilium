@@ -23,6 +23,7 @@
 #include "classifiers.h"
 
 #define NOTIFY_DROP_VER 2
+#include "trace_helpers.h"
 
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
