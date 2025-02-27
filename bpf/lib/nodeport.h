@@ -863,7 +863,6 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	__u32 tunnel_endpoint __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
 	int ifindex = 0;
@@ -902,10 +901,8 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #endif
 #ifdef TUNNEL_MODE
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel) {
-			tunnel_endpoint = info->tunnel_endpoint.ip4;
+		if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel)
 			goto encap_redirect;
-		}
 #endif
 
 		goto fib_lookup;
@@ -927,7 +924,7 @@ encap_redirect:
 		return ctx_redirect(ctx, ifindex, 0);
 
 	fib_params.l.ipv4_src = IPV4_DIRECT_ROUTING;
-	fib_params.l.ipv4_dst = tunnel_endpoint;
+	fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4;
 	fib_params.l.family = AF_INET;
 
 	/* neigh map doesn't contain DMACs for other nodes */
@@ -1098,7 +1095,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
-	__be32 tunnel_endpoint = 0;
+	bool is_tunneled = false;
 	union v6addr *dst;
 #endif
 
@@ -1114,7 +1111,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
 	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
-		tunnel_endpoint = info->tunnel_endpoint.ip4;
+		is_tunneled = true;
 
 		BPF_V6(target.addr, ROUTER_IP);
 	}
@@ -1139,7 +1136,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
-	if (tunnel_endpoint) {
+	if (is_tunneled) {
 		__be16 src_port;
 
 		src_port = tunnel_gen_src_port_v6(&tuple);
@@ -1577,7 +1574,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 total_len = bpf_ntohs(ip4->tot_len);
 	__u32 src_sec_identity = WORLD_IPV4_ID;
-	__be32 tunnel_endpoint __maybe_unused;
 	__be16 src_port = 0;
 #if __ctx_is == __ctx_xdp
 	bool has_encap = l3_off > ETH_HLEN;
@@ -1607,8 +1603,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || info->tunnel_endpoint.ip4 == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
-
-	tunnel_endpoint = info->tunnel_endpoint.ip4;
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -1642,9 +1636,9 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 		__wsum sum = 0;
 
 		/* update outer_ip4 daddr and saddr: */
-		sum = csum_diff(&outer_ip4->daddr, 4, &tunnel_endpoint, 4, 0);
+		sum = csum_diff(&outer_ip4->daddr, 4, &info->tunnel_endpoint.ip4, 4, 0);
 		if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-				    &tunnel_endpoint, 4, 0) < 0)
+				    &info->tunnel_endpoint.ip4, 4, 0) < 0)
 			return DROP_WRITE_ERROR;
 
 		sum = csum_diff(&outer_ip4->saddr, 4, &lb_ip, 4, sum);
@@ -2385,7 +2379,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct remote_endpoint_info *info;
-	__be32 tunnel_endpoint = 0;
+	bool is_tunneled = false;
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2398,7 +2392,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
-		tunnel_endpoint = info->tunnel_endpoint.ip4;
+		is_tunneled = true;
 		dst_sec_identity = info->sec_identity;
 
 		target.addr = IPV4_GATEWAY;
@@ -2438,7 +2432,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
-	if (tunnel_endpoint) {
+	if (is_tunneled) {
 		__be16 src_port;
 
 		src_port = tunnel_gen_src_port_v4(&tuple);
