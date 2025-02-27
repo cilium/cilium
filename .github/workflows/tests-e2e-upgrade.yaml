@@ -744,7 +744,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --include-conn-disrupt-test \
             --include-conn-disrupt-test-ns-traffic \
             --test "no-interrupted-connections" \
@@ -763,7 +763,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test "seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
@@ -771,7 +771,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
@@ -826,7 +826,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --include-conn-disrupt-test \
             --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -845,7 +845,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test "seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
@@ -854,7 +854,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
-            --log-code-owners \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
