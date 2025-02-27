@@ -655,6 +655,7 @@ enum {
 #define DROP_HOST_NOT_READY	-202
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
+#define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_NEEDED		CTX_ACT_OK
