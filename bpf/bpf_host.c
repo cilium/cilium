@@ -1254,6 +1254,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 	int ret;
 
+	check_and_store_ip_trace_id(ctx);
+
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
 	 */
@@ -1850,6 +1852,8 @@ skip_ipsec_nodeport_revdnat:
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+
+	check_and_store_ip_trace_id(ctx);
 
 out:
 	if (IS_ERR(ret))

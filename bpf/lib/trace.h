@@ -29,6 +29,7 @@
 #include "metrics.h"
 #include "ratelimit.h"
 #include "classifiers.h"
+#include "trace_helpers.h"
 
 /* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
 enum trace_reason {

@@ -81,6 +81,8 @@ int cil_from_network(struct __ctx_buff *ctx)
 		obs_point_to = TRACE_TO_HOST;
 #endif
 
+	check_and_store_ip_trace_id(ctx);
+
 out:
 	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
