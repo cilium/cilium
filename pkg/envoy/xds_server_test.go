@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -530,44 +530,6 @@ var expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS = []*cilium.HeaderM
 	},
 }
 
-type mockSecretManagerInlineSecrets struct{}
-
-func (m mockSecretManagerInlineSecrets) GetSecretString(_ context.Context, secret *api.Secret, ns string) (string, error) {
-	return "somevalue", nil
-}
-
-func (m mockSecretManagerInlineSecrets) PolicySecretSyncEnabled() bool {
-	return false
-}
-
-func (m mockSecretManagerInlineSecrets) SecretsOnlyFromSecretsNamespace() bool {
-	return false
-}
-
-func (m mockSecretManagerInlineSecrets) GetSecretSyncNamespace() string {
-	// unimplemented
-	return ""
-}
-
-type mockSecretManagerSDSSecrets struct{}
-
-func (m mockSecretManagerSDSSecrets) GetSecretString(_ context.Context, secret *api.Secret, ns string) (string, error) {
-	return "", nil
-}
-
-func (m mockSecretManagerSDSSecrets) PolicySecretSyncEnabled() bool {
-	return true
-}
-
-func (m mockSecretManagerSDSSecrets) SecretsOnlyFromSecretsNamespace() bool {
-	return true
-}
-
-func (m mockSecretManagerSDSSecrets) GetSecretSyncNamespace() string {
-	// unimplemented
-	return ""
-}
-
 func TestGetHTTPRule(t *testing.T) {
 	log.Logger.SetLevel(logrus.DebugLevel)
 
@@ -579,18 +541,16 @@ func TestGetHTTPRule(t *testing.T) {
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchSecretNilSecretManager, result.Headers)
 	require.True(t, canShortCircuit)
 
-	var smInline mockSecretManagerInlineSecrets
-	result, canShortCircuit = getHTTPRule(smInline, PortRuleHeaderMatchSecret, "", "")
+	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerInline(), PortRuleHeaderMatchSecret, "", "")
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchInline, result.Headers)
 	require.True(t, canShortCircuit)
 
-	var smSDS mockSecretManagerSDSSecrets
-	result, canShortCircuit = getHTTPRule(smSDS, PortRuleHeaderMatchSecret, "", "")
+	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerSDS(), PortRuleHeaderMatchSecret, "", "")
 	require.Equal(t, expectedHeadersPortRuleHeaderMatchSDS, result.Headers)
 	require.False(t, canShortCircuit)
 	require.Equal(t, expectedHeaderMatchesPortRuleHeaderMatchSDS, result.HeaderMatches)
 
-	result, canShortCircuit = getHTTPRule(smSDS, PortRuleHeaderMatchSecretLogOnMismatch, "", "")
+	result, canShortCircuit = getHTTPRule(certificatemanager.NewMockSecretManagerSDS(), PortRuleHeaderMatchSecretLogOnMismatch, "", "")
 	require.Nil(t, result.Headers)
 	require.False(t, canShortCircuit)
 	require.Equal(t, expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS, result.HeaderMatches)
