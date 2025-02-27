@@ -4,20 +4,21 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"runtime/debug"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // APIPanicHandler recovers from API panics and logs encountered panics
 type APIPanicHandler struct {
-	Next http.Handler
+	Logger *slog.Logger
+	Next   http.Handler
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -25,24 +26,30 @@ type APIPanicHandler struct {
 func (h *APIPanicHandler) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
-			fields := logrus.Fields{
-				"url":    req.URL.String(),
-				"method": req.Method,
-				"client": req.RemoteAddr,
-			}
+			scopedLog := h.Logger.With(
+				logfields.URL, req.URL,
+				logfields.Method, req.Method,
+				logfields.Client, req.RemoteAddr,
+			)
 
 			if err, ok := r.(error); ok && errors.Is(err, syscall.EPIPE) {
-				log.WithError(err).WithFields(fields).Debug("Failed to write API response: client connection closed")
+				scopedLog.Debug("Failed to write API response: client connection closed",
+					logfields.Error, err,
+				)
 				return
 			}
 
-			log.WithFields(fields).WithField("panic_message", r).Warn("Cilium API handler panicked")
-			if logging.DefaultLogger.IsLevelEnabled(logrus.DebugLevel) {
+			scopedLog.Warn("Cilium API handler panicked",
+				logfields.PanicMessage, r,
+			)
+			if scopedLog.Enabled(context.Background(), slog.LevelDebug) {
 				os.Stdout.Write(debug.Stack())
 			}
 			wr.WriteHeader(http.StatusInternalServerError)
 			if _, err := wr.Write([]byte("Internal error occurred, check Cilium logs for details.")); err != nil {
-				log.WithError(err).Debug("Failed to write API response")
+				scopedLog.Debug("Failed to write API response",
+					logfields.Error, err,
+				)
 			}
 		}
 	}()
