@@ -175,7 +175,7 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA }}
+          SHA: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
     name: Generate Job Matrix from YAMLs
