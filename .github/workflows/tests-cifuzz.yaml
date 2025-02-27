@@ -17,13 +17,13 @@ jobs:
     steps:
     - name: Build Fuzzers
       id: build
-      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@aa0dba641cb81070221554e0d2ed4f97aa46db35
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@322c9bf376ce37464abc8af8ed0e11d535578b99
       with:
         oss-fuzz-project-name: 'cilium'
         dry-run: false
         language: go
     - name: Run Fuzzers
-      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@aa0dba641cb81070221554e0d2ed4f97aa46db35
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@322c9bf376ce37464abc8af8ed0e11d535578b99
       with:
         oss-fuzz-project-name: 'cilium'
         fuzz-seconds: 600
