@@ -717,6 +717,7 @@ jobs:
             --collect-sysdump-on-failure \
             --flush-ct \
             --log-codeowners \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --sysdump-hubble-flows-count=1000000 \
             --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
