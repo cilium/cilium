@@ -959,7 +959,7 @@ func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,
 		}); rErr != nil {
-			m.metrics.ReconcileErrorCount.WithLabelValues(newc.Name).Inc()
+			m.metrics.ReconcileErrorsTotal.WithLabelValues(newc.Name).Inc()
 			reconcileErrs = append(reconcileErrs, rErr)
 			// If r.Reconcile returns ErrAbortReconcile, we should stop the reconciliation
 			// for this instance and return the error.

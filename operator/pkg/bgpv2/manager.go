@@ -277,7 +277,12 @@ func (b *BGPResourceManager) reconcileWithRetry(ctx context.Context) error {
 
 // reconcile is called when any interesting resource change event is triggered.
 func (b *BGPResourceManager) reconcile(ctx context.Context) error {
-	return b.reconcileBGPClusterConfigs(ctx)
+	reconcileStart := time.Now()
+
+	err := b.reconcileBGPClusterConfigs(ctx)
+
+	b.metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())
+	return err
 }
 
 // TrimError trims error message to maxLen.
