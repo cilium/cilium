@@ -26,6 +26,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 #ifdef ENABLE_IPSEC
 	/* This program should be attached to the tc-ingress of

@@ -1208,6 +1208,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
+	check_and_store_ip_trace_id(ctx);
+
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
@@ -1285,6 +1287,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 	__be16 proto = 0;
 	__u32 magic;
 
+	check_and_store_ip_trace_id(ctx);
+
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */
@@ -1353,6 +1357,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_encrypted(ctx))
 		src_sec_identity = HOST_ID;
@@ -1676,6 +1681,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 	bool traced = false;
 	__u32 src_id = 0;
 	__s8 ext_err = 0;
+
+	check_and_store_ip_trace_id(ctx);
 
 	/* Prefer ctx->mark when it is set to one of the expected values.
 	 * Also see https://github.com/cilium/cilium/issues/36329.

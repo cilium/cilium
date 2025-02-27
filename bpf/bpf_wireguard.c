@@ -278,6 +278,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		return TC_ACT_OK;
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -349,6 +350,7 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
 #ifdef ENABLE_NODEPORT
 	if (magic == MARK_MAGIC_OVERLAY)
