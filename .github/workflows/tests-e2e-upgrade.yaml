@@ -493,6 +493,13 @@ jobs:
             egress-gateway: 'true'
             ingress-controller: 'true'
 
+          - name: '32'
+            kernel: '6.12-20250126.112744'
+            kube-proxy: 'none'
+            kpr: 'true'
+            standalone-dns-proxy: 'true'
+            misc: 'l7Proxy=true,dnsProxy.enabled=false,dnsProxy.proxyPort=40046'
+            skip-upgrade: 'true'
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
@@ -583,6 +590,7 @@ jobs:
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
+          standalone-dns-proxy: ${{ matrix.standalone-dns-proxy }}
 
       - name: Set Kind params
         id: kind-params
@@ -883,6 +891,31 @@ jobs:
             echo "# Retrieving Cilium etcd logs"
             kubectl -n kube-system logs kvstore
           fi
+
+      - name: Create pods for standalone-dns-proxy test
+        if: ${{ matrix.standalone-dns-proxy == 'true' }}
+        shell: bash
+        run: |
+          kubectl apply -f untrusted/cilium-newest/examples/minikube/http-sw-app.yaml
+          kubectl apply -f untrusted/cilium-newest/examples/policies/l7/dns/dns.yaml
+          kubectl exec xwing -- curl cilium.io
+
+      - name: Make Cilium down${{ steps.vars.outputs.downgrade_version }}
+        if: ${{ matrix.standalone-dns-proxy == 'true' }}
+        shell: bash
+        run: |
+          cilium upgrade \
+            --set image.override=quay.io/cilium/cilium:invalid-image \
+            {{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
+          kubectl rollout restart -n kube-system daemonset/cilium
+          kubectl get pods --all-namespaces -o wide
+
+      - name: Test DNS connectivity after Down
+        if: ${{ matrix.standalone-dns-proxy == 'true' }}
+        shell: bash
+        run: |
+          kubectl exec xwing -- curl cilium.io
 
       - name: Upload artifacts
         if: ${{ !success() }}
