@@ -10,7 +10,15 @@
 #include "eps.h"
 #include "maps.h"
 
-#ifdef POLICY_STATS_MAP
+/* Global policy stats map */
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+	__type(key, struct policy_stats_key);
+	__type(value, struct policy_stats_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_STATS_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_COMMON_LRU);
+} cilium_policystats __section_maps_btf;
 
 /*
  * Both non-host and host EP programs have HOST_EP_ID defined, but only non-host EPs have LXC_ID
@@ -56,7 +64,7 @@ __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lp
 	stats_key.protocol = proto;
 	stats_key.dport = dport;
 
-	value = map_lookup_elem(&POLICY_STATS_MAP, &stats_key);
+	value = map_lookup_elem(&cilium_policystats, &stats_key);
 
 	if (value) {
 		__sync_fetch_and_add(&value->packets, 1);
@@ -64,15 +72,9 @@ __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lp
 	} else {
 		struct policy_stats_value newval = { 1, bytes };
 
-		map_update_elem(&POLICY_STATS_MAP, &stats_key, &newval, BPF_NOEXIST);
+		map_update_elem(&cilium_policystats, &stats_key, &newval, BPF_NOEXIST);
 	}
 }
-#else
-static __always_inline void
-__policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lpm_prefix_length,
-		 __u64 bytes)
-{}
-#endif
 
 /* Per-endpoint policy enforcement map */
 struct {
