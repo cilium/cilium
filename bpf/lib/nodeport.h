@@ -1236,7 +1236,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		return DROP_IS_CLUSTER_IP;
 
 #if defined(ENABLE_L7_LB)
-	if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
+	if (lb6_svc_is_l7loadbalancer(svc)) {
 # if !defined(IS_BPF_XDP)
 		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
 
@@ -1254,7 +1254,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		*punt_to_stack = true;
 #  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
-
 		return CTX_ACT_OK;
 	}
 #endif
@@ -2526,7 +2525,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		return DROP_IS_CLUSTER_IP;
 
 #if defined(ENABLE_L7_LB)
-	if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
+	if (lb4_svc_is_l7loadbalancer(svc)) {
 		/* We cannot redirect from the XDP layer to cilium_host.
 		 * Therefore, let the bpf_host to handle the L7 ingress
 		 * request.
@@ -2551,7 +2550,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		*punt_to_stack = true;
 #  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
-
 		return CTX_ACT_OK;
 	}
 #endif
