@@ -34,5 +34,7 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 
 	node.SupportsFibLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
 
+	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
+
 	return node
 }
