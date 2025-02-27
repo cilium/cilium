@@ -62,6 +62,16 @@ struct dnshdr {
 // 1. packet traced by proxy, or
 // 2. both IPs are in PodCIDR and not CiliumInternalIPs.
 //
+// Shift header references to inner packet.
+// - EinV (<v1.18):   outer packet should be plaintext with $skb->encapsulation being set.
+//                    encryption leak check must be done on the inner packet.
+// - VinE (<v1.18):   outer packet should be encrypted with $skb->encapsulation not being set.
+//                    if it is set, shift to inner packet anyway:
+//                    * if ESP, then might be upgrade/downgrade scenario (still using EinV)
+//                    * otherwise, leak detected if pod-to-pod.
+// - WG pod-to-pod:   outer packet should be encrypted with $skb->encapsulation not being set.
+// - WG node-to-node: unsupported, as this script checks only for pod-to-pod encryption.
+//
 // Note: br_forward is not exclusive of Kind! Make sure to have just one bridge/cluster.
 kprobe:br_forward
 {
@@ -85,36 +95,6 @@ kprobe:br_forward
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
     $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
-
-    if ($proto == PROTO_IPV4) {
-      $pod_to_pod_via_proxy =
-        @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
-        @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
-
-      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR,
-      // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$pod_to_pod_via_proxy &&
-           ($ip4h->saddr == (uint32)pton(NODE1_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE1_INTERNAL_IPV4) ||
-            $ip4h->saddr == (uint32)pton(NODE2_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE2_INTERNAL_IPV4) ||
-            $ip4h->saddr == (uint32)pton(NODE3_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE3_INTERNAL_IPV4))) {
-        return;
-      }
-    }
-
-    if ($proto == PROTO_IPV6) {
-      $pod_to_pod_via_proxy =
-        @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
-        @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
-
-      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR
-      // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$pod_to_pod_via_proxy &&
-           ($ip6h->saddr.in6_u.u6_addr8 == pton(NODE1_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE1_INTERNAL_IPV6) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6))) {
-        return;
-      }
-    }
   }
 
   if ($proto == PROTO_IPV4) {
@@ -125,11 +105,17 @@ kprobe:br_forward
       $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
       $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
 
+      $src_is_iip = $ip4h->saddr == (uint32)pton(NODE1_INTERNAL_IPV4) || $ip4h->saddr == (uint32)pton(NODE2_INTERNAL_IPV4) || $ip4h->saddr == (uint32)pton(NODE3_INTERNAL_IPV4);
+      $dst_is_iip = $ip4h->daddr == (uint32)pton(NODE1_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE2_INTERNAL_IPV4) || $ip4h->daddr == (uint32)pton(NODE3_INTERNAL_IPV4);
+
       $pod_to_pod_via_proxy =
           @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
           @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
-      if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
+      if (
+          (!$pod_to_pod_via_proxy && (($src_is_pod && $dst_is_pod) && (!$src_is_iip && !$dst_is_iip))) || 
+          ($pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod))
+        ) {
         // Skip TCP RST packet that might be kernel-level packets due to proxy timeout sockets.
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, ifindex: %d, netns: %x, dev: %s, proxy: %d)\n",
@@ -181,11 +167,17 @@ kprobe:br_forward
       $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
       $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
 
+      $src_is_iip = $ip6h->saddr.in6_u.u6_addr8 == pton(NODE1_INTERNAL_IPV6) || $ip6h->saddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) || $ip6h->saddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6);
+      $dst_is_iip = $ip6h->daddr.in6_u.u6_addr8 == pton(NODE1_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) || $ip6h->daddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6);
+
       $pod_to_pod_via_proxy =
           @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
           @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
-      if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
+      if (
+          (!$pod_to_pod_via_proxy && (($src_is_pod && $dst_is_pod) && (!$src_is_iip && !$dst_is_iip))) || 
+          ($pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod))
+        ) {
         // Skip TCP RST packet that might be kernel-level packets due to proxy timeout sockets.
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, ifindex: %d, netns: %x, dev: %s, proxy: %d)\n",
@@ -231,7 +223,6 @@ kprobe:br_forward
 }
 
 // Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
-// Ignore connections with destination IP outside pod CIDRs.
 kprobe:tcp_connect
 {
   if (strncmp(comm, "wrk:", 4) != 0) {
@@ -240,19 +231,6 @@ kprobe:tcp_connect
 
   $sk = ((struct sock *) arg0);
   $inet_family = $sk->__sk_common.skc_family;
-  $dst_is_pod = false;
-
-  if ($inet_family == AF_INET) {
-    $dst_is_pod = (bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4;
-  }
-
-  if ($inet_family == AF_INET6) {
-    $dst_is_pod = bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6;
-  }
-
-  if (!$dst_is_pod) {
-    return
-  }
 
   if ($inet_family == AF_INET) {
     @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
