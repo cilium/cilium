@@ -98,7 +98,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
 #if defined(ENABLE_L7_LB)
-		if (lb4_svc_is_l7loadbalancer(svc)) {
+		if (lb4_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
 			goto skip_service_lookup;
 		}
@@ -164,7 +164,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
 #if defined(ENABLE_L7_LB)
-		if (lb6_svc_is_l7loadbalancer(svc)) {
+		if (lb6_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
 			goto skip_service_lookup;
 		}

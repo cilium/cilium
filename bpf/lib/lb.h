@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "ids.h"
+#include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
 
@@ -369,42 +370,62 @@ bool lb6_svc_is_localredirect(const struct lb6_service *svc)
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline
-bool __lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
+bool __lb4_svc_is_l7_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
-	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+	return svc->flags2 & SVC_FLAG_L7_LOADBALANCER;
 #else
 	return false;
 #endif
 }
 
 static __always_inline
-bool lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
+bool lb4_svc_is_l7_punt_proxy(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return !lb4_svc_is_hostport(svc) && (svc->flags2 & SVC_FLAG_L7_DELEGATE);
+#else
+	return false;
+#endif
+}
+
+static __always_inline
+bool lb4_svc_is_l7_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
 	/* Also test for l7_lb_proxy_port, since l7_lb_proxy_port == 0 is reserved. */
-	return __lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
+	return __lb4_svc_is_l7_loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
 #else
 	return false;
 #endif
 }
 
 static __always_inline
-bool __lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
+bool __lb6_svc_is_l7_loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
-	return svc->flags2 & SVC_FLAG_L7LOADBALANCER;
+	return svc->flags2 & SVC_FLAG_L7_LOADBALANCER;
 #else
 	return false;
 #endif
 }
 
 static __always_inline
-bool lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
+bool lb6_svc_is_l7_punt_proxy(const struct lb6_service *svc __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return !lb6_svc_is_hostport(svc) && (svc->flags2 & SVC_FLAG_L7_DELEGATE);
+#else
+	return false;
+#endif
+}
+
+static __always_inline
+bool lb6_svc_is_l7_loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
 	/* Also test for l7_lb_proxy_port, since l7_lb_proxy_port == 0 is reserved. */
-	return __lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
+	return __lb6_svc_is_l7_loadbalancer(svc) && svc->l7_lb_proxy_port > 0;
 #else
 	return false;
 #endif
@@ -1084,6 +1105,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
+	if (lb6_svc_is_l7_punt_proxy(svc)) {
+		if (__lookup_ip6_endpoint(&backend->address)) {
+			ret = DROP_PUNT_PROXY;
+			goto drop_err;
+		}
+	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
 
@@ -1871,6 +1898,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		tuple->daddr = backend->address;
 
+	if (lb4_svc_is_l7_punt_proxy(svc)) {
+		if (__lookup_ip4_endpoint(backend->address)) {
+			ret = DROP_PUNT_PROXY;
+			goto drop_err;
+		}
+	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
 
