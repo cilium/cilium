@@ -54,7 +54,7 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled *Con
 	var enabledHandlers []NamedHandler
 	metricNames := enabled.GetMetricNames()
 	for _, metricsConfig := range enabled.Metrics {
-		h, err := r.ValidateAndCreateHandler(registry, metricsConfig, &metricNames)
+		h, err := r.validateAndCreateHandlerLocked(registry, metricsConfig, &metricNames)
 		if err != nil {
 			return nil, err
 		}
@@ -65,9 +65,12 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled *Con
 }
 
 func (r *Registry) ValidateAndCreateHandler(registry *prometheus.Registry, metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
-	// r.mutex.Lock()
-	// defer r.mutex.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.validateAndCreateHandlerLocked(registry, metricsConfig, metricNames)
+}
 
+func (r *Registry) validateAndCreateHandlerLocked(registry *prometheus.Registry, metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
 	plugin, ok := r.handlers[metricsConfig.Name]
 	if !ok {
 		return nil, fmt.Errorf("metric '%s' does not exist", metricsConfig.Name)
