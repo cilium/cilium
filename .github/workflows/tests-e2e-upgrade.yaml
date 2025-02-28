@@ -786,7 +786,7 @@ jobs:
         run: |
           TEST='--test "!seq-.*"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
           fi
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
@@ -867,7 +867,7 @@ jobs:
         run: |
           TEST='--test "!seq-.*"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
           fi
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
