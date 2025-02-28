@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -78,7 +79,7 @@ func LookupFlow(repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (a
 	dstEP.remoteEndpoint = srcEP
 
 	// Resolve and look up the flow as egress from the source
-	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{})
+	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
 	if err != nil {
 		return api.Undecided, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
@@ -93,7 +94,7 @@ func LookupFlow(repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (a
 	}
 
 	// Resolve ingress policy for destination
-	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{})
+	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
 	if err != nil {
 		return api.Undecided, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
@@ -149,6 +150,13 @@ func (ei *EndpointInfo) IsHost() bool {
 // new map. Return 0 here as this is only used for testing.
 func (ei *EndpointInfo) MapStateSize() int {
 	return 0
+}
+
+// RegenerateIfAlive returns immediately as there is nothing to regenerate
+func (ei *EndpointInfo) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }
 
 type dummyPolicyStats struct {

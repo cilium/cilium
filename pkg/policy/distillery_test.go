@@ -51,10 +51,10 @@ func TestCacheManagement(t *testing.T) {
 	require.False(t, deleted)
 
 	// Insert identity twice. Should be the same policy.
-	policy1, updated, err := cache.updateSelectorPolicy(identity)
+	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
-	policy2, updated, err := cache.updateSelectorPolicy(identity)
+	policy2, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
 	require.NoError(t, err)
 	require.False(t, updated)
 	// must be same pointer
@@ -73,13 +73,13 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1, _, _ = cache.updateSelectorPolicy(identity)
+	policy1, _, _ = cache.updateSelectorPolicy(identity, ep1.Id)
 	require.NotNil(t, policy1)
-	policy3, _, _ := cache.updateSelectorPolicy(identity3)
+	policy3, _, _ := cache.updateSelectorPolicy(identity3, ep3.Id)
 	require.NotNil(t, policy3)
 	require.NotSame(t, policy3, policy1)
 	_ = cache.delete(identity)
-	_, updated, _ = cache.updateSelectorPolicy(identity3)
+	_, updated, _ = cache.updateSelectorPolicy(identity3, ep3.Id)
 	require.False(t, updated)
 }
 
@@ -92,26 +92,26 @@ func TestCachePopulation(t *testing.T) {
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
 
 	// Calculate the policy and observe that it's cached
-	policy1, updated, err := cache.updateSelectorPolicy(identity1)
+	policy1, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
-	_, updated, err = cache.updateSelectorPolicy(identity1)
+	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2, _, _ := cache.updateSelectorPolicy(identity1)
+	policy2, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NotNil(t, policy2)
 	require.Same(t, policy1, policy2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, updated, _ = cache.updateSelectorPolicy(identity1)
+	_, updated, _ = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
+	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
 
@@ -398,7 +398,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillEndpointPolicy distills the policy repository into an EndpointPolicy
 // Caller is responsible for Ready() & Detach() when done with the policy
 func (d *policyDistillery) distillEndpointPolicy(owner PolicyOwner, identity *identity.Identity) (*EndpointPolicy, error) {
-	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
+	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{}, owner.GetID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}

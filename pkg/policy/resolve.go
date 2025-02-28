@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -124,6 +125,7 @@ type PolicyOwner interface {
 	PolicyDebug(fields logrus.Fields, msg string)
 	IsHost() bool
 	MapStateSize() int
+	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -150,8 +152,11 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 // detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
-func (p *selectorPolicy) detach() {
-	p.L4Policy.detach(p.SelectorCache)
+// The endpointID argument is only necessary if isDelete is false.
+// It ensures that detach does not call a regeneration trigger on
+// the same endpoint that initiated a selector policy update.
+func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
+	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
