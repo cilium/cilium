@@ -1,20 +1,18 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-GO := go
+include ../Makefile.defs
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 GO_TAGS ?=
 TARGET=cilium
-INSTALL = $(QUIET)install
-BINDIR ?= /usr/local/bin
+BINDIR = /usr/local/bin
 CLI_VERSION=$(shell git describe --tags --always)
-THIS_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CLI_MAIN_DIR?=./cmd/cilium
 STRIP_DEBUG=-w -s
 ifdef DEBUG
 	STRIP_DEBUG=
 endif
-GO_BUILD_LDFLAGS ?= $(STRIP_DEBUG) \
+GO_BUILD_LDFLAGS = $(STRIP_DEBUG) \
 	-X 'github.com/cilium/cilium/cilium-cli/defaults.CLIVersion=$(CLI_VERSION)'
 
 TEST_TIMEOUT ?= 5s
