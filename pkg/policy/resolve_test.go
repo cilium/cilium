@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -161,6 +162,12 @@ func (d DummyOwner) IsHost() bool {
 
 func (d DummyOwner) MapStateSize() int {
 	return d.mapStateSize
+}
+
+func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }
 
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {

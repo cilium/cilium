@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -149,6 +150,13 @@ func (ei *EndpointInfo) IsHost() bool {
 // new map. Return 0 here as this is only used for testing.
 func (ei *EndpointInfo) MapStateSize() int {
 	return 0
+}
+
+// RegenerateIfAlive returns immediately as there is nothing to regenerate
+func (ei *EndpointInfo) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }
 
 type dummyPolicyStats struct {

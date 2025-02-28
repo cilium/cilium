@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1745,6 +1746,12 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 
 	l4.mutex.Lock()
 	defer l4.mutex.Unlock()
+	for ep := range l4.users {
+		ep.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "selector policy has changed because of another endpoint with the same identity",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
+	}
 	l4.users = nil
 }
 

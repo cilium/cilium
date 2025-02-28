@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -124,6 +125,10 @@ type PolicyOwner interface {
 	PolicyDebug(fields logrus.Fields, msg string)
 	IsHost() bool
 	MapStateSize() int
+	// RegenerateIfAlive should only be called from code paths that are not
+	// initiated from the PolicyOwner otherwise the policy engine will deadlock.
+	// This is probably only selector cache code.
+	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
