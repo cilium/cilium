@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -198,6 +199,12 @@ func (d DummyOwner) GetID() uint64 {
 	return 1234
 }
 
+func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
+}
+
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 	log.WithFields(fields).Info(msg)
 }
@@ -242,7 +249,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
-		ip.detach()
+		ip.detach(true, 0)
 	}
 }
 
@@ -253,7 +260,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
-		ip.detach()
+		ip.detach(true, 0)
 	}
 }
 
@@ -264,7 +271,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
-		ip.detach()
+		ip.detach(true, 0)
 	}
 }
 
@@ -353,7 +360,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -460,7 +467,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -563,7 +570,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	require.Equal(t, 0, len(policy.policyMapChanges.changes))
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -727,7 +734,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
