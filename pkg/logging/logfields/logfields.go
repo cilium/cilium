@@ -1272,4 +1272,62 @@ const (
 	Client = "client"
 
 	PanicMessage = "panicMessage"
+
+	Reasons = "reasons"
+
+	Config = "config"
+
+	MetricConfig = "metricConfig"
+
+	TLS = "tls"
+
+	FlowLogName = "flowLogName"
+
+	Options = "options"
+
+	RelatedMetric = "related-metric"
+
+	Filters = "filters"
+
+	MaxFlows = "maxFlows"
+
+	EventQueueSize = "eventQueueSize"
+
+	NumberOfFlows = "numberOfFlows"
+
+	Whitelist = "whiltelist"
+
+	Blacklist = "blackList"
+
+	Took = "took"
+
+	NumberOfAgentEvents = "numberOfAgentEvents"
+
+	NumberOfDebugEvents = "numberOfDebugEvents"
+
+	DatapathIdentity = "datapathIdentity"
+
+	UserspaceIdentity = "userspaceIdentity"
+
+	Context = "context"
+
+	NumEvents = "numEvents"
+
+	CPU = "cpu"
+
+	RuleID = "ruleID"
+
+	FilePath = "filePath"
+
+	Peer = "peer"
+
+	ConnectionTimeout = "connectionTimeout"
+
+	ChangeNotification = "changeNotification"
+
+	NextTryIn = "nextTryIn"
+
+	Operation = "operation"
+
+	KeyPairSN = "keyPairSN"
 )

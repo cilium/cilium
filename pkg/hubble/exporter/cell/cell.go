@@ -6,16 +6,17 @@ package exportercell
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var Cell = cell.Module(
@@ -85,12 +86,11 @@ func (cfg Config) Validate() error {
 type hubbleExportersParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
 	Config    ValidatedConfig
-
-	// TODO: replace by slog
-	Logger logrus.FieldLogger
 }
 
 type hubbleExportersOut struct {
@@ -118,7 +118,7 @@ func newHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 	builder := &FlowLogExporterBuilder{
 		Name: "static-exporter",
 		Build: func() (exporter.FlowLogExporter, error) {
-			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble static exporter")
+			params.Logger.Info("Building the Hubble static exporter", logfields.Config, params.Config)
 
 			allowList, err := hubble.ParseFlowFilters(params.Config.ExportAllowlist)
 			if err != nil {
@@ -145,7 +145,7 @@ func newHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 			staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 			if err != nil {
 				// non-fatal failure, log and continue
-				params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
+				params.Logger.Error("Failed to configure Hubble static exporter", logfields.Error, err)
 				return nil, nil
 			}
 
@@ -169,7 +169,7 @@ func newHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut,
 	builder := &FlowLogExporterBuilder{
 		Name: "dynamic-exporter",
 		Build: func() (exporter.FlowLogExporter, error) {
-			params.Logger.WithField("config", fmt.Sprintf("%+v", params.Config)).Info("Building the Hubble dynamic exporter")
+			params.Logger.Info("Building the Hubble dynamic exporter", logfields.Config, params.Config)
 
 			exporterFactory := exporter.NewExporterFactory(params.Logger)
 			exporterConfigParser := exporter.NewExporterConfigParser(params.Logger)

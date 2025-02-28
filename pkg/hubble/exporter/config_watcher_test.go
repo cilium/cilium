@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/time"
@@ -20,8 +20,8 @@ func TestReloadNotificationReceived(t *testing.T) {
 	configReceived := false
 
 	// when
-	configParser := &exporterConfigParser{logrus.New()}
-	watcher := NewConfigWatcher(filepath, configParser, func(configs map[string]ExporterConfig, hash uint64) {
+	configParser := &exporterConfigParser{hivetest.Logger(t)}
+	watcher := NewConfigWatcher(hivetest.Logger(t), filepath, configParser, func(configs map[string]ExporterConfig, hash uint64) {
 		configReceived = true
 	})
 

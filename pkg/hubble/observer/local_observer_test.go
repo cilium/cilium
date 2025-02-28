@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/cilium/fake"
+	"github.com/cilium/hive/hivetest"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -35,18 +35,12 @@ import (
 )
 
 var (
-	log       *logrus.Logger
 	nsManager = NewNamespaceManager()
 )
 
-func init() {
-	log = logrus.New()
-	log.SetOutput(io.Discard)
-}
-
 func noopParser(t *testing.T) *parser.Parser {
 	pp, err := parser.New(
-		log,
+		hivetest.Logger(t),
 		&testutils.NoopEndpointGetter,
 		&testutils.NoopIdentityGetter,
 		&testutils.NoopDNSGetter,
@@ -62,7 +56,7 @@ func noopParser(t *testing.T) *parser.Parser {
 
 func TestNewLocalServer(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log)
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t))
 	require.NoError(t, err)
 	assert.NotNil(t, s.GetStopped())
 	assert.NotNil(t, s.GetPayloadParser())
@@ -73,7 +67,7 @@ func TestNewLocalServer(t *testing.T) {
 
 func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t), observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
@@ -225,7 +219,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -370,7 +364,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
@@ -421,7 +415,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -519,7 +513,7 @@ func TestHooks(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnMonitorEventFunc(onMonitorEventFirst),
@@ -576,7 +570,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -639,7 +633,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, nsManager, log,
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t),
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -717,7 +711,7 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 	}
 
 	// local hubble observer setup.
-	s, err := NewLocalServer(noopParser(t), nsManager, log,
+	s, err := NewLocalServer(noopParser(t), nsManager, hivetest.Logger(t),
 		observeroption.WithOnDecodedFlow(localNodeWatcher),
 	)
 	require.NoError(t, err)
@@ -762,7 +756,7 @@ func TestLocalObserverServer_GetNamespaces(t *testing.T) {
 		Namespace: "aaa",
 		Cluster:   "some-cluster",
 	})
-	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(t), observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
 	res, err := s.GetNamespaces(context.Background(), &observerpb.GetNamespacesRequest{})
 	require.NoError(t, err)
@@ -786,7 +780,7 @@ func TestLocalObserverServer_GetNamespaces(t *testing.T) {
 
 func Benchmark_TrackNamespaces(b *testing.B) {
 	pp, err := parser.New(
-		log,
+		hivetest.Logger(b),
 		&testutils.NoopEndpointGetter,
 		&testutils.NoopIdentityGetter,
 		&testutils.NoopDNSGetter,
@@ -801,7 +795,7 @@ func Benchmark_TrackNamespaces(b *testing.B) {
 	}
 
 	nsManager := NewNamespaceManager()
-	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(b), observeroption.WithMaxFlows(container.Capacity1))
 	if err != nil {
 		b.Fatal(err)
 	}
