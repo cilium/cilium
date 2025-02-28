@@ -680,14 +680,6 @@ func IsNodeWithoutCilium(node string) bool {
 	return false
 }
 
-// GetLatestImageVersion infers which docker tag should be used
-func GetLatestImageVersion() string {
-	if len(config.CiliumTestConfig.CiliumTag) > 0 {
-		return config.CiliumTestConfig.CiliumTag
-	}
-	return "latest"
-}
-
 // SkipQuarantined returns whether test under quarantine should be skipped
 func SkipQuarantined() bool {
 	return !config.CiliumTestConfig.RunQuarantined
