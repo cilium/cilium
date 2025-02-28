@@ -2061,7 +2061,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 		t.Errorf("Resolved policy did not match expected")
 	}
 	l4IngressPolicy.Detach(td.sc)
-	expected.Detach(td.sc)
+	expected.detach(td.sc)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy(repo.GetRevision())
@@ -2070,7 +2070,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 	require.Equal(t, 0, l4IngressPolicy.Len())
 	require.Equal(t, expected.Ingress.PortRules, l4IngressPolicy)
 	l4IngressPolicy.Detach(td.sc)
-	expected.Detach(td.sc)
+	expected.detach(td.sc)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
