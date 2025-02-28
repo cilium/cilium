@@ -5,14 +5,13 @@ package metrics
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/http"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
@@ -28,6 +27,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -93,8 +93,8 @@ func initEndpointDeletionHandler() {
 }
 
 // InitMetrics initializes the metrics system
-func InitMetrics(reg *prometheus.Registry, enabled *api.Config, grpcMetrics *grpc_prometheus.ServerMetrics) error {
-	e, err := InitMetricHandlers(reg, enabled)
+func InitMetrics(logger *slog.Logger, reg *prometheus.Registry, enabled *api.Config, grpcMetrics *grpc_prometheus.ServerMetrics) error {
+	e, err := InitMetricHandlers(logger, reg, enabled)
 	if err != nil {
 		return err
 	}
@@ -121,8 +121,8 @@ func InitHubbleInternalMetrics(reg *prometheus.Registry, grpcMetrics *grpc_prome
 	return nil
 }
 
-func InitMetricHandlers(reg *prometheus.Registry, enabled *api.Config) (*[]api.NamedHandler, error) {
-	return api.DefaultRegistry().ConfigureHandlers(reg, enabled)
+func InitMetricHandlers(logger *slog.Logger, reg *prometheus.Registry, enabled *api.Config) (*[]api.NamedHandler, error) {
+	return api.DefaultRegistry().ConfigureHandlers(logger, reg, enabled)
 }
 
 func InitMetricsServerHandler(srv *http.Server, reg *prometheus.Registry, enableOpenMetrics bool) {
@@ -137,7 +137,7 @@ func InitMetricsServerHandler(srv *http.Server, reg *prometheus.Registry, enable
 	srv.Handler = mux
 }
 
-func StartMetricsServer(srv *http.Server, log logrus.FieldLogger, metricsTLSConfig *certloader.WatchedServerConfig, grpcMetrics *grpc_prometheus.ServerMetrics) error {
+func StartMetricsServer(srv *http.Server, log logging.FieldLogger, metricsTLSConfig *certloader.WatchedServerConfig, grpcMetrics *grpc_prometheus.ServerMetrics) error {
 	if metricsTLSConfig != nil {
 		srv.TLSConfig = metricsTLSConfig.ServerConfig(&tls.Config{ //nolint:gosec
 			MinVersion: serveroption.MinTLSVersion,

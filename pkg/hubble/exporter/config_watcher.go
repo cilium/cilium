@@ -10,9 +10,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -30,7 +29,7 @@ type configWatcherCallback func(configs map[string]ExporterConfig, hash uint64)
 
 // configWatcher provides dynamic configuration reload for DynamicExporter.
 type configWatcher struct {
-	logger         logrus.FieldLogger
+	logger         *slog.Logger
 	configFilePath string
 	configParser   ExporterConfigParser
 	callback       configWatcherCallback
@@ -38,9 +37,12 @@ type configWatcher struct {
 
 // NewConfigWatcher returns a new configWatcher that parses a configuration file using configParser
 // and invokes callback at regular intervals.
-func NewConfigWatcher(configFilePath string, configParser ExporterConfigParser, callback configWatcherCallback) *configWatcher {
+func NewConfigWatcher(logger *slog.Logger, configFilePath string, configParser ExporterConfigParser, callback configWatcherCallback) *configWatcher {
 	watcher := &configWatcher{
-		logger:         logrus.New().WithField(logfields.LogSubsys, "hubble").WithField("configFilePath", configFilePath),
+		logger: logger.With(
+			logfields.LogSubsys, "hubble",
+			logfields.ConfigFile, configFilePath,
+		),
 		configFilePath: configFilePath,
 		configParser:   configParser,
 		callback:       callback,
@@ -69,7 +71,7 @@ func (c *configWatcher) reload() {
 	configs, hash, err := c.parseConfig()
 	if err != nil {
 		DynamicExporterReconfigurations.WithLabelValues("failure").Inc()
-		c.logger.WithError(err).Error("Failed to parse dynamic exporter config")
+		c.logger.Error("Failed to parse dynamic exporter config", logfields.Error, err)
 		return
 	}
 	c.callback(configs, hash)

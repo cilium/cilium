@@ -21,7 +21,7 @@ const logrErrorKey = "err"
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slog.LevelInfo,
-	ReplaceAttr: replaceAttrFnWithoutTimestamp,
+	ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
 }
 
 // Default slog logger. Will be overwritten once initializeSlog is called.
@@ -54,7 +54,7 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
 	case LogFormatJSON, LogFormatText:
-		opts.ReplaceAttr = replaceAttrFnWithoutTimestamp
+		opts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
 	case LogFormatJSONTimestamp, LogFormatTextTimestamp:
 		opts.ReplaceAttr = replaceAttrFn
 	}
@@ -100,7 +100,7 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-func replaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
+func ReplaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
 	case slog.TimeKey:
 		// Drop timestamps

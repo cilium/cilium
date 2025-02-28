@@ -5,8 +5,8 @@ package debug
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -20,13 +20,13 @@ import (
 
 // Parser is a parser for debug payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	endpointGetter getters.EndpointGetter
 	linkMonitor    getters.LinkGetter
 }
 
 // New creates a new parser
-func New(log logrus.FieldLogger, endpointGetter getters.EndpointGetter) (*Parser, error) {
+func New(log *slog.Logger, endpointGetter getters.EndpointGetter) (*Parser, error) {
 	return &Parser{
 		log:            log,
 		endpointGetter: endpointGetter,

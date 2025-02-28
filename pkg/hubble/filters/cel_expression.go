@@ -6,13 +6,14 @@ package filters
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -66,7 +67,7 @@ func compile(env *cel.Env, expr string, celType *cel.Type) (*cel.Ast, error) {
 	return ast, nil
 }
 
-func filterByCELExpression(ctx context.Context, log logrus.FieldLogger, exprs []string) (FilterFunc, error) {
+func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string) (FilterFunc, error) {
 	var programs []cel.Program
 	for _, expr := range exprs {
 		// we want filters to be boolean expressions, so check the type of the
@@ -89,13 +90,13 @@ func filterByCELExpression(ctx context.Context, log logrus.FieldLogger, exprs []
 				flowVariableName: ev.GetFlow(),
 			})
 			if err != nil {
-				log.Errorf("error running CEL program %s", err)
+				log.Error("error running CEL program", logfields.Error, err)
 				return false
 			}
 
 			v, err := out.ConvertToNative(goBoolType)
 			if err != nil {
-				log.Errorf("invalid conversion in CEL program: %s", err)
+				log.Error("invalid conversion in CEL program", logfields.Error, err)
 				return false
 			}
 			b, ok := v.(bool)
@@ -110,7 +111,7 @@ func filterByCELExpression(ctx context.Context, log logrus.FieldLogger, exprs []
 // CELExpressionFilter implements filtering based on CEL (common expression
 // language) expressions
 type CELExpressionFilter struct {
-	log logrus.FieldLogger
+	log *slog.Logger
 }
 
 // OnBuildFilter builds a CEL expression filter.

@@ -7,8 +7,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -27,13 +27,13 @@ var (
 
 // Server is hubble's gRPC server.
 type Server struct {
-	log  logrus.FieldLogger
+	log  *slog.Logger
 	srv  *grpc.Server
 	opts serveroption.Options
 }
 
 // NewServer creates a new hubble gRPC server.
-func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server, error) {
+func NewServer(log *slog.Logger, options ...serveroption.Option) (*Server, error) {
 	opts := serveroption.Options{}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {

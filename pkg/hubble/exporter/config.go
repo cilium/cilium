@@ -9,25 +9,26 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"slices"
 
-	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var _ ExporterConfigParser = (*exporterConfigParser)(nil)
 
 type exporterConfigParser struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 }
 
 // NewExporterConfigParser is an ExporterConfig parser for DynamicExportersConfig.
-func NewExporterConfigParser(logger logrus.FieldLogger) *exporterConfigParser {
+func NewExporterConfigParser(logger *slog.Logger) *exporterConfigParser {
 	return &exporterConfigParser{logger}
 }
 
@@ -54,11 +55,11 @@ func (e *exporterConfigParser) Parse(r io.Reader) (map[string]ExporterConfig, er
 var _ ExporterFactory = (*exporterFactory)(nil)
 
 type exporterFactory struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 }
 
 // NewExporterFactory is a FlowLogExporter factory for FlowLogConfig.
-func NewExporterFactory(logger logrus.FieldLogger) *exporterFactory {
+func NewExporterFactory(logger *slog.Logger) *exporterFactory {
 	return &exporterFactory{logger}
 }
 
@@ -96,7 +97,7 @@ func (f *exporterFactory) create(config *FlowLogConfig) (*exporter, error) {
 			Compress:   config.FileCompress,
 		})))
 	}
-	return NewExporter(f.logger.WithField("flowLogName", config.Name), exporterOpts...)
+	return NewExporter(f.logger.With(logfields.FlowLogName, config.Name), exporterOpts...)
 }
 
 // DynamicExportersConfig represents the dynamic hubble exporter configuration file.

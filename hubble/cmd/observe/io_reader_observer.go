@@ -86,11 +86,11 @@ type ioReaderClient struct {
 }
 
 func newIOReaderClient(ctx context.Context, scanner *bufio.Scanner, request *observerpb.GetFlowsRequest) (*ioReaderClient, error) {
-	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logging.DefaultLogger))
+	allow, err := filters.BuildFilterList(ctx, request.GetWhitelist(), filters.DefaultFilters(logging.DefaultSlogLogger))
 	if err != nil {
 		return nil, err
 	}
-	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logging.DefaultLogger))
+	deny, err := filters.BuildFilterList(ctx, request.GetBlacklist(), filters.DefaultFilters(logging.DefaultSlogLogger))
 	if err != nil {
 		return nil, err
 	}

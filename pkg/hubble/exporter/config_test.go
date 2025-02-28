@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/flow"
@@ -420,7 +420,7 @@ func TestInvalidConfigFile(t *testing.T) {
 }
 
 func TestFlowLogConfigEnd(t *testing.T) {
-	exporterFactory := &exporterFactory{logrus.New()}
+	exporterFactory := &exporterFactory{hivetest.Logger(t)}
 
 	past = time.Now().Add(-1 * time.Hour)
 	future = time.Now().Add(1 * time.Hour)

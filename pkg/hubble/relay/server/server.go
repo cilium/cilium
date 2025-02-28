@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -157,13 +158,13 @@ func (s *Server) Serve() error {
 	var eg errgroup.Group
 	if s.metricsServer != nil {
 		eg.Go(func() error {
-			s.opts.log.WithField("address", s.opts.metricsListenAddress).Info("Starting metrics server...")
+			s.opts.log.Info("Starting metrics server...", logfields.Address, s.opts.metricsListenAddress)
 			return s.metricsServer.ListenAndServe()
 		})
 	}
 
 	eg.Go(func() error {
-		s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting gRPC server...")
+		s.opts.log.Info("Starting gRPC server...", logfields.Options, s.opts)
 		s.pm.Start()
 		s.healthServer.start()
 		socket, err := net.Listen("tcp", s.opts.listenAddress)
@@ -174,7 +175,7 @@ func (s *Server) Serve() error {
 	})
 
 	eg.Go(func() error {
-		s.opts.log.WithField("addr", s.opts.healthListenAddress).Info("Starting gRPC health server...")
+		s.opts.log.Info("Starting gRPC health server...", logfields.Address, s.opts.healthListenAddress)
 		socket, err := net.Listen("tcp", s.opts.healthListenAddress)
 		if err != nil {
 			return fmt.Errorf("failed to listen on %s: %w", s.opts.healthListenAddress, err)
@@ -191,7 +192,7 @@ func (s *Server) Stop() {
 	s.server.Stop()
 	if s.metricsServer != nil {
 		if err := s.metricsServer.Shutdown(context.Background()); err != nil {
-			s.opts.log.WithError(err).Info("Failed to gracefully stop metrics server")
+			s.opts.log.Info("Failed to gracefully stop metrics server", logfields.Error, err)
 		}
 	}
 	s.pm.Stop()
@@ -201,7 +202,7 @@ func (s *Server) Stop() {
 
 // observerOptions returns the configured hubble-relay observer options along
 // with the hubble-relay logger.
-func copyObserverOptionsWithLogger(log logrus.FieldLogger, options []observer.Option) []observer.Option {
+func copyObserverOptionsWithLogger(log *slog.Logger, options []observer.Option) []observer.Option {
 	newOptions := make([]observer.Option, len(options), len(options)+1)
 	copy(newOptions, options)
 	newOptions = append(newOptions, observer.WithLogger(log))

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/fake"
 	"github.com/cilium/hive/hivetest"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -43,12 +43,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetOutput(io.Discard)
-}
+var log = slog.New(slog.DiscardHandler)
 
 func noopParser(t testing.TB) *parser.Parser {
 	pp, err := parser.New(

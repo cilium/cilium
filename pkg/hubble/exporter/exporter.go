@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -51,7 +51,7 @@ var _ FlowLogExporter = (*exporter)(nil)
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
-	logger  logrus.FieldLogger
+	logger  *slog.Logger
 	encoder Encoder
 	writer  io.WriteCloser
 	flow    *flowpb.Flow
@@ -61,19 +61,22 @@ type exporter struct {
 
 // NewExporter initializes an
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewExporter(logger logrus.FieldLogger, options ...Option) (*exporter, error) {
+func NewExporter(logger *slog.Logger, options ...Option) (*exporter, error) {
 	opts := DefaultOptions // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
-	logger.WithField("options", opts).Info("Configuring Hubble event exporter")
+	logger.Info(
+		"Configuring Hubble event exporter",
+		logfields.Options, opts,
+	)
 	return newExporter(logger, opts)
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(logger logrus.FieldLogger, opts Options) (*exporter, error) {
+func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
 	writer, err := opts.NewWriterFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create writer: %w", err)
@@ -115,7 +118,7 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 	for _, f := range e.opts.OnExportEvent {
 		stop, err := f.OnExportEvent(ctx, ev, e.encoder)
 		if err != nil {
-			e.logger.WithError(err).Warn("OnExportEvent failed")
+			e.logger.Warn("OnExportEvent failed", logfields.Error, err)
 		}
 		if stop {
 			// abort exporter pipeline by returning early but do not prevent

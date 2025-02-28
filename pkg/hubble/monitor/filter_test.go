@@ -4,21 +4,31 @@
 package monitor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
+	"github.com/cilium/cilium/pkg/logging"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestNewMonitorFilter(t *testing.T) {
-	logger, hook := test.NewNullLogger()
+	var buf bytes.Buffer
+	logger := slog.New(
+		slog.NewTextHandler(&buf,
+			&slog.HandlerOptions{
+				ReplaceAttr: logging.ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
 
 	tests := []struct {
 		name        string
@@ -69,13 +79,14 @@ func TestNewMonitorFilter(t *testing.T) {
 			assert.Equal(t, tc.expectedMF, mf)
 
 			if tc.expectedMF != nil {
-				assert.Len(t, hook.Entries, 1)
-				assert.Equal(t, logrus.InfoLevel, hook.LastEntry().Level)
-				assert.Equal(t, "Configured Hubble with monitor event filters", hook.LastEntry().Message)
-				assert.Equal(t, tc.filters, hook.LastEntry().Data["filters"])
+				bufStr := buf.String()
+				assert.Equal(t, 1, strings.Count(bufStr, "\n"))
+				assert.Contains(t, bufStr, strings.ToLower(slog.LevelInfo.String()))
+				assert.Contains(t, bufStr, "Configured Hubble with monitor event filters")
+				assert.Contains(t, bufStr, fmt.Sprintf("%+v", tc.filters))
 			}
 
-			hook.Reset()
+			buf = bytes.Buffer{}
 		})
 	}
 }
@@ -87,8 +98,6 @@ type testEvent struct {
 }
 
 func Test_OnMonitorEvent(t *testing.T) {
-	logger, _ := test.NewNullLogger()
-
 	tt := []struct {
 		name    string
 		filters []string
@@ -484,7 +493,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			mf, err := NewMonitorFilter(logger, tc.filters)
+			mf, err := NewMonitorFilter(hivetest.Logger(t), tc.filters)
 			assert.NoError(t, err)
 
 			for _, event := range tc.events {

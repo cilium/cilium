@@ -6,6 +6,7 @@ package api
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 
@@ -18,7 +19,7 @@ func TestDefaultRegistry(t *testing.T) {
 
 	assert.NotNil(t, registry)
 
-	registry.ConfigureHandlers(prometheusRegistry, &Config{
+	registry.ConfigureHandlers(hivetest.Logger(t), prometheusRegistry, &Config{
 		[]*MetricConfig{
 			{
 				Name:           "drop",
