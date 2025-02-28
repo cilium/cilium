@@ -48,7 +48,8 @@ const (
 )
 
 var (
-	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n3 digest_null \"\" cipher_null \"\"\n")
+	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n")
+	keysNullDat    = []byte("3 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	keysAeadDat256 = []byte("5 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
 	invalidKeysDat = []byte("6 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
@@ -95,14 +96,23 @@ func TestInvalidLoadKeys(t *testing.T) {
 func TestLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	testCases := [][]byte{keysDat, keysAeadDat, keysAeadDat256}
+	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
 		_, spi, err := LoadIPSecKeys(log, keys)
 		require.NoError(t, err)
 		err = SetIPSecSPI(log, spi)
 		require.NoError(t, err)
+		UnsetTestIPSecKey()
 	}
+}
+
+func TestLoadKeysLenChange(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	keys := bytes.NewReader(append(keysDat, keysNullDat...))
+	_, _, err := LoadIPSecKeys(log, keys)
+	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
 func TestLoadKeysSameSPI(t *testing.T) {
