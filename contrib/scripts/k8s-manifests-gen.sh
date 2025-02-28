@@ -26,16 +26,16 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumegressgatewaypolicies \
                 ciliumenvoyconfigs \
                 ciliumclusterwideenvoyconfigs \
-                ciliumnodeconfigs"
+                ciliumnodeconfigs \
+                ciliumbgpclusterconfigs \
+                ciliumbgppeerconfigs \
+                ciliumbgpadvertisements \
+                ciliumbgpnodeconfigs \
+                ciliumbgpnodeconfigoverrides"
 
 # Set CRDS_CILIUM_V2ALPHA1 with the list of CRDs for v2alpha1
 CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
                       ciliumbgppeeringpolicies \
-                      ciliumbgpclusterconfigs \
-                      ciliumbgppeerconfigs \
-                      ciliumbgpadvertisements \
-                      ciliumbgpnodeconfigs \
-                      ciliumbgpnodeconfigoverrides \
                       ciliumloadbalancerippools \
                       ciliumcidrgroups \
                       ciliuml2announcementpolicies \
