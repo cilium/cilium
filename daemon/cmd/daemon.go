@@ -90,6 +90,7 @@ type Daemon struct {
 	ctx              context.Context
 	clientset        k8sClient.Clientset
 	db               *statedb.DB
+	namespaces       statedb.Table[agentK8s.Namespace]
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	envoyXdsServer   envoy.XDSServer
@@ -362,6 +363,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ctx:               ctx,
 		clientset:         params.Clientset,
 		db:                params.DB,
+		namespaces:        params.Namespaces,
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
@@ -872,6 +874,6 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 }
 
 type endpointMetadataFetcher interface {
-	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
+	FetchNamespace(nsName string) (agentK8s.Namespace, bool)
 	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
 }

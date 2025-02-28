@@ -1547,6 +1547,7 @@ type daemonParams struct {
 	L7Proxy             *proxy.Proxy
 	EnvoyXdsServer      envoy.XDSServer
 	DB                  *statedb.DB
+	Namespaces          statedb.Table[agentK8s.Namespace]
 	APILimiterSet       *rate.APILimiterSet
 	AuthManager         *auth.AuthManager
 	Settings            cellSettings

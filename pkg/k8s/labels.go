@@ -17,9 +17,14 @@ import (
 // to use the original source address when extracting the metadata for a request.
 const UseOriginalSourceAddressLabel = "cilium.io/use-original-source-address"
 
+type nameLabelsGetter interface {
+	GetName() string
+	GetLabels() map[string]string
+}
+
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string) {
+func GetPodMetadata(k8sNs nameLabelsGetter, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,

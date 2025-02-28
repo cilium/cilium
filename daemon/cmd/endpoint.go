@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
@@ -204,9 +206,9 @@ func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim
 }
 
 func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
-	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
-	if err != nil {
-		return nil, err
+	ns, found := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
+	if !found {
+		return nil, fmt.Errorf("namespace %q not found", p.Namespace)
 	}
 
 	containerPorts, lbls := k8s.GetPodMetadata(ns, p)
@@ -221,10 +223,19 @@ func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoi
 
 type cachedEndpointMetadataFetcher struct {
 	k8sWatcher *watchers.K8sWatcher
+	db         *statedb.DB
+	namespaces statedb.Table[daemonk8s.Namespace]
 }
 
-func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
-	return cemf.k8sWatcher.GetCachedNamespace(nsName)
+func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (ns daemonk8s.Namespace, found bool) {
+	txn := cemf.db.ReadTxn()
+
+	// Wait for the namespace table to be fully populated before querying.
+	_, initWatch := cemf.namespaces.Initialized(txn)
+	<-initWatch
+
+	ns, _, found = cemf.namespaces.Get(txn, daemonk8s.NamespaceIndex.Query(nsName))
+	return
 }
 
 func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
