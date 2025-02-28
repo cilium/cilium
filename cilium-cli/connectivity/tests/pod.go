@@ -211,6 +211,37 @@ func (s *podToPodNoFrag) Name() string {
 func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	client := ct.RandomClientPod()
+	mtu := s.deriveMTU(ctx, t)
+
+	var server check.Pod
+	for _, pod := range ct.EchoPods() {
+		// Make sure that the server pod is on another node than client
+		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
+			server = pod
+			break
+		}
+	}
+
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
+			payloadSize := mtu - HdrSizeICMPEcho
+			switch ipFam {
+			case features.IPFamilyV4:
+				payloadSize -= HdrSizeIPv4
+			case features.IPFamilyV6:
+				payloadSize -= HdrSizeIPv6
+			}
+			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam,
+				"-M", "do", // DF
+				"-s", strconv.Itoa(payloadSize), // payload size
+			))
+		})
+
+	})
+}
+
+func (s *podToPodNoFrag) deriveMTU(ctx context.Context, t *check.Test) int {
+	client := t.Context().RandomClientPod()
 	var mtu int
 
 	cmd := []string{
@@ -247,31 +278,7 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	}
 	t.Debugf("Derived MTU: %d", mtu)
 
-	var server check.Pod
-	for _, pod := range ct.EchoPods() {
-		// Make sure that the server pod is on another node than client
-		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
-			server = pod
-			break
-		}
-	}
-
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
-			payloadSize := mtu - HdrSizeICMPEcho
-			switch ipFam {
-			case features.IPFamilyV4:
-				payloadSize -= HdrSizeIPv4
-			case features.IPFamilyV6:
-				payloadSize -= HdrSizeIPv6
-			}
-			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam,
-				"-M", "do", // DF
-				"-s", strconv.Itoa(payloadSize), // payload size
-			))
-		})
-
-	})
+	return mtu
 }
 
 func PodToPodMissingIPCache(opts ...Option) check.Scenario {
