@@ -65,20 +65,15 @@ jobs:
     environment: ${{ inputs.environment || 'release-base-images' }}
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout default branch (trusted)
+      - name: Checkout base or default branch (trusted)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          # This workflow is supposed to run only on pull_request_target context, but in case workflow call is made from a push context we still keep the default to default_branch
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
-
-      - name: Checkout base branch (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.base_ref }}
-          persist-credentials: false
 
       - name: Copy scripts to trusted directory
         run: |
