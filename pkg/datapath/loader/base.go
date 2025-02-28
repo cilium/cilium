@@ -507,6 +507,10 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		return err
 	}
 
+	if err := hackLoadMapStats(ctx); err != nil {
+		return err
+	}
+
 	if err := l.nodeHandler.NodeConfigurationChanged(*cfg); err != nil {
 		return err
 	}

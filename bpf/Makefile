@@ -5,7 +5,7 @@ include ../Makefile.defs
 
 SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
-BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
+BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o bpf_map_stats.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
 

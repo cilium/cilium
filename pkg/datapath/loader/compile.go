@@ -62,6 +62,10 @@ const (
 	wireguardPrefix = "bpf_wireguard"
 	wireguardProg   = wireguardPrefix + "." + string(outputSource)
 	wireguardObj    = wireguardPrefix + ".o"
+
+	mapstatsPrefix = "bpf_map_stats"
+	mapstatsProg   = mapstatsPrefix + "." + string(outputSource)
+	mapstatsObj    = mapstatsPrefix + ".o"
 )
 
 var (

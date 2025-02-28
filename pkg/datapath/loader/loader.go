@@ -4,6 +4,7 @@
 package loader
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -12,8 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -30,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	pkgebpf "github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -731,6 +735,63 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 	return nil
+}
+
+func hackLoadMapStats(ctx context.Context) error {
+	if err := compileWithOptions(ctx, "bpf_map_stats.c", "bpf_map_stats.o", nil); err != nil {
+		log.WithError(err).Fatal("failed to compile bpf_map_stats.c")
+	}
+
+	spec, err := bpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, "bpf_map_stats.o"))
+	if err != nil {
+		return fmt.Errorf("failed to load collection spec for bpf_map_stats.o: %w", err)
+	}
+
+	coll, _, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{})
+
+	prog, ok := coll.Programs["dump_bpf_map"]
+	if !ok {
+		return fmt.Errorf("dump_bpf_map not in collection")
+	}
+
+	link, err := link.AttachIter(link.IterOptions{
+		Program: prog,
+	})
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			r, err := link.Open()
+			if err != nil {
+				log.Fatalf("Open: %s\n", err)
+			}
+
+			log.Infof("map stats:")
+
+			scanner := bufio.NewScanner(r)
+			for scanner.Scan() {
+				var id uint32
+				var name string
+				var max, cur int64
+
+				// Parse the line
+				line := scanner.Text()
+				fmt.Sscanf(line, "%d %s %d %d", &id, &name, &max, &cur)
+
+				if pkgebpf.MapIDIsRegistered(id) {
+					log.Infof("%d %s: max=%d, cur=%d", id, name, max, cur)
+				}
+			}
+			r.Close()
+
+			time.Sleep(time.Second)
+		}
+	}()
+
+	return nil
+
 }
 
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.

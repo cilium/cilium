@@ -36,6 +36,23 @@ func GetMap(name string) *Map {
 	return mapRegister[name]
 }
 
+func MapIDIsRegistered(id uint32) bool {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	for _, m := range mapRegister {
+		// TODO memoize ids, Info() does a syscall.
+		info, err := m.Map.Info()
+		thisID, _ := info.ID()
+		if err == nil {
+			if id == uint32(thisID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // GetOpenMaps returns a slice of all open BPF maps. This is identical to
 // calling GetMap() on all open maps.
 func GetOpenMaps() []*models.BPFMap {
