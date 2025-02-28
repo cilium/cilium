@@ -364,18 +364,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p cilium-junits
-
-          TEST='--test "!seq-.*"'
-          if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
-            # Until https://github.com/cilium/cilium/issues/29480 is resolved
-            TEST='--test "!(seq-.*|pod-to-pod-no-frag)"'
-          fi
-
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            $TEST \
+            --test "!seq-.*" \
             --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
