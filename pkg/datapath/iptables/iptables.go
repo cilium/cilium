@@ -374,13 +374,13 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
-		if err := ip4tables.runProg([]string{"-t", table, "-L"}); err != nil {
+		if err := ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
 			m.logger.WithError(err).Warningf("iptables table %s is not available on this system", table)
 		}
 	}
 
 	for _, table := range []string{"mangle", "raw", "filter"} {
-		if err := ip6tables.runProg([]string{"-t", table, "-L"}); err != nil {
+		if err := ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
 			m.logger.WithError(err).Debugf("ip6tables table %s is not available on this system", table)
 			m.haveIp6tables = false
 		}
@@ -406,7 +406,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		}
 	}
 
-	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket"}); err != nil {
+	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
 		m.logger.WithError(err).Warning("iptables match socket is not available (try installing xt_socket kernel module)")
 
 		if !m.sharedCfg.TunnelingEnabled {
