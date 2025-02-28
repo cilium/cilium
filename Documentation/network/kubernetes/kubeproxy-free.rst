@@ -420,6 +420,27 @@ To add a new service that should only be exposed to nodes with label ``service.c
         targetPort: 9376
     type: LoadBalancer
 
+It's also possible to control the service node exposure via the annotation ``service.cilium.io/node-selector`` - where
+the annotation value contains the label selector. This way, the service is only exposed on nodes that match the
+node label selector. The annotation ``service.cilium.io/node-selector`` always has priority over 
+``service.cilium.io/node`` if both exist on the same service.
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/node-selector: "service.cilium.io/node in ( beefy , slow )"
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
 Note that changing a node label after a service has been exposed matching that label does not
 automatically update the list of nodes where the service is exposed. To update exposure of the
 service after changing node labels, restart the Cilium agent. Generally it is advised to fixate the
