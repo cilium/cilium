@@ -86,20 +86,6 @@ func IPToNetPrefix(ip net.IP) netip.Prefix {
 	return netip.PrefixFrom(a, a.BitLen())
 }
 
-// IPsToNetPrefixes returns all of the ips as a slice of netip.Prefix.
-//
-// See IPToNetPrefix() for how net.IP types are handled by this function.
-func IPsToNetPrefixes(ips []net.IP) []netip.Prefix {
-	if len(ips) == 0 {
-		return nil
-	}
-	res := make([]netip.Prefix, 0, len(ips))
-	for _, ip := range ips {
-		res = append(res, IPToNetPrefix(ip))
-	}
-	return res
-}
-
 // NetsContainsAny checks that any subnet in the `a` subnet group *fully*
 // contains any of the subnets in the `b` subnet group.
 func NetsContainsAny(a, b []*net.IPNet) bool {
