@@ -184,6 +184,14 @@ Key Rotation
    is, all nodes in the cluster (or clustermesh) should be on the same Cilium
    version before rotating keys.
 
+.. attention::
+
+   Key rotations do not support switching algorithm with different authentication
+   key lengths. If this change is attempted, the new key will be ignored to
+   prevent potential connectivity issues, and an error is logged.
+   After restarting the agent, Cilium will independently configure itself using
+   the latest provided key.
+
 To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
