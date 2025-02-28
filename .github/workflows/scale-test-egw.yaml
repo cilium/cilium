@@ -172,6 +172,7 @@ jobs:
             --set=k8sClientRateLimit.qps=100 \
             --set=extraConfig.cilium-endpoint-gc-interval=24h \
             --set-string=extraConfig.enable-stale-cilium-endpoint-cleanup=false \
+            --set=prometheus.metrics="{+cilium_datapath_nat_gc_entries}" \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
             --values=values-dummy-health-server.yaml \
