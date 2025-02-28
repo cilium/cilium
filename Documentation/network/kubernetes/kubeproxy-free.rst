@@ -391,6 +391,40 @@ corresponding ``NodePort`` and ``ClusterIP`` services. If the annotation
 would be set to e.g. ``service.cilium.io/type: NodePort``, then only the
 ``NodePort`` service would be installed.
 
+Host Proxy Delegation
+*********************
+
+If the selected service backend IP for a given service matches the local
+node IP, the annotation ``service.cilium.io/proxy-delegation: delegate-if-local``
+will pass the received packet unmodified to the upper stack, so that a
+L7 proxy such as Envoy (if present) can handle the request in the host
+namespace.
+
+If the selected service backend is a remote IP, then the received packet
+is not pushed to the upper stack and instead the BPF code forwards the
+packet natively with the configured forwarding method to the remote IP.
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/proxy-delegation: delegate-if-local
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+
+In combination with ``externalTrafficPolicy=Local`` this mechanism also allows
+for pushing all traffic to the upper proxy.
+
+Non-presence of the ``service.cilium.io/proxy-delegation`` annotation leaves
+all forwarding to BPF natively which is also the default for the kube-proxy
+replacement case.
+
 Selective Service Node Exposure
 *******************************
 
