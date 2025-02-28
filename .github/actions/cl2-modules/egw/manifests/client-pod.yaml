@@ -15,8 +15,10 @@ spec:
     imagePullPolicy: IfNotPresent
     args:
       - "client"
-      - "--external-target-addr={{.ExternalTarget}}:1337"
+      - "--external-target-addr={{.ExternalTarget}}:{{.ExternalTargetPort}}"
       - "--test-timeout={{.ClientConnectTimeout}}"
+      - "--stress={{.Stress}}"
+      - "--stress-delay=15s"
     ports:
     - name: prometheus
       containerPort: 2112
@@ -35,3 +37,25 @@ spec:
         port: 2112
       initialDelaySeconds: 5
       periodSeconds: 1
+  securityContext:
+    sysctls:
+    # Extend the range of local ports, to avoid hitting this limit first.
+    - name: net.ipv4.ip_local_port_range
+      value: "15000 64999"
+  {{ if eq .AffinityType "affinity" }}
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .AffinityInstance }}
+        topologyKey: kubernetes.io/hostname
+  {{ else if eq .AffinityType "antiAffinity" }}
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .AffinityInstance }}
+        topologyKey: kubernetes.io/hostname
+  {{ end }}

@@ -21,7 +21,9 @@ steps:
         Image: {{ .image }}
         Instance: {{ .instance }}
         ExternalTarget: {{ .externalTarget }}
+        ExternalTargetPort: 1337
         ClientConnectTimeout: "295s"
+        Stress: false
 
 - name: Wait for EGW Client pods to be running
   measurements:

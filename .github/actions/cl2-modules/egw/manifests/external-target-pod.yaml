@@ -1,3 +1,6 @@
+{{$Port := AddInt 1337 .Index}}
+{{$KeepOpen := ge .Index 1}}
+
 apiVersion: v1
 kind: Pod
 metadata:
@@ -20,8 +23,9 @@ spec:
     image: {{.Image}}
     imagePullPolicy: IfNotPresent
     ports:
-    - containerPort: 1337
+    - containerPort: {{$Port}}
     args:
       - "external-target"
       - "--allowed-cidr={{.AllowedCIDR}}"
-      - "--listen-port=1337"
+      - "--listen-port={{$Port}}"
+      - "--keep-open={{$KeepOpen}}"
