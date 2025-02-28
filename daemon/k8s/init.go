@@ -126,8 +126,8 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 			logfields.K8sNodeIP:        k8sNodeIP,
 		}).Info("Received own node information from API server")
 
-		// If the host does not have an IPv6 address, return an error
-		if option.Config.EnableIPv6 && nodeIP6 == nil {
+		// If the host does not have an IPv6 address and IPv4 is enabled, return an error
+		if option.Config.EnableIPv4 && option.Config.EnableIPv6 && nodeIP6 == nil {
 			log.WithFields(logrus.Fields{
 				logfields.NodeName:         n.Name,
 				logfields.IPAddr + ".ipv4": nodeIP4,
