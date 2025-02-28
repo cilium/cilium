@@ -192,7 +192,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
 	}
-	ip.detach()
+	ip.detach(true, 0)
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
@@ -203,7 +203,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
 	n := epPolicy.policyMapState.Len()
 	epPolicy.Ready()
-	ip.detach()
+	ip.detach(true, 0)
 	assert.Positive(t, n)
 }
 
@@ -278,7 +278,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -373,7 +373,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -482,7 +482,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	require.Empty(t, policy.policyMapChanges.synced)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -649,7 +649,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	require.Equal(t, Keys{}, changes.Deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.selectorPolicy.detach()
+	policy.selectorPolicy.detach(true, 0)
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
