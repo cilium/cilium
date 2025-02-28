@@ -130,6 +130,11 @@ const (
 	// service is ignored and not installed into their datapath.
 	ServiceNodeExposure = ServicePrefix + "/node"
 
+	// ServiceNodeSelectorExposure is the label name used to mark a service to only a
+	// subset of the nodes which match the label selector. For all other nodes, this
+	// service is ignored and not installed into their datapath.
+	ServiceNodeSelectorExposure = ServicePrefix + "/node-selector"
+
 	// ServiceTypeExposure is the annotation name used to mark what service type
 	// to provision (only single type is allowed; allowed types: "ClusterIP",
 	// "NodePort" and "LoadBalancer").
