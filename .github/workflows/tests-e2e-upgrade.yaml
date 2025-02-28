@@ -103,6 +103,7 @@ jobs:
       fail-fast: false
       max-parallel: 31
       matrix:
+        mode: ['minor', 'patch']
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -112,394 +113,6 @@ jobs:
             tunnel: 'vxlan'
             host-fw: 'true'
             misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
-
-          - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
-
-          - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-            kvstore: 'true'
-
-          - name: '4'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            ingress-controller: 'true'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            bgp-control-plane: 'true'
-
-          - name: '7'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-
-          - name: '8'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            encryption-strict-mode: 'true'
-            misc: 'socketLB.enabled=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            kvstore: 'true'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-            misc: 'socketLB.hostNamespaceOnly=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '12'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            encryption-strict-mode: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            misc: 'policyCIDRMatchMode=nodes'
-
-          - name: '14'
-            # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
-            # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
-            # explains why 5.4 might cause north-south-loadbalancing tests to
-            # fail.
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250126.112744'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-
-          - name: '15'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
-            ciliumendpointslice: 'true'
-
-          - name: '16'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'geneve'
-            lb-mode: 'snat'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            host-fw: 'true'
-            ciliumendpointslice: 'true'
-            ingress-controller: 'true'
-
-          - name: '17'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '18'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '19'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            kvstore: 'true'
-
-          - name: '20'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '21'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '22'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '23'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            host-fw: 'true'
-
-          - name: '24'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '25'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '26'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '27'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '28'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '29'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '30'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '31'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250126.112744'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          # Example of a feature that is being introduced, and we want to test
-          # it without performing an upgrade, we use skip-upgrade: 'true'
-          # - name: '23'
-          #   # <insert renovate dependency descriptor here>
-          #   kernel: 'bpf-20241206.013345'
-          #   misc: 'bpf.datapathMode=netkit-l2'
-          #   skip-upgrade: 'true'
 
     timeout-minutes: 55
     steps:
@@ -530,15 +143,34 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
+          if [ "${{ matrix.mode }}" = "minor" ]; then
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
+            IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+          else
+            # Upgrade from / downgrade to patch release.
+            # In some cases we expect to fail to get the version number, do not
+            # fail the workflow in such case. This is typically the case on
+            # main branch where we don't have preceeding patch releases.
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            # Pass an empty tag to the cilium-config action to fall back to the
+            # default release image, without crafting an image path with the
+            # "-ci" suffix
+            IMAGE_TAG=''
+          fi
+          echo "CILIUM_DOWNGRADE_VERSION: ${CILIUM_DOWNGRADE_VERSION}"
+          echo "IMAGE_TAG: ${IMAGE_TAG}"
+          if [ -z "${CILIUM_DOWNGRADE_VERSION}" ]; then
+            echo "::notice::No CILIUM_DOWNGRADE_VERSION returned; skipping remaining steps"
+          fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
+          echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
-        if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.vars.outputs.downgrade_version }}
+          image-tag: ${{ steps.vars.outputs.image_tag }}
           chart-dir: './untrusted/cilium-downgrade/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
@@ -561,6 +193,7 @@ jobs:
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
@@ -586,6 +219,7 @@ jobs:
 
       - name: Set Kind params
         id: kind-params
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           IP_FAM="dual"
@@ -595,6 +229,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
@@ -602,9 +237,21 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Setup bootid file
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        with:
+          provision: 'false'
+          cmd: |
+            set -ex
+            for container in \$(docker ps -q); do
+              docker exec \$container mkdir -p /var/run/cilium/
+              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+            done
+
       - name: Start Cilium KVStore
         id: kvstore
-        if: matrix.kvstore == 'true'
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.kvstore == 'true' }}
         run: |
           make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
 
@@ -616,6 +263,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium-cli@1432ef0e4e0cd766f5c1ee0544759d7a31cd32b2 # v0.17.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -625,6 +273,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
@@ -635,7 +284,7 @@ jobs:
             examples
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
@@ -644,25 +293,27 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Install Cilium ${{ matrix.skip-upgrade == 'true' && 'from main' || steps.vars.outputs.downgrade_version }}
+      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
-          if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
-          else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
-          fi
+          cilium install \
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
-          cilium status --wait
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
           mkdir -p cilium-junits
 
       - name: Install node local DNS
-        if: ${{ matrix.node-local-dns == 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.node-local-dns == 'true' }}
         shell: bash
         run: |
           kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
@@ -671,7 +322,7 @@ jobs:
           kubectl rollout status -n kube-system ds/node-local-dns
 
       - name: Prepare the bpftrace parameters
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         id: bpftrace-params
         run: |
           CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
@@ -682,7 +333,7 @@ jobs:
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
       - name: Start unencrypted packets check for upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -690,6 +341,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Start conn-disrupt-test
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           # Create pods which establish long lived connections. It will be used by
@@ -701,24 +353,26 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Setup Cilium CLI flags
         id: cli-flags
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         run: |
           EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
@@ -740,7 +394,8 @@ jobs:
             --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
             ${EXTRA[@]}" >> $GITHUB_OUTPUT
 
-      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+      - name: Test Cilium after upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -752,7 +407,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
@@ -760,6 +415,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -768,6 +424,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -777,10 +434,11 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+      - name: Setup conn disrupt tests after a flush-ct Cilium tests
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -790,13 +448,14 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Features tested before downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
       - name: Start unencrypted packets check for downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -805,24 +464,25 @@ jobs:
 
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -833,7 +493,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
@@ -841,7 +501,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -850,7 +510,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
-        if: ${{ matrix.skip-upgrade != 'true' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -860,7 +520,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
@@ -870,7 +530,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
@@ -885,28 +545,28 @@ jobs:
           fi
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: cilium-sysdumps-${{ matrix.name }}
+          name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
-        if: ${{ always() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: cilium-junits-${{ matrix.name }}
+          name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
-        if: ${{ always() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: features-tested-${{ matrix.name }}
+          name: features-tested-${{ matrix.name }}-${{ matrix.mode }}
           path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
