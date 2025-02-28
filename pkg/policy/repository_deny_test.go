@@ -1371,7 +1371,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 		t.Errorf("Resolved policy did not match expected")
 	}
 	l4IngressDenyPolicy.Detach(td.sc)
-	expectedDeny.Detach(td.sc)
+	expectedDeny.detach(td.sc)
 
 	// L4 from app3 has no rules
 	expectedDeny = NewL4Policy(repo.GetRevision())
@@ -1380,7 +1380,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	require.Equal(t, 0, l4IngressDenyPolicy.Len())
 	require.Equal(t, expectedDeny.Ingress.PortRules, l4IngressDenyPolicy)
 	l4IngressDenyPolicy.Detach(td.sc)
-	expectedDeny.Detach(td.sc)
+	expectedDeny.detach(td.sc)
 }
 
 func buildDenyRule(from, to, port string) api.Rule {
