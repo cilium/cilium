@@ -5,12 +5,12 @@ package threefour
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -27,7 +27,7 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	dnsGetter      getters.DNSGetter
@@ -58,7 +58,7 @@ type packet struct {
 
 // New returns a new L3/L4 parser
 func New(
-	log logrus.FieldLogger,
+	log *slog.Logger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,

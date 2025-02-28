@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +17,7 @@ func TestNewWatchedServerConfigErrors(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	_, err := NewWatchedServerConfig(logger, relay.caFiles, "", hubble.privkeyFile)
 	assert.Equal(t, ErrMissingCertFile, err)
@@ -30,7 +30,7 @@ func TestWatchedServerConfigIsMutualTLS(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	tests := []struct {
 		name        string
@@ -75,7 +75,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	// don't call setup() yet, we only want the directories created without the
 	// TLS files.
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	ch, err := FutureWatchedServerConfig(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
 	assert.NoError(t, err)
@@ -98,7 +98,7 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	expectedCaCertPool := x509.NewCertPool()
 	if ok := expectedCaCertPool.AppendCertsFromPEM(initialRelayClientCA); !ok {
@@ -134,7 +134,7 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
-	logger, _ := test.NewNullLogger()
+	logger := hivetest.Logger(t)
 
 	expectedCaCertPool := x509.NewCertPool()
 	if ok := expectedCaCertPool.AppendCertsFromPEM(rotatedRelayClientCA); !ok {

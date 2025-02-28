@@ -6,11 +6,11 @@ package api
 import (
 	"context"
 	"errors"
-	"io"
+	"log/slog"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -95,19 +95,18 @@ func TestRegister(t *testing.T) {
 		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
-	log := logrus.New()
-	log.SetOutput(io.Discard)
+	log := hivetest.Logger(t)
 
 	t.Run("Should not register handler", func(t *testing.T) {
 
-		r := NewRegistry(log)
+		r := NewRegistry()
 
 		handler := &testHandler{}
 
 		r.Register("test", &testPlugin{handler: handler})
 
 		//exhaustruct:ignore
-		handlers, err := r.ConfigureHandlers(nil, &Config{})
+		handlers, err := r.ConfigureHandlers(log, nil, &Config{})
 		assert.NoError(t, err)
 		assert.Empty(t, *handlers)
 	})
@@ -295,14 +294,14 @@ func TestRegister(t *testing.T) {
 
 }
 
-func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.Registry, log *logrus.Logger) *[]NamedHandler {
+func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.Registry, log *slog.Logger) *[]NamedHandler {
 	counter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "test",
 		Name:      "events",
 	}, opts.GetLabelNames())
 	promRegistry.MustRegister(counter)
 
-	r := NewRegistry(log)
+	r := NewRegistry()
 
 	handler := &testHandler{}
 	handler.ContextOptions = opts
@@ -317,7 +316,7 @@ func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.R
 			},
 		},
 	}
-	handlers, err := r.ConfigureHandlers(nil, cfg)
+	handlers, err := r.ConfigureHandlers(log, nil, cfg)
 	assert.NoError(t, err)
 	assert.Len(t, *handlers, 1)
 	assert.EqualValues(t, 1, (*handlers)[0].Handler.(*testHandler).InitCalled)

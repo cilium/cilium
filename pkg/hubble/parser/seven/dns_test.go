@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,7 +49,7 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	serviceGetter := &testutils.NoopServiceGetter
 	endpointGetter := &testutils.NoopEndpointGetter
 
-	parser, err := New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter)
+	parser, err := New(hivetest.Logger(t), dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}

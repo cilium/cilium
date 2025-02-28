@@ -250,8 +250,8 @@ const (
 	// CIDR is a IPv4/IPv6 subnet/CIDR
 	CIDR = "cidr"
 
-	// CIDRS is a list of IPv4/IPv6 CIDRs
-	CIDRS = "cidrs"
+	// CIDRs is a list of IPv4/IPv6 CIDRs
+	CIDRs = "cidrs"
 
 	// OldCIDR is the previous subnet/CIDR
 	OldCIDR = "oldCIDR"
@@ -1138,4 +1138,62 @@ const (
 	Taint = "taint"
 
 	Pod = "pod"
+
+	Reasons = "reasons"
+
+	Config = "config"
+
+	MetricConfig = "metricConfig"
+
+	TLS = "tls"
+
+	FlowLogName = "flowLogName"
+
+	Options = "options"
+
+	RelatedMetric = "related-metric"
+
+	Filters = "filters"
+
+	MaxFlows = "maxFlows"
+
+	EventQueueSize = "eventQueueSize"
+
+	NumberOfFlows = "numberOfFlows"
+
+	Whitelist = "whiltelist"
+
+	Blacklist = "blackList"
+
+	Took = "took"
+
+	NumberOfAgentEvents = "numberOfAgentEvents"
+
+	NumberOfDebugEvents = "numberOfDebugEvents"
+
+	DatapathIdentity = "datapathIdentity"
+
+	UserspaceIdentity = "userspaceIdentity"
+
+	Context = "context"
+
+	NumEvents = "numEvents"
+
+	CPU = "cpu"
+
+	RuleID = "ruleID"
+
+	FilePath = "filePath"
+
+	Peer = "peer"
+
+	ConnectionTimeout = "connectionTimeout"
+
+	ChangeNotification = "changeNotification"
+
+	NextTryIn = "nextTryIn"
+
+	Operation = "operation"
+
+	KeyPairSN = "keyPairSN"
 )

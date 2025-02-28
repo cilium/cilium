@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"sort"
 	"strings"
@@ -17,9 +18,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -561,7 +562,7 @@ func TestPeerManager(t *testing.T) {
 			},
 			want: want{
 				log: []string{
-					`level=info msg="Failed to create peer client for peers synchronization; will try again after the timeout has expired" error="I'm on PTO" target="unix:///var/run/cilium/hubble.sock"`,
+					`level=info msg="Failed to create peer client for peers synchronization; will try again after the timeout has expired" error="I'm on PTO" target=unix:///var/run/cilium/hubble.sock`,
 				},
 			},
 		}, {
@@ -613,7 +614,7 @@ func TestPeerManager(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=warning msg="Failed to create gRPC client" address="192.0.1.1:4244" error="Don't feel like workin' today" hubble-tls=false next-try-in=1s peer=unreachable`,
+					`level=warn msg="Failed to create gRPC client" address=192.0.1.1:4244 tls=false peer=unreachable error="Don't feel like workin' today" nextTryIn=1s`,
 				},
 			},
 		}, {
@@ -633,7 +634,7 @@ func TestPeerManager(t *testing.T) {
 			},
 			want: want{
 				log: []string{
-					`level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="Don't feel like workin' today"`,
+					`level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" error="Don't feel like workin' today" connectionTimeout=30s`,
 				},
 			},
 		}, {
@@ -656,7 +657,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			want: want{
-				log: []string{`level=info msg="Error while receiving peer change notification; will try again after the timeout has expired" connection timeout=30s error="Nope, ain't doin' nothin'`},
+				log: []string{`level=info msg="Error while receiving peer change notification; will try again after the timeout has expired" error="Nope, ain't doin' nothin'" connectionTimeout=30s`},
 			},
 		},
 	}
@@ -664,14 +665,27 @@ func TestPeerManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
+			logger := slog.New(
+				slog.NewTextHandler(&buf,
+					&slog.HandlerOptions{
+						ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+							switch a.Key {
+							case slog.TimeKey:
+								// Drop timestamps
+								return slog.Attr{}
+							case slog.LevelKey:
+								// Lower-case the log level
+								return slog.Attr{
+									Key:   a.Key,
+									Value: slog.StringValue(strings.ToLower(a.Value.String())),
+								}
+							default:
+								return a
+							}
+						},
+					},
+				),
+			)
 
 			done = make(chan struct{})
 			once = sync.Once{}
@@ -759,6 +773,7 @@ func TestPeerManager_PeerClientReconnect(t *testing.T) {
 		WithClientConnBuilder(cc),
 		WithConnCheckInterval(100*time.Second),
 		WithRetryTimeout(500*time.Millisecond),
+		WithLogger(hivetest.Logger(t)),
 	)
 	assert.NoError(t, err)
 	mgr.Start()
@@ -989,21 +1004,11 @@ func TestPeerManager_CheckMetrics(t *testing.T) {
 			done = make(chan struct{})
 			once = sync.Once{}
 
-			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
-
 			registry := prometheus.NewPedanticRegistry()
 			options := []Option{
 				WithPeerClientBuilder(tt.pcBuilder),
 				WithClientConnBuilder(tt.ccBuilder),
-				WithLogger(logger),
+				WithLogger(hivetest.Logger(t)),
 				WithConnStatusInterval(2 * time.Second),
 				// set interval large enough not to fire in 3 seconds sleep
 				WithConnCheckInterval(20 * time.Minute),
@@ -1193,21 +1198,11 @@ func TestPeerManager_Status(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
-
 			registry := prometheus.NewPedanticRegistry()
 			options := []Option{
 				WithPeerClientBuilder(tt.pcBuilder),
 				WithClientConnBuilder(tt.ccBuilder),
-				WithLogger(logger),
+				WithLogger(hivetest.Logger(t)),
 				WithConnStatusInterval(2 * time.Second),
 				// set interval large enough not to fire in 3 seconds sleep
 				WithConnCheckInterval(20 * time.Minute),
