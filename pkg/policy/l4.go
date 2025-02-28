@@ -1735,17 +1735,17 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
 	l4Policy.mutex.RUnlock()
 }
 
-// Detach makes the L4Policy ready for garbage collection, removing
+// detach makes the L4Policy ready for garbage collection, removing
 // circular pointer references.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
-func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
+func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
 
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
 	l4.users = nil
-	l4.mutex.Unlock()
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.

@@ -58,7 +58,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
-		cip.getPolicy().Detach()
+		cip.getPolicy().detach()
 	}
 	return ok
 }
@@ -178,6 +178,6 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {
 		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.Detach()
+		oldPolicy.detach()
 	}
 }

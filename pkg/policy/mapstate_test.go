@@ -1965,6 +1965,6 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	epPolicy.Ready()
 
 	n := epPolicy.policyMapState.Len()
-	p.Detach()
+	p.detach()
 	assert.Positive(t, n)
 }
