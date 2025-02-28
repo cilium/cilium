@@ -356,7 +356,7 @@ var (
 		return denyEntry().withLabels(lbls)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
-		return allowEntry().withLabels(lbls).withProxyPort(1)
+		return allowEntry().withLabels(lbls).withHTTPProxyPort(1)
 	}
 )
 
