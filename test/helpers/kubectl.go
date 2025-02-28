@@ -793,37 +793,6 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 	return len(strings.Split(res.SingleOut(), " ")) - len(GetNodesWithoutCilium())
 }
 
-// CountMissedTailCalls returns the number of the sum of all drops due to
-// missed tail calls that happened on all Cilium-managed nodes.
-func (kub *Kubectl) CountMissedTailCalls() (int, error) {
-	ciliumPods, err := kub.GetCiliumPods()
-	if err != nil {
-		return -1, err
-	}
-
-	totalMissedTailCalls := 0
-	for _, ciliumPod := range ciliumPods {
-		cmd := "cilium-dbg metrics list -o json | jq '.[] | select( .name == \"cilium_drop_count_total\" and .labels.reason == \"Missed tail call\" ).value'"
-		res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
-		if !res.WasSuccessful() {
-			return -1, fmt.Errorf("Failed to run %s in pod %s: %s", cmd, ciliumPod, res.CombineOutput())
-		}
-		if res.Stdout() == "" {
-			continue
-		}
-
-		for _, cnt := range res.ByLines() {
-			nbMissedTailCalls, err := strconv.Atoi(cnt)
-			if err != nil {
-				return -1, err
-			}
-			totalMissedTailCalls += nbMissedTailCalls
-		}
-	}
-
-	return totalMissedTailCalls, nil
-}
-
 // CreateSecret is a wrapper around `kubernetes create secret
 // <resourceName>.
 func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdRes {
@@ -2272,12 +2241,6 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	}
 }
 
-// WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
-// default timeout it returns an error.
-func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
-}
-
 // WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
 // service. If the container is not ready after timeout it returns an error. The
 // name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
@@ -3059,36 +3022,6 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
 		&TimeoutConfig{Timeout: HelperTimeout})
-}
-
-// WaitForCiliumInitContainerToFinish waits for all Cilium init containers to
-// finish
-func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
-	body := func() bool {
-		podList := &v1.PodList{}
-		err := kub.GetPods(CiliumNamespace, "-l k8s-app=cilium").Unmarshal(podList)
-		if err != nil {
-			kub.Logger().Infof("Error while getting PodList: %s", err)
-			return false
-		}
-		if len(podList.Items) == 0 {
-			return false
-		}
-		for _, pod := range podList.Items {
-			for _, v := range pod.Status.InitContainerStatuses {
-				if v.State.Terminated != nil && (v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0) {
-					kub.Logger().WithFields(logrus.Fields{
-						"podName":      pod.Name,
-						"currentState": v.State.String(),
-					}).Infof("Cilium Init container not completed")
-					return false
-				}
-			}
-		}
-		return true
-	}
-
-	return WithTimeout(body, "Cilium Init Container was not able to initialize or had a successful run", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
@@ -4107,25 +4040,6 @@ func parseLBList(res *CmdRes) (map[string][]string, error) {
 	}
 
 	return lbMap, nil
-}
-
-// KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
-func (kub *Kubectl) KubeDNSPreFlightCheck() error {
-	var dnsErr error
-	body := func() bool {
-		dnsErr = kub.fillServiceCache()
-		if dnsErr != nil {
-			return false
-		}
-		dnsErr = kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
-		return dnsErr == nil
-	}
-
-	err := WithTimeout(body, "DNS not ready within timeout", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		return fmt.Errorf("kube-dns service not ready: %w", dnsErr)
-	}
-	return nil
 }
 
 // servicePreFlightCheck makes sure that k8s service with given name and
