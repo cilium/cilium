@@ -5,7 +5,7 @@
   kpr: 'false'
   tunnel: 'vxlan'
   key-one: 'gcm(aes)'
-  key-two: 'cbc(aes)'
+  key-two: 'gcm(aes)'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.4-20240710.064909'
@@ -32,7 +32,7 @@
   tunnel: 'geneve'
   endpoint-routes: 'true'
   key-one: 'cbc(aes)'
-  key-two: 'gcm(aes)'
+  key-two: 'cbc(aes)'
   kvstore: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
