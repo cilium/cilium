@@ -85,10 +85,10 @@ func TestCachePopulation(t *testing.T) {
 	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
-	updated, err := cache.updateSelectorPolicy(identity1)
+	updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.Equal(t, false, updated)
 	policy2 := cache.insert(identity1)
@@ -99,13 +99,13 @@ func TestCachePopulation(t *testing.T) {
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.Error(t, err)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
+	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
 	require.Error(t, err)
 	require.Equal(t, false, updated)
 
@@ -117,7 +117,7 @@ func TestCachePopulation(t *testing.T) {
 	identity3 := ep3.GetSecurityIdentity()
 	policy3 := cache.insert(identity3)
 	require.NotEqual(t, policy1, policy3)
-	updated, err = cache.updateSelectorPolicy(identity3)
+	updated, err = cache.updateSelectorPolicy(identity3, ep3.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
 	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
@@ -430,7 +430,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (MapState, error) {
 	sp := d.Repository.GetPolicyCache().insert(identity)
-	d.Repository.GetPolicyCache().UpdatePolicy(identity)
+	d.Repository.GetPolicyCache().UpdatePolicy(identity, 0)
 	epp := sp.Consume(DummyOwner{})
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")

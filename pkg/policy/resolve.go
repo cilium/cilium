@@ -5,6 +5,8 @@ package policy
 
 import (
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -66,6 +68,7 @@ type PolicyOwner interface {
 	HasBPFPolicyMap() bool
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
+	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -92,8 +95,11 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 // detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
-func (p *selectorPolicy) detach() {
-	p.L4Policy.detach(p.SelectorCache)
+// The endpointID argument is only necessary if isDelete is false.
+// It ensures that detach does not call a regeneration trigger on
+// the same endpoint that initiated a selector policy update.
+func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
+	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
