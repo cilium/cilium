@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
@@ -223,18 +224,6 @@ func (ipc *IPCache) UpdateController(
 	params controller.ControllerParams,
 ) {
 	ipc.controllers.UpdateController(name, params)
-}
-
-// endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
-func endpointIPToCIDR(ip net.IP) *net.IPNet {
-	bits := net.IPv6len * 8
-	if ip.To4() != nil {
-		bits = net.IPv4len * 8
-	}
-	return &net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(bits, bits),
-	}
 }
 
 func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
@@ -956,7 +945,7 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 			_, cidr, err := net.ParseCIDR(ip)
 			if err != nil {
 				endpointIP := net.ParseIP(ip)
-				cidr = endpointIPToCIDR(endpointIP)
+				cidr = iputil.IPToPrefix(endpointIP)
 			}
 			cidrs = append(cidrs, *cidr)
 		}
