@@ -44,9 +44,14 @@ var Cell = cell.Module(
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
-	// Register a background job to re-reconcile NodePort and HostPort frontends when
-	// the node addresses change.
-	cell.Invoke(registerNodePortAddressReconciler),
+	cell.Invoke(
+		// Register a background job to re-reconcile NodePort and HostPort frontends when
+		// the node addresses change.
+		registerNodePortAddressReconciler,
+
+		// Register a background job to update the BPF map pressure metrics.
+		registerPressureMetricsReporter,
+	),
 
 	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
 	// implementation is enabled.

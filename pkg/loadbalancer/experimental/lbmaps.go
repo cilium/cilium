@@ -61,7 +61,13 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 		}
 	}
 
-	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
+	r := &BPFLBMaps{
+		Log:       p.Log,
+		Pinned:    pinned,
+		Cfg:       p.ExtConfig,
+		MaglevCfg: p.MaglevConfig,
+		openMaps:  map[string]*ebpf.Map{},
+	}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
 }
@@ -172,6 +178,8 @@ type BPFLBMaps struct {
 	sourceRange4Map, sourceRange6Map *ebpf.Map
 	maglev4Map, maglev6Map           *ebpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 	maglevInnerMapSpec               *ebpf.MapSpec
+
+	openMaps map[string]*ebpf.Map
 }
 
 func sizeOf[T any]() uint32 {
@@ -327,6 +335,8 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 		if err := m.OpenOrCreate(); err != nil {
 			return fmt.Errorf("opening map %s: %w", desc.spec.Name, err)
 		}
+
+		r.openMaps[desc.spec.Name] = m
 	}
 
 	if !r.Pinned {

@@ -26,6 +26,13 @@ db/cmp backends backends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
+# Check pressure metrics. We have 8 frontends and 8 backends, 4 per family.
+# For NodePort we have 2 additional backends, so we get: (4+2)*(1+2) == 18,
+# which for MaxEntries=1000 is 0.0018 entries in services maps and
+# 0.006 in maglev and revnat maps (one per frontend address).
+[privileged] metrics --out=metrics.actual cilium_bpf_map_pressure
+[privileged] * cmp metrics.expected metrics.actual
+
 # Cleanup
 k8s/delete service.yaml endpointslice-ipv4.yaml endpointslice-ipv6.yaml
 db/cmp services services_empty.table
@@ -97,7 +104,16 @@ Address  Type        ServiceName   PortName   Status  Backends
 -- backends_empty.table --
 Address
 
-
+-- metrics.expected --
+Metric                    Labels                     Value
+cilium_bpf_map_pressure   map_name=lb4_backends_v3   0.004000
+cilium_bpf_map_pressure   map_name=lb4_maglev        0.006000
+cilium_bpf_map_pressure   map_name=lb4_reverse_nat   0.006000
+cilium_bpf_map_pressure   map_name=lb4_services_v2   0.018000
+cilium_bpf_map_pressure   map_name=lb6_backends_v3   0.004000
+cilium_bpf_map_pressure   map_name=lb6_maglev        0.006000
+cilium_bpf_map_pressure   map_name=lb6_reverse_nat   0.006000
+cilium_bpf_map_pressure   map_name=lb6_services_v2   0.018000
 -- service.yaml --
 apiVersion: v1
 kind: Service
