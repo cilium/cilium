@@ -53,6 +53,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  test_concurrency: 5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -155,7 +158,15 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+                                      --collect-sysdump-on-failure \
+                                      --sysdump-hubble-flows-count=1000000 \
+                                      --sysdump-hubble-flows-timeout=5m \
+                                      --flush-ct"
+
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Derive Cilium installation config and junit type
         id: cilium-config
@@ -275,17 +286,28 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct
+            --test 'seq-.*'
+
+      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test '!seq-.*' \
+            --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -327,23 +349,34 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
 
-          TEST=""
-          if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
-            # Until https://github.com/cilium/cilium/issues/29480 is resolved
-            TEST='--test "!pod-to-pod-no-frag"'
-          fi
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct $TEST
+            --test 'seq-.*'
+
+      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
+            # Until https://github.com/cilium/cilium/issues/29480 is resolved
+            TEST='--test "!(seq-.*|pod-to-pod-no-frag)"'
+          fi
+
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            $TEST \
+            --test-concurrency=${{ env.test_concurrency }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
