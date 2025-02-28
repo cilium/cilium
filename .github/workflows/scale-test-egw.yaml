@@ -391,10 +391,24 @@ jobs:
           K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
           echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
 
+          # Retrieve the CIDR associated with the availability zone where the cluster
+          # is deployed, and configure it as native routing CIDR. Otherwise, Cilium
+          # would default to the VPC CIDR, but we want to masquerade traffic towards
+          # the external destination (which is located in the same VPC, but different
+          # availability zone), to reflect the most common type of real deployments.
+          NATIVE_CIDR_BLOCK=$(aws ec2 describe-subnets --region ${{ steps.vars.outputs.eks_region }} \
+            --filters Name=availability-zone,Values=${{ steps.vars.outputs.eks_zone_1 }} \
+                Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.vars.outputs.cluster_name }} \
+                Name=map-public-ip-on-launch,Values=false \
+            --query 'Subnets[*].CidrBlock' --output text)
+          echo "Retrieved native routing CIDR: '${NATIVE_CIDR_BLOCK}'"
+
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443 \
+            --set=ipv4NativeRoutingCIDR="${NATIVE_CIDR_BLOCK}"
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443 \
+            --set=ipv4NativeRoutingCIDR="${NATIVE_CIDR_BLOCK}"
 
       - name: Delete context ref
         run: |
