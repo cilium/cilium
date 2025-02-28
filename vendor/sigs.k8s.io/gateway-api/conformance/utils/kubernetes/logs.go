@@ -19,8 +19,11 @@ package kubernetes
 import (
 	"context"
 	"io"
+	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	clientset "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,8 +31,8 @@ import (
 
 // DumpEchoLogs returns logs of the echoserver pod in
 // in the given namespace and with the given name.
-func DumpEchoLogs(ns, name string, c client.Client, cs clientset.Interface) ([][]byte, error) {
-	var logs [][]byte
+func DumpEchoLogs(ns, name string, c client.Client, cs clientset.Interface, time time.Time) ([]string, error) {
+	var logs []string
 
 	pods := new(corev1.PodList)
 	podListOptions := &client.ListOptions{
@@ -42,8 +45,10 @@ func DumpEchoLogs(ns, name string, c client.Client, cs clientset.Interface) ([][
 
 	podLogOptions := &corev1.PodLogOptions{
 		Container: name,
+		SinceTime: &v1.Time{Time: time},
 	}
 	for _, pod := range pods.Items {
+		// fmt.Println(pod.Name)
 		if pod.Status.Phase == corev1.PodFailed {
 			continue
 		}
@@ -57,7 +62,9 @@ func DumpEchoLogs(ns, name string, c client.Client, cs clientset.Interface) ([][
 		if err != nil {
 			continue
 		}
-		logs = append(logs, logBytes)
+
+		lines := strings.Split(string(logBytes), "\n")
+		logs = append(logs, lines...)
 	}
 
 	return logs, nil
