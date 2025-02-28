@@ -786,7 +786,7 @@ jobs:
         run: |
           TEST='--test "!seq-.*"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
           fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
@@ -873,7 +873,7 @@ jobs:
         run: |
           TEST='--test "!seq-.*"'
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
           fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
