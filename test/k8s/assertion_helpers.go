@@ -15,18 +15,6 @@ import (
 
 var longTimeout = 10 * time.Minute
 
-// ExpectKubeDNSReady is a wrapper around helpers/WaitKubeDNS. It asserts that
-// the error returned by that function is nil.
-func ExpectKubeDNSReady(vm *helpers.Kubectl) {
-	By("Waiting for kube-dns to be ready")
-	err := vm.WaitKubeDNS()
-	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns was not able to get into ready state")
-
-	By("Running kube-dns preflight check")
-	err = vm.KubeDNSPreFlightCheck()
-	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns service not ready")
-}
-
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumReady(vm *helpers.Kubectl) {
@@ -77,22 +65,6 @@ func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 func ExpectAllPodsInNsTerminated(vm *helpers.Kubectl, ns string) {
 	err := vm.WaitTerminatingPodsInNs(ns, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
-}
-
-// ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
-// It asserts the error returned by that function is nil.
-func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
-	By("Waiting for all cilium pre-flight pods to be ready")
-
-	err := vm.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium-pre-flight-check", longTimeout)
-	warningMessage := ""
-	if err != nil {
-		res := vm.Exec(fmt.Sprintf(
-			"%s -n %s get pods -l k8s-app=cilium-pre-flight-check",
-			helpers.KubectlCmd, helpers.CiliumNamespace))
-		warningMessage = res.Stdout()
-	}
-	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
