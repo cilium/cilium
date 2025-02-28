@@ -1,0 +1,64 @@
+{{$instance := .instance}}
+{{$image := .image}}
+{{$externalTarget := .externalTarget}}
+
+# One repetition towards the given IP/port combination
+# Another repetition towards the same IP/port combination (same node)
+# Another repetition towards the same IP/port combination (different node)
+# Another repetition towards the same IP, but different port (same node)
+{{$tests := "base,same-port-node,diff-node,diff-port" }}
+
+steps:
+- module:
+    path: modules/stress-metrics.yaml
+    params:
+      action: start
+      instance: {{ $instance }}
+      tests: {{ $tests }}
+
+# Repeat the test multiple times sequentially, to identify which factors influence
+# the limit in the maximum number of parallel connections.
+{{range $test := StringSplit $tests}}
+- name: Create EGW client pod (stress-test-{{ $test }})
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: UniformParamqps
+    objectBundle:
+    - basename: egw-client-pod-{{ $instance }}-{{ $test }}
+      objectTemplatePath: manifests/client-pod.yaml
+      templateFillMap:
+        Image: {{ $image }}
+        Instance: {{ $instance }}-{{ $test }}
+        ExternalTarget: {{ $externalTarget }}
+        ExternalTargetPort: {{ IfThenElse (ne $test "diff-port") 1338 1339 }}
+        ClientConnectTimeout: "30s"
+        Stress: true
+        AffinityType: {{ IfThenElse (eq $test "base") "none" ( IfThenElse (eq $test "diff-node") "antiAffinity" "affinity" ) }}
+        AffinityInstance: {{ $instance }}-base
+
+- name: Wait for EGW Client pods to be running (stress-test-{{ $test }})
+  measurements:
+  - Identifier: WaitForRunningPods
+    Method: WaitForRunningPods
+    Params:
+      labelSelector: app.kubernetes.io/name=egw-client,app.kubernetes.io/instance={{ $instance }}-{{ $test }}
+      desiredPodCount: 1
+      timeout: 900s
+{{end}}
+
+- name: Sleep to allow scraping
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 30s
+
+- module:
+    path: modules/stress-metrics.yaml
+    params:
+      action: gather
+      instance: {{ $instance }}
+      tests: {{ $tests }}

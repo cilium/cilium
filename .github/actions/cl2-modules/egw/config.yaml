@@ -46,7 +46,7 @@ steps:
   - namespaceRange:
       min: 1
       max: 1
-    replicasPerNamespace: 1
+    replicasPerNamespace: 3
     tuningSet: Uniform1qps
     objectBundle:
     - basename: egw-external-target
@@ -61,8 +61,9 @@ steps:
     Method: WaitForRunningPods
     Params:
       labelSelector: app.kubernetes.io/name=egw-external-target
-      desiredPodCount: 1
+      desiredPodCount: 3
       timeout: 60s
+
 - name: Create bootstrap EGW client Pod
   phases:
   - namespaceRange:
@@ -77,7 +78,10 @@ steps:
         Image: {{$TestImage}}
         Instance: "bootstrap"
         ExternalTarget: {{$ExternalTarget}}
+        ExternalTargetPort: 1337
         ClientConnectTimeout: "60s"
+        Stress: false
+
 - name: Wait for EGW bootstrap pod to be running
   measurements:
   - Identifier: WaitForRunningPods
@@ -190,6 +194,14 @@ steps:
     params:
       gatewayAddress: {{$GatewayAddress}}
       udpMessageSize: {{$UDPMessageSize}}
+
+# Run the connections stress test.
+- module:
+    path: modules/stress-test.yaml
+    params:
+      image: {{$TestImage}}
+      externalTarget: {{$ExternalTarget}}
+      instance: stress
 
 - module:
     path: ../cilium-agent-pprofs.yaml
