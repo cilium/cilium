@@ -375,6 +375,24 @@ type VirtualNetwork struct {
 // VirtualNetworkMap indexes virtual networks by their ID
 type VirtualNetworkMap map[string]*VirtualNetwork
 
+// RouteTable is a representation of a route table but only for the purpose of
+// to check the subnets are in the same route table. It is not a full
+// representation of a route table.
+type RouteTable struct {
+	// ID is the ID of the route table
+	ID string
+
+	// VirtualNetworkID is the virtual network the route table is in
+	VirtualNetworkID string
+
+	// Subnets maps subnet IDs to their presence in this route table
+	// +deepequal-gen=false
+	Subnets map[string]struct{}
+}
+
+// RouteTableMap indexes route tables by their ID
+type RouteTableMap map[string]*RouteTable
+
 // PoolNotExists indicate that no such pool ID exists
 const PoolNotExists = PoolID("")
 

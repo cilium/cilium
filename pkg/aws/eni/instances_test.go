@@ -77,6 +77,24 @@ var (
 			PrimaryCIDR: "2.2.0.0/16",
 		},
 	}
+	routeTables = []*ipamTypes.RouteTable{
+		{
+			ID:               "rt-1",
+			VirtualNetworkID: "vpc-1",
+			Subnets: map[string]struct{}{
+				"subnet-1": {},
+				"subnet-2": {},
+			},
+		},
+		{
+			ID:               "rt-2",
+			VirtualNetworkID: "vpc-1",
+			Subnets: map[string]struct{}{
+				"subnet-3": {},
+				"subnet-4": {},
+			},
+		},
+	}
 
 	securityGroups = []*types.SecurityGroup{
 		{
@@ -187,7 +205,7 @@ func iteration2(api *ec2mock.API, mngr *InstancesManager) {
 }
 
 func TestGetSubnet(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
+	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
 	mngr := NewInstancesManager(api)
@@ -225,7 +243,7 @@ func TestGetSubnet(t *testing.T) {
 }
 
 func TestFindSubnetByIDs(t *testing.T) {
-	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups)
+	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
 	mngr := NewInstancesManager(api)
@@ -264,7 +282,7 @@ func TestFindSubnetByIDs(t *testing.T) {
 }
 
 func TestFindSubnetByTags(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
+	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
 	mngr := NewInstancesManager(api)
@@ -300,7 +318,7 @@ func TestFindSubnetByTags(t *testing.T) {
 }
 
 func TestGetSecurityGroupByTags(t *testing.T) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
+	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
 	mngr := NewInstancesManager(api)

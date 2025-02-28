@@ -29,6 +29,7 @@ type EC2API interface {
 	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
+	GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
 	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
@@ -54,6 +55,7 @@ type InstancesManager struct {
 	instances      *ipamTypes.InstanceMap
 	subnets        ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
+	routeTables    ipamTypes.RouteTableMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
 }
@@ -207,6 +209,11 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		log.WithError(err).Warning("Unable to retrieve EC2 security group list")
 		return time.Time{}
 	}
+	routeTables, err := m.api.GetRouteTables(ctx)
+	if err != nil {
+		log.WithError(err).Warning("Unable to retrieve EC2 route table list")
+		return time.Time{}
+	}
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
 	// will be refetched from EC2 API and updated to the local cache. Otherwise only
@@ -222,6 +229,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			"numInstances":      instances.NumInstances(),
 			"numVPCs":           len(vpcs),
 			"numSubnets":        len(subnets),
+			"numRouteTables":    len(routeTables),
 			"numSecurityGroups": len(securityGroups),
 		}).Info("Synchronized ENI information")
 
@@ -239,6 +247,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			"instance":          instanceID,
 			"numVPCs":           len(vpcs),
 			"numSubnets":        len(subnets),
+			"numRouteTables":    len(routeTables),
 			"numSecurityGroups": len(securityGroups),
 		}).Info("Synchronized ENI information for the corresponding instance")
 
@@ -250,7 +259,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
-
+	m.routeTables = routeTables
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
 		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
 			log.WithError(err).Warning("Unable to update instance type to adapter limits from EC2 API")
