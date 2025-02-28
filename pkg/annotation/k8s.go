@@ -153,6 +153,14 @@ const (
 	// possible values for this annotation.
 	ServiceSourceRangesPolicy = ServicePrefix + "/src-ranges-policy"
 
+	// ServiceProxyDelegation is the annotation name used to specify whether there
+	// should be delegation to a 3rd party proxy. Allowed values are "none" (default)
+	// and "delegate-if-local". The latter pushes all service packets to a user
+	// space proxy if the selected backend IP is the IP of the local node. If the
+	// selected backend IP is non-local then the BPF datapath forwards the packet
+	// back out again with the configured BPF load-balancing mechanism.
+	ServiceProxyDelegation = ServicePrefix + "/proxy-delegation"
+
 	// ServiceForwardingMode annotations determines the way packets are pushed to the
 	// remote backends.
 	// Allowed values are of type loadbalancer.SVCForwardingMode:
