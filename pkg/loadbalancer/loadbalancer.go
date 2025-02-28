@@ -117,6 +117,13 @@ const (
 	SVCSourceRangesPolicyDeny  = SVCSourceRangesPolicy("deny")
 )
 
+type SVCProxyDelegation string
+
+const (
+	SVCProxyDelegationNone            = SVCProxyDelegation("none")
+	SVCProxyDelegationDelegateIfLocal = SVCProxyDelegation("delegate-if-local")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16

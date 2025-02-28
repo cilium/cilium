@@ -119,6 +119,17 @@ func getAnnotationServiceSourceRangesPolicy(svc *slim_corev1.Service) loadbalanc
 	return loadbalancer.SVCSourceRangesPolicyAllow
 }
 
+func getAnnotationServiceProxyDelegation(svc *slim_corev1.Service) loadbalancer.SVCProxyDelegation {
+	if value, ok := annotation.Get(svc, annotation.ServiceProxyDelegation); ok {
+		tmp := loadbalancer.SVCProxyDelegation(strings.ToLower(value))
+		if tmp == loadbalancer.SVCProxyDelegationDelegateIfLocal {
+			return tmp
+		}
+	}
+
+	return loadbalancer.SVCProxyDelegationNone
+}
+
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
 // is supported in cilium configuration.
 func isValidServiceFrontendIP(netIP net.IP) bool {
