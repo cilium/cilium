@@ -74,6 +74,7 @@ type policyID = types.NamespacedName
 // policy config based on matching labels.
 func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
 	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
+
 	for _, selector := range config.endpointSelectors {
 		if selector.Matches(labelsToMatch) {
 			return true

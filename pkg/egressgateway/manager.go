@@ -577,6 +577,9 @@ func (manager *Manager) relaxRPFilter() error {
 }
 
 func (manager *Manager) updateEgressRules() {
+
+	fmt.Printf("updateEgressRules\n")
+
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	manager.policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
