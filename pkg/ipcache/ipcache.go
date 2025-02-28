@@ -229,10 +229,10 @@ func (ipc *IPCache) UpdateController(
 func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.getHostIPCache(ip)
+	return ipc.getHostIPCacheRLocked(ip)
 }
 
-func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
+func (ipc *IPCache) getHostIPCacheRLocked(ip string) (net.IP, uint8) {
 	ipKeyPair := ipc.ipToHostIPCache[ip]
 	return ipKeyPair.IP, ipKeyPair.Key
 }
@@ -260,11 +260,11 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 func (ipc *IPCache) GetEndpointFlags(ip string) uint8 {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.getEndpointFlags(ip)
+	return ipc.getEndpointFlagsRLocked(ip)
 }
 
-// getEndpointFlags returns endpoint flags for the given IP address.
-func (ipc *IPCache) getEndpointFlags(ip string) uint8 {
+// getEndpointFlagsRLocked returns endpoint flags for the given IP address.
+func (ipc *IPCache) getEndpointFlagsRLocked(ip string) uint8 {
 	return ipc.ipToEndpointFlags[ip]
 }
 
@@ -339,8 +339,8 @@ func (ipc *IPCache) upsertLocked(
 	var oldIdentity *Identity
 	callbackListeners := true
 
-	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
+	oldHostIP, oldHostKey := ipc.getHostIPCacheRLocked(ip)
+	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
 	metaEqual := oldK8sMeta.Equal(k8sMeta)
 
@@ -421,7 +421,7 @@ func (ipc *IPCache) upsertLocked(
 		if !found {
 			cidrClusterStr := cidrCluster.String()
 			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
-				oldHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
+				oldHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
 				if cidrIdentity.ID != newIdentity.ID || !oldHostIP.Equal(hostIP) {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					cidrIdentity.shadowed = true
@@ -682,9 +682,9 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		if identity.shadowed {
 			continue
 		}
-		hostIP, encryptKey := ipc.getHostIPCache(ip)
+		hostIP, encryptKey := ipc.getHostIPCacheRLocked(ip)
 		k8sMeta := ipc.getK8sMetadata(ip)
-		endpointFlags := ipc.getEndpointFlags(ip)
+		endpointFlags := ipc.getEndpointFlagsRLocked(ip)
 		cidrCluster, err := cmtypes.ParsePrefixCluster(ip)
 		if err != nil {
 			addrCluster := cmtypes.MustParseAddrCluster(ip)
@@ -721,9 +721,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 
 	var cidrCluster cmtypes.PrefixCluster
 	cacheModification := Delete
-	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
+	oldHostIP, encryptKey := ipc.getHostIPCacheRLocked(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
+	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	var newHostIP net.IP
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
@@ -746,7 +746,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		// restore its mapping with the listeners if that was the case.
 		cidrClusterStr := cidrCluster.String()
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
-			newHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
+			newHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
