@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net"
 	"os"
 	"path"
 	"regexp"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
@@ -22,15 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/recorder/recorderoption"
 	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-recorder")
 
 var _ recorderpb.RecorderServer = (*Service)(nil)
 
@@ -42,13 +39,14 @@ const (
 )
 
 type Service struct {
+	logger   *slog.Logger
 	recorder *recorder.Recorder
 	dispatch *sink.Dispatch
 	ruleIDs  *idpool.IDPool
 	opts     recorderoption.Options
 }
 
-func NewService(r *recorder.Recorder, d *sink.Dispatch, options ...recorderoption.Option) (*Service, error) {
+func NewService(logger *slog.Logger, r *recorder.Recorder, d *sink.Dispatch, options ...recorderoption.Option) (*Service, error) {
 	opts := recorderoption.Default
 	for _, o := range options {
 		if err := o(&opts); err != nil {
@@ -65,6 +63,7 @@ func NewService(r *recorder.Recorder, d *sink.Dispatch, options ...recorderoptio
 	}
 
 	return &Service{
+		logger:   logger.With(logfields.LogSubsys, "hubble-recorder"),
 		recorder: r,
 		dispatch: d,
 		ruleIDs:  idpool.NewIDPool(minRuleID, maxRuleID),
@@ -328,10 +327,11 @@ func (s *Service) startRecording(
 		}
 	}()
 
-	scopedLog := log.WithFields(logrus.Fields{
-		"ruleID":   ruleID,
-		"filePath": filePath,
-	})
+	scopedLog := s.logger.With(
+		logfields.RuleID, ruleID,
+		logfields.FilePath, filePath,
+	)
+
 	scopedLog.Debug("starting new recording")
 
 	stop := req.GetStopCondition()
@@ -375,7 +375,7 @@ func (s *Service) startRecording(
 		scopedLog.Debug("stopping recording")
 		_, err := s.recorder.DeleteRecorder(recorder.ID(ruleID))
 		if err != nil {
-			scopedLog.WithError(err).Warning("failed to delete recorder")
+			scopedLog.Warn("failed to delete recorder", logfields.Error, err)
 		}
 		s.ruleIDs.Release(idpool.ID(ruleID))
 	}()

@@ -8,14 +8,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -298,7 +299,7 @@ func TestGetFlows(t *testing.T) {
 				},
 				err: io.EOF,
 				log: []string{
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
 		},
@@ -310,14 +311,27 @@ func TestGetFlows(t *testing.T) {
 			}
 			done = make(chan struct{})
 			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
+			logger := slog.New(
+				slog.NewTextHandler(&buf,
+					&slog.HandlerOptions{
+						ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+							switch a.Key {
+							case slog.TimeKey:
+								// Drop timestamps
+								return slog.Attr{}
+							case slog.LevelKey:
+								// Lower-case the log level
+								return slog.Attr{
+									Key:   a.Key,
+									Value: slog.StringValue(strings.ToLower(a.Value.String())),
+								}
+							default:
+								return a
+							}
+						},
+					},
+				),
+			)
 
 			srv, err := NewServer(
 				tt.plr,
@@ -528,7 +542,7 @@ func TestGetNodes(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=info msg="No connection to peer noip, skipping" address="<nil>"`,
+					`level=info msg="No connection to peer, skipping" address=<nil> peer=noip`,
 				},
 			},
 		}, {
@@ -812,7 +826,7 @@ func TestGetNodes(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
 		}, {
@@ -923,8 +937,8 @@ func TestGetNodes(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
-					`level=warning msg="Failed to retrieve server status" error="rpc error: code = Unimplemented desc = ServerStatus not implemented" peer=three`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
+					`level=warn msg="Failed to retrieve server status" error="rpc error: code = Unimplemented desc = ServerStatus not implemented" peer=three`,
 				},
 			},
 		},
@@ -933,14 +947,28 @@ func TestGetNodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
+
+			logger := slog.New(
+				slog.NewTextHandler(&buf,
+					&slog.HandlerOptions{
+						ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+							switch a.Key {
+							case slog.TimeKey:
+								// Drop timestamps
+								return slog.Attr{}
+							case slog.LevelKey:
+								// Lower-case the log level
+								return slog.Attr{
+									Key:   a.Key,
+									Value: slog.StringValue(strings.ToLower(a.Value.String())),
+								}
+							default:
+								return a
+							}
+						},
+					},
+				),
+			)
 
 			srv, err := NewServer(
 				tt.plr,
@@ -1001,7 +1029,7 @@ func TestGetNamespaces(t *testing.T) {
 					Namespaces: []*observerpb.Namespace{},
 				},
 				log: []string{
-					`level=info msg="No connection to peer noip, skipping" address="<nil>"`,
+					`level=info msg="No connection to peer, skipping" address=<nil> peer=noip`,
 				},
 			},
 		},
@@ -1127,7 +1155,7 @@ func TestGetNamespaces(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
 		},
@@ -1136,15 +1164,27 @@ func TestGetNamespaces(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
-
+			logger := slog.New(
+				slog.NewTextHandler(&buf,
+					&slog.HandlerOptions{
+						ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+							switch a.Key {
+							case slog.TimeKey:
+								// Drop timestamps
+								return slog.Attr{}
+							case slog.LevelKey:
+								// Lower-case the log level
+								return slog.Attr{
+									Key:   a.Key,
+									Value: slog.StringValue(strings.ToLower(a.Value.String())),
+								}
+							default:
+								return a
+							}
+						},
+					},
+				),
+			)
 			srv, err := NewServer(
 				tt.plr,
 				WithLogger(logger),
@@ -1204,7 +1244,7 @@ func TestServerStatus(t *testing.T) {
 					UnavailableNodes:    []string{"noip"},
 				},
 				log: []string{
-					`level=info msg="No connection to peer noip, skipping" address="<nil>"`,
+					`level=info msg="No connection to peer, skipping" address=<nil> peer=noip`,
 				},
 			},
 		}, {
@@ -1350,7 +1390,7 @@ func TestServerStatus(t *testing.T) {
 					UnavailableNodes:    []string{"two"},
 				},
 				log: []string{
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
 		}, {
@@ -1409,8 +1449,8 @@ func TestServerStatus(t *testing.T) {
 					UnavailableNodes:    []string{"one", "two"},
 				},
 				log: []string{
-					`level=info msg="No connection to peer one, skipping" address="192.0.2.1:4244"`,
-					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.1:4244 peer=one`,
+					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
 		},
@@ -1419,15 +1459,27 @@ func TestServerStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			formatter := &logrus.TextFormatter{
-				DisableColors:    true,
-				DisableTimestamp: true,
-			}
-			logger := logrus.New()
-			logger.SetOutput(&buf)
-			logger.SetFormatter(formatter)
-			logger.SetLevel(logrus.DebugLevel)
-
+			logger := slog.New(
+				slog.NewTextHandler(&buf,
+					&slog.HandlerOptions{
+						ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+							switch a.Key {
+							case slog.TimeKey:
+								// Drop timestamps
+								return slog.Attr{}
+							case slog.LevelKey:
+								// Lower-case the log level
+								return slog.Attr{
+									Key:   a.Key,
+									Value: slog.StringValue(strings.ToLower(a.Value.String())),
+								}
+							default:
+								return a
+							}
+						},
+					},
+				),
+			)
 			srv, err := NewServer(
 				tt.plr,
 				WithLogger(logger),

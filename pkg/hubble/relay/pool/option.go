@@ -4,14 +4,12 @@
 package pool
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,7 +26,6 @@ var defaultOptions = options{
 	connCheckInterval:  2 * time.Minute,
 	connStatusInterval: 5 * time.Second,
 	retryTimeout:       defaults.RetryTimeout,
-	log:                logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // Option customizes the configuration of the Manager.
@@ -36,6 +33,7 @@ type Option func(o *options) error
 
 // options stores all the configuration values for peer manager.
 type options struct {
+	log                *slog.Logger
 	peerServiceAddress string
 	peerClientBuilder  peerTypes.ClientBuilder
 	clientConnBuilder  poolTypes.ClientConnBuilder
@@ -43,7 +41,6 @@ type options struct {
 	connCheckInterval  time.Duration
 	connStatusInterval time.Duration
 	retryTimeout       time.Duration
-	log                logrus.FieldLogger
 }
 
 // WithPeerServiceAddress sets the address of the peer gRPC service.
@@ -108,7 +105,7 @@ func WithRetryTimeout(t time.Duration) Option {
 }
 
 // WithLogger sets the logger to use for logging.
-func WithLogger(l logrus.FieldLogger) Option {
+func WithLogger(l *slog.Logger) Option {
 	return func(o *options) error {
 		o.log = l
 		return nil
