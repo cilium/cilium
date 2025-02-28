@@ -1537,7 +1537,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
-	defer pol.detach()
+	defer pol.detach(true, 0)
 
 	filter := pol.L4Policy.Ingress.PortRules.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
@@ -1571,7 +1571,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
-	defer pol.detach()
+	defer pol.detach(true, 0)
 
 	filter := pol.L4Policy.Ingress.PortRules.ExactLookup("port-80", 0, "TCP")
 	require.NotNil(t, filter)
@@ -1631,7 +1631,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer pol.detach()
+	defer pol.detach(true, 0)
 
 	t.Log(pol.L4Policy.Egress.PortRules)
 	filter := pol.L4Policy.Egress.PortRules.ExactLookup("80", 0, "TCP")
@@ -1673,7 +1673,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer pol.detach()
+	defer pol.detach(true, 0)
 
 	filter := pol.L4Policy.Egress.PortRules.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
@@ -1713,7 +1713,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer pol.detach()
+	defer pol.detach(true, 0)
 
 	filter := pol.L4Policy.Egress.PortRules.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1737,14 +1738,29 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
 
 // detach makes the L4Policy ready for garbage collection, removing
 // circular pointer references.
+// The endpointID argument is only necessary if isDelete is false.
+// It ensures that detach does not call a regeneration trigger on
+// the same endpoint that initiated a selector policy update.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
-func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
+func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
 
 	l4.mutex.Lock()
 	defer l4.mutex.Unlock()
+	// If this detach is a delete there is no reason to initiate
+	// a regenerate.
+	if !isDelete {
+		for ePolicy := range l4.users {
+			if endpointID != ePolicy.PolicyOwner.GetID() {
+				ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+					Reason:            "selector policy has changed because of another endpoint with the same identity",
+					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+				})
+			}
+		}
+	}
 	l4.users = nil
 }
 
