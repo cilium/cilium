@@ -4,10 +4,10 @@
 package options
 
 import (
-	"fmt"
+	"log/slog"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Option is used to configure parsers
@@ -42,7 +42,7 @@ func CacheSize(size int) Option {
 }
 
 // Redact configures which data Hubble will redact.
-func Redact(logger logrus.FieldLogger, httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
+func Redact(logger *slog.Logger, httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
 	return func(opt *Options) {
 		opt.HubbleRedactSettings.Enabled = true
 		opt.HubbleRedactSettings.RedactHTTPQuery = httpQuery
@@ -53,9 +53,10 @@ func Redact(logger logrus.FieldLogger, httpQuery, httpUserInfo, kafkaApiKey bool
 			Deny:  headerSliceToMap(denyHeaders),
 		}
 		if logger != nil {
-			logger.WithField(
-				"options",
-				fmt.Sprintf("%+v", opt)).Info("configured Hubble with redact options")
+			logger.Info(
+				"configured Hubble with redact options",
+				logfields.Options, opt,
+			)
 		}
 	}
 }

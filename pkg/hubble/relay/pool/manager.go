@@ -10,13 +10,13 @@ import (
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/connectivity"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -94,10 +94,11 @@ connect:
 	for {
 		cl, err := m.opts.peerClientBuilder.Client(m.opts.peerServiceAddress)
 		if err != nil {
-			m.opts.log.WithFields(logrus.Fields{
-				"error":  err,
-				"target": m.opts.peerServiceAddress,
-			}).Info("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
+			m.opts.log.Info(
+				"Failed to create peer client for peers synchronization; will try again after the timeout has expired",
+				logfields.Error, err,
+				logfields.Target, m.opts.peerServiceAddress,
+			)
 			select {
 			case <-m.stop:
 				return
@@ -108,10 +109,11 @@ connect:
 		client, err := cl.Notify(ctx, &peerpb.NotifyRequest{})
 		if err != nil {
 			cl.Close()
-			m.opts.log.WithFields(logrus.Fields{
-				"error":              err,
-				"connection timeout": m.opts.retryTimeout,
-			}).Info("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
+			m.opts.log.Info(
+				"Failed to create peer notify client for peers change notification; will try again after the timeout has expired",
+				logfields.Error, err,
+				logfields.ConnectionTimeout, m.opts.retryTimeout,
+			)
 			select {
 			case <-m.stop:
 				return
@@ -130,10 +132,11 @@ connect:
 			cn, err := client.Recv()
 			if err != nil {
 				cl.Close()
-				m.opts.log.WithFields(logrus.Fields{
-					"error":              err,
-					"connection timeout": m.opts.retryTimeout,
-				}).Info("Error while receiving peer change notification; will try again after the timeout has expired")
+				m.opts.log.Info(
+					"Error while receiving peer change notification; will try again after the timeout has expired",
+					logfields.Error, err,
+					logfields.ConnectionTimeout, m.opts.retryTimeout,
+				)
 				m.peerServiceConnected.Store(false)
 				select {
 				case <-m.stop:
@@ -142,7 +145,10 @@ connect:
 					continue connect
 				}
 			}
-			m.opts.log.WithField("change notification", cn).Info("Received peer change notification")
+			m.opts.log.Info(
+				"Received peer change notification",
+				logfields.ChangeNotification, cn,
+			)
 			p := peerTypes.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
@@ -316,11 +322,11 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 		return
 	}
 
-	scopedLog := m.opts.log.WithFields(logrus.Fields{
-		"address":    p.Address,
-		"hubble-tls": p.TLSEnabled,
-		"peer":       p.Name,
-	})
+	scopedLog := m.opts.log.With(
+		logfields.Address, p.Address,
+		logfields.TLS, p.TLSEnabled,
+		logfields.Peer, p.Name,
+	)
 
 	scopedLog.Info("Connecting")
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
@@ -328,10 +334,11 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
 		p.connAttempts++
-		scopedLog.WithFields(logrus.Fields{
-			"error":       err,
-			"next-try-in": duration,
-		}).Warning("Failed to create gRPC client")
+		scopedLog.Warn(
+			"Failed to create gRPC client",
+			logfields.Error, err,
+			logfields.NextTryIn, duration,
+		)
 		return
 	}
 	p.nextConnAttempt = time.Time{}
@@ -350,15 +357,15 @@ func (m *PeerManager) disconnect(p *peer) {
 		return
 	}
 
-	scopedLog := m.opts.log.WithFields(logrus.Fields{
-		"address":    p.Address,
-		"hubble-tls": p.TLSEnabled,
-		"peer":       p.Name,
-	})
+	scopedLog := m.opts.log.With(
+		logfields.Address, p.Address,
+		logfields.TLS, p.TLSEnabled,
+		logfields.Peer, p.Name,
+	)
 
 	scopedLog.Info("Disconnecting")
 	if err := p.conn.Close(); err != nil {
-		scopedLog.WithField("error", err).Warning("Failed to properly close gRPC client connection")
+		scopedLog.Warn("Failed to properly close gRPC client connection", logfields.Error, err)
 	}
 	p.conn = nil
 	scopedLog.Info("Disconnected")

@@ -5,10 +5,10 @@ package sock
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -22,7 +22,7 @@ import (
 
 // Parser is a parser for SockTraceNotify payloads
 type Parser struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	dnsGetter      getters.DNSGetter
@@ -35,7 +35,7 @@ type Parser struct {
 }
 
 // New creates a new parser
-func New(log logrus.FieldLogger,
+func New(log *slog.Logger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,
@@ -134,25 +134,31 @@ func decodeIPVersion(flags uint8) flowpb.IPVersion {
 func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) netip.Addr {
 	if p.cgroupGetter != nil {
 		if m := p.cgroupGetter.GetPodMetadataForContainer(cgroupId); m != nil {
-			scopedLog := p.log.WithFields(logrus.Fields{
-				logfields.CGroupID:     cgroupId,
-				logfields.K8sPodName:   m.Name,
-				logfields.K8sNamespace: m.Namespace,
-			})
-
 			for _, podIP := range m.IPs {
 				isIPv6 := strings.Contains(podIP, ":")
 				if isIPv6 && ipVersion == flowpb.IPVersion_IPv6 ||
 					!isIPv6 && ipVersion == flowpb.IPVersion_IPv4 {
 					ip, err := netip.ParseAddr(podIP)
 					if err != nil {
-						scopedLog.WithField(logfields.IPAddr, podIP).WithError(err).Debug("failed to parse pod IP")
+						p.log.Debug(
+							"failed to parse pod IP",
+							logfields.Error, err,
+							logfields.CGroupID, cgroupId,
+							logfields.K8sPodName, m.Name,
+							logfields.K8sNamespace, m.Namespace,
+							logfields.IPAddr, podIP,
+						)
 						return netip.Addr{}
 					}
 					return ip
 				}
 			}
-			scopedLog.Debug("no matching IP for pod")
+			p.log.Debug(
+				"no matching IP for pod",
+				logfields.CGroupID, cgroupId,
+				logfields.K8sPodName, m.Name,
+				logfields.K8sNamespace, m.Namespace,
+			)
 		}
 	}
 	return netip.Addr{}
