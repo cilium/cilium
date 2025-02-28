@@ -131,7 +131,7 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	defer td.repo.mutex.RUnlock()
 	pol, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer pol.Detach()
+	defer pol.detach()
 
 	if expectedIn != nil {
 		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))

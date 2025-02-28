@@ -147,11 +147,11 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 	p.L4Policy.removeUser(user)
 }
 
-// Detach releases resources held by a selectorPolicy to enable
+// detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
-func (p *selectorPolicy) Detach() {
-	p.L4Policy.Detach(p.SelectorCache)
+func (p *selectorPolicy) detach() {
+	p.L4Policy.detach(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
