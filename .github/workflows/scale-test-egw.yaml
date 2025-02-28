@@ -119,6 +119,7 @@ jobs:
   install-and-scaletest:
     runs-on: ubuntu-24.04
     name: Install and Scale Test
+    needs: wait-for-images
     timeout-minutes: 150
     strategy:
       fail-fast: false
