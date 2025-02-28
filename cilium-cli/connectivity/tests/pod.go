@@ -211,7 +211,6 @@ func (s *podToPodNoFrag) Name() string {
 func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	client := ct.RandomClientPod()
-	mtu := s.deriveMTU(ctx, t)
 
 	var server check.Pod
 	for _, pod := range ct.EchoPods() {
@@ -223,6 +222,7 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		mtu := s.deriveMTU(ctx, t, ipFam)
 		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			payloadSize := mtu - HdrSizeICMPEcho
 			switch ipFam {
@@ -240,13 +240,17 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	})
 }
 
-func (s *podToPodNoFrag) deriveMTU(ctx context.Context, t *check.Test) int {
+func (s *podToPodNoFrag) deriveMTU(ctx context.Context, t *check.Test, ipFam features.IPFamily) int {
 	client := t.Context().RandomClientPod()
 	var mtu int
 
+	ipFlag := ""
+	if ipFam == features.IPFamilyV6 {
+		ipFlag = " -6"
+	}
 	cmd := []string{
 		"/bin/sh", "-c",
-		"ip route show default | grep -oE 'mtu [^ ]*' | cut -d' ' -f2",
+		fmt.Sprintf("ip%s route show default | grep -oE 'mtu [^ ]*' | cut -d' ' -f2", ipFlag),
 	}
 	t.Debugf("Running %s", strings.Join(cmd, " "))
 	mtuBytes, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace,
