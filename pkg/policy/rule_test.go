@@ -128,8 +128,8 @@ func TestL4Policy(t *testing.T) {
 
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
-	res.detach(td.sc)
-	expected.detach(td.sc)
+	res.detach(td.sc, true, 0)
+	expected.detach(td.sc, true, 0)
 
 	// Foo isn't selected in the rule1's policy.
 	ingressState = traceState{}
@@ -254,8 +254,8 @@ func TestL4Policy(t *testing.T) {
 
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
-	res.detach(td.sc)
-	expected.detach(td.sc)
+	res.detach(td.sc, true, 0)
+	expected.detach(td.sc, true, 0)
 
 	ingressState = traceState{}
 	egressState = traceState{}
@@ -1153,8 +1153,8 @@ func TestICMPPolicy(t *testing.T) {
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
 
-	res.detach(td.sc)
-	expected.detach(td.sc)
+	res.detach(td.sc, true, 0)
+	expected.detach(td.sc, true, 0)
 
 	// A rule for Ports and ICMP
 	rule2 := &rule{
@@ -1212,8 +1212,8 @@ func TestICMPPolicy(t *testing.T) {
 	require.Equal(t, 1, ingressState.selectedRules)
 	require.Equal(t, 1, ingressState.matchedRules)
 
-	res.detach(td.sc)
-	expected.detach(td.sc)
+	res.detach(td.sc, true, 0)
+	expected.detach(td.sc, true, 0)
 
 	// A rule for ICMPv6
 	icmpV6Type := intstr.FromInt(128)
@@ -1605,7 +1605,7 @@ func TestL4RuleLabels(t *testing.T) {
 			require.Len(t, out.RuleOrigin, 1, test.description)
 			require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
 		}
-		finalPolicy.detach(td.sc)
+		finalPolicy.detach(td.sc, true, 0)
 	}
 }
 
