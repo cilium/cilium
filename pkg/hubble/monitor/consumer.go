@@ -4,10 +4,10 @@
 package monitor
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/bufuuid"
@@ -15,6 +15,7 @@ import (
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorConsumer "github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,7 +24,7 @@ import (
 // Observer is the receiver of MonitorEvents
 type Observer interface {
 	GetEventsChannel() chan *observerTypes.MonitorEvent
-	GetLogger() logrus.FieldLogger
+	GetLogger() *slog.Logger
 }
 
 // consumer implements monitorConsumer.MonitorConsumer
@@ -137,8 +138,11 @@ func (c *consumer) countDroppedEvent() {
 	c.lostLock.Lock()
 	defer c.lostLock.Unlock()
 	if c.numEventsLost == 0 && c.logLimiter.Allow() {
-		c.observer.GetLogger().WithField("related-metric", "hubble_lost_events_total").
-			Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
+		c.observer.GetLogger().
+			Warn(
+				"hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU",
+				logfields.RelatedMetric, "hubble_lost_events_total",
+			)
 	}
 	c.numEventsLost++
 	c.metricLostObserverEvents.Inc()

@@ -6,10 +6,10 @@ package hubblecell
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -45,6 +45,8 @@ var Cell = cell.Module(
 type hubbleParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	JobGroup job.Group
 
 	IdentityAllocator identitycell.CachingIdentityAllocator
@@ -66,9 +68,6 @@ type hubbleParams struct {
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
 	Config      config
-
-	// TODO: replace by slog
-	Logger logrus.FieldLogger
 }
 
 type HubbleIntegration interface {

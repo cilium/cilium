@@ -7,10 +7,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -21,13 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
-
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetOutput(io.Discard)
-}
 
 func encodeDebugEvent(msg *monitor.DebugMsg) []byte {
 	buf := &bytes.Buffer{}
@@ -60,7 +52,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(log, endpointGetter)
+	p, err := New(hivetest.Logger(t), endpointGetter)
 	assert.NoError(t, err)
 
 	tt := []struct {

@@ -4,9 +4,8 @@
 package common
 
 import (
+	"log/slog"
 	"net/netip"
-
-	"github.com/sirupsen/logrus"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -27,7 +26,7 @@ type DatapathContext struct {
 }
 
 type EndpointResolver struct {
-	log            logrus.FieldLogger
+	log            *slog.Logger
 	logLimiter     logging.Limiter
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
@@ -35,7 +34,7 @@ type EndpointResolver struct {
 }
 
 func NewEndpointResolver(
-	log logrus.FieldLogger,
+	log *slog.Logger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	ipGetter getters.IPGetter,
@@ -123,12 +122,13 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// retained from the original source pod. This is a similar case to #4, but on the
 				// receiving side.
 			} else if r.logLimiter.Allow() {
-				r.log.WithFields(logrus.Fields{
-					"datapath-identity":  datapathID.Uint32(),
-					"userspace-identity": userspaceID.Uint32(),
-					"context":            logfields.Repr(context),
-					logfields.IPAddr:     ip,
-				}).Debugf("stale identity observed")
+				r.log.Debug(
+					"stale identity observed",
+					logfields.DatapathIdentity, datapathID,
+					logfields.UserspaceIdentity, userspaceID,
+					logfields.Context, context,
+					logfields.IPAddr, ip,
+				)
 			}
 		}
 
@@ -173,8 +173,11 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 	var clusterName string
 	if r.identityGetter != nil {
 		if id, err := r.identityGetter.GetIdentity(numericIdentity); err != nil {
-			r.log.WithError(err).WithField("identity", numericIdentity).
-				Debug("failed to resolve identity")
+			r.log.Debug(
+				"failed to resolve identity",
+				logfields.Error, err,
+				logfields.Identity, numericIdentity,
+			)
 		} else {
 			labels = SortAndFilterLabels(r.log, id.Labels.GetModel(), identity.NumericIdentity(numericIdentity))
 			clusterName = (id.Labels[k8sConst.PolicyLabelCluster]).Value
