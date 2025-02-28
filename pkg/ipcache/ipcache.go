@@ -226,7 +226,7 @@ func (ipc *IPCache) UpdateController(
 	ipc.controllers.UpdateController(name, params)
 }
 
-func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
+func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.getHostIPCacheRLocked(ip)
@@ -256,8 +256,8 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-// GetEndpointFlags returns endpoint flags for the given IP address.
-func (ipc *IPCache) GetEndpointFlags(ip string) uint8 {
+// getEndpointFlags returns endpoint flags for the given IP address.
+func (ipc *IPCache) getEndpointFlags(ip string) uint8 {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.getEndpointFlagsRLocked(ip)
