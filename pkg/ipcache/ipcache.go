@@ -846,14 +846,13 @@ func (ipc *IPCache) Delete(IP string, source source.Source) (namedPortsChanged b
 func (ipc *IPCache) LookupByIP(IP string) (Identity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.LookupByIPRLocked(IP)
+	return ipc.lookupByIPRLocked(IP)
 }
 
-// LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
+// lookupByIPRLocked returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIPRLocked(IP string) (Identity, bool) {
-
+func (ipc *IPCache) lookupByIPRLocked(IP string) (Identity, bool) {
 	identity, exists := ipc.ipToIdentityCache[IP]
 	return identity, exists
 }
@@ -898,7 +897,7 @@ func (ipc *IPCache) LookupSecIDByIP(ip netip.Addr) (id Identity, ok bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 
-	if id, ok = ipc.LookupByIPRLocked(ip.String()); ok {
+	if id, ok = ipc.lookupByIPRLocked(ip.String()); ok {
 		return id, ok
 	}
 
