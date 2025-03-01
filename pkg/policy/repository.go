@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -126,7 +127,6 @@ type PolicyRepository interface {
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search(lbls labels.LabelArray) (api.Rules, uint64)
-	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 }
 
 type GetPolicyStatistics interface {
@@ -161,12 +161,14 @@ type Repository struct {
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *policyCache
 
-	certManager   certificatemanager.CertificateManager
-	secretManager certificatemanager.SecretManager
+	certManager certificatemanager.CertificateManager
 
-	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
+	metricsManager    api.PolicyMetrics
+	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
+}
 
-	metricsManager api.PolicyMetrics
+func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+	return p.l7RulesTranslator.GetEnvoyHTTPRules(l7Rules, ns)
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -179,34 +181,23 @@ func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) Au
 	return p.policyCache.getAuthTypes(localID, remoteID)
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)) {
-	p.getEnvoyHTTPRules = f
-}
-
-func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
-	if p.getEnvoyHTTPRules == nil {
-		return nil, true
-	}
-	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns, p.secretManager.GetSecretSyncNamespace())
-}
-
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
+	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
 	metricsManager api.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
-		rules:            make(map[ruleKey]*rule),
-		rulesByNamespace: make(map[string]sets.Set[ruleKey]),
-		rulesByResource:  make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:    selectorCache,
-		certManager:      certManager,
-		secretManager:    secretManager,
-		metricsManager:   metricsManager,
+		rules:             make(map[ruleKey]*rule),
+		rulesByNamespace:  make(map[string]sets.Set[ruleKey]),
+		rulesByResource:   make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:     selectorCache,
+		certManager:       certManager,
+		metricsManager:    metricsManager,
+		l7RulesTranslator: l7RulesTranslator,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
