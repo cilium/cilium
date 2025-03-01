@@ -106,7 +106,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 #endif
 
 		return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,
-					   METRIC_INGRESS, false, false);
+					   METRIC_INGRESS, false, false, false);
 	}
 
 	return TC_ACT_OK;
@@ -226,7 +226,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 #endif
 
 		return ipv4_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ip4, ep,
-					   METRIC_INGRESS, false, false, 0);
+					   METRIC_INGRESS, false, false, 0, false);
 	}
 
 	/* A packet entering the node from wireguard and not going to a local endpoint
