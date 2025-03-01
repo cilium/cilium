@@ -119,13 +119,14 @@ type PortAllocator interface {
 // Parameters:
 //   - `cecNamespace` and `cecName` will be prepended to the Envoy resource names.
 //   - `xdsResources` are the resources from the CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig.
-//   - `isL7LB` defines whether these resources are used for L7 loadbalancing. If `true`, the Envoy Cilium Network- and L7 filters are always
-//     added to all non-internal Listeners. In addition, the info gets passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
+//   - `isL7LB` defines whether these resources are used for L7 loadbalancing. If `true`, the info gets passed to
+//     the Envoy Cilium BPF Metadata listener filter on all Listeners.
+//   - `injecCiliumEnvoyFilters` defines whether the Envoy Cilium Network- and L7 filters should always be added to all non-internal Listeners.
 //   - `useOriginalSourceAddr` is passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
 //   - `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 //     and as `false` if the resources are being removed or are the old version of the resources being updated. Only 'new' resources are validated.
-func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
-	// only validate new  resources - old ones are already applied
+func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, injectCiliumEnvoyFilters bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
+	// only validate new resources - old ones are already applied
 	validate := newResources
 
 	// upstream filters are injected if any non-internal listener is L7 LB
@@ -134,7 +135,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 	resources := envoy.Resources{}
 	for _, res := range xdsResources {
-		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
+		// Skip empty TypeURLs, which are left behind when Unmarshalling resource JSON fails
 		if res.TypeUrl == "" {
 			continue
 		}
@@ -161,10 +162,16 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 			}
 
-			// Only inject Cilium filters if all of the following conditions are fulfilled
-			// * Cilium allocates listener address or it's a listener for a L7 loadbalancer
+			// Only inject Cilium downstream filters if all of the following conditions are fulfilled
+			// * Cilium allocates listener address or it's configured to do so
 			// * It's not an internal listener
-			injectCiliumFilters := (listener.GetAddress() == nil || isL7LB) && listener.GetInternalListener() == nil
+			injectCiliumDownstreamFilters := (listener.GetAddress() == nil || injectCiliumEnvoyFilters) && listener.GetInternalListener() == nil
+
+			// Also inject upstream filters when injecting the downstream
+			// HTTP enforcement filter for at least one listener.
+			if injectCiliumDownstreamFilters && injectCiliumEnvoyFilters {
+				injectCiliumUpstreamFilters = true
+			}
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
@@ -205,15 +212,9 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 								updated = true
 							}
 						}
-						if injectCiliumFilters {
+						if injectCiliumDownstreamFilters {
 							l7FilterUpdated := injectCiliumL7Filter(hcmConfig)
 							updated = updated || l7FilterUpdated
-
-							// Also inject upstream filters for L7 LB when injecting the downstream
-							// HTTP enforcement filter
-							if isL7LB {
-								injectCiliumUpstreamFilters = true
-							}
 						}
 
 						httpFiltersUpdated := qualifyHttpFilters(cecNamespace, cecName, hcmConfig)
@@ -242,7 +243,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 					default:
 						continue
 					}
-					if injectCiliumFilters && !foundCiliumNetworkFilter {
+					if injectCiliumDownstreamFilters && !foundCiliumNetworkFilter {
 						// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 						fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 						fc.Filters[i] = &envoy_config_listener.Filter{
