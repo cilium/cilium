@@ -190,9 +190,11 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
+static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx,
+							struct iphdr *ip4,
+							int deliver_via_stack)
 {
-	if (1) {
+	if (!deliver_via_stack) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = THIS_INTERFACE_MAC;
 		int ret;
@@ -204,6 +206,10 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
+	} else {
+		/* Deliver to the host-stack */
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
 	}
 }
 
@@ -252,7 +258,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	if (ep) {
 		/* We don't support inter-cluster SNAT from host */
 		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
-			return ipv4_host_delivery(ctx, ip4);
+			return ipv4_host_delivery(ctx, ip4, 0);
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
 					   MARK_MAGIC_IDENTITY, ip4, ep,
@@ -289,6 +295,10 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
 	int ret;
+	int is_delivered_via_stack = 0;
+#if defined(ENABLE_DSR) && defined(IS_BPF_OVERLAY) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	struct geneve_dsr_opt4 gopt;
+#endif
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -458,23 +468,43 @@ not_esp:
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
-	/* Deliver to local (non-host) endpoint: */
-	ep = lookup_ip4_endpoint(ip4);
-	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
-		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
-					   ip4, ep, METRIC_INGRESS, false, true, 0);
-
-	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	/* A packet entering the node from the tunnel and not going to a local
-	 * endpoint has to be going to the local host.
+#if defined(ENABLE_DSR) && defined(IS_BPF_OVERLAY) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * This is needed because the packet will be masqueraded
+	 * by iptables if the conntrack entry isn't exist.
 	 */
+	if (!is_defined(ENABLE_MASQUERADE_IPV4)) {
+		ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
+		/* Mark only Geneve DSR packets.
+		 * In TCP, only SYN packets have DSR_GENEVE_OPT_TYPE.
+		 * However, there is no problem because purpose of this procedure
+		 * is to insert conntrack entry of this flow.
+		 */
+		if (ret > 0 && gopt.hdr.type == DSR_GENEVE_OPT_TYPE)
+			is_delivered_via_stack = 1;
+	}
+#endif
 
-	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+	if (!is_delivered_via_stack) {
+		/* Deliver to local (non-host) endpoint: */
+		ep = lookup_ip4_endpoint(ip4);
+		if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
+			return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
+						ip4, ep, METRIC_INGRESS, false, true, 0);
 
-	return ipv4_host_delivery(ctx, ip4);
+		ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
+		if (ret != CTX_ACT_OK)
+			return ret;
+
+		/* A packet entering the node from the tunnel and not going to a local
+		 * endpoint has to be going to the local host.
+		 */
+
+		set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+	}
+
+	return ipv4_host_delivery(ctx, ip4, is_delivered_via_stack);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
