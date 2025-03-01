@@ -66,6 +66,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
+	bool is_delivered_via_stack = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -194,11 +195,21 @@ not_esp:
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * This is needed because the packet will be masqueraded
+	 * by iptables if the conntrack entry isn't exist.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr)
+		is_delivered_via_stack = true;
+#endif
+
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv6_local_delivery(ctx, l3_off, *identity, MARK_MAGIC_IDENTITY,
-					   ep, METRIC_INGRESS, false, true);
+					   ep, METRIC_INGRESS, false, true, is_delivered_via_stack);
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
@@ -301,7 +312,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
 					   MARK_MAGIC_IDENTITY, ip4, ep,
 					   METRIC_INGRESS, false, true,
-					   cluster_id);
+					   cluster_id, false);
 	}
 
 	return DROP_UNROUTABLE;
@@ -334,6 +345,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret;
+	bool is_delivered_via_stack = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -504,11 +516,22 @@ not_esp:
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * This is needed because the packet will be masqueraded
+	 * by iptables if the conntrack entry isn't exist.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr)
+		is_delivered_via_stack = true;
+#endif
+
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
-		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
-					   ip4, ep, METRIC_INGRESS, false, true, 0);
+		return ipv4_local_delivery(ctx, ETH_HLEN, *identity,
+					   MARK_MAGIC_IDENTITY, ip4, ep, METRIC_INGRESS,
+					   false, true, 0, is_delivered_via_stack);
 
 	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
 	if (ret != CTX_ACT_OK)
