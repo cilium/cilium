@@ -194,6 +194,19 @@ not_esp:
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass incoming packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * Geneve DSR reply packets are processed by the host-stack,
+	 * so this logic is needed to prevent the packets from being handled
+	 * by netfilter in an unintended way.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
+#endif
+
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
@@ -503,6 +516,19 @@ not_esp:
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
+#if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	/* Pass incoming packets which will be returned using Geneve DSR
+	 * to host-stack for conntrack entry insertion.
+	 * Geneve DSR reply packets are processed by the host-stack,
+	 * so this logic is needed to prevent the packets from being handled
+	 * by netfilter in an unintended way.
+	 */
+	if (!is_defined(ENABLE_HOST_ROUTING) && is_dsr) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
+#endif
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
