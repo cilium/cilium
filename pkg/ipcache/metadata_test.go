@@ -626,7 +626,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, remaining)
 
-	ip, key := IPIdentityCache.getHostIPCache(inClusterPrefix.String())
+	ip, key := IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.100", ip.String())
 	assert.Equal(t, uint8(7), key)
 
@@ -638,7 +638,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 		types.EncryptKey(6))
 	_, _, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	ip, key = IPIdentityCache.getHostIPCache(inClusterPrefix.String())
+	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.100", ip.String())
 	assert.Equal(t, uint8(7), key)
 
@@ -650,7 +650,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	assert.Empty(t, remaining)
 
 	// Assert that there should only be the entry with the tunnelPeer set.
-	ip, key = IPIdentityCache.getHostIPCache(inClusterPrefix.String())
+	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.100", ip.String())
 	assert.Equal(t, uint8(0), key)
 
@@ -674,7 +674,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	)
 	_, _, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	ip, key = IPIdentityCache.getHostIPCache(inClusterPrefix.String())
+	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.101", ip.String())
 	assert.Equal(t, uint8(6), key)
 }

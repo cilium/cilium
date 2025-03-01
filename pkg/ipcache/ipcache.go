@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
@@ -225,25 +226,13 @@ func (ipc *IPCache) UpdateController(
 	ipc.controllers.UpdateController(name, params)
 }
 
-// endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
-func endpointIPToCIDR(ip net.IP) *net.IPNet {
-	bits := net.IPv6len * 8
-	if ip.To4() != nil {
-		bits = net.IPv4len * 8
-	}
-	return &net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(bits, bits),
-	}
-}
-
-func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
+func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.getHostIPCache(ip)
+	return ipc.getHostIPCacheRLocked(ip)
 }
 
-func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
+func (ipc *IPCache) getHostIPCacheRLocked(ip string) (net.IP, uint8) {
 	ipKeyPair := ipc.ipToHostIPCache[ip]
 	return ipKeyPair.IP, ipKeyPair.Key
 }
@@ -267,15 +256,15 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-// GetEndpointFlags returns endpoint flags for the given IP address.
-func (ipc *IPCache) GetEndpointFlags(ip string) uint8 {
-	ipc.mutex.RLock()
-	defer ipc.mutex.RUnlock()
-	return ipc.getEndpointFlags(ip)
-}
-
 // getEndpointFlags returns endpoint flags for the given IP address.
 func (ipc *IPCache) getEndpointFlags(ip string) uint8 {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getEndpointFlagsRLocked(ip)
+}
+
+// getEndpointFlagsRLocked returns endpoint flags for the given IP address.
+func (ipc *IPCache) getEndpointFlagsRLocked(ip string) uint8 {
 	return ipc.ipToEndpointFlags[ip]
 }
 
@@ -350,8 +339,8 @@ func (ipc *IPCache) upsertLocked(
 	var oldIdentity *Identity
 	callbackListeners := true
 
-	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
+	oldHostIP, oldHostKey := ipc.getHostIPCacheRLocked(ip)
+	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
 	metaEqual := oldK8sMeta.Equal(k8sMeta)
 
@@ -432,7 +421,7 @@ func (ipc *IPCache) upsertLocked(
 		if !found {
 			cidrClusterStr := cidrCluster.String()
 			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
-				oldHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
+				oldHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
 				if cidrIdentity.ID != newIdentity.ID || !oldHostIP.Equal(hostIP) {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					cidrIdentity.shadowed = true
@@ -693,9 +682,9 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		if identity.shadowed {
 			continue
 		}
-		hostIP, encryptKey := ipc.getHostIPCache(ip)
+		hostIP, encryptKey := ipc.getHostIPCacheRLocked(ip)
 		k8sMeta := ipc.getK8sMetadata(ip)
-		endpointFlags := ipc.getEndpointFlags(ip)
+		endpointFlags := ipc.getEndpointFlagsRLocked(ip)
 		cidrCluster, err := cmtypes.ParsePrefixCluster(ip)
 		if err != nil {
 			addrCluster := cmtypes.MustParseAddrCluster(ip)
@@ -732,9 +721,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 
 	var cidrCluster cmtypes.PrefixCluster
 	cacheModification := Delete
-	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
+	oldHostIP, encryptKey := ipc.getHostIPCacheRLocked(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
+	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	var newHostIP net.IP
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
@@ -757,7 +746,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		// restore its mapping with the listeners if that was the case.
 		cidrClusterStr := cidrCluster.String()
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
-			newHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
+			newHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
@@ -857,14 +846,13 @@ func (ipc *IPCache) Delete(IP string, source source.Source) (namedPortsChanged b
 func (ipc *IPCache) LookupByIP(IP string) (Identity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.LookupByIPRLocked(IP)
+	return ipc.lookupByIPRLocked(IP)
 }
 
-// LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
+// lookupByIPRLocked returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIPRLocked(IP string) (Identity, bool) {
-
+func (ipc *IPCache) lookupByIPRLocked(IP string) (Identity, bool) {
 	identity, exists := ipc.ipToIdentityCache[IP]
 	return identity, exists
 }
@@ -909,7 +897,7 @@ func (ipc *IPCache) LookupSecIDByIP(ip netip.Addr) (id Identity, ok bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 
-	if id, ok = ipc.LookupByIPRLocked(ip.String()); ok {
+	if id, ok = ipc.lookupByIPRLocked(ip.String()); ok {
 		return id, ok
 	}
 
@@ -956,7 +944,7 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 			_, cidr, err := net.ParseCIDR(ip)
 			if err != nil {
 				endpointIP := net.ParseIP(ip)
-				cidr = endpointIPToCIDR(endpointIP)
+				cidr = iputil.IPToPrefix(endpointIP)
 			}
 			cidrs = append(cidrs, *cidr)
 		}

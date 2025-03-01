@@ -355,8 +355,8 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 	for i, prefix := range modifiedPrefixes {
 		pstr := prefix.String()
 		oldID, entryExists := ipc.LookupByIP(pstr)
-		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
-		oldEndpointFlags := ipc.GetEndpointFlags(pstr)
+		oldTunnelIP, oldEncryptionKey := ipc.getHostIPCache(pstr)
+		oldEndpointFlags := ipc.getEndpointFlags(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		var newID *identity.Identity
 		var isNew bool

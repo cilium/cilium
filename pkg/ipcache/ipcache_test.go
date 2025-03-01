@@ -121,7 +121,7 @@ func TestIPCache(t *testing.T) {
 		Source: source.KVStore,
 	})
 
-	cachedHostIP, _ := IPIdentityCache.getHostIPCache(endpointIP)
+	cachedHostIP, _ := IPIdentityCache.getHostIPCacheRLocked(endpointIP)
 	require.EqualValues(t, hostIP, cachedHostIP)
 	require.EqualValues(t, k8sMeta, IPIdentityCache.GetK8sMetadata(netip.MustParseAddr(endpointIP)))
 
@@ -385,7 +385,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.Len(t, IPIdentityCache.ipToHostIPCache, 1)
 	require.Len(t, IPIdentityCache.ipToK8sMetadata, 2)
 
-	cachedHostIP, _ := IPIdentityCache.getHostIPCache(endpointIP)
+	cachedHostIP, _ := IPIdentityCache.getHostIPCacheRLocked(endpointIP)
 	require.EqualValues(t, hostIP, cachedHostIP)
 	require.EqualValues(t, k8sMeta, IPIdentityCache.GetK8sMetadata(netip.MustParseAddr(endpointIP)))
 
