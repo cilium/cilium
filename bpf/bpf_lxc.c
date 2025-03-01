@@ -1210,7 +1210,7 @@ ct_recreate4:
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
 						   MARK_MAGIC_IDENTITY, ip4,
 						   ep, METRIC_EGRESS, from_l7lb,
-						   false, 0);
+						   false, 0, false);
 		}
 	}
 
