@@ -144,14 +144,17 @@ kprobe:br_forward
         if (!$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, ifindex: %d, netns: %x, proxy: %d)\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d)\n",
             $time, $skb,
             ntop($ip4h->saddr), bswap($udph->source),
             ntop($ip4h->daddr), bswap($udph->dest),
+            bswap($ip4h->tot_len),
             $ip4h->protocol,
             $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
+            $src_is_pod, $src_is_internal,
+            $dst_is_pod, $dst_is_internal,
             $pod_to_pod_via_proxy);
 
           if ($ip4h->protocol == PROTO_ICMPV4) {
@@ -220,14 +223,17 @@ kprobe:br_forward
         if (!$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, ifindex: %d, netns: %x, proxy: %d)\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d)\n",
             $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
             ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
+            bswap($ip6h->payload_len),
             $ip6h->nexthdr,
             $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
+            $src_is_pod, $src_is_internal,
+            $dst_is_pod, $dst_is_internal,
             $pod_to_pod_via_proxy);
 
           if ($ip6h->nexthdr == PROTO_FRAGMENT || $ip6h->nexthdr == PROTO_ICMPV6) {
