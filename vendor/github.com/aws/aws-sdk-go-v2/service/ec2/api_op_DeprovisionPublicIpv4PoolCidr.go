@@ -128,6 +128,9 @@ func (c *Client) addOperationDeprovisionPublicIpv4PoolCidrMiddlewares(stack *mid
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeprovisionPublicIpv4PoolCidrValidationMiddleware(stack); err != nil {
 		return err
 	}

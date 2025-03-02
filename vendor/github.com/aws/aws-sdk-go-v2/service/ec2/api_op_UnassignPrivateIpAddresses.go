@@ -116,6 +116,9 @@ func (c *Client) addOperationUnassignPrivateIpAddressesMiddlewares(stack *middle
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpUnassignPrivateIpAddressesValidationMiddleware(stack); err != nil {
 		return err
 	}

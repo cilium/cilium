@@ -175,6 +175,9 @@ func (c *Client) addOperationExportImageMiddlewares(stack *middleware.Stack, opt
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opExportImageMiddleware(stack, options); err != nil {
 		return err
 	}

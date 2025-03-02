@@ -20769,10 +20769,33 @@ func (m *awsEc2query_deserializeOpDeregisterImage) HandleDeserialize(ctx context
 	output := &DeregisterImageOutput{}
 	out.Result = output
 
-	if _, err = io.Copy(ioutil.Discard, response.Body); err != nil {
+	var buff [1024]byte
+	ringBuffer := smithyio.NewRingBuffer(buff[:])
+	body := io.TeeReader(response.Body, ringBuffer)
+	rootDecoder := xml.NewDecoder(body)
+	t, err := smithyxml.FetchRootElement(rootDecoder)
+	if err == io.EOF {
+		return out, metadata, nil
+	}
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
 		return out, metadata, &smithy.DeserializationError{
-			Err: fmt.Errorf("failed to discard response body, %w", err),
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
 		}
+	}
+
+	decoder := smithyxml.WrapNodeDecoder(rootDecoder, t)
+	err = awsEc2query_deserializeOpDocumentDeregisterImageOutput(&output, decoder)
+	if err != nil {
+		var snapshot bytes.Buffer
+		io.Copy(&snapshot, ringBuffer)
+		err = &smithy.DeserializationError{
+			Err:      fmt.Errorf("failed to decode response body, %w", err),
+			Snapshot: snapshot.Bytes(),
+		}
+		return out, metadata, err
 	}
 
 	return out, metadata, err
@@ -66636,6 +66659,155 @@ func awsEc2query_deserializeDocumentBlockDeviceMappingListUnwrapped(v *[]types.B
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentBlockDeviceMappingResponse(v **types.BlockDeviceMappingResponse, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.BlockDeviceMappingResponse
+	if *v == nil {
+		sv = &types.BlockDeviceMappingResponse{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("deviceName", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.DeviceName = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("ebs", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentEbsBlockDeviceResponse(&sv.Ebs, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("noDevice", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NoDevice = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("virtualName", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VirtualName = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentBlockDeviceMappingResponseList(v *[]types.BlockDeviceMappingResponse, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.BlockDeviceMappingResponse
+	if *v == nil {
+		sv = make([]types.BlockDeviceMappingResponse, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.BlockDeviceMappingResponse
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentBlockDeviceMappingResponse(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentBlockDeviceMappingResponseListUnwrapped(v *[]types.BlockDeviceMappingResponse, decoder smithyxml.NodeDecoder) error {
+	var sv []types.BlockDeviceMappingResponse
+	if *v == nil {
+		sv = make([]types.BlockDeviceMappingResponse, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.BlockDeviceMappingResponse
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentBlockDeviceMappingResponse(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentBlockPublicAccessStates(v **types.BlockPublicAccessStates, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -78739,6 +78911,164 @@ func awsEc2query_deserializeDocumentEbsBlockDevice(v **types.EbsBlockDevice, dec
 	return nil
 }
 
+func awsEc2query_deserializeDocumentEbsBlockDeviceResponse(v **types.EbsBlockDeviceResponse, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.EbsBlockDeviceResponse
+	if *v == nil {
+		sv = &types.EbsBlockDeviceResponse{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("deleteOnTermination", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.DeleteOnTermination = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("encrypted", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.Encrypted = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("iops", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.Iops = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("kmsKeyId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.KmsKeyId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("snapshotId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SnapshotId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("throughput", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.Throughput = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("volumeSize", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.VolumeSize = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("volumeType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VolumeType = types.VolumeType(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentEbsInfo(v **types.EbsInfo, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -83845,6 +84175,12 @@ func awsEc2query_deserializeDocumentFleetLaunchTemplateOverrides(v **types.Fleet
 			{
 				xtv := string(val)
 				sv.AvailabilityZone = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("blockDeviceMappingSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentBlockDeviceMappingResponseList(&sv.BlockDeviceMappings, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("imageId", t.Name.Local):
@@ -162332,6 +162668,42 @@ func awsEc2query_deserializeOpDocumentDeprovisionPublicIpv4PoolCidrOutput(v **De
 				sv.PoolId = ptr.String(xtv)
 			}
 
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeOpDocumentDeregisterImageOutput(v **DeregisterImageOutput, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *DeregisterImageOutput
+	if *v == nil {
+		sv = &DeregisterImageOutput{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()

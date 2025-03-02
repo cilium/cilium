@@ -118,6 +118,9 @@ func (c *Client) addOperationDeleteSubnetCidrReservationMiddlewares(stack *middl
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteSubnetCidrReservationValidationMiddleware(stack); err != nil {
 		return err
 	}

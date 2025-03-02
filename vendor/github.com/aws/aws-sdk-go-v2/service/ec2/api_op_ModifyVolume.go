@@ -203,6 +203,9 @@ func (c *Client) addOperationModifyVolumeMiddlewares(stack *middleware.Stack, op
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyVolumeValidationMiddleware(stack); err != nil {
 		return err
 	}

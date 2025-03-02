@@ -131,6 +131,9 @@ func (c *Client) addOperationModifyTrafficMirrorFilterNetworkServicesMiddlewares
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyTrafficMirrorFilterNetworkServicesValidationMiddleware(stack); err != nil {
 		return err
 	}

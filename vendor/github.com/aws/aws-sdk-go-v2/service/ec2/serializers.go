@@ -48306,6 +48306,97 @@ func awsEc2query_serializeDocumentFilterList(v []types.Filter, value query.Value
 	return nil
 }
 
+func awsEc2query_serializeDocumentFleetBlockDeviceMappingRequest(v *types.FleetBlockDeviceMappingRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DeviceName != nil {
+		objectKey := object.Key("DeviceName")
+		objectKey.String(*v.DeviceName)
+	}
+
+	if v.Ebs != nil {
+		objectKey := object.Key("Ebs")
+		if err := awsEc2query_serializeDocumentFleetEbsBlockDeviceRequest(v.Ebs, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.NoDevice != nil {
+		objectKey := object.Key("NoDevice")
+		objectKey.String(*v.NoDevice)
+	}
+
+	if v.VirtualName != nil {
+		objectKey := object.Key("VirtualName")
+		objectKey.String(*v.VirtualName)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentFleetBlockDeviceMappingRequestList(v []types.FleetBlockDeviceMappingRequest, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("BlockDeviceMapping")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentFleetBlockDeviceMappingRequest(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentFleetEbsBlockDeviceRequest(v *types.FleetEbsBlockDeviceRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DeleteOnTermination != nil {
+		objectKey := object.Key("DeleteOnTermination")
+		objectKey.Boolean(*v.DeleteOnTermination)
+	}
+
+	if v.Encrypted != nil {
+		objectKey := object.Key("Encrypted")
+		objectKey.Boolean(*v.Encrypted)
+	}
+
+	if v.Iops != nil {
+		objectKey := object.Key("Iops")
+		objectKey.Integer(*v.Iops)
+	}
+
+	if v.KmsKeyId != nil {
+		objectKey := object.Key("KmsKeyId")
+		objectKey.String(*v.KmsKeyId)
+	}
+
+	if v.SnapshotId != nil {
+		objectKey := object.Key("SnapshotId")
+		objectKey.String(*v.SnapshotId)
+	}
+
+	if v.Throughput != nil {
+		objectKey := object.Key("Throughput")
+		objectKey.Integer(*v.Throughput)
+	}
+
+	if v.VolumeSize != nil {
+		objectKey := object.Key("VolumeSize")
+		objectKey.Integer(*v.VolumeSize)
+	}
+
+	if len(v.VolumeType) > 0 {
+		objectKey := object.Key("VolumeType")
+		objectKey.String(string(v.VolumeType))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentFleetIdSet(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -48377,6 +48468,13 @@ func awsEc2query_serializeDocumentFleetLaunchTemplateOverridesRequest(v *types.F
 	if v.AvailabilityZone != nil {
 		objectKey := object.Key("AvailabilityZone")
 		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.BlockDeviceMappings != nil {
+		objectKey := object.FlatKey("BlockDeviceMapping")
+		if err := awsEc2query_serializeDocumentFleetBlockDeviceMappingRequestList(v.BlockDeviceMappings, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.ImageId != nil {
@@ -58201,6 +58299,11 @@ func awsEc2query_serializeOpDocumentCopyImageInput(v *CopyImageInput, value quer
 	if v.Name != nil {
 		objectKey := object.Key("Name")
 		objectKey.String(*v.Name)
+	}
+
+	if v.SnapshotCopyCompletionDurationMinutes != nil {
+		objectKey := object.Key("SnapshotCopyCompletionDurationMinutes")
+		objectKey.Long(*v.SnapshotCopyCompletionDurationMinutes)
 	}
 
 	if v.SourceImageId != nil {

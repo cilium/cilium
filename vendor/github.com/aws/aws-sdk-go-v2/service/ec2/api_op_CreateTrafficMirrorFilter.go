@@ -140,6 +140,9 @@ func (c *Client) addOperationCreateTrafficMirrorFilterMiddlewares(stack *middlew
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opCreateTrafficMirrorFilterMiddleware(stack, options); err != nil {
 		return err
 	}

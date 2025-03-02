@@ -128,6 +128,9 @@ func (c *Client) addOperationDisassociateTransitGatewayMulticastDomainMiddleware
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDisassociateTransitGatewayMulticastDomainValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -111,6 +111,9 @@ func (c *Client) addOperationCancelExportTaskMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCancelExportTaskValidationMiddleware(stack); err != nil {
 		return err
 	}

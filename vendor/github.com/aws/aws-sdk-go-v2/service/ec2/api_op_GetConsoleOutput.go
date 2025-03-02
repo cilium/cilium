@@ -137,6 +137,9 @@ func (c *Client) addOperationGetConsoleOutputMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetConsoleOutputValidationMiddleware(stack); err != nil {
 		return err
 	}

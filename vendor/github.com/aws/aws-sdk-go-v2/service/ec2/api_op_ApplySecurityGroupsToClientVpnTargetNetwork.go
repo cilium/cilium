@@ -130,6 +130,9 @@ func (c *Client) addOperationApplySecurityGroupsToClientVpnTargetNetworkMiddlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpApplySecurityGroupsToClientVpnTargetNetworkValidationMiddleware(stack); err != nil {
 		return err
 	}

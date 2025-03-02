@@ -120,6 +120,9 @@ func (c *Client) addOperationExportClientVpnClientConfigurationMiddlewares(stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpExportClientVpnClientConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}

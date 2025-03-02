@@ -140,6 +140,9 @@ func (c *Client) addOperationImportVolumeMiddlewares(stack *middleware.Stack, op
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpImportVolumeValidationMiddleware(stack); err != nil {
 		return err
 	}

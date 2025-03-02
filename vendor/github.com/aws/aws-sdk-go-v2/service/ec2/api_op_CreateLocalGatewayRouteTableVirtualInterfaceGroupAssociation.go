@@ -128,6 +128,9 @@ func (c *Client) addOperationCreateLocalGatewayRouteTableVirtualInterfaceGroupAs
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationValidationMiddleware(stack); err != nil {
 		return err
 	}

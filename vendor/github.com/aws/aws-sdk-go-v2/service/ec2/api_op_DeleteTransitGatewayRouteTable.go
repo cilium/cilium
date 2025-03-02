@@ -121,6 +121,9 @@ func (c *Client) addOperationDeleteTransitGatewayRouteTableMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteTransitGatewayRouteTableValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -123,6 +123,9 @@ func (c *Client) addOperationRegisterInstanceEventNotificationAttributesMiddlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpRegisterInstanceEventNotificationAttributesValidationMiddleware(stack); err != nil {
 		return err
 	}

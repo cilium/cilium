@@ -141,6 +141,9 @@ func (c *Client) addOperationDescribeIdentityIdFormatMiddlewares(stack *middlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeIdentityIdFormatValidationMiddleware(stack); err != nil {
 		return err
 	}

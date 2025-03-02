@@ -215,6 +215,9 @@ func (c *Client) addOperationCreateCapacityReservationFleetMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opCreateCapacityReservationFleetMiddleware(stack, options); err != nil {
 		return err
 	}

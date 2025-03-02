@@ -132,6 +132,9 @@ func (c *Client) addOperationModifyPrivateDnsNameOptionsMiddlewares(stack *middl
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyPrivateDnsNameOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}
