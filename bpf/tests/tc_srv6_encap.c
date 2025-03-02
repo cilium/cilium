@@ -96,8 +96,8 @@ int srv6_encap_from_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	__u32 vrf_id = 1;
 
 	memcpy(&sid, (const void *)SID, sizeof(sid));
-	map_update_elem(&SRV6_VRF_MAP4, &vrf_key, &vrf_id, 0);
-	map_update_elem(&SRV6_POLICY_MAP4, &policy_key, &sid, 0);
+	map_update_elem(&cilium_srv6_vrf_v4, &vrf_key, &vrf_id, 0);
+	map_update_elem(&cilium_srv6_policy_v4, &policy_key, &sid, 0);
 
 	/* We need this rule. Otherwise, network policy will drop the inner packet. */
 	policy_add_egress_allow_all_entry();
@@ -246,11 +246,11 @@ int srv6_encap_from_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 
 	memcpy(&vrf_key.src_ip, (const void *)POD_IPV6, sizeof(union v6addr));
 	memset(&vrf_key.dst_cidr, 0, sizeof(union v6addr));
-	map_update_elem(&SRV6_VRF_MAP6, &vrf_key, &vrf_id, 0);
+	map_update_elem(&cilium_srv6_vrf_v6, &vrf_key, &vrf_id, 0);
 
 	memcpy(&policy_key.dst_cidr, (const void *)EXT_IPV6, sizeof(union v6addr));
 	memcpy(&sid, (const void *)SID, sizeof(sid));
-	map_update_elem(&SRV6_POLICY_MAP6, &policy_key, &sid, 0);
+	map_update_elem(&cilium_srv6_policy_v6, &policy_key, &sid, 0);
 
 	/* We need this rule. Otherwise, network policy will drop the inner packet. */
 	policy_add_egress_allow_all_entry();

@@ -138,7 +138,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(v4_pod_one, 0, SECLABEL, 0, 0);
 
-	ct_create4(&CT_MAP_TCP4, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
+	ct_create4(&cilium_ct4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
