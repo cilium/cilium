@@ -145,6 +145,9 @@ func (c *Client) addOperationGetIpamPoolAllocationsMiddlewares(stack *middleware
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetIpamPoolAllocationsValidationMiddleware(stack); err != nil {
 		return err
 	}

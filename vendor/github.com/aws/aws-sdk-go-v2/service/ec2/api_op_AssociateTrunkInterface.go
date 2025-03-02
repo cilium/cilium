@@ -148,6 +148,9 @@ func (c *Client) addOperationAssociateTrunkInterfaceMiddlewares(stack *middlewar
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opAssociateTrunkInterfaceMiddleware(stack, options); err != nil {
 		return err
 	}

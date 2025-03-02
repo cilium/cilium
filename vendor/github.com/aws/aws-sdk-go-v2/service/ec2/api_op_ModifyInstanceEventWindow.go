@@ -160,6 +160,9 @@ func (c *Client) addOperationModifyInstanceEventWindowMiddlewares(stack *middlew
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyInstanceEventWindowValidationMiddleware(stack); err != nil {
 		return err
 	}
