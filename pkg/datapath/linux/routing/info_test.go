@@ -106,6 +106,7 @@ func TestParse(t *testing.T) {
 			wantRInfo: &RoutingInfo{
 				IPv4Gateway:     net.ParseIP("192.168.1.1"),
 				IPv4CIDRs:       validCIDRs,
+				IPv6CIDRs:       []net.IPNet{},
 				MasterIfMAC:     fakeMAC,
 				InterfaceNumber: 1,
 				IpamMode:        ipamOption.IPAMENI,
@@ -122,6 +123,7 @@ func TestParse(t *testing.T) {
 			wantRInfo: &RoutingInfo{
 				IPv4Gateway: net.ParseIP("192.168.1.1"),
 				IPv4CIDRs:   []net.IPNet{},
+				IPv6CIDRs:   []net.IPNet{},
 				MasterIfMAC: fakeMAC,
 				IpamMode:    ipamOption.IPAMENI,
 			},
@@ -139,7 +141,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
+			rInfo, err := NewRoutingInfo(tt.gateway, "", tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq, false)
 			require.EqualValues(t, tt.wantRInfo, rInfo)
 			require.Equal(t, tt.wantErr, err != nil)
 		})
