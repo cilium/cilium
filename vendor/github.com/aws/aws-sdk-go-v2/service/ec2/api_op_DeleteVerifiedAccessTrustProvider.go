@@ -124,6 +124,9 @@ func (c *Client) addOperationDeleteVerifiedAccessTrustProviderMiddlewares(stack 
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opDeleteVerifiedAccessTrustProviderMiddleware(stack, options); err != nil {
 		return err
 	}

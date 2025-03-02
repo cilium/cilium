@@ -147,6 +147,9 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetPasswordDataValidationMiddleware(stack); err != nil {
 		return err
 	}

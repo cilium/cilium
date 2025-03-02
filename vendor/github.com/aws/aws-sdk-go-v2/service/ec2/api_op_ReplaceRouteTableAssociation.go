@@ -135,6 +135,9 @@ func (c *Client) addOperationReplaceRouteTableAssociationMiddlewares(stack *midd
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpReplaceRouteTableAssociationValidationMiddleware(stack); err != nil {
 		return err
 	}

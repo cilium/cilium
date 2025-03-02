@@ -125,6 +125,9 @@ func (c *Client) addOperationReplaceVpnTunnelMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpReplaceVpnTunnelValidationMiddleware(stack); err != nil {
 		return err
 	}

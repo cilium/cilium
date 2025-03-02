@@ -133,6 +133,9 @@ func (c *Client) addOperationProvisionIpamByoasnMiddlewares(stack *middleware.St
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpProvisionIpamByoasnValidationMiddleware(stack); err != nil {
 		return err
 	}

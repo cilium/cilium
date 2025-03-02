@@ -132,6 +132,9 @@ func (c *Client) addOperationDescribeIpamResourceDiscoveriesMiddlewares(stack *m
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpamResourceDiscoveries(options.Region), middleware.Before); err != nil {
 		return err
 	}

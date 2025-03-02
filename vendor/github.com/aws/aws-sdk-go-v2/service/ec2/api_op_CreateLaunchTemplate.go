@@ -15,15 +15,15 @@ import (
 //
 // A launch template contains the parameters to launch an instance. When you
 // launch an instance using RunInstances, you can specify a launch template instead of
-// providing the launch parameters in the request. For more information, see [Launch an instance from a launch template]in
+// providing the launch parameters in the request. For more information, see [Store instance launch parameters in Amazon EC2 launch templates]in
 // the Amazon EC2 User Guide.
 //
 // To clone an existing launch template as the basis for a new launch template,
 // use the Amazon EC2 console. The API, SDKs, and CLI do not support cloning a
 // template. For more information, see [Create a launch template from an existing launch template]in the Amazon EC2 User Guide.
 //
-// [Create a launch template from an existing launch template]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template-from-existing-launch-template
-// [Launch an instance from a launch template]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html
+// [Create a launch template from an existing launch template]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-launch-template.html#create-launch-template-from-existing-launch-template
+// [Store instance launch parameters in Amazon EC2 launch templates]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html
 func (c *Client) CreateLaunchTemplate(ctx context.Context, params *CreateLaunchTemplateInput, optFns ...func(*Options)) (*CreateLaunchTemplateOutput, error) {
 	if params == nil {
 		params = &CreateLaunchTemplateInput{}
@@ -161,6 +161,9 @@ func (c *Client) addOperationCreateLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateLaunchTemplateValidationMiddleware(stack); err != nil {

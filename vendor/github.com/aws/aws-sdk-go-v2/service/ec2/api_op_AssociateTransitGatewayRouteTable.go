@@ -124,6 +124,9 @@ func (c *Client) addOperationAssociateTransitGatewayRouteTableMiddlewares(stack 
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpAssociateTransitGatewayRouteTableValidationMiddleware(stack); err != nil {
 		return err
 	}
