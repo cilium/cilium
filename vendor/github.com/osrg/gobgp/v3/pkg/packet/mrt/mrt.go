@@ -677,9 +677,9 @@ type BGP4MPHeader struct {
 }
 
 func (m *BGP4MPHeader) decodeFromBytes(data []byte) ([]byte, error) {
-	if m.isAS4 && len(data) < 8 {
+	if m.isAS4 && len(data) < 12 {
 		return nil, errors.New("not all BGP4MPMessageAS4 bytes available")
-	} else if !m.isAS4 && len(data) < 4 {
+	} else if !m.isAS4 && len(data) < 8 {
 		return nil, errors.New("not all BGP4MPMessageAS bytes available")
 	}
 
@@ -696,10 +696,16 @@ func (m *BGP4MPHeader) decodeFromBytes(data []byte) ([]byte, error) {
 	m.AddressFamily = binary.BigEndian.Uint16(data[2:4])
 	switch m.AddressFamily {
 	case bgp.AFI_IP:
+		if len(data) < 12 {
+			return nil, errors.New("not all IPv4 peer bytes available")
+		}
 		m.PeerIpAddress = net.IP(data[4:8]).To4()
 		m.LocalIpAddress = net.IP(data[8:12]).To4()
 		data = data[12:]
 	case bgp.AFI_IP6:
+		if len(data) < 36 {
+			return nil, errors.New("not all IPv6 peer bytes available")
+		}
 		m.PeerIpAddress = net.IP(data[4:20])
 		m.LocalIpAddress = net.IP(data[20:36])
 		data = data[36:]

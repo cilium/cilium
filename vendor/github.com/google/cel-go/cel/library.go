@@ -17,11 +17,10 @@ package cel
 import (
 	"fmt"
 	"math"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/stdlib"
@@ -71,6 +70,23 @@ type SingletonLibrary interface {
 	LibraryName() string
 }
 
+// LibraryAliaser generates a simple named alias for the library, for use during environment serialization.
+type LibraryAliaser interface {
+	LibraryAlias() string
+}
+
+// LibrarySubsetter provides the subset description associated with the library, nil if not subset.
+type LibrarySubsetter interface {
+	LibrarySubset() *env.LibrarySubset
+}
+
+// LibraryVersioner provides a version number for the library.
+//
+// If not implemented, the library version will be flagged as 'latest' during environment serialization.
+type LibraryVersioner interface {
+	LibraryVersion() uint32
+}
+
 // Lib creates an EnvOption out of a Library, allowing libraries to be provided as functional args,
 // and to be linked to each other.
 func Lib(l Library) EnvOption {
@@ -80,7 +96,7 @@ func Lib(l Library) EnvOption {
 			if e.HasLibrary(singleton.LibraryName()) {
 				return e, nil
 			}
-			e.libraries[singleton.LibraryName()] = true
+			e.libraries[singleton.LibraryName()] = singleton
 		}
 		var err error
 		for _, opt := range l.CompileOptions() {
@@ -94,26 +110,79 @@ func Lib(l Library) EnvOption {
 	}
 }
 
+// StdLibOption specifies a functional option for configuring the standard CEL library.
+type StdLibOption func(*stdLibrary) *stdLibrary
+
+// StdLibSubset configures the standard library to use a subset of its functions and macros.
+//
+// Since the StdLib is a singleton library, only the first instance of the StdLib() environment options
+// will be configured on the environment which means only the StdLibSubset() initially configured with
+// the library will be used.
+func StdLibSubset(subset *env.LibrarySubset) StdLibOption {
+	return func(lib *stdLibrary) *stdLibrary {
+		lib.subset = subset
+		return lib
+	}
+}
+
 // StdLib returns an EnvOption for the standard library of CEL functions and macros.
-func StdLib() EnvOption {
-	return Lib(stdLibrary{})
+func StdLib(opts ...StdLibOption) EnvOption {
+	lib := &stdLibrary{}
+	for _, o := range opts {
+		lib = o(lib)
+	}
+	return Lib(lib)
 }
 
 // stdLibrary implements the Library interface and provides functional options for the core CEL
 // features documented in the specification.
-type stdLibrary struct{}
+type stdLibrary struct {
+	subset *env.LibrarySubset
+}
 
 // LibraryName implements the SingletonLibrary interface method.
-func (stdLibrary) LibraryName() string {
+func (*stdLibrary) LibraryName() string {
 	return "cel.lib.std"
 }
 
+// LibraryAlias returns the simple name of the library.
+func (*stdLibrary) LibraryAlias() string {
+	return "stdlib"
+}
+
+// LibrarySubset returns the env.LibrarySubset definition associated with the CEL Library.
+func (lib *stdLibrary) LibrarySubset() *env.LibrarySubset {
+	return lib.subset
+}
+
 // CompileOptions returns options for the standard CEL function declarations and macros.
-func (stdLibrary) CompileOptions() []EnvOption {
+func (lib *stdLibrary) CompileOptions() []EnvOption {
+	funcs := stdlib.Functions()
+	macros := StandardMacros
+	if lib.subset != nil {
+		subMacros := []Macro{}
+		for _, m := range macros {
+			if lib.subset.SubsetMacro(m.Function()) {
+				subMacros = append(subMacros, m)
+			}
+		}
+		macros = subMacros
+		subFuncs := []*decls.FunctionDecl{}
+		for _, fn := range funcs {
+			if f, include := lib.subset.SubsetFunction(fn); include {
+				subFuncs = append(subFuncs, f)
+			}
+		}
+		funcs = subFuncs
+	}
 	return []EnvOption{
 		func(e *Env) (*Env, error) {
 			var err error
-			for _, fn := range stdlib.Functions() {
+			if err = lib.subset.Validate(); err != nil {
+				return nil, err
+			}
+			e.variables = append(e.variables, stdlib.Types()...)
+			for _, fn := range funcs {
 				existing, found := e.functions[fn.Name()]
 				if found {
 					fn, err = existing.Merge(fn)
@@ -125,16 +194,12 @@ func (stdLibrary) CompileOptions() []EnvOption {
 			}
 			return e, nil
 		},
-		func(e *Env) (*Env, error) {
-			e.variables = append(e.variables, stdlib.Types()...)
-			return e, nil
-		},
-		Macros(StandardMacros...),
+		Macros(macros...),
 	}
 }
 
 // ProgramOptions returns function implementations for the standard CEL functions.
-func (stdLibrary) ProgramOptions() []ProgramOption {
+func (*stdLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{}
 }
 
@@ -263,7 +328,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // be expressed with `optMap`.
 //
 //	msg.?elements.optFlatMap(e, e[?0]) // return the first element if present.
-
+//
 // # First
 //
 // Introduced in version: 2
@@ -272,7 +337,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // optional.None.
 //
 // [1, 2, 3].first().value() == 1
-
+//
 // # Last
 //
 // Introduced in version: 2
@@ -283,7 +348,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // [1, 2, 3].last().value() == 3
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
-
+//
 // # Unwrap / UnwrapOpt
 //
 // Introduced in version: 2
@@ -293,7 +358,6 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 //
 // optional.unwrap([optional.of(42), optional.none()]) == [42]
 // [optional.of(42), optional.none()].unwrapOpt() == [42]
-
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
@@ -326,8 +390,18 @@ func OptionalTypesVersion(version uint32) OptionalTypesOption {
 }
 
 // LibraryName implements the SingletonLibrary interface method.
-func (lib *optionalLib) LibraryName() string {
+func (*optionalLib) LibraryName() string {
 	return "cel.lib.optional"
+}
+
+// LibraryAlias returns the simple name of the library.
+func (*optionalLib) LibraryAlias() string {
+	return "optional"
+}
+
+// LibraryVersion returns the version of the library.
+func (lib *optionalLib) LibraryVersion() uint32 {
+	return lib.version
 }
 
 // CompileOptions implements the Library interface method.
@@ -458,6 +532,11 @@ func (lib *optionalLib) ProgramOptions() []ProgramOption {
 	return []ProgramOption{
 		CustomDecorator(decorateOptionalOr),
 	}
+}
+
+// Version returns the current version of the library.
+func (lib *optionalLib) Version() uint32 {
+	return lib.version
 }
 
 func optMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
@@ -633,250 +712,99 @@ func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
 	return opt.rhs.Eval(ctx)
 }
 
-type timeUTCLibrary struct{}
+type timeLegacyLibrary struct{}
 
-func (timeUTCLibrary) CompileOptions() []EnvOption {
+func (timeLegacyLibrary) CompileOptions() []EnvOption {
 	return timeOverloadDeclarations
 }
 
-func (timeUTCLibrary) ProgramOptions() []ProgramOption {
+func (timeLegacyLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{}
 }
 
 // Declarations and functions which enable using UTC on time.Time inputs when the timezone is unspecified
 // in the CEL expression.
 var (
-	utcTZ = types.String("UTC")
-
 	timeOverloadDeclarations = []EnvOption{
-		Function(overloads.TimeGetHours,
-			MemberOverload(overloads.DurationToHours, []*Type{DurationType}, IntType,
-				UnaryBinding(types.DurationGetHours))),
-		Function(overloads.TimeGetMinutes,
-			MemberOverload(overloads.DurationToMinutes, []*Type{DurationType}, IntType,
-				UnaryBinding(types.DurationGetMinutes))),
-		Function(overloads.TimeGetSeconds,
-			MemberOverload(overloads.DurationToSeconds, []*Type{DurationType}, IntType,
-				UnaryBinding(types.DurationGetSeconds))),
-		Function(overloads.TimeGetMilliseconds,
-			MemberOverload(overloads.DurationToMilliseconds, []*Type{DurationType}, IntType,
-				UnaryBinding(types.DurationGetMilliseconds))),
 		Function(overloads.TimeGetFullYear,
 			MemberOverload(overloads.TimestampToYear, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetFullYear(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetFullYear, overloads.TimestampToYear, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToYearWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetFullYear),
 			),
 		),
 		Function(overloads.TimeGetMonth,
 			MemberOverload(overloads.TimestampToMonth, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetMonth(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetMonth, overloads.TimestampToMonth, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToMonthWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetMonth),
 			),
 		),
 		Function(overloads.TimeGetDayOfYear,
 			MemberOverload(overloads.TimestampToDayOfYear, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetDayOfYear(ts, utcTZ)
-				}),
-			),
-			MemberOverload(overloads.TimestampToDayOfYearWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(func(ts, tz ref.Val) ref.Val {
-					return timestampGetDayOfYear(ts, tz)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYear, []ref.Val{})
 				}),
 			),
 		),
 		Function(overloads.TimeGetDayOfMonth,
 			MemberOverload(overloads.TimestampToDayOfMonthZeroBased, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetDayOfMonthZeroBased(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthZeroBased, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToDayOfMonthZeroBasedWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetDayOfMonthZeroBased),
 			),
 		),
 		Function(overloads.TimeGetDate,
 			MemberOverload(overloads.TimestampToDayOfMonthOneBased, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetDayOfMonthOneBased(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetDate, overloads.TimestampToDayOfMonthOneBased, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToDayOfMonthOneBasedWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetDayOfMonthOneBased),
 			),
 		),
 		Function(overloads.TimeGetDayOfWeek,
 			MemberOverload(overloads.TimestampToDayOfWeek, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetDayOfWeek(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfWeek, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToDayOfWeekWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetDayOfWeek),
 			),
 		),
 		Function(overloads.TimeGetHours,
 			MemberOverload(overloads.TimestampToHours, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetHours(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetHours, overloads.TimestampToHours, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToHoursWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetHours),
 			),
 		),
 		Function(overloads.TimeGetMinutes,
 			MemberOverload(overloads.TimestampToMinutes, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetMinutes(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetMinutes, overloads.TimestampToMinutes, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToMinutesWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetMinutes),
 			),
 		),
 		Function(overloads.TimeGetSeconds,
 			MemberOverload(overloads.TimestampToSeconds, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetSeconds(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetSeconds, overloads.TimestampToSeconds, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToSecondsWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetSeconds),
 			),
 		),
 		Function(overloads.TimeGetMilliseconds,
 			MemberOverload(overloads.TimestampToMilliseconds, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {
-					return timestampGetMilliseconds(ts, utcTZ)
+					t := ts.(types.Timestamp)
+					return t.Receive(overloads.TimeGetMilliseconds, overloads.TimestampToMilliseconds, []ref.Val{})
 				}),
-			),
-			MemberOverload(overloads.TimestampToMillisecondsWithTz, []*Type{TimestampType, StringType}, IntType,
-				BinaryBinding(timestampGetMilliseconds),
 			),
 		),
 	}
 )
-
-func timestampGetFullYear(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Year())
-}
-
-func timestampGetMonth(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	// CEL spec indicates that the month should be 0-based, but the Time value
-	// for Month() is 1-based.
-	return types.Int(t.Month() - 1)
-}
-
-func timestampGetDayOfYear(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.YearDay() - 1)
-}
-
-func timestampGetDayOfMonthZeroBased(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Day() - 1)
-}
-
-func timestampGetDayOfMonthOneBased(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Day())
-}
-
-func timestampGetDayOfWeek(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Weekday())
-}
-
-func timestampGetHours(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Hour())
-}
-
-func timestampGetMinutes(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Minute())
-}
-
-func timestampGetSeconds(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Second())
-}
-
-func timestampGetMilliseconds(ts, tz ref.Val) ref.Val {
-	t, err := inTimeZone(ts, tz)
-	if err != nil {
-		return types.NewErrFromString(err.Error())
-	}
-	return types.Int(t.Nanosecond() / 1000000)
-}
-
-func inTimeZone(ts, tz ref.Val) (time.Time, error) {
-	t := ts.(types.Timestamp)
-	val := string(tz.(types.String))
-	ind := strings.Index(val, ":")
-	if ind == -1 {
-		loc, err := time.LoadLocation(val)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return t.In(loc), nil
-	}
-
-	// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
-	// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
-	hr, err := strconv.Atoi(string(val[0:ind]))
-	if err != nil {
-		return time.Time{}, err
-	}
-	min, err := strconv.Atoi(string(val[ind+1:]))
-	if err != nil {
-		return time.Time{}, err
-	}
-	var offset int
-	if string(val[0]) == "-" {
-		offset = hr*60 - min
-	} else {
-		offset = hr*60 + min
-	}
-	secondsEastOfUTC := int((time.Duration(offset) * time.Minute).Seconds())
-	timezone := time.FixedZone("", secondsEastOfUTC)
-	return t.In(timezone), nil
-}

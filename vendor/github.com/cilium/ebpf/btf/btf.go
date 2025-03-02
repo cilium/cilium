@@ -99,16 +99,16 @@ func (mt *mutableTypes) copy() *mutableTypes {
 		return nil
 	}
 
+	// Prevent concurrent modification of mt.copiedTypeIDs.
+	mt.mu.RLock()
+	defer mt.mu.RUnlock()
+
 	mtCopy := &mutableTypes{
 		mt.imm,
 		sync.RWMutex{},
 		make(map[Type]Type, len(mt.copies)),
 		make(map[Type]TypeID, len(mt.copiedTypeIDs)),
 	}
-
-	// Prevent concurrent modification of mt.copiedTypeIDs.
-	mt.mu.RLock()
-	defer mt.mu.RUnlock()
 
 	copiesOfCopies := make(map[Type]Type, len(mt.copies))
 	for orig, copy := range mt.copies {
