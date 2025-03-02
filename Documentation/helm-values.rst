@@ -1339,7 +1339,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:6f1174ffbff7e12ae6bdc01fdf9d07592934aa187db317e11ec724b572428d28","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1739965348-66cb64b47090969d3f0e2ce449a6563a3772c098","useDigest":true}``
+     - ``{"digest":"sha256:8db13d3f48a7409c884e3d65e054aedbeaca8f9bc54a6627370eeba66c4cff4d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy-dev","tag":"2a04417e06ce2566be1c1d8f492825a96db32bba","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -3452,6 +3452,10 @@
      - Configure VXLAN and Geneve tunnel source port range hint.
      - string
      - 0-0 to let the kernel driver decide the range
+   * - :spelling:ignore:`underlayProtocol`
+     - Underlay protocol for the tunnel.
+     - string
+     - ``"ipv4"``
    * - :spelling:ignore:`updateStrategy`
      - Cilium agent update strategy
      - object

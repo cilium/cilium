@@ -15,23 +15,29 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
-// Protocol represents the valid types of encapsulation protocols.
-type Protocol string
+// EncapProtocol represents the valid types of encapsulation protocols.
+type EncapProtocol string
+
+// UnderlayProtocol represents the valid types of underlay protocols for the tunnel.
+type UnderlayProtocol string
 
 const (
 	// VXLAN specifies VXLAN encapsulation
-	VXLAN Protocol = "vxlan"
+	VXLAN EncapProtocol = "vxlan"
 
 	// Geneve specifies Geneve encapsulation
-	Geneve Protocol = "geneve"
+	Geneve EncapProtocol = "geneve"
 
 	// Disabled specifies to disable encapsulation
-	Disabled Protocol = ""
+	Disabled EncapProtocol = ""
+
+	IPv4 UnderlayProtocol = "ipv4"
+	IPv6 UnderlayProtocol = "ipv6"
 )
 
-func (tp Protocol) String() string { return string(tp) }
+func (tp EncapProtocol) String() string { return string(tp) }
 
-func (tp Protocol) toDpID() string {
+func (tp EncapProtocol) toDpID() string {
 	switch tp {
 	case VXLAN:
 		return "1"
@@ -46,7 +52,8 @@ func (tp Protocol) toDpID() string {
 // depending on the user configuration and optional overrides required by
 // additional features.
 type Config struct {
-	protocol       Protocol
+	underlay       UnderlayProtocol
+	protocol       EncapProtocol
 	port           uint16
 	srcPortLow     uint16
 	srcPortHigh    uint16
@@ -63,6 +70,7 @@ type newConfigIn struct {
 
 var (
 	configDisabled = Config{
+		underlay:       IPv4,
 		protocol:       Disabled,
 		port:           0,
 		srcPortLow:     0,
@@ -73,14 +81,21 @@ var (
 )
 
 func newConfig(in newConfigIn) (Config, error) {
-	switch Protocol(in.Cfg.TunnelProtocol) {
+	switch EncapProtocol(in.Cfg.TunnelProtocol) {
 	case VXLAN, Geneve:
 	default:
 		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
 	}
 
+	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
+	case IPv4, IPv6:
+	default:
+		return configDisabled, fmt.Errorf("invalid underlay protocol %q", in.Cfg.UnderlayProtocol)
+	}
+
 	cfg := Config{
-		protocol:       Protocol(in.Cfg.TunnelProtocol),
+		underlay:       UnderlayProtocol(in.Cfg.UnderlayProtocol),
+		protocol:       EncapProtocol(in.Cfg.TunnelProtocol),
 		port:           in.Cfg.TunnelPort,
 		srcPortLow:     0,
 		srcPortHigh:    0,
@@ -127,7 +142,7 @@ func newConfig(in newConfigIn) (Config, error) {
 }
 
 // NewTestConfig returns a new TunnelConfig for testing purposes.
-func NewTestConfig(proto Protocol) Config {
+func NewTestConfig(proto EncapProtocol) Config {
 	//exhaustruct:ignore // Test code can underspecify the default config
 	cfg := Config{protocol: proto}
 
@@ -143,11 +158,13 @@ func NewTestConfig(proto Protocol) Config {
 	return cfg
 }
 
-// Protocol returns the enabled tunnel protocol. The tunnel protocol may be
+// EncapProtocol returns the enabled tunnel protocol. The tunnel protocol may be
 // set to either VXLAN or Geneve even when the primary mode is native routing, in
 // case an additional feature (e.g., egress gateway) may request some traffic to
 // be routed through a tunnel.
-func (cfg Config) Protocol() Protocol { return cfg.protocol }
+func (cfg Config) EncapProtocol() EncapProtocol { return cfg.protocol }
+
+func (cfg Config) UnderlayProtocol() UnderlayProtocol { return cfg.underlay }
 
 // Port returns the port used by the tunnel (0 if disabled).
 func (cfg Config) Port() uint16 { return cfg.port }
@@ -169,10 +186,10 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 	defines := make(dpcfgdef.Map)
 	definesFn := func() (dpcfgdef.Map, error) { return nil, nil }
 
-	if cfg.Protocol() != Disabled {
+	if cfg.EncapProtocol() != Disabled {
 		defines[fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(VXLAN.String()))] = VXLAN.toDpID()
 		defines[fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(Geneve.String()))] = Geneve.toDpID()
-		defines["TUNNEL_PROTOCOL"] = cfg.Protocol().toDpID()
+		defines["TUNNEL_PROTOCOL"] = cfg.EncapProtocol().toDpID()
 		defines["TUNNEL_PORT"] = fmt.Sprintf("%d", cfg.Port())
 		defines["TUNNEL_SRC_PORT_LOW"] = fmt.Sprintf("%d", cfg.SrcPortLow())
 		defines["TUNNEL_SRC_PORT_HIGH"] = fmt.Sprintf("%d", cfg.SrcPortHigh())
@@ -214,7 +231,7 @@ func NewEnabler(enable bool, opts ...enablerOpt) EnablerOut {
 // WithValidator allows to register extra validation functions
 // to assert that the configured tunnel protocol matches the one expected by
 // the given feature.
-func WithValidator(validator func(Protocol) error) enablerOpt {
+func WithValidator(validator func(EncapProtocol) error) enablerOpt {
 	return func(te *enabler) {
 		te.validators = append(te.validators, validator)
 	}
@@ -231,7 +248,7 @@ func WithoutMTUAdaptation() enablerOpt {
 type enabler struct {
 	enable             bool
 	needsMTUAdaptation bool
-	validators         []func(Protocol) error
+	validators         []func(EncapProtocol) error
 }
 
 type enablerOpt func(*enabler)
@@ -241,6 +258,7 @@ type userCfg struct {
 	TunnelProtocol        string
 	TunnelSourcePortRange string
 	TunnelPort            uint16
+	UnderlayProtocol      string
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
@@ -248,10 +266,12 @@ func (def userCfg) Flags(flags *pflag.FlagSet) {
 	flags.String("tunnel-protocol", def.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
 	flags.Uint16("tunnel-port", def.TunnelPort, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
 	flags.String("tunnel-source-port-range", def.TunnelSourcePortRange, fmt.Sprintf("Tunnel source port range hint (default %s)", defaults.TunnelSourcePortRange))
+	flags.String("underlay-protocol", def.UnderlayProtocol, "Underlay protocol for the overlay (\"ipv4\" or \"ipv6\")")
 }
 
 var defaultConfig = userCfg{
 	TunnelProtocol:        defaults.TunnelProtocol,
 	TunnelSourcePortRange: defaults.TunnelSourcePortRange,
 	TunnelPort:            0, // auto-detect based on the protocol.
+	UnderlayProtocol:      defaults.UnderlayProtocol,
 }

@@ -101,7 +101,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 31
+      max-parallel: 32
       matrix:
         include:
           - name: '1'
@@ -492,6 +492,19 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             ingress-controller: 'true'
+            skip-upgrade: 'true'
+            ipv6-underlay: 'true'
+
+          - name: '32'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.15-20241107.001101'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            ipv4: 'false'
+            tunnel: 'vxlan'
+            skip-upgrade: 'true'
+            ipv6-underlay: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
@@ -543,7 +556,9 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          ipv6-underlay: ${{ matrix.ipv6-underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -568,7 +583,9 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          ipv6-underlay: ${{ matrix.ipv6-underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -591,6 +608,9 @@ jobs:
           IP_FAM="dual"
           if [ "${{ matrix.ipv6 }}" == "false" ]; then
             IP_FAM="ipv4"
+          fi
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            IP_FAM="ipv6"
           fi
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
@@ -764,16 +784,20 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --test "seq-.*" \
+            --test "seq-.*,!pod-to-world.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
+          fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            $TEST \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
@@ -846,17 +870,21 @@ jobs:
         run: |
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --test "seq-.*" \
+            --test "seq-.*,!pod-to-world.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
+          TEST='--test "!seq-.*"'
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
+          fi
           cilium connectivity test \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
+            $TEST \
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade

@@ -2415,10 +2415,10 @@ envoy:
     # type: [null, string]
     # @schema
     override: ~
-    repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.3-1739965348-66cb64b47090969d3f0e2ce449a6563a3772c098"
+    repository: "quay.io/cilium/cilium-envoy-dev"
+    tag: "2a04417e06ce2566be1c1d8f492825a96db32bba"
     pullPolicy: "Always"
-    digest: "sha256:6f1174ffbff7e12ae6bdc01fdf9d07592934aa187db317e11ec724b572428d28"
+    digest: "sha256:8db13d3f48a7409c884e3d65e054aedbeaca8f9bc54a6627370eeba66c4cff4d"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2736,6 +2736,9 @@ tls:
 #   - geneve
 # @default -- `"vxlan"`
 tunnelProtocol: ""
+# -- Underlay protocol for the tunnel.
+# @default -- `"ipv4"`
+underlayProtocol: ""
 # -- Enable native-routing mode or tunneling mode.
 # Possible values:
 #   - ""
