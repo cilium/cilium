@@ -6,7 +6,7 @@ package reconcilerv2
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -14,10 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
-var (
-	peerAdvertTestLogger = logrus.WithField("unit_test", "advertisements")
 )
 
 // test fixtures
@@ -479,7 +475,7 @@ func Test_GetAdvertisements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 			params := PeerAdvertisementIn{
-				Logger:          peerAdvertTestLogger,
+				Logger:          hivetest.Logger(t),
 				PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
 				AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
 			}

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -238,14 +238,14 @@ func TestNeighborReconciler(t *testing.T) {
 				},
 			}
 
-			testInstance, err := instance.NewBGPInstance(context.Background(), logrus.WithField("unit_test", tt.name), "test-instance", srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
 			req.NoError(err)
 
 			t.Cleanup(func() {
 				testInstance.Router.Stop()
 			})
 
-			params, nodeConfig := setupNeighbors(tt.neighbors)
+			params, nodeConfig := setupNeighbors(t, tt.neighbors)
 
 			// setup initial neighbors
 			neighborReconciler := NewNeighborReconciler(params).Reconciler
@@ -268,7 +268,7 @@ func TestNeighborReconciler(t *testing.T) {
 
 			// update neighbors
 
-			params, nodeConfig = setupNeighbors(tt.newNeighbors)
+			params, nodeConfig = setupNeighbors(t, tt.newNeighbors)
 			neighborReconciler.(*NeighborReconciler).PeerConfig = params.PeerConfig
 			neighborReconciler.(*NeighborReconciler).SecretStore = params.SecretStore
 			reconcileParams = ReconcileParams{
@@ -289,7 +289,7 @@ func TestNeighborReconciler(t *testing.T) {
 	}
 }
 
-func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGPNodeInstance) {
+func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGPNodeInstance) {
 	// Desired BGP Node config
 	nodeConfig := &v2alpha1.CiliumBGPNodeInstance{
 		Name: "bgp-node",
@@ -329,7 +329,7 @@ func setupNeighbors(peers []PeerData) (NeighborReconcilerIn, *v2alpha1.CiliumBGP
 	secretStore := store.InitMockStore[*slim_corev1.Secret](secretObjs)
 
 	return NeighborReconcilerIn{
-		Logger:       logrus.WithField("unit_test", "neighbors"),
+		Logger:       hivetest.Logger(t),
 		SecretStore:  secretStore,
 		PeerConfig:   peerConfigStore,
 		DaemonConfig: &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"},

@@ -5,15 +5,15 @@ package reconcilerv2
 
 import (
 	"context"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -26,10 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-)
-
-var (
-	serviceReconcilerTestLogger = logrus.WithField("unit_test", "reconcilerv2_service")
 )
 
 var (
@@ -557,8 +553,6 @@ var (
 
 // Test_ServiceLBReconciler tests reconciliation of service of type load-balancer
 func Test_ServiceLBReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	tests := []struct {
 		name             string
 		peerConfig       []*v2alpha1.CiliumBGPPeerConfig
@@ -768,10 +762,10 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			req := require.New(t)
 
 			params := ServiceReconcilerIn{
-				Logger: serviceReconcilerTestLogger,
+				Logger: hivetest.Logger(t),
 				PeerAdvert: NewCiliumPeerAdvertisement(
 					PeerAdvertisementIn{
-						Logger:          podCIDRTestLogger,
+						Logger:          hivetest.Logger(t),
 						PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
 					}),
@@ -808,7 +802,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 
 // Test_ServiceExternalIPReconciler tests reconciliation of cluster service with external IP
 func Test_ServiceExternalIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name             string
@@ -1068,10 +1062,10 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			req := require.New(t)
 
 			params := ServiceReconcilerIn{
-				Logger: serviceReconcilerTestLogger,
+				Logger: hivetest.Logger(t),
 				PeerAdvert: NewCiliumPeerAdvertisement(
 					PeerAdvertisementIn{
-						Logger:          podCIDRTestLogger,
+						Logger:          hivetest.Logger(t),
 						PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
 					}),
@@ -1108,7 +1102,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 
 // Test_ServiceClusterIPReconciler tests reconciliation of cluster service
 func Test_ServiceClusterIPReconciler(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	tests := []struct {
 		name             string
@@ -1368,10 +1362,10 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			req := require.New(t)
 
 			params := ServiceReconcilerIn{
-				Logger: serviceReconcilerTestLogger,
+				Logger: hivetest.Logger(t),
 				PeerAdvert: NewCiliumPeerAdvertisement(
 					PeerAdvertisementIn{
-						Logger:          podCIDRTestLogger,
+						Logger:          hivetest.Logger(t),
 						PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2alpha1.CiliumBGPAdvertisement](tt.advertisements),
 					}),
@@ -1408,7 +1402,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 
 // Test_ServiceAndAdvertisementModifications is a step test, in which each step modifies the advertisement or service parameters.
 func Test_ServiceAndAdvertisementModifications(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	peerConfigs := []*v2alpha1.CiliumBGPPeerConfig{redPeerConfig}
 
@@ -1719,10 +1713,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 	epStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
 	params := ServiceReconcilerIn{
-		Logger: serviceReconcilerTestLogger,
+		Logger: hivetest.Logger(t),
 		PeerAdvert: NewCiliumPeerAdvertisement(
 			PeerAdvertisementIn{
-				Logger:          podCIDRTestLogger,
+				Logger:          hivetest.Logger(t),
 				PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](peerConfigs),
 				AdvertStore:     advertStore,
 			}),
@@ -1768,7 +1762,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 }
 
 func Test_ServiceVIPSharing(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	peerConfigs := []*v2alpha1.CiliumBGPPeerConfig{redPeerConfig}
 
@@ -2093,10 +2087,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 	epStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
 	params := ServiceReconcilerIn{
-		Logger: serviceReconcilerTestLogger,
+		Logger: hivetest.Logger(t),
 		PeerAdvert: NewCiliumPeerAdvertisement(
 			PeerAdvertisementIn{
-				Logger:          podCIDRTestLogger,
+				Logger:          hivetest.Logger(t),
 				PeerConfigStore: store.InitMockStore[*v2alpha1.CiliumBGPPeerConfig](peerConfigs),
 				AdvertStore:     advertStore,
 			}),

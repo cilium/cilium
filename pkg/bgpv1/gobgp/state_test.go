@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -15,13 +16,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-test")
-
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
@@ -256,7 +253,7 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServer(context.Background(), log, srvParams)
+			testSC, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), srvParams)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
@@ -355,7 +352,7 @@ func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.Cili
 }
 
 func TestGetRoutes(t *testing.T) {
-	testSC, err := NewGoBGPServer(context.Background(), log, types.ServerParameters{
+	testSC, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        65000,
 			RouterID:   "127.0.0.1",
