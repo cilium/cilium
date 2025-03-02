@@ -28,7 +28,7 @@ func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) err
 	for _, config := range b.clusterConfigStore.List() {
 		rcErr := b.reconcileBGPClusterConfig(ctx, config)
 		if rcErr != nil {
-			b.metrics.BGPClusterConfigErrorCount.WithLabelValues(config.Name).Inc()
+			b.metrics.ReconcileErrorsTotal.WithLabelValues(v2alpha1.BGPCCKindDefinition, config.Name).Inc()
 			err = errors.Join(err, rcErr)
 		}
 	}

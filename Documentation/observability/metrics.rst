@@ -659,7 +659,7 @@ Name                               Labels                                       
 ``session_state``                  ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
 ``advertised_routes``              ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
 ``received_routes``                ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-``reconcile_error_count``          ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
+``reconcile_errors_total``         ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
 ``reconcile_run_duration_seconds`` ``vrouter``                                                     Enabled  Histogram of reconciliation run duration
 ================================== =============================================================== ======== ===================================================================
 
@@ -715,11 +715,12 @@ All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
 BGP Control Plane Operator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-================================== ======================= ======== ======================================================================
-Name                               Labels                  Default  Description
-================================== ======================= ======== ======================================================================
-``cluster_config_error_count``     ``bgp_cluster_config``  Enabled  Number of errors returned per BGP cluster configuration reconciliation
-================================== ======================= ======== ======================================================================
+================================== ===================================== ======== ======================================================================
+Name                               Labels                                Default  Description
+================================== ===================================== ======== ======================================================================
+``reconcile_errors_total``         ``resource_kind``, ``resource_name``  Enabled  Number of errors returned per BGP resource reconciliation
+``reconcile_run_duration_seconds``                                       Enabled  Histogram of reconciliation run duration
+================================== ===================================== ======== ======================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
