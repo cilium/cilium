@@ -117,7 +117,7 @@ jobs:
           go-version: 1.24.0
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -127,7 +127,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -197,7 +197,7 @@ jobs:
           go-version: 1.24.0
 
       - name: Load hubble-cli Golang cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: hubble-cache
         with:
           path: /tmp/.cache/hubble-cli
@@ -207,7 +207,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -286,7 +286,7 @@ jobs:
           go-version: 1.24.0
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -296,7 +296,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -382,7 +382,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
+        uses: KyleMayes/install-llvm-action@6ba6e2cd3813def9879be378609d87cb3ef3bac3 # v2.0.6
         with:
           version: "18.1.8"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}

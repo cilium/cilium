@@ -27,7 +27,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache/restore@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache/restore@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         id: go-cache
         with:
           path: /tmp/.cache/go
