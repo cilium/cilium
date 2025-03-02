@@ -125,6 +125,9 @@ func (c *Client) addOperationResetSnapshotAttributeMiddlewares(stack *middleware
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpResetSnapshotAttributeValidationMiddleware(stack); err != nil {
 		return err
 	}

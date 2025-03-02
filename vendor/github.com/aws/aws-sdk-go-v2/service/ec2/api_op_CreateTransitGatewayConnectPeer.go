@@ -153,6 +153,9 @@ func (c *Client) addOperationCreateTransitGatewayConnectPeerMiddlewares(stack *m
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateTransitGatewayConnectPeerValidationMiddleware(stack); err != nil {
 		return err
 	}

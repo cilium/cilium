@@ -162,6 +162,9 @@ func (c *Client) addOperationGetDeclarativePoliciesReportSummaryMiddlewares(stac
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetDeclarativePoliciesReportSummaryValidationMiddleware(stack); err != nil {
 		return err
 	}
