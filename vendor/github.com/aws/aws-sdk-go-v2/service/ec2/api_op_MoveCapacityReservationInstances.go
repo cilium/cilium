@@ -157,6 +157,9 @@ func (c *Client) addOperationMoveCapacityReservationInstancesMiddlewares(stack *
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opMoveCapacityReservationInstancesMiddleware(stack, options); err != nil {
 		return err
 	}

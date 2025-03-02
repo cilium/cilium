@@ -135,6 +135,9 @@ func (c *Client) addOperationGetTransitGatewayAttachmentPropagationsMiddlewares(
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetTransitGatewayAttachmentPropagationsValidationMiddleware(stack); err != nil {
 		return err
 	}

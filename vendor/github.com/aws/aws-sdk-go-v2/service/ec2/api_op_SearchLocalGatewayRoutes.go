@@ -151,6 +151,9 @@ func (c *Client) addOperationSearchLocalGatewayRoutesMiddlewares(stack *middlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpSearchLocalGatewayRoutesValidationMiddleware(stack); err != nil {
 		return err
 	}

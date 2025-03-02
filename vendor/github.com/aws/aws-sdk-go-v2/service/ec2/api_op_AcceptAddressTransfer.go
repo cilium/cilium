@@ -127,6 +127,9 @@ func (c *Client) addOperationAcceptAddressTransferMiddlewares(stack *middleware.
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpAcceptAddressTransferValidationMiddleware(stack); err != nil {
 		return err
 	}

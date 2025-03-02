@@ -138,6 +138,9 @@ func (c *Client) addOperationRegisterTransitGatewayMulticastGroupSourcesMiddlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpRegisterTransitGatewayMulticastGroupSourcesValidationMiddleware(stack); err != nil {
 		return err
 	}

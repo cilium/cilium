@@ -124,6 +124,9 @@ func (c *Client) addOperationDeleteVerifiedAccessGroupMiddlewares(stack *middlew
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opDeleteVerifiedAccessGroupMiddleware(stack, options); err != nil {
 		return err
 	}

@@ -32,11 +32,11 @@ func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchT
 type ModifyLaunchTemplateInput struct {
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see [Ensuring idempotency].
+	// request. For more information, see [Ensuring idempotency in Amazon EC2 API requests].
 	//
 	// Constraint: Maximum 128 ASCII characters.
 	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency in Amazon EC2 API requests]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// The version number of the launch template to set as the default version.
@@ -136,6 +136,9 @@ func (c *Client) addOperationModifyLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyLaunchTemplate(options.Region), middleware.Before); err != nil {

@@ -1,3 +1,16 @@
+# v1.206.0 (2025-02-27)
+
+* **Feature**: Track credential providers via User-Agent Feature ids
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.205.0 (2025-02-26)
+
+* **Feature**: Amazon EC2 Fleet customers can now override the Block Device Mapping specified in the Launch Template when creating a new Fleet request, saving the effort of creating and associating new Launch Templates to customize the Block Device Mapping.
+
+# v1.204.0 (2025-02-25)
+
+* **Feature**: Adds support for time-based EBS-backed AMI copy operations. Time-based copy ensures that EBS-backed AMIs are copied within and across Regions in a specified timeframe.
+
 # v1.203.1 (2025-02-18)
 
 * **Bug Fix**: Bump go version to 1.22

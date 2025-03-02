@@ -138,6 +138,9 @@ func (c *Client) addOperationModifyInstanceNetworkPerformanceOptionsMiddlewares(
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyInstanceNetworkPerformanceOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}

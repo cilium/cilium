@@ -25,7 +25,7 @@ import (
 //
 // For more information, see [Modify a launch template (manage launch template versions)] in the Amazon EC2 User Guide.
 //
-// [Modify a launch template (manage launch template versions)]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#manage-launch-template-versions
+// [Modify a launch template (manage launch template versions)]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-launch-template-versions.html
 func (c *Client) CreateLaunchTemplateVersion(ctx context.Context, params *CreateLaunchTemplateVersionInput, optFns ...func(*Options)) (*CreateLaunchTemplateVersionOutput, error) {
 	if params == nil {
 		params = &CreateLaunchTemplateVersionInput{}
@@ -80,7 +80,7 @@ type CreateLaunchTemplateVersionInput struct {
 	//
 	// Default: false
 	//
-	// [Use a Systems Manager parameter instead of an AMI ID]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#use-an-ssm-parameter-instead-of-an-ami-id
+	// [Use a Systems Manager parameter instead of an AMI ID]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-launch-template.html#use-an-ssm-parameter-instead-of-an-ami-id
 	ResolveAlias *bool
 
 	// The version of the launch template on which to base the new version. Snapshots
@@ -180,6 +180,9 @@ func (c *Client) addOperationCreateLaunchTemplateVersionMiddlewares(stack *middl
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateLaunchTemplateVersionValidationMiddleware(stack); err != nil {

@@ -11,19 +11,22 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified EC2 Fleets.
+// Deletes the specified EC2 Fleet request.
 //
-// After you delete an EC2 Fleet, it launches no new instances.
+// After you delete an EC2 Fleet request, it launches no new instances.
 //
-// You must also specify whether a deleted EC2 Fleet should terminate its
-// instances. If you choose to terminate the instances, the EC2 Fleet enters the
-// deleted_terminating state. Otherwise, the EC2 Fleet enters the deleted_running
+// You must also specify whether a deleted EC2 Fleet request should terminate its
+// instances. If you choose to terminate the instances, the EC2 Fleet request
+// enters the deleted_terminating state. Otherwise, it enters the deleted_running
 // state, and the instances continue to run until they are interrupted or you
 // terminate them manually.
 //
-// For instant fleets, EC2 Fleet must terminate the instances when the fleet is
-// deleted. Up to 1000 instances can be terminated in a single request to delete
-// instant fleets. A deleted instant fleet with running instances is not supported.
+// A deleted instant fleet with running instances is not supported. When you
+// delete an instant fleet, Amazon EC2 automatically terminates all its instances.
+// For fleets with more than 1000 instances, the deletion request might fail. If
+// your fleet has more than 1000 instances, first terminate most of the instances
+// manually, leaving 1000 or fewer. Then delete the fleet, and the remaining
+// instances will be terminated automatically.
 //
 // Restrictions
 //
@@ -38,9 +41,9 @@ import (
 //   - If you exceed the specified number of fleets to delete, no fleets are
 //     deleted.
 //
-// For more information, see [Delete an EC2 Fleet] in the Amazon EC2 User Guide.
+// For more information, see [Delete an EC2 Fleet request and the instances in the fleet] in the Amazon EC2 User Guide.
 //
-// [Delete an EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet
+// [Delete an EC2 Fleet request and the instances in the fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/delete-fleet.html
 func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, optFns ...func(*Options)) (*DeleteFleetsOutput, error) {
 	if params == nil {
 		params = &DeleteFleetsInput{}
@@ -163,6 +166,9 @@ func (c *Client) addOperationDeleteFleetsMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDeleteFleetsValidationMiddleware(stack); err != nil {

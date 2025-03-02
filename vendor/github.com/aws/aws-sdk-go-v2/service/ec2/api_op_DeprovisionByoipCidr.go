@@ -124,6 +124,9 @@ func (c *Client) addOperationDeprovisionByoipCidrMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeprovisionByoipCidrValidationMiddleware(stack); err != nil {
 		return err
 	}
