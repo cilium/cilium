@@ -928,7 +928,7 @@ encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
-					tunnel_endpoint, SECLABEL, dst_sec_identity,
+					tunnel_endpoint, REMOTE_NODE_ID, dst_sec_identity,
 					trace->reason, trace->monitor, &ifindex);
 	if (IS_ERR(ret))
 		return ret;
@@ -2164,6 +2164,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
 				tunnel_endpoint = info->tunnel_endpoint;
+				src_sec_identity = REMOTE_NODE_ID;
 				dst_sec_identity = info->sec_identity;
 			}
 		}
