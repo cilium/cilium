@@ -266,7 +266,7 @@ jobs:
           wait: 0
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1432ef0e4e0cd766f5c1ee0544759d7a31cd32b2 # v0.17.0
+        uses: cilium/cilium-cli@1ea75a067eb7c4ba11a9f082a365f97a14c331db # v0.18.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
