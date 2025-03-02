@@ -82,7 +82,7 @@ var Cell = cell.Module(
 	),
 
 	// statedb tables
-	cell.ProvidePrivate(
+	cell.Provide(
 		tables.NewBGPReconcileErrorTable,
 	),
 
