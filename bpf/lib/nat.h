@@ -395,6 +395,9 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct trace_ctx *trace)
 {
 	void *map;
+	struct ipv4_nat_entry *lookup_result;
+	struct ipv4_ct_tuple org_tuple = {};
+	struct ipv4_nat_entry ostate;
 
 	map = get_cluster_snat_map_v4(target->cluster_id);
 	if (!map)
@@ -405,6 +408,29 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state && (*state)->common.needs_ct) {
 		struct ipv4_ct_tuple tuple_revsnat;
 		int ret;
+
+		/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
+		 * eviction), it must be restored before returning.
+		 */
+		org_tuple.saddr = (*state)->to_daddr;
+		org_tuple.sport = (*state)->to_dport;
+		org_tuple.daddr = tuple->saddr;
+		org_tuple.dport = tuple->sport;
+		org_tuple.nexthdr = tuple->nexthdr;
+		org_tuple.flags = TUPLE_F_OUT;
+
+		lookup_result = __snat_lookup(map, &org_tuple);
+		if (!lookup_result) {
+			memset(&ostate, 0, sizeof(ostate));
+			ostate.to_saddr = tuple->daddr;
+			ostate.to_sport = tuple->dport;
+			ostate.common.needs_ct = (*state)->common.needs_ct;
+			ostate.common.created = bpf_mono_now();
+
+			ret = __snat_create(map, &org_tuple, &ostate);
+			if (ret < 0)
+				return DROP_NAT_NO_MAPPING;
+		}
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
 		tuple_revsnat.daddr = (*state)->to_daddr;
