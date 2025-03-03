@@ -1219,6 +1219,12 @@ skip_vtep:
 #endif
 
 #if defined(TUNNEL_MODE)
+	/* The connection was established over the tunnel, ignore the
+	 * destination's `skip_tunnel` flag.
+	 */
+	if (ct_state->from_tunnel)
+		skip_tunnel = false;
+
 	if (!skip_tunnel) {
 		struct tunnel_key key = {};
 
