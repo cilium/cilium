@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/bits"
 	"sort"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"unique"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -637,7 +637,7 @@ func (c *ChangeState) Size() int {
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
 // needs no lock.
-func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, changes ChangeState) {
+func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
 	port := l4.Port
 	proto := l4.U8Proto
 
@@ -646,15 +646,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		direction = trafficdirection.Ingress
 	}
 
-	logger := log
+	scopedLog := logger
 	if option.Config.Debug {
-		logger = log.WithFields(logrus.Fields{
-			logfields.EndpointID:       p.PolicyOwner.GetID(),
-			logfields.Port:             port,
-			logfields.PortName:         l4.PortName,
-			logfields.Protocol:         proto,
-			logfields.TrafficDirection: direction,
-		})
+		scopedLog = logger.With(
+			logfields.EndpointID, p.PolicyOwner.GetID(),
+			logfields.Port, port,
+			logfields.PortName, l4.PortName,
+			logfields.Protocol, proto,
+			logfields.TrafficDirection, direction,
+		)
 	}
 
 	// resolve named port
@@ -683,7 +683,10 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		isL3L4withWildcardPresent := isL4Wildcard && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
-			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
+			scopedLog.Debug(
+				"ToMapState: Skipping L3/L4 key due to existing L4-only key",
+				logfields.EndpointSelector, cs,
+			)
 			continue
 		}
 
@@ -710,7 +713,11 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 				// Skip unrealized redirects; this happens routineously just
 				// before new redirects are realized. Once created, we are called
 				// again.
-				logger.WithError(err).WithField(logfields.EndpointSelector, cs).Debugf("Skipping unrealized redirect")
+				scopedLog.Debug(
+					"Skipping unrealized redirect",
+					logfields.Error, err,
+					logfields.EndpointSelector, cs,
+				)
 				continue
 			}
 		}
@@ -723,10 +730,16 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 
 				if port == 0 {
 					// Allow-all
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+					scopedLog.Debug(
+						"ToMapState: allow all",
+						logfields.EndpointSelector, cs,
+					)
 				} else {
 					// L4 allow
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+					scopedLog.Debug(
+						"ToMapState: L4 allow all",
+						logfields.EndpointSelector, cs,
+					)
 				}
 			}
 			continue
@@ -735,17 +748,19 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
 			if isDenyRule {
-				logger.WithFields(logrus.Fields{
-					logfields.Version:          p.VersionHandle,
-					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
-				}).Debug("ToMapState: Denied remote IDs")
+				scopedLog.Debug(
+					"ToMapState: Denied remote IDs",
+					logfields.Version, p.VersionHandle,
+					logfields.EndpointSelector, cs,
+					logfields.PolicyID, idents,
+				)
 			} else {
-				logger.WithFields(logrus.Fields{
-					logfields.Version:          p.VersionHandle,
-					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
-				}).Debug("ToMapState: Allowed remote IDs")
+				scopedLog.Debug(
+					"ToMapState: Allowed remote IDs",
+					logfields.Version, p.VersionHandle,
+					logfields.EndpointSelector, cs,
+					logfields.PolicyID, idents,
+				)
 			}
 		}
 		for _, id := range idents {
@@ -765,11 +780,12 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		}
 	}
 	if option.Config.Debug {
-		log.WithFields(logrus.Fields{
-			logfields.PolicyKeysAdded:   changes.Adds,
-			logfields.PolicyKeysDeleted: changes.Deletes,
-			logfields.PolicyEntriesOld:  changes.old,
-		}).Debug("ToMapChange changes")
+		scopedLog.Debug(
+			"ToMapChange changes",
+			logfields.PolicyKeysAdded, changes.Adds,
+			logfields.PolicyKeysDeleted, changes.Deletes,
+			logfields.PolicyEntriesOld, changes.old,
+		)
 	}
 }
 
@@ -779,12 +795,13 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(cs types.CachedSelector, added, deleted []identity.NumericIdentity) {
-	log.WithFields(logrus.Fields{
-		logfields.EndpointSelector: cs,
-		logfields.AddedPolicyID:    added,
-		logfields.DeletedPolicyID:  deleted,
-	}).Debug("identities selected by L4Filter updated")
+func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.CachedSelector, added, deleted []identity.NumericIdentity) {
+	logger.Debug(
+		"identities selected by L4Filter updated",
+		logfields.EndpointSelector, cs,
+		logfields.AddedPolicyID, added,
+		logfields.DeletedPolicyID, deleted,
+	)
 
 	// Skip updates on wildcard selectors, as datapath and L7
 	// proxies do not need enumeration of all ids for L3 wildcard.
@@ -799,12 +816,15 @@ func (l4 *L4Filter) IdentitySelectionUpdated(cs types.CachedSelector, added, del
 	// that we could not push updates on an unstable policy.
 	l4Policy := l4.policy.Load()
 	if l4Policy != nil {
-		l4Policy.AccumulateMapChanges(l4, cs, added, deleted)
+		l4Policy.AccumulateMapChanges(logger, l4, cs, added, deleted)
 	}
 }
 
-func (l4 *L4Filter) IdentitySelectionCommit(txn *versioned.Tx) {
-	log.WithField(logfields.NewVersion, txn).Debug("identity selection updates done")
+func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {
+	logger.Debug(
+		"identity selection updates done",
+		logfields.NewVersion, txn,
+	)
 
 	// Push endpoint policy incremental sync.
 	//
@@ -878,13 +898,17 @@ const (
 // getCerts reads certificates out of the PolicyContext, reading from k8s or local files depending on config
 // and puts the values into the relevant keys in the TLSContext. Note that if the returned TLSContext.FromFile is
 // `false`, then this will be read from Kubernetes.
-func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direction TLSDirection) (*TLSContext, error) {
+func (l4 *L4Filter) getCerts(logger *slog.Logger, policyCtx PolicyContext, tls *api.TLSContext, direction TLSDirection) (*TLSContext, error) {
 	if tls == nil {
 		return nil, nil
 	}
 	ca, public, private, inlineSecrets, err := policyCtx.GetTLSContext(tls)
 	if err != nil {
-		log.WithError(err).Warningf("policy: Error getting %s TLS Context.", direction)
+		logger.Warn(
+			"policy: Error getting TLS Context",
+			logfields.Error, err,
+			logfields.TrafficDirection, direction,
+		)
 		return nil, err
 	}
 
@@ -903,7 +927,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 			return nil, fmt.Errorf("invalid TLS direction: %s", direction)
 		}
 	} else {
-		log.Debug("Secret being read from Kubernetes", "secret", k8sTypes.NamespacedName(*tls.Secret))
+		logger.Debug("Secret being read from Kubernetes", logfields.Secret, k8sTypes.NamespacedName(*tls.Secret))
 	}
 
 	return &TLSContext{
@@ -920,7 +944,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
+func createL4Filter(logger *slog.Logger, policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels stringLabels, ingress bool, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
@@ -971,11 +995,11 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 		// Get TLS contexts, if any
 		var err error
-		terminatingTLS, err = l4.getCerts(policyCtx, pr.TerminatingTLS, TerminatingTLS)
+		terminatingTLS, err = l4.getCerts(logger, policyCtx, pr.TerminatingTLS, TerminatingTLS)
 		if err != nil {
 			return nil, err
 		}
-		originatingTLS, err = l4.getCerts(policyCtx, pr.OriginatingTLS, OriginatingTLS)
+		originatingTLS, err = l4.getCerts(logger, policyCtx, pr.OriginatingTLS, OriginatingTLS)
 		if err != nil {
 			return nil, err
 		}
@@ -1117,10 +1141,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 //
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
+func createL4IngressFilter(logger *slog.Logger, policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels stringLabels,
 ) (*L4Filter, error) {
-	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
+	filter, err := createL4Filter(logger, policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1145,10 +1169,10 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // specified endpoints and port/protocol for egress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
+func createL4EgressFilter(logger *slog.Logger, policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels stringLabels, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
-	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)
+	return createL4Filter(logger, policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)
 }
 
 // redirectType returns the redirectType for this filter
@@ -1699,7 +1723,7 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
+func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
 	port := uint16(l4.Port)
 	proto := l4.U8Proto
 	derivedFrom := l4.RuleOrigin[cs]
@@ -1734,15 +1758,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			var err error
 			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointSelector: cs,
-					logfields.Port:             port,
-					logfields.Protocol:         proto,
-					logfields.TrafficDirection: direction,
-					logfields.IsRedirect:       redirect,
-					logfields.Listener:         listener,
-					logfields.ListenerPriority: priority,
-				}).Warn("AccumulateMapChanges: Missing redirect.")
+				logger.Warn(
+					"AccumulateMapChanges: Missing redirect.",
+					logfields.EndpointSelector, cs,
+					logfields.Port, port,
+					logfields.Protocol, proto,
+					logfields.TrafficDirection, direction,
+					logfields.IsRedirect, redirect,
+					logfields.Listener, listener,
+					logfields.ListenerPriority, priority,
+				)
 				continue
 			}
 		}
@@ -1758,18 +1783,19 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			if authReq.IsExplicit() {
 				authString = authReq.AuthType().String()
 			}
-			log.WithFields(logrus.Fields{
-				logfields.EndpointSelector: cs,
-				logfields.AddedPolicyID:    adds,
-				logfields.DeletedPolicyID:  deletes,
-				logfields.Port:             port,
-				logfields.Protocol:         proto,
-				logfields.TrafficDirection: direction,
-				logfields.IsRedirect:       redirect,
-				logfields.AuthType:         authString,
-				logfields.Listener:         listener,
-				logfields.ListenerPriority: priority,
-			}).Debug("AccumulateMapChanges")
+			logger.Debug(
+				"AccumulateMapChanges",
+				logfields.EndpointSelector, cs,
+				logfields.AddedPolicyID, adds,
+				logfields.DeletedPolicyID, deletes,
+				logfields.Port, port,
+				logfields.Protocol, proto,
+				logfields.TrafficDirection, direction,
+				logfields.IsRedirect, redirect,
+				logfields.AuthType, authString,
+				logfields.Listener, listener,
+				logfields.ListenerPriority, priority,
+			)
 		}
 		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, keysToAdd, value)
 	}

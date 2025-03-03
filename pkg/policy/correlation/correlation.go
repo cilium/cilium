@@ -4,16 +4,14 @@
 package correlation
 
 import (
+	"log/slog"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
@@ -22,11 +20,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var logger = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-flow-policy-correlation")
-
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
-func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
+func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
 		// If it's not a policy verdict, we don't care.
 		return
@@ -46,14 +42,20 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	// extract fields relevant for looking up the policy
 	direction, endpointID, remoteIdentity, proto, dport := extractFlowKey(f)
 	if dport == 0 || proto == 0 {
-		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to extract flow key")
+		logger.Debug(
+			"failed to extract flow key",
+			logfields.EndpointID, endpointID,
+		)
 		return
 	}
 
 	// obtain reference to endpoint on which the policy verdict was taken
 	epInfo, ok := endpointGetter.GetEndpointInfoByID(endpointID)
 	if !ok {
-		logger.WithField(logfields.EndpointID, endpointID).Debug("failed to lookup endpoint")
+		logger.Debug(
+			"failed to lookup endpoint",
+			logfields.EndpointID, endpointID,
+		)
 		return
 	}
 
@@ -61,12 +63,13 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
 		f.GetPolicyMatchType())
 	if !ok {
-		logger.WithFields(logrus.Fields{
-			logfields.Identity:         remoteIdentity,
-			logfields.Port:             dport,
-			logfields.Protocol:         proto,
-			logfields.TrafficDirection: direction,
-		}).Debug("unable to find policy for policy verdict notification")
+		logger.Debug(
+			"unable to find policy for policy verdict notification",
+			logfields.Identity, remoteIdentity,
+			logfields.Port, dport,
+			logfields.Protocol, proto,
+			logfields.TrafficDirection, direction,
+		)
 		return
 	}
 

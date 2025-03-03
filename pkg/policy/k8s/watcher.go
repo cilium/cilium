@@ -5,10 +5,10 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -24,7 +24,7 @@ import (
 )
 
 type policyWatcher struct {
-	log    logrus.FieldLogger
+	log    *slog.Logger
 	config *option.DaemonConfig
 
 	k8sResourceSynced *k8sSynced.Resources
