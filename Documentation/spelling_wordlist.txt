@@ -828,6 +828,7 @@ userInfo
 userspace
 uuid
 vCPU
+vSphere
 validator
 vendored
 verifier
