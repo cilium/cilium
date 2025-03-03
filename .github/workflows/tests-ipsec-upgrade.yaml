@@ -273,7 +273,7 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium-cli@a4936ec2afa58bf755162928456190344a179207 # v0.16.24
+        uses: cilium/cilium-cli@1ea75a067eb7c4ba11a9f082a365f97a14c331db # v0.18.0
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
