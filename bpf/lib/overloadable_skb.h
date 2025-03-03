@@ -247,6 +247,14 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
+static __always_inline bool ctx_is_overlay_encrypted(const struct __sk_buff *ctx)
+{
+	if (!is_defined(HAVE_ENCAP))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_KEY_MASK) == MARK_MAGIC_OVERLAY_ENCRYPTED;
+}
+
 static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 {
 	if (!is_defined(ENABLE_WIREGUARD))
