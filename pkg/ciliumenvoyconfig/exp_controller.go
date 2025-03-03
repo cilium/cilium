@@ -209,11 +209,13 @@ func (c *cecController) processCEC(wtxn statedb.WriteTxn, cecName CECName) *stat
 	ws.Add(watch)
 
 	assignments := map[string]*envoy_config_endpoint.ClusterLoadAssignment{}
-	redirects := c.specToAssignmentsAndRedirects(
+	redirects := map[loadbalancer.ServiceName]*experimental.ProxyRedirect{}
+	c.specToAssignmentsAndRedirects(
 		wtxn,
 		ws,
 		cec,
 		assignments,
+		redirects,
 	)
 
 	// Shallow copy of Resources is enough as we just set the Endpoints field.
@@ -251,8 +253,8 @@ func (c *cecController) specToAssignmentsAndRedirects(
 	ws *statedb.WatchSet,
 	cec *CEC,
 	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
-) map[loadbalancer.ServiceName]*experimental.ProxyRedirect {
-	redirects := map[loadbalancer.ServiceName]*experimental.ProxyRedirect{}
+	redirects map[loadbalancer.ServiceName]*experimental.ProxyRedirect,
+) {
 	servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
 
 	for _, l := range cec.Spec.Services {
@@ -294,8 +296,6 @@ func (c *cecController) specToAssignmentsAndRedirects(
 			svc.PortNames,
 			bes)
 	}
-
-	return redirects
 }
 
 func computeLoadAssignments(
