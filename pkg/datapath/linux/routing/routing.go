@@ -14,9 +14,12 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
@@ -174,10 +177,12 @@ func (info *RoutingInfo) Configure(ip, ipv6 net.IP, mtu int, compat bool, host b
 	return info.installRoutes(ifindex, tableID)
 }
 
-func (info *RoutingInfo) InstallRoutes(mtu int, compat bool) error {
+func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
+	set := statedb.NewWatchSet()
+
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
-		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+		return set, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
 
 	var tableID int
@@ -187,56 +192,86 @@ func (info *RoutingInfo) InstallRoutes(mtu int, compat bool) error {
 		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
 	}
 
-	return info.installRoutes(ifindex, tableID)
+	// Get the desired routes.
+	gwRoutes := info.gatewayRoutes(ifindex, tableID)
+	for _, r := range gwRoutes {
+		// See if they already exist.
+		cidr, _ := r.Dst.Mask.Size()
+		_, _, watch, found := routes.GetWatch(rx, tables.RouteIDIndex.Query(tables.RouteID{
+			Table:     tables.RouteTable(r.Table),
+			LinkIndex: r.LinkIndex,
+			Dst:       netip.PrefixFrom(netipx.MustFromStdIP(r.Dst.IP), cidr),
+		}))
+
+		if found {
+			// If a route already exist, just add it to the watch
+			set.Add(watch)
+		} else {
+			// Since we cannot watch a non-existent route, we need to watch the
+			// table instead.
+			_, watch = routes.AllWatch(rx)
+			set.Add(watch)
+
+			// If the route doesn't exist, add it.
+			if err := netlink.RouteReplace(r); err != nil {
+				return set, fmt.Errorf("unable to add L2 nexthop route: %w", err)
+			}
+		}
+	}
+
+	return set, nil
 }
 
-func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
-
-	// Nexthop route to the VPC or subnet gateway
-	//
-	// Note: This is a /32 route to avoid any L2. The endpoint does no L2
-	// either.
+func (info *RoutingInfo) gatewayRoutes(ifindex, tableID int, ipv4Enabled bool, ipv6Enabled bool) []*netlink.Route {
+	var routes []netlink.Route
+	
 	if ipv4Enabled {
-		if err := netlink.RouteReplace(&netlink.Route{
+		// Nexthop route to the VPC or subnet gateway
+		//
+		// Note: This is a /32 route to avoid any L2. The endpoint does no L2
+		// either.
+		routes.Add(&netlink.Route{
 			LinkIndex: ifindex,
 			Dst:       &net.IPNet{IP: info.IPv4Gateway, Mask: net.CIDRMask(32, 32)},
 			Scope:     netlink.SCOPE_LINK,
 			Table:     tableID,
 			Protocol:  linux_defaults.RTProto,
-		}); err != nil {
-			return fmt.Errorf("unable to add L2 nexthop route: %w", err)
-		}
+		})
+
+		// Default route to the VPC or subnet gateway
+		routes.Add(&netlink.Route{
+			Dst:      &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+			Table:    tableID,
+			Gw:       info.IPv4Gateway,
+			Protocol: linux_defaults.RTProto,
+		})
 	}
+
 	if ipv6Enabled {
-		if err := netlink.RouteReplace(&netlink.Route{
+		routes.Add(&netlink.Route{
 			LinkIndex: ifindex,
 			Dst:       &net.IPNet{IP: info.IPv6Gateway, Mask: net.CIDRMask(128, 128)},
 			Scope:     netlink.SCOPE_LINK,
 			Table:     tableID,
 			Protocol:  linux_defaults.RTProto,
-		}); err != nil {
-			return fmt.Errorf("unable to add L2 nexthop route: %w", err)
-		}
-	}
+		})
 
-	// Default route to the VPC or subnet gateway
-	if ipv4Enabled {
-		if err := netlink.RouteReplace(&netlink.Route{
-			Dst:      &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
-			Table:    tableID,
-			Gw:       info.IPv4Gateway,
-			Protocol: linux_defaults.RTProto,
-		}); err != nil {
-			return fmt.Errorf("unable to add L2 nexthop route: %w", err)
-		}
-	}
-	if ipv6Enabled {
-		if err := netlink.RouteReplace(&netlink.Route{
+		routes.Add(&netlink.Route{
 			Dst:      &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
 			Table:    tableID,
 			Gw:       info.IPv6Gateway,
 			Protocol: linux_defaults.RTProto,
-		}); err != nil {
+		})
+	}
+
+	return routes
+}
+
+func (info *RoutingInfo) installRoutes(ifindex, tableID int, ipv4Enabled bool, ipv6Enabled bool) error {
+	routes := info.gatewayRoutes(ifindex, tableID, ipv4Enabled, ipv6Enabled)
+
+	for _, r := range routes {
+		if err := netlink.RouteReplace(r); err != nil {
 			return fmt.Errorf("unable to add L2 nexthop route: %w", err)
 		}
 	}
