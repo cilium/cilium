@@ -5,9 +5,9 @@ package policy
 
 import (
 	"iter"
+	"log/slog"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -91,6 +91,7 @@ var (
 // greatly enhances the usefuleness of the Trie and improves lookup,
 // deletion, and insertion times.
 type mapState struct {
+	logger *slog.Logger
 	// entries is the map containing the MapStateEntries
 	entries mapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
@@ -165,10 +166,11 @@ func (ms *mapState) forKey(k Key, f func(Key, mapStateEntry) bool) bool {
 	if ok {
 		return f(k, e)
 	}
-	log.WithFields(logrus.Fields{
-		logfields.Stacktrace: hclog.Stacktrace(),
-		logfields.PolicyKey:  k,
-	}).Errorf("Missing MapStateEntry")
+	ms.logger.Error(
+		"Missing MapStateEntry",
+		logfields.Stacktrace, hclog.Stacktrace(),
+		logfields.PolicyKey, k,
+	)
 	return true
 }
 
@@ -418,12 +420,13 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	}
 }
 
-func emptyMapState() mapState {
-	return newMapState(0)
+func emptyMapState(logger *slog.Logger) mapState {
+	return newMapState(logger, 0)
 }
 
-func newMapState(size int) mapState {
+func newMapState(logger *slog.Logger, size int) mapState {
 	return mapState{
+		logger:  logger,
 		entries: make(mapStateMap, size),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
@@ -441,10 +444,11 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 // Get the mapStateEntry that matches the Key.
 func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
+		ms.logger.Error(
+			"mapState.Get: invalid port prefix length for wildcard port",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, k,
+		)
 	}
 
 	v, ok := ms.entries[k]
@@ -454,10 +458,11 @@ func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 // insert the Key and MapStateEntry into the MapState
 func (ms *mapState) insert(k Key, v mapStateEntry) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: hclog.Stacktrace(),
-			logfields.PolicyKey:  k,
-		}).Errorf("mapState.insert: invalid port prefix length for wildcard port")
+		ms.logger.Error(
+			"mapState.insert: invalid port prefix length for wildcard port",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, k,
+		)
 	}
 	ms.upsert(k, v)
 }
@@ -882,6 +887,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 // granularity of individual mapstate key-value pairs for both adds
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
+	logger       *slog.Logger
 	firstVersion versioned.KeepVersion
 	mutex        lock.Mutex
 	changes      []mapChange
@@ -941,14 +947,16 @@ func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
 			mc.synced = append(mc.synced, mc.changes...)
 			mc.version.Close()
 			mc.version = txn.GetVersionHandle()
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: mc.version,
-			}).Debug("SyncMapChanges: Got handle on the new version")
+			mc.logger.Debug(
+				"SyncMapChanges: Got handle on the new version",
+				logfields.NewVersion, mc.version,
+			)
 		} else {
-			log.WithFields(logrus.Fields{
-				logfields.Version:    mc.firstVersion,
-				logfields.OldVersion: txn,
-			}).Debug("SyncMapChanges: Discarding already applied changes")
+			mc.logger.Debug(
+				"SyncMapChanges: Discarding already applied changes",
+				logfields.Version, mc.firstVersion,
+				logfields.OldVersion, txn,
+			)
 		}
 	}
 	mc.changes = nil

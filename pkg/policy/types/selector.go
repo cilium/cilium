@@ -6,6 +6,7 @@ package types
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -90,11 +91,11 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 type CachedSelectionUser interface {
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
-	IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity)
+	IdentitySelectionUpdated(logger *slog.Logger, selector CachedSelector, added, deleted []identity.NumericIdentity)
 
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.
-	IdentitySelectionCommit(*versioned.Tx)
+	IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx)
 
 	// IsPeerSelector returns true if the selector is used by the policy
 	// engine for selecting traffic for remote peers. False if used for
