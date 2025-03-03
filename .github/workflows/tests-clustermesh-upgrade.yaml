@@ -82,8 +82,26 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci clustermesh-apiserver-ci
+
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
+    needs: wait-for-images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 60
     env:
@@ -382,14 +400,6 @@ jobs:
         with:
           image-tag: ${{ steps.downgrade-branch.outputs.sha }}
           chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
-
-      - name: Wait for images to be available (newest)
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.newest-vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
 
       - name: Wait for images to be available (downgrade)
         timeout-minutes: 10
