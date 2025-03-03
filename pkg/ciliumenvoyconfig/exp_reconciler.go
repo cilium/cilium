@@ -18,6 +18,7 @@ import (
 )
 
 type envoyOps struct {
+	config        cecConfig
 	log           *slog.Logger
 	xds           resourceMutator
 	policyTrigger policyTrigger
@@ -59,6 +60,9 @@ func (ops *envoyOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects ite
 // Update implements reconciler.Operations.
 func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *EnvoyResource) error {
 	resources := res.Resources
+
+	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
+	defer cancel()
 
 	var prevResources envoy.Resources
 	if res.ReconciledResources != nil {
@@ -105,6 +109,7 @@ var _ reconciler.Operations[*EnvoyResource] = &envoyOps{}
 
 func registerEnvoyReconciler(
 	log *slog.Logger,
+	config cecConfig,
 	xds resourceMutator,
 	pt policyTrigger,
 	params reconciler.Params,
@@ -112,6 +117,7 @@ func registerEnvoyReconciler(
 	envoyResources statedb.RWTable[*EnvoyResource],
 ) error {
 	ops := &envoyOps{
+		config:        config,
 		log:           log,
 		xds:           xds,
 		writer:        writer,
@@ -126,6 +132,7 @@ func registerEnvoyReconciler(
 		ops,
 		nil,
 		reconciler.WithoutPruning(),
+		reconciler.WithRetry(config.EnvoyConfigRetryInterval, config.EnvoyConfigRetryInterval),
 	)
 	return err
 }
