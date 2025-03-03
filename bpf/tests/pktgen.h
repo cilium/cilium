@@ -612,7 +612,10 @@ pktgen__push_ipv4_packet(struct pktgen *builder,
 	if (!l2)
 		return NULL;
 
-	ethhdr__set_macs(l2, smac, dmac);
+	if (smac)
+		memcpy(l2->h_source, smac, ETH_ALEN);
+	if (dmac)
+		memcpy(l2->h_dest, dmac, ETH_ALEN);
 
 	l3 = pktgen__push_default_iphdr(builder);
 	if (!l3)
@@ -700,7 +703,10 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 	if (!l2)
 		return NULL;
 
-	ethhdr__set_macs(l2, smac, dmac);
+	if (smac)
+		memcpy(l2->h_source, smac, ETH_ALEN);
+	if (dmac)
+		memcpy(l2->h_dest, dmac, ETH_ALEN);
 
 	l3 = pktgen__push_default_ipv6hdr(builder);
 	if (!l3)

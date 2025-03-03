@@ -1927,7 +1927,6 @@ static __always_inline
 int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
-	struct ethhdr *ethhdr;
 	struct iphdr *ip4;
 	struct icmphdr *icmphdr;
 	union macaddr smac = {};
@@ -1938,7 +1937,7 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	__wsum csum;
 	int sample_len;
 	int ret;
-	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct iphdr) +
+	const int inner_offset = ETH_HLEN + sizeof(struct iphdr) +
 		sizeof(struct icmphdr);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -1948,11 +1947,13 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	 * the pointers will not be valid after adding headroom.
 	 */
 
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		return DROP_INVALID;
+	if (ETH_HLEN > 0) {
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
 
-	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
-		return DROP_INVALID;
+		if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
+			return DROP_INVALID;
+	}
 
 	saddr = ip4->saddr;
 	daddr = ip4->daddr;
@@ -1962,13 +1963,13 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	sample_len = (int)ctx_full_len(ctx);
 	if (sample_len > ICMP_PACKET_MAX_SAMPLE_SIZE)
 		sample_len = ICMP_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
+	ctx_adjust_troom(ctx, (__s32)(sample_len + ETH_HLEN - ctx_full_len(ctx)));
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
 	/* Calculate the checksum of the ICMP sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, sample_len);
+	csum = icmp_wsum_accumulate(data + ETH_HLEN, data_end, sample_len);
 
 	/* We need to insert a IPv4 and ICMP header before the original packet.
 	 * Make that room.
@@ -1993,13 +1994,16 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	/* Write reversed eth header, ready for egress */
-	ethhdr = data;
-	memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
-	memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
-	ethhdr->h_proto = bpf_htons(ETH_P_IP);
+	if (ETH_HLEN > 0) {
+		struct ethhdr *ethhdr = data;
+
+		memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
+		memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
+		ethhdr->h_proto = bpf_htons(ETH_P_IP);
+	}
 
 	/* Write reversed ip header, ready for egress */
-	ip4 = data + sizeof(struct ethhdr);
+	ip4 = data + ETH_HLEN;
 	ip4->version = 4;
 	ip4->ihl = sizeof(struct iphdr) >> 2;
 	ip4->tos = tos;
@@ -2015,7 +2019,7 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	ip4->check = csum_fold(csum_diff(ip4, 0, ip4, sizeof(struct iphdr), 0));
 
 	/* Write reversed icmp header */
-	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
+	icmphdr = data + ETH_HLEN + sizeof(struct iphdr);
 	icmphdr->type = ICMP_DEST_UNREACH;
 	icmphdr->code = ICMP_PORT_UNREACH;
 	icmphdr->checksum = 0;
@@ -2082,7 +2086,6 @@ static __always_inline
 int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
-	struct ethhdr *ethhdr;
 	struct ipv6hdr *ip6;
 	struct icmp6hdr *icmphdr;
 	struct ipv6_pseudo_header_t pseudo_header;
@@ -2094,7 +2097,7 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	__u64 sample_len;
 	int i;
 	int ret;
-	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
+	const int inner_offset = ETH_HLEN + sizeof(struct ipv6hdr) +
 		sizeof(struct icmp6hdr);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -2104,11 +2107,13 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	 * the pointers will not be valid after adding headroom.
 	 */
 
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		return DROP_INVALID;
+	if (ETH_HLEN > 0) {
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
 
-	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
-		return DROP_INVALID;
+		if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
+			return DROP_INVALID;
+	}
 
 	memcpy(&saddr, &ip6->saddr, sizeof(struct in6_addr));
 	memcpy(&daddr, &ip6->daddr, sizeof(struct in6_addr));
@@ -2117,13 +2122,13 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	sample_len = ctx_full_len(ctx);
 	if (sample_len > (__u64)ICMPV6_PACKET_MAX_SAMPLE_SIZE)
 		sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
+	ctx_adjust_troom(ctx, (__s32)(sample_len + ETH_HLEN - ctx_full_len(ctx)));
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
 	/* Calculate the unfolded checksum of the ICMPv6 sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
+	csum = icmp_wsum_accumulate(data + ETH_HLEN, data_end, (int)sample_len);
 
 	/* We need to insert a IPv6 and ICMPv6 header before the original packet.
 	 * Make that room.
@@ -2148,13 +2153,16 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	/* Write reversed eth header, ready for egress */
-	ethhdr = data;
-	memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
-	memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
-	ethhdr->h_proto = bpf_htons(ETH_P_IPV6);
+	if (ETH_HLEN > 0) {
+	struct ethhdr *ethhdr = data;
+
+		memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
+		memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
+		ethhdr->h_proto = bpf_htons(ETH_P_IPV6);
+	}
 
 	/* Write reversed ip header, ready for egress */
-	ip6 = data + sizeof(struct ethhdr);
+	ip6 = data + ETH_HLEN;
 	ip6->version = 6;
 	ip6->priority = 0;
 	ip6->flow_lbl[0] = 0;
@@ -2167,7 +2175,7 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	memcpy(&ip6->saddr, &daddr, sizeof(struct in6_addr));
 
 	/* Write reversed icmp header */
-	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
+	icmphdr = data + ETH_HLEN + sizeof(struct ipv6hdr);
 	icmphdr->icmp6_type = ICMPV6_DEST_UNREACH;
 	icmphdr->icmp6_code = ICMPV6_PORT_UNREACH;
 	icmphdr->icmp6_cksum = 0;
