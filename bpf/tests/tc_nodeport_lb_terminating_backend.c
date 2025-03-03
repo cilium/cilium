@@ -30,6 +30,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 static volatile const __u8 *client_mac = mac_one;
@@ -197,14 +198,7 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP_LOCAL)
-		test_fatal("dst IP hasn't been NATed to local backend IP");
-
-	if (l3->check != bpf_htons(0x4213))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_UDP, CLIENT_IP, BACKEND_IP_LOCAL));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -304,14 +298,7 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP_LOCAL)
-		test_fatal("dst IP hasn't been NATed to local backend IP");
-
-	if (l3->check != bpf_htons(0x4213))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_UDP, CLIENT_IP, BACKEND_IP_LOCAL));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 #include "common.h"
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -200,16 +201,9 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 		if ((void *)l3 + sizeof(struct iphdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (snat) {
-			if (l3->saddr != IPV4_MASQUERADE)
-				test_fatal("src IP was not snatted");
-		} else {
-			if (l3->saddr != SRC_IPV4)
-				test_fatal("src IP was changed");
-		}
-
-		if (l3->daddr != DST_IPV4)
-			test_fatal("dest IP was changed");
+		assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP,
+						snat ? IPV4_MASQUERADE : SRC_IPV4,
+						DST_IPV4));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
