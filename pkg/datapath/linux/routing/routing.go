@@ -111,6 +111,27 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		}
 	}
 
+	return info.installRoutes(ifindex, tableID)
+}
+
+func (info *RoutingInfo) InstallRoutes(mtu int, compat bool) error {
+	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	if err != nil {
+		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+	}
+
+	var tableID int
+	if compat {
+		tableID = ifindex
+	} else {
+		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
+	}
+
+	return info.installRoutes(ifindex, tableID)
+}
+
+func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
+
 	// Nexthop route to the VPC or subnet gateway
 	//
 	// Note: This is a /32 route to avoid any L2. The endpoint does no L2
