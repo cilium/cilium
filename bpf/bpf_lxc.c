@@ -704,7 +704,7 @@ ct_recreate6:
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
-	if (!skip_tunnel) {
+	if (ct_state->from_tunnel || !skip_tunnel) {
 		struct tunnel_key key = {};
 		union v6addr *daddr = (union v6addr *)&ip6->daddr;
 
@@ -1237,7 +1237,10 @@ skip_vtep:
 #endif
 
 #if defined(TUNNEL_MODE)
-	if (!skip_tunnel) {
+	/* If the connection was established over the tunnel, ignore the
+	 * destination's `skip_tunnel` flag.
+	 */
+	if (ct_state->from_tunnel || !skip_tunnel) {
 		struct tunnel_key key = {};
 
 		if (cluster_id > UINT16_MAX)
