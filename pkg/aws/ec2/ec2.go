@@ -20,6 +20,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -242,6 +243,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
@@ -278,6 +280,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 				Values: []string{instanceID},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
@@ -336,6 +339,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 				Values: []string{"*"},
 			},
 		},
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
