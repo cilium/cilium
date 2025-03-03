@@ -8,6 +8,7 @@ steps:
       metricName: "Node CPU Usage"
       metricVersion: v1
       unit: cpu
+      enableViolations: true
       queries:
       - name: Total (Max)
         query: max(avg_over_time(rate(container_cpu_usage_seconds_total{id="/"}[1m])[%v:10s]))

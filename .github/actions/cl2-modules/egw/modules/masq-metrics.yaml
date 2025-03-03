@@ -8,6 +8,7 @@ steps:
       metricName: "EGW Masquerade Delay Metrics ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: s
+      enableViolations: true
       queries:
       - name: EGW Masquerade Delay - 50th Percentile
         query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
@@ -29,6 +30,7 @@ steps:
       metricName: "EGW Leaked Pings Total ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: count
+      enableViolations: true
       queries:
       - name: EGW Leaked Pings - Total
         query: sum(egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
@@ -40,6 +42,7 @@ steps:
       metricName: "EGW Pod Count Metrics ({{ .metricsSuffix }})"
       metricVersion: v1
       unit: pod
+      enableViolations: true
       queries:
       - name: EGW Total Number of Client Pods
         query: count(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
