@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
+	"reflect"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/controller"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -24,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -223,20 +226,41 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 
 		node.SetRouterInfo(routingInfo)
 
-		d.controllers.CreateController("egress-route-reconciler", controller.ControllerParams{
-			DoFunc: func(_ context.Context) error {
-				return routingInfo.InstallRoutes(
+		d.jobGroup.Add(job.OneShot("egress-route-reconciler", func(ctx context.Context, health cell.Health) error {
+			// Limit the rate of reconciliation if for whatever reason the routes
+			// table is very busy. Once every 30 seconds seems reasonable as a
+			// worst case scenario.
+			limiter := rate.NewLimiter(30*time.Second, 1)
+
+			for {
+				watchSet, err := routingInfo.ReconcileGatewayRoutes(
 					d.mtuConfig.GetDeviceMTU(),
 					option.Config.EgressMultiHomeIPRuleCompat,
+					d.db.ReadTxn(),
+					d.routes,
 				)
-			},
-			// This time is a tradeoff between recovering fast from a failure and not
-			// overwhelming the system with too many reconciliations.
-			// Being without connectivity for at most 30 seconds and on average 15
-			// seconds after a hopefully uncommon event seems like a reasonable value.
-			RunInterval: 30 * time.Second,
-			Context:     d.ctx,
-		})
+				if err != nil {
+					health.Degraded("Failed to install egress routes", err)
+					limiter.Wait(ctx)
+					continue
+				}
+
+				health.OK("Egress routes installed")
+
+				limiter.Wait(ctx)
+
+				watchSet = append(watchSet, reflect.SelectCase{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(ctx.Done()),
+				})
+
+				// Select one of the channels, if the context is done, return
+				i, _, _ := reflect.Select(watchSet)
+				if i == len(watchSet)-1 {
+					return nil
+				}
+			}
+		}))
 	}
 
 	return result.IP, nil
