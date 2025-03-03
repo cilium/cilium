@@ -1277,7 +1277,7 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	}
 
 	defer func() {
-		e.realizedPolicy = policy.NewEndpointPolicy(e.policyGetter.GetPolicyRepository())
+		e.realizedPolicy = policy.NewEndpointPolicy(logging.DefaultSlogLogger, e.policyGetter.GetPolicyRepository())
 	}()
 
 	i := 0

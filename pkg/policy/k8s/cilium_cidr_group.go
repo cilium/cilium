@@ -57,7 +57,12 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		for i, c := range cidrGroup.Spec.ExternalCIDRs {
 			pfx, err := netip.ParsePrefix(string(c))
 			if err != nil {
-				p.log.WithField(logfields.CIDRGroupRef, name).WithError(err).Warnf("CIDRGroup has invalid CIDR at index %d", i)
+				p.log.Warn(
+					"CIDRGroup has invalid CIDR",
+					logfields.Error, err,
+					logfields.CIDRGroupRef, name,
+					logfields.Index, i,
+				)
 				continue
 			}
 			newCIDRs.Insert(pfx)

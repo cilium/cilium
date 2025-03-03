@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
@@ -50,7 +51,7 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					groups.AddDerivativeCCNPIfNeeded(clientset, cnpCpy.CiliumNetworkPolicy)
+					groups.AddDerivativeCCNPIfNeeded(logging.DefaultSlogLogger, clientset, cnpCpy.CiliumNetworkPolicy)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -67,7 +68,7 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 						newCNPCpy := newCNP.DeepCopy()
 						oldCNPCpy := oldCNP.DeepCopy()
 
-						groups.UpdateDerivativeCCNPIfNeeded(clientset, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
+						groups.UpdateDerivativeCCNPIfNeeded(logging.DefaultSlogLogger, clientset, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
 					}
 				}
 			},
@@ -99,7 +100,7 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 		controller.ControllerParams{
 			Group: ccnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				groups.UpdateCNPInformation(clientset)
+				groups.UpdateCNPInformation(logging.DefaultSlogLogger, clientset)
 				return nil
 			},
 			RunInterval: 5 * time.Minute,
