@@ -17,6 +17,7 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -307,6 +308,21 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		}
 
 		node.SetRouterInfo(routingInfo)
+
+		d.controllers.CreateController("egress-route-reconciler", controller.ControllerParams{
+			DoFunc: func(_ context.Context) error {
+				return routingInfo.InstallRoutes(
+					d.mtuConfig.GetDeviceMTU(),
+					option.Config.EgressMultiHomeIPRuleCompat,
+				)
+			},
+			// This time is a tradeoff between recovering fast from a failure and not
+			// overwhelming the system with too many reconciliations.
+			// Being without connectivity for at most 30 seconds and on average 15
+			// seconds after a hopefully uncommon event seems like a reasonable value.
+			RunInterval: 30 * time.Second,
+			Context:     d.ctx,
+		})
 	}
 
 	return result.IP, nil
