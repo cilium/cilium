@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -1667,6 +1668,7 @@ type daemonParams struct {
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
 	IdentityAllocator      CachingIdentityAllocator
+	JobGroup               job.Group
 	Policy                 *policy.Repository
 	IPCache                *ipcache.IPCache
 	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
@@ -1685,9 +1687,10 @@ type daemonParams struct {
 	APILimiterSet          *rate.APILimiterSet
 	AuthManager            *auth.AuthManager
 	Settings               cellSettings
-	DeviceManager          *linuxdatapath.DeviceManager `optional:"true"`
+	Routes                 statedb.Table[*datapathTables.Route]
 	Devices                statedb.Table[*datapathTables.Device]
 	NodeAddrs              statedb.Table[datapathTables.NodeAddress]
+	DeviceManager          *linuxdatapath.DeviceManager `optional:"true"`
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -117,6 +118,7 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
+	routes    statedb.Table[*datapathTables.Route]
 	devices   statedb.Table[*datapathTables.Device]
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 
@@ -183,6 +185,7 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+	jobGroup    job.Group
 
 	// BIG-TCP config values
 	bigTCPConfig *bigtcp.Configuration
@@ -399,6 +402,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
+		routes:            params.Routes,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -406,6 +410,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
+		jobGroup:          params.JobGroup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
