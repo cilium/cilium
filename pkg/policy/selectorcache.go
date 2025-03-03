@@ -4,9 +4,8 @@
 package policy
 
 import (
+	"log/slog"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -54,6 +53,8 @@ type userNotification struct {
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
+	logger *slog.Logger
+
 	versioned *versioned.Coordinator
 
 	mutex lock.RWMutex
@@ -191,9 +192,9 @@ func (sc *SelectorCache) handleUserNotifications() {
 
 		for _, n := range notifications {
 			if n.selector == nil {
-				n.user.IdentitySelectionCommit(n.txn)
+				n.user.IdentitySelectionCommit(sc.logger, n.txn)
 			} else {
-				n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+				n.user.IdentitySelectionUpdated(sc.logger, n.selector, n.added, n.deleted)
 			}
 			n.wg.Done()
 		}
@@ -239,15 +240,16 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn *versioned.Tx, wg *sync.Wa
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
+func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
+		logger:    logger,
 		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
 		selectors: make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versioned = &versioned.Coordinator{
 		Cleaner: sc.oldVersionCleaner,
-		Logger:  log,
+		Logger:  logger,
 	}
 
 	for nid, lbls := range ids {
@@ -259,14 +261,17 @@ func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 
 func (sc *SelectorCache) RegisterMetrics() {
 	if err := metrics.Register(newSelectorCacheMetrics(sc)); err != nil {
-		log.WithError(err).Warning("Selector cache metrics registration failed. No metrics will be reported.")
+		sc.logger.Warn("Selector cache metrics registration failed. No metrics will be reported.", logfields.Error, err)
 	}
 }
 
 // oldVersionCleaner is called from a goroutine without holding any locks
 func (sc *SelectorCache) oldVersionCleaner(keepVersion versioned.KeepVersion) {
 	// Log before taking the lock so that if we ever have a deadlock here this log line will be seen
-	log.WithField(logfields.Version, keepVersion).Debug("Cleaning old selector and identity versions")
+	sc.logger.Debug(
+		"Cleaning old selector and identity versions",
+		logfields.Version, keepVersion,
+	)
 
 	// This is called when some versions are no longer needed, from wherever
 	// VersionHandle's may be kept, so we must take the lock to safely access
@@ -347,6 +352,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLa
 // must hold lock for writing
 func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls stringLabels, key string, source selectorSource) (types.CachedSelector, bool) {
 	idSel := &identitySelector{
+		logger:           sc.logger,
 		key:              key,
 		users:            make(map[CachedSelectionUser]struct{}),
 		cachedSelections: make(map[identity.NumericIdentity]struct{}),
@@ -515,17 +521,19 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
 		if old, exists := sc.idCache[numericID]; exists {
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: txn,
-				logfields.Identity:   numericID,
-				logfields.Labels:     old.lbls,
-			}).Debug("UpdateIdentities: Deleting identity")
+			sc.logger.Debug(
+				"UpdateIdentities: Deleting identity",
+				logfields.NewVersion, txn,
+				logfields.Identity, numericID,
+				logfields.Labels, old.lbls,
+			)
 			delete(sc.idCache, numericID)
 		} else {
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: txn,
-				logfields.Identity:   numericID,
-			}).Warning("UpdateIdentities: Skipping Delete of a non-existing identity")
+			sc.logger.Warn(
+				"UpdateIdentities: Skipping Delete of a non-existing identity",
+				logfields.NewVersion, txn,
+				logfields.Identity, numericID,
+			)
 			delete(deleted, numericID)
 		}
 	}
@@ -536,35 +544,41 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			// sorted for the kv-store, so there should
 			// not be too many false negatives.
 			if lbls.Equals(old.lbls) {
-				log.WithFields(logrus.Fields{
-					logfields.NewVersion: txn,
-					logfields.Identity:   numericID,
-				}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
+				sc.logger.Debug(
+					"UpdateIdentities: Skipping add of an existing identical identity",
+					logfields.NewVersion, txn,
+					logfields.Identity, numericID,
+				)
 				delete(added, numericID)
 				continue
 			}
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.NewVersion:       txn,
-				logfields.Identity:         numericID,
-				logfields.Labels:           old.lbls,
-				logfields.Labels + "(new)": lbls},
-			)
 			msg := "UpdateIdentities: Updating an existing identity"
 			// Warn if any other ID has their labels change, besides local
 			// host. The local host can have its labels change at runtime if
 			// the kube-apiserver is running on the local host, see
 			// ipcache.TriggerLabelInjection().
 			if numericID == identity.ReservedIdentityHost {
-				scopedLog.Debug(msg)
+				sc.logger.Debug(msg,
+					logfields.NewVersion, txn,
+					logfields.Identity, numericID,
+					logfields.Labels, old.lbls,
+					logfields.LabelsNew, lbls,
+				)
 			} else {
-				scopedLog.Warning(msg)
+				sc.logger.Warn(msg,
+					logfields.NewVersion, txn,
+					logfields.Identity, numericID,
+					logfields.Labels, old.lbls,
+					logfields.LabelsNew, lbls,
+				)
 			}
 		} else {
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: txn,
-				logfields.Identity:   numericID,
-				logfields.Labels:     lbls,
-			}).Debug("UpdateIdentities: Adding a new identity")
+			sc.logger.Debug(
+				"UpdateIdentities: Adding a new identity",
+				logfields.NewVersion, txn,
+				logfields.Identity, numericID,
+				logfields.Labels, lbls,
+			)
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
@@ -613,9 +627,10 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 
 		go func(version *versioned.VersionHandle) {
 			wg.Wait()
-			log.WithFields(logrus.Fields{
-				logfields.NewVersion: txn,
-			}).Debug("UpdateIdentities: Waited for incremental updates to have committed, closing handle on the new version.")
+			sc.logger.Debug(
+				"UpdateIdentities: Waited for incremental updates to have committed, closing handle on the new version.",
+				logfields.NewVersion, txn,
+			)
 			version.Close()
 		}(txn.GetVersionHandle())
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
@@ -30,19 +31,19 @@ func FuzzResolvePolicy(f *testing.F) {
 			return
 		}
 
-		td := newTestData().withIDs(ruleTestIDs)
+		td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 		td.repo.mustAdd(r)
 		sp, err := td.repo.resolvePolicyLocked(idA)
 		if err != nil {
 			return
 		}
-		sp.DistillPolicy(&EndpointInfo{ID: uint64(idA.ID)}, nil)
+		sp.DistillPolicy(hivetest.Logger(t), &EndpointInfo{ID: uint64(idA.ID)}, nil)
 	})
 }
 
 func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
-		keys := emptyMapState()
+		keys := emptyMapState(hivetest.Logger(t))
 		key := Key{}
 		entry := NewMapStateEntry(types.AllowEntry())
 		ff := fuzz.NewConsumer(data)

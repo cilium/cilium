@@ -5,10 +5,10 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -68,7 +68,7 @@ type PolicyWatcherParams struct {
 
 	ClientSet client.Clientset
 	Config    *option.DaemonConfig
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups

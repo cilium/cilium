@@ -10,14 +10,12 @@ import (
 
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	validation "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
@@ -169,8 +167,13 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		log.WithError(err).WithField(logfields.EndpointLabelSelector,
-			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+		// FIXME @aanm do we still need to log this error?
+		logging.DefaultSlogLogger.Error(
+			"unable to construct selector in label selector",
+			logfields.LogSubsys, "policy-api",
+			logfields.Error, err,
+			logfields.EndpointLabelSelector, labelSelector,
+		)
 		return nil
 	}
 	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()

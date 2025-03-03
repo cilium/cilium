@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -84,7 +85,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	expected := []*flowpb.Policy{
 		{
@@ -137,7 +138,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -188,7 +189,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -211,7 +212,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -262,7 +263,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -313,7 +314,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -364,7 +365,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -424,7 +425,7 @@ func TestCorrelatePolicy(t *testing.T) {
 			return nil, false
 		},
 	}
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -462,7 +463,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -525,7 +526,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
 	expected = []*flowpb.Policy{
 		{

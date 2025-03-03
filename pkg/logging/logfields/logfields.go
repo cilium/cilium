@@ -1333,6 +1333,12 @@ const (
 
 	KeyPairSN = "keyPairSN"
 
+	AnnotationsOld = "annotationsOld"
+
+	LabelsNew = "labelsNew"
+
+	File = "file"
+
 	Timeout = "timeout"
 
 	EtcdDataDir = "etcdDataDir"

@@ -136,7 +136,7 @@ func (res *policyGenerateResult) release() {
 		res.endpointPolicy.Ready()
 		// Detach the EndpointPolicy from the SelectorPolicy it was
 		// instantiated from
-		res.endpointPolicy.Detach()
+		res.endpointPolicy.Detach(logging.DefaultSlogLogger)
 		res.endpointPolicy = nil
 	}
 }
@@ -264,7 +264,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
 	stats.endpointPolicyCalculation.Start()
-	result.endpointPolicy = selectorPolicy.DistillPolicy(e, desiredRedirects)
+	result.endpointPolicy = selectorPolicy.DistillPolicy(logging.DefaultSlogLogger, e, desiredRedirects)
 	stats.endpointPolicyCalculation.End(true)
 
 	datapathRegenCtxt.policyResult = result
@@ -319,7 +319,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 			// Mark as "ready" so that Detach will not complain about it
 			e.desiredPolicy.Ready()
 			// Detach the EndpointPolicy from the SelectorPolicy it was instantiated from
-			e.desiredPolicy.Detach()
+			e.desiredPolicy.Detach(logging.DefaultSlogLogger)
 		}
 
 		e.desiredPolicy = res.endpointPolicy
@@ -330,7 +330,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 		datapathRegenCtxt.revertStack.Push(func() error {
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
-				e.desiredPolicy.Detach()
+				e.desiredPolicy.Detach(logging.DefaultSlogLogger)
 				e.desiredPolicy = e.realizedPolicy
 
 				currentMap, err := e.policyMap.DumpToMapStateMap()
@@ -540,7 +540,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	if e.desiredPolicy != e.realizedPolicy {
 		// Remove references to the old policy
-		e.realizedPolicy.Detach()
+		e.realizedPolicy.Detach(logging.DefaultSlogLogger)
 		// Set realized state to desired state.
 		e.realizedPolicy = e.desiredPolicy
 	}

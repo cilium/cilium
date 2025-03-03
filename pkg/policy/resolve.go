@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"runtime"
 
 	"github.com/sirupsen/logrus"
@@ -28,7 +29,7 @@ type SelectorPolicy interface {
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
-	DistillPolicy(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -166,7 +167,7 @@ func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
 	var calculatedPolicy *EndpointPolicy
 
 	// EndpointPolicy is initialized while 'GetCurrentVersionHandleFunc' keeps the selector
@@ -185,8 +186,9 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: newMapState(policyOwner.MapStateSize()),
+			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
 			policyMapChanges: MapChanges{
+				logger:       logger,
 				firstVersion: version.Version(),
 			},
 			PolicyOwner: policyOwner,
@@ -205,7 +207,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	calculatedPolicy.toMapState()
+	calculatedPolicy.toMapState(logger)
 	if !policyOwner.IsHost() {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
@@ -225,13 +227,17 @@ func (p *EndpointPolicy) Ready() (err error) {
 // Detach removes EndpointPolicy references from selectorPolicy
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *EndpointPolicy) Detach() {
+func (p *EndpointPolicy) Detach(logger *slog.Logger) {
 	p.selectorPolicy.removeUser(p)
 	// in case the call was missed previouly
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
 		_, file, line, _ := runtime.Caller(1)
-		log.Warningf("Detach: EndpointPolicy was not marked as Ready (%s:%d)", file, line)
+		logger.Warn(
+			"Detach: EndpointPolicy was not marked as Ready",
+			logfields.File, file,
+			logfields.Line, line,
+		)
 	}
 	// Also release the version handle held for incremental updates, if any.
 	// This must be done after the removeUser() call above, so that we do not get a new version
@@ -356,9 +362,9 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *EndpointPolicy) toMapState() {
-	p.L4Policy.Ingress.toMapState(p)
-	p.L4Policy.Egress.toMapState(p)
+func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
+	p.L4Policy.Ingress.toMapState(logger, p)
+	p.L4Policy.Egress.toMapState(logger, p)
 }
 
 // toMapState transforms the L4DirectionPolicy into
@@ -367,9 +373,9 @@ func (p *EndpointPolicy) toMapState() {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
+func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(p, l4policy.features, ChangeState{})
+		l4.toMapState(logger, p, l4policy.features, ChangeState{})
 		return true
 	})
 }
@@ -430,9 +436,9 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
-func NewEndpointPolicy(repo PolicyRepository) *EndpointPolicy {
+func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(),
+		policyMapState: emptyMapState(logger),
 	}
 }

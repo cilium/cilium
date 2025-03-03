@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -128,12 +129,13 @@ var (
 	}
 )
 
-func testNewPolicyRepository(initialIDs []*identity.Identity) *policy.Repository {
+func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) *policy.Repository {
 	idmap := identity.IdentityMap{}
 	for _, id := range initialIDs {
 		idmap[id.ID] = id.LabelArray
 	}
-	repo := policy.NewPolicyRepository(idmap, nil, nil, nil, api.NewPolicyMetricsNoop())
+	logger := hivetest.Logger(t)
+	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }
@@ -142,15 +144,16 @@ func testNewPolicyRepository(initialIDs []*identity.Identity) *policy.Repository
 // that the set of flows are allowed and denied as expected.
 func validateNetworkPolicy(t *testing.T, repo *policy.Repository, allowFlows, denyFlows []policy.Flow) {
 	t.Helper()
+	logger := hivetest.Logger(t)
 
 	for i, allow := range allowFlows {
-		verdict, err := policy.LookupFlow(repo, allow, nil, nil)
+		verdict, err := policy.LookupFlow(logger, repo, allow, nil, nil)
 		require.NoError(t, err, "Looking up allow flow %i failed", i)
 		require.Equal(t, api.Allowed, verdict, "Verdict for allow flow %d must match", i)
 	}
 
 	for i, allow := range denyFlows {
-		verdict, err := policy.LookupFlow(repo, allow, nil, nil)
+		verdict, err := policy.LookupFlow(logger, repo, allow, nil, nil)
 		require.NoError(t, err, "Looking up deny flow %i failed", i)
 		require.Equal(t, api.Denied, verdict, "Verdict for deny flow %d must match", i)
 	}
@@ -585,7 +588,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 
 func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) *policy.Repository {
 	t.Helper()
-	repo := testNewPolicyRepository(allIDs)
+	repo := testNewPolicyRepository(t, allIDs)
 
 	for i, p := range ps {
 		if p.Name == "" {
@@ -674,7 +677,7 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 		flow := flowAToC
 		flow.Dport = port
 
-		verdict, err := policy.LookupFlow(repo, flow, nil, nil)
+		verdict, err := policy.LookupFlow(hivetest.Logger(t), repo, flow, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, verdict, "Port %d", port)
 	}
@@ -931,7 +934,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	makeRepo := func(pol ...[]byte) *policy.Repository {
 		t.Helper()
-		repo := testNewPolicyRepository(allIDs)
+		repo := testNewPolicyRepository(t, allIDs)
 
 		for i, p := range pol {
 			np := slim_networkingv1.NetworkPolicy{}

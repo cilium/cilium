@@ -5,6 +5,7 @@ package groups
 
 import (
 	"context"
+	"log/slog"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -19,7 +20,7 @@ const (
 // from providers.  To avoid issues with rate-limiting this function will
 // execute the addDerivative function with a max number of concurrent calls,
 // defined on maxConcurrentUpdates.
-func UpdateCNPInformation(clientset client.Clientset) {
+func UpdateCNPInformation(logger *slog.Logger, clientset client.Clientset) {
 	cnpToUpdate := groupsCNPCache.GetAllCNP()
 	sem := make(chan bool, maxConcurrentUpdates)
 	for _, cnp := range cnpToUpdate {
@@ -28,9 +29,9 @@ func UpdateCNPInformation(clientset client.Clientset) {
 			defer func() { <-sem }()
 			// We use the same cache for Clusterwide and Namespaced cilium policies
 			if cnp.ObjectMeta.Namespace == "" {
-				addDerivativePolicy(context.TODO(), clientset, cnp, true)
+				addDerivativePolicy(context.TODO(), logger, clientset, cnp, true)
 			} else {
-				addDerivativePolicy(context.TODO(), clientset, cnp, false)
+				addDerivativePolicy(context.TODO(), logger, clientset, cnp, false)
 			}
 
 		}(cnp)

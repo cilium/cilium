@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -195,7 +196,7 @@ var (
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
 	}
-	testSelectorCache = policy.NewSelectorCache(IdentityCache)
+	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
 

@@ -232,7 +232,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Summary = summary
 
 	if p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.endpointGetter, decoded)
+		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
 	}
 
 	return nil

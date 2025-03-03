@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +21,7 @@ import (
 )
 
 func TestL4Policy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -185,7 +186,7 @@ func TestL4Policy(t *testing.T) {
 }
 
 func TestMergeL4PolicyIngress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	rule := api.Rule{
 		Ingress: []api.IngressRule{
@@ -229,7 +230,7 @@ func TestMergeL4PolicyIngress(t *testing.T) {
 }
 
 func TestMergeL4PolicyEgress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	// A can access B with TCP on port 80, and C with TCP on port 80.
 	rule1 := api.Rule{
@@ -274,7 +275,7 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 }
 
 func TestMergeL7PolicyIngress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 	rule1 := api.Rule{
 		Ingress: []api.IngressRule{
 			{
@@ -479,7 +480,7 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 }
 
 func TestMergeL7PolicyEgress(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	rule1 := api.Rule{
 		Egress: []api.EgressRule{
@@ -869,7 +870,7 @@ func TestL3Policy(t *testing.T) {
 }
 
 func TestICMPPolicy(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	// A rule for ICMP
 	i8 := intstr.FromInt(8)
@@ -1180,7 +1181,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			td := newTestData().withIDs(ruleTestIDs)
+			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 
 			for _, r := range test.rulesToApply {
 				td.repo.mustAdd(rules[r])
@@ -1308,7 +1309,7 @@ func TestL4RuleLabels(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			td := newTestData().withIDs(ruleTestIDs)
+			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 			for _, r := range test.rulesToApply {
 				td.repo.mustAdd(rules[r])
 			}
@@ -1397,13 +1398,13 @@ func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) 
 		ID:            2,
 		TCPNamedPorts: namedPorts,
 	}
-	actual, err := LookupFlow(repo, flow, srcEP, dstEP)
+	actual, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
 	require.NoError(t, err)
 	require.Equal(t, verdict, actual)
 }
 
 func TestIngressAllowAll(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		defaultDenyIngress,
@@ -1430,7 +1431,7 @@ func TestIngressAllowAll(t *testing.T) {
 
 func TestIngressAllowAllL4Overlap(t *testing.T) {
 
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		defaultDenyIngress,
@@ -1464,7 +1465,7 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 }
 
 func TestIngressAllowAllNamedPort(t *testing.T) {
-	repo := newTestData().withIDs(ruleTestIDs).repo
+	repo := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs).repo
 	repo.MustAddList(api.Rules{
 		defaultDenyIngress,
 		&api.Rule{
@@ -1493,7 +1494,7 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 }
 
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		defaultDenyIngress,
@@ -1526,7 +1527,7 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 }
 
 func TestIngressL4AllowAll(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		defaultDenyIngress,
@@ -1560,7 +1561,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 }
 
 func TestIngressL4AllowAllNamedPort(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1595,7 +1596,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 }
 
 func TestEgressAllowAll(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1619,7 +1620,7 @@ func TestEgressAllowAll(t *testing.T) {
 }
 
 func TestEgressL4AllowAll(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1655,7 +1656,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 }
 
 func TestEgressL4AllowWorld(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1695,7 +1696,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 }
 
 func TestEgressL4AllowAllEntity(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1735,7 +1736,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 }
 
 func TestEgressL3AllowWorld(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1759,7 +1760,7 @@ func TestEgressL3AllowWorld(t *testing.T) {
 }
 
 func TestEgressL3AllowAllEntity(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -1791,7 +1792,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	// at L4 and L7, that the L4-only rule shadows the L4-L7 rule. This is because
 	// L4-only rule implicitly allows all traffic at L7, so the L7-related
 	// parts of the L4-L7 rule are useless.
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -2067,7 +2068,7 @@ func TestL3L4L7Merge(t *testing.T) {
 	// should allow all on port 80 only from endpoint C, traffic
 	// from all other endpoints should still only allow only GET
 	// on "/".
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -2169,7 +2170,7 @@ func TestL3L4L7Merge(t *testing.T) {
 }
 
 func TestMatches(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 	repo := td.repo
 	repo.MustAddList(api.Rules{
 		&api.Rule{
@@ -2289,7 +2290,7 @@ func BenchmarkRuleString(b *testing.B) {
 // This was added to prevent regression of a bug where the merging of l7 rules for "foo"
 // also affected the rules for "baz".
 func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(t))
 
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,

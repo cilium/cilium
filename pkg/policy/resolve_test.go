@@ -5,9 +5,11 @@ package policy
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -121,7 +123,7 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
-	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	// barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	var rules api.Rules
 	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
@@ -138,6 +140,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 }
 
 type DummyOwner struct {
+	logger       *slog.Logger
 	mapStateSize int
 }
 
@@ -171,7 +174,11 @@ func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetada
 }
 
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
-	log.WithFields(fields).Info(msg)
+	attrs := make([]any, 0, len(fields)*2)
+	for k, v := range fields {
+		attrs = append(attrs, k, v)
+	}
+	d.logger.Debug(msg, attrs...)
 }
 
 func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {
@@ -193,14 +200,14 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-	owner := DummyOwner{}
+	owner := DummyOwner{logger: hivetest.Logger(b)}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(owner, nil)
+		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
 	}
@@ -209,24 +216,24 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, nil)
+		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
 		ip.detach(true, 0)
 	}
 }
 
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, nil)
+		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
 		ip.detach(true, 0)
 	}
@@ -234,7 +241,8 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 
 func TestL7WithIngressWildcard(t *testing.T) {
 
-	td := newTestData()
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -276,7 +284,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -314,10 +322,11 @@ func TestL7WithIngressWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner: DummyOwner{},
+		PolicyOwner: DummyOwner{logger: logger},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		policyMapState: policy.policyMapState,
+		policyMapState:   policy.policyMapState,
+		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -337,7 +346,8 @@ func TestL7WithIngressWildcard(t *testing.T) {
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
 
-	td := newTestData()
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -385,7 +395,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
@@ -427,10 +437,11 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner: DummyOwner{},
+		PolicyOwner: DummyOwner{logger: logger},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		policyMapState: policy.policyMapState,
+		policyMapState:   policy.policyMapState,
+		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -450,7 +461,8 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
 
-	td := newTestData()
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
@@ -492,7 +504,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
@@ -523,11 +535,12 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner: DummyOwner{},
-		policyMapState: emptyMapState().withState(mapStateMap{
+		PolicyOwner: DummyOwner{logger: logger},
+		policyMapState: emptyMapState(logger).withState(mapStateMap{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
+		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -556,7 +569,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 
 func TestMapStateWithIngress(t *testing.T) {
 
-	td := newTestData()
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
@@ -619,7 +633,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
@@ -695,8 +709,8 @@ func TestMapStateWithIngress(t *testing.T) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner: DummyOwner{},
-		policyMapState: emptyMapState().withState(mapStateMap{
+		PolicyOwner: DummyOwner{logger: logger},
+		policyMapState: emptyMapState(logger).withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
@@ -704,6 +718,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 		}),
+		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
@@ -763,6 +778,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 }
 
 func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
+	logger := hivetest.Logger(t)
 	type fields struct {
 		selectorPolicy *selectorPolicy
 		PolicyMapState mapState
@@ -784,7 +800,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: emptyMapState(),
+				PolicyMapState: emptyMapState(logger),
 			},
 			args: args{
 				identity: 0,
@@ -799,7 +815,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(),
+				PolicyMapState: emptyMapState(logger),
 			},
 			args: args{
 				identity: 0,
@@ -814,7 +830,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					IngressKey(): {},
 				}),
 			},
@@ -831,7 +847,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					EgressKey(): {},
 				}),
 			},
@@ -848,7 +864,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -865,7 +881,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -882,7 +898,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -899,7 +915,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: emptyMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
 					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},

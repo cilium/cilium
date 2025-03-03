@@ -4,11 +4,11 @@
 package policy
 
 import (
+	"log/slog"
 	"sort"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
@@ -58,6 +58,7 @@ type CachedSelectionUser types.CachedSelectionUser
 // so it must always be given to the user as a pointer to the actual type.
 // (The public methods only expose the CachedSelector interface.)
 type identitySelector struct {
+	logger           *slog.Logger
 	source           selectorSource
 	key              string
 	selections       versioned.Value[identity.NumericIdentitySlice]
@@ -188,10 +189,11 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // guaranteed to receive a notification including the update.
 func (i *identitySelector) GetSelections(version *versioned.VersionHandle) identity.NumericIdentitySlice {
 	if !version.IsValid() {
-		log.WithFields(logrus.Fields{
-			logfields.Version:    version,
-			logfields.Stacktrace: hclog.Stacktrace(),
-		}).Error("GetSelections: Invalid VersionHandle finds nothing")
+		i.logger.Error(
+			"GetSelections: Invalid VersionHandle finds nothing",
+			logfields.Version, version,
+			logfields.Stacktrace, hclog.Stacktrace(),
+		)
 		return identity.NumericIdentitySlice{}
 	}
 	return i.selections.At(version)
@@ -280,7 +282,10 @@ func (i *identitySelector) setSelections(selections identity.NumericIdentitySlic
 		err = i.selections.RemoveAt(nextVersion)
 	}
 	if err != nil {
-		stacktrace := hclog.Stacktrace()
-		log.WithError(err).WithField(logfields.Stacktrace, stacktrace).Error("setSelections failed")
+		i.logger.Error(
+			"setSelections failed",
+			logfields.Error, err,
+			logfields.Stacktrace, hclog.Stacktrace(),
+		)
 	}
 }
