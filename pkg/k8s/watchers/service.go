@@ -433,6 +433,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
 		svcs[i].Annotations = svc.Annotations
 		svcs[i].SourceRangesPolicy = svc.SourceRangesPolicy
+		svcs[i].ProxyDelegation = svc.ProxyDelegation
 		if configureWithSourceRanges(svcs[i].Type) {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
@@ -582,6 +583,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
 			Annotations:               dpSvc.Annotations,
 			SourceRangesPolicy:        dpSvc.SourceRangesPolicy,
+			ProxyDelegation:           dpSvc.ProxyDelegation,
 			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
 			LoadBalancerAlgorithm:     dpSvc.LoadBalancerAlgorithm,
 			Name: loadbalancer.ServiceName{

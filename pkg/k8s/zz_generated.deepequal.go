@@ -291,6 +291,9 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.SourceRangesPolicy != other.SourceRangesPolicy {
 		return false
 	}
+	if in.ProxyDelegation != other.ProxyDelegation {
+		return false
+	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {
 		return false
 	}
