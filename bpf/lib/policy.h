@@ -15,12 +15,14 @@
 /*
  * Both non-host and host EP programs have HOST_EP_ID defined, but only non-host EPs have LXC_ID
  * defined. Hence, if LXC_ID is defined, we are doing policy for a non-host EP, otherwise for the
- * host EP.
+ * host EP, or zero if neither is defined.
  */
 #ifdef LXC_ID
 #define EFFECTIVE_EP_ID LXC_ID
-#else
+#elif defined(HOST_EP_ID)
 #define EFFECTIVE_EP_ID HOST_EP_ID
+#else
+#define EFFECTIVE_EP_ID 0
 #endif
 
 static __always_inline void
