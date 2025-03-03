@@ -14,6 +14,7 @@ Installation with K8s distributions
 
    k8s-install-external-etcd
    k8s-install-openshift-okd
+   k8s-install-broadcom-vmware-esxi-nsx
    k3s
    k0s
    kind
