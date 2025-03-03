@@ -284,6 +284,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		svc.GetNamespace(), svcType)
 
 	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
+	svcInfo.ProxyDelegation = getAnnotationServiceProxyDelegation(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
@@ -475,6 +476,10 @@ type Service struct {
 	// SourceRangesPolicy controls whether the specified loadBalancerSourceRanges
 	// CIDR set defines an allow- or deny-list.
 	SourceRangesPolicy loadbalancer.SVCSourceRangesPolicy
+
+	// ProxyDelegation controls what packets should be delegated and pushed up to
+	// a user space proxy unmodified from its original.
+	ProxyDelegation loadbalancer.SVCProxyDelegation
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine
