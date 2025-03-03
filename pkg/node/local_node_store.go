@@ -14,6 +14,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -35,6 +36,7 @@ type LocalNode struct {
 	// v6 CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR *cidr.CIDR
 	IPv4Loopback          net.IP
+	UnderlayProtocol      tunnel.UnderlayProtocol
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
