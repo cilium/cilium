@@ -1957,7 +1957,7 @@ func (e *Endpoint) IsInit() bool {
 }
 
 // InitWithIngressLabels initializes the endpoint with reserved:ingress.
-// It should only be used for the host endpoint.
+// It should only be used for the ingress endpoint.
 func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Duration) {
 	if !e.isIngress {
 		return
@@ -1971,7 +1971,7 @@ func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Du
 	defer cancel()
 	e.UpdateLabels(newCtx, labels.LabelSourceAny, epLabels, epLabels, true)
 	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
-		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
+		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for ingress endpoint")
 	}
 }
 
