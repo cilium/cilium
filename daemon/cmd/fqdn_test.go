@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ciliumdns "github.com/cilium/dns"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -64,7 +65,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	ds := &DaemonFQDNSuite{}
 	d := &Daemon{}
 	d.ctx = context.Background()
-	d.policy = policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	d.policy = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),

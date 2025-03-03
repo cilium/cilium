@@ -6,7 +6,7 @@ package k8s
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -59,11 +59,8 @@ func Test_GH33432(t *testing.T) {
 	cnpKey := resource.NewKey(cnp)
 	cnpResourceID := resourceIDForCiliumNetworkPolicy(cnpKey, cnp)
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-
 	p := &policyWatcher{
-		log:                logrus.NewEntry(logger),
+		log:                hivetest.Logger(t),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
