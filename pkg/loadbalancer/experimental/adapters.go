@@ -581,7 +581,8 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 			ExtTrafficPolicy:          svc.ExtTrafficPolicy,
 			IntTrafficPolicy:          svc.IntTrafficPolicy,
 			NatPolicy:                 svc.NatPolicy,
-			SourceRangesPolicy:        "", // FIXME (not implemented)
+			SourceRangesPolicy:        "",                                  // FIXME (not implemented)
+			ProxyDelegation:           loadbalancer.SVCProxyDelegationNone, // FIXME (not implemented)
 			SessionAffinity:           svc.SessionAffinity,
 			SessionAffinityTimeoutSec: uint32(svc.SessionAffinityTimeout),
 			HealthCheckNodePort:       svc.HealthCheckNodePort,

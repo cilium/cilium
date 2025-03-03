@@ -420,5 +420,6 @@ func TestParseNodeWithService(t *testing.T) {
 		Type:                     loadbalancer.SVCTypeClusterIP,
 		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 		SourceRangesPolicy:       loadbalancer.SVCSourceRangesPolicyAllow,
+		ProxyDelegation:          loadbalancer.SVCProxyDelegationNone,
 	}, svc)
 }

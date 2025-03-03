@@ -360,6 +360,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
 	features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
 	features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
+	features.Annotations = append(features.Annotations, annotation.ServiceProxyDelegation)
 	if option.Config.EnableSVCSourceRangeCheck {
 		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
 	}
