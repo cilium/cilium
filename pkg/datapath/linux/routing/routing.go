@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"reflect"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
@@ -22,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var (
@@ -113,10 +117,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	return info.installRoutes(ifindex, tableID)
 }
 
-func (info *RoutingInfo) InstallRoutes(mtu int, compat bool) error {
+func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) ([]reflect.SelectCase, error) {
+	var set []reflect.SelectCase
+
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
-		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+		return set, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
 
 	var tableID int
@@ -126,33 +132,73 @@ func (info *RoutingInfo) InstallRoutes(mtu int, compat bool) error {
 		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
 	}
 
-	return info.installRoutes(ifindex, tableID)
+	// Get the desired routes.
+	gwRoutes := info.gatewayRoutes(ifindex, tableID)
+	for _, r := range gwRoutes {
+		// See if they already exist.
+		cidr, _ := r.Dst.Mask.Size()
+		_, _, watch, found := routes.FirstWatch(rx, tables.RouteIDIndex.Query(tables.RouteID{
+			Table:     r.Table,
+			LinkIndex: r.LinkIndex,
+			Dst:       netip.PrefixFrom(netipx.MustFromStdIP(r.Dst.IP), cidr),
+		}))
+
+		if found {
+			// If a route already exist, just add it to the watch
+			set = append(set, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(watch),
+			})
+		} else {
+			// Since we cannot watch a non-existent route, we need to watch the
+			// table instead.
+			_, watch = routes.All(rx)
+			set = append(set, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(watch),
+			})
+
+			// If the route doesn't exist, add it.
+			if err := netlink.RouteReplace(r); err != nil {
+				return set, fmt.Errorf("unable to add L2 nexthop route: %w", err)
+			}
+		}
+	}
+
+	return set, nil
+}
+
+func (info *RoutingInfo) gatewayRoutes(ifindex, tableID int) []*netlink.Route {
+	return []*netlink.Route{
+		// Nexthop route to the VPC or subnet gateway
+		//
+		// Note: This is a /32 route to avoid any L2. The endpoint does no L2
+		// either.
+		{
+			LinkIndex: ifindex,
+			Dst:       &net.IPNet{IP: info.IPv4Gateway, Mask: net.CIDRMask(32, 32)},
+			Scope:     netlink.SCOPE_LINK,
+			Table:     tableID,
+			Protocol:  linux_defaults.RTProto,
+		},
+
+		// Default route to the VPC or subnet gateway
+		{
+			Dst:      &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+			Table:    tableID,
+			Gw:       info.IPv4Gateway,
+			Protocol: linux_defaults.RTProto,
+		},
+	}
 }
 
 func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
+	routes := info.gatewayRoutes(ifindex, tableID)
 
-	// Nexthop route to the VPC or subnet gateway
-	//
-	// Note: This is a /32 route to avoid any L2. The endpoint does no L2
-	// either.
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifindex,
-		Dst:       &net.IPNet{IP: info.IPv4Gateway, Mask: net.CIDRMask(32, 32)},
-		Scope:     netlink.SCOPE_LINK,
-		Table:     tableID,
-		Protocol:  linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
-	}
-
-	// Default route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		Dst:      &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
-		Table:    tableID,
-		Gw:       info.IPv4Gateway,
-		Protocol: linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
+	for _, r := range routes {
+		if err := netlink.RouteReplace(r); err != nil {
+			return fmt.Errorf("unable to add L2 nexthop route: %w", err)
+		}
 	}
 
 	return nil

@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -124,6 +125,7 @@ type Daemon struct {
 	ciliumHealth *health.CiliumHealth
 
 	deviceManager *linuxdatapath.DeviceManager
+	routes        statedb.Table[*datapathTables.Route]
 	devices       statedb.Table[*datapathTables.Device]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
@@ -195,6 +197,7 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+	jobGroup    job.Group
 
 	// BIG-TCP config values
 	bigTCPConfig *bigtcp.Configuration
@@ -415,12 +418,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
+		routes:            params.Routes,
 		devices:           params.Devices,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
+		jobGroup:          params.JobRegistry.NewGroup(params.HealthScope),
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
