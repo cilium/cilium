@@ -127,7 +127,7 @@ type DNSProxy struct {
 
 	// usedServers is the set of DNS servers that have been allowed and used successfully.
 	// This is used to limit the number of IPs we store for restored DNS rules.
-	usedServers map[string]struct{}
+	usedServers map[netip.Addr]struct{}
 
 	// allowed tracks all allowed L7 DNS rules by endpointID, destination port,
 	// and L3 Selector. All must match for a query to be allowed.
@@ -254,7 +254,7 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortPr
 // skipIPInRestorationRLocked skips IPs that are allowed but have never been used,
 // but only if at least one server has been used so far.
 // Requires the RLock to be held.
-func (p *DNSProxy) skipIPInRestorationRLocked(ip string) bool {
+func (p *DNSProxy) skipIPInRestorationRLocked(ip netip.Addr) bool {
 	if len(p.usedServers) > 0 {
 		if _, used := p.usedServers[ip]; !used {
 			return true
@@ -320,7 +320,7 @@ func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16)
 						}).Warning("Could not parse IP for a DNS rule (?!), skipping")
 						continue
 					}
-					if rip.IsAddr() && p.skipIPInRestorationRLocked(ip) {
+					if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {
 						continue
 					}
 					ips[rip] = struct{}{}
@@ -702,7 +702,7 @@ func StartDNSProxy(
 		NotifyOnDNSMsg:           notifyFunc,
 		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
-		usedServers:              make(map[string]struct{}),
+		usedServers:              make(map[netip.Addr]struct{}),
 		allowed:                  make(perEPAllow),
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
@@ -1171,7 +1171,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.Lock()
 		// Add the server to the set of used DNS servers. This set is never GCd, but is limited by set
 		// of DNS server IPs that are allowed by a policy and for which successful response was received.
-		p.usedServers[targetServer.Addr().String()] = struct{}{}
+		p.usedServers[targetServer.Addr()] = struct{}{}
 		p.Unlock()
 	}
 }
