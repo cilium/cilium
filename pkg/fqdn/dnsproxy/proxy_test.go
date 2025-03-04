@@ -806,7 +806,7 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Test with limited set of allowed IPs
 	oldUsed := s.proxy.usedServers
-	s.proxy.usedServers = map[string]struct{}{"127.0.0.2": {}}
+	s.proxy.usedServers = map[netip.Addr]struct{}{netip.MustParseAddr("127.0.0.2"): {}}
 
 	expected1b := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
