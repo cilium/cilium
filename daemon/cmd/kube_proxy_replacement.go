@@ -149,6 +149,10 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
+		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
+			return fmt.Errorf("BPF NodePort cannot be used over an IPv6 underlay")
+		}
+
 		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
 			option.Config.LoadBalancerUsesDSR() {
 			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
