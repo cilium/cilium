@@ -176,6 +176,7 @@ type signalNodeHandler struct {
 	NodeValidateImplementationEvent       chan nodeTypes.Node
 	NodeValidateImplementationEventError  error
 	EnableNodeValidateImplementationEvent bool
+	Stop                                  chan struct{}
 }
 
 func newSignalNodeHandler() *signalNodeHandler {
@@ -184,6 +185,7 @@ func newSignalNodeHandler() *signalNodeHandler {
 		NodeUpdateEvent:                 make(chan nodeTypes.Node, 10),
 		NodeDeleteEvent:                 make(chan nodeTypes.Node, 10),
 		NodeValidateImplementationEvent: make(chan nodeTypes.Node, 4096),
+		Stop:                            make(chan struct{}, 10),
 	}
 }
 
@@ -217,7 +219,10 @@ func (n *signalNodeHandler) AllNodeValidateImplementation() {
 
 func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	if n.EnableNodeValidateImplementationEvent {
-		n.NodeValidateImplementationEvent <- node
+		select {
+		case <-n.Stop:
+		case n.NodeValidateImplementationEvent <- node:
+		}
 	}
 	return n.NodeValidateImplementationEventError
 }
@@ -946,11 +951,9 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	status, _ = checkStatus()
 	assert.Equal(types.LevelOK, string(status.Level))
 
-	// Replace the channel with a buffered one and empty the old channel.
-	// This unblocks the background sync, so everything can exit as it should.
-	oldChan := nh1.NodeValidateImplementationEvent
-	nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node, 100)
-	<-oldChan
+	for i := 0; i < cap(nh1.Stop); i++ {
+		nh1.Stop <- struct{}{}
+	}
 }
 
 // TestCarrierDownReconciler tests that we can detect carrier down events for physical devices
