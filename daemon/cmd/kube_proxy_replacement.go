@@ -150,8 +150,9 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
-			return fmt.Errorf("BPF NodePort cannot be used over an IPv6 underlay")
+		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 &&
+			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+			return fmt.Errorf("XDP acceleration cannot be used with an IPv6 underlay")
 		}
 
 		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
