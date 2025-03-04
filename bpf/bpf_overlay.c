@@ -582,6 +582,67 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 
 	return protocol == IPPROTO_ESP;
 }
+
+/* skip_encryption is a function introduced via backport into the v1.17 stable
+ * branch and does NOT exist in newer versions.
+ *
+ * this function determines, in 'cil_to_overlay', whether we apply a mark that
+ * will avoid encrypting VXLAN traffic at the ultimate egress device (bpf_host).
+ * the encryption at the ultimate egress device was introduced in the same
+ * backport patch to support V1.17 <-> V1.18 upgrade and downgrade paths.
+ *
+ * if the traffic would not be encrypted per v1.17 rules, we mark the packet to
+ * avoid encrypting at the ultimate egress device.
+ * this is to avoid any issues sending traffic to a v1.16 node which does not
+ * understand how to decrypt VXLAN-in-ESP traffic.
+ */
+static __always_inline bool skip_encryption(struct __ctx_buff *ctx, __u16 proto)
+{
+	void *data, *data_end;
+	__u8 protocol = 0;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+	struct remote_endpoint_info __maybe_unused *dst = NULL;
+	struct remote_endpoint_info __maybe_unused *src = NULL;
+
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+			return false;
+		protocol = ip6->nexthdr;
+		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		break;
+#endif
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+			return false;
+		protocol = ip4->protocol;
+		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		break;
+#endif
+	default:
+		return false;
+	}
+
+	if (!dst || !src)
+		return false;
+
+	if (protocol == IPPROTO_ESP)
+		return true;
+	if (src->sec_identity == HOST_ID)
+		return true;
+	if (!identity_is_cluster(dst->sec_identity))
+		return true;
+	if (identity_is_remote_node(dst->sec_identity))
+		return true;
+
+	return false;
+}
 #endif /* ENABLE_IPSEC */
 
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
@@ -801,7 +862,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id,
 							 ctx_get_protocol(ctx));
 #ifdef ENABLE_IPSEC
-	if (is_esp(ctx, proto))
+	if (skip_encryption(ctx, proto))
 		set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_OVERLAY_ENCRYPTED);
 	else
 #endif
