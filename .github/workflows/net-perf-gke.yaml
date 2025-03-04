@@ -214,6 +214,7 @@ jobs:
           gcloud info
 
       - name: Create GKE cluster
+        id: create-cluster
         run: |
           gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
@@ -230,9 +231,18 @@ jobs:
             --disk-size 20GB \
             --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute
 
+          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
+          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@45a3879a8cb769c9e41b912635e03a38849c9242 # v0.18.1
@@ -240,6 +250,7 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -258,8 +269,8 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
 
       - name: Wait for Cilium to be ready
         run: |
