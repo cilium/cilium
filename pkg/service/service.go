@@ -832,11 +832,21 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	backendsCopy := []*lb.Backend{}
 	for _, b := range params.Backends {
-		// Local redirect services or services with trafficPolicy=Local may
-		// only use node-local backends for external scope. We implement this by
-		// filtering out all backend IPs which are not a local endpoint.
-		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
-			continue
+		// Local redirect services or services with externalTrafficPolicy=Local
+		// may only use node-local backends for external scope. We implement
+		// this by filtering out all backend IPs which are not a local endpoint.
+		//
+		// In case a backend name could not be resolved, check for local IPs if
+		// they match the criteria (for the case of proxy delegation).
+		if filterBackends {
+			if len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
+				continue
+			}
+			if params.ProxyDelegation != lb.SVCProxyDelegationNone {
+				if node.IsNodeIP(b.L3n4Addr.AddrCluster.Addr()) == "" {
+					continue
+				}
+			}
 		}
 		backendsCopy = append(backendsCopy, b.DeepCopy())
 	}
