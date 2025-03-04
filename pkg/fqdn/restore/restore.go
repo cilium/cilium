@@ -99,6 +99,14 @@ func (ip RuleIPOrCIDR) IsAddr() bool {
 	return netip.Prefix(ip).Bits() == -1
 }
 
+func (ip RuleIPOrCIDR) Addr() netip.Addr {
+	if ip.IsAddr() {
+		return netip.Prefix(ip).Addr()
+	} else {
+		return netip.Addr{}
+	}
+}
+
 func (ip RuleIPOrCIDR) String() string {
 	if ip.IsAddr() {
 		return netip.Prefix(ip).Addr().String()
