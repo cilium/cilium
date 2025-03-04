@@ -17,6 +17,18 @@ type ProxyUpdaterMock struct {
 	VersionHandle *versioned.VersionHandle
 }
 
+func (m *ProxyUpdaterMock) GetPolicyNames() []string {
+	var res []string
+	if len(m.Ipv4) != 0 {
+		res = append(res, m.Ipv4)
+	}
+
+	if len(m.Ipv6) != 0 {
+		res = append(res, m.Ipv6)
+	}
+	return res
+}
+
 func (m *ProxyUpdaterMock) GetID() uint64 { return m.Id }
 
 func (m *ProxyUpdaterMock) GetIPv4Address() string { return m.Ipv4 }

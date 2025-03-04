@@ -1585,11 +1585,11 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
+func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, names []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool, policySecretsNamespace string,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
-		EndpointIps:      ips,
+		EndpointIps:      names,
 		EndpointId:       ep.GetID(),
 		ConntrackMapName: "global",
 	}
@@ -1645,13 +1645,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var ips []string
-	if ipv6 := ep.GetIPv6Address(); ipv6 != "" {
-		ips = append(ips, ipv6)
-	}
-	if ipv4 := ep.GetIPv4Address(); ipv4 != "" {
-		ips = append(ips, ipv4)
-	}
+	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
 		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
 		// there are no IPs here. In this case just skip without updating a policy, as
@@ -1659,7 +1653,8 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		//
 		// TODO: When L7 policy support for the host is needed, all host IPs should be
 		// considered here?
-		s.logger.Debug("Endpoint has no IP addresses",
+		s.logger.Debug("Endpoint has no IP addresses or name",
+			logfields.Name, ips,
 			logfields.EndpointID, ep.GetID(),
 		)
 		return nil, func() error { return nil }
@@ -1670,7 +1665,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %w", ep.GetID(), err), nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't

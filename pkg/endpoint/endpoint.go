@@ -448,6 +448,19 @@ type Endpoint struct {
 	ctMapGC ctmap.GCRunner
 }
 
+// GetPolicyNames returns the policy names for this endpoint.
+// For Endpoint, the policy names are the IP addresses of the endpoint.
+func (e *Endpoint) GetPolicyNames() []string {
+	var ips []string
+	if ipv6 := e.GetIPv6Address(); ipv6 != "" {
+		ips = append(ips, ipv6)
+	}
+	if ipv4 := e.GetIPv4Address(); ipv4 != "" {
+		ips = append(ips, ipv4)
+	}
+	return ips
+}
+
 func (e *Endpoint) GetReporter(name string) cell.Health {
 	if e.reporterScope == nil {
 		_, h := cell.NewSimpleHealth()
