@@ -87,6 +87,22 @@ steps:
       desiredPodCount: 1
       timeout: 55s
 
+- name: Wait for EGW Client Prometheus target to appear
+  measurements:
+    - Identifier: ExecCommand
+      Method: Exec
+      Params:
+        retries: 60
+        backoffDelay: 5s
+        timeout: 5s
+        command:
+        - /bin/sh
+        - -c
+        - >
+          ! kubectl get podmonitor -n monitoring egw-client > /dev/null || \
+            kubectl get --raw '/api/v1/namespaces/monitoring/services/prometheus-k8s:9090/proxy/api/v1/targets' | \
+              grep -q egw-client
+
 - module:
     path: ../cilium-agent-pprofs.yaml
     params:
