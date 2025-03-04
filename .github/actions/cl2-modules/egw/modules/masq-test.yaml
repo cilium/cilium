@@ -34,7 +34,7 @@ steps:
 
 - name: Sleep to allow scraping
   measurements:
-  - Identifier: SleepTwiceScrapeInterval
+  - Identifier: Sleep
     Method: Sleep
     Params:
       duration: 30s
