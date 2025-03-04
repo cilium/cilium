@@ -13,6 +13,7 @@
 #include "lib/eps.h"
 #include "lib/ipv4.h"
 #include "lib/vxlan.h"
+#include "lib/identity.h"
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
@@ -203,6 +204,129 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #else
 	return ctx_redirect(ctx, CILIUM_IFINDEX, 0);
 #endif /* ENABLE_ROUTING */
+}
+
+/* checks whether a IPsec redirect should be performed for the security id
+ * we do not IPsec encrypt:
+ * 1. Host-to-Host or Pod-to-Host traffic
+ * 2. Traffic leaving the cluster
+ * 3. Remote nodes including Kube API server
+ * 4. Traffic is already ESP encrypted
+ */
+static __always_inline int
+ipsec_redirect_sec_id_ok(__u32 src_sec_id, __u32 dst_sec_id, int ip_proto) {
+	if (ip_proto == IPPROTO_ESP)
+		return 0;
+	if (src_sec_id == HOST_ID)
+		return 0;
+	if (!identity_is_cluster(dst_sec_id))
+		return 0;
+	if (identity_is_remote_node(dst_sec_id))
+		return 0;
+	return 1;
+}
+
+static __always_inline int
+ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
+{
+	struct remote_endpoint_info __maybe_unused *dst = NULL;
+	struct remote_endpoint_info __maybe_unused *src = NULL;
+	void *data __maybe_unused, *data_end __maybe_unused;
+	struct iphdr __maybe_unused *ip4;
+	struct ipv6hdr __maybe_unused *ip6;
+	int ip_proto = 0;
+	int ret = 0;
+	union macaddr dst_mac = CILIUM_NET_MAC;
+
+	if (!eth_is_supported_ethertype(proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+#  if defined(TUNNEL_MODE)
+		/* tunnel mode needs a bit of special handling when
+		 * encapsulated packets get here the destination address is
+		 * already a cluster node IP.
+		 *
+		 * the security ID is appended to the mark in the overlay prog
+		 * and we can extract this with 'get_identity'.
+		 * additionally, this is a VXLAN packet so ip4->daddr is the ip
+		 * of the destination host already and can be passed into
+		 * set_ipsec_encrypt to obtain the correct node ID and spi.
+		 */
+		if (ctx_is_overlay(ctx)) {
+			if (!ctx_is_overlay_needs_encrypt(ctx))
+				return CTX_ACT_OK;
+
+			ret = set_ipsec_encrypt(ctx, 0, ip4->daddr,
+						get_identity(ctx), true,
+						true);
+			if (ret != CTX_ACT_OK)
+				return ret;
+			goto overlay_encrypt;
+		}
+#  endif /* TUNNEL_MODE */
+
+		ip_proto = ip4->protocol;
+
+		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+
+		break;
+# endif /* ENABLE_IPV4 */
+
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+#ifndef TUNNEL_MODE
+		/* handle native routing ipv6 */
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ip_proto = ip6->nexthdr;
+
+		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+
+		break;
+#endif /* TUNNEL_MODE */
+# endif /* ENABLE_IPv6 */
+	default:
+		return CTX_ACT_OK;
+	}
+
+	if (!dst || !src)
+		return CTX_ACT_OK;
+
+	if (!ipsec_redirect_sec_id_ok(src->sec_identity, dst->sec_identity,
+				      ip_proto))
+		return CTX_ACT_OK;
+
+	ret = set_ipsec_encrypt(ctx, 0, dst->tunnel_endpoint,
+				src->sec_identity, true, true);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+#  if defined(TUNNEL_MODE) && defined(ENABLE_IPV4)
+overlay_encrypt:
+#  endif
+	/* redirect to the ingress side of CILIUM_NET.
+	 * this will subject the packet to the ingress XFRM hooks,
+	 * encrypting the packet.
+	 *
+	 * the encrypted packet will be recirculated to the stack and the final
+	 * egress will occur toward the IPsec tunnel's destination.
+	 */
+	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac, 0) != 0)
+		return DROP_WRITE_ERROR;
+
+	ret = ctx_redirect(ctx, HOST_IFINDEX, BPF_F_INGRESS);
+	if (ret != CTX_ACT_REDIRECT)
+		return DROP_INVALID;
+	return ret;
 }
 
 #if defined(ENABLE_ENCRYPTED_OVERLAY)
