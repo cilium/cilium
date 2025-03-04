@@ -295,6 +295,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
+	if option.Config.TunnelingEnabled() && params.TunnelConfig.UnderlayProtocol() == tunnel.IPv6 {
+		if option.Config.EnableIPSec || option.Config.EnableWireguard {
+			return nil, nil, fmt.Errorf("Transparent encryption (both IPsec and WireGuard) requires an IPv4 underlay")
+		}
+	}
+
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {
