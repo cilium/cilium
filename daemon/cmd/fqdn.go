@@ -374,8 +374,10 @@ func (d *Daemon) notifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
 	defer lcncl()
-	record := logger.NewLogRecord(flowType, false,
-		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+	record := d.proxyAccessLogger.NewLogRecord(flowType, false,
+		func(lr *logger.LogRecord, _ logger.EndpointInfoRegistry) {
+			lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID)
+		},
 		logger.LogTags.Verdict(verdict, reason),
 		logger.LogTags.Addressing(logContext, addrInfo),
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{

@@ -113,6 +113,6 @@ func TestKafkaLogMultipleTopics(t *testing.T) {
 }
 
 func newTestAccessLogServer(t *testing.T, notifier logger.LogRecordNotifier) *AccessLogServer {
-	accessLogger := logger.NewProcyAccessLogger(hivetest.Logger(t), logger.ProxyAccessLoggerConfig{}, notifier)
+	accessLogger := logger.NewProcyAccessLogger(hivetest.Logger(t), logger.ProxyAccessLoggerConfig{}, notifier, nil)
 	return newAccessLogServer(hivetest.Logger(t), accessLogger, "", 0, nil, 0)
 }

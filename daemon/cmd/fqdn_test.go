@@ -59,7 +59,6 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		node.SetTestLocalNodeStore()
 
 		re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-		logger.SetEndpointInfoRegistry(&dummyInfoRegistry{})
 	})
 
 	ds := &DaemonFQDNSuite{}
@@ -83,7 +82,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	})
 	d.dnsNameManager.CompleteBootstrap()
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
-	d.proxyAccessLogger = logger.NewProcyAccessLogger(hivetest.Logger(tb), logger.ProxyAccessLoggerConfig{}, &noopNotifier{})
+	d.proxyAccessLogger = logger.NewProcyAccessLogger(hivetest.Logger(tb), logger.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{})
 
 	ds.d = d
 
