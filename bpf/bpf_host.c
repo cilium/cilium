@@ -1036,7 +1036,7 @@ do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	ctx->mark = 0;
-	bpf_clear_meta(ctx);
+
 	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, 0,
 					      src_id, 0, &trace);
 }

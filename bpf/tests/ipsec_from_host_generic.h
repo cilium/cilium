@@ -136,10 +136,6 @@ int ipv4_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(ctx->mark == 0);
 
-#ifdef CHECK_CB_ENCRYPT_IDENTITY
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
-#endif
-
 	l2 = data + sizeof(*status_code);
 
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -257,10 +253,6 @@ int ipv6_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 	assert(*status_code == EXPECTED_STATUS_CODE);
-
-#ifdef CHECK_CB_ENCRYPT_IDENTITY
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
-#endif
 
 	assert(ctx->mark == 0);
 
