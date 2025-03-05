@@ -16,3 +16,7 @@ DECLARE_CONFIG(__u16, interface_mac_2, "Latter 16 bits of the MAC address of the
 
 DECLARE_CONFIG(__u32, interface_ifindex, "ifindex of the interface the bpf program is attached to")
 #define THIS_INTERFACE_IFINDEX CONFIG(interface_ifindex) /* Backwards compatibility */
+
+DECLARE_NODE_CONFIG(__u32, ipv4_loopback, "The IPv4 loopback address.")
+ASSIGN_CONFIG(__u32, ipv4_loopback, 0x1ffff50a)
+#define IPV4_LOOPBACK CONFIG(ipv4_loopback)  /* Backwards compatibility */

@@ -9,8 +9,10 @@ package config
 // not instantiate directly! Always use [NewBPFNode] to ensure the default
 // values configured in the ELF are honored.
 type BPFNode struct {
+	// The IPv4 loopback address.
+	IPv4Loopback uint32 `config:"ipv4_loopback"`
 }
 
 func NewBPFNode() *BPFNode {
-	return &BPFNode{}
+	return &BPFNode{0x1ffff50a}
 }

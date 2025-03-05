@@ -17,6 +17,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -76,6 +77,11 @@ func (l *loader) writeNodeConfigHeader(cfg *datapath.LocalNodeConfiguration) err
 
 func (l *loader) populateBPFNodeConfig(cfg *datapath.LocalNodeConfiguration) error {
 	cfg.BPFNode = *config.NewBPFNode()
+	if option.Config.EnableIPv4 {
+		loopbackIPv4 := cfg.LoopbackIPv4
+		cfg.BPFNode.IPv4Loopback = byteorder.NetIPv4ToHost32(loopbackIPv4)
+	}
+
 	return nil
 }
 
