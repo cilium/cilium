@@ -4,6 +4,7 @@ steps:
     params:
       action: start
       instance: {{ .instance }}
+      replicas: {{ .replicas }}
       metricsSuffix: {{ .metricsSuffix }}
 
 - name: Create EGW client Pods
@@ -43,4 +44,5 @@ steps:
     params:
       action: gather
       instance: {{ .instance }}
+      replicas: {{ .replicas }}
       metricsSuffix: {{ .metricsSuffix }}
