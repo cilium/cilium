@@ -1,53 +1,83 @@
 steps:
 - name: "{{ .action }} masquerade delay metrics"
   measurements:
-  - Identifier: EGWMasqueradeDelayMetrics{{ .metricsSuffix }}
+  - Identifier: MasqueradeDelay{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Masquerade Delay Metrics ({{ .metricsSuffix }})"
+      metricName: Masquerade Delay {{ .metricsSuffix }}
       metricVersion: v1
       unit: s
       enableViolations: true
       queries:
-      - name: EGW Masquerade Delay - 50th Percentile
+      - name: P50
         query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
         threshold: 1
-      - name: EGW Masquerade Delay - 90th Percentile
+      - name: P90
         query: quantile(0.9, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
         threshold: 1
-      - name: EGW Masquerade Delay - 95th Percentile
+      - name: P95
         query: quantile(0.95, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
         threshold: 2
-      - name: EGW Masquerade Delay - 99th Percentile
+      - name: P99
         query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
         threshold: 2
 
-  - Identifier: EGWLeakedPingsTotal{{ .metricsSuffix }}
+  - Identifier: MasqueradeDelayLeakedPingsTotal{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Leaked Pings Total ({{ .metricsSuffix }})"
+      metricName: Masquerade Delay {{ .metricsSuffix }} - Leaked Pings Total
       metricVersion: v1
       unit: count
       enableViolations: true
       queries:
-      - name: EGW Leaked Pings - Total
+      - name: Total
         query: sum(egw_scale_test_leaked_requests_total{k8s_instance="{{ .instance }}"})
 
-  - Identifier: EGWPodCountMetrics{{ .metricsSuffix }}
+  - Identifier: MasqueradeDelayPodCount{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "EGW Pod Count Metrics ({{ .metricsSuffix }})"
+      metricName: Masquerade Delay {{ .metricsSuffix }} - Pod Count
       metricVersion: v1
       unit: pod
       enableViolations: true
       queries:
-      - name: EGW Total Number of Client Pods
+      - name: Total
         query: count(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
         threshold: {{ .replicas }}
         lowerBound: true
-      - name: EGW Total Number of Failed Client Pods
+      - name: Failed
         query: sum(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
         threshold: 0
+
+  - Identifier: MasqueradeDelayCiliumCPUUsage{{ .metricsSuffix }}
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{ .action }}
+      metricName: Masquerade Delay {{ .metricsSuffix }} - Cilium CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: true
+      queries:
+      - name: P50
+        query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+      - name: Max
+        query: max(avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        threshold: 0.15
+
+  - Identifier: MasqueradeDelayCiliumMemUsage{{ .metricsSuffix }}
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{ .action }}
+      metricName: Masquerade Delay {{ .metricsSuffix }} - Cilium Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: true
+      queries:
+      - name: P50
+        query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+      - name: Max
+        query: max(max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        threshold: 260
