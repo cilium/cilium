@@ -20,9 +20,9 @@ var Cell = cell.Module(
 )
 
 type ProxyAccessLoggerConfig struct {
-	// AgentLabels []string
+	AgentLabels []string
 }
 
 func (r ProxyAccessLoggerConfig) Flags(flags *pflag.FlagSet) {
-	// flags.StringSlice("agent-labels", []string{}, "AgentLabels are additional labels to identify this agent")
+	flags.StringSlice("agent-labels", []string{}, "Additional labels to identify this agent in monitor events")
 }
