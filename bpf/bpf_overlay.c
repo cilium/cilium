@@ -594,6 +594,11 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
+#ifdef IP_TRACING_OPTION_TYPE
+	if (IP_TRACING_OPTION_TYPE > 0)
+		check_and_store_ip_trace_id(ctx, IP_TRACING_OPTION_TYPE);
+#endif
+
 	bpf_clear_meta(ctx);
 	ctx_skip_nodeport_clear(ctx);
 
