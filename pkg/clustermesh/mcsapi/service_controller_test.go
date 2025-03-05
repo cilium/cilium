@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +24,6 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -250,7 +250,7 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		Build()
 	r := &mcsAPIServiceReconciler{
 		Client:      c,
-		Logger:      logging.DefaultLogger,
+		Logger:      hivetest.Logger(t),
 		clusterName: "cluster1",
 	}
 

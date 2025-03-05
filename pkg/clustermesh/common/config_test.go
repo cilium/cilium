@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/renameio/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,7 +124,7 @@ func TestWatchConfigDirectory(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(dataDir, "cluster2"), file2))
 
 	cm := newFakeLifecycle()
-	watcher, err := createConfigDirectoryWatcher(baseDir, cm)
+	watcher, err := createConfigDirectoryWatcher(hivetest.Logger(t), baseDir, cm)
 	require.NoError(t, err, "Failed to create configuration watcher")
 	t.Cleanup(watcher.close)
 
@@ -196,7 +197,7 @@ func TestWatchConfigDirectory(t *testing.T) {
 	require.ElementsMatch(t, wl, []string{baseDir})
 
 	// Attempting to watch a non existing directory should return an error
-	_, err = createConfigDirectoryWatcher(filepath.Join(baseDir, "non-existing"), cm)
+	_, err = createConfigDirectoryWatcher(hivetest.Logger(t), filepath.Join(baseDir, "non-existing"), cm)
 	require.Error(t, err, "Attempting to watch a non existing directory should return an error")
 }
 

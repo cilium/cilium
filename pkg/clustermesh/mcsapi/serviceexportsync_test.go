@@ -165,6 +165,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		ExportCreationTimestamp: exportTime,
 	}))
 	go StartSynchronizingServiceExports(ctx, ServiceExportSyncParameters{
+		Logger:                  hivetest.Logger(t),
 		ClusterName:             "cluster1",
 		ClusterMeshEnableMCSAPI: true,
 		Clientset:               clientset,

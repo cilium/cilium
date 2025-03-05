@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net"
 	"net/netip"
@@ -1293,6 +1294,27 @@ func BindEnvWithLegacyEnvFallback(vp *viper.Viper, optName, legacyEnvName string
 		envName = legacyEnvName
 	}
 	vp.BindEnv(optName, envName)
+}
+
+// LogRegisteredSlogOptions logs all options that where bound to viper.
+func LogRegisteredSlogOptions(vp *viper.Viper, entry *slog.Logger) {
+	keys := vp.AllKeys()
+	slices.Sort(keys)
+	for _, k := range keys {
+		ss := vp.GetStringSlice(k)
+		if len(ss) == 0 {
+			sm := vp.GetStringMap(k)
+			for k, v := range sm {
+				ss = append(ss, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+
+		if len(ss) > 0 {
+			entry.Info(fmt.Sprintf("  --%s='%s'", k, strings.Join(ss, ",")))
+		} else {
+			entry.Info(fmt.Sprintf("  --%s='%s'", k, vp.GetString(k)))
+		}
+	}
 }
 
 // LogRegisteredOptions logs all options that where bound to viper.
