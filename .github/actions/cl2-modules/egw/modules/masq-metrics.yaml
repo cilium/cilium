@@ -46,6 +46,8 @@ steps:
       queries:
       - name: EGW Total Number of Client Pods
         query: count(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
+        threshold: {{ .replicas }}
+        lowerBound: true
       - name: EGW Total Number of Failed Client Pods
         query: sum(egw_scale_test_failed_tests_total{k8s_instance="{{ .instance }}"})
         threshold: 0
