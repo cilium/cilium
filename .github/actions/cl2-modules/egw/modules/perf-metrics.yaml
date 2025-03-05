@@ -1,11 +1,11 @@
 steps:
 - name: "{{ .action }} node metrics"
   measurements:
-  - Identifier: NodeCPUUsage
+  - Identifier: PerfNodeCPUUsage
     Method: GenericPrometheusQuery
     Params:
       action: {{ .action }}
-      metricName: "Node CPU Usage"
+      metricName: Perf Node CPU Usage
       metricVersion: v1
       unit: cpu
       enableViolations: true
