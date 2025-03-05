@@ -224,6 +224,7 @@ icmp4_handle_fragmentation(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	bool is_fragment, not_first_fragment;
 	struct ipv4_frag_id frag_id;
 	enum metric_dir mdir = ct_to_metrics_dir(ct_dir);
+	int res;
 
 	/* fill the key */
 	frag_id.daddr = ip4->daddr;
@@ -244,7 +245,7 @@ icmp4_handle_fragmentation(struct __ctx_buff *ctx, const struct iphdr *ip4,
 			update_metrics(ctx_full_len(ctx), mdir, REASON_FRAG_PACKET);
 
 			/* load identifier from frag map */
-			int res = ipv4_frag_get_l4ports(&frag_id, &ports);
+			res = ipv4_frag_get_l4ports(&frag_id, &ports);
 
 			if (res < 0)
 				return res;
@@ -256,8 +257,8 @@ icmp4_handle_fragmentation(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	}
 	}
 
-	int res = icmp4_load_info_from_header(ctx, l4_off, type, code,
-					  identifier);
+	res = icmp4_load_info_from_header(ctx, l4_off, type, code,
+		identifier);
 	if (res < 0)
 		return res;
 
