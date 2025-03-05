@@ -31,6 +31,8 @@
 #define AF_INET	 2
 #define AF_INET6 10
 
+#define PORT_VXLAN     8472
+#define PORT_GENEVE    6081
 #define PORT_DNS       53
 #define PORT_WIREGUARD 51871
 
@@ -85,6 +87,7 @@ kprobe:br_forward
 {
   $skb = ((struct sk_buff *) arg1);
 
+  $encap = false;
   $proto = bswap($skb->protocol);
   $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
   $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
@@ -92,7 +95,13 @@ kprobe:br_forward
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
   $icmph = ((struct icmphdr*) ($skb->head + $skb->transport_header));
 
-  if ($skb->encapsulation) {
+  // $skb->encapsulation might be zero in case of manual vxlan/geneve push
+  // despite its $skb->inner_X references are correct.
+  // Therefore, we need to manually check for UDP vxlan/geneve.
+  if ($skb->encapsulation ||
+      (($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_UDP) || ($proto == PROTO_IPV6 && $ip6h->nexthdr != PROTO_UDP)) &&
+        (bswap($udph->source) == PORT_VXLAN || bswap($udph->dest) == PORT_VXLAN) ||
+        (bswap($udph->source) == PORT_GENEVE || bswap($udph->dest) == PORT_GENEVE)) {
     // $skb->inner_protocol does not appear to be correctly initialized
     $proto = bswap(*((uint16*) ($skb->head + $skb->inner_mac_header + 12)));
     $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
@@ -100,6 +109,7 @@ kprobe:br_forward
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
     $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
+    $encap = true;
   }
 
   if ($proto == PROTO_IPV4) {
@@ -133,7 +143,7 @@ kprobe:br_forward
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %5d, proto: %d, encap: %d, iif: %d, netns: %x, proxy: %d, srcPod: %d(%d), dstPod: %d(%d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %5d, proto: %d, encap: %d(%d), iif: %d, netns: %x, proxy: %d, srcPod: %d(%d), dstPod: %d(%d))\n",
             $time, $skb,
             ntop($ip4h->saddr),
             $ip4h->protocol == PROTO_TCP || $ip4h->protocol == PROTO_UDP ? bswap($udph->source) : 0,
@@ -141,7 +151,7 @@ kprobe:br_forward
             $ip4h->protocol == PROTO_TCP || $ip4h->protocol == PROTO_UDP ? bswap($udph->dest) : 0,
             bswap($ip4h->tot_len),
             $ip4h->protocol,
-            $skb->encapsulation,
+            $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy,
@@ -215,7 +225,7 @@ kprobe:br_forward
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %5d, proto: %d, encap: %d, iif: %d, netns: %x, proxy: %d, src_pod: %d(%d), dst_pod: %d(%d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %5d, proto: %d, encap: %d(%d), iif: %d, netns: %x, proxy: %d, src_pod: %d(%d), dst_pod: %d(%d))\n",
             $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8),
             $ip6h->nexthdr == PROTO_TCP || $ip6h->nexthdr == PROTO_UDP ? bswap($udph->source) : 0,
@@ -223,7 +233,7 @@ kprobe:br_forward
             $ip6h->nexthdr == PROTO_TCP || $ip6h->nexthdr == PROTO_UDP ? bswap($udph->dest) : 0,
             bswap($ip6h->payload_len),
             $ip6h->nexthdr,
-            $skb->encapsulation,
+            $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy,
