@@ -153,9 +153,13 @@ kprobe:br_forward
         $ip4h->daddr == (uint32)pton(NODE2_INTERNAL_IPV4) ||
         $ip4h->daddr == (uint32)pton(NODE3_INTERNAL_IPV4);
 
-      $pod_to_pod_via_proxy = @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ?
-                              @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] :
-                              @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
+      // Get default empty null value in case of non TCP/UDP protocol.
+      $pod_to_pod_via_proxy =
+          !($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ?
+          @trace_ip4[$ip4h->saddr, 0, 0] :
+          @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ?
+            @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] :
+            @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
       if (
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
@@ -166,8 +170,10 @@ kprobe:br_forward
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d(%d), iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
             $time, $skb,
-            ntop($ip4h->saddr), bswap($udph->source),
-            ntop($ip4h->daddr), bswap($udph->dest),
+            ntop($ip4h->saddr),
+            ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
+            ntop($ip4h->daddr),
+            ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
             bswap($ip4h->tot_len),
             $ip4h->protocol,
             $encap, $skb->encapsulation,
@@ -235,9 +241,13 @@ kprobe:br_forward
         $ip6h->daddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) ||
         $ip6h->daddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6);
 
-      $pod_to_pod_via_proxy = @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ?
-                              @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] :
-                              @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
+      // Get default empty null value in case of non TCP/UDP protocol.
+      $pod_to_pod_via_proxy =
+          !($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ?
+          @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, 0, 0] :
+          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ?
+            @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] :
+            @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
       if (
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
@@ -248,8 +258,10 @@ kprobe:br_forward
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d(%d), iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
             $time, $skb,
-            ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
-            ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
+            ntop($ip6h->saddr.in6_u.u6_addr8),
+            ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
+            ntop($ip6h->daddr.in6_u.u6_addr8),
+            ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
             bswap($ip6h->payload_len),
             $ip6h->nexthdr,
             $encap, $skb->encapsulation,
