@@ -197,6 +197,7 @@ const DropReason_MULTICAST_HANDLED = flow.DropReason_MULTICAST_HANDLED
 const DropReason_DROP_HOST_NOT_READY = flow.DropReason_DROP_HOST_NOT_READY
 const DropReason_DROP_EP_NOT_READY = flow.DropReason_DROP_EP_NOT_READY
 const DropReason_DROP_NO_EGRESS_IP = flow.DropReason_DROP_NO_EGRESS_IP
+const DropReason_DROP_PUNT_PROXY = flow.DropReason_DROP_PUNT_PROXY
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
