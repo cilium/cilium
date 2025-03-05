@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path"
@@ -14,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -32,8 +32,7 @@ import (
 const EtcdBinaryLocation = "/usr/bin/etcd"
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "etcdinit")
-	vp  = viper.New()
+	vp = viper.New()
 )
 
 func NewCmd() *cobra.Command {
@@ -41,11 +40,13 @@ func NewCmd() *cobra.Command {
 		Use:   "etcdinit",
 		Short: "Initialize an etcd data directory for use by the etcd sidecar of clustermesh-apiserver",
 		PreRun: func(cmd *cobra.Command, args []string) {
-			option.LogRegisteredOptions(vp, log)
-			log.Infof("Cilium ClusterMesh etcd init %s", version.Version)
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
+			option.LogRegisteredSlogOptions(vp, log)
+			log.Info("Cilium ClusterMesh etcd init", logfields.Version, version.Version)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			err := InitEtcdLocal()
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcdinit")
+			err := InitEtcdLocal(log)
 			// The error has already been handled and logged by InitEtcdLocal. We just use it to determine the exit code
 			if err != nil {
 				os.Exit(-1)
@@ -66,7 +67,7 @@ func NewCmd() *cobra.Command {
 	return rootCmd
 }
 
-func InitEtcdLocal() (returnErr error) {
+func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 	// Get configuration values
 	etcdDataDir := vp.GetString("etcd-data-dir")
 	etcdInitialClusterToken := vp.GetString("etcd-initial-cluster-token")
@@ -75,14 +76,14 @@ func InitEtcdLocal() (returnErr error) {
 	debug := vp.GetBool("debug")
 	timeout := vp.GetDuration("timeout")
 	// We have returnErr has a named variable, so we can set it in the deferred cleanup function if needed
-	log.WithFields(logrus.Fields{
-		"timeout":                 timeout,
-		"etcdDataDir":             etcdDataDir,
-		"etcdClusterName":         etcdClusterName,
-		logfields.ClusterName:     ciliumClusterName,
-		"etcdInitialClusterToken": etcdInitialClusterToken,
-	}).
-		Info("Starting first-time initialisation of etcd for Cilium Clustermesh")
+	log.Info(
+		"Starting first-time initialisation of etcd for Cilium Clustermesh",
+		logfields.Timeout, timeout,
+		logfields.EtcdDataDir, etcdDataDir,
+		logfields.EtcdClusterName, etcdClusterName,
+		logfields.ClusterName, ciliumClusterName,
+		logfields.EtcdInitialClusterToken, etcdInitialClusterToken,
+	)
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
 	defer cancelFn()
@@ -96,27 +97,35 @@ func InitEtcdLocal() (returnErr error) {
 	// delete the contents of the data directory before we start. It should be empty as we use a Kubernetes emptyDir for
 	// this purpose, but if the initialization failed Kubernetes may re-run this operation and emptyDir is tied to the
 	// lifecycle of the whole pod. Therefore, it could contain files from a previously failed initialization attempt.
-	log.WithField("etcdDataDir", etcdDataDir).
-		Info("Deleting contents of data directory")
+	log.Info(
+		"Deleting contents of data directory",
+		logfields.EtcdDataDir, etcdDataDir,
+	)
 	// We don't use os.RemoveAll on the etcdDataDirectory because we don't want to remove the directory itself, just
 	// everything inside of it. In most cases that directory will be a mount anyway.
 	dir, err := os.ReadDir(etcdDataDir)
 	if err != nil {
-		log.WithField("etcdDataDir", etcdDataDir).
-			WithError(err).
-			Error("Failed to read from the etcd data directory while attempting to delete existing files")
+		log.Info(
+			"Failed to read from the etcd data directory while attempting to delete existing files",
+			logfields.Error, err,
+			logfields.EtcdDataDir, etcdDataDir,
+		)
 		return err
 	}
 	for _, d := range dir {
-		log.WithField("etcdDataDir", etcdDataDir).
-			WithField("path", d.Name()).
-			Debug("Removing file/directory in data dir")
+		log.Debug(
+			"Removing file/directory in data dir",
+			logfields.EtcdDataDir, etcdDataDir,
+			logfields.Path, d.Name(),
+		)
 		err = os.RemoveAll(path.Join(etcdDataDir, d.Name()))
 		if err != nil {
-			log.WithField("etcdDataDir", etcdDataDir).
-				WithField("path", d.Name()).
-				WithError(err).
-				Error("Failed to remove pre-existing file/directory in etcd data directory")
+			log.Error(
+				"Failed to remove pre-existing file/directory in etcd data directory",
+				logfields.Error, err,
+				logfields.EtcdDataDir, etcdDataDir,
+				logfields.Path, d.Name(),
+			)
 			return err
 		}
 	}
@@ -124,13 +133,13 @@ func InitEtcdLocal() (returnErr error) {
 	// Use "localhost" (instead of "http://127.0.0.1:2379" or "http://[::1]:2379") so it works in both the IPv4 and
 	// IPv6 cases.
 	loopbackEndpoint := "http://localhost:2379"
-	log.WithFields(logrus.Fields{
-		"etcdDataDir":             etcdDataDir,
-		"etcdListenClientUrl":     loopbackEndpoint,
-		"etcdClusterName":         etcdClusterName,
-		"etcdInitialClusterToken": etcdInitialClusterToken,
-	}).
-		Info("Starting localhost-only etcd process")
+	log.Info(
+		"Starting localhost-only etcd process",
+		logfields.EtcdDataDir, etcdDataDir,
+		logfields.EtcdListenClientUrl, loopbackEndpoint,
+		logfields.EtcdClusterName, etcdClusterName,
+		logfields.EtcdInitialClusterToken, etcdInitialClusterToken,
+	)
 	// Specify the full path to the etcd binary to avoid any PATH search binary replacement nonsense
 	etcdCmd := exec.CommandContext(ctx, EtcdBinaryLocation,
 		fmt.Sprintf("--data-dir=%s", etcdDataDir),
@@ -139,42 +148,51 @@ func InitEtcdLocal() (returnErr error) {
 		fmt.Sprintf("--advertise-client-urls=%s", loopbackEndpoint),
 		fmt.Sprintf("--initial-cluster-token=%s", etcdInitialClusterToken),
 		"--initial-cluster-state=new")
-	log.WithField("etcdBinary", EtcdBinaryLocation).
-		WithField("etcdFlags", etcdCmd.Args).
-		Debug("Executing etcd")
+
+	log.Debug(
+		"Executing etcd",
+		logfields.EtcdBinary, EtcdBinaryLocation,
+		logfields.EtcdFlags, etcdCmd.Args,
+	)
 
 	// Exec the etcd binary, which ultimately calls fork(2) under the hood. We don't wait on its completion, because
 	// it'll never complete of course.
 	err = etcdCmd.Start()
 	if err != nil {
-		log.WithField("etcdBinary", EtcdBinaryLocation).
-			WithField("etcdFlags", etcdCmd.Args).
-			WithError(err).
-			Error("Failed to launch etcd process")
+		log.Error(
+			"Failed to launch etcd process",
+			logfields.Error, err,
+			logfields.EtcdBinary, EtcdBinaryLocation,
+			logfields.EtcdFlags, etcdCmd.Args,
+		)
 		return err
 	}
 	etcdPid := etcdCmd.Process.Pid
-	log.WithField("etcdPID", etcdPid).
-		Info("Local etcd server process started")
+	log.Info(
+		"Local etcd server process started",
+		logfields.PID, etcdPid,
+	)
 
 	// Defer etcd process cleanup
 	defer func() {
-		log := log.WithField("etcdPID", etcdPid)
-		log.Debug("Cleaning up etcd process")
+		scopedLog := log.With(logfields.PID, etcdPid)
+		scopedLog.Debug("Cleaning up etcd process")
 		// Send the process a SIGTERM. SIGTERM is the "gentle" shutdown signal, and etcd should close down its resources
 		// cleanly and then exit.
-		log.Info("Sending SIGTERM signal to etcd process")
+		scopedLog.Info("Sending SIGTERM signal to etcd process")
 		err := etcdCmd.Process.Signal(syscall.SIGTERM)
 		if err != nil {
-			log.WithError(err).
-				Error("Failed to send SIGTERM signal to etcd process")
+			scopedLog.Error(
+				"Failed to send SIGTERM signal to etcd process",
+				logfields.Error, err,
+			)
 			// Return both this error, and the main function's return error (if there is one).
 			returnErr = errors.Join(returnErr, err)
 			return
 		}
 
 		// Wait for the etcd process to finish, and cleanup resources.
-		log.Info("Waiting for etcd process to exit")
+		scopedLog.Info("Waiting for etcd process to exit")
 		err = etcdCmd.Wait()
 		if err != nil {
 			exitError := &exec.ExitError{}
@@ -187,8 +205,9 @@ func InitEtcdLocal() (returnErr error) {
 						// will just say "context cancelled" and not be useful — and possibly even misleading. It's
 						// possible that the timeout expires at the moment between etcd exiting normally and this check,
 						// which would report a false error. That's very unlikely, so we don't worry about it here.
-						log.WithField("timeout", timeout).
-							Error("etcd exited, but our context has expired. etcd may have been terminated due to timeout. Consider increasing the value of the timeout using the --timeout flag or CILIUM_TIMEOUT environment variable.")
+						scopedLog.Error("etcd exited, but our context has expired. etcd may have been terminated due to timeout. Consider increasing the value of the timeout using the --timeout flag or CILIUM_TIMEOUT environment variable.",
+							logfields.Timeout, timeout,
+						)
 						// Return both this error, and the main function's return error (if there is one). This is just
 						// to make sure that the calling code correctly detects that an error occurs.
 						returnErr = errors.Join(returnErr, ctx.Err())
@@ -196,25 +215,29 @@ func InitEtcdLocal() (returnErr error) {
 					}
 					// This is the "good state", the context hasn't expired, the etcd process has exited, and we're
 					// okay with a nonzero exit code because we exited it with a SIGTERM.
-					log.Info("etcd process exited")
+					scopedLog.Info("etcd process exited")
 					return
 				}
-				log.WithError(err).
-					WithField("etcdExitCode", exitError.ExitCode()).
-					Error("etcd process exited improperly")
+				scopedLog.Error(
+					"etcd process exited improperly",
+					logfields.Error, err,
+					logfields.EtcdExitCode, exitError.ExitCode(),
+				)
 				// Return both this error, and the main function's return error (if there is one).
 				returnErr = errors.Join(returnErr, err)
 				return
 			} else {
 				// Some other kind of error
-				log.WithError(err).
-					Error("Failed to wait on etcd process finishing")
+				scopedLog.Error(
+					"Failed to wait on etcd process finishing",
+					logfields.Error, err,
+				)
 				// Return both this error, and the main function's return error (if there is one).
 				returnErr = errors.Join(returnErr, err)
 				return
 			}
 		}
-		log.Info("etcd process exited")
+		scopedLog.Info("etcd process exited")
 	}()
 
 	// With the etcd server process launched, we need to construct an etcd client
@@ -223,25 +246,30 @@ func InitEtcdLocal() (returnErr error) {
 		Context:   ctx,
 		Endpoints: []string{loopbackEndpoint},
 	}
-	log.WithField("etcdClientConfig", fmt.Sprintf("%+v", config)).
-		Debug("Constructed etcd client config")
+	log.Debug("Constructed etcd client config", logfields.EtcdClientConfig, config)
 	etcdClient, err := clientv3.New(config)
 	if err != nil {
-		log.WithField("etcdClientConfig", fmt.Sprintf("%+v", config)).
-			WithError(err).
-			Error("Failed to construct etcd client from configuration")
+		log.Error(
+			"Failed to construct etcd client from configuration",
+			logfields.Error, err,
+			logfields.EtcdClientConfig, config,
+		)
 		return err
 	}
 	defer etcdClient.Close()
 
 	// Run the init commands
-	log.WithField(logfields.ClusterName, ciliumClusterName).
-		Info("Starting etcd init")
+	log.Info(
+		"Starting etcd init",
+		logfields.ClusterName, ciliumClusterName,
+	)
 	err = kvstoreEtcdInit.ClusterMeshEtcdInit(ctx, log, etcdClient, ciliumClusterName)
 	if err != nil {
-		log.WithError(err).
-			WithField(logfields.ClusterName, ciliumClusterName).
-			Error("Failed to initialise etcd")
+		log.Error(
+			"Failed to initialise etcd",
+			logfields.Error, err,
+			logfields.ClusterName, ciliumClusterName,
+		)
 		return err
 	}
 	log.Info("Etcd init completed")

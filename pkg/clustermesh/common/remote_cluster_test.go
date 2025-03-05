@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -49,6 +50,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	var statusfn StatusFunc
 	ready := make(chan struct{}, 1)
 	cm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statusfn = sf

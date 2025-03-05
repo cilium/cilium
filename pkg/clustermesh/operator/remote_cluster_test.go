@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -88,13 +88,11 @@ func TestRemoteClusterStatus(t *testing.T) {
 			})
 
 			metrics := NewMetrics()
-			logger := logrus.New()
+			logger := hivetest.Logger(t)
 			cm := clusterMesh{
-				logger:       logger,
-				storeFactory: st,
-				globalServices: common.NewGlobalServiceCache(
-					metrics.TotalGlobalServices.WithLabelValues("foo"),
-				),
+				logger:         logger,
+				storeFactory:   st,
+				globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 				globalServiceExports: NewGlobalServiceExportCache(
 					metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 				),
@@ -191,13 +189,11 @@ func TestRemoteClusterHooks(t *testing.T) {
 	})
 	st := store.NewFactory(store.MetricsProvider())
 	metrics := NewMetrics()
-	logger := logrus.New()
+	logger := hivetest.Logger(t)
 	cm := clusterMesh{
-		logger:       logger,
-		storeFactory: st,
-		globalServices: common.NewGlobalServiceCache(
-			metrics.TotalGlobalServices.WithLabelValues("foo"),
-		),
+		logger:         logger,
+		storeFactory:   st,
+		globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
 		globalServiceExports: NewGlobalServiceExportCache(
 			metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
 		),
