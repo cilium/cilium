@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
@@ -196,6 +197,8 @@ type Daemon struct {
 	maglevConfig maglev.Config
 
 	explbConfig experimental.Config
+
+	dnsProxy defaultdns.Proxy
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -416,6 +419,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		maglevConfig:      params.MaglevConfig,
 		dnsNameManager:    params.NameManager,
 		explbConfig:       params.ExpLBConfig,
+		dnsProxy:          params.DNSProxy,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -572,10 +576,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
-	if proxy.DefaultDNSProxy != nil {
+
+	if dnsProxy := d.dnsProxy.Get(); dnsProxy != nil {
 		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
 		cleaner.preCleanupFuncs.Add(func() {
-			proxy.DefaultDNSProxy.Cleanup()
+			dnsProxy.Cleanup()
 		})
 	}
 
