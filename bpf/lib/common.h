@@ -658,6 +658,8 @@ enum {
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
+#define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
+
 #define NAT_NEEDED		CTX_ACT_OK
 #define NAT_46X64_RECIRC	100
 

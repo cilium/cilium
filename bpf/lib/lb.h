@@ -1107,7 +1107,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	if (lb6_svc_is_l7_punt_proxy(svc)) {
 		if (__lookup_ip6_endpoint(&backend->address)) {
-			ret = DROP_PUNT_PROXY;
+			ret = LB_PUNT_TO_STACK;
 			goto drop_err;
 		}
 	}
@@ -1900,7 +1900,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 	if (lb4_svc_is_l7_punt_proxy(svc)) {
 		if (__lookup_ip4_endpoint(backend->address)) {
-			ret = DROP_PUNT_PROXY;
+			ret = LB_PUNT_TO_STACK;
 			goto drop_err;
 		}
 	}
