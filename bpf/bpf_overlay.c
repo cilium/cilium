@@ -732,6 +732,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	__be16 __maybe_unused proto = 0;
 	__s8 ext_err = 0;
 
+	bpf_clear_meta(ctx);
+
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
 
