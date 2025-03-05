@@ -6,10 +6,10 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -57,7 +57,7 @@ func (r cecConfig) Flags(flags *pflag.FlagSet) {
 type reconcilerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Health    cell.Health
@@ -94,9 +94,8 @@ func registerCECK8sReconciler(params reconcilerParams) {
 
 			reconciler.localNodeLabels = localNode.Labels
 
-			params.Logger.
-				WithField(logfields.Labels, reconciler.localNodeLabels).
-				Debug("Retrieved initial labels from local Node")
+			params.Logger.Debug("Retrieved initial labels from local Node",
+				logfields.Labels, reconciler.localNodeLabels)
 
 			return nil
 		},
@@ -142,7 +141,7 @@ type CECMetrics interface {
 type managerParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	Config      cecConfig
 	EnvoyConfig envoy.ProxyConfig
