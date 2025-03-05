@@ -7,11 +7,11 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -75,7 +75,7 @@ type Configuration struct {
 
 	FeatureMetrics ClusterMeshMetrics
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 }
 
 // ServiceMerger is the interface to be implemented by the owner of local
@@ -140,12 +140,14 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		conf:     c,
 		nodeName: nodeName,
 		globalServices: common.NewGlobalServiceCache(
+			c.Logger,
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
 		FeatureMetrics: c.FeatureMetrics,
 	}
 
 	cm.common = common.NewClusterMesh(common.Configuration{
+		Logger:                       c.Logger,
 		Config:                       c.Config,
 		ClusterInfo:                  c.ClusterInfo,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
@@ -171,7 +173,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		storeFactory:             cm.conf.StoreFactory,
 		remoteIdentityWatcher:    cm.conf.RemoteIdentityWatcher,
 		synced:                   newSynced(),
-		log:                      cm.conf.Logger.WithField(logfields.ClusterName, name),
+		log:                      cm.conf.Logger.With(logfields.ClusterName, name),
 		featureMetrics:           cm.FeatureMetrics,
 		featureMetricMaxClusters: fmt.Sprintf("%d", cm.conf.ClusterInfo.MaxConnectedClusters),
 	}
@@ -264,7 +266,7 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 		// and continue normally, as if the synchronization completed successfully.
 		// This ensures that we don't block forever in case of misconfigurations.
 		cm.syncTimeoutLogOnce.Do(func() {
-			cm.conf.Logger.Warning("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
+			cm.conf.Logger.Warn("Failed waiting for clustermesh synchronization, expect possible disruption of cross-cluster connections")
 		})
 
 		return nil

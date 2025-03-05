@@ -4,8 +4,6 @@
 package kvstoremesh
 
 import (
-	"log/slog"
-
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -16,17 +14,13 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstoremesh")
-)
-
 func NewCmd(h *hive.Hive) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kvstoremesh",
 		Short: "Run KVStoreMesh",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := h.Run(slog.Default()); err != nil {
-				log.Fatal(err)
+			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -34,8 +28,9 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			metrics.Namespace = metrics.CiliumKVStoreMeshNamespace
 			option.Config.SetupLogging(h.Viper(), "kvstoremesh")
 			option.Config.Populate(h.Viper())
-			option.LogRegisteredOptions(h.Viper(), log)
-			log.Infof("Cilium KVStoreMesh %s", version.Version)
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "kvstoremesh")
+			option.LogRegisteredSlogOptions(h.Viper(), log)
+			log.Info("Cilium KVStoreMesh", logfields.Version, version.Version)
 		},
 	}
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +26,6 @@ import (
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
@@ -504,14 +504,14 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		Build()
 	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
-	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: logging.DefaultLogger}
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
 	for _, svcExport := range remoteSvcImportTestFixtures {
 		globalServiceExports.OnUpdate(svcExport)
 	}
 
 	r := &mcsAPIServiceImportReconciler{
 		Client:                     c,
-		Logger:                     logging.DefaultLogger,
+		Logger:                     hivetest.Logger(t),
 		cluster:                    localClusterName,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,

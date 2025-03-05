@@ -6,13 +6,13 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"sync"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -123,7 +123,7 @@ func TestClusterMesh(t *testing.T) {
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          storeFactory,
 		FeatureMetrics:        NewClusterMeshMetricsNoop(),
-		Logger:                logrus.New(),
+		Logger:                slog.Default(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries

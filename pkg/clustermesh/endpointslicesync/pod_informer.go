@@ -5,15 +5,15 @@ package endpointslicesync
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	listersv1 "k8s.io/client-go/listers/core/v1"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/service/store"
@@ -25,12 +25,12 @@ import (
 type meshPodInformer struct {
 	dummyInformer
 
-	logger             logrus.FieldLogger
+	logger             *slog.Logger
 	globalServiceCache *common.GlobalServiceCache
 	handler            cache.ResourceEventHandler
 }
 
-func newMeshPodInformer(logger logrus.FieldLogger, globalServiceCache *common.GlobalServiceCache) *meshPodInformer {
+func newMeshPodInformer(logger *slog.Logger, globalServiceCache *common.GlobalServiceCache) *meshPodInformer {
 	return &meshPodInformer{
 		dummyInformer:      dummyInformer{name: "meshPodInformer", logger: logger},
 		globalServiceCache: globalServiceCache,

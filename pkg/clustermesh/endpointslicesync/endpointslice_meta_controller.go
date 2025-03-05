@@ -5,10 +5,10 @@ package endpointslicesync
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
-	"github.com/sirupsen/logrus"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func endpointSliceCleanupFactory(ctx context.Context, discoveryClient discoveryv
 }
 
 func newEndpointSliceMeshController(
-	ctx context.Context, logger logrus.FieldLogger, cfg EndpointSliceSyncConfig,
+	ctx context.Context, logger *slog.Logger, cfg EndpointSliceSyncConfig,
 	meshPodInformer *meshPodInformer, meshNodeInformer *meshNodeInformer,
 	clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service],
 	globalServices *common.GlobalServiceCache,
