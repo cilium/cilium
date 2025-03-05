@@ -389,7 +389,7 @@ func (d *Daemon) notifyOnDNSMsg(
 			AnswerTypes:       recordTypes,
 		}),
 	)
-	record.Log()
+	d.proxyAccessLogger.Log(record)
 
 	return nil
 }
