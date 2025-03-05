@@ -385,6 +385,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 			}
 
 			var newOverwrittenLegacySource source.Source
+			tunnelPeerIP := prefixInfo.TunnelPeer().IP()
+			encryptKeyUint8 := prefixInfo.EncryptKey().Uint8()
+			epFlagsUint8 := prefixInfo.EndpointFlags().Uint8()
 			if entryExists {
 				// If an entry already exists for this prefix, then we want to
 				// retain its source, if it has been modified by the legacy API.
@@ -407,9 +410,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 				// Note that checking ID alone is insufficient, see GH-24502.
 				if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source &&
 					oldID.overwrittenLegacySource == newOverwrittenLegacySource &&
-					oldTunnelIP.Equal(prefixInfo.TunnelPeer().IP()) &&
-					oldEncryptionKey == prefixInfo.EncryptKey().Uint8() &&
-					oldEndpointFlags == prefixInfo.EndpointFlags().Uint8() {
+					oldTunnelIP.Equal(tunnelPeerIP) &&
+					oldEncryptionKey == encryptKeyUint8 &&
+					oldEndpointFlags == epFlagsUint8 {
 					goto releaseIdentity
 				}
 			}
@@ -426,9 +429,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 					// Note: `modifiedByLegacyAPI` and `shadowed` will be
 					// set by the upsert call itself
 				},
-				tunnelPeer:    prefixInfo.TunnelPeer().IP(),
-				encryptKey:    prefixInfo.EncryptKey().Uint8(),
-				endpointFlags: prefixInfo.EndpointFlags().Uint8(),
+				tunnelPeer:    tunnelPeerIP,
+				encryptKey:    encryptKeyUint8,
+				endpointFlags: epFlagsUint8,
 				// IPCache.Upsert() and friends currently require a
 				// Source to be provided during upsert. If the old
 				// Source was higher precedence due to labels that
