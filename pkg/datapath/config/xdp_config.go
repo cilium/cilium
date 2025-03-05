@@ -9,6 +9,7 @@ package config
 // not instantiate directly! Always use [NewBPFXDP] to ensure the default values
 // configured in the ELF are honored.
 type BPFXDP struct {
+	BPFNode
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
@@ -29,5 +30,5 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP() *BPFXDP {
-	return &BPFXDP{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	return &BPFXDP{*NewBPFNode(), 0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 }

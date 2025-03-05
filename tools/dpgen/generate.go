@@ -107,6 +107,9 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 		b.WriteString(wrapString(comment, "// "))
 	}
 	b.WriteString(fmt.Sprintf("type %s struct {\n", name))
+	if kind == "kind:object" {
+		b.WriteString(fmt.Sprintf("\tBPFNode\n"))
+	}
 
 	for _, f := range fields {
 		b.WriteString(f.comment)
@@ -125,6 +128,9 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	b.WriteString(fmt.Sprintf("\nfunc New%s() *%s {\n", name, name))
 	b.WriteString(fmt.Sprintf("\treturn &%s{", name))
 	var vals []string
+	if kind == "kind:object" {
+		vals = append(vals, "*NewBPFNode()")
+	}
 	for _, f := range fields {
 		vals = append(vals, f.defValue)
 	}

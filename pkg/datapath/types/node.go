@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -28,6 +29,7 @@ type MTUConfiguration interface {
 //
 // +deepequal-gen=true
 type LocalNodeConfiguration struct {
+	config.BPFNode
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
 	NodeIPv4 net.IP

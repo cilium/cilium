@@ -12,7 +12,7 @@
  * without needing to recompile the datapath. Access the variable using the
  * CONFIG() macro.
  */
-#define DECLARE_CONFIG(type, name, description) \
+#define _DECLARE_CONFIG(type, name, description, kind) \
 	/* Emit the variable to the .rodata.config section. The compiler will emit a
 	 * BTF Datasec referring to all variables in this section, making them
 	 * convenient to iterate through for generating config scaffolding in Go.
@@ -23,7 +23,7 @@
 	 * selects only these variables. Node configs use a different kind and
 	 * are emitted to another struct.
 	 */ \
-	__attribute__((btf_decl_tag("kind:object"))) \
+	__attribute__((btf_decl_tag("kind:" kind))) \
 	/* Assign the config variable a BTF decl tag containing its description. This
 	 * allows including doc comments in code generated from BTF.
 	 */ \
@@ -34,6 +34,10 @@
 	 */ \
 	volatile const type __config_##name;
 
+#define DECLARE_CONFIG(type, name, description) \
+	_DECLARE_CONFIG(type, name, description, "object")
+#define DECLARE_NODE_CONFIG(type, name, description) \
+	_DECLARE_CONFIG(type, name, description, "node")
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
  * Can be used only once per config variable within a single compilation unit.
  */

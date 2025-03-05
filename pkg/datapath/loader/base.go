@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -70,6 +71,11 @@ func (l *loader) writeNodeConfigHeader(cfg *datapath.LocalNodeConfiguration) err
 	if err = l.templateCache.WriteNodeConfig(f, cfg); err != nil {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
+	return nil
+}
+
+func (l *loader) populateBPFNodeConfig(cfg *datapath.LocalNodeConfiguration) error {
+	cfg.BPFNode = *config.NewBPFNode()
 	return nil
 }
 
@@ -440,6 +446,11 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 
 	if err := l.writeNodeConfigHeader(cfg); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
+		return err
+	}
+
+	if err := l.populateBPFNodeConfig(cfg); err != nil {
+		log.WithError(err).Error("Unable to populate BPF node config")
 		return err
 	}
 

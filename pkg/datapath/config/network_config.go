@@ -9,8 +9,9 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	BPFNode
 }
 
 func NewBPFNetwork() *BPFNetwork {
-	return &BPFNetwork{}
+	return &BPFNetwork{*NewBPFNode()}
 }
