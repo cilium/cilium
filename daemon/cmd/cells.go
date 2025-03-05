@@ -67,6 +67,7 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -140,6 +141,10 @@ var (
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
 		shellCell,
+
+		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
+		// pacakges.
+		defaultdns.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

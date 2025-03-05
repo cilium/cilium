@@ -99,6 +99,7 @@ import (
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
@@ -1585,6 +1586,7 @@ type daemonParams struct {
 	MaglevConfig        maglev.Config
 	NameManager         namemanager.NameManager
 	ExpLBConfig         experimental.Config
+	DNSProxy            defaultdns.Proxy
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
