@@ -32,18 +32,19 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type agentHandle struct {
-	t         *testing.T
-	db        *statedb.DB
-	nodeAddrs statedb.Table[datapathTables.NodeAddress]
-	d         *cmd.Daemon
-	p         promise.Promise[*cmd.Daemon]
-	fnh       *fakeTypes.FakeNodeHandler
-	flbMap    *mockmaps.LBMockMap
+	t            *testing.T
+	db           *statedb.DB
+	nodeAddrs    statedb.Table[datapathTables.NodeAddress]
+	d            *cmd.Daemon
+	p            promise.Promise[*cmd.Daemon]
+	fnh          *fakeTypes.FakeNodeHandler
+	flbMap       *mockmaps.LBMockMap
+	defaultProxy defaultdns.Proxy
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -87,6 +88,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
+		defaultdns.Cell,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler, lbMap *mockmaps.LBMockMap) {
 			h.p = p
 			h.fnh = nh
@@ -136,7 +138,7 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
 
 	if option.Config.EnableL7Proxy {
-		proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
+		h.defaultProxy.Set(fqdnproxy.MockFQDNProxy{})
 	}
 }
 
