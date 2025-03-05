@@ -456,6 +456,8 @@ enum DropReason {
     // An Egress Gateway node matched a packet against an Egress Gateway policy
     // that didn't select a valid Egress IP.
     DROP_NO_EGRESS_IP = 204;
+    // Punt packet to a user space proxy.
+    DROP_PUNT_PROXY = 205;
 }
 
 enum TrafficDirection {
