@@ -1002,7 +1002,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	bool has_l4_header;
+	bool has_l4_header = true;
 	__u64 off, inner_l3_off;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
@@ -1014,8 +1014,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
-
-	has_l4_header = ipv4_has_l4_header(ip4);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
