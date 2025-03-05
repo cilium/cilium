@@ -6,11 +6,11 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
@@ -34,7 +35,7 @@ type ciliumEnvoyConfigManager interface {
 }
 
 type cecManager struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	policyUpdater  *policy.Updater
 	serviceManager service.ServiceManager
@@ -52,7 +53,7 @@ type cecManager struct {
 	metricsManager CECMetrics
 }
 
-func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
+func newCiliumEnvoyConfigManager(logger *slog.Logger,
 	policyUpdater *policy.Updater,
 	serviceManager service.ServiceManager,
 	xdsServer envoy.XDSServer,
@@ -144,7 +145,9 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			// This is the case for the shared CEC in the Cilium namespace, if there is no shared Ingress
 			// present in the cluster.
 			if svc.Listener == "" {
-				r.logger.Infof("Skipping L7LB k8s service redirect for service %s/%s. No Listener found in CEC resources", svc.Namespace, svc.Name)
+				r.logger.Info("Skipping L7LB k8s service redirect for service. No Listener found in CEC resources",
+					logfields.K8sNamespace, svc.Namespace,
+					logfields.ServiceName, svc.Name)
 				continue
 			}
 

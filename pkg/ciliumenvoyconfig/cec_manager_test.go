@@ -5,12 +5,11 @@ package ciliumenvoyconfig
 
 import (
 	"encoding/json"
-	"io"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,10 +61,8 @@ spec:
 `)
 
 func TestParseEnvoySpec(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
@@ -135,10 +132,8 @@ spec:
 `)
 
 func TestParseEnvoySpecWithService(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
+		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
 	}
 
