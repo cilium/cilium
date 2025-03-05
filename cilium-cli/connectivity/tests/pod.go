@@ -211,11 +211,46 @@ func (s *podToPodNoFrag) Name() string {
 func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	client := ct.RandomClientPod()
+
+	var server check.Pod
+	for _, pod := range ct.EchoPods() {
+		// Make sure that the server pod is on another node than client
+		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
+			server = pod
+			break
+		}
+	}
+
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		mtu := s.deriveMTU(ctx, t, ipFam)
+		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
+			payloadSize := mtu - HdrSizeICMPEcho
+			switch ipFam {
+			case features.IPFamilyV4:
+				payloadSize -= HdrSizeIPv4
+			case features.IPFamilyV6:
+				payloadSize -= HdrSizeIPv6
+			}
+			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam,
+				"-M", "do", // DF
+				"-s", strconv.Itoa(payloadSize), // payload size
+			))
+		})
+
+	})
+}
+
+func (s *podToPodNoFrag) deriveMTU(ctx context.Context, t *check.Test, ipFam features.IPFamily) int {
+	client := t.Context().RandomClientPod()
 	var mtu int
 
+	ipFlag := ""
+	if ipFam == features.IPFamilyV6 {
+		ipFlag = " -6"
+	}
 	cmd := []string{
 		"/bin/sh", "-c",
-		"ip route show default | grep -oE 'mtu [^ ]*' | cut -d' ' -f2",
+		fmt.Sprintf("ip%s route show default | grep -oE 'mtu [^ ]*' | cut -d' ' -f2", ipFlag),
 	}
 	t.Debugf("Running %s", strings.Join(cmd, " "))
 	mtuBytes, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace,
@@ -247,31 +282,7 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 	}
 	t.Debugf("Derived MTU: %d", mtu)
 
-	var server check.Pod
-	for _, pod := range ct.EchoPods() {
-		// Make sure that the server pod is on another node than client
-		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
-			server = pod
-			break
-		}
-	}
-
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
-			payloadSize := mtu - HdrSizeICMPEcho
-			switch ipFam {
-			case features.IPFamilyV4:
-				payloadSize -= HdrSizeIPv4
-			case features.IPFamilyV6:
-				payloadSize -= HdrSizeIPv6
-			}
-			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam,
-				"-M", "do", // DF
-				"-s", strconv.Itoa(payloadSize), // payload size
-			))
-		})
-
-	})
+	return mtu
 }
 
 func PodToPodMissingIPCache(opts ...Option) check.Scenario {
@@ -315,6 +326,10 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 			matches := ipcacheGetPat.FindStringSubmatch(output.String())
+			if matches == nil {
+				ct.Warnf(`failed to find IP cache entry: "%s"`, output.String())
+				continue
+			}
 			identity := matches[1]
 			encryptkey := matches[2]
 			tunnelendpoint := matches[3]
