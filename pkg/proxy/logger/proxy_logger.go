@@ -6,8 +6,6 @@ package logger
 import (
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -89,9 +87,9 @@ func (r *proxyAccessLogger) NewLogRecord(t accesslog.FlowType, ingress bool, tag
 }
 
 func (r *proxyAccessLogger) Log(lr *LogRecord) {
-	flowdebug.Log(func() (*logrus.Entry, string) {
-		return lr.getLogFields(), "Logging flow record"
-	})
+	if flowdebug.Enabled() {
+		r.logger.Debug("Logging flow record", lr.getLogFields()...)
+	}
 
 	lr.Metadata = r.metadata
 

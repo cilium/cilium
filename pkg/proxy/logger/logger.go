@@ -7,16 +7,11 @@ import (
 	"context"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
 
 // fields used for structured logging
 const (
@@ -147,29 +142,35 @@ func (logTags) L7(h *accesslog.LogRecordL7) LogTag {
 	}
 }
 
-func (lr *LogRecord) getLogFields() *logrus.Entry {
-	fields := make(logrus.Fields, 8) // at most 8 entries, avoid map grow
+func (lr *LogRecord) getLogFields() []any {
+	fields := []any{}
 
-	fields[FieldType] = lr.Type
-	fields[FieldVerdict] = lr.Verdict
-	fields[FieldMessage] = lr.Info
+	fields = append(fields,
+		FieldType, lr.Type,
+		FieldVerdict, lr.Verdict,
+		FieldMessage, lr.Info,
+	)
 
 	if lr.HTTP != nil {
-		fields[FieldCode] = lr.HTTP.Code
-		fields[FieldMethod] = lr.HTTP.Method
-		fields[FieldURL] = lr.HTTP.URL
-		fields[FieldProtocol] = lr.HTTP.Protocol
-		fields[FieldHeader] = lr.HTTP.Headers
+		fields = append(fields,
+			FieldCode, lr.HTTP.Code,
+			FieldMethod, lr.HTTP.Method,
+			FieldURL, lr.HTTP.URL,
+			FieldProtocol, lr.HTTP.Protocol,
+			FieldHeader, lr.HTTP.Headers,
+		)
 	}
 
 	if lr.Kafka != nil {
-		fields[FieldCode] = lr.Kafka.ErrorCode
-		fields[FieldKafkaAPIKey] = lr.Kafka.APIKey
-		fields[FieldKafkaAPIVersion] = lr.Kafka.APIVersion
-		fields[FieldKafkaCorrelationID] = lr.Kafka.CorrelationID
+		fields = append(fields,
+			FieldCode, lr.Kafka.ErrorCode,
+			FieldKafkaAPIVersion, lr.Kafka.APIVersion,
+			FieldKafkaAPIKey, lr.Kafka.APIKey,
+			FieldKafkaCorrelationID, lr.Kafka.CorrelationID,
+		)
 	}
 
-	return log.WithFields(fields)
+	return fields
 }
 
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.

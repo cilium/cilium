@@ -15,7 +15,6 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
@@ -168,9 +167,12 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			continue
 		}
 
-		flowdebug.Log(func() (*logrus.Entry, string) {
-			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
-		})
+		if flowdebug.Enabled() {
+			s.logger.Debug("Envoy: Received access log message",
+				logfields.PolicyID, pblog.PolicyName,
+				logfields.Value, pblog.String(),
+			)
+		}
 
 		r := s.logRecord(ctx, &pblog)
 
