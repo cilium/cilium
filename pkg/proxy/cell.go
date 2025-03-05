@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
@@ -119,12 +120,14 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 	}
 }
 
-func newDNSProxyIntegration() *dnsProxyIntegration {
+func newDNSProxyIntegration(dnsProxy *defaultdns.Proxy) *dnsProxyIntegration {
 	if !option.Config.EnableL7Proxy {
 		return nil
 	}
 
-	return &dnsProxyIntegration{}
+	return &dnsProxyIntegration{
+		dnsProxy: dnsProxy,
+	}
 }
 
 func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {
