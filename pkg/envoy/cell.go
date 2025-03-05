@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -229,6 +230,7 @@ type accessLogServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	Logger             *slog.Logger
+	AccessLogger       logger.ProxyAccessLogger
 	LocalEndpointStore *LocalEndpointStore
 	EnvoyProxyConfig   ProxyConfig
 }
@@ -239,7 +241,14 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		return nil
 	}
 
-	accessLogServer := newAccessLogServer(params.Logger, GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
+	accessLogServer := newAccessLogServer(
+		params.Logger,
+		params.AccessLogger,
+		GetSocketDir(option.Config.RunDir),
+		params.EnvoyProxyConfig.ProxyGID,
+		params.LocalEndpointStore,
+		params.EnvoyProxyConfig.EnvoyAccessLogBufferSize,
+	)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {

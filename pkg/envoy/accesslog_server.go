@@ -29,6 +29,7 @@ import (
 
 type AccessLogServer struct {
 	logger             *slog.Logger
+	accessLogger       logger.ProxyAccessLogger
 	socketPath         string
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
@@ -36,9 +37,10 @@ type AccessLogServer struct {
 	bufferSize         uint
 }
 
-func newAccessLogServer(logger *slog.Logger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
+func newAccessLogServer(logger *slog.Logger, accessLogger logger.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
 	return &AccessLogServer{
 		logger:             logger,
+		accessLogger:       accessLogger,
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
