@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/stretchr/testify/require"
 
@@ -55,8 +56,8 @@ func (n *testNotifier) NewProxyLogRecord(l *logger.LogRecord) error {
 func TestKafkaLogNoTopic(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
-		logger.SetNotifier(notifier)
-		logRecord(context.Background(), &cilium.LogEntry{
+		accessLogServer := newTestAccessLogServer(t, notifier)
+		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,
@@ -73,8 +74,8 @@ func TestKafkaLogNoTopic(t *testing.T) {
 func TestKafkaLogSingleTopic(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
-		logger.SetNotifier(notifier)
-		logRecord(context.Background(), &cilium.LogEntry{
+		accessLogServer := newTestAccessLogServer(t, notifier)
+		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,
@@ -94,8 +95,8 @@ func TestKafkaLogSingleTopic(t *testing.T) {
 func TestKafkaLogMultipleTopics(t *testing.T) {
 	node.WithTestLocalNodeStore(func() {
 		notifier := &testNotifier{}
-		logger.SetNotifier(notifier)
-		logRecord(context.Background(), &cilium.LogEntry{
+		accessLogServer := newTestAccessLogServer(t, notifier)
+		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
 			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
 				CorrelationId: 76541,
 				ErrorCode:     42,
@@ -109,4 +110,9 @@ func TestKafkaLogMultipleTopics(t *testing.T) {
 		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
 		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`, notifier.kafka[1])
 	})
+}
+
+func newTestAccessLogServer(t *testing.T, notifier logger.LogRecordNotifier) *AccessLogServer {
+	accessLogger := logger.NewProcyAccessLogger(hivetest.Logger(t), logger.ProxyAccessLoggerConfig{}, notifier)
+	return newAccessLogServer(hivetest.Logger(t), accessLogger, "", 0, nil, 0)
 }

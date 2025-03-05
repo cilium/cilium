@@ -172,7 +172,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
 		})
 
-		r := logRecord(ctx, &pblog)
+		r := s.logRecord(ctx, &pblog)
 
 		// Update proxy stats for the endpoint if it still exists
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
@@ -189,7 +189,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}
 }
 
-func logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
+func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -249,12 +249,12 @@ func logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
 		logger.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
-	r.Log()
+	s.accessLogger.Log(r)
 
 	// Each kafka topic needs to be logged separately, log the rest if any
 	for i := range kafkaTopics {
 		kafkaRecord.Topic.Topic = kafkaTopics[i]
-		r.Log()
+		s.accessLogger.Log(r)
 	}
 
 	return r

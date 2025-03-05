@@ -9,9 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -19,13 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
-
-	logMutex lock.Mutex
-	notifier LogRecordNotifier
-	metadata []string
-)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
 
 // fields used for structured logging
 const (
@@ -235,47 +227,6 @@ func (lr *LogRecord) getLogFields() *logrus.Entry {
 	}
 
 	return log.WithFields(fields)
-}
-
-// Log logs a record to the logfile and flushes the buffer
-func (lr *LogRecord) Log() {
-	flowdebug.Log(func() (*logrus.Entry, string) {
-		return lr.getLogFields(), "Logging flow record"
-	})
-
-	logMutex.Lock()
-	lr.Metadata = metadata
-	n := notifier
-	logMutex.Unlock()
-
-	if n != nil {
-		n.NewProxyLogRecord(lr)
-	}
-}
-
-// LogRecordNotifier is the interface to implement LogRecord notifications.
-// Each type that wants to implement this interface must support concurrent calls
-// to the interface methods.
-// Besides, the number of concurrent calls may be very high, so long critical sections
-// should be avoided (i.e.: avoid using a single lock for slow logging operations).
-type LogRecordNotifier interface {
-	// NewProxyLogRecord is called for each new log record
-	NewProxyLogRecord(l *LogRecord) error
-}
-
-// SetNotifier sets the notifier to call for all L7 records
-func SetNotifier(n LogRecordNotifier) {
-	logMutex.Lock()
-	notifier = n
-	logMutex.Unlock()
-}
-
-// SetMetadata sets the metadata to include in each record
-func SetMetadata(md []string) {
-	logMutex.Lock()
-	defer logMutex.Unlock()
-
-	metadata = md
 }
 
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.

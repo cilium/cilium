@@ -12,7 +12,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/endpoint"
@@ -44,7 +43,6 @@ type proxyParams struct {
 	Logger                *slog.Logger
 	ProxyPorts            *proxyports.ProxyPorts
 	EndpointInfoRegistry  logger.EndpointInfoRegistry
-	MonitorAgent          monitoragent.Agent
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
 }
@@ -58,7 +56,7 @@ func newProxy(params proxyParams) *Proxy {
 		return nil
 	}
 
-	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
+	configureProxyLogger(params.EndpointInfoRegistry)
 
 	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
@@ -128,11 +126,6 @@ func newDNSProxyIntegration() *dnsProxyIntegration {
 	return &dnsProxyIntegration{}
 }
 
-func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {
+func configureProxyLogger(eir logger.EndpointInfoRegistry) {
 	logger.SetEndpointInfoRegistry(eir)
-	logger.SetNotifier(logger.NewMonitorAgentLogRecordNotifier(monitorAgent))
-
-	if len(agentLabels) > 0 {
-		logger.SetMetadata(agentLabels)
-	}
 }

@@ -162,7 +162,8 @@ var benchCases = []struct {
 	},
 }
 
-func benchWithoutListeners(b *testing.B) {
+func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
+	accessLogger := NewProcyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier)
 	node.WithTestLocalNodeStore(func() {
 		record := mockLogRecord()
 		for _, bm := range benchCases {
@@ -178,7 +179,7 @@ func benchWithoutListeners(b *testing.B) {
 						wg.Add(1)
 						go func() {
 							defer wg.Done()
-							record.Log()
+							accessLogger.Log(record)
 						}()
 					}
 					wg.Wait()
@@ -188,7 +189,7 @@ func benchWithoutListeners(b *testing.B) {
 	})
 }
 
-func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
+func benchWithListeners(accessLogger ProxyAccessLogger, listener *MockMonitorListener, b *testing.B) {
 	node.WithTestLocalNodeStore(func() {
 		record := mockLogRecord()
 		for _, bm := range benchCases {
@@ -211,7 +212,7 @@ func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
 						logWg.Add(1)
 						go func() {
 							defer logWg.Done()
-							record.Log()
+							accessLogger.Log(record)
 						}()
 					}
 					logWg.Wait()
@@ -229,11 +230,10 @@ func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
 func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
 	bench := cell.Invoke(func(lc cell.Lifecycle, monitor agent.Agent) error {
 		notifier := NewMockLogNotifier(monitor)
-		SetNotifier(notifier)
 
 		lc.Append(cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				benchWithoutListeners(b)
+				benchWithoutListeners(b, notifier)
 				return nil
 			},
 			OnStop: func(ctx cell.HookContext) error { return nil },
@@ -262,11 +262,11 @@ func BenchmarkLogNotifierWithListeners(b *testing.B) {
 		listener := NewMockMonitorListener(cfg.MonitorQueueSize)
 		notifier := NewMockLogNotifier(monitor)
 		notifier.RegisterNewListener(listener)
-		SetNotifier(notifier)
+		accessLogger := NewProcyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier)
 
 		lc.Append(cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				benchWithListeners(listener, b)
+				benchWithListeners(accessLogger, listener, b)
 				return nil
 			},
 			OnStop: func(ctx cell.HookContext) error { return nil },
