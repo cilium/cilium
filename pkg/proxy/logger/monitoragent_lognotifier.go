@@ -14,7 +14,7 @@ type monitorAgentLogRecordNotifier struct {
 	monitorAgent monitoragent.Agent
 }
 
-func NewMonitorAgentLogRecordNotifier(monitorAgent monitoragent.Agent) LogRecordNotifier {
+func newMonitorAgentLogRecordNotifier(monitorAgent monitoragent.Agent) LogRecordNotifier {
 	return &monitorAgentLogRecordNotifier{monitorAgent: monitorAgent}
 }
 

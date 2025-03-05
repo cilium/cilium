@@ -14,15 +14,15 @@ var Cell = cell.Module(
 	"proxy-logger",
 	"Proxy Logger provides support for L7 proxy access flow logging",
 
-	cell.Provide(newProcyAccessLogger),
-	cell.ProvidePrivate(NewMonitorAgentLogRecordNotifier),
-	cell.Config(proxyAccessLoggerConfig{}),
+	cell.Provide(NewProcyAccessLogger),
+	cell.ProvidePrivate(newMonitorAgentLogRecordNotifier),
+	cell.Config(ProxyAccessLoggerConfig{}),
 )
 
-type proxyAccessLoggerConfig struct {
+type ProxyAccessLoggerConfig struct {
 	// AgentLabels []string
 }
 
-func (r proxyAccessLoggerConfig) Flags(flags *pflag.FlagSet) {
+func (r ProxyAccessLoggerConfig) Flags(flags *pflag.FlagSet) {
 	// flags.StringSlice("agent-labels", []string{}, "AgentLabels are additional labels to identify this agent")
 }
