@@ -92,11 +92,6 @@ steps:
     params:
       action: start
 
-- module:
-    path: ../cilium-metrics.yaml
-    params:
-      action: start
-
 # Run a first iteration of the masquerade delay test.
 - module:
     path: modules/masq-test.yaml
@@ -172,12 +167,6 @@ steps:
       externalTarget: {{$ExternalTarget}}
       replicas: {{$NumEGWClients}}
       metricsSuffix: HighScale
-
-# Gather the Cilium metrics here, so that they are not impacted by the performance test.
-- module:
-    path: ../cilium-metrics.yaml
-    params:
-      action: gather
 
 # Run the performance test.
 - module:
