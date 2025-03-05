@@ -265,7 +265,7 @@ jobs:
         with:
           test-name: runtime-tests
           install-dependencies: true
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          # renovate: disabled until LVH upgrade is fixed
           image-version: "bpf-next-20250110.013326"
           host-mount: ./
           images-folder-parent: "/tmp"
