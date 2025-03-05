@@ -1263,7 +1263,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			key, tuple, svc, &ct_state_svc,
 			nodeport_xlate6(svc, tuple), ext_err, 0);
 #ifdef ENABLE_L7_LB
-	if (ret == DROP_PUNT_PROXY) {
+	if (ret == LB_PUNT_TO_STACK) {
 		*punt_to_stack = true;
 		return CTX_ACT_OK;
 	}
@@ -2573,7 +2573,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				key, tuple, svc, &ct_state_svc, has_l4_header,
 				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
 #ifdef ENABLE_L7_LB
-		if (ret == DROP_PUNT_PROXY) {
+		if (ret == LB_PUNT_TO_STACK) {
 			*punt_to_stack = true;
 			return CTX_ACT_OK;
 		}
