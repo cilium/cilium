@@ -88,6 +88,7 @@ func TestClusterMesh(t *testing.T) {
 	var clusters []*fakeRemoteCluster
 
 	cm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		Config:      Config{ClusterMeshConfig: baseDir},
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
@@ -214,6 +215,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	blockRemoval.Store("cluster4", make(chan struct{}))
 
 	gcm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
 		Config:      Config{ClusterMeshConfig: baseDir},
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {

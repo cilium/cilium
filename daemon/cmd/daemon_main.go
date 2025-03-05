@@ -1470,7 +1470,7 @@ func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
 	if d.clientset.IsEnabled() {
-		log := log.WithField(logfields.LogSubsys, "etcd")
+		log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
 			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
 		}

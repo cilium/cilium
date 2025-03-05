@@ -6,6 +6,7 @@ package common
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/metrics"
@@ -31,10 +32,10 @@ func TestRemoteServiceObserver(t *testing.T) {
 	}
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := NewGlobalServiceCache(metrics.NoOpGauge)
+	cache := NewGlobalServiceCache(hivetest.Logger(t), metrics.NoOpGauge)
 
 	var upstream fakeUpstream
-	observer := NewSharedServicesObserver(log, cache, upstream.OnUpdate, upstream.OnDelete)
+	observer := NewSharedServicesObserver(hivetest.Logger(t), cache, upstream.OnUpdate, upstream.OnDelete)
 
 	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
 	upstream.init()

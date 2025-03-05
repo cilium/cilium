@@ -4,13 +4,14 @@
 package kvstoremesh
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var HealthAPIEndpointsCell = cell.Module(
@@ -25,7 +26,7 @@ type healthParameters struct {
 	cell.In
 
 	SyncState syncstate.SyncState
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 }
 
 func healthEndpoints(params healthParameters) []health.EndpointFunc {
@@ -42,7 +43,7 @@ func healthEndpoints(params healthParameters) []health.EndpointFunc {
 				}
 				w.WriteHeader(statusCode)
 				if _, err := w.Write([]byte(reply)); err != nil {
-					params.Logger.WithError(err).Error("Failed to respond to /readyz request")
+					params.Logger.Error("Failed to respond to /readyz request", logfields.Error, err)
 				}
 			},
 		},

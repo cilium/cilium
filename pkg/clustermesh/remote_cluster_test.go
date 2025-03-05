@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -132,6 +132,7 @@ func TestRemoteClusterRun(t *testing.T) {
 	store := store.NewFactory(store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -163,9 +164,9 @@ func TestRemoteClusterRun(t *testing.T) {
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 					FeatureMetrics:        NewClusterMeshMetricsNoop(),
-					Logger:                logrus.New(),
+					Logger:                logger,
 				},
-				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
+				globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
@@ -270,6 +271,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		}
 	}
 
+	logger := hivetest.Logger(t)
 	store := store.NewFactory(store.MetricsProvider())
 	var wg sync.WaitGroup
 	ctx := context.Background()
@@ -295,10 +297,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			StoreFactory:          store,
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 			FeatureMetrics:        NewClusterMeshMetricsNoop(),
-			Logger:                logrus.New(),
+			Logger:                logger,
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
-		globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
+		globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 

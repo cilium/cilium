@@ -6,12 +6,12 @@ package kvstoremesh
 import (
 	"cmp"
 	"context"
+	"log/slog"
 	"slices"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"k8s.io/utils/clock"
 
@@ -63,7 +63,7 @@ type KVStoreMesh struct {
 
 	storeFactory store.Factory
 
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	// clock allows to override the clock for testing purposes
 	clock clock.Clock
@@ -82,7 +82,7 @@ type params struct {
 	Metrics      common.Metrics
 	StoreFactory store.Factory
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 }
 
 func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
@@ -94,6 +94,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		clock:          clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
+		Logger:           params.Logger,
 		Config:           params.CommonConfig,
 		ClusterInfo:      params.ClusterInfo,
 		NewRemoteCluster: km.newRemoteCluster,
@@ -167,7 +168,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		storeFactory:   km.storeFactory,
 		synced:         synced,
 		readyTimeout:   km.config.PerClusterReadyTimeout,
-		logger:         km.logger.WithField(logfields.ClusterName, name),
+		logger:         km.logger.With(logfields.ClusterName, name),
 		clock:          km.clock,
 
 		disableDrainOnDisconnection: km.config.DisableDrainOnDisconnection,
@@ -210,7 +211,7 @@ func (km *KVStoreMesh) synced(ctx context.Context, syncCallback func(context.Con
 	})
 
 	if err := wait.ForAll(ctx, waiters); err != nil {
-		km.logger.WithError(err).Info("Failed to wait for synchronization. KVStoreMesh will now handle requests, but some clusters may not have been synchronized.")
+		km.logger.Info("Failed to wait for synchronization. KVStoreMesh will now handle requests, but some clusters may not have been synchronized.", logfields.Error, err)
 		return err
 	}
 
