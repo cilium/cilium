@@ -34,6 +34,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
 	cell.ProvidePrivate(proxyports.NewProxyPorts),
 	cell.Config(proxyports.ProxyPortsConfig{}),
+	logger.Cell,
 )
 
 type proxyParams struct {
