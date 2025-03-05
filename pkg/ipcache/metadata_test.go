@@ -1336,6 +1336,79 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 	}
 }
 
+func TestIPCachePodCIDREntries(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+
+	ctx := context.Background()
+
+	// This emulates the upsert of fallback pod CIDR entry emitted by node manager
+	podCIDR1 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.0/24"))
+	podCIDR2 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.40/32"))
+	IPIdentityCache.metadata.upsertLocked(podCIDR1, source.CustomResource, "node-1",
+		labels.NewLabelsFromSortedList("reserved:world-ipv4"),
+		types.TunnelPeer{Addr: netip.MustParseAddr("192.168.1.101")},
+		types.EncryptKey(6),
+	)
+	IPIdentityCache.metadata.upsertLocked(podCIDR2, source.CustomResource, "node-1",
+		labels.NewLabelsFromSortedList("reserved:world-ipv4"),
+		types.TunnelPeer{Addr: netip.MustParseAddr("192.168.1.101")},
+		types.EncryptKey(6),
+	)
+	_, _, err := IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR1, podCIDR2})
+	require.NoError(t, err)
+
+	ip, key := IPIdentityCache.getHostIPCache(podCIDR1.String())
+	assert.Equal(t, "192.168.1.101", ip.String())
+	assert.Equal(t, uint8(6), key)
+	nid, ok := IPIdentityCache.LookupByPrefix(podCIDR1.String())
+	assert.True(t, ok)
+	assert.Equal(t, identity.ReservedIdentityWorldIPv4, nid.ID)
+
+	ip, key = IPIdentityCache.getHostIPCache(podCIDR2.String())
+	assert.Equal(t, "192.168.1.101", ip.String())
+	assert.Equal(t, uint8(6), key)
+	nid, ok = IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.Equal(t, identity.ReservedIdentityWorldIPv4, nid.ID)
+
+	// Emulate selecting pod CIDR in CIDRGroup
+	IPIdentityCache.metadata.upsertLocked(podCIDR1, source.CustomResource, "r1",
+		labels.NewLabelsFromSortedList("cidr:10.10.0.0/24=;cidrgroup:a="),
+	)
+	_, _, err = IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{podCIDR1})
+	require.NoError(t, err)
+
+	// Assert identity labels have been merged
+	nid, ok = IPIdentityCache.LookupByPrefix(podCIDR1.String())
+	require.True(t, ok)
+	id := IPIdentityCache.LookupIdentityByID(ctx, nid.ID)
+	require.NotNil(t, id)
+	wantlbls := labels.NewLabelsFromSortedList("cidr:10.10.0.0/24=;cidrgroup:a=;reserved:world-ipv4=")
+	require.Equal(t, wantlbls, id.Labels)
+	// Assert tunnel and encryption metadata has been preserved
+	ip, key = IPIdentityCache.getHostIPCache(podCIDR1.String())
+	assert.Equal(t, "192.168.1.101", ip.String())
+	assert.Equal(t, uint8(6), key)
+
+	// Emulate /32 pod CIDR being shadowed by CEP IP
+	podIP2 := "10.20.30.40"
+	podIdentity := identity.NumericIdentity(68)
+	IPIdentityCache.Upsert(podIP2, nil, 0, nil, Identity{
+		ID:     podIdentity,
+		Source: source.KVStore,
+	})
+	nid, ok = IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.Equal(t, podIdentity, nid.ID)
+
+	// Unshadow PodCIDR2
+	IPIdentityCache.Delete(podIP2, source.KVStore)
+	nid, ok = IPIdentityCache.LookupByPrefix(podCIDR2.String())
+	assert.True(t, ok)
+	assert.Equal(t, identity.ReservedIdentityWorldIPv4, nid.ID)
+}
+
 func BenchmarkManyResources(b *testing.B) {
 	m := newMetadata()
 
