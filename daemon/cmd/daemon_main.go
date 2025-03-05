@@ -194,9 +194,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.ClusterHealthPort, defaults.ClusterHealthPort, "TCP port for cluster-wide network connectivity health API")
 	option.BindEnv(vp, option.ClusterHealthPort)
 
-	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
-	option.BindEnv(vp, option.AgentLabels)
-
 	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU.")
 	option.BindEnv(vp, option.AllowICMPFragNeeded)
 
