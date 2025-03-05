@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -44,54 +43,8 @@ type LogRecord struct {
 	accesslog.LogRecord
 }
 
-// endpointInfoRegistry provides access to any endpoint's information given
-// its IP address.
-var endpointInfoRegistry EndpointInfoRegistry
-
-func SetEndpointInfoRegistry(epInfoRegistry EndpointInfoRegistry) {
-	endpointInfoRegistry = epInfoRegistry
-}
-
-// NewLogRecord creates a new log record and applies optional tags
-//
-// Example:
-// record := logger.NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
-func NewLogRecord(t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
-	var observationPoint accesslog.ObservationPoint
-	if ingress {
-		observationPoint = accesslog.Ingress
-	} else {
-		observationPoint = accesslog.Egress
-	}
-
-	lr := LogRecord{
-		LogRecord: accesslog.LogRecord{
-			Type:              t,
-			ObservationPoint:  observationPoint,
-			IPVersion:         accesslog.VersionIPv4,
-			TransportProtocol: 6,
-			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo:   accesslog.NodeAddressInfo{},
-		},
-	}
-
-	if ip := node.GetIPv4(); ip != nil {
-		lr.LogRecord.NodeAddressInfo.IPv4 = ip.String()
-	}
-
-	if ip := node.GetIPv6(); ip != nil {
-		lr.LogRecord.NodeAddressInfo.IPv6 = ip.String()
-	}
-
-	for _, tagFn := range tags {
-		tagFn(&lr)
-	}
-
-	return &lr
-}
-
 // LogTag attaches a tag to a log record
-type LogTag func(lr *LogRecord)
+type LogTag func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry)
 
 // LogTags are optional structured tags that can be attached to log records.
 // See NewLogRecord() and ApplyTags() for example usage.
@@ -101,7 +54,7 @@ type logTags struct{}
 
 // Verdict attach verdict information to the log record
 func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Verdict = v
 		lr.Info = info
 	}
@@ -109,7 +62,7 @@ func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
 
 // Timestamp overwrites the starting timestamp of the log record
 func (logTags) Timestamp(ts time.Time) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 	}
 }
@@ -131,7 +84,7 @@ type AddressingInfo struct {
 // Addressing attaches addressing information about the source and destination
 // to the logrecord
 func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry) {
 		lr.SourceEndpoint.ID = i.SrcEPID
 		if i.SrcSecIdentity != nil {
 			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
@@ -168,39 +121,29 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 
 // HTTP attaches HTTP information to the log record
 func (logTags) HTTP(h *accesslog.LogRecordHTTP) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.HTTP = h
 	}
 }
 
 // Kafka attaches Kafka information to the log record
 func (logTags) Kafka(k *accesslog.LogRecordKafka) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Kafka = k
 	}
 }
 
 // DNS attaches DNS information to the log record
 func (logTags) DNS(d *accesslog.LogRecordDNS) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.DNS = d
 	}
 }
 
 // L7 attaches generic L7 information to the log record
 func (logTags) L7(h *accesslog.LogRecordL7) LogTag {
-	return func(lr *LogRecord) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.L7 = h
-	}
-}
-
-// ApplyTags applies tags to an existing log record
-//
-// Example:
-// lr.ApplyTags(logger.LogTags.Verdict(verdict, info))
-func (lr *LogRecord) ApplyTags(tags ...LogTag) {
-	for _, tagFn := range tags {
-		tagFn(lr)
 	}
 }
 

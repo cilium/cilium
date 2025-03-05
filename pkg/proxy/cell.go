@@ -42,7 +42,6 @@ type proxyParams struct {
 	Lifecycle             cell.Lifecycle
 	Logger                *slog.Logger
 	ProxyPorts            *proxyports.ProxyPorts
-	EndpointInfoRegistry  logger.EndpointInfoRegistry
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
 }
@@ -55,8 +54,6 @@ func newProxy(params proxyParams) *Proxy {
 		}
 		return nil
 	}
-
-	configureProxyLogger(params.EndpointInfoRegistry)
 
 	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
@@ -124,8 +121,4 @@ func newDNSProxyIntegration() *dnsProxyIntegration {
 	}
 
 	return &dnsProxyIntegration{}
-}
-
-func configureProxyLogger(eir logger.EndpointInfoRegistry) {
-	logger.SetEndpointInfoRegistry(eir)
 }

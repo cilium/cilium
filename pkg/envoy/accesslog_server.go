@@ -193,7 +193,7 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
-	var l7tags logger.LogTag = func(lr *logger.LogRecord) {}
+	var l7tags logger.LogTag = func(lr *logger.LogRecord, endpointInfoRegistry logger.EndpointInfoRegistry) {}
 
 	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
@@ -243,7 +243,7 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		addrInfo.DstIPPort = pblog.DestinationAddress
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
 	}
-	r := logger.NewLogRecord(flowType, pblog.IsIngress,
+	r := s.accessLogger.NewLogRecord(flowType, pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(ctx, addrInfo),
