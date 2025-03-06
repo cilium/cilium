@@ -238,13 +238,15 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219
+# github.com/cilium/hive v0.0.0-20241104095320-a606391fc119
 ## explicit; go 1.21.3
 github.com/cilium/hive
 github.com/cilium/hive/cell
 github.com/cilium/hive/hivetest
 github.com/cilium/hive/internal
 github.com/cilium/hive/job
+github.com/cilium/hive/script
+github.com/cilium/hive/script/internal/diff
 # github.com/cilium/linters v0.0.0-20240618015058-89aa3bd55635
 ## explicit; go 1.21
 github.com/cilium/linters
@@ -1485,6 +1487,7 @@ golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
+golang.org/x/tools/txtar
 # golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2
 ## explicit; go 1.17
 golang.zx2c4.com/wintun

@@ -20,6 +20,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 )
 
 type Options struct {
@@ -125,7 +126,7 @@ func New(cells ...cell.Cell) *Hive {
 func NewWithOptions(opts Options, cells ...cell.Cell) *Hive {
 	h := &Hive{
 		opts:      opts,
-		container: dig.New(),
+		container: dig.New(dig.DeferAcyclicVerification()),
 		cells:     cells,
 		viper:     viper.New(),
 		flags:     pflag.NewFlagSet("", pflag.ContinueOnError),
@@ -420,4 +421,20 @@ func (h *Hive) getEnvName(option string) string {
 	under := strings.Replace(option, "-", "_", -1)
 	upper := strings.ToUpper(under)
 	return h.opts.EnvPrefix + upper
+}
+
+func (h *Hive) ScriptCommands(log *slog.Logger) (map[string]script.Cmd, error) {
+	if err := h.Populate(log); err != nil {
+		return nil, fmt.Errorf("failed to populate object graph: %s", err)
+	}
+	m := map[string]script.Cmd{}
+	m["hive"] = hiveScriptCmd(h, log)
+
+	// Gather the commands from the hive.
+	h.container.Invoke(func(sc ScriptCmds) {
+		for name, cmd := range sc.Map() {
+			m[name] = cmd
+		}
+	})
+	return m, nil
 }

@@ -10,16 +10,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/stream"
+
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/internal"
-	"github.com/cilium/stream"
 )
 
-// AddObserver adds an observer job to the group. Observer jobs invoke the given `fn` for each item observed on
-// `observable`. If the `observable` completes, the job stops. The context given to the observable is also canceled
-// once the group stops.
+// Observer jobs invoke the given `fn` for each item observed on `observable`.
+// The Observer name must match regex "^[a-zA-Z][a-zA-Z0-9_\-]{0,100}$". If the `observable` completes, the job stops.
+// The context given to the observable is also canceled once the group stops.
 func Observer[T any](name string, fn ObserverFunc[T], observable stream.Observable[T], opts ...observerOpt[T]) Job {
+	name = sanitizeName(name)
 	if fn == nil {
 		panic("`fn` must not be nil")
 	}
@@ -74,9 +76,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 
 	done := make(chan struct{})
 
-	var (
-		err error
-	)
+	var err error
 	jo.observable.Observe(ctx, func(t T) {
 		start := time.Now()
 		err := jo.fn(ctx, t)
@@ -121,7 +121,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 	<-done
 
 	jo.health.Stopped("observer job done")
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		l.Error("Observer job stopped with an error", "error", err)
 	} else {
 		l.Debug("Observer job stopped")
