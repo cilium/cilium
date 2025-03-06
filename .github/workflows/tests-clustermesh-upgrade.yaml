@@ -214,7 +214,8 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS=" \
             --hubble=false \
             --flow-validation=disabled \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --test='check-log-errors' \
@@ -680,7 +681,8 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --hubble=false \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
