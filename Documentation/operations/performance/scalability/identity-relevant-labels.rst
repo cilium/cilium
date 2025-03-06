@@ -103,7 +103,7 @@ is managing identities, restart the Cilium Agents to pickup the new label patter
 
 .. code-block:: shell-session
 
-    kubectl delete pods -n kube-system -l k8s-app=cilium
+    kubectl rollout restart -n kube-system ds/cilium
 
 .. note:: Configuring Cilium with label patterns via ``labels`` Helm value does
           **not** override the default set of label patterns. That is to say,
