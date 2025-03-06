@@ -313,10 +313,6 @@ const (
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
 
-	// KVstorePodNetworkSupport represents whether to enable the support for
-	// running the Cilium KVstore in pod network.
-	KVstorePodNetworkSupport = false
-
 	// KVstoreQPS is default rate limit for kv store operations
 	KVstoreQPS = 20
 
