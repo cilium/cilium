@@ -10,7 +10,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -315,7 +314,7 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 		backend:      backend,
 		min:          idpool.ID(1),
 		max:          idpool.ID(^uint64(0)),
-		localKeys:    newLocalKeys(),
+		localKeys:    newLocalKeys(rootLogger),
 		stopGC:       make(chan struct{}),
 		suffix:       uuid.New().String()[:10],
 		remoteCaches: map[string]*remoteCache{},
@@ -527,7 +526,7 @@ type AllocatorKey interface {
 func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, bool, error) {
 	var firstUse bool
 
-	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
+	kvstore.Trace(a.logger, "Allocating key in kvstore", fieldKey, key)
 
 	k := key.GetKey()
 	lock, err := a.backend.Lock(ctx, key)
@@ -544,7 +543,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, false, err
 	}
 
-	kvstore.Trace("kvstore state is: ", nil, logrus.Fields{fieldID: value})
+	kvstore.Trace(a.logger, "kvstore state is: ", fieldID, value)
 
 	a.slaveKeysMutex.Lock()
 	defer a.slaveKeysMutex.Unlock()
@@ -595,7 +594,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
 	}
 
-	kvstore.Trace("Selected available key ID", nil, logrus.Fields{fieldID: id})
+	kvstore.Trace(a.logger, "Selected available key ID", fieldID, id)
 
 	releaseKeyAndID := func() {
 		a.localKeys.release(k)
@@ -695,7 +694,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		return id, false, false, err
 	}
 
-	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
+	kvstore.Trace(a.logger, "Allocating from kvstore", fieldKey, key)
 
 	// make a copy of the template and customize it
 	boff := a.backoffTemplate
@@ -710,7 +709,10 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		// execution thread. It does not hurt to check if localKeys contains a
 		// reference for the key that we are attempting to allocate.
 		if val := a.localKeys.use(key.GetKey()); val != idpool.NoID {
-			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
+			kvstore.Trace(a.logger, "Reusing local id",
+				fieldID, val,
+				fieldKey, key,
+			)
 			a.mainCache.insert(key, val)
 			return val, false, false, nil
 		}
@@ -742,7 +744,10 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			)
 		}
 
-		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
+		kvstore.Trace(a.logger, "Allocation attempt failed",
+			fieldKey, key,
+			logfields.Attempt, attempt,
+		)
 
 		if waitErr := boff.Wait(ctx); waitErr != nil {
 			return 0, false, false, waitErr

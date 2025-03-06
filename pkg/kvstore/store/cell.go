@@ -4,6 +4,8 @@
 package store
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/metrics"
@@ -25,23 +27,25 @@ type Factory interface {
 }
 
 type factoryImpl struct {
+	logger  *slog.Logger
 	metrics *Metrics
 }
 
 func (w *factoryImpl) NewSyncStore(clusterName string, backend SyncStoreBackend, prefix string, opts ...WSSOpt) SyncStore {
-	return newWorkqueueSyncStore(clusterName, backend, prefix, w.metrics, opts...)
+	return newWorkqueueSyncStore(w.logger, clusterName, backend, prefix, w.metrics, opts...)
 }
 
 func (w *factoryImpl) NewWatchStore(clusterName string, keyCreator KeyCreator, observer Observer, opts ...RWSOpt) WatchStore {
-	return newRestartableWatchStore(clusterName, keyCreator, observer, w.metrics, opts...)
+	return newRestartableWatchStore(w.logger, clusterName, keyCreator, observer, w.metrics, opts...)
 }
 
 func (w *factoryImpl) NewWatchStoreManager(backend WatchStoreBackend, clusterName string) WatchStoreManager {
-	return newWatchStoreManagerSync(backend, clusterName, w)
+	return newWatchStoreManagerSync(w.logger, backend, clusterName, w)
 }
 
-func NewFactory(storeMetrics *Metrics) Factory {
+func NewFactory(logger *slog.Logger, storeMetrics *Metrics) Factory {
 	return &factoryImpl{
+		logger:  logger,
 		metrics: storeMetrics,
 	}
 }

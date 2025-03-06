@@ -6,16 +6,14 @@ package store
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -29,8 +27,6 @@ const (
 
 var (
 	controllers controller.Manager
-
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
 
 	kvstoreSyncControllerGroup = controller.NewGroup("kvstore-sync")
 )
@@ -100,6 +96,7 @@ func (c *Configuration) validate() error {
 // SharedStore is an instance of a shared store. It is created with
 // JoinSharedStore() and released with the SharedStore.Close() function.
 type SharedStore struct {
+	logger *slog.Logger
 	// conf is a copy of the store configuration. This field is never
 	// mutated after JoinSharedStore() so it is safe to access this without
 	// a lock.
@@ -207,12 +204,13 @@ func (kv *KVPair) Unmarshal(key string, data []byte) error {
 // store is initialized with the contents of the kvstore. An error is returned
 // if the contents cannot be retrieved synchronously from the kvstore. Starts a
 // controller to continuously synchronize the store with the kvstore.
-func JoinSharedStore(c Configuration) (*SharedStore, error) {
+func JoinSharedStore(logger *slog.Logger, c Configuration) (*SharedStore, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
 
 	s := &SharedStore{
+		logger:     logger,
 		conf:       c,
 		localKeys:  map[string]LocalKey{},
 		sharedKeys: map[string]Key{},
@@ -223,6 +221,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	s.conf.Context, s.stop = context.WithCancel(s.conf.Context)
 
 	s.name = "store-" + s.conf.Prefix
+	s.logger = s.logger.With(logfields.Name, s.name)
 	s.controllerName = "kvstore-sync-" + s.name
 
 	if err := s.listAndStartWatcher(); err != nil {
@@ -271,7 +270,7 @@ func (s *SharedStore) Close(ctx context.Context) {
 
 	for name, key := range s.localKeys {
 		if err := s.backend.Delete(ctx, s.keyPath(key)); err != nil {
-			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+			s.logger.Warn("Unable to delete key in kvstore", logfields.Error, err)
 		}
 
 		delete(s.localKeys, name)
@@ -395,17 +394,11 @@ func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 
 	if ok {
 		if err != nil {
-			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+			s.logger.Warn("Unable to delete key in kvstore", logfields.Error, err)
 		}
 
 		s.onDelete(key)
 	}
-}
-
-func (s *SharedStore) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		"storeName": s.name,
-	})
 }
 
 func (s *SharedStore) updateKey(name string, value []byte) error {
@@ -435,16 +428,21 @@ func (s *SharedStore) deleteSharedKey(name string) {
 			_, ok := s.sharedKeys[name]
 			s.mutex.RUnlock()
 			if ok {
-				s.getLogger().WithFields(logrus.Fields{"key": name, "timeWindow": s.conf.SharedKeyDeleteDelay}).
-					Warning("Received delete event for key which re-appeared within delay time window")
+				s.logger.Warn(
+					"Received delete event for key which re-appeared within delay time window",
+					logfields.Key, name,
+					logfields.TimeWindow, s.conf.SharedKeyDeleteDelay,
+				)
 				return
 			}
 
 			s.onDelete(existingKey)
 		}()
 	} else {
-		s.getLogger().WithField("key", name).
-			Warning("Unable to find deleted key in local state")
+		s.logger.Warn(
+			"Unable to find deleted key in local state",
+			logfields.Key, name,
+		)
 	}
 }
 
@@ -469,19 +467,19 @@ func (s *SharedStore) listAndStartWatcher() error {
 func (s *SharedStore) watcher(listDone chan struct{}) {
 	events := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
 
+	logger := s.logger
 	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
-			s.getLogger().Debug("Initial list of objects received from kvstore")
+			logger.Debug("Initial list of objects received from kvstore")
 			close(listDone)
 			continue
 		}
 
-		logger := s.getLogger().WithFields(logrus.Fields{
-			"key":       event.Key,
-			"eventType": event.Typ,
-		})
-
-		logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
+		logger.Debug("Received key update via kvstore",
+			logfields.Value, string(event.Value),
+			logfields.Key, event.Key,
+			logfields.EventType, event.Typ,
+		)
 
 		keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
 		if keyName[0] == '/' {
@@ -491,12 +489,22 @@ func (s *SharedStore) watcher(listDone chan struct{}) {
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 			if err := s.updateKey(keyName, event.Value); err != nil {
-				logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
+				logger.Warn(
+					"Unable to unmarshal store value",
+					logfields.Error, err,
+					logfields.Value, string(event.Value),
+					logfields.Key, event.Key,
+					logfields.EventType, event.Typ,
+				)
 			}
 
 		case kvstore.EventTypeDelete:
 			if localKey := s.lookupLocalKey(keyName); localKey != nil {
-				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
+				logger.Warn(
+					"Received delete event for local key. Re-creating the key in the kvstore",
+					logfields.Key, event.Key,
+					logfields.EventType, event.Typ,
+				)
 
 				s.syncLocalKey(s.conf.Context, localKey, true)
 			} else {

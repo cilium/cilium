@@ -214,6 +214,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		case option.IdentityAllocationModeKVstore:
 			log.Debug("Identity allocation backed by KVStore")
 			backend, err = kvstoreallocator.NewKVStoreBackend(
+				logging.DefaultSlogLogger,
 				kvstoreallocator.KVStoreBackendConfiguration{
 					BasePath: m.identitiesPath,
 					Suffix:   owner.GetNodeSuffix(),
@@ -242,21 +243,23 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				readFromKVStore = false
 			}
 			log.Debugf("Double-Write Identity allocation mode (CRD and KVStore) with reads from KVStore = %t", readFromKVStore)
-			backend, err = doublewrite.NewDoubleWriteBackend(doublewrite.DoubleWriteBackendConfiguration{
-				CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
-					Store:    nil,
-					StoreSet: &atomic.Bool{},
-					Client:   client,
-					KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
-				},
-				KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
-					BasePath: m.identitiesPath,
-					Suffix:   owner.GetNodeSuffix(),
-					Typ:      &key.GlobalIdentity{},
-					Backend:  kvstore.Client(),
-				},
-				ReadFromKVStore: readFromKVStore,
-			})
+			backend, err = doublewrite.NewDoubleWriteBackend(
+				logging.DefaultSlogLogger,
+				doublewrite.DoubleWriteBackendConfiguration{
+					CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
+						Store:    nil,
+						StoreSet: &atomic.Bool{},
+						Client:   client,
+						KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+					},
+					KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
+						BasePath: m.identitiesPath,
+						Suffix:   owner.GetNodeSuffix(),
+						Typ:      &key.GlobalIdentity{},
+						Backend:  kvstore.Client(),
+					},
+					ReadFromKVStore: readFromKVStore,
+				})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize the Double Write backend for identity allocation")
 			}
@@ -798,7 +801,7 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
 	}
 
-	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: prefix, Suffix: m.owner.GetNodeSuffix(), Typ: &key.GlobalIdentity{}, Backend: backend})
 	if err != nil {
 		return nil, fmt.Errorf("error setting up remote allocator backend: %w", err)
 	}

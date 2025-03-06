@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -1486,7 +1487,7 @@ func TestPaginatedList(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		kvs, found, err := cl.paginatedList(ctx, log, prefix)
+		kvs, found, err := cl.paginatedList(ctx, hivetest.Logger(t), prefix)
 		require.NoError(t, err)
 
 		for _, kv := range kvs {

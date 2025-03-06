@@ -648,7 +648,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 
 		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(legacy.ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		if err := kvstore.Setup(legacy.ctx, legacy.logger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 

@@ -149,9 +149,8 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	kvstore.SetupDummy(t, "etcd")
 
 	clusterName := "cluster1"
-	storeFactory := store.NewFactory(store.MetricsProvider())
-	kvs := storeFactory.NewSyncStore(
-		clusterName, kvstore.Client(), types.ServiceExportStorePrefix)
+	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
+	kvs := storeFactory.NewSyncStore(clusterName, kvstore.Client(), types.ServiceExportStorePrefix)
 	require.NoError(t, kvs.UpsertKey(ctx, &types.MCSAPIServiceSpec{
 		Cluster:                 clusterName,
 		Name:                    "remove-service",

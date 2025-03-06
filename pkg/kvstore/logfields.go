@@ -4,11 +4,8 @@
 package kvstore
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstore")
 
 const (
 	// fieldKVStoreModule is the name of the kvstore backend (etcd)
@@ -40,4 +37,8 @@ const (
 
 	// FieldRole identifies a role in the kvstore
 	FieldRole = "role"
+
+	fieldRecreated = "recreated"
+
+	fieldSuccess = "success"
 )

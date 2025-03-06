@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -27,10 +28,10 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 
-	cell.Provide(func(lc cell.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
+	cell.Provide(func(logger *slog.Logger, lc cell.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
 		resolver, promise := promise.New[BackendOperations]()
 		if cfg.KVStore == "" {
-			log.Info("Skipping connection to kvstore, as not configured")
+			logger.Info("Skipping connection to kvstore, as not configured")
 			resolver.Reject(errors.New("kvstore not configured"))
 			return promise
 		}
@@ -52,18 +53,19 @@ var Cell = cell.Module(
 				go func() {
 					defer wg.Done()
 
-					log := log.WithField(logfields.BackendName, cfg.KVStore)
-					log.Info("Establishing connection to kvstore")
-					backend, errCh := NewClient(ctx, cfg.KVStore, cfg.KVStoreOpt, opts)
+					scopedLogger := logger.With(logfields.BackendName, cfg.KVStore)
+
+					scopedLogger.Info("Establishing connection to kvstore")
+					backend, errCh := NewClient(ctx, scopedLogger, cfg.KVStore, cfg.KVStoreOpt, opts)
 
 					if err, isErr := <-errCh; isErr {
-						log.WithError(err).Error("Failed to establish connection to kvstore")
+						scopedLogger.Error("Failed to establish connection to kvstore", logfields.Error, err)
 						resolver.Reject(fmt.Errorf("failed connecting to kvstore: %w", err))
 						shutdowner.Shutdown(hive.ShutdownWithError(err))
 						return
 					}
 
-					log.Info("Connection to kvstore successfully established")
+					scopedLogger.Info("Connection to kvstore successfully established")
 					resolver.Resolve(backend)
 				}()
 				return nil

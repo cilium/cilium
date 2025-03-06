@@ -64,7 +64,7 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
 
-	backend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{
+	backend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{
 		BasePath: cache.IdentitiesPath,
 		Backend:  kvstore.Client(),
 	})

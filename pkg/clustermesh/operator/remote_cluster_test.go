@@ -74,7 +74,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		},
 	}
 
-	st := store.NewFactory(store.MetricsProvider())
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
@@ -187,9 +187,9 @@ func TestRemoteClusterHooks(t *testing.T) {
 
 		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 	})
-	st := store.NewFactory(store.MetricsProvider())
-	metrics := NewMetrics()
 	logger := hivetest.Logger(t)
+	st := store.NewFactory(logger, store.MetricsProvider())
+	metrics := NewMetrics()
 	cm := clusterMesh{
 		logger:         logger,
 		storeFactory:   st,

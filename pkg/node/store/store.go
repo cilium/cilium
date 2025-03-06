@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -153,7 +154,7 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 	}
 
 	// Join the shared store holding node information of entire cluster
-	nodeStore, err := store.JoinSharedStore(store.Configuration{
+	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
 		Prefix:               NodeStorePrefix,
 		KeyCreator:           ValidatingKeyCreator(),
 		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,

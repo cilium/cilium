@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -67,7 +68,7 @@ func TestWatchStoreManager(t *testing.T) {
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {
-		return NewWatchStoreManagerImmediate("foo")
+		return NewWatchStoreManagerImmediate(hivetest.Logger(t), "foo")
 	}))
 }
 
@@ -93,6 +94,6 @@ func TestWatchStoreManagerPanic(t *testing.T) {
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {
-		return NewWatchStoreManagerImmediate("foo")
+		return NewWatchStoreManagerImmediate(hivetest.Logger(t), "foo")
 	}))
 }

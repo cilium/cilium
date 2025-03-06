@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -123,7 +121,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		// Wait for kvstore
 		<-kvstoreReady
 
-		log.Info("Starting to synchronize Kubernetes services to kvstore")
+		logger.Info("Starting to synchronize Kubernetes services to kvstore")
 		k8sServiceHandler(ctx, cfg.ClusterInfo, logger)
 	}()
 
@@ -145,7 +143,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			swg.Stop()
 			swg.Wait()
 
-			log.Info("Initial list of services successfully received from Kubernetes")
+			logger.Info("Initial list of services successfully received from Kubernetes")
 			kvs.Synced(ctx, cfg.SyncCallback)
 		}
 

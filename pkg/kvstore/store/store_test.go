@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -95,24 +96,24 @@ func TestStoreCreation(t *testing.T) {
 
 func testStoreCreation(t *testing.T) {
 	// Missing Prefix must result in error
-	store, err := JoinSharedStore(Configuration{})
+	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{})
 	require.ErrorContains(t, err, "prefix must be specified")
 	require.Nil(t, store)
 
 	// Missing KeyCreator must result in error
-	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12)})
+	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12)})
 	require.ErrorContains(t, err, "KeyCreator must be specified")
 	require.Nil(t, store)
 
 	// Basic creation should result in default values
-	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12), KeyCreator: newTestType})
+	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12), KeyCreator: newTestType})
 	require.NoError(t, err)
 	require.NotNil(t, store)
 	require.Equal(t, option.Config.KVstorePeriodicSync, store.conf.SynchronizationInterval)
 	store.Close(context.TODO())
 
 	// Test with kvstore client specified
-	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: kvstore.Client()})
+	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: kvstore.Client()})
 	require.NoError(t, err)
 	require.NotNil(t, store)
 	require.Equal(t, option.Config.KVstorePeriodicSync, store.conf.SynchronizationInterval)
@@ -127,7 +128,7 @@ func TestStoreOperations(t *testing.T) {
 
 func testStoreOperations(t *testing.T) {
 	// Basic creation should result in default values
-	store, err := JoinSharedStore(Configuration{
+	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{
 		Prefix:               rand.String(12),
 		KeyCreator:           newTestType,
 		Observer:             &observer{},
@@ -180,7 +181,7 @@ func TestStorePeriodicSync(t *testing.T) {
 
 func testStorePeriodicSync(t *testing.T) {
 	// Create a store with a very short periodic sync interval
-	store, err := JoinSharedStore(Configuration{
+	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{
 		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
@@ -216,7 +217,7 @@ func TestStoreLocalKeyProtection(t *testing.T) {
 }
 
 func testStoreLocalKeyProtection(t *testing.T) {
-	store, err := JoinSharedStore(Configuration{
+	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{
 		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
@@ -242,7 +243,7 @@ func testStoreLocalKeyProtection(t *testing.T) {
 }
 
 func setupStoreCollaboration(t *testing.T, storePrefix, keyPrefix string) *SharedStore {
-	store, err := JoinSharedStore(Configuration{
+	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{
 		Prefix:                  storePrefix,
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Second,

@@ -129,7 +129,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 	}
 
-	store := store.NewFactory(store.MetricsProvider())
+	store := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
@@ -272,7 +272,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	}
 
 	logger := hivetest.Logger(t)
-	store := store.NewFactory(store.MetricsProvider())
+	store := store.NewFactory(logger, store.MetricsProvider())
 	var wg sync.WaitGroup
 	ctx := context.Background()
 

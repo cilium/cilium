@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
@@ -52,7 +53,7 @@ func NewFakeBackend(t *testing.T, expectLease bool) *fakeBackend {
 
 func GetFactory(t *testing.T) (Factory, *Metrics) {
 	metrics := MetricsProvider()
-	return NewFactory(metrics), metrics
+	return NewFactory(hivetest.Logger(t), metrics), metrics
 }
 
 func (fb *fakeBackend) Update(ctx context.Context, key string, value []byte, lease bool) error {

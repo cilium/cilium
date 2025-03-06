@@ -5,13 +5,13 @@ package store
 
 import (
 	"context"
+	"log/slog"
 	"path"
 	"sync"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -36,13 +36,13 @@ type wsmCommon struct {
 	functions map[string]WSMFunc
 
 	running atomic.Bool
-	log     *logrus.Entry
+	log     *slog.Logger
 }
 
-func newWSMCommon(clusterName string) wsmCommon {
+func newWSMCommon(logger *slog.Logger, clusterName string) wsmCommon {
 	return wsmCommon{
 		functions: make(map[string]WSMFunc),
-		log:       log.WithField(logfields.ClusterName, clusterName),
+		log:       logger.With(logfields.ClusterName, clusterName),
 	}
 }
 
@@ -50,7 +50,7 @@ func newWSMCommon(clusterName string) wsmCommon {
 // It cannot be called once Run() has started.
 func (mgr *wsmCommon) Register(prefix string, function WSMFunc) {
 	if mgr.running.Load() {
-		mgr.log.Panic("Cannot call Register while the watch store manager is running")
+		logging.Panic(mgr.log, "Cannot call Register while the watch store manager is running")
 	}
 
 	mgr.functions[prefix] = function
@@ -58,24 +58,24 @@ func (mgr *wsmCommon) Register(prefix string, function WSMFunc) {
 
 func (mgr *wsmCommon) ready(ctx context.Context, prefix string) {
 	if fn := mgr.functions[prefix]; fn != nil {
-		mgr.log.WithField(logfields.Prefix, prefix).Debug("Starting function for kvstore prefix")
+		mgr.log.Debug("Starting function for kvstore prefix", logfields.Prefix, prefix)
 		delete(mgr.functions, prefix)
 
 		mgr.wg.Add(1)
 		go func() {
 			defer mgr.wg.Done()
 			fn(ctx)
-			mgr.log.WithField(logfields.Prefix, prefix).Debug("Function terminated for kvstore prefix")
+			mgr.log.Debug("Function terminated for kvstore prefix", logfields.Prefix, prefix)
 		}()
 	} else {
-		mgr.log.WithField(logfields.Prefix, prefix).Debug("Received sync event for unregistered prefix")
+		mgr.log.Debug("Received sync event for unregistered prefix", logfields.Prefix, prefix)
 	}
 }
 
 func (mgr *wsmCommon) run() {
 	mgr.log.Info("Starting watch store manager")
 	if mgr.running.Swap(true) {
-		mgr.log.Panic("Cannot start the watch store manager twice")
+		logging.Panic(mgr.log, "Cannot start the watch store manager twice")
 	}
 }
 
@@ -98,9 +98,9 @@ type wsmSync struct {
 // This ensures that the synchronization of the keys hosted under the given prefix
 // have been successfully synchronized from the external source, even in case an
 // ephemeral kvstore is used.
-func newWatchStoreManagerSync(backend WatchStoreBackend, clusterName string, factory Factory) WatchStoreManager {
+func newWatchStoreManagerSync(logger *slog.Logger, backend WatchStoreBackend, clusterName string, factory Factory) WatchStoreManager {
 	mgr := wsmSync{
-		wsmCommon:   newWSMCommon(clusterName),
+		wsmCommon:   newWSMCommon(logger, clusterName),
 		clusterName: clusterName,
 		backend:     backend,
 	}
@@ -127,9 +127,9 @@ type wsmImmediate struct {
 
 // NewWatchStoreManagerImmediate implements the WatchStoreManager interface,
 // immediately starting the registered functions once Run() is executed.
-func NewWatchStoreManagerImmediate(clusterName string) WatchStoreManager {
+func NewWatchStoreManagerImmediate(logger *slog.Logger, clusterName string) WatchStoreManager {
 	return &wsmImmediate{
-		wsmCommon: newWSMCommon(clusterName),
+		wsmCommon: newWSMCommon(logger, clusterName),
 	}
 }
 

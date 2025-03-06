@@ -37,6 +37,7 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 	kvstorePrefix := fmt.Sprintf("test-prefix-%s", rand.String(12))
 	kubeClient, _ := k8sClient.NewFakeClientset(hivetest.Logger(tb))
 	backend, err := NewDoubleWriteBackend(
+		hivetest.Logger(tb),
 		DoubleWriteBackendConfiguration{
 			CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
 				Store:    nil,

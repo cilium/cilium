@@ -6,13 +6,14 @@ package allocator
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/idpool"
 )
 
 func TestLocalKeys(t *testing.T) {
-	k := newLocalKeys()
+	k := newLocalKeys(hivetest.Logger(t))
 	key, val := TestAllocatorKey("foo"), idpool.ID(200)
 	key2, val2 := TestAllocatorKey("bar"), idpool.ID(300)
 

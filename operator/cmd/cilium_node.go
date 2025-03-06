@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -100,10 +101,11 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 
 			log.Info("Starting to synchronize CiliumNode custom resources to KVStore")
 
-			ciliumNodeKVStore, err = store.JoinSharedStore(store.Configuration{
-				Prefix:     nodeStore.NodeStorePrefix,
-				KeyCreator: nodeStore.KeyCreator,
-			})
+			ciliumNodeKVStore, err = store.JoinSharedStore(logging.DefaultSlogLogger,
+				store.Configuration{
+					Prefix:     nodeStore.NodeStorePrefix,
+					KeyCreator: nodeStore.KeyCreator,
+				})
 
 			if err != nil {
 				log.WithError(err).Fatal("Unable to setup node watcher")
