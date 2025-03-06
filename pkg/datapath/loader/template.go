@@ -8,15 +8,10 @@ import (
 	"math"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -32,18 +27,6 @@ var (
 	templateIPv6 = [16]byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 
 	templateMAC = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
-
-	elfMapPrefixes = []string{
-		policymap.MapName,
-		callsmap.MapName,
-		callsmap.CustomCallsMapName,
-	}
-	elfCtMapPrefixes = []string{
-		ctmap.MapNameTCP4,
-		ctmap.MapNameAny4,
-		ctmap.MapNameTCP6,
-		ctmap.MapNameAny6,
-	}
 )
 
 // templateCfg wraps a real configuration from an endpoint to pass through its
@@ -135,37 +118,6 @@ func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 	return &templateCfg{
 		CompileTimeConfiguration: cfg,
 	}
-}
-
-// ELFMapSubstitutions returns the set of map substitutions that must occur in
-// an ELF template object file to update map references for the specified
-// endpoint.
-func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
-	result := make(map[string]string)
-	epID := uint16(ep.GetID())
-
-	for _, name := range elfMapPrefixes {
-		if ep.IsHost() && name == callsmap.MapName {
-			name = callsmap.HostMapName
-		}
-		// Custom calls for hosts are not supported yet.
-		if name == callsmap.CustomCallsMapName &&
-			(!option.Config.EnableCustomCalls || ep.IsHost()) {
-			continue
-		}
-		templateStr := bpf.LocalMapName(name, templateLxcID)
-		desiredStr := bpf.LocalMapName(name, epID)
-		result[templateStr] = desiredStr
-	}
-	if ep.ConntrackLocalLocked() {
-		for _, name := range elfCtMapPrefixes {
-			templateStr := bpf.LocalMapName(name, templateLxcID)
-			desiredStr := bpf.LocalMapName(name, epID)
-			result[templateStr] = desiredStr
-		}
-	}
-
-	return result
 }
 
 // sliceToU16 converts the input slice of two bytes to a uint16.

@@ -99,7 +99,7 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 		},
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, (cap_len << 32) | BPF_F_CURRENT_CPU,
+	ctx_event_output(ctx, &cilium_events, (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
 
@@ -152,7 +152,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CAPTURE4_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} CAPTURE4_RULES __section_maps_btf;
+} cilium_capture4_rules __section_maps_btf;
 
 static __always_inline void
 cilium_capture4_masked_key(const struct capture4_wcard *orig,
@@ -246,7 +246,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 _Pragma("unroll")
 	for (i = 0; i < size; i++) {
 		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
-		match = map_lookup_elem(&CAPTURE4_RULES, &lkey);
+		match = map_lookup_elem(&cilium_capture4_rules, &lkey);
 		if (match)
 			return match;
 	}
@@ -263,7 +263,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CAPTURE6_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} CAPTURE6_RULES __section_maps_btf;
+} cilium_capture6_rules __section_maps_btf;
 
 static __always_inline void
 cilium_capture6_masked_key(const struct capture6_wcard *orig,
@@ -370,7 +370,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 _Pragma("unroll")
 	for (i = 0; i < size; i++) {
 		cilium_capture6_masked_key(&okey, &prefix_masks[i], &lkey);
-		match = map_lookup_elem(&CAPTURE6_RULES, &lkey);
+		match = map_lookup_elem(&cilium_capture6_rules, &lkey);
 		if (match)
 			return match;
 	}

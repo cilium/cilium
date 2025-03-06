@@ -43,6 +43,7 @@
 #include "lib/egress_gateway.h"
 
 #ifdef ENABLE_VTEP
+#include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
 #include "lib/eps.h"
@@ -354,7 +355,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			struct vtep_value *vtep;
 
 			vkey.vtep_ip = ip4->saddr & VTEP_MASK;
-			vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+			vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 			if (!vtep)
 				goto skip_vtep;
 			if (vtep->tunnel_endpoint) {
@@ -520,7 +521,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
 	vkey.vtep_ip = sip & VTEP_MASK;
-	info = map_lookup_elem(&VTEP_MAP, &vkey);
+	info = map_lookup_elem(&cilium_vtep_map, &vkey);
 	if (!info)
 		goto pass_to_stack;
 

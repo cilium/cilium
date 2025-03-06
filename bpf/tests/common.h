@@ -269,7 +269,7 @@ test_result_cursor = 0;
 	/* Iterate until lookup encounters null when hitting cpu number */ \
 	/* Assumes at most 128 CPUS */ \
 	for (int i = 0; i < NR_CPUS; i++) { \
-		__entry = map_lookup_percpu_elem(&METRICS_MAP, &key, i); \
+		__entry = map_lookup_percpu_elem(&cilium_metrics, &key, i); \
 		if (!__entry) { \
 			break; \
 		} \
