@@ -176,8 +176,8 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[@]} \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-          "
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
