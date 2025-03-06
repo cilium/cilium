@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +28,7 @@ func TestLocalLock(t *testing.T) {
 
 	// Ensure that staleLockTimeout has passed
 	time.Sleep(staleLockTimeout * 2)
-	locks.runGC()
+	locks.runGC(hivetest.Logger(t))
 
 	// Acquire lock on same path, must unlock local use
 	id2, err := locks.lock(context.Background(), path)

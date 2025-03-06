@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"testing"
 	"time"
@@ -64,9 +65,9 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
 
 	statusErrors := make(chan error, 1)
-	rc.backendFactory = func(ctx context.Context, backendName string, opts map[string]string,
+	rc.backendFactory = func(ctx context.Context, logger *slog.Logger, backendName string, opts map[string]string,
 		options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		backend, errch := kvstore.NewClient(ctx, backendName, opts, options)
+		backend, errch := kvstore.NewClient(ctx, logger, backendName, opts, options)
 		return &fakeBackend{backend, statusErrors}, errch
 	}
 

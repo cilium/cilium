@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	client "go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/time"
@@ -40,13 +41,13 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 	module.setConfigDummy()
 
 	if opts != nil {
-		err := module.setConfig(opts)
+		err := module.setConfig(hivetest.Logger(tb), opts)
 		if err != nil {
 			tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
 		}
 	}
 
-	if err := initClient(context.Background(), module, nil); err != nil {
+	if err := initClient(context.Background(), hivetest.Logger(tb), module, nil); err != nil {
 		tb.Fatalf("Unable to initialize kvstore client: %v", err)
 	}
 
