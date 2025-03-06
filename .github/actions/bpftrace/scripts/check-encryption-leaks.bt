@@ -32,6 +32,14 @@
 #define CIDR6       (uint32)(pton(NODE1_INTERNAL_IPV6)[0]) << 8   // ex. 0xfd00 (fd00::/8)
 #define ENABLE_IPV6 NODE1_INTERNAL_IPV6 != "::1"
 
+// Used to identity connections tracked via proxy:
+// - SK_TRACK_FLAG_BASE:       conn tracked from tcp_connect or udp{6}_sendmsg;
+// - SK_TRACK_FLAG_MASQUERADE: conn tracked from __dev_queue_xmit.
+// Therefore, a connection being source masqueraded in __dev_queue_xmit would
+// not have SK_TRACK_FLAG_BASE set (new independent entry in the map).
+#define SK_TRACK_FLAG_BASE       (uint8)0x1
+#define SK_TRACK_FLAG_MASQUERADE (uint8)0x2
+
 #define PROTO_IPV4     0x0800
 #define PROTO_IPV6     0x86DD
 #define PROTO_ICMPV4   1
@@ -133,9 +141,9 @@ kprobe:br_forward
         $ip4h->daddr == (uint32)pton(NODE2_INTERNAL_IPV4) ||
         $ip4h->daddr == (uint32)pton(NODE3_INTERNAL_IPV4);
 
-      $pod_to_pod_via_proxy =
-          @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
-          @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
+      $pod_to_pod_via_proxy = @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ?
+                              @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] :
+                              @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
       if (
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
@@ -144,7 +152,7 @@ kprobe:br_forward
         if (!$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d)\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
             $time, $skb,
             ntop($ip4h->saddr), bswap($udph->source),
             ntop($ip4h->daddr), bswap($udph->dest),
@@ -155,7 +163,8 @@ kprobe:br_forward
             $skb->dev->nd_net.net->ns.inum,
             $src_is_pod, $src_is_internal,
             $dst_is_pod, $dst_is_internal,
-            $pod_to_pod_via_proxy);
+            $pod_to_pod_via_proxy >= SK_TRACK_FLAG_BASE,
+            $pod_to_pod_via_proxy == SK_TRACK_FLAG_MASQUERADE);
 
           if ($ip4h->protocol == PROTO_ICMPV4) {
             $frag_off = bswap($ip4h->frag_off);
@@ -212,9 +221,9 @@ kprobe:br_forward
         $ip6h->daddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) ||
         $ip6h->daddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6);
 
-      $pod_to_pod_via_proxy =
-          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
-          @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
+      $pod_to_pod_via_proxy = @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ?
+                              @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] :
+                              @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
       if (
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
@@ -223,7 +232,7 @@ kprobe:br_forward
         if (!$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d)\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d, iif: %d, netns: %x, srcPod: %d(%d), dstPod: %d(%d), proxy: %d(%d))\n",
             $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
             ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
@@ -234,7 +243,8 @@ kprobe:br_forward
             $skb->dev->nd_net.net->ns.inum,
             $src_is_pod, $src_is_internal,
             $dst_is_pod, $dst_is_internal,
-            $pod_to_pod_via_proxy);
+            $pod_to_pod_via_proxy >= SK_TRACK_FLAG_BASE,
+            $pod_to_pod_via_proxy == SK_TRACK_FLAG_MASQUERADE);
 
           if ($ip6h->nexthdr == PROTO_FRAGMENT || $ip6h->nexthdr == PROTO_ICMPV6) {
             $frag_id = 0;
@@ -293,7 +303,7 @@ kprobe:tcp_connect
 
   if ($inet_family == AF_INET) {
     if ((bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4) {
-      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = SK_TRACK_FLAG_BASE;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_L7_IP4] = true;
     }
@@ -301,7 +311,7 @@ kprobe:tcp_connect
 
   if ($inet_family == AF_INET6) {
     if (bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6) {
-      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = SK_TRACK_FLAG_BASE;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_L7_IP6] = true;
     }
@@ -328,7 +338,7 @@ kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
-    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_DNS_IP4] = true;
   }
@@ -339,7 +349,7 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if ($sk->__sk_common.skc_num == PORT_DNS) {
-    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
     @trace_sk[$sk] = true;
     @sanity[TYPE_PROXY_DNS_IP6] = true;
   }
@@ -390,9 +400,9 @@ kprobe:__dev_queue_xmit
   }
 
   if ($proto == PROTO_IPV4) {
-    @trace_ip4[$ip4h->saddr, $udph->source, $l4proto] = true;
+    @trace_ip4[$ip4h->saddr, $udph->source, $l4proto] |= SK_TRACK_FLAG_MASQUERADE;
   } else {
-    @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $l4proto] = true;
+    @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $l4proto] |= SK_TRACK_FLAG_MASQUERADE;
   }
 
   delete(@trace_sk[$sk])
