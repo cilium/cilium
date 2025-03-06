@@ -63,7 +63,8 @@ func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	r.logger.Debug("Upsert envoy endpoints",
 		logfields.L7LBFrontendPorts, frontendPorts,
 		logfields.ServiceNamespace, svc.Name.Namespace,
-		logfields.ServiceName, svc.Name.Name)
+		logfields.ServiceName, svc.Name.Name,
+	)
 	if err := r.upsertEnvoyEndpoints(svc.Name, be); err != nil {
 		return fmt.Errorf("failed to update backends in Envoy: %w", err)
 	}

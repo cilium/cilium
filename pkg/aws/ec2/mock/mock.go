@@ -52,6 +52,7 @@ type API struct {
 	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
+	routeTables    map[string]*ipamTypes.RouteTable
 	securityGroups map[string]*types.SecurityGroup
 	instanceTypes  []ec2_types.InstanceTypeInfo
 	errors         map[Operation]error
@@ -63,7 +64,7 @@ type API struct {
 }
 
 // NewAPI returns a new mocked EC2 API
-func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
+func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup, routeTables []*ipamTypes.RouteTable) *API {
 
 	// Start with base CIDR 10.0.0.0/16
 	_, baseCidr, _ := net.ParseCIDR("10.10.0.0/16")
@@ -85,6 +86,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
+		routeTables:    map[string]*ipamTypes.RouteTable{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		instanceTypes:  []ec2_types.InstanceTypeInfo{},
 		allocator:      podCidrRange,
@@ -96,7 +98,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 
 	api.UpdateSubnets(subnets)
 	api.UpdateSecurityGroups(securityGroups)
-
+	api.UpdateRouteTables(routeTables)
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
@@ -110,6 +112,16 @@ func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	e.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
 		e.subnets[s.ID] = s.DeepCopy()
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateRouteTables replaces the route tables which the mock API will return
+func (e *API) UpdateRouteTables(routeTables []*ipamTypes.RouteTable) {
+	e.mutex.Lock()
+	e.routeTables = map[string]*ipamTypes.RouteTable{}
+	for _, rt := range routeTables {
+		e.routeTables[rt.ID] = rt.DeepCopy()
 	}
 	e.mutex.Unlock()
 }
@@ -649,6 +661,18 @@ func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 		subnets[s.ID] = s.DeepCopy()
 	}
 	return subnets, nil
+}
+
+func (e *API) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+	routeTables := ipamTypes.RouteTableMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, rt := range e.routeTables {
+		routeTables[rt.ID] = rt.DeepCopy()
+	}
+	return routeTables, nil
 }
 
 func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
