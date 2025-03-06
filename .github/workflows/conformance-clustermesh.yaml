@@ -326,7 +326,8 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \
             --test-concurrency=5 \
             --multi-cluster=${{ env.contextName2 }} \
