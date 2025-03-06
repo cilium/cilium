@@ -5,16 +5,14 @@ package cli
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
-	"github.com/hmarr/codeowners"
 	"github.com/stretchr/testify/require"
 
-	assets "github.com/cilium/cilium"
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 )
 
 func TestNewConnectivityTests(t *testing.T) {
@@ -79,7 +77,7 @@ func TestNewConnectivityTests(t *testing.T) {
 		},
 	}
 	for _, tt := range testCases {
-		owners, err := codeowners.ParseFile(strings.NewReader(assets.CodeOwnersRaw))
+		owners, err := codeowners.Load([]string{})
 		if err != nil {
 			t.Fatalf("🐛 Failed to parse CODEOWNERS. Developer BUG? %s", err)
 		}
