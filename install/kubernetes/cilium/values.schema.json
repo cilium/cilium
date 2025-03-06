@@ -519,6 +519,14 @@
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
+        "distributedLRU": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "enableTCX": {
           "type": "boolean"
         },
