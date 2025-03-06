@@ -166,6 +166,9 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
+	//Maximum jitter time for CiliumIdentity
+	CiliumIdentityMaxJitter = 30 * time.Second
+
 	// IdentityRestoreGracePeriodKvstore is the default value for
 	// option.IdentityRestoreGracePeriod when kvstore is enabled.
 	IdentityRestoreGracePeriodKvstore = 10 * time.Minute
