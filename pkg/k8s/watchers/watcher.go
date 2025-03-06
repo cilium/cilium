@@ -312,7 +312,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
 			if !k.cfg.KVstoreEnabled() {
-				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
+				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
 			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
