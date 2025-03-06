@@ -461,6 +461,7 @@ data:
   bpf-lb-mode-annotation: {{ .Values.bpf.lbModeAnnotation | quote }}
 {{- end }}
 
+  bpf-distributed-lru: {{ .Values.bpf.distributedLRU.enabled | quote }}
   bpf-events-drop-enabled: {{ .Values.bpf.events.drop.enabled | quote }}
   bpf-events-policy-verdict-enabled: {{ .Values.bpf.events.policyVerdict.enabled | quote }}
   bpf-events-trace-enabled: {{ .Values.bpf.events.trace.enabled | quote }}
