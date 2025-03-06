@@ -393,7 +393,7 @@ func TestWriter_Initializers(t *testing.T) {
 	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
 }
 
-func TestSetBackends(t *testing.T) {
+func TestWriter_SetBackends(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -541,7 +541,7 @@ func TestSetBackends(t *testing.T) {
 	}
 }
 
-func TestWithConflictingSources(t *testing.T) {
+func TestWriter_WithConflictingSources(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -675,4 +675,43 @@ func TestWithConflictingSources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriter_SetSelectBackends(t *testing.T) {
+	p := fixture(t)
+	w := p.Writer
+
+	var feAddr loadbalancer.L3n4Addr
+	feAddr.ParseFromString("1.0.0.1:80/TCP")
+	svcName := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+
+	var beAddr loadbalancer.L3n4Addr
+	beAddr.ParseFromString("2.0.0.1:80/TCP")
+
+	w.SetSelectBackendsFunc(func(txn statedb.ReadTxn, backends statedb.Table[*Backend], fe *Frontend) iter.Seq2[BackendParams, statedb.Revision] {
+		require.NotNil(t, txn)
+		require.NotNil(t, backends)
+		require.NotNil(t, fe)
+		require.Equal(t, feAddr.String(), fe.Address.String())
+
+		return func(yield func(BackendParams, uint64) bool) {
+			yield(BackendParams{
+				L3n4Addr: beAddr,
+				Source:   "test",
+			}, 1)
+		}
+	})
+
+	wtxn := w.WriteTxn()
+	err := w.UpsertServiceAndFrontends(wtxn,
+		&Service{Name: svcName},
+		FrontendParams{Address: feAddr, ServiceName: loadbalancer.ServiceName{Namespace: "test", Name: "test"}})
+	require.NoError(t, err, "UpsertServiceAndFrontends")
+	txn := wtxn.Commit()
+
+	fe, _, found := w.Frontends().Get(txn, FrontendByAddress(feAddr))
+	require.True(t, found)
+	bes := slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
+	require.Len(t, bes, 1)
+	require.Equal(t, beAddr.String(), bes[0].L3n4Addr.String())
 }

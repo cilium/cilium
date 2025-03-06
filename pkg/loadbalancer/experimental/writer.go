@@ -34,7 +34,11 @@ type Writer struct {
 
 	svcHooks         []ServiceHook
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
+
+	selectBackendsFunc SelectBackendsFunc
 }
+
+type SelectBackendsFunc = func(statedb.ReadTxn, statedb.Table[*Backend], *Frontend) iter.Seq2[BackendParams, statedb.Revision]
 
 type writerParams struct {
 	cell.In
@@ -69,7 +73,12 @@ func NewWriter(p writerParams) (*Writer, error) {
 		svcHooks:         p.ServiceHooks,
 		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
 	}
+	w.selectBackendsFunc = w.DefaultSelectBackends
 	return w, nil
+}
+
+func (w *Writer) SetSelectBackendsFunc(fn SelectBackendsFunc) {
+	w.selectBackendsFunc = fn
 }
 
 func priorityMapFromSlice(s source.Sources) map[source.Source]uint8 {
@@ -259,7 +268,7 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *Service) error {
 
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {
 	fe.Status = reconciler.StatusPending()
-	fe.Backends = backendsSeq2(getBackendsForFrontend(txn, w.bes, w.nodeName, fe))
+	fe.Backends = backendsSeq2(w.selectBackendsFunc(txn, w.bes, fe))
 }
 
 func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
@@ -273,7 +282,7 @@ func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) e
 	return nil
 }
 
-func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], nodeName string, fe *Frontend) iter.Seq2[BackendParams, statedb.Revision] {
+func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, tbl statedb.Table[*Backend], fe *Frontend) iter.Seq2[BackendParams, statedb.Revision] {
 	serviceName := fe.ServiceName
 	if fe.RedirectTo != nil {
 		serviceName = *fe.RedirectTo
@@ -294,7 +303,7 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], no
 				continue
 			}
 			instance := be.GetInstance(serviceName)
-			if onlyLocal && len(instance.NodeName) != 0 && instance.NodeName != nodeName {
+			if onlyLocal && len(instance.NodeName) != 0 && instance.NodeName != w.nodeName {
 				continue
 			}
 			if fe.PortName != "" {
