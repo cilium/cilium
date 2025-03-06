@@ -43,8 +43,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          # TODO: Switch once a new Cilium CLI version is released
-          ci-version: 67be187d7d6dc3a34aadf31b6c783c79ce3b4fae
+          image-tag: ${{ inputs.SHA || github.sha }}
 
       - name: Generate Features Summary
         env:
