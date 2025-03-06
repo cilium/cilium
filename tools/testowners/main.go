@@ -13,9 +13,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/hmarr/codeowners"
+	flag "github.com/spf13/pflag"
 
-	assets "github.com/cilium/cilium"
+	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
 )
 
 func fatal(fmt string, msg ...any) {
@@ -33,10 +33,20 @@ type TestEvent struct {
 	Output  string
 }
 
+var (
+	CodeOwners []string
+)
+
+func init() {
+	flag.StringSliceVar(&CodeOwners, "code-owners", []string{}, "Use the code owners defined in these files for --log-code-owners")
+}
+
 func main() {
-	owners, err := codeowners.ParseFile(strings.NewReader(assets.CodeOwnersRaw))
+	flag.Parse()
+
+	owners, err := codeowners.Load(CodeOwners)
 	if err != nil {
-		fatal("🐛 Failed to parse CODEOWNERS. Developer BUG? %s\n", err)
+		fatal("❗ Failed to load code owners: %s\n", err)
 	}
 
 	// Example JSON for failed test:
