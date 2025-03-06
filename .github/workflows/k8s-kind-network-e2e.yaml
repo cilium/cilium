@@ -27,7 +27,7 @@ jobs:
   kubernetes-e2e:
     name: K8s Network E2E tests
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
