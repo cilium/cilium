@@ -101,6 +101,7 @@ type PerfTests struct {
 	Sample   int
 	MsgSize  int
 	Duration time.Duration
+	Streams  uint
 	NetQos   bool
 }
 
