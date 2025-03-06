@@ -17,6 +17,18 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+// localRedirectServiceSuffix is the suffix to append to the local redirect policy
+// name to construct the pseudo-service name to which the matched pods are associated
+// as backends. ':' is used as separator as that is not an allowed character in k8s.
+const localRedirectServiceSuffix = ":local-redirect"
+
+func lrpServiceName(lrpID k8s.ServiceID) lb.ServiceName {
+	return lb.ServiceName{
+		Name:      lrpID.Name + localRedirectServiceSuffix,
+		Namespace: lrpID.Namespace,
+	}
+}
+
 type lrpConfigType = int
 
 const (
@@ -125,6 +137,10 @@ func (lrp *LocalRedirectPolicy) TableRow() []string {
 		strings.Join(mappings, ", "),
 		lrp.BackendSelector.String(),
 	}
+}
+
+func (lrp *LocalRedirectPolicy) ServiceName() lb.ServiceName {
+	return lrpServiceName(lrp.ID)
 }
 
 type portName = string
