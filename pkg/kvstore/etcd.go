@@ -488,27 +488,6 @@ func (e *etcdClient) Connected(ctx context.Context) <-chan error {
 	return out
 }
 
-// Disconnected closes the returned channel when the etcd client is
-// disconnected after being reconnected. Blocks until the etcd client is first
-// connected with the kvstore.
-func (e *etcdClient) Disconnected() <-chan struct{} {
-	<-e.firstSession
-	limiter := newExpBackoffRateLimiter(e, "etcd-client-disconnected")
-	defer limiter.Reset()
-	for {
-		session, err := e.lockLeaseManager.GetSession(context.Background(), InitLockPath)
-		if err == nil {
-			return session.Done()
-		}
-
-		e.logger.Warn(
-			"Failed to acquire lock session",
-			logfields.Error, err,
-		)
-		limiter.Wait(context.TODO())
-	}
-}
-
 func connectEtcdClient(ctx context.Context, logger *slog.Logger, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
