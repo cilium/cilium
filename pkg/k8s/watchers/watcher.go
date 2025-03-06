@@ -292,14 +292,12 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return
 	}
-	asyncControllers := &sync.WaitGroup{}
 
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
 		case resources.K8sAPIGroupPodV1Core:
-			asyncControllers.Add(1)
-			go k.k8sPodWatcher.podsInit(asyncControllers)
+			k.k8sPodWatcher.podsInit(ctx)
 		case resources.K8sAPIGroupNamespaceV1Core:
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
@@ -324,8 +322,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			}).Fatal("Not listening for Kubernetes resource updates for unhandled type")
 		}
 	}
-
-	asyncControllers.Wait()
 }
 
 func (k *K8sWatcher) StopWatcher() {
