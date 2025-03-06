@@ -720,6 +720,7 @@ sid
 sig
 skb
 snat
+spinlock
 srv
 ssl
 stacktrace
