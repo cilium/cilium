@@ -105,6 +105,8 @@ type ControllerParams struct {
 	NoErrorRetry bool
 
 	Context context.Context
+
+	DelayUpdate time.Duration
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
@@ -239,82 +241,87 @@ func (c *controller) GetLastErrorTimestamp() time.Time {
 	return c.lastErrorStamp
 }
 
-func (c *controller) runController(params ControllerParams) {
+func (c *controller) runController() {
+	var params ControllerParams
 	errorRetries := 1
+	runFunc := false
+	interval := 10 * time.Minute
 
 	for {
 		var err error
 
-		interval := params.RunInterval
+		if runFunc && params.DoFunc != nil {
+			interval = params.RunInterval
 
-		start := time.Now()
-		err = params.DoFunc(params.Context)
-		duration := time.Since(start)
+			start := time.Now()
+			err = params.DoFunc(params.Context)
+			duration := time.Since(start)
 
-		c.mutex.Lock()
-		c.lastDuration = duration
-		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+			c.mutex.Lock()
+			c.lastDuration = duration
+			c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
 
-		if err != nil {
-			if params.Context.Err() != nil {
-				// The controller's context was canceled. Let's wait for the
-				// next controller update (or stop).
-				err = NewExitReason("controller context canceled")
-			}
+			if err != nil {
+				if params.Context.Err() != nil {
+					// The controller's context was canceled. Let's wait for the
+					// next controller update (or stop).
+					err = NewExitReason("controller context canceled")
+				}
 
-			var exitReason ExitReason
-			if errors.As(err, &exitReason) {
-				// This is actually not an error case, but it causes an exit
-				c.recordSuccess(params.Health)
-				c.lastError = exitReason // This will be shown in the controller status
+				var exitReason ExitReason
+				if errors.As(err, &exitReason) {
+					// This is actually not an error case, but it causes an exit
+					c.recordSuccess(params.Health)
+					c.lastError = exitReason // This will be shown in the controller status
 
-				// Don't exit the goroutine, since that only happens when the
-				// controller is explicitly stopped. Instead, just wait for
-				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
-				interval = time.Duration(math.MaxInt64)
+					// Don't exit the goroutine, since that only happens when the
+					// controller is explicitly stopped. Instead, just wait for
+					// the next update.
+					c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+					interval = time.Duration(math.MaxInt64)
 
+				} else {
+					c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
+						WithError(err).Debug("Controller run failed")
+					c.recordError(err, params.Health)
+
+					if !params.NoErrorRetry {
+						if params.ErrorRetryBaseDuration != time.Duration(0) {
+							interval = time.Duration(errorRetries) * params.ErrorRetryBaseDuration
+						} else {
+							interval = time.Duration(errorRetries) * time.Second
+						}
+
+						if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
+							c.getLogger().WithFields(logrus.Fields{
+								"calculatedInterval": interval,
+								"maxAllowedInterval": params.MaxRetryInterval,
+							}).Debug("Cap retry interval to max allowed value")
+							interval = params.MaxRetryInterval
+						}
+
+						errorRetries++
+					}
+				}
 			} else {
-				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-					WithError(err).Debug("Controller run failed")
-				c.recordError(err, params.Health)
+				c.recordSuccess(params.Health)
 
-				if !params.NoErrorRetry {
-					if params.ErrorRetryBaseDuration != time.Duration(0) {
-						interval = time.Duration(errorRetries) * params.ErrorRetryBaseDuration
-					} else {
-						interval = time.Duration(errorRetries) * time.Second
-					}
+				// reset error retries after successful attempt
+				errorRetries = 1
 
-					if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
-						c.getLogger().WithFields(logrus.Fields{
-							"calculatedInterval": interval,
-							"maxAllowedInterval": params.MaxRetryInterval,
-						}).Debug("Cap retry interval to max allowed value")
-						interval = params.MaxRetryInterval
-					}
-
-					errorRetries++
+				// If no run interval is specified, no further updates
+				// are required.
+				if interval == time.Duration(0) {
+					// Don't exit the goroutine, since that only happens when the
+					// controller is explicitly stopped. Instead, just wait for
+					// the next update.
+					c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
+					interval = time.Duration(math.MaxInt64)
 				}
 			}
-		} else {
-			c.recordSuccess(params.Health)
 
-			// reset error retries after successful attempt
-			errorRetries = 1
-
-			// If no run interval is specified, no further updates
-			// are required.
-			if interval == time.Duration(0) {
-				// Don't exit the goroutine, since that only happens when the
-				// controller is explicitly stopped. Instead, just wait for
-				// the next update.
-				c.getLogger().Debug("Controller run succeeded; waiting for next controller update or stop")
-				interval = time.Duration(math.MaxInt64)
-			}
+			c.mutex.Unlock()
 		}
-
-		c.mutex.Unlock()
 
 		select {
 		case <-c.stop:
@@ -322,10 +329,12 @@ func (c *controller) runController(params ControllerParams) {
 
 		case params = <-c.update:
 			// update channel is never closed
+			runFunc = true
 		case <-stdtime.After(interval):
 			// timer channel is not yet closed
 		case <-c.trigger:
 			// trigger channel is never closed
+			runFunc = true
 		}
 
 		// If we receive a signal on multiple channels golang will pick one randomly.
