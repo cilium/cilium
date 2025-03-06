@@ -825,6 +825,9 @@ const (
 	// IdentityChangeGracePeriod option
 	IdentityChangeGracePeriod = "identity-change-grace-period"
 
+	// Maximum delay time for calling update CiliumIdentity after the namespace label is modified
+	DelayCIdentityOfNsLabelChange = "max-delay-namespace-label-change"
+
 	// IdentityRestoreGracePeriod is the name of the
 	// IdentityRestoreGracePeriod option
 	IdentityRestoreGracePeriod = "identity-restore-grace-period"
@@ -1799,6 +1802,9 @@ type DaemonConfig struct {
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod time.Duration
 
+	// Max delay to change CiliumIdentity after Namespace label changed.
+	DelayCIdentityOfNsLabelChange time.Duration
+
 	// IdentityRestoreGracePeriod is the grace period that needs to pass before CIDR identities
 	// restored during agent restart are released. If any of the restored identities remains
 	// unused after this time, they will be removed from the IP cache. Any of the restored
@@ -2265,6 +2271,7 @@ var (
 		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
 		KVstorePodNetworkSupport:        defaults.KVstorePodNetworkSupport,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+		DelayCIdentityOfNsLabelChange:   defaults.DelayCIdentityOfNsLabelChange,
 		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
 		FixedIdentityMapping:            make(map[string]string),
 		KVStoreOpt:                      make(map[string]string),
@@ -2877,6 +2884,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
+	c.DelayCIdentityOfNsLabelChange = vp.GetDuration(DelayCIdentityOfNsLabelChange)
 	c.IdentityRestoreGracePeriod = vp.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = vp.GetString(IPAM)
 	c.IPAMDefaultIPPool = vp.GetString(IPAMDefaultIPPool)
