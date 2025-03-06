@@ -209,9 +209,11 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				if lrp.BackendSelector.Matches(labels.Set(podInfo.labels)) {
 					if change.Deleted {
 						toName := lrp.ServiceName()
-						for _, addr := range podInfo.addrs {
-							c.p.Writer.ReleaseBackend(wtxn, toName, addr.L3n4Addr)
+						addrs := make([]lb.L3n4Addr, 0, len(podInfo.addrs))
+						for i, addr := range podInfo.addrs {
+							addrs[i] = addr.L3n4Addr
 						}
+						c.p.Writer.ReleaseBackends(wtxn, toName, addrs...)
 					} else {
 						c.processLRPAndPod(wtxn, lrp, podInfo)
 					}

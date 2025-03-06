@@ -14,7 +14,7 @@ import (
 )
 
 var Cell = cell.Module(
-	"loadbalancer-experimental",
+	"loadbalancer",
 	"Experimental load-balancing control-plane",
 
 	cell.Config(DefaultConfig),
@@ -58,8 +58,8 @@ var Cell = cell.Module(
 // Table[*Service], Table[*Frontend] and Table[*Backend] for read-only access
 // to load-balancing state.
 var TablesCell = cell.Module(
-	"tables",
-	"Experimental load-balancing control-plane",
+	"loadbalancer-tables",
+	"Tables for load-balancing",
 
 	// Provide the RWTable[Service] and RWTable[Backend] privately to this
 	// module so that the tables are only modified via the Services API.

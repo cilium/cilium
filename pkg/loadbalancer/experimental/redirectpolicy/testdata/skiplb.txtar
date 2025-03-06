@@ -13,7 +13,10 @@ db/initialized
 db/insert desired-skiplbmap pod-cookie.yaml
 
 # Add pods, services and endpoints.
-k8s/add pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+k8s/add pod.yaml service.yaml lrp-svc.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
 db/cmp frontends frontends.table
@@ -97,6 +100,11 @@ lb/maps-dump lbmaps.actual
 podnamespacedname: test/lrp-pod
 netnscookie: 12345
 
+-- backends.table --
+Address
+10.244.1.1:8080/TCP
+[2001::1]:8080/TCP
+
 -- lrp.table --
 Name           Type     FrontendType                Frontends
 test/lrp-svc   service  all
@@ -132,21 +140,21 @@ Address                    Type        ServiceName   PortName   Backends        
 -- maps-case1.expected --
 BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
 BE: ID=4 ADDR=[2002::2]:80/TCP STATE=active
-REV: ID=1 ADDR=[1001::1]:8080
-REV: ID=2 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=1 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[1001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-case2.expected --
 BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
 BE: ID=8 ADDR=[2002::2]:80/TCP STATE=active
-REV: ID=3 ADDR=[1001::1]:8080
-REV: ID=4 ADDR=169.254.169.254:8080
-SVC: ID=3 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=3 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+REV: ID=3 ADDR=169.254.169.254:8080
+REV: ID=4 ADDR=[1001::1]:8080
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- lrp-svc.yaml --
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy

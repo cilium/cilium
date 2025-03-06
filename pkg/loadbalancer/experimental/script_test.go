@@ -125,7 +125,9 @@ func TestScript(t *testing.T) {
 			cmds["http/get"] = httpGetCmd
 
 			return &script.Engine{
-				Cmds: cmds,
+				Cmds:             cmds,
+				RetryInterval:    20 * time.Millisecond,
+				MaxRetryInterval: 500 * time.Millisecond,
 			}
 		}, []string{
 			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),

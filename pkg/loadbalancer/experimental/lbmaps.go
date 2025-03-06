@@ -868,14 +868,12 @@ type FakeLBMaps struct {
 	srcRange fakeBPFMap
 	mglv4    fakeBPFMap
 	mglv6    fakeBPFMap
-	inners   map[uint32]*fakeBPFMap
+	inners   lock.Map[uint32, *fakeBPFMap]
 	nextID   uint32
 }
 
 func NewFakeLBMaps() LBMaps {
-	return &FakeLBMaps{
-		inners: make(map[uint32]*fakeBPFMap),
-	}
+	return &FakeLBMaps{}
 }
 
 // DeleteAffinityMatch implements lbmaps.
@@ -970,7 +968,7 @@ func (f *FakeLBMaps) UpdateMaglev(key lbmap.MaglevOuterKey, backendIDs []loadbal
 	inner := &fakeBPFMap{}
 	currentID := f.nextID
 	f.nextID++
-	f.inners[currentID] = inner
+	f.inners.Store(currentID, inner)
 	value := lbmap.MaglevOuterVal{
 		FD: currentID,
 	}
@@ -996,7 +994,12 @@ func (f *FakeLBMaps) DumpMaglev(cb func(lbmap.MaglevOuterKey, lbmap.MaglevOuterV
 	var err error
 	cbWrap := func(key lbmap.MaglevOuterKey, value lbmap.MaglevOuterVal, ipv6 bool) bool {
 		singletonKey := lbmap.MaglevInnerKey{}
-		innerValue, ok := f.inners[value.FD].Map.Load(bpfKey(&singletonKey))
+		innerMap, ok := f.inners.Load(value.FD)
+		if !ok {
+			err = fmt.Errorf("inner map %d not found", value.FD)
+			return false
+		}
+		innerValue, ok := innerMap.Map.Load(bpfKey(&singletonKey))
 		if !ok {
 			err = fmt.Errorf("failed to fetch the value from the inner map for RevNatID=%d and FD=%d", key.RevNatID, value.FD)
 			return false
