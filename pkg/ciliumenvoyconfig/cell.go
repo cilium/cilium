@@ -95,7 +95,8 @@ func registerCECK8sReconciler(params reconcilerParams) {
 			reconciler.localNodeLabels = localNode.Labels
 
 			params.Logger.Debug("Retrieved initial labels from local Node",
-				logfields.Labels, reconciler.localNodeLabels)
+				logfields.Labels, reconciler.localNodeLabels,
+			)
 
 			return nil
 		},

@@ -93,7 +93,8 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 
 			params.Logger.Debug("Retrieved Ingress IPs from Node",
 				logfields.V4IngressIP, localNode.IPv4IngressIP,
-				logfields.V6IngressIP, localNode.IPv6IngressIP)
+				logfields.V6IngressIP, localNode.IPv6IngressIP,
+			)
 
 			return nil
 		},
@@ -386,7 +387,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
 
-			r.logger.Debug("ParseResources: Parsed endpoints for cluster %q: %v",
+			r.logger.Debug("ParseResources: Parsed endpoints for cluster",
 				logfields.Name, name,
 				logfields.Endpoints, endpoints)
 
