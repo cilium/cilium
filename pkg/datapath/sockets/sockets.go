@@ -14,10 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ciliumnetns "github.com/cilium/cilium/pkg/netns"
 )
 
 const (
@@ -32,6 +34,46 @@ var (
 	native       = binary.NativeEndian
 	networkOrder = binary.BigEndian
 )
+
+// IterateAs iterates netlink sockets via a callback, inside a provided netns handle.
+func IterateAs(ns ciliumnetns.NetNS, proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
+	return iterate(&ns, proto, family, stateFilter, func(s *Socket, err error) error {
+		return fn((*netlink.Socket)(s), err)
+	})
+}
+
+// IterateAs iterates netlink sockets via a callback.
+func Iterate(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Socket, error) error) error {
+	return iterate(nil, proto, family, stateFilter, func(s *Socket, err error) error {
+		return fn((*netlink.Socket)(s), err)
+	})
+}
+
+// DestroySocketAs sends a socket destroy message as the provided network namespce
+// via netlink and waits for a ack response.
+// This is implemented using primitives in vishvananda library, however the default SocketDestroy()
+// function is insufficient for our purposes as it identifies socket only on src/dst address
+// whereas this allows destroying socket precisely via the netlink.Socket object.
+func DestroySocketAs(ns ciliumnetns.NetNS, sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(&ns, sock.ID, sock.Family, uint8(proto), stateFilter, true)
+}
+
+// DestroySocket sends a socket destroy message via netlink and waits for a ack response.
+// This is implemented using primitives in vishvananda library, however the default SocketDestroy()
+// function is insufficient for our purposes as it identifies socket only on src/dst address
+// whereas this allows destroying socket precisely via the netlink.Socket object.
+func DestroySocket(sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(nil, sock.ID, sock.Family, uint8(proto), stateFilter, true)
+}
+
+func iterate(ns *ciliumnetns.NetNS, proto uint8, family uint8, stateFilter uint32, fn func(*Socket, error) error) error {
+	switch proto {
+	case unix.IPPROTO_UDP, unix.IPPROTO_TCP:
+	default:
+		return fmt.Errorf("unsupported protocol for iterating sockets: %d", proto)
+	}
+	return iterateNetlinkSockets(ns, proto, family, stateFilter, fn)
+}
 
 type SocketDestroyer interface {
 	Destroy(filter SocketFilter) error
@@ -75,7 +117,7 @@ func Destroy(filter SocketFilter) error {
 			}
 			if filter.MatchSocket(sock) {
 				log.Infof("socket %v", sock)
-				if err := destroySocket(sock, family, unix.IPPROTO_UDP); err != nil {
+				if err := destroySocket(nil, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
@@ -114,16 +156,10 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 }
 
 func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.SocketID, err error)) error {
-	err := socketDiagUDPExecutor(family, func(m syscall.NetlinkMessage) error {
-		sockInfo := &Socket{}
-		err := sockInfo.Deserialize(m.Data)
+	return iterateNetlinkSockets(nil, unix.IPPROTO_UDP, syscall.AF_INET, 0xffff, func(sockInfo *Socket, err error) error {
 		socketCB(sockInfo.ID, err)
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // SocketRequest implements netlink.NetlinkRequestData to be used
@@ -220,29 +256,80 @@ func (s *Socket) Deserialize(b []byte) error {
 	return nil
 }
 
-func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8) error {
-	s, err := nl.Subscribe(unix.NETLINK_INET_DIAG)
+func destroySocket(ns *ciliumnetns.NetNS, sockId netlink.SocketID, family uint8, protocol uint8, stateFilter uint32, waitForAck bool) error {
+	s, err := openSubscribeHandle(ns)
 	if err != nil {
 		return err
 	}
 	defer s.Close()
 
-	req := nl.NewNetlinkRequest(SOCK_DESTROY, unix.NLM_F_REQUEST)
+	params := unix.NLM_F_REQUEST
+	if waitForAck {
+		params |= unix.NLM_F_ACK
+	}
+	req := nl.NewNetlinkRequest(SOCK_DESTROY, params)
 	req.AddData(&SocketRequest{
 		Family:   family,
 		Protocol: protocol,
-		States:   uint32(0xfff),
+		States:   stateFilter,
 		ID:       sockId,
 	})
 	err = s.Send(req)
 	if err != nil {
-		fmt.Printf("error in destroying socket: %v", sockId)
+		return fmt.Errorf("error in destroying socket: %w", err)
 	}
+
+	if !waitForAck {
+		return nil
+	}
+	msg, _, err := s.Receive()
+	if err != nil {
+		return fmt.Errorf("failed to recv destroy resp: %w", err)
+	}
+	for _, m := range msg {
+		switch m.Header.Type {
+		case unix.NLMSG_ERROR:
+			error := int32(native.Uint32(m.Data[0:4]))
+			errno := syscall.Errno(-error)
+			if errno != 0 {
+				return fmt.Errorf("got error response to socket destroy: %w", errno)
+			}
+			return nil
+		default:
+			log.WithField("nlMsgType", m.Header.Type).
+				Info("netlink socket delete received was followed by an unexpected response header type.")
+		}
+	}
+
 	return err
 }
 
-func socketDiagUDPExecutor(family uint8, receiver func(message syscall.NetlinkMessage) error) error {
-	s, err := nl.Subscribe(unix.NETLINK_INET_DIAG)
+// openSubscribeHandle opens a netlink socket sub. If the netlink handle
+// pointer is not nil then it will subscribe to a network-namespaced handle
+// otherwise the host handle is returned.
+func openSubscribeHandle(ns *ciliumnetns.NetNS) (*nl.NetlinkSocket, error) {
+	var s *nl.NetlinkSocket
+	var err error
+	if ns != nil {
+		cur, err := ciliumnetns.Current()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current network namespace for namespaced socket diag call: %w", err)
+		}
+		s, err = nl.SubscribeAt(netns.NsHandle(ns.FD()), netns.NsHandle(cur.FD()), unix.NETLINK_INET_DIAG)
+		if err != nil {
+			return nil, fmt.Errorf("failed to subcribe to namespaced netlink socket: %w", err)
+		}
+	} else {
+		s, err = nl.Subscribe(unix.NETLINK_INET_DIAG)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return s, err
+}
+
+func iterateNetlinkSockets(ns *ciliumnetns.NetNS, proto uint8, family uint8, stateFilter uint32, fn func(*Socket, error) error) error {
+	s, err := openSubscribeHandle(ns)
 	if err != nil {
 		return err
 	}
@@ -251,22 +338,27 @@ func socketDiagUDPExecutor(family uint8, receiver func(message syscall.NetlinkMe
 	req := nl.NewNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
 	req.AddData(&SocketRequest{
 		Family:   family,
-		Protocol: unix.IPPROTO_UDP,
-		States:   uint32(0xfff),
+		Protocol: uint8(proto),
+		States:   stateFilter,
 	})
-	s.Send(req)
+	if err := s.Send(req); err != nil {
+		return fmt.Errorf("failed to send netlink list request: %w", err)
+	}
 
 loop:
 	for {
 		msgs, from, err := s.Receive()
 		if err != nil {
-			return err
+			fn(nil, err)
+			continue loop
 		}
 		if from.Pid != nl.PidKernel {
-			return fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel)
+			fn(nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
+			continue loop
 		}
 		if len(msgs) == 0 {
-			return errors.New("no message nor error from netlink")
+			fn(nil, errors.New("no message nor error from netlink"))
+			continue loop
 		}
 
 		for _, m := range msgs {
@@ -275,9 +367,12 @@ loop:
 				break loop
 			case unix.NLMSG_ERROR:
 				error := int32(native.Uint32(m.Data[0:4]))
-				return syscall.Errno(-error)
+				fn(nil, syscall.Errno(-error))
+				continue loop
 			}
-			if err := receiver(m); err != nil {
+			sockInfo := &Socket{}
+			err := sockInfo.Deserialize(m.Data)
+			if err := fn(sockInfo, err); err != nil {
 				return err
 			}
 		}
