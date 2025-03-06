@@ -272,7 +272,6 @@
 /api/v1/peer/ @cilium/sig-hubble-api
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
-/assets.go @cilium/sig-agent
 /bpf/ @cilium/sig-datapath
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
