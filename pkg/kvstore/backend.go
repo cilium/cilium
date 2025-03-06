@@ -141,10 +141,6 @@ type BackendOperations interface {
 	// is connected to the kvstore server.
 	Connected(ctx context.Context) <-chan error
 
-	// Disconnected returns a channel which is closed whenever the kvstore
-	// client is not connected to the kvstore server. (Only implemented for etcd)
-	Disconnected() <-chan struct{}
-
 	// Status returns the status of the kvstore client
 	Status() *models.Status
 
