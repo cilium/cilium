@@ -139,12 +139,11 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Feed in all the test objects
 		//
 		fmt.Printf("Iteration %d: upsert ", i)
-		for _, svc := range svcs {
-			services <- upsertEvent(svc)
-		}
-
 		for _, slice := range epSlices {
 			endpoints <- upsertEvent(slice)
+		}
+		for _, svc := range svcs {
+			services <- upsertEvent(svc)
 		}
 
 		fmt.Print("wait ")
