@@ -161,7 +161,7 @@ jobs:
             --set=pprof.enabled=true \
             --set=prometheus.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
-            ${{ env.EGRESS_GATEWAY_HELM_VALUES }} \
+            ${{ matrix.test_type == 'egw' && env.EGRESS_GATEWAY_HELM_VALUES || '' }} \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
             --set=l7Proxy=false \
