@@ -64,17 +64,16 @@ type cleanup struct {
 
 func registerCleanup(p params) {
 	if !p.Clientset.IsEnabled() || !p.Cfg.EnableStaleCiliumEndpointCleanup || p.DaemonCfg.DisableCiliumEndpointCRD ||
-		// When Cilium is configured in KVstore mode, and support for running the kvstore
-		// in pod network is disabled, we don't start the CiliumEndpoints informer at all.
-		// Hence, let's disable this GC logic as well, given that it would otherwise need
-		// to start it to populate the store content. Indeed, no one is expected to be
+		// When Cilium is configured in KVstore mode, we don't start the CiliumEndpoints informer
+		// at all. Hence, let's disable this GC logic as well, given that it would otherwise
+		// need to start it to populate the store content. Indeed, no one is expected to be
 		// watching them, and we can accept the possibility that we leak a few objects in
 		// very specific and rare circumstances [1], until the corresponding pod gets deleted.
 		// The respective kvstore entries, which are not taken into account here, will be
 		// instead eventually deleted when the corresponding lease expires.
 		//
 		// [1]: cilium/cilium#20350
-		p.DaemonCfg.KVstoreEnabledWithoutPodNetworkSupport() {
+		p.DaemonCfg.KVstoreEnabled() {
 		p.Logger.Info("Init procedure to clean up stale CiliumEndpoint disabled")
 		return
 	}
