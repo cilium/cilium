@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -77,27 +76,4 @@ func NewClient(ctx context.Context, logger *slog.Logger, selectedBackend string,
 	}
 
 	return module.newClient(ctx, logger, options)
-}
-
-// Connected returns a channel which is closed when the following conditions
-// are being met at the same time:
-// * The kvstore client is configured
-// * Connectivity to the kvstore has been established
-// * The kvstore has quorum
-//
-// The channel will *not* be closed if the kvstore client is closed before
-// connectivity or quorum has been achieved. It will wait until a new kvstore
-// client is configured to again wait for connectivity and quorum.
-func Connected() <-chan struct{} {
-	c := make(chan struct{})
-	go func(c chan struct{}) {
-		for {
-			if err := <-Client().Connected(context.Background()); err == nil {
-				close(c)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}(c)
-	return c
 }
