@@ -184,7 +184,9 @@ func TestScript(t *testing.T) {
 			})
 
 		return &script.Engine{
-			Cmds: cmds,
+			Cmds:             cmds,
+			RetryInterval:    100 * time.Millisecond,
+			MaxRetryInterval: time.Second,
 		}
 	}
 

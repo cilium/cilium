@@ -13,6 +13,7 @@ import (
 	"sort"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -46,11 +47,33 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
+const (
+	// initGracePeriod is the amount of time we wait for the load-balancing tables to be initialized before
+	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
+	// down temporarily due to not yet seeing all backends.
+	//
+	// We must not wait forever for initialization though due to potential interdependencies between load-balancing
+	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
+	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
+	// while agent was down).
+	initGracePeriod = 10 * time.Second
+)
+
+func newBPFReconciler(p reconciler.Params, g job.Group, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
 	}
-	return reconciler.Register(
+
+	// Use a custom lifecycle to start the reconciler so we can delay it starts until tables are initialized.
+	rlc := &cell.DefaultLifecycle{}
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(ctx cell.HookContext) error {
+			return rlc.Stop(p.Log, ctx)
+		},
+	})
+	p.Lifecycle = rlc
+
+	r, err := reconciler.Register(
 		p,
 		w.fes,
 
@@ -69,6 +92,30 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (
 			30*time.Minute,
 		),
 	)
+
+	g.Add(
+		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
+			// We give a short grace period for initializers to finish populating the initial contents
+			// of the tables to avoid scaling down load-balancing due to e.g. seeing services before
+			// the endpoint slices.
+			health.OK("Waiting for load-balancing tables to initialize")
+			_, initWatch := w.Frontends().Initialized(p.DB.ReadTxn())
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-initWatch:
+			case <-time.After(initGracePeriod):
+			}
+			health.OK("Starting")
+			if err := rlc.Start(p.Log, ctx); err != nil {
+				return err
+			}
+			health.OK("Started")
+			return nil
+		}),
+	)
+
+	return r, err
 }
 
 type BPFOps struct {
