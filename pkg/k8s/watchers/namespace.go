@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -22,7 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type k8sNamespaceWatcherParams struct {
@@ -122,6 +125,10 @@ func getNamespaceLabels(ns *slim_corev1.Namespace) labels.Labels {
 	return labels.Map2Labels(labelMap, labels.LabelSourceK8s)
 }
 
+func randomDuration(maxDuration time.Duration) time.Duration {
+	return time.Duration(rand.Int64N(int64(maxDuration)))
+}
+
 func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	newLabels := getNamespaceLabels(newNS)
 
@@ -136,10 +143,12 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 
 	eps := u.endpointManager.GetEndpoints()
 	failed := false
+	ciliumIdentityMaxJitter := option.Config.CiliumIdentityMaxJitter
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
 		if newNS.Name == epNS {
-			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels)
+			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels,
+				randomDuration(ciliumIdentityMaxJitter))
 			if err != nil {
 				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
 					Warning("unable to update endpoint with new identity labels from namespace labels")
