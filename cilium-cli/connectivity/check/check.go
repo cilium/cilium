@@ -121,6 +121,7 @@ type Parameters struct {
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
 
+	CodeOwners        []string
 	LogCodeOwners     bool
 	ExcludeCodeOwners []string
 	LogCheckLevels    []string
