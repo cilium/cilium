@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -22,7 +21,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/kvstore"
 	nm "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -65,104 +63,54 @@ type K8sCiliumNodeWatcher struct {
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 }
 
-func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
-	// CiliumNode objects are used for node discovery until the key-value
-	// store is connected
-	var once sync.Once
-	apiGroup := k8sAPIGroupCiliumNodeV2
+func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context) {
+	var synced atomic.Bool
 
-	for {
-		var synced atomic.Bool
-		stop := make(chan struct{})
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
+		ctx.Done(),
+		nil,
+		func() bool { return synced.Load() },
+		k8sAPIGroupCiliumNodeV2,
+	)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumNodeV2)
 
-		k.k8sResourceSynced.BlockWaitGroupToSyncResources(
-			stop,
-			nil,
-			func() bool { return synced.Load() },
-			apiGroup,
-		)
-		k.k8sAPIGroups.AddAPI(apiGroup)
+	go func() {
+		events := k.resources.CiliumNode.Events(ctx)
+		cache := make(map[resource.Key]*cilium_v2.CiliumNode)
+		for event := range events {
+			switch event.Kind {
+			case resource.Sync:
+				synced.Store(true)
+				k.nodeManager.NodeSync()
 
-		// Signalize that we have put node controller in the wait group to sync resources.
-		once.Do(asyncControllers.Done)
-
-		// derive another context to signal Events() and Store() in case of kvstore connection
-		subCtx, cancel := context.WithCancel(ctx)
-
-		var wg sync.WaitGroup
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer close(stop)
-
-			events := k.resources.CiliumNode.Events(subCtx)
-			cache := make(map[resource.Key]*cilium_v2.CiliumNode)
-			for event := range events {
-				var err error
-				switch event.Kind {
-				case resource.Sync:
-					synced.Store(true)
-					k.nodeManager.NodeSync()
-				case resource.Upsert:
-					var needUpdate bool
-					oldObj, ok := cache[event.Key]
-					if !ok {
-						needUpdate = k.onCiliumNodeInsert(event.Object)
-					} else {
-						needUpdate = k.onCiliumNodeUpdate(oldObj, event.Object)
+				// The informer just synchronized, so the Store call will not block.
+				store, err := k.resources.CiliumNode.Store(ctx)
+				if err != nil {
+					if !errors.Is(err, context.Canceled) {
+						log.WithError(err).Warning("unable to retrieve CiliumNode local store, going to query kube-apiserver directly")
 					}
-					if needUpdate {
-						cache[event.Key] = event.Object.DeepCopy()
-					}
-				case resource.Delete:
-					k.onCiliumNodeDelete(event.Object)
-					delete(cache, event.Key)
+				} else {
+					k.ciliumNodeStore.Store(&store)
 				}
-				event.Done(err)
-			}
-		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			store, err := k.resources.CiliumNode.Store(subCtx)
-			if err != nil {
-				if !errors.Is(err, context.Canceled) {
-					log.WithError(err).Warning("unable to retrieve CiliumNode local store, going to query kube-apiserver directly")
+			case resource.Upsert:
+				var needUpdate bool
+				oldObj, ok := cache[event.Key]
+				if !ok {
+					needUpdate = k.onCiliumNodeInsert(event.Object)
+				} else {
+					needUpdate = k.onCiliumNodeUpdate(oldObj, event.Object)
 				}
-				return
+				if needUpdate {
+					cache[event.Key] = event.Object.DeepCopy()
+				}
+			case resource.Delete:
+				k.onCiliumNodeDelete(event.Object)
+				delete(cache, event.Key)
 			}
-
-			k.ciliumNodeStore.Store(&store)
-
-			<-subCtx.Done()
-
-			store.Release()
-			k.ciliumNodeStore.Store(nil)
-		}()
-
-		select {
-		case <-kvstore.Connected():
-			log.Info("Connected to key-value store, stopping CiliumNode watcher")
-			cancel()
-			k.k8sResourceSynced.CancelWaitGroupToSyncResources(apiGroup)
-			k.k8sAPIGroups.RemoveAPI(apiGroup)
-			wg.Wait()
-		case <-ctx.Done():
-			cancel()
-			wg.Wait()
-			return
+			event.Done(nil)
 		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-kvstore.Client().Disconnected():
-			log.Info("Disconnected from key-value store, restarting CiliumNode watcher")
-		}
-	}
+	}()
 }
 
 func (k *K8sCiliumNodeWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNode) bool {

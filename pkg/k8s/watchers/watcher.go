@@ -304,8 +304,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			if !k.cfg.KVstoreEnabled() {
-				asyncControllers.Add(1)
-				go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
+				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
 		case resources.K8sAPIGroupServiceV1Core:
 			k.k8sServiceWatcher.servicesInit()

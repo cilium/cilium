@@ -138,7 +138,6 @@ func CiliumNodeResource(params CiliumResourceParams, opts ...func(*metav1.ListOp
 	)
 	return resource.New[*cilium_api_v2.CiliumNode](params.Lifecycle, lw,
 		resource.WithMetric("CiliumNode"),
-		resource.WithStoppableInformer(),
 		resource.WithCRDSync(params.CRDSyncPromise), // optional, can be nil
 	), nil
 }
