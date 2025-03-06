@@ -156,7 +156,8 @@ jobs:
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
 
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
             --namespace-annotations='{\"ipam.cilium.io/ip-pool\":\"cilium-test-pool\"}' \

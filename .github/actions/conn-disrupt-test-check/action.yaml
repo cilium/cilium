@@ -46,7 +46,8 @@ runs:
           --junit-file "cilium-junits/conn-disrupt-test-${{ inputs.job-name }}.xml" \
           ${{ inputs.extra-connectivity-test-flags }} \
           --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
-          --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+          --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+          --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
           --test "$TEST_ARG" \
           --expected-xfrm-errors "+inbound_no_state" \
           ${EXTRA_ARG}
