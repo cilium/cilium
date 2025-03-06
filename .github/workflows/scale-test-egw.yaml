@@ -239,7 +239,8 @@ jobs:
             CLIENT_QPS="20"
           fi
 
-          NODE_INSTANCE_TYPE="m5.xlarge"
+          # m5n.xlarge instances support up to 25Gbps burst bandwidth.
+          NODE_INSTANCE_TYPE="m5n.xlarge"
           TARGET_CLIENT_PODS_PER_NODE=25
 
           # Poor's man round up to derive the number of desired nodes

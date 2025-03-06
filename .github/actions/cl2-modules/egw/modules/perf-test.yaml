@@ -18,7 +18,9 @@ steps:
       - --report-dir=./report
       - --duration=30s
       - --setup-delay=10s
+      - --streams=8
       - --throughput=true
+      - --throughput-multi=true
       - --rr=true
       - --crr=true
       - --udp=true
