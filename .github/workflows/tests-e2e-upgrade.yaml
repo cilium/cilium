@@ -546,7 +546,7 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
             --collect-sysdump-on-failure \
             --flush-ct \
-            --log-code-owners \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --sysdump-hubble-flows-count=1000000 \
             --sysdump-hubble-flows-timeout=5m \
