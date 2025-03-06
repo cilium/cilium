@@ -6,7 +6,6 @@ package watchers
 import (
 	"context"
 	"net"
-	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -19,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -69,86 +67,48 @@ type K8sCiliumEndpointsWatcher struct {
 }
 
 // initCiliumEndpointOrSlices initializes the ciliumEndpoints or ciliumEndpointSlice
-func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Context, asyncControllers *sync.WaitGroup) {
+func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Context) {
 	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
 	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice
 	// feature is enabled.
-	asyncControllers.Add(1)
 	if option.Config.EnableCiliumEndpointSlice {
-		go k.ciliumEndpointSliceInit(ctx, asyncControllers)
+		k.ciliumEndpointSliceInit(ctx)
 	} else {
-		go k.ciliumEndpointsInit(ctx, asyncControllers)
+		k.ciliumEndpointsInit(ctx)
 	}
 }
 
-func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
-	// CiliumEndpoint objects are used for ipcache discovery until the
-	// key-value store is connected
-	var once sync.Once
-	apiGroup := k8sAPIGroupCiliumEndpointV2
+func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
+	var synced atomic.Bool
 
-	for {
-		var synced atomic.Bool
-		stop := make(chan struct{})
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
+		ctx.Done(),
+		nil,
+		func() bool { return synced.Load() },
+		k8sAPIGroupCiliumEndpointV2,
+	)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointV2)
 
-		k.k8sResourceSynced.BlockWaitGroupToSyncResources(
-			stop,
-			nil,
-			func() bool { return synced.Load() },
-			apiGroup,
-		)
-		k.k8sAPIGroups.AddAPI(apiGroup)
-
-		// Signalize that we have put node controller in the wait group to sync resources.
-		once.Do(asyncControllers.Done)
-
-		// derive another context to signal Events() in case of kvstore connection
-		eventsCtx, cancel := context.WithCancel(ctx)
-
-		go func() {
-			defer close(stop)
-
-			events := k.resources.CiliumSlimEndpoint.Events(eventsCtx)
-			cache := make(map[resource.Key]*types.CiliumEndpoint)
-			for event := range events {
-				var err error
-				switch event.Kind {
-				case resource.Sync:
-					synced.Store(true)
-				case resource.Upsert:
-					oldObj, ok := cache[event.Key]
-					if !ok || !oldObj.DeepEqual(event.Object) {
-						k.endpointUpdated(oldObj, event.Object)
-						cache[event.Key] = event.Object
-					}
-				case resource.Delete:
-					k.endpointDeleted(event.Object)
-					delete(cache, event.Key)
+	go func() {
+		events := k.resources.CiliumSlimEndpoint.Events(ctx)
+		cache := make(map[resource.Key]*types.CiliumEndpoint)
+		for event := range events {
+			switch event.Kind {
+			case resource.Sync:
+				synced.Store(true)
+			case resource.Upsert:
+				oldObj, ok := cache[event.Key]
+				if !ok || !oldObj.DeepEqual(event.Object) {
+					k.endpointUpdated(oldObj, event.Object)
+					cache[event.Key] = event.Object
 				}
-				event.Done(err)
+			case resource.Delete:
+				k.endpointDeleted(event.Object)
+				delete(cache, event.Key)
 			}
-		}()
-
-		select {
-		case <-kvstore.Connected():
-			log.Info("Connected to key-value store, stopping CiliumEndpoint watcher")
-			cancel()
-			k.k8sResourceSynced.CancelWaitGroupToSyncResources(apiGroup)
-			k.k8sAPIGroups.RemoveAPI(apiGroup)
-			<-stop
-		case <-ctx.Done():
-			cancel()
-			<-stop
-			return
+			event.Done(nil)
 		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-kvstore.Client().Disconnected():
-			log.Info("Disconnected from key-value store, restarting CiliumEndpoint watcher")
-		}
-	}
+	}()
 }
 
 func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint) {

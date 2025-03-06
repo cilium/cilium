@@ -414,7 +414,6 @@ func CiliumSlimEndpointResource(params CiliumResourceParams, _ *node.LocalNodeSt
 		}, TransformToCiliumEndpoint),
 		resource.WithMetric("CiliumEndpoint"),
 		resource.WithIndexers(indexers),
-		resource.WithStoppableInformer(),
 		resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }
@@ -457,7 +456,6 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeS
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
 		resource.WithMetric("CiliumEndpointSlice"),
 		resource.WithIndexers(indexers),
-		resource.WithStoppableInformer(),
 		resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }
