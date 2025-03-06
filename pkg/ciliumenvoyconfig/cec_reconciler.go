@@ -73,9 +73,10 @@ func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Con
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		With(logfields.K8sNamespace, event.Key.Namespace).
-		With(logfields.CiliumEnvoyConfigName, event.Key.Name)
+	scopedLogger := r.logger.With(
+		logfields.K8sNamespace, event.Key.Namespace,
+		logfields.CiliumEnvoyConfigName, event.Key.Name,
+	)
 
 	var err error
 
@@ -106,9 +107,10 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 }
 
 func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumClusterwideEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		With(logfields.K8sNamespace, event.Key.Namespace).
-		With(logfields.CiliumClusterwideEnvoyConfigName, event.Key.Name)
+	scopedLogger := r.logger.With(
+		logfields.K8sNamespace, event.Key.Namespace,
+		logfields.CiliumEnvoyConfigName, event.Key.Name,
+	)
 
 	var err error
 
@@ -322,7 +324,8 @@ func (r *ciliumEnvoyConfigReconciler) syncEndpoints(_ context.Context, event res
 				r.logger.Error("failed to sync headless service",
 					logfields.Key, key,
 					logfields.ServiceKey, event.Key,
-					logfields.Error, err)
+					logfields.Error, err,
+				)
 				reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to sync headless service (%s): %w", key, err))
 			}
 		}
