@@ -22,3 +22,29 @@ steps:
         query: max(avg_over_time(rate(container_cpu_user_seconds_total{instance=~"{{ .gatewayAddress }}:.*", id="/"}[1m])[%v:10s]))
       - name: System (Gateway)
         query: max(avg_over_time(rate(container_cpu_system_seconds_total{instance=~"{{ .gatewayAddress }}:.*", id="/"}[1m])[%v:10s]))
+
+  - Identifier: PerfGatewayNodeForwardBytes
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{ .action }}
+      metricName: Perf Gateway Node Forward Bytes
+      metricVersion: v1
+      unit: GB
+      enableViolations: true
+      queries:
+      - name: Ingress
+        query: increase(cilium_forward_bytes_total{instance=~"{{ .gatewayAddress }}:.*", direction="INGRESS"}[%v]) / 1e9
+        {{ if .hasEGWPolicy }}
+        threshold: 10
+        lowerBound: true
+        {{ else }}
+        threshold: 0.1
+        {{ end }}
+      - name: Egress
+        query: increase(cilium_forward_bytes_total{instance=~"{{ .gatewayAddress }}:.*", direction="EGRESS"}[%v]) / 1e9
+        {{ if .hasEGWPolicy }}
+        threshold: 10
+        lowerBound: true
+        {{ else }}
+        threshold: 0.1
+        {{ end }}

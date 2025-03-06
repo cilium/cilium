@@ -194,6 +194,7 @@ steps:
     params:
       gatewayAddress: {{$GatewayAddress}}
       udpMessageSize: {{$UDPMessageSize}}
+      hasEGWPolicy: {{$CreateEGWPolicy}}
 
 # Run the connections stress test.
 - module:
