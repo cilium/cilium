@@ -170,7 +170,6 @@ jobs:
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
-            --set=bpf.monitorAggregation=medium \
             --set=hubble.enabled=true \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
