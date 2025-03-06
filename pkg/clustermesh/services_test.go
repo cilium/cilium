@@ -121,7 +121,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-	store := store.NewFactory(store.MetricsProvider())
+	store := store.NewFactory(logger, store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(tb), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           cmtypes.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},

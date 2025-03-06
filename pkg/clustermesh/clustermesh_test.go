@@ -110,7 +110,7 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(func() { ipc.Shutdown() })
 
 	usedIDs := NewClusterMeshUsedIDs(localClusterID)
-	storeFactory := store.NewFactory(store.MetricsProvider())
+	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	nodesObserver := newNodesObserver()
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},

@@ -241,7 +241,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				kvs:               tt.kvs,
 			}
 
-			st := store.NewFactory(store.MetricsProvider())
+			st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 			fakeclock := baseclocktest.NewFakeClock(time.Now())
 			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 
@@ -379,7 +379,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 		},
 	}
 
-	st := store.NewFactory(store.MetricsProvider())
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	fakeclock := baseclocktest.NewFakeClock(time.Now())
 	km := KVStoreMesh{backend: wrapper, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 	rcs := make(map[string]*remoteCluster)
@@ -620,7 +620,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			"cilium/state/ip/v1/default/qux":         "qux10",
 		},
 	}
-	st := store.NewFactory(store.MetricsProvider())
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: hivetest.Logger(t)}
 
 	rc := km.newRemoteCluster("foo", func() *models.RemoteCluster {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -31,7 +32,7 @@ func testLock(t *testing.T) {
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	for i := 0; i < 10; i++ {
-		lock, err := LockPath(context.Background(), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
+		lock, err := LockPath(context.Background(), hivetest.Logger(t), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
 		require.NoError(t, err)
 		require.NotNil(t, lock)
 		lock.Unlock(context.TODO())

@@ -241,14 +241,14 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 // find identities at the default cilium paths.
 func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
-	setupKvstore(ctx)
+	setupKvstore(ctx, logging.DefaultSlogLogger)
 
 	if err := <-kvstore.Client().Connected(wctx); err != nil {
 		log.WithError(err).Fatal("Cannot connect to the kvstore")
 	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(logging.DefaultSlogLogger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create kvstore identity backend")
 	}

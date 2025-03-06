@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	client "go.etcd.io/etcd/client/v3"
@@ -87,7 +88,7 @@ func (f *fakeEtcdLeaseClient) Close() error { return ErrNotImplemented }
 func TestLeaseManager(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(hivetest.Logger(t), newFakeEtcdClient(&cl), 10*time.Second, 5, nil)
 
 	t.Cleanup(func() {
 		cancel()
@@ -146,7 +147,7 @@ func TestLeaseManager(t *testing.T) {
 func TestLeaseManagerParallel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(hivetest.Logger(t), newFakeEtcdClient(&cl), 10*time.Second, 5, nil)
 
 	t.Cleanup(func() {
 		cancel()
@@ -181,7 +182,7 @@ func TestLeaseManagerParallel(t *testing.T) {
 func TestLeaseManagerReleasePrefix(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(hivetest.Logger(t), newFakeEtcdClient(&cl), 10*time.Second, 5, nil)
 
 	t.Cleanup(func() {
 		cancel()
@@ -212,7 +213,7 @@ func TestLeaseManagerCancelIfExpired(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, observer, log)
+	mgr := newEtcdLeaseManager(hivetest.Logger(t), newFakeEtcdClient(&cl), 10*time.Second, 5, observer)
 
 	t.Cleanup(func() {
 		close(expiredCH)
@@ -259,7 +260,7 @@ func TestLeaseManagerCancelIfExpired(t *testing.T) {
 func TestLeaseManagerKeyHasLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(hivetest.Logger(t), newFakeEtcdClient(&cl), 10*time.Second, 5, nil)
 
 	t.Cleanup(func() {
 		cancel()

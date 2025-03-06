@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var kvstoreDeleteCmd = &cobra.Command{
@@ -24,7 +25,7 @@ var kvstoreDeleteCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		setupKvstore(ctx)
+		setupKvstore(ctx, logging.DefaultSlogLogger)
 
 		if recursive {
 			if err := kvstore.Client().DeletePrefix(ctx, args[0]); err != nil {
