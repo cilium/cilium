@@ -309,7 +309,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 		// Release the [name1] reference to [beAddr1].
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.ReleaseBackend(wtxn, name1, beAddr1)
+		err := p.Writer.ReleaseBackends(wtxn, name1, beAddr1)
 		require.NoError(t, err, "ReleaseBackend failed")
 
 		wtxn.Abort()

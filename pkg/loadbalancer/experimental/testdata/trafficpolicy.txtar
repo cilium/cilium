@@ -95,9 +95,9 @@ ports:
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
-REV: ID=1 ADDR=10.96.50.104:80
-REV: ID=2 ADDR=1.1.1.1:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
-SVC: ID=2 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
-SVC: ID=2 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+REV: ID=1 ADDR=1.1.1.1:80
+REV: ID=2 ADDR=10.96.50.104:80
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable

@@ -107,7 +107,8 @@ func TestScript(t *testing.T) {
 			require.NoError(t, err, "ScriptCommands")
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 			return &script.Engine{
-				Cmds: cmds,
+				Cmds:          cmds,
+				RetryInterval: 10 * time.Millisecond,
 			}
 		}, []string{}, "testdata/*.txtar")
 }
