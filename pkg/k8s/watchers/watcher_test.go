@@ -20,7 +20,7 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
-func (f *fakeK8sWatcherConfiguration) KVstoreEnabledWithoutPodNetworkSupport() bool {
+func (f *fakeK8sWatcherConfiguration) KVstoreEnabled() bool {
 	return false
 }
 

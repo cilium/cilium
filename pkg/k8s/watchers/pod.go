@@ -280,9 +280,9 @@ func (k *K8sPodWatcher) podsInit(asyncControllers *sync.WaitGroup) {
 	// functionality untouched. If we are running with CiliumEndpoint CRD
 	// enabled then it means that we can simply watch for pods that are created
 	// for this node. Similarly, we don't need to watch for all pods when the
-	// support for running the Cilium KVstore in pod network is disabled, as in
-	// that case we just rely on the KVStore data from the beginning.
-	if !option.Config.DisableCiliumEndpointCRD || option.Config.KVstoreEnabledWithoutPodNetworkSupport() {
+	// running in KVStore mode, as in that case we just rely on the KVStore data
+	// from the beginning.
+	if !option.Config.DisableCiliumEndpointCRD || option.Config.KVstoreEnabled() {
 		watchNodePods()
 		return
 	}
