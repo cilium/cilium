@@ -21,23 +21,25 @@ import (
 )
 
 type PerfParameters struct {
-	ReportDir   string
-	Duration    time.Duration
-	SetupDelay  time.Duration
-	HostNet     bool
-	PodNet      bool
-	PodToHost   bool
-	HostToPod   bool
-	SameNode    bool
-	OtherNode   bool
-	Samples     int
-	MessageSize int
-	Throughput  bool
-	CRR         bool
-	RR          bool
-	UDP         bool
-	Image       string
-	NetQos      bool
+	ReportDir       string
+	Duration        time.Duration
+	SetupDelay      time.Duration
+	HostNet         bool
+	PodNet          bool
+	PodToHost       bool
+	HostToPod       bool
+	SameNode        bool
+	OtherNode       bool
+	Samples         int
+	MessageSize     int
+	Streams         uint
+	Throughput      bool
+	ThroughputMulti bool
+	CRR             bool
+	RR              bool
+	UDP             bool
+	Image           string
+	NetQos          bool
 
 	NodeSelectorServer map[string]string
 	NodeSelectorClient map[string]string

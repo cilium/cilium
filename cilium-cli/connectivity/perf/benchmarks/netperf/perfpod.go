@@ -6,6 +6,7 @@ package netperf
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +50,13 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 		tests = append(tests, "TCP_STREAM")
 		if perfParameters.UDP {
 			tests = append(tests, "UDP_STREAM")
+		}
+	}
+
+	if perfParameters.ThroughputMulti {
+		tests = append(tests, "TCP_STREAM_MULTI")
+		if perfParameters.UDP {
+			tests = append(tests, "UDP_STREAM_MULTI")
 		}
 	}
 
@@ -120,6 +128,7 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							SameNode: sameNode,
 							Sample:   sample,
 							Duration: perfParameters.Duration,
+							Streams:  perfParameters.Streams,
 							Scenario: scenarioName,
 							MsgSize:  perfParameters.MessageSize,
 							NetQos:   false,
@@ -156,22 +165,8 @@ func parseFloat(a *check.Action, value string) float64 {
 	return res
 }
 
-func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
-	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
-	if perfTest.Test == "UDP_STREAM" || perfTest.NetQos {
-		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
-	}
-	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, args)
-
-	a.ExecInPod(ctx, exec)
-	output := a.CmdOutput()
-	a.Debugf("Netperf output: ", output)
-	lines := strings.Split(output, "\n")
-	if len(lines) < 2 {
-		a.Fatal("Unable to process netperf result")
-	}
-	resultsLine := lines[len(lines)-2]
-	values := strings.Split(resultsLine, ",")
+func parseNetperfResult(a *check.Action, test, line string) common.PerfResult {
+	values := strings.Split(line, ",")
 	if len(values) != 9 {
 		a.Fatalf("Unable to process netperf result")
 	}
@@ -195,18 +190,66 @@ func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *c
 		},
 	}
 
-	if strings.HasSuffix(perfTest.Test, "_STREAM") {
+	if strings.HasSuffix(test, "_STREAM") {
 		// We don't want to report transaction rate or latency
 		res.TransactionRateMetric = nil
 		res.Latency = nil
 		// Verify that throughput unit is 10^6bits/s
 		if values[8] != "10^6bits/s" {
-			a.Fatal("Unable to process netperf result")
+			a.Fatalf("Unable to process netperf result")
 		}
 	}
-	if strings.HasSuffix(perfTest.Test, "_RR") || strings.HasSuffix(perfTest.Test, "_CRR") {
+	if strings.HasSuffix(test, "_RR") || strings.HasSuffix(test, "_CRR") {
 		// We don't want to report throughput
 		res.ThroughputMetric = nil
+	}
+
+	return res
+}
+
+func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
+	test := strings.TrimSuffix(perfTest.Test, "_MULTI")
+
+	streams := uint(1)
+	if strings.HasSuffix(perfTest.Test, "_MULTI") {
+		streams = perfTest.Streams
+
+		if !strings.HasSuffix(test, "_STREAM") {
+			a.Fatalf("Only STREAM tests support parallelism")
+		}
+	}
+
+	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
+	if test == "UDP_STREAM" || perfTest.NetQos {
+		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
+	}
+	exec := buildExecCommand(test, sip, perfTest.Duration, args)
+
+	if streams >= 2 {
+		exec = []string{"/bin/bash", "-c",
+			// We write the output of each process to a separate file and cat them
+			// at the end to prevent the possibility of interleaved output.
+			fmt.Sprintf("DIR=$(mktemp -d); for i in {1..%d}; do %s > $DIR/out$i.out & done; wait; cat $DIR/*; rm -rf $DIR",
+				streams, strings.Join(exec, " "),
+			)}
+	}
+
+	a.ExecInPod(ctx, exec)
+	output := a.CmdOutput()
+	a.Debugf("Netperf output: %s", output)
+	lines := slices.DeleteFunc(
+		strings.Split(output, "\n"),
+		// Result lines always start with a number, hence drop all the others.
+		func(line string) bool { return len(line) == 0 || line[0] < '0' || line[0] > '9' },
+	)
+	if uint(len(lines)) != streams {
+		a.Fatalf("Unable to process netperf result: expected %d, got %d", streams, len(lines))
+	}
+
+	res := parseNetperfResult(a, test, lines[0])
+	for _, line := range lines[1:] {
+		parsed := parseNetperfResult(a, test, line)
+		res.ThroughputMetric.Throughput += parsed.ThroughputMetric.Throughput
 	}
 
 	return res
