@@ -5,8 +5,7 @@ package allocator
 
 import (
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -25,15 +24,17 @@ type localKey struct {
 // localKeys is a map of keys in use locally. Keys can be used multiple times.
 // A refcnt is managed to know when a key is no longer in use
 type localKeys struct {
+	logger *slog.Logger
 	lock.RWMutex
 	keys map[string]*localKey
 	ids  map[idpool.ID]*localKey
 }
 
-func newLocalKeys() *localKeys {
+func newLocalKeys(logger *slog.Logger) *localKeys {
 	return &localKeys{
-		keys: map[string]*localKey{},
-		ids:  map[idpool.ID]*localKey{},
+		logger: logger,
+		keys:   map[string]*localKey{},
+		ids:    map[idpool.ID]*localKey{},
 	}
 }
 
@@ -52,7 +53,11 @@ func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID)
 		}
 
 		k.refcnt++
-		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: k.refcnt})
+		kvstore.Trace(lk.logger, "Incremented local key refcnt",
+			fieldKey, keyString,
+			fieldID, val,
+			fieldRefCnt, k.refcnt,
+		)
 		return k.val, firstUse, nil
 	}
 
@@ -60,7 +65,11 @@ func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID)
 	k := &localKey{key: key, val: val, refcnt: 1}
 	lk.keys[keyString] = k
 	lk.ids[val] = k
-	kvstore.Trace("New local key", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: 1})
+	kvstore.Trace(lk.logger, "New local key",
+		fieldKey, keyString,
+		fieldID, val,
+		fieldRefCnt, 1,
+	)
 	return val, firstUse, nil
 }
 
@@ -70,7 +79,9 @@ func (lk *localKeys) verify(key string) error {
 
 	if k, ok := lk.keys[key]; ok {
 		k.verified = true
-		kvstore.Trace("Local key verified", nil, logrus.Fields{fieldKey: key})
+		kvstore.Trace(lk.logger, "Local key verified",
+			fieldKey, key,
+		)
 		return nil
 	}
 
@@ -114,7 +125,11 @@ func (lk *localKeys) use(key string) idpool.ID {
 		}
 
 		k.refcnt++
-		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
+		kvstore.Trace(lk.logger, "Incremented local key refcnt",
+			fieldKey, key,
+			fieldID, k.val,
+			fieldRefCnt, k.refcnt,
+		)
 		return k.val
 	}
 
@@ -129,7 +144,11 @@ func (lk *localKeys) release(key string) (lastUse bool, id idpool.ID, err error)
 	defer lk.Unlock()
 	if k, ok := lk.keys[key]; ok {
 		k.refcnt--
-		kvstore.Trace("Decremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
+		kvstore.Trace(lk.logger, "Decremented local key refcnt",
+			fieldKey, key,
+			fieldID, k.val,
+			fieldRefCnt, k.refcnt,
+		)
 		if k.refcnt == 0 {
 			delete(lk.keys, key)
 			delete(lk.ids, k.val)

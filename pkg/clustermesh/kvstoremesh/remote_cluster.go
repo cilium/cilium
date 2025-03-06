@@ -97,7 +97,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if srccfg.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
-		mgr = store.NewWatchStoreManagerImmediate(rc.name)
+		mgr = store.NewWatchStoreManagerImmediate(rc.logger, rc.name)
 	}
 
 	adapter := func(prefix string) string { return prefix }
@@ -322,15 +322,12 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix strin
 	syncStorePrefix := path.Join(prefix, cluster, suffix)
 
 	syncer := syncer{
-		SyncStore: factory.NewSyncStore(cluster, local, syncStorePrefix,
-			store.WSSWithSyncedKeyOverride(prefix)),
+		SyncStore:  factory.NewSyncStore(cluster, local, syncStorePrefix, store.WSSWithSyncedKeyOverride(prefix)),
 		syncedDone: synced.Add(),
 		isSynced:   &atomic.Bool{},
 	}
 
-	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
-		store.RWSWithOnSyncCallback(syncer.OnSync),
-	)
+	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer, store.RWSWithOnSyncCallback(syncer.OnSync))
 
 	return reflector{
 		syncer:  syncer,

@@ -1368,4 +1368,30 @@ const (
 	EtcdRangeEnd = "etcdRangeEnd"
 
 	K8sExportName = "K8sExportName"
+
+	ReliablyMissing = "reliablyMissing"
+
+	KVStoreBackendConfigurationSuffix = "kvStoreBackendConfiguration.Suffix"
+
+	KVStoreBackendConfigurationTyp = "kvStoreBackendConfiguration.Typ"
+
+	KVStoreBackendConfigurationBasePath = "kvStoreBackendConfiguration.BasePath"
+
+	ReadFromKVStore = "readFromKVStore"
+
+	TTL = "ttl"
+
+	ConfigPath = "configPath"
+
+	KeepAliveHeartbeat = "keepAliveHeartbeat"
+
+	KeepAliveTimeout = "keepAliveTimeout"
+
+	RateLimit = "rateLimit"
+
+	MaxInflight = "maxInflight"
+
+	ListLimit = "listLimit"
+
+	TimeWindow = "timeWindow"
 )
