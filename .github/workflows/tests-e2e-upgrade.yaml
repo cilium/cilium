@@ -533,6 +533,30 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
+          EXTRA_CLI_FLAGS=()
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
+            --flush-ct \
+            --log-code-owners \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA_CLI_FLAGS[@]}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
+
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
@@ -721,40 +745,15 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup Cilium CLI flags
-        id: cli-flags
-        run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("\"--secondary-network-iface=eth1\"")
-          fi
-
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
-            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
-            EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
-          fi
-
-          echo flags="--include-unsafe-tests \
-            --collect-sysdump-on-failure \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 \
-            --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
-            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
-            ${EXTRA[@]}" >> $GITHUB_OUTPUT
-
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
         run: |
-          cilium connectivity test \
-            --include-unsafe-tests \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
             --include-conn-disrupt-test-ns-traffic \
             --include-conn-disrupt-test-egw \
             --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -767,17 +766,15 @@ jobs:
       - name: Run sequential Cilium tests
         shell: bash
         run: |
-          cilium connectivity test \
-            --test "seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --test "seq-.*"
 
       - name: Run concurrent Cilium tests
         shell: bash
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --test "!seq-.*"
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -831,14 +828,12 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
-            --include-unsafe-tests \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
             --include-conn-disrupt-test-ns-traffic \
             --include-conn-disrupt-test-egw \
             --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
@@ -852,18 +847,16 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
-            --test "seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --test "seq-.*"
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          cilium connectivity test \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test-concurrency=${{ env.test_concurrency }} \
-            --test "!seq-.*" \
-            ${{ steps.cli-flags.outputs.flags }}
+            --test "!seq-.*"
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
