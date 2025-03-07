@@ -307,11 +307,10 @@ type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
 
-	// KVstoreEnabledWithoutPodNetworkSupport returns whether Cilium is configured to connect
-	// to an external KVStore, and the support for running it in pod network is disabled.
+	// KVstoreEnabled returns whether Cilium is configured to connect to an external KVStore.
 	// In this case, we don't need to start the CiliumNode and CiliumEndpoint watchers at
-	// all, given that the CRD to kvstore handover logic is not required.
-	KVstoreEnabledWithoutPodNetworkSupport() bool
+	// all, given that equivalent information is propagated via the KVStore.
+	KVstoreEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -320,28 +319,25 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return
 	}
-	asyncControllers := &sync.WaitGroup{}
 
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
 		case resources.K8sAPIGroupPodV1Core:
-			asyncControllers.Add(1)
-			go k.k8sPodWatcher.podsInit(asyncControllers)
+			k.k8sPodWatcher.podsInit(ctx)
 		case k8sAPIGroupNamespaceV1Core:
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
-			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
-				asyncControllers.Add(1)
-				go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabled() {
+				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
 		case resources.K8sAPIGroupServiceV1Core:
 			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
-			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
-				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabled() {
+				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
 			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
@@ -353,8 +349,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			}).Fatal("Not listening for Kubernetes resource updates for unhandled type")
 		}
 	}
-
-	asyncControllers.Wait()
 }
 
 func (k *K8sWatcher) StopWatcher() {
