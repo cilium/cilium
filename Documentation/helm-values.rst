@@ -1151,7 +1151,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:c6d4432212f984fef2793080a904437d8e5d5775e02ce1d31bb469d612ba0a8c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.5-1741173995-8cdea613230458285983ce290b15bd435faba0cf","useDigest":true}``
+     - ``{"digest":"sha256:04249ad83f15d1b8604ea16bd2c74f31f3706ff7448b8020402b8881607c37b2","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.5-1741275748-d9ec565ac4e165a9fc586325c9262128f931a122","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
