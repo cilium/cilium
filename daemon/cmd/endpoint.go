@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -1179,14 +1178,15 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 }
 
 func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
-	if proxy.DefaultDNSProxy == nil {
+	dnsProxy := d.dnsProxy.Get()
+	if dnsProxy == nil {
 		return nil
 	}
 
 	// We get the latest consistent view on the DNS rules by getting handle to the latest
 	// coherent state of the selector cache
 	version := d.policy.GetSelectorCache().GetVersionHandle()
-	rules, err := proxy.DefaultDNSProxy.GetRules(version, epID)
+	rules, err := dnsProxy.GetRules(version, epID)
 	version.Close()
 
 	if err != nil {
@@ -1197,9 +1197,10 @@ func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
 }
 
 func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
-	if proxy.DefaultDNSProxy == nil {
+	dnsProxy := d.dnsProxy.Get()
+	if dnsProxy == nil {
 		return
 	}
 
-	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
+	dnsProxy.RemoveRestoredRules(epID)
 }
