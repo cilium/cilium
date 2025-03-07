@@ -380,6 +380,25 @@ available during the upgrade:
   after the upgrade. If the number of events exceeds the event buffer size,
   events will be lost.
 
+Downgrade Impact
+----------------
+
+Cilium now attaches a new new dedicated program ``cil_from_wireguard``
+to the ingress of the WireGuard device (``cilium_wg0``) instead of
+``cil_from_netdev`` when enabling (a) NativeRouting or (b) Node-to-Node
+Encryption and NodePort. While upgrades manage this transition seamlessly,
+downgrades to any release prior to ``v1.17.2`` require manually unloading
+the ``cil_from_wireguard`` program from all Cilium pods to restore
+connectivity. Below is an examples:
+
+.. code-block:: bash
+
+    #!/bin/bash
+
+    for cilium_pod in $(kubectl -n kube-system get pod -l k8s-app=cilium --output name); do
+        kubectl -n kube-system exec ${cilium_pod} -- rm -rf /sys/fs/bpf/cilium/devices/cilium_wg0/links/cil_from_wireguard
+    done
+
 
 .. _upgrade_configmap:
 
