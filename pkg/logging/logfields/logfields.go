@@ -1332,4 +1332,34 @@ const (
 	Operation = "operation"
 
 	KeyPairSN = "keyPairSN"
+
+	Timeout = "timeout"
+
+	EtcdDataDir = "etcdDataDir"
+
+	EtcdClusterName = "etcdClusterName"
+
+	EtcdInitialClusterToken = "etcdInitialClusterToken"
+
+	EtcdListenClientUrl = "loopbackEndpoint"
+
+	EtcdBinary = "etcdBinaryLocation"
+
+	EtcdFlags = "etcdCmd"
+
+	EtcdExitCode = "etcdExitCode"
+
+	EtcdClientConfig = "etcdClientConfig"
+
+	EtcdUsername = "etcdUsername"
+
+	EtcdRoleName = "etcdRoleName"
+
+	EtcdPermission = "etcdPermission"
+
+	EtcdRangeStart = "etcdRangeStart"
+
+	EtcdRangeEnd = "etcdRangeEnd"
+
+	K8sExportName = "K8sExportName"
 )

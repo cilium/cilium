@@ -6,10 +6,10 @@ package dial
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -70,7 +70,7 @@ func TestNewContextDialer(t *testing.T) {
 	}
 
 	dialer := newContextDialer(
-		logrus.New(),
+		slog.Default(),
 		upstream,
 		mockResolver{"resolve.foo", "1.2.3.4"},
 		mockResolver{"resolve.bar", "fd00::8888"},

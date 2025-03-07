@@ -7,10 +7,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base32"
+	"log/slog"
 	"maps"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +37,12 @@ const (
 // the existing clustermesh features for the MCS API Support.
 type mcsAPIServiceReconciler struct {
 	client.Client
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	clusterName string
 }
 
-func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, clusterName string) *mcsAPIServiceReconciler {
+func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger, clusterName string) *mcsAPIServiceReconciler {
 	return &mcsAPIServiceReconciler{
 		Client:      mgr.GetClient(),
 		Logger:      logger,

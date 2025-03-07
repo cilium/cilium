@@ -622,6 +622,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
+					Logger:                  legacy.logger,
 					ClusterName:             clusterInfo.Name,
 					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
 					Clientset:               legacy.clientset,
@@ -638,7 +639,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			log := log.WithField(logfields.LogSubsys, "etcd")
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
 			goopts = &kvstore.ExtraOptions{
 				DialOption: []grpc.DialOption{
 					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver)),

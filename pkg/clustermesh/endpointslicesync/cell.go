@@ -4,11 +4,11 @@
 package endpointslicesync
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -33,9 +33,10 @@ var Cell = cell.Module(
 type endpointSliceSyncParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	operator.ClusterMeshConfig
 	EndpointSliceSyncConfig
-	Logger   logrus.FieldLogger
 	JobGroup job.Group
 
 	Clientset   k8sClient.Clientset
