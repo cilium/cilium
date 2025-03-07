@@ -256,9 +256,10 @@ func doCompare(s *State, env bool, args ...string) error {
 	}
 
 	if text1 != text2 {
-		if s.DoUpdate {
-			// Updates requested, store the file contents and
-			// ignore mismatches.
+		if s.DoUpdate && s.RetryCount > 0 {
+			// Updates requested and we've already retried at least once
+			// (and given time for things to settle down).
+			// Store the file contents and ignore the mismatch.
 			s.FileUpdates[name1] = text2
 			s.FileUpdates[name2] = text1
 			return nil

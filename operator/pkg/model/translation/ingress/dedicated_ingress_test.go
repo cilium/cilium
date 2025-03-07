@@ -183,39 +183,6 @@ func Test_getService(t *testing.T) {
 	})
 }
 
-func Test_getEndpointForIngress(t *testing.T) {
-	res := getEndpoints(model.FullyQualifiedResource{
-		Name:      "dummy-ingress",
-		Namespace: "dummy-namespace",
-		Version:   "v1",
-		Kind:      "Ingress",
-		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-	})
-
-	require.Equal(t, &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cilium-ingress-dummy-ingress",
-			Namespace: "dummy-namespace",
-			Labels:    map[string]string{"cilium.io/ingress": "true"},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "networking.k8s.io/v1",
-					Kind:       "Ingress",
-					Name:       "dummy-ingress",
-					UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-					Controller: ptr.To(true),
-				},
-			},
-		},
-		Subsets: []corev1.EndpointSubset{
-			{
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}},
-				Ports:     []corev1.EndpointPort{{Port: 9999}},
-			},
-		},
-	}, res)
-}
-
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
 		useProxyProtocol             bool
@@ -323,7 +290,7 @@ func Test_translator_Translate(t *testing.T) {
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 
-			cec, svc, ep, err := trans.Translate(input)
+			cec, svc, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 
 			output := &ciliumv2.CiliumEnvoyConfig{}
@@ -335,8 +302,6 @@ func Test_translator_Translate(t *testing.T) {
 			}
 			require.NotNil(t, svc)
 			assert.Equal(t, tt.wantLBSvcType, svc.Spec.Type)
-
-			require.NotNil(t, ep)
 		})
 	}
 }

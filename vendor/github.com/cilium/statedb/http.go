@@ -124,6 +124,9 @@ type QueryResponse struct {
 
 func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject func(object) error) {
 	var iter *part.Iterator[object]
+	if !indexTxn.unique {
+		queryKey = encodeNonUniqueBytes(queryKey)
+	}
 	if lowerbound {
 		iter = indexTxn.LowerBound(queryKey)
 	} else {
@@ -137,8 +140,7 @@ func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject 
 		match = func(k []byte) bool { return len(k) == len(queryKey) }
 	default:
 		match = func(k []byte) bool {
-			secondary, _ := decodeNonUniqueKey(k)
-			return len(secondary) == len(queryKey)
+			return nonUniqueKey(k).secondaryLen() == len(queryKey)
 		}
 	}
 	for key, obj, ok := iter.Next(); ok; key, obj, ok = iter.Next() {

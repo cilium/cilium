@@ -15,7 +15,7 @@ import (
 //
 // Different use cases (e.g. Ingress, Gateway API) can provide its own generation logic.
 type Translator interface {
-	Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error)
+	Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error)
 }
 
 // CECTranslator is the interface to take the model and generate required CiliumEnvoyConfig.

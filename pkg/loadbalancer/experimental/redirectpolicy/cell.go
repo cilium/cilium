@@ -8,6 +8,8 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell implements the processing of the CiliumLocalRedirectPolicy CRD.
@@ -58,4 +60,12 @@ func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB,
 		return old
 	}
 	return &getLrpHandler{db, lrps}
+}
+
+type lrpIsEnabled bool
+
+func newLRPIsEnabled(expConfig experimental.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
+	return lrpIsEnabled(
+		expConfig.EnableExperimentalLB && daemonConfig.EnableLocalRedirectPolicy,
+	)
 }

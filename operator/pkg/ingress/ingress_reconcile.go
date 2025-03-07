@@ -134,7 +134,7 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) error {
-	desiredCiliumEnvoyConfig, desiredService, desiredEndpoints, err := r.buildDedicatedResources(ctx, ingress, scopedLog)
+	desiredCiliumEnvoyConfig, desiredService, err := r.buildDedicatedResources(ctx, ingress, scopedLog)
 	if err != nil {
 		return fmt.Errorf("failed to build dedicated resources: %w", err)
 	}
@@ -144,10 +144,6 @@ func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context
 	}
 
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
-		return err
-	}
-
-	if err := r.createOrUpdateEndpoints(ctx, desiredEndpoints); err != nil {
 		return err
 	}
 
@@ -251,7 +247,7 @@ func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
 	return defaultHostNetworkListenerPort, defaultHostNetworkListenerPort, defaultHostNetworkListenerPort
 }
 
-func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	passthroughPort, insecureHTTPPort, secureHTTPPort := r.getDedicatedListenerPorts(ingress)
 
 	m := &model.Model{}
@@ -262,9 +258,9 @@ func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *
 		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 	}
 
-	cec, svc, ep, err := r.dedicatedTranslator.Translate(m)
+	cec, svc, err := r.dedicatedTranslator.Translate(m)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to translate model into resources: %w", err)
+		return nil, nil, fmt.Errorf("failed to translate model into resources: %w", err)
 	}
 
 	r.propagateIngressAnnotationsAndLabels(ingress, &svc.ObjectMeta)
@@ -284,10 +280,10 @@ func (r *ingressReconciler) buildDedicatedResources(_ context.Context, ingress *
 
 	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
 	if err := controllerutil.SetControllerReference(ingress, cec, r.client.Scheme()); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
+		return nil, nil, fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
 	}
 
-	return cec, svc, ep, err
+	return cec, svc, err
 }
 
 func (r *ingressReconciler) getDedicatedListenerPorts(ingress *networkingv1.Ingress) (uint32, uint32, uint32) {
@@ -359,26 +355,6 @@ func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredSe
 	}
 
 	r.logger.Debug(fmt.Sprintf("Service %s has been %s", client.ObjectKeyFromObject(svc), result))
-
-	return nil
-}
-
-func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
-	ep := desiredEndpoints.DeepCopy()
-
-	result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
-		ep.Subsets = desiredEndpoints.Subsets
-		ep.OwnerReferences = desiredEndpoints.OwnerReferences
-		ep.Annotations = mergeMap(ep.Annotations, desiredEndpoints.Annotations)
-		ep.Labels = mergeMap(ep.Labels, desiredEndpoints.Labels)
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create or update Endpoints: %w", err)
-	}
-
-	r.logger.Debug(fmt.Sprintf("Endpoints %s has been %s", client.ObjectKeyFromObject(ep), result))
 
 	return nil
 }

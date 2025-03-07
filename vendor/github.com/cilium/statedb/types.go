@@ -344,6 +344,7 @@ func (i Index[Obj, Key]) fromString(s string) (index.Key, error) {
 		return index.Key{}, errFromStringNil
 	}
 	k, err := i.FromString(s)
+	k = i.encodeKey(k)
 	return k, err
 }
 
@@ -352,23 +353,30 @@ func (i Index[Obj, Key]) isUnique() bool {
 	return i.Unique
 }
 
+func (i Index[Obj, Key]) encodeKey(key []byte) []byte {
+	if !i.Unique {
+		return encodeNonUniqueBytes(key)
+	}
+	return key
+}
+
 // Query constructs a query against this index from a key.
 func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
 	return Query[Obj]{
 		index: i.Name,
-		key:   i.FromKey(key),
+		key:   i.encodeKey(i.FromKey(key)),
 	}
 }
 
 func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
 	return Query[Obj]{
 		index: i.Name,
-		key:   i.FromObject(obj).First(),
+		key:   i.encodeKey(i.FromObject(obj).First()),
 	}
 }
 
 func (i Index[Obj, Key]) ObjectToKey(obj Obj) index.Key {
-	return i.FromObject(obj).First()
+	return i.encodeKey(i.FromObject(obj).First())
 }
 
 // Indexer is the "FromObject" subset of Index[Obj, Key]
