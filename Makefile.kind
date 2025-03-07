@@ -3,6 +3,8 @@
 
 ##@ Development (Kind)
 
+WAIT_DURATION ?= 30s
+
 .PHONY: kind
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh
@@ -355,7 +357,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 		--version= \
 		>/dev/null 2>&1 &
 
-	$(CILIUM_CLI) status --wait --wait-duration 30s
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
@@ -382,7 +384,7 @@ kind-servicemesh-prereqs: check_deps kind-ready
 
 .PHONY: kind-servicemesh-install-cilium-fast
 kind-servicemesh-install-cilium-fast: | kind-servicemesh-prereqs kind-image-fast kind-install-cilium-fast
-	$(CILIUM_CLI) status --wait --wait-duration 30s
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
