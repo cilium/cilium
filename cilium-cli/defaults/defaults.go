@@ -148,6 +148,7 @@ var (
 		"Unknown L3 target address",
 		"Host datapath not ready",
 		"Unknown ICMPv4 code",
+		"Unknown ICMPv6 code",
 		"Forbidden ICMPv6 message",
 		"No egress gateway found",
 	}
