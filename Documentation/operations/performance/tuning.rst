@@ -36,6 +36,7 @@ detail on this page and in this `KubeCon talk <https://sched.co/1R2s5>`__:
 - BIG TCP for IPv4/IPv6
 - Bandwidth Manager (optional, for BBR congestion control)
 - Per-CPU distributed LRU and increased map size ratio
+- eBPF clock probe to use jiffies for CT map
 
 **Requirements:**
 
@@ -61,7 +62,8 @@ To enable the main settings:
              --set enableIPv6BIGTCP=true \\
              --set ipv4.enabled=true \\
              --set enableIPv4BIGTCP=true \\
-             --set kubeProxyReplacement=true
+             --set kubeProxyReplacement=true \\
+             --set bpfClockProbe=true
 
 For enabling BBR congestion control in addition, consider adding the following
 settings to the above Helm install:
@@ -734,6 +736,38 @@ memory.
 
 However, the upper capacity limits used by the Cilium agent can be overridden
 for advanced users. Please refer to the :ref:`bpf_map_limitations` guide.
+
+eBPF Clock Probe
+================
+
+Cilium can probe the underlying kernel to determine whether BPF supports
+retrieving jiffies instead of ktime. Given Cilium's CT map does not require
+high resolution, jiffies is more efficient and the preferred clock source.
+To enable probing and possibly using jiffies, ``bpfClockProbe=true`` can
+be set:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set kubeProxyReplacement=true \\
+             --set bpfClockProbe=true
+
+Note that ``bpfClockProbe`` is off by default in Cilium for legacy reasons
+given enabling this setting on-the-fly means that previous stored CT map
+entries with ktime as clock source for timestamps would now be interpreted
+as jiffies.
+
+It is therefore recommended to use the per-node configuration to gradually
+phase in this setting for new nodes joining the cluster. Alternatively, upon
+initial cluster creation it is recommended to consider enablement.
+
+To validate whether jiffies is now used run ``cilium status --verbose`` in
+any of the Cilium Pods and look for the line ``Clock Source for BPF``.
 
 Linux Kernel
 ============
