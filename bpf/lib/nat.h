@@ -1582,6 +1582,8 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 
 		port_off = TCP_DPORT_OFF;
 		break;
+	case IPPROTO_ICMPV6:
+		return DROP_UNKNOWN_ICMP6_CODE;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
