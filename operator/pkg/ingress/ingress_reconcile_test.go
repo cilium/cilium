@@ -91,10 +91,6 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.NoError(t, err, "Dedicated loadbalancer service should exist")
 
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
-		require.NoError(t, err, "Dedicated loadbalancer service endpoints should exist")
-
 		cec := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
 		require.NoError(t, err, "Dedicated CiliumEnvoyConfig should exist")
@@ -146,10 +142,6 @@ func TestReconcile(t *testing.T) {
 		svc := corev1.Service{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.NoError(t, err, "Dedicated loadbalancer service should exist")
-
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
-		require.NoError(t, err, "Dedicated loadbalancer service endpoints should exist")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
@@ -383,10 +375,6 @@ func TestReconcile(t *testing.T) {
 		svc := corev1.Service{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.NoError(t, err, "Dedicated loadbalancer service should exist")
-
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
-		require.NoError(t, err, "Dedicated loadbalancer service endpoints should exist")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
@@ -1170,12 +1158,11 @@ type fakeDedicatedIngressTranslator struct {
 	model *model.Model
 }
 
-func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	r.model = model
 
 	return &ciliumv2.CiliumEnvoyConfig{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
-		&corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		nil
 }
 

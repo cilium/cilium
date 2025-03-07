@@ -41,10 +41,10 @@ func NewTranslator(cecTranslator translation.CECTranslator, cfg translation.Conf
 	}
 }
 
-func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	listeners := m.GetListeners()
 	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
-		return nil, nil, nil, fmt.Errorf("model source can't be empty")
+		return nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
 	// source is the main object that is the source of the model.Model
@@ -70,7 +70,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	if source == nil || source.Name == "" {
-		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
+		return nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
 	// generatedName is the name of the generated objects.
@@ -84,7 +84,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 	cec, err := t.cecTranslator.Translate(source.Namespace, generatedName, m)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	var allLabels, allAnnotations map[string]string
@@ -96,13 +96,12 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	if err = decorateCEC(cec, owner, allLabels, allAnnotations); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	ep := t.desiredEndpoints(source, allLabels, allAnnotations)
 	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
 
-	return cec, lbSvc, ep, err
+	return cec, lbSvc, err
 }
 
 func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
@@ -296,43 +295,6 @@ func (t *gatewayAPITranslator) toTrafficDistribution(params *model.Service) *str
 		return nil
 	}
 	return params.TrafficDistribution
-}
-
-func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
-	if owner == nil {
-		return nil
-	}
-	shortedName := shortener.ShortenK8sResourceName(owner.Name)
-
-	return &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
-			Namespace: owner.Namespace,
-			Labels: mergeMap(map[string]string{
-				owningGatewayLabel: shortedName,
-				gatewayNameLabel:   shortedName,
-			}, labels),
-			Annotations: annotations,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: gatewayv1beta1.GroupVersion.String(),
-					Kind:       owner.Kind,
-					Name:       owner.Name,
-					UID:        types.UID(owner.UID),
-					Controller: ptr.To(true),
-				},
-			},
-		},
-		Subsets: []corev1.EndpointSubset{
-			{
-				// This dummy endpoint is required as agent refuses to push service entry
-				// to the lb map when the service has no backends.
-				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     []corev1.EndpointPort{{Port: 9999}},               // dummy
-			},
-		},
-	}
 }
 
 func (t *gatewayAPITranslator) toServiceAnnotations(annotations map[string]string, params *model.Service) map[string]string {

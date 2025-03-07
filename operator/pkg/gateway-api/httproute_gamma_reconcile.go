@@ -133,23 +133,17 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ReferenceGrants: grants.Items,
 	})
 
-	cec, svc, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
+	cec, svc, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	scopedLog.DebugContext(ctx, "GAMMA translation result",
-		logfields.Service, svc,
-		logfields.Endpoint, cep)
+		logfields.Service, svc)
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
-	}
-
-	if err = r.ensureEndpoints(ctx, cep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
@@ -181,17 +175,6 @@ func (r *gammaHttpRouteReconciler) ensureEnvoyConfig(ctx context.Context, desire
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
 		cec.Spec = desired.Spec
 		setMergedLabelsAndAnnotations(cec, desired)
-		return nil
-	})
-	return err
-}
-
-func (r *gammaHttpRouteReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
-	ep := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Subsets = desired.Subsets
-		ep.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(ep, desired)
 		return nil
 	})
 	return err

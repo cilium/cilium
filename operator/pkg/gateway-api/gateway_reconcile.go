@@ -148,7 +148,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLSPassthrough: tlsPassthroughListeners})
+	cec, svc, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLSPassthrough: tlsPassthroughListeners})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)
@@ -164,12 +164,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to create Service", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-	}
-
-	if err = r.ensureEndpoints(ctx, ep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
-		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
@@ -213,17 +207,6 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 
 		// Ignore the loadBalancerClass if it was set by a mutating webhook
 		svc.Spec.LoadBalancerClass = lbClass
-		return nil
-	})
-	return err
-}
-
-func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
-	ep := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Subsets = desired.Subsets
-		ep.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(ep, desired)
 		return nil
 	})
 	return err

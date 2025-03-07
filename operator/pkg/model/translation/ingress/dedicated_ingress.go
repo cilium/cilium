@@ -37,9 +37,9 @@ func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator, host
 	}
 }
 
-func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
-		return nil, nil, nil, fmt.Errorf("model source can't be empty")
+		return nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
 	var name string
@@ -68,7 +68,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
 	cec, err := d.cecTranslator.Translate(namespace, name, m)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
@@ -76,7 +76,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
-	return cec, dedicatedService, getEndpoints(sourceResource), err
+	return cec, dedicatedService, err
 }
 
 func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service, tlsOnly bool) *corev1.Service {
@@ -147,34 +147,6 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 			Type:      serviceType,
 			ClusterIP: clusterIP,
 			Ports:     ports,
-		},
-	}
-}
-
-func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
-	return &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
-			Namespace: resource.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-					Kind:       "Ingress",
-					Name:       resource.Name,
-					UID:        types.UID(resource.UID),
-					Controller: ptr.To(true),
-				},
-			},
-		},
-		Subsets: []corev1.EndpointSubset{
-			{
-				// This dummy endpoint is required as agent refuses to push service entry
-				// to the lb map when the service has no backends.
-				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     []corev1.EndpointPort{{Port: 9999}},               // dummy
-			},
 		},
 	}
 }
