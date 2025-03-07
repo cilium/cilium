@@ -709,9 +709,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
 		/* Don't masquerade in native-routing mode: */
-		if (!is_defined(TUNNEL_MODE))
+		if (!is_defined(TUNNEL_MODE)) {
+			#ifdef ENABLE_REMOTE_NODE_SNAT
+			{
+				target->addr = IPV4_MASQUERADE;
+				return NAT_NEEDED;
+			}
+			#endif
 			return NAT_PUNT_TO_STACK;
-
+		}
 		/* In overlay routing mode, pod-to-remote-node traffic
 		 * typically doesn't get transported via the overlay
 		 * network (https://github.com/cilium/cilium/issues/12624).
@@ -724,8 +730,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		 * rp_filter=1.
 		 */
 
-		if (remote_ep->flag_skip_tunnel)
+		if (remote_ep->flag_skip_tunnel) {
+			#ifdef ENABLE_REMOTE_NODE_SNAT
+			{
+				target->addr = IPV4_MASQUERADE;
+				return NAT_NEEDED;
+			}
+			#endif
 			return NAT_PUNT_TO_STACK;
+		}
 	}
 
 	if (local_ep) {
