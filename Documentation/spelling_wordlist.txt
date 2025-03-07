@@ -469,6 +469,7 @@ kops
 kprobe
 kprobes
 kretprobes
+ktime
 kube
 kubeadm
 kubeconfig
