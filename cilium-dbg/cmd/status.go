@@ -126,7 +126,9 @@ func statusDaemon() {
 			}
 
 			healthPkg.GetAndFormatHealthStatus(w, allNodes, verbose, healthLines)
-			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth)
+			fmt.Fprintf(w, "Modules Health:")
+			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth, "\t\t")
+			fmt.Fprintln(w)
 		} else {
 			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
 		}

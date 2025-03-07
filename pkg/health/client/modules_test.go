@@ -43,7 +43,7 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		u := uu[k]
 		t.Run(k, func(t *testing.T) {
 			w := bytes.NewBufferString("")
-			client.GetAndFormatModulesHealth(w, getHealth(), u.v)
+			client.GetAndFormatModulesHealth(w, getHealth(), u.v, "\t\t")
 			assert.Equal(t, u.e, strings.TrimSpace(w.String()))
 		})
 	}
