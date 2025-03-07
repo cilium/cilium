@@ -398,7 +398,7 @@ type mapStateEntry struct {
 }
 
 // newMapStateEntry creates a map state entry.
-func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
+func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority ListenerPriority, deny bool, authReq AuthRequirement) mapStateEntry {
 	return mapStateEntry{
 		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
 		derivedFromRules: derivedFrom,
@@ -732,7 +732,7 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 // old entry in 'changes'.
 // Returns 'true' if changes were made.
 func (ms *mapState) overrideProxyPortForAuth(newEntry mapStateEntry, k Key, v mapStateEntry, changes ChangeState) bool {
-	if v.AuthRequirement != newEntry.AuthRequirement && v.AuthRequirement.IsExplicit() {
+	if v.AuthRequirement.IsExplicit() {
 		// Save the old value first
 		changes.insertOldIfNotExists(k, v)
 
@@ -776,9 +776,9 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, feat
 			return // bail if covered by deny
 		}
 		if v.ProxyPortPriority > newEntry.ProxyPortPriority {
-			if !newEntryHasExplicitAuth || v.AuthRequirement == newEntry.AuthRequirement {
+			if !newEntryHasExplicitAuth {
 				// Covering entry has higher proxy port priority and newEntry has a
-				// default auth type or the same auth requirement => can bail out
+				// default auth type => can bail out
 				return
 			}
 
