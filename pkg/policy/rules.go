@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"log/slog"
+
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 )
@@ -12,7 +14,7 @@ import (
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4IngressPolicy(logger *slog.Logger, policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
 	ctx.PolicyTrace("\n")
@@ -47,7 +49,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	ctx.rulesSelect = true
 
 	for _, r := range matchedRules {
-		_, err := r.resolveIngressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny)
+		_, err := r.resolveIngressPolicy(logger, policyCtx, ctx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +64,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	return result, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4EgressPolicy(logger *slog.Logger, policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
 	ctx.PolicyTrace("\n")
@@ -98,7 +100,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 
 	for i, r := range matchedRules {
 		state.ruleID = i
-		_, err := r.resolveEgressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny)
+		_, err := r.resolveEgressPolicy(logger, policyCtx, ctx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}

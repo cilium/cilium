@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cloudflare/cfssl/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -137,6 +139,7 @@ type GetPolicyStatistics interface {
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
+	logger *slog.Logger
 	// mutex protects the whole policy tree
 	mutex lock.RWMutex
 
@@ -192,14 +195,16 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
+	logger *slog.Logger,
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 	idmgr identitymanager.IDManager,
 	metricsManager api.PolicyMetrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(initialIDs)
+	selectorCache := NewSelectorCache(logger, initialIDs)
 	repo := &Repository{
+		logger:           logger,
 		rules:            make(map[ruleKey]*rule),
 		rulesByNamespace: make(map[string]sets.Set[ruleKey]),
 		rulesByResource:  make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
@@ -447,7 +452,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx, &ingressCtx)
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(p.logger, &policyCtx, &ingressCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -455,7 +460,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx, &egressCtx)
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(p.logger, &policyCtx, &egressCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -562,13 +567,13 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	// If there only ingress default-allow rules, then insert a wildcard rule
 	if !hasIngressDefaultDeny && ingress {
-		log.WithField(logfields.Identity, securityIdentity).Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule")
+		p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule", logfields.Identity, securityIdentity)
 		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, true /*ingress*/))
 	}
 
 	// Same for egress -- synthesize a wildcard rule
 	if !hasEgressDefaultDeny && egress {
-		log.WithField(logfields.Identity, securityIdentity).Debug("Only default-allow policies, synthesizing egress wildcard-allow rule")
+		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule", logfields.Identity, securityIdentity)
 		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, false /*egress*/))
 	}
 

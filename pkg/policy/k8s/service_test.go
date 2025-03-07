@@ -10,8 +10,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -247,12 +247,9 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		},
 	}
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-
 	svcCache := fakeServiceCache{}
 	p := &policyWatcher{
-		log:                logrus.NewEntry(logger),
+		log:                hivetest.Logger(t),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
@@ -527,12 +524,9 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	svcByNameKey := resource.NewKey(svcByNameCNP)
 	svcByNameResourceID := resourceIDForCiliumNetworkPolicy(svcByNameKey, svcByNameCNP)
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-
 	svcCache := fakeServiceCache{}
 	p := &policyWatcher{
-		log:                logrus.NewEntry(logger),
+		log:                hivetest.Logger(t),
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},

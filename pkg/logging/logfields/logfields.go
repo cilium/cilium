@@ -1332,4 +1332,10 @@ const (
 	Operation = "operation"
 
 	KeyPairSN = "keyPairSN"
+
+	AnnotationsOld = "annotationsOld"
+
+	LabelsNew = "labelsNew"
+
+	File = "file"
 )

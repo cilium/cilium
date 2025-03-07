@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -14,24 +16,26 @@ import (
 // used in policy calculation has changed.
 func (u *Updater) TriggerPolicyUpdates(reason string) {
 	u.repo.BumpRevision()
-	log.WithField(logfields.Reason, reason).Info("Triggering full policy recalculation and regeneration of all endpoints")
+	u.logger.Info("Triggering full policy recalculation and regeneration of all endpoints", logfields.Reason, reason)
 	u.regen.TriggerRegenerateAllEndpoints()
 }
 
 // NewUpdater returns a new Updater instance to handle triggering policy
 // updates ready for use.
-func NewUpdater(r PolicyRepository, regen regenerator) *Updater {
+func NewUpdater(logger *slog.Logger, r PolicyRepository, regen regenerator) *Updater {
 	return &Updater{
-		regen: regen,
-		repo:  r,
+		logger: logger,
+		regen:  regen,
+		repo:   r,
 	}
 }
 
 // Updater is responsible for triggering policy updates, in order to perform
 // policy recalculation.
 type Updater struct {
-	repo  PolicyRepository
-	regen regenerator
+	logger *slog.Logger
+	repo   PolicyRepository
+	regen  regenerator
 }
 
 type regenerator interface {
