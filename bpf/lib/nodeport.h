@@ -27,6 +27,8 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "icmp4.h"
+#include "icmp6.h"
 
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
@@ -1371,6 +1373,26 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
+			/* Check if this is a LoadBalancer service */
+			ipv6_addr_copy(&key.address, (union v6addr *)&ip6->daddr);
+			key.dport = 0;
+			svc = lb6_lookup_service(&key, false);
+			if (svc && (lb6_svc_is_loadbalancer(svc) || lb6_svc_is_l7loadbalancer(svc))) {
+				if (ip6->nexthdr == IPPROTO_ICMPV6) {
+					__u8 type;
+					if (icmp6_load_type(ctx, ETH_HLEN + sizeof(*ip6), &type) < 0)
+						return DROP_INVALID;
+					if (type == ICMPV6_ECHO_REQUEST)
+						{
+							__u8 reply_type = ICMPV6_ECHO_REPLY;
+							if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6) + ICMP6_TYPE_OFFSET, &reply_type, 1, 0) < 0)
+								return DROP_WRITE_ERROR;
+							return icmp6_send_reply(ctx, ETH_HLEN);
+						}
+				}
+				/* Drop traffic to unmapped port for LoadBalancer */
+				return DROP_NO_SERVICE;
+			}
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
@@ -1388,6 +1410,13 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					l4_off, src_sec_identity, punt_to_stack,
 					ext_err);
 	} else {
+		/* No service entry with exact port match, check if this is a load balancer IP */
+		ipv6_addr_copy(&key.address, (union v6addr *)&ip6->daddr);
+		key.dport = 0;
+		svc = lb6_lookup_service(&key, false);
+		if (svc && !(lb6_svc_is_loadbalancer(svc) || lb6_svc_is_l7loadbalancer(svc))) {
+			return DROP_NO_SERVICE;
+		}
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
@@ -2698,6 +2727,21 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
+			/* Check if this is a LoadBalancer service */
+			key.address = ip4->daddr;
+			key.dport = 0;
+			svc = lb4_lookup_service(&key, false);
+			if (svc && (lb4_svc_is_loadbalancer(svc) || lb4_svc_is_l7loadbalancer(svc))) {
+				if (ip4->protocol == IPPROTO_ICMP) {
+					__u8 type;
+					if (icmp4_load_type(ctx, ETH_HLEN + ipv4_hdrlen(ip4), &type) < 0)
+						return DROP_INVALID;
+					if (type == ICMP_ECHO)
+						return icmp4_send_reply(ctx, ETH_HLEN + ipv4_hdrlen(ip4));
+				}
+				/* Drop traffic to unmapped port for virtual IP services */
+				return DROP_NO_SERVICE;
+			}
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
@@ -2715,6 +2759,13 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					has_l4_header, l4_off,
 					src_sec_identity, punt_to_stack, ext_err);
 	} else {
+		/* No service entry with exact port match, check if this is a load balancer IP */
+		key.address = ip4->daddr;
+		key.dport = 0;
+		svc = lb4_lookup_service(&key, false);
+		if (svc && (lb4_svc_is_loadbalancer(svc) || lb4_svc_is_l7loadbalancer(svc))) {
+			return DROP_NO_SERVICE;
+		}
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
