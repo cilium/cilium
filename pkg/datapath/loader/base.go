@@ -278,8 +278,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 }
 
 func reinitializeWireguard(ctx context.Context) (err error) {
-	// to-wireguard bpf is only used for rev-DNAT, which is only needed when NodePort, KPR, native routing and L7 proxy are enabled together
-	if !option.Config.EnableWireguard || !option.Config.NeedEgressOnWireGuardDevice() {
+	if !option.Config.EnableWireguard {
 		return
 	}
 
@@ -290,6 +289,12 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 
 	opts := []string{
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
+	}
+
+	if !option.Config.EnableHostLegacyRouting {
+		opts = append(opts, fmt.Sprintf("-DSECCTX_FROM_IPCACHE=%d", uint64(secctxFromIpcacheEnabled)))
+	} else {
+		opts = append(opts, fmt.Sprintf("-DSECCTX_FROM_IPCACHE=%d", uint64(secctxFromIpcacheDisabled)))
 	}
 
 	if err := replaceWireguardDatapath(ctx, opts, link); err != nil {
@@ -304,7 +309,7 @@ func reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []s
 		return nil
 	}
 	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
 		// is enabled, otherwise we will get "operation not supported" error.

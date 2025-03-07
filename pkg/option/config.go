@@ -2366,9 +2366,9 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSecEncryptedOverlay
 }
 
-// NeedBPFHostOnWireGuardDevice returns true if the agent needs to attach
-// cil_from_netdev on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
+// NeedIngressOnWireGuardDevice returns true if the agent needs to attach
+// cil_from_wireguard on the Ingress of Cilium's WireGuard device
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 	if !c.EnableWireguard {
 		return false
 	}
@@ -2407,9 +2407,9 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice() bool {
 		return false
 	}
 
-	// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
-	// traffic. The egress program (aka "to-wireguard") is needed to handle
-	// the rev-NAT xlations.
+	// Attaching ingress program (aka "from-wireguard") to cilium_wg0 is
+	// required for encrypting KPR traffic. The egress program
+	// (aka "to-wireguard") is needed to handle the rev-NAT xlations.
 	if c.EnableNodePort && c.EnableL7Proxy && c.KubeProxyReplacement == KubeProxyReplacementTrue {
 		return true
 	}
