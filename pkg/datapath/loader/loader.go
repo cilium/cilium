@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -238,7 +239,9 @@ func isObsoleteDev(dev string, devices []string) bool {
 
 // removeObsoleteNetdevPrograms removes cil_to_netdev and cil_from_netdev from devices
 // that cilium potentially doesn't manage anymore after a restart, e.g. if the set of
-// devices changes between restarts.
+// devices changes between restarts. If applicable, we also need to detach the
+// cil_from_netdev program from the cilium_wg0 ingress (tcx) since we have switched
+// to using the dedicated cil_from_wireguard program.
 //
 // This code assumes that the agent was upgraded from a prior version while maintaining
 // the same list of managed physical devices. This ensures that all tc bpf filters get
@@ -256,6 +259,15 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 	ingressDevs := []netlink.Link{}
 	egressDevs := []netlink.Link{}
 	for _, l := range links {
+		// Remove cil_from_netdev program from cilium_wg0 (tcx).
+		if l.Attrs().Name == wgTypes.IfaceName {
+			if err := detachSKBProgram(l, symbolFromHostNetdevEp,
+				bpffsDeviceLinksDir(bpf.CiliumPath(), l),
+				netlink.HANDLE_MIN_INGRESS); err != nil {
+				return fmt.Errorf("detaching skb program %s from %s: %w", symbolFromHostNetdevEp, wgTypes.IfaceName, err)
+			}
+		}
+
 		if !isObsoleteDev(l.Attrs().Name, devices) {
 			continue
 		}
