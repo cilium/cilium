@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -163,6 +164,16 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 		dir = "ingress"
 	}
 	return fmt.Errorf("unrecognized %s proxy type for %s: %s", dir, listener, proxyType)
+}
+
+func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
+	if GlobalStandaloneDNSProxy == nil {
+		return
+	}
+
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	GlobalStandaloneDNSProxy.UpdatePolicyRulesLocked(rules, true)
 }
 
 func (p *Proxy) createNewRedirect(
