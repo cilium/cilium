@@ -29,6 +29,12 @@ func (p *ProxyPorts) zeroProxyPort(pp *ProxyPort) bool {
 	return pp.ProxyPort == 0
 }
 
+func (p *ProxyPorts) releaseProxyPortWithWait(name string, portReuseWait time.Duration) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	return p.releaseProxyPort(name, portReuseWait)
+}
+
 func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
@@ -72,7 +78,7 @@ func TestPortAllocator(t *testing.T) {
 	require.False(t, pp.acknowledged)
 	require.Zero(t, pp.ProxyPort)
 
-	err = p.releaseProxyPort("listener1", 10*time.Millisecond)
+	err = p.releaseProxyPortWithWait("listener1", 10*time.Millisecond)
 	require.NoError(t, err)
 
 	// Proxy port is not released immediately
@@ -144,7 +150,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port2, pp.ProxyPort)
 
 	// 2nd release decreases the count to zero
-	err = p.releaseProxyPort("listener1", time.Microsecond)
+	err = p.releaseProxyPortWithWait("listener1", time.Microsecond)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
@@ -190,7 +196,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port3, pp.rulesPort)
 
 	// Release marks the port as unallocated
-	err = p.releaseProxyPort("listener1", time.Microsecond)
+	err = p.releaseProxyPortWithWait("listener1", time.Microsecond)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
@@ -280,7 +286,7 @@ func TestRestoredPort(t *testing.T) {
 
 	// Release
 	require.Nil(t, pp.releaseCancel)
-	err = p.releaseProxyPort(ppName, time.Microsecond)
+	err = p.releaseProxyPortWithWait(ppName, time.Microsecond)
 	require.NoError(t, err)
 	require.Zero(t, pp.nRedirects)
 
