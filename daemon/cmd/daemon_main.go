@@ -726,7 +726,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
-	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
+	flags.Int(option.TracePayloadlen, 148, "Length of payload to capture when tracing")
 	option.BindEnv(vp, option.TracePayloadlen)
 
 	flags.Bool(option.Version, false, "Print version information")
