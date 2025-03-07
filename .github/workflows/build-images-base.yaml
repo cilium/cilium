@@ -71,6 +71,10 @@ jobs:
           cp ./images/builder/update-cilium-builder-image.sh ../cilium-base-branch/images/builder/
           mkdir -p ../cilium-base-branch/images/scripts/
           cp ./images/scripts/get-image-digest.sh ../cilium-base-branch/images/scripts/
+          mkdir -p ../cilium-base-branch/api/v1
+          cp ./api/v1/Makefile ../cilium-base-branch/api/v1/
+          cp ./Makefile.defs ../cilium-base-branch/Makefile.defs
+          cp ./Makefile.quiet ../cilium-base-branch/Makefile.quiet
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
