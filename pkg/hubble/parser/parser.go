@@ -55,7 +55,7 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 
-	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter)
+	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter, opts...)
 	if err != nil {
 		return nil, err
 	}
