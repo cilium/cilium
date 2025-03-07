@@ -12,7 +12,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/portforward"
 )
 
 // metricsURLFormat is the path format to retrieve the metrics on the
@@ -68,12 +68,12 @@ func (a *Action) collectMetricsForPod(pod Pod, port string) (promMetricsFamily, 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	p := k8s.PortForwardParameters{
+	p := portforward.PortForwardParameters{
 		Namespace:  pod.Namespace(),
 		Pod:        pod.NameWithoutNamespace(),
 		Ports:      []string{fmt.Sprintf(":%s", port)},
 		Addresses:  nil, // default is localhost
-		OutWriters: k8s.OutWriters{Out: &debugWriter{ct: a.test.ctx}, ErrOut: &warnWriter{ct: a.test.ctx}},
+		OutWriters: portforward.OutWriters{Out: &debugWriter{ct: a.test.ctx}, ErrOut: &warnWriter{ct: a.test.ctx}},
 	}
 
 	// Call the k8s dialer to port forward,

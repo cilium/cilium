@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
 	"github.com/cilium/cilium/hubble/pkg/logger"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/portforward"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -98,7 +98,7 @@ func NewWithFlags(ctx context.Context, vp *viper.Viper) (*grpc.ClientConn, error
 	return conn, nil
 }
 
-func newPortForwarder(context, kubeconfig string) (*k8s.PortForwarder, error) {
+func newPortForwarder(context, kubeconfig string) (*portforward.PortForwarder, error) {
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &context,
 		KubeConfig: &kubeconfig,
@@ -115,6 +115,6 @@ func newPortForwarder(context, kubeconfig string) (*k8s.PortForwarder, error) {
 		return nil, err
 	}
 
-	pf := k8s.NewPortForwarder(clientset, config)
+	pf := portforward.NewPortForwarder(clientset, config)
 	return pf, nil
 }
