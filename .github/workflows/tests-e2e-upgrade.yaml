@@ -803,7 +803,9 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
-
+      # We moved from cil_from_netdev to cil_from_wireguard in >=v1.17.2, therefore on
+      # downgrades to prior versions we manually unload the new cil_from_wireguard.
+      # (https://github.com/cilium/cilium/issues/33676).
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
@@ -816,6 +818,12 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+          if [[ "$(printf '%s\n' "v1.17.2" "$CILIUM_DOWNGRADE_VERSION" | sort -V | head -n1)" == "$CILIUM_DOWNGRADE_VERSION" ]]; then
+            for cilium_pod in $(kubectl -n kube-system get pod -l k8s-app=cilium --output name); do
+              kubectl -n kube-system exec ${cilium_pod} -- rm -rf /sys/fs/bpf/cilium/devices/cilium_wg0/links/cil_from_wireguard
+            done
+          fi
 
       - name: Assert that no unencrypted packets are leaked during downgrade
         if: ${{ matrix.encryption != '' }}
