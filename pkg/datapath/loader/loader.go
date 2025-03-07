@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -52,7 +51,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -472,31 +472,10 @@ func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 }
 
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
-// devices and the wireguard device. Attaches cil_from_netdev to ingress and
-// optionally cil_to_netdev to egress if enabled features require it.
+// devices. Attaches cil_from_netdev to ingress and optionally cil_to_netdev to
+// egress if enabled features require it.
 func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
-
-	// Selectively attach/detach bpf_host to cilium_wg0.
-	switch {
-	case option.Config.NeedBPFHostOnWireGuardDevice():
-		// Hook needed, attach bpf_host to cilium_wg0.
-		devices = append(devices, wgTypes.IfaceName)
-	case option.Config.EnableWireguard:
-		// If WireGuard is not enabled, then either the interface
-		// does not exists or it is removed.
-		// If WireGuard is enabled, detach bpf_host from cilium_wg0.
-		iface, err := safenetlink.LinkByName(wgTypes.IfaceName)
-		if err != nil {
-			log.WithError(err).WithField("device", wgTypes.IfaceName).Warn("Link does not exist")
-			break
-		}
-		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
-		if err := detachSKBProgram(iface, symbolFromHostNetdevEp,
-			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			return fmt.Errorf("interface %s ingress: %w", wgTypes.IfaceName, err)
-		}
-	}
 
 	if option.Config.EnableIPIPTermination {
 		if option.Config.IPv4Enabled() {
@@ -539,15 +518,10 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		}
 
 		if option.Config.AreDevicesRequired() {
-			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
-			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
-			// the rev-NAT xlations.
-			if device != wgTypes.IfaceName {
-				// Attach cil_to_netdev to egress.
-				if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
-					linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-					return fmt.Errorf("interface %s egress: %w", device, err)
-				}
+			// Attach cil_to_netdev to egress.
+			if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
+				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
 		} else {
 			// Remove any previously attached device from egress path if BPF
@@ -753,6 +727,11 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 	cfg := config.NewBPFWireguard()
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	cfg.WireguardSecctxFromIPCache = secctxFromIpcacheEnabled
+	if option.Config.EnableHostLegacyRouting {
+		cfg.WireguardSecctxFromIPCache = secctxFromIpcacheDisabled
+	}
+
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -779,6 +758,22 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 			linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
 			log.WithField("device", device).Error(err)
 		}
+	}
+	if option.Config.NeedIngressOnWireGuardDevice() {
+		if err := attachSKBProgram(device, obj.FromWireguard, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s ingress: %w", device, err)
+		}
+	} else {
+		if err := detachSKBProgram(device, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+			log.WithField("device", device).Error(err)
+		}
+	}
+	// Cleanup previous cil_from_netdev if attached.
+	if err := detachSKBProgram(device, symbolFromHostNetdevEp,
+		linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+		log.WithField("device", device).Error(err)
 	}
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
