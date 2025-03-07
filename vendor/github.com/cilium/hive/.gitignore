@@ -1,0 +1,26 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.so.*
+*.d
+
+# Folders
+_obj
+_test
+_build/
+
+# Architecture specific extensions/prefixes
+*.exe
+*.test
+*.prof
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+*.plist
+
+*_bash_completion
+*.swo
