@@ -149,7 +149,7 @@ func buildExecCommand(test string, sip string, duration time.Duration, args []st
 	return exec
 }
 
-func parseDuration(a *check.Action, value string) time.Duration {
+func parseDuration(a action, value string) time.Duration {
 	res, err := time.ParseDuration(value + "us") // by default latencies in netperf are reported in microseconds
 	if err != nil {
 		a.Fatalf("Unable to process netperf result, duration: %s", value)
@@ -157,7 +157,7 @@ func parseDuration(a *check.Action, value string) time.Duration {
 	return res
 }
 
-func parseFloat(a *check.Action, value string) float64 {
+func parseFloat(a action, value string) float64 {
 	res, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		a.Fatalf("Unable to process netperf result, float: %s", value)
@@ -165,7 +165,7 @@ func parseFloat(a *check.Action, value string) float64 {
 	return res
 }
 
-func parseNetperfResult(a *check.Action, test, line string) common.PerfResult {
+func parseNetperfResult(a action, test, line string) common.PerfResult {
 	values := strings.Split(line, ",")
 	if len(values) != 9 {
 		a.Fatalf("Unable to process netperf result")
@@ -207,7 +207,15 @@ func parseNetperfResult(a *check.Action, test, line string) common.PerfResult {
 	return res
 }
 
-func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
+type action interface {
+	ExecInPod(ctx context.Context, cmd []string)
+	CmdOutput() string
+
+	Debugf(format string, args ...any)
+	Fatalf(format string, args ...any)
+}
+
+func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a action) common.PerfResult {
 	test := strings.TrimSuffix(perfTest.Test, "_MULTI")
 
 	streams := uint(1)
