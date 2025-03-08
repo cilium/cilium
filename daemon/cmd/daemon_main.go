@@ -208,6 +208,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.ARPPingRefreshPeriod, defaults.ARPBaseReachableTime, "Period for remote node ARP entry refresh (set 0 to disable)")
 	option.BindEnv(vp, option.ARPPingRefreshPeriod)
 
+	flags.Duration(option.EndpointHeaderFileSyncInterval, defaults.EndpointHeaderFileSyncInterval, "Interval for syncing the endpoint header file")
+	option.BindEnv(vp, option.EndpointHeaderFileSyncInterval)
+
 	flags.Bool(option.EnableL2NeighDiscovery, true, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
 	option.BindEnv(vp, option.EnableL2NeighDiscovery)
 
