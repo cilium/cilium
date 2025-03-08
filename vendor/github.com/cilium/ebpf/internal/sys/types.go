@@ -26,6 +26,7 @@ const (
 	BPF_FIB_LKUP_RET_UNREACHABLE               = 2
 	BPF_FIB_LKUP_RET_UNSUPP_LWT                = 6
 	BPF_FIB_LOOKUP_DIRECT                      = 1
+	BPF_FIB_LOOKUP_MARK                        = 32
 	BPF_FIB_LOOKUP_OUTPUT                      = 2
 	BPF_FIB_LOOKUP_SKIP_NEIGH                  = 4
 	BPF_FIB_LOOKUP_SRC                         = 16
@@ -68,6 +69,7 @@ const (
 	BPF_F_NO_COMMON_LRU                        = 2
 	BPF_F_NO_PREALLOC                          = 1
 	BPF_F_NO_TUNNEL_KEY                        = 16
+	BPF_F_NO_USER_CONV                         = 262144
 	BPF_F_NUMA_NODE                            = 4
 	BPF_F_PATH_FD                              = 16384
 	BPF_F_PEER                                 = 4
@@ -77,17 +79,20 @@ const (
 	BPF_F_RDONLY_PROG                          = 128
 	BPF_F_RECOMPUTE_CSUM                       = 1
 	BPF_F_REUSE_STACKID                        = 1024
+	BPF_F_SEGV_ON_FAULT                        = 131072
 	BPF_F_SEQ_NUMBER                           = 8
 	BPF_F_SKIP_FIELD_MASK                      = 255
 	BPF_F_STACK_BUILD_ID                       = 32
 	BPF_F_SYSCTL_BASE_NAME                     = 1
 	BPF_F_TIMER_ABS                            = 1
 	BPF_F_TIMER_CPU_PIN                        = 2
+	BPF_F_TOKEN_FD                             = 65536
 	BPF_F_TUNINFO_FLAGS                        = 16
 	BPF_F_TUNINFO_IPV6                         = 1
 	BPF_F_UPROBE_MULTI_RETURN                  = 1
 	BPF_F_USER_BUILD_ID                        = 2048
 	BPF_F_USER_STACK                           = 256
+	BPF_F_VTYPE_BTF_OBJ_FD                     = 32768
 	BPF_F_WRONLY                               = 16
 	BPF_F_WRONLY_PROG                          = 256
 	BPF_F_ZERO_CSUM_TX                         = 2
@@ -117,6 +122,9 @@ const (
 	BPF_RINGBUF_BUSY_BIT                       = 2147483648
 	BPF_RINGBUF_DISCARD_BIT                    = 1073741824
 	BPF_RINGBUF_HDR_SZ                         = 8
+	BPF_SKB_CLOCK_MONOTONIC                    = 1
+	BPF_SKB_CLOCK_REALTIME                     = 0
+	BPF_SKB_CLOCK_TAI                          = 2
 	BPF_SKB_TSTAMP_DELIVERY_MONO               = 1
 	BPF_SKB_TSTAMP_UNSPEC                      = 0
 	BPF_SK_LOOKUP_F_NO_REUSEPORT               = 2
@@ -146,8 +154,6 @@ const (
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
-	BPF_STRUCT_OPS_TYPE_bpf_dummy_ops          = 0
-	BPF_STRUCT_OPS_TYPE_tcp_congestion_ops     = 1
 	BPF_TASK_ITER_ALL_PROCS                    = 0
 	BPF_TASK_ITER_ALL_THREADS                  = 1
 	BPF_TASK_ITER_PROC_THREADS                 = 2
@@ -236,7 +242,8 @@ const (
 	BPF_CGROUP_UNIX_GETSOCKNAME        AttachType = 53
 	BPF_NETKIT_PRIMARY                 AttachType = 54
 	BPF_NETKIT_PEER                    AttachType = 55
-	__MAX_BPF_ATTACH_TYPE              AttachType = 56
+	BPF_TRACE_KPROBE_SESSION           AttachType = 56
+	__MAX_BPF_ATTACH_TYPE              AttachType = 57
 )
 
 type Cmd uint32
@@ -279,6 +286,8 @@ const (
 	BPF_ITER_CREATE                 Cmd = 33
 	BPF_LINK_DETACH                 Cmd = 34
 	BPF_PROG_BIND_MAP               Cmd = 35
+	BPF_TOKEN_CREATE                Cmd = 36
+	__MAX_BPF_CMD                   Cmd = 37
 )
 
 type FunctionId uint32
@@ -523,7 +532,8 @@ const (
 	BPF_LINK_TYPE_TCX            LinkType = 11
 	BPF_LINK_TYPE_UPROBE_MULTI   LinkType = 12
 	BPF_LINK_TYPE_NETKIT         LinkType = 13
-	__MAX_BPF_LINK_TYPE          LinkType = 14
+	BPF_LINK_TYPE_SOCKMAP        LinkType = 14
+	__MAX_BPF_LINK_TYPE          LinkType = 15
 )
 
 type MapType uint32
@@ -564,6 +574,8 @@ const (
 	BPF_MAP_TYPE_BLOOM_FILTER                     MapType = 30
 	BPF_MAP_TYPE_USER_RINGBUF                     MapType = 31
 	BPF_MAP_TYPE_CGRP_STORAGE                     MapType = 32
+	BPF_MAP_TYPE_ARENA                            MapType = 33
+	__MAX_BPF_MAP_TYPE                            MapType = 34
 )
 
 type ObjType uint32
@@ -623,6 +635,7 @@ const (
 	BPF_PROG_TYPE_SK_LOOKUP               ProgType = 30
 	BPF_PROG_TYPE_SYSCALL                 ProgType = 31
 	BPF_PROG_TYPE_NETFILTER               ProgType = 32
+	__MAX_BPF_PROG_TYPE                   ProgType = 33
 )
 
 type RetCode uint32
@@ -719,7 +732,7 @@ type MapInfo struct {
 	BtfId                 uint32
 	BtfKeyTypeId          TypeID
 	BtfValueTypeId        TypeID
-	_                     [4]byte
+	BtfVmlinuxId          uint32
 	MapExtra              uint64
 }
 
@@ -816,6 +829,8 @@ type BtfLoadAttr struct {
 	BtfLogSize     uint32
 	BtfLogLevel    uint32
 	BtfLogTrueSize uint32
+	BtfFlags       uint32
+	BtfTokenFd     int32
 }
 
 func BtfLoad(attr *BtfLoadAttr) (*FD, error) {
@@ -1069,6 +1084,8 @@ type MapCreateAttr struct {
 	BtfValueTypeId        TypeID
 	BtfVmlinuxValueTypeId TypeID
 	MapExtra              uint64
+	ValueTypeBtfObjFd     int32
+	MapTokenFd            int32
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -1362,6 +1379,8 @@ type ProgLoadAttr struct {
 	CoreRelos          Pointer
 	CoreReloRecSize    uint32
 	LogTrueSize        uint32
+	ProgTokenFd        int32
+	_                  [4]byte
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
@@ -1419,6 +1438,7 @@ type RawTracepointOpenAttr struct {
 	Name   Pointer
 	ProgFd uint32
 	_      [4]byte
+	Cookie uint64
 }
 
 func RawTracepointOpen(attr *RawTracepointOpenAttr) (*FD, error) {
@@ -1460,19 +1480,20 @@ type KprobeLinkInfo struct {
 	Offset        uint32
 	Addr          uint64
 	Missed        uint64
-	_             [8]byte
+	Cookie        uint64
 }
 
 type KprobeMultiLinkInfo struct {
-	Type   LinkType
-	Id     LinkID
-	ProgId uint32
-	_      [4]byte
-	Addrs  Pointer
-	Count  uint32
-	Flags  uint32
-	Missed uint64
-	_      [24]byte
+	Type    LinkType
+	Id      LinkID
+	ProgId  uint32
+	_       [4]byte
+	Addrs   Pointer
+	Count   uint32
+	Flags   uint32
+	Missed  uint64
+	Cookies uint64
+	_       [16]byte
 }
 
 type NetNsLinkInfo struct {

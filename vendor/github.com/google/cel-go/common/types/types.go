@@ -164,9 +164,9 @@ var (
 			traits.SubtractorType,
 	}
 	// ListType represents the runtime list type.
-	ListType = NewListType(nil)
+	ListType = NewListType(DynType)
 	// MapType represents the runtime map type.
-	MapType = NewMapType(nil, nil)
+	MapType = NewMapType(DynType, DynType)
 	// NullType represents the type of a null value.
 	NullType = &Type{
 		kind:            NullTypeKind,

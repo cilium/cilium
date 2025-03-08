@@ -691,8 +691,15 @@ func filterpath(peer *peer, path, old *table.Path) *table.Path {
 		return nil
 	}
 
-	if !peer.isRouteServerClient() && isASLoop(peer, path) && !path.IsLocal() {
-		return nil
+	if !peer.isRouteServerClient() && isASLoop(peer, path) {
+		// Do not filter local (static) routes with as-path loop
+		// if configured to bypass these checks in the peer
+		// as-path options config.
+		if path.IsLocal() && !peer.allowAsPathLoopLocal() {
+			return nil
+		} else if !path.IsLocal() {
+			return nil
+		}
 	}
 	return path
 }

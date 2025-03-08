@@ -1,8 +1,7 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
-# Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a
+# Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
 run:
-  go: '1.20'
   timeout: 1m
 linters:
   disable-all: true
@@ -13,28 +12,28 @@ linters:
     - bodyclose
     - containedctx
     - contextcheck
+    - copyloopvar
     - cyclop
     - decorder
     - dogsled
     - dupl
     - dupword
     - durationcheck
+    - err113
     - errcheck
     - errname
     - errorlint
+    - exptostd
     - exhaustive
-    - exportloopref
     - forcetypeassert
     - gocheckcompilerdirectives
     - gocognit
     - goconst
     - gocritic
     - godot
-    - goerr113
     - gofmt
     - goheader
     - goimports
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -42,8 +41,10 @@ linters:
     - grouper
     - ineffassign
     - interfacebloat
+    - intrange
     - ireturn
     - makezero
+    - mirror
     - misspell
     - musttag
     - nakedret
@@ -52,13 +53,16 @@ linters:
     - nilnil
     - noctx
     - nosprintfhostport
+    - perfsprint
     - prealloc
     - predeclared
     - reassign
     - revive
     - rowserrcheck
+    - sloglint
     - staticcheck
-    - tenv
+    - tagalign
+    - testifylint
     - thelper
     - tparallel
     - typecheck
@@ -66,15 +70,36 @@ linters:
     - unparam
     - unused
     - usestdlibvars
+    - usetesting
     - wastedassign
-
 linters-settings:
   cyclop:
     skip-tests: true
-
   goheader:
     template: |-
       SPDX-License-Identifier: Apache-2.0
       Copyright Authors of Cilium
   govet:
     enable-all: true
+  perfsprint:
+    strconcat: false
+  sloglint:
+    no-mixed-args: true
+    static-msg: true
+    no-global: "all"
+    key-naming-case: kebab # be consistent with key names
+    forbidden-keys: # let's no use reserved log keys
+      - level
+      - msg
+      - source
+      - time
+issues:
+  # Maximum issues count per one linter.
+  # Set to 0 to disable (default is 50)
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text.
+  # Set to 0 to disable (default is 3)
+  max-same-issues: 0
+  fix: true # fix found issues (if it's supported by the linter).
+  exclude-use-default: false # default rules exclude doc comments check :(
+  exclude-generated: strict
