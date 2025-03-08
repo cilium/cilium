@@ -191,6 +191,12 @@ Users (Alphabetically)
       Q: @ant31
       L: https://conny.de
 
+    * N: CoreWeave
+      D: CoreWeave, The AI Hyperscaler™, uses Cilium as the default CNI for CoreWeave Kubernetes Service.
+      U: Networking
+      L: https://www.coreweave.com/
+      Q: @dswaffordcw
+
     * N: Cosmonic
       D: Cilium is the CNI for Cosmonic's Nomad based PaaS
       U: Networking, NetworkPolicy, Transparent Encryption
