@@ -393,10 +393,10 @@ skip_tunnel:
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
-
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
+
+	if (from_proxy)
+		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 
 	return CTX_ACT_OK;
 }
@@ -871,10 +871,10 @@ skip_tunnel:
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
-
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
+
+	if (from_proxy)
+		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 
 	return CTX_ACT_OK;
 }
