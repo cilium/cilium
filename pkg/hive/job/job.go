@@ -615,7 +615,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, scope c
 	<-done
 
 	jo.health.Stopped("observer job done")
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		l.WithError(err).Error("Observer job stopped with an error")
 	} else {
 		l.WithError(err).Debug("Observer job stopped")
