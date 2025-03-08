@@ -1957,7 +1957,7 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 // TestDenyPreferredInsertLogic is now less valuable since we do not have the mapstate
 // validator any more, but may still catch bugs.
 func TestDenyPreferredInsertLogic(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 

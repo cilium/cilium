@@ -193,7 +193,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{}
@@ -209,7 +209,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -221,7 +221,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
-	td := newTestData()
+	td := newTestData(b)
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -233,8 +233,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 }
 
 func TestL7WithIngressWildcard(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -332,12 +331,13 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = mapState{}
 	expectedEndpointPolicy.policyMapState = mapState{}
+	// reset cached envoy http rules to avoid unnecessary diff
+	resetCachedEnvoyHTTPRules(policy)
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -445,12 +445,24 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = mapState{}
 	expectedEndpointPolicy.policyMapState = mapState{}
+	// reset cached envoy http rules to avoid unnecessary diff
+	resetCachedEnvoyHTTPRules(policy)
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
-func TestMapStateWithIngressWildcard(t *testing.T) {
+func resetCachedEnvoyHTTPRules(policy *EndpointPolicy) {
+	policy.L4Policy.Ingress.PortRules.ForEach(func(l4 *L4Filter) bool {
+		for _, pol := range l4.PerSelectorPolicies {
+			if pol != nil {
+				pol.EnvoyHTTPRules = nil
+			}
+		}
+		return true
+	})
+}
 
-	td := newTestData()
+func TestMapStateWithIngressWildcard(t *testing.T) {
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
@@ -556,8 +568,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngress(t *testing.T) {
-
-	td := newTestData()
+	td := newTestData(t)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 

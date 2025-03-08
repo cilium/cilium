@@ -19,7 +19,7 @@ import (
 )
 
 func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -257,7 +257,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 }
 
 func TestDeniesIngress(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs)
+	td := newTestData(t).withIDs(ruleTestIDs)
 	repo := td.repo
 	allowAll := api.Rule{
 		EndpointSelector: endpointSelectorB,
@@ -291,7 +291,7 @@ func TestDeniesIngress(t *testing.T) {
 }
 
 func TestDeniesEgress(t *testing.T) {
-	td := newTestData().withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(t).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 
 	allowAll := api.Rule{
@@ -324,7 +324,7 @@ func TestDeniesEgress(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	l3Rule := api.Rule{
@@ -354,7 +354,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 }
 
 func TestWildcardL4RulesIngressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL4HTTP := labels.LabelArray{labels.ParseLabel("L4-http")}
@@ -419,7 +419,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 }
 
 func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	l480Rule := api.Rule{
 		IngressDeny: []api.IngressDenyRule{
@@ -469,7 +469,7 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 }
 
 func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	l480Rule := api.Rule{
 		EgressDeny: []api.EgressDenyRule{
@@ -538,7 +538,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
@@ -632,7 +632,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardL4RulesEgressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL3HTTP := labels.LabelArray{labels.ParseLabel("L3-http")}
@@ -700,7 +700,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -773,7 +773,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 
@@ -812,7 +812,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 
@@ -853,7 +853,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 }
 
 func TestMinikubeGettingStartedDeny(t *testing.T) {
-	td := newTestData()
+	td := newTestData(t)
 
 	deny80FromB := api.Rule{
 		IngressDeny: []api.IngressDenyRule{{
