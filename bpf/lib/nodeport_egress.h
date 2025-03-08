@@ -292,6 +292,7 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
 						  __be32 *saddr,
+						  __u16 *sport,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -375,6 +376,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 apply_snat:
 	*saddr = tuple.saddr;
+	*sport = tuple.sport;
 	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
@@ -408,10 +410,11 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	__be32 saddr = 0;
+	__u16  sport = 0;
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &sport, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -422,7 +425,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   saddr, sport, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				   trace.reason, trace.monitor);
 
 	return ret;

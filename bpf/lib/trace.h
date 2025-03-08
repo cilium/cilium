@@ -181,6 +181,7 @@ struct trace_notify {
 		};
 		union v6addr	orig_ip6;
 	};
+	__u16 orig_port;
 };
 
 #ifdef TRACE_NOTIFY
@@ -264,7 +265,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 static __always_inline void
 send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
-		   __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
+		   __u32 src, __u32 dst, __be32 orig_addr, __u16 orig_port, __u16 dst_id,
 		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -300,6 +301,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.ipv6		= 0,
 		.orig_ip4	= orig_addr,
+		.orig_port  = orig_port,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,
@@ -366,9 +368,9 @@ send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 static __always_inline void
 send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		   __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
-		   __u32 ifindex __maybe_unused, enum trace_reason reason,
-		   __u32 monitor __maybe_unused)
+		   __be32 orig_addr __maybe_unused, __u16 orig_port __maybe_unused,
+		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
+		   enum trace_reason reason, __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
