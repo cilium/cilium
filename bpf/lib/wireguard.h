@@ -130,10 +130,16 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 	 *  encrypted.
 	 */
 	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||
+	    magic == MARK_MAGIC_PROXY_EGRESS ||
+	    magic == MARK_MAGIC_PROXY_REDIRECTED)
 		goto maybe_encrypt;
+
 #if defined(TUNNEL_MODE)
 	/* In tunneling mode the mark might have been reset. Check TC index instead.
+	 *
+	 * TODO: superseded by MARK_MAGIC_PROXY_REDIRECTED, remove
+	 *	 this part once n-1 has support.
 	 */
 	if (tc_index_from_ingress_proxy(ctx) || tc_index_from_egress_proxy(ctx))
 		goto maybe_encrypt;
