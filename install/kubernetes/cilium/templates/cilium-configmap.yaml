@@ -760,12 +760,12 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
