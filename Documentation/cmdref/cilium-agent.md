@@ -207,7 +207,7 @@ cilium-agent [flags]
       --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
-      --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
+      --force-device-detection                                    When network interfaces are specified using "devices", the probing process known as auto-detection is disabled. "forceDeviceDetection" enables auto-detection when used with "devices". Devices selected will be the union of those matched by "devices" and those selected by auto-detection. This option does not filter devices matched by "devices".
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --health-check-icmp-failure-threshold int                   Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
