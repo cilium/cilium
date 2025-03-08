@@ -1628,6 +1628,9 @@
     "defaultLBServiceIPAM": {
       "type": "string"
     },
+    "devices": {
+      "type": "null"
+    },
     "directRoutingSkipUnreachable": {
       "type": "boolean"
     },
