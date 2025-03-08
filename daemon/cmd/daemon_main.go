@@ -99,6 +99,7 @@ import (
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -192,9 +193,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Int(option.ClusterHealthPort, defaults.ClusterHealthPort, "TCP port for cluster-wide network connectivity health API")
 	option.BindEnv(vp, option.ClusterHealthPort)
-
-	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
-	option.BindEnv(vp, option.AgentLabels)
 
 	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU.")
 	option.BindEnv(vp, option.AllowICMPFragNeeded)
@@ -1550,6 +1548,7 @@ type daemonParams struct {
 	L2Announcer         *l2announcer.L2Announcer
 	ServiceManager      service.ServiceManager
 	L7Proxy             *proxy.Proxy
+	ProxyAccessLogger   logger.ProxyAccessLogger
 	EnvoyXdsServer      envoy.XDSServer
 	DB                  *statedb.DB
 	APILimiterSet       *rate.APILimiterSet

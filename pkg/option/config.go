@@ -60,9 +60,6 @@ const (
 	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
 	ClusterMeshHealthPort = "clustermesh-health-port"
 
-	// AgentLabels are additional labels to identify this agent
-	AgentLabels = "agent-labels"
-
 	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in policy.
 	AllowICMPFragNeeded = "allow-icmp-frag-needed"
 
@@ -1378,9 +1375,6 @@ type DaemonConfig struct {
 
 	// ClusterMeshHealthPort is the TCP port for ClusterMesh apiserver health API
 	ClusterMeshHealthPort int
-
-	// AgentLabels contains additional labels to identify this agent in monitor events.
-	AgentLabels []string
 
 	// IPv6ClusterAllocCIDR is the base CIDR used to allocate IPv6 node
 	// CIDRs if allocation is not performed by an orchestration system
@@ -2817,7 +2811,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.AgentHealthPort = vp.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.ClusterMeshHealthPort = vp.GetInt(ClusterMeshHealthPort)
-	c.AgentLabels = vp.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = vp.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = vp.GetBool(AnnotateK8sNode)

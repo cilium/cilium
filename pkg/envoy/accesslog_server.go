@@ -15,7 +15,6 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
@@ -29,6 +28,7 @@ import (
 
 type AccessLogServer struct {
 	logger             *slog.Logger
+	accessLogger       logger.ProxyAccessLogger
 	socketPath         string
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
@@ -36,9 +36,10 @@ type AccessLogServer struct {
 	bufferSize         uint
 }
 
-func newAccessLogServer(logger *slog.Logger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
+func newAccessLogServer(logger *slog.Logger, accessLogger logger.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
 	return &AccessLogServer{
 		logger:             logger,
+		accessLogger:       accessLogger,
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
@@ -166,11 +167,14 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			continue
 		}
 
-		flowdebug.Log(func() (*logrus.Entry, string) {
-			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
-		})
+		if flowdebug.Enabled() {
+			s.logger.Debug("Envoy: Received access log message",
+				logfields.PolicyID, pblog.PolicyName,
+				logfields.Value, pblog.String(),
+			)
+		}
 
-		r := logRecord(ctx, &pblog)
+		r := s.logRecord(ctx, &pblog)
 
 		// Update proxy stats for the endpoint if it still exists
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
@@ -187,11 +191,11 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}
 }
 
-func logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
+func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
-	var l7tags logger.LogTag = func(lr *logger.LogRecord) {}
+	var l7tags logger.LogTag = func(lr *logger.LogRecord, endpointInfoRegistry logger.EndpointInfoRegistry) {}
 
 	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
@@ -241,18 +245,18 @@ func logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
 		addrInfo.DstIPPort = pblog.DestinationAddress
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
 	}
-	r := logger.NewLogRecord(flowType, pblog.IsIngress,
+	r := s.accessLogger.NewLogRecord(flowType, pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
-	r.Log()
+	s.accessLogger.Log(r)
 
 	// Each kafka topic needs to be logged separately, log the rest if any
 	for i := range kafkaTopics {
 		kafkaRecord.Topic.Topic = kafkaTopics[i]
-		r.Log()
+		s.accessLogger.Log(r)
 	}
 
 	return r

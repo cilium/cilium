@@ -18,6 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -85,7 +87,7 @@ func TestEnvoy(t *testing.T) {
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(logger, testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
 	require.NoError(t, err)
@@ -202,7 +204,7 @@ func TestEnvoyNACK(t *testing.T) {
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(logger, testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	err = accessLogServer.start()
 	require.NoError(t, err)
@@ -246,3 +248,11 @@ func TestEnvoyNACK(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 }
+
+type proxyAccessLoggerMock struct{}
+
+func (p *proxyAccessLoggerMock) NewLogRecord(t accesslog.FlowType, ingress bool, tags ...logger.LogTag) *logger.LogRecord {
+	panic("unimplemented")
+}
+
+func (p *proxyAccessLoggerMock) Log(lr *logger.LogRecord) {}

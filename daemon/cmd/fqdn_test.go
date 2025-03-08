@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ciliumdns "github.com/cilium/dns"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -58,7 +59,6 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		node.SetTestLocalNodeStore()
 
 		re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-		logger.SetEndpointInfoRegistry(&dummyInfoRegistry{})
 	})
 
 	ds := &DaemonFQDNSuite{}
@@ -82,11 +82,16 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	})
 	d.dnsNameManager.CompleteBootstrap()
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
+	d.proxyAccessLogger = logger.NewProcyAccessLogger(hivetest.Logger(tb), logger.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{})
 
 	ds.d = d
 
 	return ds
 }
+
+type noopNotifier struct{}
+
+func (*noopNotifier) NewProxyLogRecord(l *logger.LogRecord) error { return nil }
 
 type dummyInfoRegistry struct{}
 
@@ -110,7 +115,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					Ttl:  3600,
 				},
 				A: net.ParseIP("192.0.2.3"),
-			}}}
+			}},
+		}
 		ebpfMsg = &ciliumdns.Msg{
 			MsgHdr: ciliumdns.MsgHdr{
 				Response: true,
@@ -125,7 +131,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					Ttl:  3600,
 				},
 				A: net.ParseIP("192.0.2.4"),
-			}}}
+			}},
+		}
 		srvAddr    = netip.MustParseAddrPort("10.96.64.1:53")
 		emptyPRCtx = &dnsproxy.ProxyRequestContext{}
 	)
