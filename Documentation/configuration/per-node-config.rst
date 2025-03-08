@@ -89,9 +89,9 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: true``
         spec:
           nodeSelector:
             matchLabels:
-              io.cilium.migration/kube-proxy-replacement: true
+              io.cilium.migration/kube-proxy-replacement: "true"
           defaults:
-            kube-proxy-replacement: true
+            kube-proxy-replacement: "true"
             kube-proxy-replacement-healthz-bind-address: "0.0.0.0:10256"
 
         EOF
