@@ -229,6 +229,9 @@ jobs:
           if [[ "${{ matrix.kpr }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
+          if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --test-concurrency=3 \
             --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
