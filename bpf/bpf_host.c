@@ -395,7 +395,7 @@ skip_tunnel:
 					 info->sec_identity, true, false);
 
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
@@ -873,7 +873,7 @@ skip_tunnel:
 					 info->sec_identity, true, false);
 
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_PROXY_REDIRECTED;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
