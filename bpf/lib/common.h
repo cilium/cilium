@@ -744,6 +744,13 @@ enum metric_dir {
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400
+/* used to indicate encrypted traffic was tunnel encapsulated
+ * this is useful in the IPsec code paths where we need to know if overlay
+ * traffic is encrypted or not.
+ *
+ * the SPI bit can be reused since this magic mark is only used POST encryption.
+ */
+#define MARK_MAGIC_OVERLAY_ENCRYPTED	0x1400
 #define MARK_MAGIC_EGW_DONE		0x0500
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
