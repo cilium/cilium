@@ -354,7 +354,7 @@ ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 		  const __u32 flags __maybe_unused)
 {
 	/* bpf_redirect_peer() is available only in TC BPF. */
-	return -ENOTSUP;
+	__throw_build_bug();
 }
 
 #ifdef HAVE_XDP_GET_BUFF_LEN
