@@ -80,7 +80,7 @@ cilium-agent hive dot-graph [flags]
       --envoy-log string                                          Path to a separate Envoy log file, if any
       --envoy-policy-restore-timeout duration                     Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
-      --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
+      --force-device-detection                                    When network interfaces are specified using "devices", the probing process known as auto-detection is disabled. "forceDeviceDetection" enables auto-detection when used with "devices". Devices selected will be the union of those matched by "devices" and those selected by auto-detection. This option does not filter devices matched by "devices".
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --http-idle-timeout uint                                    Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
