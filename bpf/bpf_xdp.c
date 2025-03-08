@@ -17,8 +17,6 @@
 #define SECLABEL_IPV4 WORLD_IPV4_ID
 #define SECLABEL_IPV6 WORLD_IPV6_ID
 
-#define SKIP_POLICY_MAP 1
-
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * bpf_lxc object file.
  */

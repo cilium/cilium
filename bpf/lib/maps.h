@@ -9,34 +9,6 @@
 
 #include "bpf/compiler.h"
 
-#ifndef SKIP_POLICY_MAP
-/* Global map to jump into policy enforcement of receiving endpoint */
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__type(key, __u32);
-	__type(value, __u32);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, POLICY_PROG_MAP_SIZE);
-} cilium_call_policy __section_maps_btf;
-
-static __always_inline __must_check int
-tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
-{
-	if (__builtin_constant_p(endpoint_id)) {
-		tail_call_static(ctx, cilium_call_policy, endpoint_id);
-	} else {
-		tail_call_dynamic(ctx, &cilium_call_policy, endpoint_id);
-	}
-
-	/* When forwarding from a BPF program to some endpoint,
-	 * there are inherent races that can result in the endpoint's
-	 * policy program being unavailable (eg. if the endpoint is
-	 * terminating).
-	 */
-	return DROP_EP_NOT_READY;
-}
-#endif /* SKIP_POLICY_MAP */
-
 /* Global map to jump into policy enforcement of sending endpoint */
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
