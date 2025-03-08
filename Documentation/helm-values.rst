@@ -1732,6 +1732,10 @@
      - - Defines max file size of output file before it gets rotated.
      - int
      - ``10``
+   * - :spelling:ignore:`hubble.l3l4netpolenrichment`
+     - Enable L3/L4 network policy enrichment of Hubble Flows (true by default).
+     - object
+     - ``{"enabled":true}``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
