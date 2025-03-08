@@ -71,9 +71,9 @@ var DevicesControllerCell = cell.Module(
 )
 
 func (c DevicesConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
+	flags.StringSlice(option.Devices, []string{}, "Specify which network interfaces can run the eBPF datapath. This means that a packet sent from a pod to a destination outside the cluster will be masqueraded (to an output device IP address), if the output device runs the program. When not specified, probing will automatically detect devices that have a non-local route. This should be used only when auto-detection is not suitable. Supports '+' as a wildcard in the device name, e.g. 'eth+'")
 
-	flags.Bool(option.ForceDeviceDetection, false, "Forces the auto-detection of devices, even if specific devices are explicitly listed")
+	flags.Bool(option.ForceDeviceDetection, false, "When network interfaces are specified using \"devices\", the probing process known as auto-detection is disabled. \"forceDeviceDetection\" enables auto-detection when used with \"devices\". Devices selected are those first matched by \"devices\" then those selected by auto-detection. This option does not filter devices matched by \"devices\", it is only additive.")
 
 	// Temporary flag until we start using the neighbor table more widely
 	flags.Bool("enable-statedb-neighbor-sync", false, "Enables synchronization of host neighbors to the neighbor table in statedb")
@@ -128,10 +128,10 @@ type devicesController struct {
 	params devicesControllerParams
 	log    *slog.Logger
 
-	initialized          chan struct{}
-	filter               tables.DeviceFilter
-	enforceAutoDetection bool
-	l3DevSupported       bool
+	initialized        chan struct{}
+	filter             tables.DeviceFilter
+	forceAutoDetection bool
+	l3DevSupported     bool
 
 	// deadLinkIndexes tracks the set of links that have been deleted. This is needed
 	// to avoid processing route or address updates after a link delete as they may
@@ -143,12 +143,12 @@ type devicesController struct {
 
 func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route], statedb.Table[*tables.Neighbor]) {
 	dc := &devicesController{
-		params:               p,
-		initialized:          make(chan struct{}),
-		filter:               tables.DeviceFilter(p.Config.Devices),
-		enforceAutoDetection: p.Config.ForceDeviceDetection,
-		log:                  p.Log,
-		deadLinkIndexes:      sets.New[int](),
+		params:             p,
+		initialized:        make(chan struct{}),
+		filter:             tables.DeviceFilter(p.Config.Devices),
+		forceAutoDetection: p.Config.ForceDeviceDetection,
+		log:                p.Log,
+		deadLinkIndexes:    sets.New[int](),
 	}
 	lc.Append(dc)
 	return dc, p.DeviceTable, p.RouteTable, p.NeighborTable
@@ -642,16 +642,19 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		return false, fmt.Sprintf("missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
 	}
 
-	// If user specified devices or wildcards, then skip the device if it doesn't match.
-	// If the device does match and user not requested auto detection, then skip further checks.
-	// If the device does match and user requested auto detection, then continue to further checks.
+	// Handle user-specified devices and wildcards
 	if dc.filter.NonEmpty() {
 		if dc.filter.Match(d.Name) {
+			// If the user specified device or wildcard matches, select the device regardless
+			// of auto-detection configuration.
 			return true, ""
 		}
-		if !dc.enforceAutoDetection {
+		if !dc.forceAutoDetection {
+			// Auto-detection is disabled, and no devices matched the user-specified devices and wildcards.
 			return false, fmt.Sprintf("not matching user filter %v", dc.filter)
 		}
+		// Auto-detection is enabled. Devices selected will be the union of those matched by the
+		// user specified devices and wildcards and those those selected by auto-detection.
 	}
 
 	// Skip devices that have an excluded interface flag set.

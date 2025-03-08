@@ -127,7 +127,11 @@ const (
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
 
-	// Forces the auto-detection of devices, even if specific devices are explicitly listed
+	// When network interfaces are specified using "devices", the probing process known as
+	// auto-detection is disabled. "forceDeviceDetection" enables auto-detection when used with
+	// "devices". Devices selected are those first matched by "devices" then those
+	// selected by auto-detection. This option does not filter devices matched by "devices", it
+	// is only additive.
 	ForceDeviceDetection = "force-device-detection"
 
 	// DirectRoutingDevice is the name of a device used to connect nodes in

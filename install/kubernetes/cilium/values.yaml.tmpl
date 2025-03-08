@@ -830,12 +830,17 @@ daemon:
   #
   # By default, this functionality is enabled
   enableSourceIPVerification: true
+
+# @schema
+# type: [null, string, array]
+# @schema
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
-# masqueraded (to an output device IPv4 address), if the output device runs the
+# masqueraded (to an output device IP address), if the output device runs the
 # program. When not specified, probing will automatically detect devices that have
-# a non-local route. This should be used only when autodetection is not suitable.
-# devices: ""
+# a non-local route. This should be used only when auto-detection is not suitable.
+# Supports '+' as a wildcard in the device name, e.g. 'eth+'
+devices: ~
 
 # -- Enables experimental support for the detection of new and removed datapath
 # devices. When devices change the eBPF datapath is reloaded and services updated.
@@ -845,7 +850,11 @@ daemon:
 # This option has been deprecated and is a no-op.
 enableRuntimeDeviceDetection: true
 
-# -- Forces the auto-detection of devices, even if specific devices are explicitly listed
+# -- When network interfaces are specified using "devices", the probing process known as
+# auto-detection is disabled. "forceDeviceDetection" enables auto-detection when used with
+# "devices". Devices selected are those first matched by "devices" then those
+# selected by auto-detection. This option does not filter devices matched by "devices", it
+# is only additive.
 forceDeviceDetection: false
 
 # -- Chains to ignore when installing feeder rules.

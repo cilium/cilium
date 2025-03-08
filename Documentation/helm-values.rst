@@ -1060,6 +1060,10 @@
      - defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none @schema type: [string] @schema
      - string
      - ``"lbipam"``
+   * - :spelling:ignore:`devices`
+     - Specify which network interfaces can run the eBPF datapath. This means that a packet sent from a pod to a destination outside the cluster will be masqueraded (to an output device IP address), if the output device runs the program. When not specified, probing will automatically detect devices that have a non-local route. This should be used only when auto-detection is not suitable. Supports '+' as a wildcard in the device name, e.g. 'eth+'
+     - string
+     - ``nil``
    * - :spelling:ignore:`directRoutingSkipUnreachable`
      - Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment.
      - bool
@@ -1609,7 +1613,7 @@
      - list
      - ``[]``
    * - :spelling:ignore:`forceDeviceDetection`
-     - Forces the auto-detection of devices, even if specific devices are explicitly listed
+     - When network interfaces are specified using "devices", the probing process known as auto-detection is disabled. "forceDeviceDetection" enables auto-detection when used with "devices". Devices selected are those first matched by "devices" then those selected by auto-detection. This option does not filter devices matched by "devices", it is only additive.
      - bool
      - ``false``
    * - :spelling:ignore:`gatewayAPI.enableAlpn`
