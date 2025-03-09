@@ -121,7 +121,6 @@ type IPCache struct {
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
 	ipToK8sMetadata   map[string]K8sMetadata
-	ipToEndpointFlags map[string]uint8
 
 	listeners []IPIdentityMappingListener
 
@@ -166,7 +165,6 @@ func NewIPCache(c *Configuration) *IPCache {
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
 		ipToK8sMetadata:   map[string]K8sMetadata{},
-		ipToEndpointFlags: map[string]uint8{},
 		controllers:       controller.NewManager(),
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
@@ -267,18 +265,6 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-// GetEndpointFlags returns endpoint flags for the given IP address.
-func (ipc *IPCache) GetEndpointFlags(ip string) uint8 {
-	ipc.mutex.RLock()
-	defer ipc.mutex.RUnlock()
-	return ipc.getEndpointFlags(ip)
-}
-
-// getEndpointFlags returns endpoint flags for the given IP address.
-func (ipc *IPCache) getEndpointFlags(ip string) uint8 {
-	return ipc.ipToEndpointFlags[ip]
-}
-
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
@@ -297,7 +283,7 @@ func (ipc *IPCache) getEndpointFlags(ip string) uint8 {
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, 0 /* endpointFlags unused in legacy */, false /* !force */, true /* fromLegacyAPI */)
+	return ipc.upsertLocked(ip, hostIP, hostKey, k8sMeta, newIdentity, false /* !force */, true /* fromLegacyAPI */)
 }
 
 // upsertLocked adds / updates the provided IP and identity into the IPCache,
@@ -321,7 +307,6 @@ func (ipc *IPCache) upsertLocked(
 	hostKey uint8,
 	k8sMeta *K8sMetadata,
 	newIdentity Identity,
-	endpointFlags uint8,
 	force bool,
 	fromLegacyAPI bool,
 ) (namedPortsChanged bool, err error) {
@@ -351,7 +336,6 @@ func (ipc *IPCache) upsertLocked(
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
 	metaEqual := oldK8sMeta.Equal(k8sMeta)
 
@@ -402,7 +386,7 @@ func (ipc *IPCache) upsertLocked(
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
 		if cachedIdentity.equals(newIdentity) && oldHostIP.Equal(hostIP) &&
-			hostKey == oldHostKey && metaEqual && oldEndpointFlags == endpointFlags {
+			hostKey == oldHostKey && metaEqual {
 			return false, nil
 		}
 
@@ -481,8 +465,6 @@ func (ipc *IPCache) upsertLocked(
 		ipc.ipToHostIPCache[ip] = IPKeyPair{IP: hostIP, Key: hostKey}
 	}
 
-	ipc.ipToEndpointFlags[ip] = endpointFlags
-
 	if !metaEqual {
 		if k8sMeta == nil {
 			delete(ipc.ipToK8sMetadata, ip)
@@ -497,7 +479,7 @@ func (ipc *IPCache) upsertLocked(
 
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, cidrCluster, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta, endpointFlags)
+			listener.OnIPIdentityCacheChange(Upsert, cidrCluster, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta)
 		}
 	}
 
@@ -695,13 +677,12 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		}
 		hostIP, encryptKey := ipc.getHostIPCache(ip)
 		k8sMeta := ipc.getK8sMetadata(ip)
-		endpointFlags := ipc.getEndpointFlags(ip)
 		cidrCluster, err := cmtypes.ParsePrefixCluster(ip)
 		if err != nil {
 			addrCluster := cmtypes.MustParseAddrCluster(ip)
 			cidrCluster = addrCluster.AsPrefixCluster()
 		}
-		listener.OnIPIdentityCacheChange(Upsert, cidrCluster, nil, hostIP, nil, identity, encryptKey, k8sMeta, endpointFlags)
+		listener.OnIPIdentityCacheChange(Upsert, cidrCluster, nil, hostIP, nil, identity, encryptKey, k8sMeta)
 	}
 }
 
@@ -734,7 +715,6 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	cacheModification := Delete
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
-	oldEndpointFlags := ipc.getEndpointFlags(ip)
 	var newHostIP net.IP
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
@@ -788,7 +768,6 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	}
 	delete(ipc.ipToHostIPCache, ip)
 	delete(ipc.ipToK8sMetadata, ip)
-	delete(ipc.ipToEndpointFlags, ip)
 	ipc.prefixLengths.Delete([]netip.Prefix{cidrCluster.AsPrefix()})
 
 	// Update named ports
@@ -802,7 +781,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, cidrCluster, oldHostIP, newHostIP,
-				oldIdentity, newIdentity, encryptKey, oldK8sMeta, oldEndpointFlags)
+				oldIdentity, newIdentity, encryptKey, oldK8sMeta)
 		}
 	}
 

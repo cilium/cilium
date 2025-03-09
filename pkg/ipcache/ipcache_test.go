@@ -585,7 +585,7 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *Identity,
-	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata, endpointFlags uint8) {
+	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
 
 	switch modType {
 	case Upsert:
