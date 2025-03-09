@@ -221,6 +221,18 @@ spec:
                             type: string
                           minItems: 1
                           type: array
+                        aggregationLengthIPv4:
+                          description: IPv4 mask to aggregate BGP route advertisements
+                            of service
+                          maximum: 31
+                          minimum: 0
+                          type: integer
+                        aggregationLengthIPv6:
+                          description: IPv6 mask to aggregate BGP route advertisements
+                            of service
+                          maximum: 127
+                          minimum: 0
+                          type: integer
                       required:
                       - addresses
                       type: object
@@ -440,6 +452,18 @@ spec:
                             type: string
                           minItems: 1
                           type: array
+                        aggregationLengthIPv4:
+                          description: IPv4 mask to aggregate BGP route advertisements
+                            of service
+                          maximum: 31
+                          minimum: 0
+                          type: integer
+                        aggregationLengthIPv6:
+                          description: IPv6 mask to aggregate BGP route advertisements
+                            of service
+                          maximum: 127
+                          minimum: 0
+                          type: integer
                       required:
                       - addresses
                       type: object
