@@ -112,7 +112,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.0
+          go-version: 1.24.1
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
@@ -198,7 +198,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.0
+          go-version: 1.24.1
 
       - name: Load hubble-cli Golang cache build from GitHub
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
@@ -292,7 +292,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.0
+          go-version: 1.24.1
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
@@ -385,7 +385,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.0
+          go-version: 1.24.1
 
       - name: Set clang directory
         id: set_clang_dir
