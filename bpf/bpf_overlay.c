@@ -63,10 +63,20 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
+	fraginfo_t fraginfo __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;

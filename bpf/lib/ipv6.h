@@ -6,6 +6,8 @@
 #include <linux/ipv6.h>
 
 #include "dbg.h"
+#include "l4.h"
+#include "ipfrag.h"
 
 /* Number of extension headers that can be skipped */
 #define IPV6_MAX_HEADERS 4
@@ -279,4 +281,83 @@ static __always_inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 static __always_inline int ipv6_addr_is_mapped(const union v6addr *addr)
 {
 	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
+}
+
+/* As opposed to ipfrag_encode_ipv6, this function can return errors. */
+static __always_inline fraginfo_t
+ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+{
+	int l3_off = (int)((void *)ip6 - ctx_data(ctx));
+	int i, len = sizeof(struct ipv6hdr);
+	__u8 nh = ip6->nexthdr;
+
+#pragma unroll
+	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
+		__u8 newnh = nh;
+		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, l3_off + len);
+
+		if (hdrlen < 0)
+			return hdrlen;
+
+		if (!hdrlen) {
+			/* No fragment header. 0 is a valid fraginfo that encodes:
+			 * - is_fragment = false
+			 * - has_l4_header = true
+			 * - protocol = 0 (unused when !is_fragment)
+			 */
+			return 0;
+		}
+
+		if (nh == NEXTHDR_FRAGMENT) {
+			struct ipv6_frag_hdr frag;
+
+			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
+				return DROP_INVALID;
+
+			return ipfrag_encode_ipv6(&frag);
+		}
+
+		len += hdrlen;
+		nh = newnh;
+	}
+
+	/* Reached limit of supported extension headers */
+	return DROP_INVALID_EXTHDR;
+}
+
+#ifdef ENABLE_IPV6_FRAGMENTS
+static __always_inline int
+ipv6_handle_fragmentation(struct __ctx_buff *ctx,
+			  const struct ipv6hdr *ip6 __maybe_unused,
+			  fraginfo_t fraginfo,
+			  int l4_off,
+			  enum ct_dir ct_dir __maybe_unused,
+			  struct ipv6_frag_l4ports *ports)
+{
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return DROP_FRAG_NOSUPPORT;
+
+	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
+		return DROP_CT_INVALID_HDR;
+
+	return 0;
+}
+#endif
+
+static __always_inline int
+ipv6_load_l4_ports(struct __ctx_buff *ctx, struct ipv6hdr *ip6 __maybe_unused,
+		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
+		   __be16 *ports)
+{
+#ifdef ENABLE_IPV6_FRAGMENTS
+	return ipv6_handle_fragmentation(ctx, ip6, fraginfo, l4_off, dir,
+					 (struct ipv6_frag_l4ports *)ports);
+#else
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return DROP_FRAG_NOSUPPORT;
+	if (l4_load_ports(ctx, l4_off, ports) < 0)
+		return DROP_CT_INVALID_HDR;
+#endif
+
+	return 0;
 }
