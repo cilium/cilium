@@ -257,7 +257,6 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -352,7 +351,6 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -447,7 +445,6 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: td.wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -603,7 +600,6 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld:   &PerSelectorPolicy{IsDeny: true},
