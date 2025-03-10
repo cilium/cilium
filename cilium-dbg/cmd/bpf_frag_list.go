@@ -19,7 +19,7 @@ import (
 )
 
 type bpfFragmentEntry struct {
-	ID            uint16
+	ID            uint32
 	Proto         u8proto.U8proto
 	SourceAddress string
 	DestAddress   string
@@ -28,28 +28,38 @@ type bpfFragmentEntry struct {
 var bpfFragListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
-	Short:   "List IPv4 datagram fragments",
+	Short:   "List IPv4 and IPv6 fragments",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf frag list")
 
-		fragMap, err := fragmap.OpenMap()
+		fragMap4, err := fragmap.OpenMap4()
 		if err != nil {
-			Fatalf("failed to open map: %s\n", err)
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "IPv4 map doesn't exist, skipping\n")
+			} else {
+				Fatalf("failed to open IPv4 map: %s\n", err)
+			}
+		} else {
+			defer fragMap4.Close()
 		}
-		defer fragMap.Close()
+
+		fragMap6, err := fragmap.OpenMap6()
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "IPv6 map doesn't exist, skipping\n")
+			} else {
+				Fatalf("failed to open IPv6 map: %s\n", err)
+			}
+		} else {
+			defer fragMap6.Close()
+		}
 
 		var entries []bpfFragmentEntry
-		if err := fragMap.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
-			key := k.(*fragmap.FragmentKey)
-			value := v.(*fragmap.FragmentValue)
-			entries = append(entries, bpfFragmentEntry{
-				ID:            key.ID,
-				Proto:         u8proto.U8proto(key.Proto),
-				SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
-				DestAddress:   fmt.Sprintf("%s:%d", key.DestAddr, value.DestPort),
-			})
-		}); err != nil {
-			Fatalf("failed to dump contents of map: %s\n", err)
+		if fragMap4 != nil {
+			entries = append(entries, dumpFragmentsIPv4(fragMap4)...)
+		}
+		if fragMap6 != nil {
+			entries = append(entries, dumpFragmentsIPv6(fragMap6)...)
 		}
 
 		if command.OutputOption() {
@@ -66,6 +76,44 @@ var bpfFragListCmd = &cobra.Command{
 
 		printBPFFragmentEntries(entries)
 	},
+}
+
+func dumpFragmentsIPv4(fragMap4 *bpf.Map) []bpfFragmentEntry {
+	var entries []bpfFragmentEntry
+
+	if err := fragMap4.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*fragmap.FragmentKey4)
+		value := v.(*fragmap.FragmentValue4)
+		entries = append(entries, bpfFragmentEntry{
+			ID:            uint32(key.ID),
+			Proto:         u8proto.U8proto(key.Proto),
+			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
+			DestAddress:   fmt.Sprintf("%s:%d", key.DestAddr, value.DestPort),
+		})
+	}); err != nil {
+		Fatalf("failed to dump contents of IPv4 map: %s\n", err)
+	}
+
+	return entries
+}
+
+func dumpFragmentsIPv6(fragMap6 *bpf.Map) []bpfFragmentEntry {
+	var entries []bpfFragmentEntry
+
+	if err := fragMap6.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*fragmap.FragmentKey6)
+		value := v.(*fragmap.FragmentValue6)
+		entries = append(entries, bpfFragmentEntry{
+			ID:            key.ID,
+			Proto:         u8proto.U8proto(key.Proto),
+			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
+			DestAddress:   fmt.Sprintf("[%s]:%d", key.DestAddr, value.DestPort),
+		})
+	}); err != nil {
+		Fatalf("failed to dump contents of IPv6 map: %s\n", err)
+	}
+
+	return entries
 }
 
 func printBPFFragmentEntries(entries []bpfFragmentEntry) {

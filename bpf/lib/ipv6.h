@@ -30,6 +30,29 @@
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
 
+struct ipv6_frag_id {
+	__be32 id;		/* L4 datagram identifier */
+	__u8 proto;
+	__u8 pad[3];
+	union v6addr saddr;
+	union v6addr daddr;
+} __packed;
+
+struct ipv6_frag_l4ports {
+	__be16 sport;
+	__be16 dport;
+} __packed;
+
+#ifdef ENABLE_IPV6_FRAGMENTS
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv6_frag_id);
+	__type(value, struct ipv6_frag_l4ports);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES);
+} cilium_ipv6_frag_datagrams __section_maps_btf;
+#endif
+
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
