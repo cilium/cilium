@@ -30,7 +30,14 @@ func TestScript(t *testing.T) {
 	time.Now = func() time.Time {
 		return time.Date(2000, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
-	t.Cleanup(func() { time.Now = now })
+	since := time.Since
+	time.Since = func(t time.Time) time.Duration {
+		return time.Minute
+	}
+	t.Cleanup(func() {
+		time.Now = now
+		time.Since = since
+	})
 	t.Setenv("TZ", "")
 
 	log := hivetest.Logger(t)
@@ -48,6 +55,7 @@ func TestScript(t *testing.T) {
 				// would depend on them).
 				cell.Invoke(
 					func(statedb.Table[LocalPod]) {},
+					func(statedb.Table[Namespace]) {},
 				),
 			)
 
