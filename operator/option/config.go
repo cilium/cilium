@@ -95,11 +95,6 @@ const (
 
 	// AWS options
 
-	// AWSInstanceLimitMapping allows overwirting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AWSInstanceLimitMapping = "aws-instance-limit-mapping"
-
 	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
@@ -128,10 +123,6 @@ const (
 
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
-	// API to fill out the instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI = "update-ec2-adapter-limit-via-api"
 
 	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
@@ -321,11 +312,6 @@ type OperatorConfig struct {
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
 	ParallelAllocWorkers int64
 
-	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AWSInstanceLimitMapping map[string]string
-
 	// AWSReleaseExcessIps allows releasing excess free IP addresses from ENI.
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
@@ -338,10 +324,6 @@ type OperatorConfig struct {
 	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
 	// node
 	AWSUsePrimaryAddress bool
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
-	// instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI bool
 
 	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
 	// Defaults to 180 secs
@@ -469,7 +451,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
 	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
 	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
-	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
@@ -504,12 +485,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		c.IPAMInstanceTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(vp, AWSInstanceLimitMapping); err != nil {
-		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
-	} else {
-		c.AWSInstanceLimitMapping = m
-	}
-
 	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
 		log.Fatalf("unable to parse %s: %s", ENITags, err)
 	} else {
@@ -535,7 +510,6 @@ var Config = &OperatorConfig{
 	IPAMSubnetsTags:                make(map[string]string),
 	IPAMInstanceTags:               make(map[string]string),
 	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
-	AWSInstanceLimitMapping:        make(map[string]string),
 	ENITags:                        make(map[string]string),
 	ENIGarbageCollectionTags:       make(map[string]string),
 }
