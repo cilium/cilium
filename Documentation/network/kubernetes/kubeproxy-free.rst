@@ -431,7 +431,7 @@ Maglev Consistent Hashing
 *************************
 
 Cilium's eBPF kube-proxy replacement supports consistent hashing by implementing a variant
-of `The Maglev hashing <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+of `The Maglev hashing <https://static.googleusercontent.com/media/research.google.com/ko//pubs/archive/44824.pdf>`_
 in its load balancer for backend selection. This improves resiliency in case of
 failures. As well, it provides better load balancing properties since Nodes added to the cluster will
 make consistent backend selection throughout the cluster for a given 5-tuple without
@@ -460,7 +460,7 @@ There are two more Maglev-specific configuration settings: ``maglev.tableSize``
 and ``maglev.hashSeed``.
 
 ``maglev.tableSize`` specifies the size of the Maglev lookup table for each single service.
-`Maglev <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`__
+`Maglev <https://static.googleusercontent.com/media/research.google.com/ko//pubs/archive/44824.pdf>`__
 recommends the table size (``M``) to be significantly larger than the number of maximum expected
 backends (``N``). In practice that means that ``M`` should be larger than ``100 * N`` in
 order to guarantee the property of at most 1% difference in the reassignments on backend

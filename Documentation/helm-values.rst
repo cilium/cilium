@@ -324,6 +324,14 @@
      - Disable ExternalIP mitigation (CVE-2020-8554)
      - bool
      - ``false``
+   * - :spelling:ignore:`bpf.distributedLRU`
+     - Control to use a distributed per-CPU backend memory for the core BPF LRU maps which Cilium uses. This improves performance significantly, but it is also recommended to increase BPF map sizing along with that.
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bpf.distributedLRU.enabled`
+     - Enable distributed LRU backend memory. For compatibility with existing installations it is off by default.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.enableTCX`
      - Attach endpoint programs using tcx instead of legacy tc hooks on supported kernels.
      - bool

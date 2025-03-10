@@ -16,6 +16,7 @@ struct {
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } NODEPORT_NEIGH6 __section_maps_btf;
 
 static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
@@ -59,6 +60,7 @@ struct {
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } NODEPORT_NEIGH4 __section_maps_btf;
 
 static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)

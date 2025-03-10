@@ -102,7 +102,7 @@ func TestSetMockError(t *testing.T) {
 	require.Equal(t, mockError, err)
 
 	api.SetMockError(AssignPrivateIpAddresses, mockError)
-	err = api.AssignPrivateIpAddresses(context.TODO(), "e-1", 10)
+	_, err = api.AssignPrivateIpAddresses(context.TODO(), "e-1", 10)
 	require.Equal(t, mockError, err)
 
 	api.SetMockError(UnassignPrivateIpAddresses, mockError)

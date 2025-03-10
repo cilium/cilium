@@ -35,7 +35,29 @@ const (
 	// pendingAllocationTTL is how long we wait for pending allocation to
 	// be fulfilled
 	pendingAllocationTTL = 5 * time.Minute
+
+	// refreshPoolsInterval defines the run interval of the ipam-sync-multi-pool controller
+	refreshPoolInterval = 1 * time.Minute
 )
+
+type ErrPoolNotReadyYet struct {
+	poolName Pool
+	family   Family
+	ip       net.IP
+}
+
+func (e *ErrPoolNotReadyYet) Error() string {
+	if e.ip == nil {
+		return fmt.Sprintf("unable to allocate from pool %q (family %s): pool not (yet) available", e.poolName, e.family)
+	} else {
+		return fmt.Sprintf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", e.ip, e.poolName, e.family)
+	}
+}
+
+func (e *ErrPoolNotReadyYet) Is(err error) bool {
+	_, ok := err.(*ErrPoolNotReadyYet)
+	return ok
+}
 
 var multiPoolControllerGroup = controller.NewGroup(multiPoolControllerName)
 
@@ -105,6 +127,12 @@ func (p pendingAllocationsPerPool) upsertPendingAllocation(poolName Pool, owner 
 // markAsAllocated marks a pending allocation as fulfilled. This means that the owner
 // has now been assigned an IP from the given IP family
 func (p pendingAllocationsPerPool) markAsAllocated(poolName Pool, owner string, family Family) {
+	log.WithFields(logrus.Fields{
+		"owner":  owner,
+		"family": family,
+		"pool":   poolName,
+	}).Debug("Marking pending allocation as allocated")
+
 	pool, ok := p.pools[poolName]
 	if !ok {
 		return
@@ -339,8 +367,9 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		// Note: The controller will only run after m.mutex is unlocked
 		m.controller.UpdateController(multiPoolControllerName,
 			controller.ControllerParams{
-				Group:  multiPoolControllerGroup,
-				DoFunc: m.updateCiliumNode,
+				Group:       multiPoolControllerGroup,
+				DoFunc:      m.updateCiliumNode,
+				RunInterval: refreshPoolInterval,
 			})
 	}
 
@@ -628,7 +657,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-		return nil, fmt.Errorf("unable to allocate from pool %q (family %s): pool not (yet) available", poolName, family)
+		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family}
 	}
 
 	ip, err := pool.allocateNext()
@@ -654,7 +683,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-		return nil, fmt.Errorf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", ip, poolName, family)
+		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family, ip: ip}
 	}
 
 	err := pool.allocate(ip)

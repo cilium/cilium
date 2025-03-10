@@ -465,6 +465,7 @@ kops
 kprobe
 kprobes
 kretprobes
+ktime
 kube
 kubeadm
 kubeconfig
@@ -713,6 +714,7 @@ sid
 sig
 skb
 snat
+spinlock
 srv
 ssl
 stacktrace
