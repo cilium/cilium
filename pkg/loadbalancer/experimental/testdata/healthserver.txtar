@@ -64,8 +64,10 @@ db/cmp frontends frontends_tpcluster.table
 
 # Restore health checking for next test.
 k8s/update service2.yaml
+
+# Response should be 200
 * http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
-cmp healthserver.expected healthserver.actual
+* cmp healthserver.expected healthserver.actual
 
 # Test without local backends
 k8s/update endpointslice2.yaml
