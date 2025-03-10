@@ -75,6 +75,8 @@ type Controller struct {
 	ciliumEndpoint      resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 
+	idRange idRange
+
 	// Work queue is used to sync resources with the api-server. It will rate-limit
 	// requests going to api-server. Ensures a single resource key will not be
 	// processed multiple times concurrently, and if a resource key is added
@@ -114,6 +116,7 @@ func registerController(p params) {
 		ciliumIdentity:      p.CiliumIdentity,
 		ciliumEndpoint:      p.CiliumEndpoint,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
+		idRange:             p.Config.IDRange,
 		oldNSSecurityLabels: make(map[string]labels.Labels),
 		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
 		enqueueTimeTracker:  &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
@@ -210,7 +213,7 @@ func (c *Controller) startEventProcessing() {
 
 func (c *Controller) initReconciler(ctx context.Context) error {
 	var err error
-	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.cesEnabled, c)
+	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.idRange, c.cesEnabled, c)
 	if err != nil {
 		return fmt.Errorf("cid reconciler failed to init: %w", err)
 	}
