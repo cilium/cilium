@@ -207,13 +207,19 @@ func flattenPrograms(progs map[string]*ProgramSpec, names []string) {
 // dependencies of each program.
 func flattenInstructions(name string, progs map[string]*ProgramSpec, refs map[*ProgramSpec][]string) asm.Instructions {
 	prog := progs[name]
+	progRefs := refs[prog]
+
+	if len(progRefs) == 0 {
+		// No references, nothing to do.
+		return prog.Instructions
+	}
 
 	insns := make(asm.Instructions, len(prog.Instructions))
 	copy(insns, prog.Instructions)
 
 	// Add all direct references of prog to the list of to be linked programs.
-	pending := make([]string, len(refs[prog]))
-	copy(pending, refs[prog])
+	pending := make([]string, len(progRefs))
+	copy(pending, progRefs)
 
 	// All references for which we've appended instructions.
 	linked := make(map[string]bool)

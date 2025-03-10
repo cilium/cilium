@@ -1094,7 +1094,7 @@ func (c *CapSoftwareVersion) DecodeFromBytes(data []byte) error {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilitySoftwareVersion bytes allowed")
 	}
 	softwareVersionLen := uint8(data[0])
-	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 {
+	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 || softwareVersionLen == 0 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "invalid length of software version capablity")
 	}
 	c.SoftwareVersionLen = softwareVersionLen
@@ -12708,6 +12708,10 @@ func parseGenericTransitiveExperimentalExtended(data []byte) (ExtendedCommunityI
 		dscp := data[7]
 		return NewTrafficRemarkExtended(dscp), nil
 	case EC_SUBTYPE_FLOWSPEC_REDIRECT_IP6:
+		if len(data) < 20 {
+			return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "not all extended community bytes for IPv6 FlowSpec are available")
+		}
+
 		ipv6 := net.IP(data[2:18]).String()
 		localAdmin := binary.BigEndian.Uint16(data[18:20])
 		return NewRedirectIPv6AddressSpecificExtended(ipv6, localAdmin), nil

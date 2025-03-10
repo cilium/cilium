@@ -411,14 +411,9 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 	}
 
 	// Check for existing MapSpecs in the CollectionSpec for all provided replacement maps.
-	for name, m := range opts.MapReplacements {
-		spec, ok := coll.Maps[name]
-		if !ok {
+	for name := range opts.MapReplacements {
+		if _, ok := coll.Maps[name]; !ok {
 			return nil, fmt.Errorf("replacement map %s not found in CollectionSpec", name)
-		}
-
-		if err := spec.Compatible(m); err != nil {
-			return nil, fmt.Errorf("using replacement map %s: %w", spec.Name, err)
 		}
 	}
 
@@ -494,7 +489,22 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return nil, fmt.Errorf("missing map %s", mapName)
 	}
 
+	mapSpec = mapSpec.Copy()
+
+	// Defer setting the mmapable flag on maps until load time. This avoids the
+	// MapSpec having different flags on some kernel versions. Also avoid running
+	// syscalls during ELF loading, so platforms like wasm can also parse an ELF.
+	if isDataSection(mapSpec.Name) && haveMmapableMaps() == nil {
+		mapSpec.Flags |= sys.BPF_F_MMAPABLE
+	}
+
 	if replaceMap, ok := cl.opts.MapReplacements[mapName]; ok {
+		// Check compatibility with the replacement map after setting
+		// feature-dependent map flags.
+		if err := mapSpec.Compatible(replaceMap); err != nil {
+			return nil, fmt.Errorf("using replacement map %s: %w", mapSpec.Name, err)
+		}
+
 		// Clone the map to avoid closing user's map later on.
 		m, err := replaceMap.Clone()
 		if err != nil {
@@ -503,13 +513,6 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 
 		cl.maps[mapName] = m
 		return m, nil
-	}
-
-	// Defer setting the mmapable flag on maps until load time. This avoids the
-	// MapSpec having different flags on some kernel versions. Also avoid running
-	// syscalls during ELF loading, so platforms like wasm can also parse an ELF.
-	if isDataSection(mapSpec.Name) && haveMmapableMaps() == nil {
-		mapSpec.Flags |= sys.BPF_F_MMAPABLE
 	}
 
 	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
