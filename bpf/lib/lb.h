@@ -491,23 +491,14 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
-					 struct lb6_reverse_nat *nat)
+					 struct lb6_reverse_nat *nat,
+					 bool has_l4_header)
 {
-	struct csum_offset csum_off = {};
 	union v6addr old_saddr __align_stack_8;
 	__be32 sum;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
-
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
-					  nat->port, l4_off, &csum_off);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	ipv6_addr_copy(&old_saddr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &nat->address);
@@ -516,10 +507,23 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
-	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header) {
+		struct csum_offset csum_off = {};
+
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+		if (nat->port) {
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr, tuple->dport,
+						  nat->port, l4_off, &csum_off);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+		sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
+		if (csum_off.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return 0;
 }
@@ -538,8 +542,8 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       __u16 index, struct ipv6_ct_tuple *tuple)
+static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
+				       struct ipv6_ct_tuple *tuple, bool has_l4_header)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -547,7 +551,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header);
 }
 
 static __always_inline void
@@ -585,23 +589,22 @@ static __always_inline int
 lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 		  int *l4_off, struct ipv6_ct_tuple *tuple)
 {
+	fraginfo_t fraginfo;
 	int ret;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0) {
+		ret = (int)fraginfo;
+		goto err;
+	}
 
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
 	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
-	if (ret < 0) {
-		/* Make sure *l4_off is always initialized on return, because
-		 * Clang can spill it from a register to the stack even in error
-		 * flows where this value is no longer used, and this pattern is
-		 * rejected by the verifier.
-		 * Use a prominent value (-1) to highlight any potential misuse.
-		 */
-		*l4_off = -1;
-		return ret;
-	}
+	if (ret < 0)
+		goto err;
 
 	*l4_off = l3_off + ret;
 
@@ -611,14 +614,23 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		if (l4_load_ports(ctx, *l4_off, &tuple->dport) < 0)
-			return DROP_CT_INVALID_HDR;
-		return 0;
+		return ipv6_load_l4_ports(ctx, ip6, fraginfo, *l4_off,
+					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMPV6:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
+
+err:
+	/* Make sure *l4_off is always initialized on return, because
+	 * Clang can spill it from a register to the stack even in error
+	 * flows where this value is no longer used, and this pattern is
+	 * rejected by the verifier.
+	 * Use a prominent value (-1) to highlight any potential misuse.
+	 */
+	*l4_off = -1;
+	return ret;
 }
 
 static __always_inline
@@ -812,12 +824,14 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     const struct lb6_key *key,
-				     const struct lb6_backend *backend)
+				     const struct lb6_backend *backend,
+				     bool has_l4_header)
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
 
-	csum_l4_offset_and_flags(nexthdr, &csum_off);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
@@ -829,6 +843,9 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+
+	if (!has_l4_header)
+		return CTX_ACT_OK;
 
 	return lb_l4_xlate(ctx, nexthdr, l4_off, &csum_off, key->dport,
 			   backend->port);
@@ -975,7 +992,7 @@ lb6_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
-				     int l3_off, int l4_off,
+				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
@@ -998,7 +1015,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	state->rev_nat_index = svc->rev_nat_index;
 
 	/* See lb4_local comments re svc endpoint lookup process */
-	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, CT_SERVICE,
+	ret = ct_lazy_lookup6(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
 			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
 	if (ret < 0)
 		goto drop_err;
@@ -1110,7 +1127,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key, backend);
+	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key,
+			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
