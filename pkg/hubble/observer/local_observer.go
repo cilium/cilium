@@ -297,7 +297,7 @@ func (s *LocalObserverServer) GetFlows(
 				logfields.NumberOfFlows, i,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Whitelist, logFilters(req.Whitelist),
-				logfields.Blacklist, logFilters(req.Whitelist),
+				logfields.Blacklist, logFilters(req.Blacklist),
 				logfields.Took, time.Since(start),
 			)
 		}()
