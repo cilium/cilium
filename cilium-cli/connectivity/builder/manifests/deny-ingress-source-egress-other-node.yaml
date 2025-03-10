@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "ingress-source-egress-deny-other-node"
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        name: echo-same-node
