@@ -451,7 +451,7 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 	if (ret < 0)
 		return DROP_CT_INVALID_HDR;
 
-	return CTX_ACT_OK;
+	return 0;
 }
 
 static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
@@ -672,7 +672,6 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -689,12 +688,8 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 
-	ret = ipv4_load_l4_ports(ctx, ip4, ETH_HLEN + ipv4_hdrlen(ip4),
-				 CT_EGRESS, &tuple->dport, NULL);
-	if (ret < 0)
-		return ret;
-
-	return CTX_ACT_OK;
+	return ipv4_load_l4_ports(ctx, ip4, ETH_HLEN + ipv4_hdrlen(ip4),
+				  CT_EGRESS, &tuple->dport, NULL);
 }
 
 static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
@@ -759,8 +754,6 @@ static __always_inline int
 ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 		  enum ct_dir dir, struct ipv4_ct_tuple *tuple, bool *has_l4_header)
 {
-	int err;
-
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
@@ -802,12 +795,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		err = ipv4_load_l4_ports(ctx, ip4, off, dir, &tuple->dport,
-					 has_l4_header);
-		if (err < 0)
-			return err;
-
-		break;
+		return ipv4_load_l4_ports(ctx, ip4, off, dir, &tuple->dport,
+					  has_l4_header);
 	default:
 		/* Can't handle extension headers yet */
 		return DROP_CT_UNKNOWN_PROTO;
