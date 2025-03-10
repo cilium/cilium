@@ -2668,6 +2668,13 @@
           },
           "type": "object"
         },
+        "l3l4netpolenrichment": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "listenAddress": {
           "type": "string"
         },

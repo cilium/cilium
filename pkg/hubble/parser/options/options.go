@@ -15,8 +15,9 @@ type Option func(*Options)
 
 // Options contains all parser options
 type Options struct {
-	CacheSize            int
-	HubbleRedactSettings HubbleRedactSettings
+	CacheSize                  int
+	HubbleRedactSettings       HubbleRedactSettings
+	EnableL3L4PolicyEnrichment bool
 }
 
 // HubbleRedactSettings contains all hubble redact related options
@@ -55,6 +56,18 @@ func Redact(logger *slog.Logger, httpQuery, httpUserInfo, kafkaApiKey bool, allo
 		if logger != nil {
 			logger.Info(
 				"configured Hubble with redact options",
+				logfields.Options, opt,
+			)
+		}
+	}
+}
+
+// EnableL3L4PolicyEnrichment configuInfo("configured Hubble with L3/L4 network policy enrichment")res the Network Policy enrichment of Hubble Flows.
+func EnableL3L4PolicyEnrichment(logger *slog.Logger, enableL3L4 bool) Option {
+	return func(opt *Options) {
+		opt.EnableL3L4PolicyEnrichment = enableL3L4
+		if logger != nil {
+			logger.Info("configured Hubble with L3/L4 network policy enrichment",
 				logfields.Options, opt,
 			)
 		}

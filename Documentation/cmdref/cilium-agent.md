@@ -234,6 +234,7 @@ cilium-agent [flags]
       --hubble-export-file-max-size-mb int                        Size in MB at which to rotate Hubble export file. (default 10)
       --hubble-export-file-path stdout                            Filepath to write Hubble events to. By specifying stdout the flows are logged instead of written to a rotated file.
       --hubble-flowlogs-config-path string                        Filepath with configuration of hubble flowlogs
+      --hubble-l3l4-net-pol-enrichment-enabled                    Enable L3/L4 network policy enrichment of Hubble Flow logs (default true)
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics string                                     List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.

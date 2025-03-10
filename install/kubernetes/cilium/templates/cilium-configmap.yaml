@@ -984,6 +984,9 @@ data:
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 
+{{- if hasKey .Values.hubble.l3l4netpolenrichment "enabled" }}
+  hubble-l3l4-net-pol-enrichment-enabled: {{ .Values.hubble.l3l4netpolenrichment.enabled | quote }}
+{{- end }}
 {{- if .Values.hubble.redact }}
 {{- if eq .Values.hubble.redact.enabled true }}
   # Enables hubble redact capabilities

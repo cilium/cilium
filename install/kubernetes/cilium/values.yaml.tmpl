@@ -1342,6 +1342,9 @@ hubble:
             excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
+  # -- Enable L3/L4 network policy enrichment of Hubble Flows (true by default).
+  l3l4netpolenrichment:
+    enabled: true  
   # -- Enables redacting sensitive information present in Layer 7 flows.
   redact:
     enabled: false
