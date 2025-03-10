@@ -198,6 +198,10 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 	if retryInterval == 0 {
 		retryInterval = defaultRetryInterval
 	}
+	maxRetryInterval := e.MaxRetryInterval
+	if maxRetryInterval == 0 {
+		maxRetryInterval = defaultMaxRetryInterval
+	}
 
 	var (
 		sectionStart time.Time
@@ -331,32 +335,43 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 		}
 		cmd.origArgs = expandArgs(s, cmd.rawArgs, regexpArgs)
 		cmd.args = cmd.origArgs
+		s.RetryCount = 0
 
 		// Run the command.
 		err = e.runCommand(s, cmd, impl)
 		if err != nil {
 			if cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess {
+				retryStart := sectionStart
+
+				// Clear the section start to avoid the deferred endSection() printing a timestamp.
+				sectionStart = time.Time{}
+
+				// Append the new line that section start omitted and flush the log.
+				io.WriteString(log, "\n")
+				s.FlushLog()
+
 				// Command wants retries. Retry the whole section
-				numRetries := 0
-				backoff := exponentialBackoff{max: e.MaxRetryInterval, interval: e.RetryInterval}
+				backoff := exponentialBackoff{max: maxRetryInterval, interval: retryInterval}
 				for err != nil {
-					s.FlushLog()
 					retryDuration := backoff.get()
-					s.Logf("(command %q failed, retrying in %s...)\n", line, retryDuration)
+					fmt.Fprintf(log, "(command %q failed, retrying in %s...)\n", line, retryDuration)
 					select {
 					case <-s.Context().Done():
+						s.RetryCount = 0
 						return lineErr(s.Context().Err())
 					case <-time.After(retryDuration):
 					}
-					numRetries++
+					s.RetryCount++
 					for _, cmd := range sectionCmds {
 						impl := e.Cmds[cmd.name]
 						if err = e.runCommand(s, cmd, impl); err != nil {
 							break
 						}
 					}
+					s.FlushLog()
 				}
-				s.Logf("(command %q succeeded after %d retries)\n", line, numRetries)
+				fmt.Fprintf(log, "(command %q succeeded after %d retries in %.3fs)\n", line, s.RetryCount, time.Since(retryStart).Seconds())
+				s.RetryCount = 0
 			} else {
 				if stop := (stopError{}); errors.As(err, &stop) {
 					// Since the 'stop' command halts execution of the entire script,
