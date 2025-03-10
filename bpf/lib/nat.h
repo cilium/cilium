@@ -768,7 +768,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_header)
+snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
@@ -844,7 +844,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 		return ret;
 
 	/* Rewrite outer headers. No port rewrite needed. */
-	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, has_l4_header, (int)off,
+	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, true, (int)off,
 				       tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
 				       0, 0, 0);
 }
@@ -877,11 +877,12 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	    struct iphdr *ip4, int off, bool has_l4_header,
+	    struct iphdr *ip4, int off,
 	    const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
+	bool has_l4_header = true;
 	__u16 port_off;
 	int ret;
 
@@ -893,6 +894,14 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
+		/* If we don't track fragments, packets without an L4 header
+		 * can't be NATed. Even though the first fragment always has an
+		 * L4 header, NATing it in this situation is useless, because
+		 * the following fragments won't be able to pass the NAT.
+		 */
+		if (!is_defined(ENABLE_IPV4_FRAGMENTS) && ipv4_is_fragment(ip4))
+			return DROP_FRAG_NOSUPPORT;
+
 		ret = ipv4_load_l4_ports(ctx, ip4, off, CT_EGRESS,
 					 &tuple->dport, &has_l4_header);
 		if (ret < 0)
@@ -902,6 +911,13 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
+		/* Fragmented ECHO packets are not supported currently. Drop all
+		 * fragments, because letting the first fragment pass would be
+		 * useless anyway.
+		 * ICMP error packets are not supposed to be fragmented.
+		 */
+		if (ipv4_is_fragment(ip4))
+			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 
@@ -928,7 +944,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			}
 
 nat_icmp_v4:
-			return snat_v4_nat_handle_icmp_error(ctx, off, has_l4_header);
+			return snat_v4_nat_handle_icmp_error(ctx, off);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
