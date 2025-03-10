@@ -187,6 +187,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
+	if !option.Config.EnableIPv6FragmentsTracking {
+		maps = append(maps, "cilium_ipv6_frag_datagrams")
+	}
+
 	if !ms.bwManager.Enabled() {
 		maps = append(maps, "cilium_throttle")
 	}
