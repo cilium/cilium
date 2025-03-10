@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
-	"github.com/cilium/cilium/pkg/defaults"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -94,7 +93,7 @@ func TestScript(t *testing.T) {
 				option.Config = &option.DaemonConfig{
 					EnableBGPControlPlane:     true,
 					BGPSecretsNamespace:       testSecretsNamespace,
-					BGPRouterIDAllocationMode: defaults.BGPRouterIDAllocationMode,
+					BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
 					IPAM:                      *ipam,
 				}
 				return option.Config
