@@ -272,12 +272,12 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 	int err;							\
 									\
 	err = PREFIX ## _extract_tuple(ctx, tuple);			\
-	if (err != CTX_ACT_OK)						\
+	if (err < 0)							\
 		return err;						\
 									\
 	__ ## PREFIX ## _ct_tuple_reverse(tuple);			\
 									\
-	return CTX_ACT_OK;						\
+	return 0;							\
 }
 
 #ifdef ENABLE_IPV4
