@@ -139,6 +139,10 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 		}
 	}
 
+	// Initialization was cancelled by a shutdown
+	if svcChan == nil {
+		return
+	}
 	ipam.logger.Info("LB-IPAM done initializing")
 
 	for {
@@ -179,7 +183,13 @@ func (ipam *LBIPAM) initialize(
 	// before we start processing the services, which will save us from
 	// unnecessary work when LB-IPAM is not used.
 	poolsSynced := false
-	for event := range poolChan {
+	for {
+
+		event, ok := <-poolChan
+		// channel has been closed, we're shutting down. Don't try to update services
+		if !ok {
+			return nil
+		}
 		if event.Kind == resource.Sync {
 			err := ipam.settleConflicts(ctx)
 			if err != nil {
