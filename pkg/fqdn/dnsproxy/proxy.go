@@ -1236,6 +1236,8 @@ func (p *DNSProxy) SetRejectReply(opt string) {
 		p.rejectReply.Store(dns.RcodeNameError)
 	case strings.ToLower(option.FQDNProxyDenyWithRefused):
 		p.rejectReply.Store(dns.RcodeRefused)
+	case strings.ToLower(option.FQDNProxyDenyWithServFail):
+		p.rejectReply.Store(dns.RcodeServerFailure)
 	default:
 		log.Infof("DNS reject response '%s' is not valid, available options are '%v'",
 			opt, option.FQDNRejectOptions)
