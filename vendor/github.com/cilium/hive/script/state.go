@@ -40,6 +40,7 @@ type State struct {
 	Flags       *pflag.FlagSet
 	DoUpdate    bool
 	FileUpdates map[string]string
+	RetryCount  int
 
 	BreakOnError bool
 
