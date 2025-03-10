@@ -273,12 +273,19 @@ jobs:
           version: ${{ matrix.version }}
           spot: false
 
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@45a3879a8cb769c9e41b912635e03a38849c9242 # v0.18.1
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
