@@ -23,5 +23,5 @@ Manage the IPv4 datagram fragments
 ### SEE ALSO
 
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
-* [cilium-dbg bpf frag list](cilium-dbg_bpf_frag_list.md)	 - List IPv4 datagram fragments
+* [cilium-dbg bpf frag list](cilium-dbg_bpf_frag_list.md)	 - List IPv4 and IPv6 fragments
 
