@@ -1223,8 +1223,8 @@ func getRouterID(config *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, as
 	}
 
 	// If there are no annotations about router-id, router-id will be allocated based on the allocation mode
-	// TODO: implement other allocation modes
-	if option.Config.BGPRouterIDAllocationMode == defaults.BGPRouterIDAllocationMode {
+	switch option.Config.BGPRouterIDAllocationMode {
+	case option.BGPRouterIDAllocationModeDefault:
 		if nodeIP := ciliumNode.GetIP(false); nodeIP != nil {
 			routerID = nodeIP.String()
 		} else {
@@ -1234,8 +1234,12 @@ func getRouterID(config *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, as
 			}
 		}
 		return routerID, nil
+	case option.BGPRouterIDAllocationModeIPPool:
+		// TODO: implement IP pool allocation
+		return "", fmt.Errorf("IP pool allocation mode not implemented")
+	default:
+		return "", fmt.Errorf("invalid router-id allocation mode: %s (supported modes: %s, %s)", option.Config.BGPRouterIDAllocationMode, option.BGPRouterIDAllocationModeDefault, option.BGPRouterIDAllocationModeIPPool)
 	}
-	return "", fmt.Errorf("no router-id found")
 }
 
 // getLocalPort returns the local port for the given ASN. If the local port is defined in the desired config, it will
