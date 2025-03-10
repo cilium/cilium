@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operator_k8s "github.com/cilium/cilium/operator/k8s"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/basicallocator"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -28,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type reconciler struct {
@@ -61,14 +59,13 @@ func newReconciler(
 	ciliumIdentity resource.Resource[*cilium_api_v2.CiliumIdentity],
 	ciliumEndpoint resource.Resource[*cilium_api_v2.CiliumEndpoint],
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice],
+	idRange idRange,
 	cesEnabled bool,
 	queueOps queueOperation,
 ) (*reconciler, error) {
 	logger.Info("Creating CID controller Operator reconciler")
 
-	minIDValue := idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID))
-	maxIDValue := idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))
-	idAllocator := basicallocator.NewBasicIDAllocator(minIDValue, maxIDValue)
+	idAllocator := basicallocator.NewBasicIDAllocator(idRange.MinIDValue, idRange.MaxIDValue)
 
 	nsStore, err := namespace.Store(ctx)
 	if err != nil {
@@ -134,10 +131,6 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 
 	cidKey, existsInDesiredState := r.desiredCIDState.LookupByID(cidName)
 	if !existsInDesiredState && !existsInStore {
-		err := r.makeIDAvailable(cidName)
-		r.logger.Warn("Failed to return CID to pool",
-			logfields.CIDName, cidName,
-			logfields.Error, err)
 		return nil
 	}
 
@@ -162,7 +155,13 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 		if cidIsUsed {
 			return r.createCID(cidName, cidKey)
 		} else {
-			r.desiredCIDState.Remove(cidName)
+			err := r.makeIDAvailable(cidName)
+			if err != nil {
+				r.logger.Warn("Failed to return CID to pool",
+					logfields.CIDName, cidName,
+					logfields.Labels, cidKey.Labels(),
+					logfields.Error, err)
+			}
 			return nil
 		}
 	}
@@ -217,6 +216,8 @@ func (r *reconciler) makeIDAvailable(cidName string) error {
 	if err != nil {
 		return err
 	}
+
+	r.desiredCIDState.Remove(cidName)
 	return r.idAllocator.ReturnToAvailablePool(idpool.ID(cidNum))
 }
 

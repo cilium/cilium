@@ -24,10 +24,12 @@ import (
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/idpool"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -38,7 +40,7 @@ const (
 )
 
 func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
-	cidResource, cesResource, fakeClient, m, h := initHiveTest(t, true)
+	cidResource, cesResource, fakeClient, m, h := initHiveTest(t, true, defaultIDRange())
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -74,7 +76,7 @@ func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
 }
 
 func TestRegisterController(t *testing.T) {
-	cidResource, _, fakeClient, m, h := initHiveTest(t, false)
+	cidResource, _, fakeClient, m, h := initHiveTest(t, false, defaultIDRange())
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -104,7 +106,7 @@ func TestRegisterController(t *testing.T) {
 	}
 }
 
-func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *Metrics, *hive.Hive) {
+func initHiveTest(t *testing.T, operatorManagingCID bool, idRange idRange) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *Metrics, *hive.Hive) {
 	var cidResource resource.Resource[*capi_v2.CiliumIdentity]
 	var cesResource resource.Resource[*capi_v2a1.CiliumEndpointSlice]
 	var fakeClient *k8sClient.FakeClientset
@@ -115,14 +117,16 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Provide(func() config {
+			var idManagementMode string
 			if operatorManagingCID {
-				return config{
-					IdentityManagementMode: option.IdentityManagementModeOperator,
-				}
+				idManagementMode = option.IdentityManagementModeOperator
 			} else {
-				return config{
-					IdentityManagementMode: option.IdentityManagementModeAgent,
-				}
+				idManagementMode = option.IdentityManagementModeAgent
+			}
+			return config{
+				IdentityManagementMode: idManagementMode,
+				IDAllocationMinValue:   int(idRange.MinIDValue),
+				IDAllocationMaxValue:   int(idRange.MaxIDValue),
 			}
 		}),
 		cell.Provide(func() SharedConfig {
@@ -214,6 +218,113 @@ func verifyCIDUsageInCES(ctx context.Context, fakeClient *k8sClient.FakeClientse
 	return nil
 }
 
+// TestNoIDAllocatorLeaks ensures that when pods and their CIDs are deleted,
+// the CID controller returns the used CIDs to the available pool.
+func TestNoIDAllocatorLeaks(t *testing.T) {
+	const (
+		idsToCreate           = 8
+		firstCreatePods       = 5
+		deletePods            = 3
+		createNewPodsStartIdx = 5
+		createNewPodsEndIdx   = 7
+
+		waitTimeout = 20 * time.Second
+	)
+	var nsList []*slim_corev1.Namespace
+	for i := 0; i < idsToCreate; i++ {
+		nsList = append(nsList, testCreateNSObj(fmt.Sprintf("ns-%d", i), nil))
+	}
+
+	var podList []*slim_corev1.Pod
+	for i := 0; i < idsToCreate; i++ {
+		podList = append(podList, testCreatePodObj("pod1", fmt.Sprintf("ns-%d", i), testLbsA, nil))
+	}
+
+	var cidList []*capi_v2.CiliumIdentity
+	for i := 0; i < idsToCreate; i++ {
+		cidList = append(cidList, testCreateCIDObjNs("1000", podList[i], nsList[i]))
+	}
+
+	// Use a custom ID range to verify if CIDs are leaked, without having to
+	// create 65k (default) allowed CIDs.
+	customIDRange := idRange{
+		MinIDValue: idpool.ID(1000),
+		MaxIDValue: idpool.ID(1005),
+	}
+	// Start test hive.
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true, customIDRange)
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, ctx); err != nil {
+		t.Fatalf("starting hive encountered an error: %s", err)
+	}
+	defer func() {
+		if err := h.Stop(tlog, ctx); err != nil {
+			t.Fatalf("stopping hive encountered an error: %v", err)
+		}
+		cancelCtxFunc()
+	}()
+
+	for i := range idsToCreate {
+		if _, err := fakeClient.Slim().CoreV1().Namespaces().Create(ctx, nsList[i], metav1.CreateOptions{}); err != nil {
+			t.Fatalf("create namespace: %v", err)
+		}
+	}
+
+	store, err := (*cidResource).Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error while getting CID store: %s", err)
+	}
+
+	// Create the first 5 pods.
+	for i := range firstCreatePods {
+		if _, err := fakeClient.Slim().CoreV1().Pods(podList[i].Namespace).Create(ctx, podList[i], metav1.CreateOptions{}); err != nil {
+			t.Fatalf("create the first 5 pods: %v", err)
+		}
+	}
+
+	// Verify that 5 CIDs exist.
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		cids := store.List()
+		assert.Len(ct, cids, 5)
+	}, waitTimeout, 100*time.Millisecond)
+
+	// Delete the first 3 pods and their CIDs.
+	cids := store.List()
+	for i := range deletePods {
+		if err := fakeClient.Slim().CoreV1().Pods(podList[i].Namespace).Delete(ctx, podList[i].Name, metav1.DeleteOptions{}); err != nil {
+			t.Fatalf("delete the first 3 pods: %v", err)
+		}
+		for _, cid := range cids {
+			if !cmp.Equal(cid.SecurityLabels, cidList[i].SecurityLabels) {
+				continue
+			}
+			if err := fakeClient.CiliumV2().CiliumIdentities().Delete(ctx, cid.Name, metav1.DeleteOptions{}); err != nil {
+				t.Fatalf("delete the first 3 CIDs: %v", err)
+			}
+		}
+	}
+
+	// Verify that 2 CIDs remain.
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		cids := store.List()
+		assert.Len(ct, cids, 2)
+	}, waitTimeout, 100*time.Millisecond)
+
+	// Create 3 new pods.
+	for i := createNewPodsStartIdx; i <= createNewPodsEndIdx; i++ {
+		if _, err := fakeClient.Slim().CoreV1().Pods(podList[i].Namespace).Create(ctx, podList[i], metav1.CreateOptions{}); err != nil {
+			t.Fatalf("create 3 new pods: %v", err)
+		}
+	}
+
+	// Verify that 5 CIDs exist.
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		cids := store.List()
+		assert.Len(ct, cids, 5)
+	}, waitTimeout, 100*time.Millisecond)
+}
+
 func TestCreateTwoPodsWithSameLabels(t *testing.T) {
 	ns1 := testCreateNSObj("ns1", nil)
 
@@ -225,7 +336,7 @@ func TestCreateTwoPodsWithSameLabels(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod3, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true, defaultIDRange())
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -298,7 +409,7 @@ func TestUpdatePodLabels(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod1b, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true, defaultIDRange())
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -365,7 +476,7 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 	cid2 := testCreateCIDObjNs("2000", pod2, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true, defaultIDRange())
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {
@@ -445,7 +556,7 @@ func TestDeleteUsedCIDIsRecreated(t *testing.T) {
 	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
 
 	// Start test hive.
-	cidResource, _, fakeClient, _, h := initHiveTest(t, true)
+	cidResource, _, fakeClient, _, h := initHiveTest(t, true, defaultIDRange())
 	ctx, cancelCtxFunc := context.WithCancel(context.Background())
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, ctx); err != nil {

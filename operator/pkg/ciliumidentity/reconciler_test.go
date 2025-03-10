@@ -89,6 +89,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 		ciliumIdentity,
 		ciliumEndpoint,
 		ciliumEndpointSlice,
+		defaultIDRange(),
 		enableCES,
 		queueOps,
 	)
