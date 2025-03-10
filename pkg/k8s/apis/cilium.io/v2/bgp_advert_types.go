@@ -127,6 +127,16 @@ type BGPAdvertisement struct {
 
 // BGPServiceOptions defines the configuration for Service advertisement type.
 type BGPServiceOptions struct {
+	// IPv4 mask to aggregate BGP route advertisements of service
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=31
+	// +kubebuilder:validation:Optional
+	AggregationLengthIPv4 *int16 `json:"aggregationLengthIPv4,omitempty"`
+	// IPv6 mask to aggregate BGP route advertisements of service
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=127
+	// +kubebuilder:validation:Optional
+	AggregationLengthIPv6 *int16 `json:"aggregationLengthIPv6,omitempty"`
 	// Addresses is a list of service address types which needs to be advertised via BGP.
 	//
 	// +kubebuilder:validation:Required
