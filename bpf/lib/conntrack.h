@@ -501,6 +501,18 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	ct_flip_tuple_dir6(tuple);
 }
 
+static __always_inline union v6addr
+ipv6_ct_reverse_tuple_saddr(const struct ipv6_ct_tuple *rtuple)
+{
+	return rtuple->daddr;
+}
+
+static __always_inline union v6addr
+ipv6_ct_reverse_tuple_daddr(const struct ipv6_ct_tuple *rtuple)
+{
+	return rtuple->saddr;
+}
+
 static __always_inline int
 ct_extract_ports6(struct __ctx_buff *ctx, int off, struct ipv6_ct_tuple *tuple)
 {
