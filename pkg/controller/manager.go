@@ -70,14 +70,18 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 
 	ctrl := m.lookupLocked(name)
 	if ctrl != nil {
+		ctrl.mutex.Lock()
 		ctrl.getLogger().Debug("Updating existing controller")
 		ctrl.updateParamsLocked(params)
+		ctrl.mutex.Unlock()
+		ctrl.mutex.RLock()
 
 		// Notify the goroutine of the params update.
 		select {
 		case ctrl.update <- ctrl.params:
 		default:
 		}
+		ctrl.mutex.RUnlock()
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
