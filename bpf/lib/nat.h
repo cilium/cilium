@@ -1073,8 +1073,16 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
+		/* Fragmented ECHOREPLY packets are not supported currently.
+		 * Drop all fragments, because letting the first fragment pass
+		 * would be useless anyway.
+		 * ICMP error packets are not supposed to be fragmented.
+		 */
+		if (ipv4_is_fragment(ip4))
+			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, (__u32)off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
+
 		switch (icmphdr.type) {
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
