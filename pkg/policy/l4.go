@@ -41,42 +41,6 @@ type AuthRequirement = types.AuthRequirement
 // authmap maps remote selectors to their needed AuthTypes, if any
 type authMap map[CachedSelector]types.AuthTypes
 
-// covers returns true if 'l4rule' has the effect needed for the 'l3l4rule', when 'l4rule' is added
-// to the datapath, due to the l4-only rule matching if l3l4-rule is not present. This determination
-// can be done here only when both rules have the same port number (or both have a wildcarded port).
-func (l4rule *PerSelectorPolicy) covers(l3l4rule *PerSelectorPolicy) bool {
-	// Deny takes highest precedence so it is dealt with first
-	if l4rule != nil && l4rule.IsDeny {
-		// l4-only deny takes precedence
-		return true
-	} else if l3l4rule != nil && l3l4rule.IsDeny {
-		// Must not skip if l3l4 rule is deny while l4-only rule is not
-		return false
-	}
-
-	// Can not skip if rules have different auth types.  In all other cases the auth type from
-	// the wildcardRule can be used also for the current rule.
-	// Note that the caller must deal with inheriting redirect from wildcardRule to currentRule,
-	// if any.
-	if l3l4rule.getAuthRequirement() != l4rule.getAuthRequirement() {
-		return false
-	}
-
-	l3l4IsRedirect := l3l4rule.IsRedirect()
-	l4OnlyIsRedirect := l4rule.IsRedirect()
-	if l3l4IsRedirect && !l4OnlyIsRedirect {
-		// Can not skip if l3l4-rule is redirect while l4-only is not
-		return false
-	} else if l3l4IsRedirect && l4OnlyIsRedirect &&
-		(l3l4rule.Listener != l4rule.Listener || l3l4rule.Priority != l4rule.Priority) {
-		// L3l4 rule has a different listener or priority, it can not be skipped
-		return false
-	}
-
-	// else can skip
-	return true
-}
-
 // TLS context holds the secret values resolved from an 'api.TLSContext'
 type TLSContext struct {
 	TrustedCA        string `json:"trustedCA,omitempty"`
@@ -282,6 +246,10 @@ func (a *PerSelectorPolicy) IsRedirect() bool {
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
 func (a *PerSelectorPolicy) HasL7Rules() bool {
 	return !a.L7Rules.IsEmpty()
+}
+
+func (a *PerSelectorPolicy) getDeny() bool {
+	return a != nil && a.IsDeny
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -630,55 +598,42 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
-	// find the L7 rules for the wildcard entry, if any
-	var wildcardRule *PerSelectorPolicy
-	if l4.wildcard != nil {
-		wildcardRule = l4.PerSelectorPolicies[l4.wildcard]
-	}
-
-	isL4Wildcard := (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil
-	for cs, currentRule := range l4.PerSelectorPolicies {
-		// have wildcard and this is an L3L4 key?
-		isL3L4withWildcardPresent := isL4Wildcard && cs != l4.wildcard
-
-		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
-			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
-			continue
-		}
-
-		isDenyRule := currentRule != nil && currentRule.IsDeny
-		isRedirect := currentRule.IsRedirect()
-		listener := currentRule.GetListener()
-		priority := currentRule.GetPriority()
-		if !isDenyRule && isL3L4withWildcardPresent && !isRedirect {
-			// Inherit the redirect status from the wildcard rule.
-			// This is now needed as 'covers()' can pass non-redirect L3L4 rules
-			// that must inherit the redirect status from the L4-only (== L3-wildcard)
-			// rule due to auth type on the L3L4 rule being different than in the
-			// L4-only rule.
-			isRedirect = wildcardRule.IsRedirect()
-			listener = wildcardRule.GetListener()
-			priority = wildcardRule.GetPriority()
-		}
-		authReq := currentRule.getAuthRequirement()
+	// makeEntry creates a mapStateEntry for the given selector and policy
+	makeEntry := func(cs CachedSelector, currentRule *PerSelectorPolicy) *mapStateEntry {
 		var proxyPort uint16
-		if isRedirect {
+		if currentRule.IsRedirect() {
 			var err error
-			proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
+			proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, currentRule.GetListener())
 			if err != nil {
 				// Skip unrealized redirects; this happens routineously just
 				// before new redirects are realized. Once created, we are called
 				// again.
 				logger.WithError(err).WithField(logfields.EndpointSelector, cs).Debugf("Skipping unrealized redirect")
-				continue
+				return nil
 			}
 		}
-		entry := newMapStateEntry(l4.RuleOrigin[cs], proxyPort, priority, isDenyRule, authReq)
 
-		if cs.IsWildcard() {
+		ms := newMapStateEntry(
+			l4.RuleOrigin[cs],
+			proxyPort,
+			currentRule.GetPriority(),
+			currentRule.getDeny(),
+			currentRule.getAuthRequirement(),
+		)
+		return &ms
+	}
+
+	// Compute and insert the wildcard entry, if present
+	var wildcardEntry *mapStateEntry
+	if l4.wildcard != nil {
+		currentRule := l4.PerSelectorPolicies[l4.wildcard]
+		cs := l4.wildcard
+		wildcardEntry = makeEntry(cs, currentRule)
+
+		if wildcardEntry != nil {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = 0
-				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(keyToAdd, *wildcardEntry, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -688,12 +643,32 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
 				}
 			}
+		}
+	}
+
+	for cs, currentRule := range l4.PerSelectorPolicies {
+		// is this wildcard? If so, we already added it above
+		if cs == l4.wildcard {
+			continue
+		}
+
+		// create MapStateEntry
+		entry := makeEntry(cs, currentRule)
+		if entry == nil {
+			continue
+		}
+
+		// If this entry is identical to the wildcard's entry, we can elide it.
+		// Do not elide for port wildcards. TODO: This is probably too
+		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
+		if wildcardEntry != nil && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key")
 			continue
 		}
 
 		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
-			if isDenyRule {
+			if entry.IsDeny() {
 				logger.WithFields(logrus.Fields{
 					logfields.Version:          p.VersionHandle,
 					logfields.EndpointSelector: cs,
@@ -710,15 +685,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
-				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(keyToAdd, *entry, features, changes)
 				// If Cilium is in dual-stack mode then the "World" identity
 				// needs to be split into two identities to represent World
 				// IPv6 and IPv4 traffic distinctly from one another.
 				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4
-					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+					p.policyMapState.insertWithChanges(keyToAdd, *entry, features, changes)
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6
-					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+					p.policyMapState.insertWithChanges(keyToAdd, *entry, features, changes)
 				}
 			}
 		}
