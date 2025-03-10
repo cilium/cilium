@@ -152,10 +152,19 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	if (is_defined(ENABLE_HOST_FIREWALL) || !from_host) {
 		__u8 nexthdr = ip6->nexthdr;
@@ -1533,6 +1542,12 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
+			fraginfo = ipv6_get_fraginfo(ctx, ip6);
+			if (fraginfo < 0) {
+				ret = (int)fraginfo;
+				goto drop_err;
+			}
+
 			tuple6.nexthdr = ip6->nexthdr;
 			ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
 			ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
@@ -1543,7 +1558,8 @@ skip_host_firewall:
 				goto drop_err;
 			}
 
-			ret = ct_extract_ports6(ctx, l4_off, &tuple6);
+			ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
+						CT_EGRESS, &tuple6);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CT_UNKNOWN_PROTO)
 					goto skip_egress_gateway;
