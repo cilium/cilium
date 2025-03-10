@@ -192,5 +192,5 @@ ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
 		return DROP_CT_INVALID_HDR;
 #endif
 
-	return CTX_ACT_OK;
+	return 0;
 }
