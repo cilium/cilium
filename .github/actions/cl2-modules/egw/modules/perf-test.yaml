@@ -4,6 +4,7 @@ steps:
     params:
       action: start
       gatewayAddress: {{ .gatewayAddress }}
+      hasEGWPolicy: {{ .hasEGWPolicy }}
 
 # Run the performance tests via CL2 as well, so that metrics are automatically scraped.
 - name: Run performance tests
@@ -18,7 +19,9 @@ steps:
       - --report-dir=./report
       - --duration=30s
       - --setup-delay=10s
+      - --streams=8
       - --throughput=true
+      - --throughput-multi=true
       - --rr=true
       - --crr=true
       - --udp=true
@@ -44,3 +47,4 @@ steps:
     params:
       action: gather
       gatewayAddress: {{ .gatewayAddress }}
+      hasEGWPolicy: {{ .hasEGWPolicy }}
