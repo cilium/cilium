@@ -877,6 +877,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(vp, option.EnableIPv4FragmentsTrackingName)
 
+	flags.Bool(option.EnableIPv6FragmentsTrackingName, defaults.EnableIPv6FragmentsTracking, "Enable IPv6 fragments tracking for L4-based lookups")
+	option.BindEnv(vp, option.EnableIPv6FragmentsTrackingName)
+
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
 	option.BindEnv(vp, option.FragmentsMapEntriesName)
 
@@ -1350,6 +1353,12 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.EnableIPv4FragmentsTracking {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
+		}
+	}
+
+	if option.Config.EnableIPv6FragmentsTracking {
+		if !option.Config.EnableIPv6 {
+			option.Config.EnableIPv6FragmentsTracking = false
 		}
 	}
 

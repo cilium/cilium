@@ -981,6 +981,10 @@ const (
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragment-tracking"
 
+	// EnableIPv6FragmentsTrackingName is the name of the option to enable
+	// IPv6 fragments tracking for L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTrackingName = "enable-ipv6-fragment-tracking"
+
 	// FragmentsMapEntriesName configures max entries for BPF fragments
 	// tracking map.
 	FragmentsMapEntriesName = "bpf-fragments-map-max"
@@ -2029,6 +2033,10 @@ type DaemonConfig struct {
 	// L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTracking bool
 
+	// EnableIPv6FragmentsTracking enables IPv6 fragments tracking for
+	// L4-based lookups. Needs LRU map support.
+	EnableIPv6FragmentsTracking bool
+
 	// FragmentsMapEntries is the maximum number of fragmented datagrams
 	// that can simultaneously be tracked in order to retrieve their L4
 	// ports for all fragments.
@@ -2961,6 +2969,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
 	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
+	c.EnableIPv6FragmentsTracking = vp.GetBool(EnableIPv6FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
