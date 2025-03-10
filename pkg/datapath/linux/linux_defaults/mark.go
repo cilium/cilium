@@ -58,6 +58,11 @@ const (
 	// to identify cilium-managed overlay traffic.
 	MagicMarkOverlay int = 0x0400
 
+	// MagicMarkOverlay is set by the to-overlay program, and can be used
+	// to identify cilium-managed overlay traffic which was previously IPsec
+	// encrypted before encapsulation.
+	MagicMarkOverlayEncrypted int = 0x1400
+
 	// MagicMarkProxyEgressEPID determines that the traffic is sourced from
 	// the proxy which is capturing traffic before it is subject to egress
 	// policy enforcement that must be done after the proxy. The identity
