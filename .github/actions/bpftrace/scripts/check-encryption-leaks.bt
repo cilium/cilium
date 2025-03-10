@@ -359,25 +359,45 @@ kprobe:tcp_close
   }
 }
 
-// Trace UDP messages sent by the DNS proxy, even if the source address belongs to the host.
+// Trace UDP messages sent by the DNS proxy:
+// - IPSec:     skip packet if source address is CiliumInternalIP;
+// - Wireguard: always trace packet.
 kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
-    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
-    @trace_sk[$sk] = true;
-    @sanity[TYPE_PROXY_DNS_IP4] = true;
+    $src_is_pod = (bswap($sk->__sk_common.skc_rcv_saddr) & MASK4) == CIDR4;
+    $src_is_internal =
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(NODE1_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(NODE2_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(NODE3_INTERNAL_IPV4);
+
+    if (!(ENCRYPTION_TYPE_IPSEC && $src_is_pod && $src_is_internal)) {
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_DNS_IP4] = true;
+    }
   }
 }
 
-// Trace UDP6 messages sent by the DNS proxy, even if the source address belongs to the host.
+// Trace UDP6 messages sent by the DNS proxy:
+// - IPSec:     skip packet if source address is CiliumInternalIP;
+// - Wireguard: always trace packet.
 kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
 {
   $sk = ((struct sock *) arg0);
   if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
-    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
-    @trace_sk[$sk] = true;
-    @sanity[TYPE_PROXY_DNS_IP6] = true;
+    $src_is_pod = bswap($sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr16[0]) == CIDR6;
+    $src_is_internal =
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(NODE1_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(NODE2_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(NODE3_INTERNAL_IPV6);
+
+    if (!(ENCRYPTION_TYPE_IPSEC && $src_is_pod && $src_is_internal)) {
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = SK_TRACK_FLAG_BASE;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_DNS_IP6] = true;
+    }
   }
 }
 
