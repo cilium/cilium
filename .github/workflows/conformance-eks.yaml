@@ -190,7 +190,6 @@ jobs:
             --helm-set=hubble.relay.enabled=true \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
-            --helm-set=bpf.monitorAggregation=none \
             --wait=false"
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
