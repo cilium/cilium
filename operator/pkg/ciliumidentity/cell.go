@@ -7,6 +7,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -23,6 +25,7 @@ var Cell = cell.Module(
 
 type config struct {
 	IdentityManagementMode string `mapstructure:"identity-management-mode"`
+	IDRange                idRange
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
@@ -31,6 +34,7 @@ func (c config) Flags(flags *pflag.FlagSet) {
 
 var defaultConfig = config{
 	IdentityManagementMode: option.IdentityManagementModeAgent,
+	IDRange:                defaultIDRange(),
 }
 
 // SharedConfig contains the configuration that is shared between
@@ -44,4 +48,16 @@ type SharedConfig struct {
 	// DisableNetworkPolicy indicates if the network policy enforcement system is
 	// disabled for K8s, Cilium and Cilium Clusterwide network policies.
 	DisableNetworkPolicy bool
+}
+
+type idRange struct {
+	MinIDValue idpool.ID
+	MaxIDValue idpool.ID
+}
+
+func defaultIDRange() idRange {
+	return idRange{
+		MinIDValue: idpool.ID(identity.GetMinimalAllocationIdentity(option.Config.ClusterID)),
+		MaxIDValue: idpool.ID(identity.GetMaximumAllocationIdentity(option.Config.ClusterID)),
+	}
 }
