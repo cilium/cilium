@@ -52,6 +52,15 @@ func (m *Manager) UpdateController(name string, params ControllerParams) {
 	m.updateController(name, params)
 }
 
+func delayUpdate(ctrl *managedController, params ControllerParams) {
+	select {
+	case <-time.After(params.DelayUpdate):
+		ctrl.update <- params
+	case <-ctrl.terminated:
+		return
+	}
+}
+
 func (m *Manager) updateController(name string, params ControllerParams) *managedController {
 	start := time.Now()
 
@@ -74,9 +83,13 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		ctrl.updateParamsLocked(params)
 
 		// Notify the goroutine of the params update.
-		select {
-		case ctrl.update <- ctrl.params:
-		default:
+		if ctrl.params.DelayUpdate == 0 {
+			select {
+			case ctrl.update <- ctrl.params:
+			default:
+			}
+		} else {
+			go delayUpdate(ctrl, params)
 		}
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
@@ -108,7 +121,17 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 	globalStatus.controllers[ctrl.uuid] = ctrl
 	globalStatus.mutex.Unlock()
 
-	go ctrl.runController(ctrl.params)
+	// Notify the goroutine of the params update.
+	if params.DelayUpdate == 0 {
+		select {
+		case ctrl.update <- ctrl.params:
+		default:
+		}
+	} else {
+		go delayUpdate(ctrl, params)
+	}
+
+	go ctrl.runController()
 	return ctrl
 }
 
