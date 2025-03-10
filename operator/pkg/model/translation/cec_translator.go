@@ -7,6 +7,7 @@ import (
 	"maps"
 	goslices "slices"
 	"sort"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -95,6 +96,14 @@ func NewCECTranslator(config Config) CECTranslator {
 		Config: config,
 	}
 }
+func checkSourceFromGateway(sources []model.FullyQualifiedResource) bool {
+	for _, source := range sources {
+		if source.Kind == "Gateway" || source.Kind == "Ingress" {
+			return true
+		}
+	}
+	return false
+}
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
 
@@ -112,13 +121,36 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 	if err != nil {
 		return nil, err
 	}
+	// Check if any source is a Gateway. If not, it should use original source address
+	// since it can be the HTTP route for east west traffic. However, this is not ideal way
+	// to do it, since HTTP route can be attached to more than one kind of resources.
+	// if someone attaches it to a Gateway and a Service. this will be problematic.
+	// TODO: find a better way to do it.
+	useOriginalSourceAddress := true
 
+	// Check HTTP listeners
+	for _, l := range model.HTTP {
+		if checkSourceFromGateway(l.Sources) {
+			useOriginalSourceAddress = false
+			break
+		}
+	}
+
+	// If no Gateway found in HTTP, check TLSPassthrough listeners
+	if useOriginalSourceAddress {
+		for _, l := range model.TLSPassthrough {
+			if checkSourceFromGateway(l.Sources) {
+				useOriginalSourceAddress = false
+				break
+			}
+		}
+	}
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				k8s.UseOriginalSourceAddressLabel: "false",
+				k8s.UseOriginalSourceAddressLabel: strconv.FormatBool(useOriginalSourceAddress),
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
