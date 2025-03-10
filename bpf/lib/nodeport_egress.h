@@ -62,9 +62,14 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
@@ -78,7 +83,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, &tuple, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -102,7 +107,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
-	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
+	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
+			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -155,12 +161,17 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
+	fraginfo_t fraginfo;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
 	int ret, l4_off;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
@@ -191,14 +202,16 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 skip_fib:
 #endif
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			      SCOPE_REVERSE, CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, fraginfo,
+			      l4_off, CT_INGRESS, SCOPE_REVERSE,
+			      CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
 			      NULL, &monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
 
-		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info);
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
+				    ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 
