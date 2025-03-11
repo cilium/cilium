@@ -2,13 +2,13 @@ package jsonpatch
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/evanphx/json-patch/v5/internal/json"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -461,7 +461,7 @@ func (o Operation) Path() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.Wrapf(ErrMissing, "operation missing path field")
+	return "unknown", fmt.Errorf("operation missing path field: %w", ErrMissing)
 }
 
 // From reads the "from" field of the Operation.
@@ -478,7 +478,7 @@ func (o Operation) From() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.Wrapf(ErrMissing, "operation, missing from field")
+	return "unknown", fmt.Errorf("operation, missing from field: %w", ErrMissing)
 }
 
 func (o Operation) value() *lazyNode {
@@ -511,7 +511,7 @@ func (o Operation) ValueInterface() (interface{}, error) {
 		return v, nil
 	}
 
-	return nil, errors.Wrapf(ErrMissing, "operation, missing value field")
+	return nil, fmt.Errorf("operation, missing value field: %w", ErrMissing)
 }
 
 func isArray(buf []byte) bool {
@@ -610,7 +610,7 @@ func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
 
 	v, ok := d.obj[key]
 	if !ok {
-		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
+		return v, fmt.Errorf("unable to get nonexistent key: %s: %w", key, ErrMissing)
 	}
 	return v, nil
 }
@@ -625,7 +625,7 @@ func (d *partialDoc) remove(key string, options *ApplyOptions) error {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
+		return fmt.Errorf("unable to remove nonexistent key: %s: %w", key, ErrMissing)
 	}
 	idx := -1
 	for i, k := range d.keys {
@@ -649,10 +649,10 @@ func (d *partialArray) set(key string, val *lazyNode, options *ApplyOptions) err
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(d.nodes) {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		idx += len(d.nodes)
 	}
@@ -669,7 +669,7 @@ func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) err
 
 	idx, err := strconv.Atoi(key)
 	if err != nil {
-		return errors.Wrapf(err, "value was not a proper array index: '%s'", key)
+		return fmt.Errorf("value was not a proper array index: '%s': %w", key, err)
 	}
 
 	sz := len(d.nodes) + 1
@@ -679,15 +679,15 @@ func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) err
 	cur := d
 
 	if idx >= len(ary) {
-		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(ary) {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		idx += len(ary)
 	}
@@ -713,16 +713,16 @@ func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error)
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(d.nodes) {
-			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		idx += len(d.nodes)
 	}
 
 	if idx >= len(d.nodes) {
-		return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
 	return d.nodes[idx], nil
@@ -740,18 +740,18 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(cur.nodes) {
 			if options.AllowMissingPathOnRemove {
 				return nil
 			}
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		idx += len(cur.nodes)
 	}
@@ -768,7 +768,7 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
+		return fmt.Errorf("add operation failed to decode path: %w", ErrMissing)
 	}
 
 	// special case, adding to empty means replacing the container with the value given
@@ -809,12 +809,12 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "add operation does not apply: doc is missing path: \"%s\"", path)
+		return fmt.Errorf("add operation does not apply: doc is missing path: \"%s\": %w", path, ErrMissing)
 	}
 
 	err = con.add(key, op.value(), options)
 	if err != nil {
-		return errors.Wrapf(err, "error in add for path: '%s'", path)
+		return fmt.Errorf("error in add for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -867,11 +867,11 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 				if arrIndex < 0 {
 
 					if !options.SupportNegativeIndices {
-						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for invalid index: %d", arrIndex)
+						return fmt.Errorf("Unable to ensure path for invalid index: %d: %w", arrIndex, ErrInvalidIndex)
 					}
 
 					if arrIndex < -1 {
-						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for negative index other than -1: %d", arrIndex)
+						return fmt.Errorf("Unable to ensure path for negative index other than -1: %d: %w", arrIndex, ErrInvalidIndex)
 					}
 
 					arrIndex = 0
@@ -918,11 +918,11 @@ func validateOperation(op Operation) error {
 	switch op.Kind() {
 	case "add", "replace":
 		if _, err := op.ValueInterface(); err != nil {
-			return errors.Wrapf(err, "failed to decode 'value'")
+			return fmt.Errorf("failed to decode 'value': %w", err)
 		}
 	case "move", "copy":
 		if _, err := op.From(); err != nil {
-			return errors.Wrapf(err, "failed to decode 'from'")
+			return fmt.Errorf("failed to decode 'from': %w", err)
 		}
 	case "remove", "test":
 	default:
@@ -930,7 +930,7 @@ func validateOperation(op Operation) error {
 	}
 
 	if _, err := op.Path(); err != nil {
-		return errors.Wrapf(err, "failed to decode 'path'")
+		return fmt.Errorf("failed to decode 'path': %w", err)
 	}
 
 	return nil
@@ -941,10 +941,10 @@ func validatePatch(p Patch) error {
 		if err := validateOperation(op); err != nil {
 			opData, infoErr := json.Marshal(op)
 			if infoErr != nil {
-				return errors.Wrapf(err, "invalid operation")
+				return fmt.Errorf("invalid operation: %w", err)
 			}
 
-			return errors.Wrapf(err, "invalid operation %s", opData)
+			return fmt.Errorf("invalid operation %s: %w", opData, err)
 		}
 	}
 
@@ -954,7 +954,7 @@ func validatePatch(p Patch) error {
 func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "remove operation failed to decode path")
+		return fmt.Errorf("remove operation failed to decode path: %w", ErrMissing)
 	}
 
 	con, key := findObject(doc, path, options)
@@ -963,12 +963,12 @@ func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
+		return fmt.Errorf("remove operation does not apply: doc is missing path: \"%s\": %w", path, ErrMissing)
 	}
 
 	err = con.remove(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+		return fmt.Errorf("error in remove for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -977,7 +977,7 @@ func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error
 func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "replace operation failed to decode path")
+		return fmt.Errorf("replace operation failed to decode path: %w", err)
 	}
 
 	if path == "" {
@@ -986,7 +986,7 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 		if val.which == eRaw {
 			if !val.tryDoc() {
 				if !val.tryAry() {
-					return errors.Wrapf(err, "replace operation value must be object or array")
+					return fmt.Errorf("replace operation value must be object or array: %w", err)
 				}
 			} else {
 				val.doc.opts = options
@@ -999,7 +999,7 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 		case eDoc:
 			*doc = val.doc
 		case eRaw:
-			return errors.Wrapf(err, "replace operation hit impossible case")
+			return fmt.Errorf("replace operation hit impossible case: %w", err)
 		}
 
 		return nil
@@ -1008,17 +1008,17 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing path: %s", path)
+		return fmt.Errorf("replace operation does not apply: doc is missing path: %s: %w", path, ErrMissing)
 	}
 
 	_, ok := con.get(key, options)
 	if ok != nil {
-		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing key: %s", path)
+		return fmt.Errorf("replace operation does not apply: doc is missing key: %s: %w", path, ErrMissing)
 	}
 
 	err = con.set(key, op.value(), options)
 	if err != nil {
-		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+		return fmt.Errorf("error in remove for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -1027,43 +1027,43 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
-		return errors.Wrapf(err, "move operation failed to decode from")
+		return fmt.Errorf("move operation failed to decode from: %w", err)
 	}
 
 	if from == "" {
-		return errors.Wrapf(ErrInvalid, "unable to move entire document to another path")
+		return fmt.Errorf("unable to move entire document to another path: %w", ErrInvalid)
 	}
 
 	con, key := findObject(doc, from, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing from path: %s", from)
+		return fmt.Errorf("move operation does not apply: doc is missing from path: %s: %w", from, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", key)
+		return fmt.Errorf("error in move for path: '%s': %w", key, err)
 	}
 
 	err = con.remove(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", key)
+		return fmt.Errorf("error in move for path: '%s': %w", key, err)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "move operation failed to decode path")
+		return fmt.Errorf("move operation failed to decode path: %w", err)
 	}
 
 	con, key = findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing destination path: %s", path)
+		return fmt.Errorf("move operation does not apply: doc is missing destination path: %s: %w", path, ErrMissing)
 	}
 
 	err = con.add(key, val, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", path)
+		return fmt.Errorf("error in move for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -1072,7 +1072,7 @@ func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "test operation failed to decode path")
+		return fmt.Errorf("test operation failed to decode path: %w", err)
 	}
 
 	if path == "" {
@@ -1091,18 +1091,18 @@ func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 			return nil
 		}
 
-		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 	}
 
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "test operation does not apply: is missing path: %s", path)
+		return fmt.Errorf("test operation does not apply: is missing path: %s: %w", path, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
-	if err != nil && errors.Cause(err) != ErrMissing {
-		return errors.Wrapf(err, "error in test for path: '%s'", path)
+	if err != nil && errors.Unwrap(err) != ErrMissing {
+		return fmt.Errorf("error in test for path: '%s': %w", path, err)
 	}
 
 	ov := op.value()
@@ -1111,49 +1111,49 @@ func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 		if ov.isNull() {
 			return nil
 		}
-		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 	} else if ov.isNull() {
-		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 	}
 
 	if val.equal(op.value()) {
 		return nil
 	}
 
-	return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+	return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 }
 
 func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
-		return errors.Wrapf(err, "copy operation failed to decode from")
+		return fmt.Errorf("copy operation failed to decode from: %w", err)
 	}
 
 	con, key := findObject(doc, from, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing from path: \"%s\"", from)
+		return fmt.Errorf("copy operation does not apply: doc is missing from path: \"%s\": %w", from, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in copy for from: '%s'", from)
+		return fmt.Errorf("error in copy for from: '%s': %w", from, err)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "copy operation failed to decode path")
+		return fmt.Errorf("copy operation failed to decode path: %w", ErrMissing)
 	}
 
 	con, key = findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing destination path: %s", path)
+		return fmt.Errorf("copy operation does not apply: doc is missing destination path: %s: %w", path, ErrMissing)
 	}
 
 	valCopy, sz, err := deepCopy(val, options)
 	if err != nil {
-		return errors.Wrapf(err, "error while performing deep copy")
+		return fmt.Errorf("error while performing deep copy: %w", err)
 	}
 
 	(*accumulatedCopySize) += int64(sz)
@@ -1163,7 +1163,7 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, op
 
 	err = con.add(key, valCopy, options)
 	if err != nil {
-		return errors.Wrapf(err, "error while adding value during copy")
+		return fmt.Errorf("error while adding value during copy: %w", err)
 	}
 
 	return nil

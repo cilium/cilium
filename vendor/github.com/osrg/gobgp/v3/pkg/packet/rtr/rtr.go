@@ -364,6 +364,9 @@ func SplitRTR(data []byte, atEOF bool) (advance int, token []byte, err error) {
 }
 
 func ParseRTR(data []byte) (RTRMessage, error) {
+	if len(data) < 1 {
+		return nil, fmt.Errorf("not all bytes are available for RTR message")
+	}
 	var msg RTRMessage
 	switch data[1] {
 	case RTR_SERIAL_NOTIFY:

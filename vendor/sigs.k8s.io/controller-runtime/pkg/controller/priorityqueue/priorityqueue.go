@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
+
 	"sigs.k8s.io/controller-runtime/pkg/internal/metrics"
 )
 
@@ -132,16 +133,17 @@ func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
 	defer w.lock.Unlock()
 
 	for _, key := range items {
+		after := o.After
 		if o.RateLimited {
-			after := w.rateLimiter.When(key)
-			if o.After == 0 || after < o.After {
-				o.After = after
+			rlAfter := w.rateLimiter.When(key)
+			if after == 0 || rlAfter < after {
+				after = rlAfter
 			}
 		}
 
 		var readyAt *time.Time
-		if o.After > 0 {
-			readyAt = ptr.To(w.now().Add(o.After))
+		if after > 0 {
+			readyAt = ptr.To(w.now().Add(after))
 			w.metrics.retry()
 		}
 		if _, ok := w.items[key]; !ok {

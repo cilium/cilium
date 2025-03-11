@@ -29,7 +29,7 @@ import (
 type Program interface {
 	// Eval returns the result of an evaluation of the Ast and environment against the input vars.
 	//
-	// The vars value may either be an `interpreter.Activation` or a `map[string]any`.
+	// The vars value may either be an `Activation` or a `map[string]any`.
 	//
 	// If the `OptTrackState`, `OptTrackCost` or `OptExhaustiveEval` flags are used, the `details` response will
 	// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
@@ -47,14 +47,39 @@ type Program interface {
 	// to support cancellation and timeouts. This method must be used in conjunction with the
 	// InterruptCheckFrequency() option for cancellation interrupts to be impact evaluation.
 	//
-	// The vars value may either be an `interpreter.Activation` or `map[string]any`.
+	// The vars value may either be an `Activation` or `map[string]any`.
 	//
 	// The output contract for `ContextEval` is otherwise identical to the `Eval` method.
 	ContextEval(context.Context, any) (ref.Val, *EvalDetails, error)
 }
 
+// Activation used to resolve identifiers by name and references by id.
+//
+// An Activation is the primary mechanism by which a caller supplies input into a CEL program.
+type Activation = interpreter.Activation
+
+// NewActivation returns an activation based on a map-based binding where the map keys are
+// expected to be qualified names used with ResolveName calls.
+//
+// The input `bindings` may either be of type `Activation` or `map[string]any`.
+//
+// Lazy bindings may be supplied within the map-based input in either of the following forms:
+// - func() any
+// - func() ref.Val
+//
+// The output of the lazy binding will overwrite the variable reference in the internal map.
+//
+// Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
+// the types.Adapter configured in the environment.
+func NewActivation(bindings any) (Activation, error) {
+	return interpreter.NewActivation(bindings)
+}
+
+// PartialActivation extends the Activation interface with a set of UnknownAttributePatterns.
+type PartialActivation = interpreter.PartialActivation
+
 // NoVars returns an empty Activation.
-func NoVars() interpreter.Activation {
+func NoVars() Activation {
 	return interpreter.EmptyActivation()
 }
 
@@ -64,10 +89,9 @@ func NoVars() interpreter.Activation {
 // This method relies on manually configured sets of missing attribute patterns. For a method which
 // infers the missing variables from the input and the configured environment, use Env.PartialVars().
 //
-// The `vars` value may either be an interpreter.Activation or any valid input to the
-// interpreter.NewActivation call.
+// The `vars` value may either be an Activation or any valid input to the NewActivation call.
 func PartialVars(vars any,
-	unknowns ...*interpreter.AttributePattern) (interpreter.PartialActivation, error) {
+	unknowns ...*interpreter.AttributePattern) (PartialActivation, error) {
 	return interpreter.NewPartialActivation(vars, unknowns...)
 }
 
@@ -120,7 +144,7 @@ func (ed *EvalDetails) ActualCost() *uint64 {
 type prog struct {
 	*Env
 	evalOpts                EvalOption
-	defaultVars             interpreter.Activation
+	defaultVars             Activation
 	dispatcher              interpreter.Dispatcher
 	interpreter             interpreter.Interpreter
 	interruptCheckFrequency uint
@@ -285,9 +309,9 @@ func (p *prog) Eval(input any) (v ref.Val, det *EvalDetails, err error) {
 		}
 	}()
 	// Build a hierarchical activation if there are default vars set.
-	var vars interpreter.Activation
+	var vars Activation
 	switch v := input.(type) {
-	case interpreter.Activation:
+	case Activation:
 		vars = v
 	case map[string]any:
 		vars = activationPool.Setup(v)
@@ -315,9 +339,9 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	}
 	// Configure the input, making sure to wrap Activation inputs in the special ctxActivation which
 	// exposes the #interrupted variable and manages rate-limited checks of the ctx.Done() state.
-	var vars interpreter.Activation
+	var vars Activation
 	switch v := input.(type) {
-	case interpreter.Activation:
+	case Activation:
 		vars = ctxActivationPool.Setup(v, ctx.Done(), p.interruptCheckFrequency)
 		defer ctxActivationPool.Put(vars)
 	case map[string]any:
@@ -414,7 +438,7 @@ func (gen *progGen) ContextEval(ctx context.Context, input any) (ref.Val, *EvalD
 }
 
 type ctxEvalActivation struct {
-	parent                  interpreter.Activation
+	parent                  Activation
 	interrupt               <-chan struct{}
 	interruptCheckCount     uint
 	interruptCheckFrequency uint
@@ -438,8 +462,13 @@ func (a *ctxEvalActivation) ResolveName(name string) (any, bool) {
 	return a.parent.ResolveName(name)
 }
 
-func (a *ctxEvalActivation) Parent() interpreter.Activation {
+func (a *ctxEvalActivation) Parent() Activation {
 	return a.parent
+}
+
+func (a *ctxEvalActivation) AsPartialActivation() (interpreter.PartialActivation, bool) {
+	pa, ok := a.parent.(interpreter.PartialActivation)
+	return pa, ok
 }
 
 func newCtxEvalActivationPool() *ctxEvalActivationPool {
@@ -457,7 +486,7 @@ type ctxEvalActivationPool struct {
 }
 
 // Setup initializes a pooled Activation with the ability check for context.Context cancellation
-func (p *ctxEvalActivationPool) Setup(vars interpreter.Activation, done <-chan struct{}, interruptCheckRate uint) *ctxEvalActivation {
+func (p *ctxEvalActivationPool) Setup(vars Activation, done <-chan struct{}, interruptCheckRate uint) *ctxEvalActivation {
 	a := p.Pool.Get().(*ctxEvalActivation)
 	a.parent = vars
 	a.interrupt = done
@@ -506,8 +535,8 @@ func (a *evalActivation) ResolveName(name string) (any, bool) {
 	}
 }
 
-// Parent implements the interpreter.Activation interface
-func (a *evalActivation) Parent() interpreter.Activation {
+// Parent implements the Activation interface
+func (a *evalActivation) Parent() Activation {
 	return nil
 }
 

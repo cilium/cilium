@@ -158,6 +158,12 @@ func (peer *peer) TableID() string {
 	return peer.tableId
 }
 
+func (peer *peer) allowAsPathLoopLocal() bool {
+	peer.fsm.lock.RLock()
+	defer peer.fsm.lock.RUnlock()
+	return peer.fsm.pConf.AsPathOptions.Config.AllowAsPathLoopLocal
+}
+
 func (peer *peer) isIBGPPeer() bool {
 	peer.fsm.lock.RLock()
 	defer peer.fsm.lock.RUnlock()

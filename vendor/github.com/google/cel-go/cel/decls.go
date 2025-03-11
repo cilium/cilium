@@ -148,6 +148,16 @@ func Variable(name string, t *Type) EnvOption {
 	}
 }
 
+// VariableDecls configures a set of fully defined cel.VariableDecl instances in the environment.
+func VariableDecls(vars ...*decls.VariableDecl) EnvOption {
+	return func(e *Env) (*Env, error) {
+		for _, v := range vars {
+			e.variables = append(e.variables, v)
+		}
+		return e, nil
+	}
+}
+
 // Function defines a function and overloads with optional singleton or per-overload bindings.
 //
 // Using Function is roughly equivalent to calling Declarations() to declare the function signatures
@@ -190,6 +200,38 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 			}
 		}
 		e.functions[fn.Name()] = fn
+		return e, nil
+	}
+}
+
+// OverloadSelector selects an overload associated with a given function when it returns true.
+//
+// Used in combination with the FunctionDecl.Subset method.
+type OverloadSelector = decls.OverloadSelector
+
+// IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+func IncludeOverloads(overloadIDs ...string) OverloadSelector {
+	return decls.IncludeOverloads(overloadIDs...)
+}
+
+// ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+func ExcludeOverloads(overloadIDs ...string) OverloadSelector {
+	return decls.ExcludeOverloads(overloadIDs...)
+}
+
+// FunctionDecls provides one or more fully formed function declarations to be added to the environment.
+func FunctionDecls(funcs ...*decls.FunctionDecl) EnvOption {
+	return func(e *Env) (*Env, error) {
+		var err error
+		for _, fn := range funcs {
+			if existing, found := e.functions[fn.Name()]; found {
+				fn, err = existing.Merge(fn)
+				if err != nil {
+					return nil, err
+				}
+			}
+			e.functions[fn.Name()] = fn
+		}
 		return e, nil
 	}
 }

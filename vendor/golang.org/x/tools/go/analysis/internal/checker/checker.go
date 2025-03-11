@@ -86,7 +86,36 @@ func RegisterFlags() {
 // It provides most of the logic for the main functions of both the
 // singlechecker and the multi-analysis commands.
 // It returns the appropriate exit code.
-func Run(args []string, analyzers []*analysis.Analyzer) int {
+//
+// TODO(adonovan): tests should not call this function directly;
+// fiddling with global variables (flags) is error-prone and hostile
+// to parallelism. Instead, use unit tests of the actual units (e.g.
+// checker.Analyze) and integration tests (e.g. TestScript) of whole
+// executables.
+func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
+	// Instead of returning a code directly,
+	// call this function to monotonically increase the exit code.
+	// This allows us to keep going in the face of some errors
+	// without having to remember what code to return.
+	//
+	// TODO(adonovan): interpreting exit codes is like reading tea-leaves.
+	// Insted of wasting effort trying to encode a multidimensional result
+	// into 7 bits we should just emit structured JSON output, and
+	// an exit code of 0 or 1 for success or failure.
+	exitAtLeast := func(code int) {
+		exitcode = max(code, exitcode)
+	}
+
+	// When analysisflags is linked in (for {single,multi}checker),
+	// then the -v flag is registered for complex legacy reasons
+	// related to cmd/vet CLI.
+	// Treat it as an undocumented alias for -debug=v.
+	if v := flag.CommandLine.Lookup("v"); v != nil &&
+		v.Value.(flag.Getter).Get() == true &&
+		!strings.Contains(Debug, "v") {
+		Debug += "v"
+	}
+
 	if CPUProfile != "" {
 		f, err := os.Create(CPUProfile)
 		if err != nil {
@@ -142,17 +171,14 @@ func Run(args []string, analyzers []*analysis.Analyzer) int {
 	initial, err := load(args, allSyntax)
 	if err != nil {
 		log.Print(err)
-		return 1
+		exitAtLeast(1)
+		return
 	}
 
-	// TODO(adonovan): simplify exit code logic by using a single
-	// exit code variable and applying "code = max(code, X)" each
-	// time an error of code X occurs.
-	pkgsExitCode := 0
 	// Print package and module errors regardless of RunDespiteErrors.
 	// Do not exit if there are errors, yet.
 	if n := packages.PrintErrors(initial); n > 0 {
-		pkgsExitCode = 1
+		exitAtLeast(1)
 	}
 
 	var factLog io.Writer
@@ -172,7 +198,8 @@ func Run(args []string, analyzers []*analysis.Analyzer) int {
 	graph, err := checker.Analyze(analyzers, initial, opts)
 	if err != nil {
 		log.Print(err)
-		return 1
+		exitAtLeast(1)
+		return
 	}
 
 	// Don't print the diagnostics,
@@ -181,22 +208,22 @@ func Run(args []string, analyzers []*analysis.Analyzer) int {
 		if err := applyFixes(graph.Roots, Diff); err != nil {
 			// Fail when applying fixes failed.
 			log.Print(err)
-			return 1
+			exitAtLeast(1)
+			return
 		}
-		// TODO(adonovan): don't proceed to print the text or JSON output
-		// if we applied fixes; stop here.
-		//
-		// return pkgsExitCode
+		// Don't proceed to print text/JSON,
+		// and don't report an error
+		// just because there were diagnostics.
+		return
 	}
 
 	// Print the results. If !RunDespiteErrors and there
 	// are errors in the packages, this will have 0 exit
 	// code. Otherwise, we prefer to return exit code
 	// indicating diagnostics.
-	if diagExitCode := printDiagnostics(graph); diagExitCode != 0 {
-		return diagExitCode // there were diagnostics
-	}
-	return pkgsExitCode // package errors but no diagnostics
+	exitAtLeast(printDiagnostics(graph))
+
+	return
 }
 
 // printDiagnostics prints diagnostics in text or JSON form
@@ -539,6 +566,10 @@ fixloop:
 			return fmt.Errorf("applied %d of %d fixes; %d files updated. (Re-run the command to apply more.)",
 				goodFixes, len(fixes), filesUpdated)
 		}
+	}
+
+	if dbg('v') {
+		log.Printf("applied %d fixes, updated %d files", len(fixes), filesUpdated)
 	}
 
 	return nil

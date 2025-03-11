@@ -23,6 +23,8 @@ import (
 	"golang.org/x/tools/internal/typesinternal"
 )
 
+// Deprecated: this heuristic is ill-defined.
+// TODO(adonovan): move to sole use in gopls/internal/cache.
 func TypeErrorEndPos(fset *token.FileSet, src []byte, start token.Pos) token.Pos {
 	// Get the end position for the type error.
 	file := fset.File(start)
@@ -255,16 +257,16 @@ func AddImport(info *types.Info, file *ast.File, preferredName, pkgpath, member 
 		newName = fmt.Sprintf("%s%d", preferredName, i)
 	}
 
-	// For now, keep it real simple: create a new import
-	// declaration before the first existing declaration (which
-	// must exist), including its comments, and let goimports tidy it up.
+	// Create a new import declaration either before the first existing
+	// declaration (which must exist), including its comments; or
+	// inside the declaration, if it is an import group.
 	//
 	// Use a renaming import whenever the preferred name is not
 	// available, or the chosen name does not match the last
 	// segment of its path.
-	newText := fmt.Sprintf("import %q\n\n", pkgpath)
+	newText := fmt.Sprintf("%q", pkgpath)
 	if newName != preferredName || newName != pathpkg.Base(pkgpath) {
-		newText = fmt.Sprintf("import %s %q\n\n", newName, pkgpath)
+		newText = fmt.Sprintf("%s %q", newName, pkgpath)
 	}
 	decl0 := file.Decls[0]
 	var before ast.Node = decl0
@@ -278,9 +280,17 @@ func AddImport(info *types.Info, file *ast.File, preferredName, pkgpath, member 
 			before = decl0.Doc
 		}
 	}
+	// If the first decl is an import group, add this new import at the end.
+	if gd, ok := before.(*ast.GenDecl); ok && gd.Tok == token.IMPORT && gd.Rparen.IsValid() {
+		pos = gd.Rparen
+		newText = "\t" + newText + "\n"
+	} else {
+		pos = before.Pos()
+		newText = "import " + newText + "\n\n"
+	}
 	return newName, newName + ".", []analysis.TextEdit{{
-		Pos:     before.Pos(),
-		End:     before.Pos(),
+		Pos:     pos,
+		End:     pos,
 		NewText: []byte(newText),
 	}}
 }
@@ -409,18 +419,19 @@ func validateFix(fset *token.FileSet, fix *analysis.SuggestedFix) error {
 		start := edit.Pos
 		file := fset.File(start)
 		if file == nil {
-			return fmt.Errorf("missing file info for pos (%v)", edit.Pos)
+			return fmt.Errorf("no token.File for TextEdit.Pos (%v)", edit.Pos)
 		}
 		if end := edit.End; end.IsValid() {
 			if end < start {
-				return fmt.Errorf("pos (%v) > end (%v)", edit.Pos, edit.End)
+				return fmt.Errorf("TextEdit.Pos (%v) > TextEdit.End (%v)", edit.Pos, edit.End)
 			}
 			endFile := fset.File(end)
 			if endFile == nil {
-				return fmt.Errorf("malformed end position %v", end)
+				return fmt.Errorf("no token.File for TextEdit.End (%v; File(start).FileEnd is %d)", end, file.Base()+file.Size())
 			}
 			if endFile != file {
-				return fmt.Errorf("edit spans files %v and %v", file.Name(), endFile.Name())
+				return fmt.Errorf("edit #%d spans files (%v and %v)",
+					i, file.Position(edit.Pos), endFile.Position(edit.End))
 			}
 		} else {
 			edit.End = start // update the SuggestedFix
@@ -448,4 +459,31 @@ func validateFix(fset *token.FileSet, fix *analysis.SuggestedFix) error {
 	}
 
 	return nil
+}
+
+// CanImport reports whether one package is allowed to import another.
+//
+// TODO(adonovan): allow customization of the accessibility relation
+// (e.g. for Bazel).
+func CanImport(from, to string) bool {
+	// TODO(adonovan): better segment hygiene.
+	if to == "internal" || strings.HasPrefix(to, "internal/") {
+		// Special case: only std packages may import internal/...
+		// We can't reliably know whether we're in std, so we
+		// use a heuristic on the first segment.
+		first, _, _ := strings.Cut(from, "/")
+		if strings.Contains(first, ".") {
+			return false // example.com/foo ∉ std
+		}
+		if first == "testdata" {
+			return false // testdata/foo ∉ std
+		}
+	}
+	if strings.HasSuffix(to, "/internal") {
+		return strings.HasPrefix(from, to[:len(to)-len("/internal")])
+	}
+	if i := strings.LastIndex(to, "/internal/"); i >= 0 {
+		return strings.HasPrefix(from, to[:i])
+	}
+	return true
 }

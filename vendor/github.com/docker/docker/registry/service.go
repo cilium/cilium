@@ -68,10 +68,11 @@ func (s *Service) Auth(ctx context.Context, authConfig *registry.AuthConfig, use
 		registryHostName = u.Host
 	}
 
-	// Lookup endpoints for authentication using "LookupPushEndpoints", which
-	// excludes mirrors to prevent sending credentials of the upstream registry
-	// to a mirror.
-	endpoints, err := s.LookupPushEndpoints(registryHostName)
+	// Lookup endpoints for authentication but exclude mirrors to prevent
+	// sending credentials of the upstream registry to a mirror.
+	s.mu.RLock()
+	endpoints, err := s.lookupV2Endpoints(registryHostName, false)
+	s.mu.RUnlock()
 	if err != nil {
 		return "", "", invalidParam(err)
 	}
@@ -103,10 +104,9 @@ func (s *Service) ResolveRepository(name reference.Named) (*RepositoryInfo, erro
 type APIEndpoint struct {
 	Mirror                         bool
 	URL                            *url.URL
-	Version                        APIVersion // Deprecated: v1 registries are deprecated, and endpoints are always v2.
-	AllowNondistributableArtifacts bool
+	AllowNondistributableArtifacts bool // Deprecated: non-distributable artifacts are deprecated and enabled by default. This field will be removed in the next release.
 	Official                       bool
-	TrimHostname                   bool
+	TrimHostname                   bool // Deprecated: hostname is now trimmed unconditionally for remote names. This field will be removed in the next release.
 	TLSConfig                      *tls.Config
 }
 
@@ -116,7 +116,7 @@ func (s *Service) LookupPullEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lookupV2Endpoints(hostname)
+	return s.lookupV2Endpoints(hostname, true)
 }
 
 // LookupPushEndpoints creates a list of v2 endpoints to try to push to, in order of preference.
@@ -125,15 +125,7 @@ func (s *Service) LookupPushEndpoints(hostname string) (endpoints []APIEndpoint,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	allEndpoints, err := s.lookupV2Endpoints(hostname)
-	if err == nil {
-		for _, endpoint := range allEndpoints {
-			if !endpoint.Mirror {
-				endpoints = append(endpoints, endpoint)
-			}
-		}
-	}
-	return endpoints, err
+	return s.lookupV2Endpoints(hostname, false)
 }
 
 // IsInsecureRegistry returns true if the registry at given host is configured as

@@ -1370,16 +1370,16 @@ func (f *folder) Parent() Activation {
 // if they were provided to the input activation, or an empty set if the proxied activation is not partial.
 func (f *folder) UnknownAttributePatterns() []*AttributePattern {
 	if pv, ok := f.activation.(partialActivationConverter); ok {
-		if partial, isPartial := pv.asPartialActivation(); isPartial {
+		if partial, isPartial := pv.AsPartialActivation(); isPartial {
 			return partial.UnknownAttributePatterns()
 		}
 	}
 	return []*AttributePattern{}
 }
 
-func (f *folder) asPartialActivation() (PartialActivation, bool) {
+func (f *folder) AsPartialActivation() (PartialActivation, bool) {
 	if pv, ok := f.activation.(partialActivationConverter); ok {
-		if _, isPartial := pv.asPartialActivation(); isPartial {
+		if _, isPartial := pv.AsPartialActivation(); isPartial {
 			return f, true
 		}
 	}
