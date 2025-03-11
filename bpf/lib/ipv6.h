@@ -29,6 +29,8 @@
 
 #define NEXTHDR_MAX             255
 
+#define IPV6_FRAGLEN            8
+
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
 
@@ -75,8 +77,6 @@ static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthd
 		return DROP_INVALID_EXTHDR;
 
 	case NEXTHDR_FRAGMENT:
-		return DROP_FRAG_NOSUPPORT;
-
 	case NEXTHDR_AUTH:
 	case NEXTHDR_HOP:
 	case NEXTHDR_ROUTING:
@@ -92,6 +92,9 @@ static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthd
 	}
 
 	switch (nh) {
+	case NEXTHDR_FRAGMENT:
+		return IPV6_FRAGLEN;
+
 	case NEXTHDR_AUTH:
 		return ipv6_authlen(&opthdr);
 
