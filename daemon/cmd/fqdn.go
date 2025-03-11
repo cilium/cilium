@@ -381,8 +381,8 @@ func (d *Daemon) notifyOnDNSMsg(
 	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
 	defer lcncl()
 	record := d.proxyAccessLogger.NewLogRecord(flowType, false,
-		func(lr *logger.LogRecord, _ logger.EndpointInfoRegistry) {
-			lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID)
+		func(lr *accesslog.LogRecord, _ logger.EndpointInfoRegistry) {
+			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
 		logger.LogTags.Verdict(verdict, reason),
 		logger.LogTags.Addressing(logContext, addrInfo),
