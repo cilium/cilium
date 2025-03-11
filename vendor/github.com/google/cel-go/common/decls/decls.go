@@ -148,6 +148,69 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	return merged, nil
 }
 
+// FunctionSubsetter subsets a function declaration or returns nil and false if the function
+// subset was empty.
+type FunctionSubsetter func(fn *FunctionDecl) (*FunctionDecl, bool)
+
+// OverloadSelector selects an overload associated with a given function when it returns true.
+//
+// Used in combination with the Subset method.
+type OverloadSelector func(overload *OverloadDecl) bool
+
+// IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+func IncludeOverloads(overloadIDs ...string) OverloadSelector {
+	return func(overload *OverloadDecl) bool {
+		for _, oID := range overloadIDs {
+			if overload.id == oID {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+func ExcludeOverloads(overloadIDs ...string) OverloadSelector {
+	return func(overload *OverloadDecl) bool {
+		for _, oID := range overloadIDs {
+			if overload.id == oID {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// Subset returns a new function declaration which contains only the overloads with the specified IDs.
+// If the subset function contains no overloads, then nil is returned to indicate the function is not
+// functional.
+func (f *FunctionDecl) Subset(selector OverloadSelector) *FunctionDecl {
+	if f == nil {
+		return nil
+	}
+	overloads := make(map[string]*OverloadDecl)
+	overloadOrdinals := make([]string, 0, len(f.overloadOrdinals))
+	for _, oID := range f.overloadOrdinals {
+		overload := f.overloads[oID]
+		if selector(overload) {
+			overloads[oID] = overload
+			overloadOrdinals = append(overloadOrdinals, oID)
+		}
+	}
+	if len(overloads) == 0 {
+		return nil
+	}
+	subset := &FunctionDecl{
+		name:              f.Name(),
+		overloads:         overloads,
+		singleton:         f.singleton,
+		disableTypeGuards: f.disableTypeGuards,
+		state:             f.state,
+		overloadOrdinals:  overloadOrdinals,
+	}
+	return subset
+}
+
 // AddOverload ensures that the new overload does not collide with an existing overload signature;
 // however, if the function signatures are identical, the implementation may be rewritten as its
 // difficult to compare functions by object identity.
