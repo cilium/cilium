@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -913,11 +914,8 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 			// receive any other event with these old IP addresses.
 			for _, oldPodIP := range oldPodIPs {
 				var found bool
-				for _, newPodIP := range newPodIPs {
-					if newPodIP == oldPodIP {
-						found = true
-						break
-					}
+				if slices.Contains(newPodIPs, oldPodIP) {
+					found = true
 				}
 				if !found {
 					npc := k.ipcache.Delete(oldPodIP, source.Kubernetes)

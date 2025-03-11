@@ -1478,10 +1478,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
 			require.NoError(t, err)
 			for _, n := range neighs {
-				for _, ip := range ips {
-					if n.IP.Equal(ip) {
-						return false
-					}
+				if slices.ContainsFunc(ips, n.IP.Equal) {
+					return false
 				}
 			}
 			return true
@@ -2235,10 +2233,8 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V6)
 			require.NoError(t, err)
 			for _, n := range neighs {
-				for _, ip := range ips {
-					if n.IP.Equal(ip) {
-						return false
-					}
+				if slices.ContainsFunc(ips, n.IP.Equal) {
+					return false
 				}
 			}
 			return true
@@ -2507,10 +2503,8 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 			require.NoError(t, err)
 			for _, n := range neighs {
-				for _, ip := range ips {
-					if n.IP.Equal(ip) {
-						return false
-					}
+				if slices.ContainsFunc(ips, n.IP.Equal) {
+					return false
 				}
 			}
 			return true
@@ -3257,10 +3251,8 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V4)
 			require.NoError(t, err)
 			for _, n := range neighs {
-				for _, ip := range ips {
-					if n.IP.Equal(ip) {
-						return false
-					}
+				if slices.ContainsFunc(ips, n.IP.Equal) {
+					return false
 				}
 			}
 			return true

@@ -793,7 +793,7 @@ type DNSZombieMapping struct {
 // or fields
 func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
 	return &DNSZombieMapping{
-		Names:           append([]string{}, zombie.Names...),
+		Names:           slices.Clone(zombie.Names),
 		IP:              zombie.IP,
 		DeletePendingAt: zombie.DeletePendingAt,
 		AliveAt:         zombie.AliveAt,

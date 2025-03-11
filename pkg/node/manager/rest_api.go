@@ -5,6 +5,7 @@ package manager
 
 import (
 	"math/rand/v2"
+	"slices"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -159,14 +160,11 @@ func (c *clusterNodesClient) NodeDelete(node nodeTypes.Node) error {
 	// If the node was added/updated and removed before the clusterNodesClient
 	// was aware of it then we can safely remove it from the list of added
 	// nodes and not set it in the list of removed nodes.
-	found := -1
-	for i, added := range c.NodesAdded {
-		if added.Name == node.Fullname() {
-			found = i
-		}
-	}
+	found := slices.IndexFunc(c.NodesAdded, func(added *models.NodeElement) bool {
+		return added.Name == node.Fullname()
+	})
 	if found != -1 {
-		c.NodesAdded = append(c.NodesAdded[:found], c.NodesAdded[found+1:]...)
+		c.NodesAdded = slices.Delete(c.NodesAdded, found, found+1)
 	} else {
 		c.NodesRemoved = append(c.NodesRemoved, node.GetModel())
 	}

@@ -29,7 +29,7 @@ func equalClusterSlices(a, b []map[string]interface{}) bool {
 	return slices.EqualFunc(a, bCopy, func(m1, m2 map[string]interface{}) bool {
 		for i, bm := range bCopy {
 			if reflect.DeepEqual(m1, bm) {
-				bCopy = append(bCopy[:i], bCopy[i+1:]...)
+				bCopy = slices.Delete(bCopy, i, i+1)
 				return true
 			}
 		}

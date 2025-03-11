@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1219,7 +1220,7 @@ func metricTextFormatFromPeerStatusMap(peerStatus map[string]uint32) string {
 	for key := range peerStatus {
 		keys = append(keys, key)
 	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	slices.Sort(keys)
 	for _, key := range keys {
 		buf.WriteString(fmt.Sprintf("hubble_relay_pool_peer_connection_status{status=\"%s\"} %d\n", key, peerStatus[key]))
 	}

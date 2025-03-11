@@ -642,11 +642,8 @@ func (s *ServiceCacheImpl) filterEndpoints(localEndpoints *Endpoints, svc *Servi
 			return localEndpoints
 		}
 
-		for _, hint := range backend.HintsForZones {
-			if hint == s.selfNodeZoneLabel {
-				filteredEndpoints.Backends[key] = backend
-				break
-			}
+		if slices.Contains(backend.HintsForZones, s.selfNodeZoneLabel) {
+			filteredEndpoints.Backends[key] = backend
 		}
 	}
 

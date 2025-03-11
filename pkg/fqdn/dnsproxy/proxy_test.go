@@ -1255,7 +1255,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	}
 
 	for i := 0; i < nEPs; i++ {
-		commonRules := append([]api.PortRuleDNS{}, defaultRules...)
+		commonRules := slices.Clone(defaultRules)
 		if i%everyNIsEqual != 0 {
 			commonRules = append(
 				commonRules,

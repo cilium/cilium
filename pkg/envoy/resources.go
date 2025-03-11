@@ -161,11 +161,9 @@ func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, ide
 	} else {
 		// Resource already exists, create a copy of it and insert
 		// the new IP address into its HostAddresses list, if not already there.
-		for _, addr := range npHost.HostAddresses {
-			if addr == cidrStr {
-				// IP already exists, nothing to add
-				return nil
-			}
+		if slices.Contains(npHost.HostAddresses, cidrStr) {
+			// IP already exists, nothing to add
+			return nil
 		}
 		hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 		hostAddresses = append(hostAddresses, npHost.HostAddresses...)
