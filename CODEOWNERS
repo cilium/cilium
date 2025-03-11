@@ -605,7 +605,7 @@ Makefile* @cilium/build
 /pkg/pprof @cilium/sig-foundations
 /pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
-/pkg/proxy/accesslog @cilium/proxy @cilium/api
+/pkg/proxy/accesslog/record.go @cilium/proxy @cilium/api
 /pkg/proxy/dns.go @cilium/proxy @cilium/fqdn
 /pkg/proxy/envoyproxy.go @cilium/proxy @cilium/envoy
 /pkg/rate/ @cilium/sig-agent
