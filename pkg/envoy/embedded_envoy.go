@@ -37,8 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
-
 const (
 	envoyLogLevelOff      = "off"
 	envoyLogLevelCritical = "critical"
