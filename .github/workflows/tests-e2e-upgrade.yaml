@@ -316,7 +316,7 @@ jobs:
           - name: '17'
             # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
             kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true,bpf.distributedLRU.enabled=true'
+            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
             ipv6: 'true'
@@ -328,7 +328,7 @@ jobs:
           - name: '18'
             # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
             kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true,bpf.distributedLRU.enabled=true'
+            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
             ipv6: 'true'
