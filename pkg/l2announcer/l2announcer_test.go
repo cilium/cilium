@@ -130,7 +130,6 @@ func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	return nil, nil
 }
 func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
-func (fs *fakeStore[T]) Release()                {}
 
 var _ resource.Resource[runtime.Object] = (*fakeResource[runtime.Object])(nil)
 
