@@ -204,7 +204,11 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		return
 	}
 
-	emf := &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
+	emf := &cachedEndpointMetadataFetcher{
+		k8sWatcher: d.k8sWatcher,
+		db:         d.db,
+		namespaces: d.namespaces,
+	}
 	d.endpointMetadataFetcher = emf
 
 	log.Info("Restoring endpoints...")
