@@ -1037,12 +1037,14 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 				metadata = append(metadata, ipcacheTypes.EncryptKey(encryptKey))
 			}
 
-			yield(ipcache.MU{
+			if !yield(ipcache.MU{
 				Prefix:   prefix,
 				Source:   source,
 				Resource: resource,
 				Metadata: metadata,
-			})
+			}) {
+				return
+			}
 		}
 	}
 }
