@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -14,6 +15,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -74,6 +77,9 @@ type BGPResourceManager struct {
 
 	// enable/disable status reporting
 	enableStatusReporting bool
+
+	bgpRouterIDIPPool *ipalloc.HashAllocator[string]
+	bgpRouterIDMap    map[string]*netip.Addr
 }
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
@@ -104,6 +110,23 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 
 	b.nodeConfigClient = b.clientset.CiliumV2().CiliumBGPNodeConfigs()
 
+	if p.DaemonConfig.BGPRouterIDAllocationMode == option.BGPRouterIDAllocationModeIPPool {
+		ipnet, err := netip.ParsePrefix(p.DaemonConfig.BGPRouterIDAllocationIPPool)
+		if err != nil {
+			b.logger.Error("Failed to parse BGP Router ID IP pool", logfields.Error, err)
+		}
+		if !ipnet.Addr().Is4() {
+			b.logger.Error("BGP Router ID IP pool must be an IPv4 address")
+		}
+
+		from, to := lbipam.RangeFromPrefix(ipnet)
+		// 10 router IDs are enough since we don't expect more than a few nodes to run BGP with upstream routers
+		b.bgpRouterIDIPPool, err = ipalloc.NewHashAllocator[string](from, to, 10)
+		if err != nil {
+			b.logger.Error("Failed to create BGP Router ID IP pool", logfields.Error, err)
+		}
+
+	}
 	// initialize jobs and register them with lifecycle
 	b.initializeJobs()
 
