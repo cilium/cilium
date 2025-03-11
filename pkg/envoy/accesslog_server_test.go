@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
@@ -37,7 +38,7 @@ type testNotifier struct {
 	l7    []string
 }
 
-func (n *testNotifier) NewProxyLogRecord(l *logger.LogRecord) error {
+func (n *testNotifier) NewProxyLogRecord(l *accesslog.LogRecord) error {
 	if l.HTTP != nil {
 		jsn, _ := json.Marshal(l.HTTP)
 		n.http = append(n.http, string(jsn))
