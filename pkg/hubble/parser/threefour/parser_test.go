@@ -107,18 +107,44 @@ func TestL34Decode(t *testing.T) {
 	// SOURCE          					DESTINATION           TYPE   SUMMARY
 	// 192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		// NOTIFY_CAPTURE_HDR
+		4,    // Trace type
+		7,    // Observation Point
+		0, 0, // Source
+		7, 124, 26, 57, // Hash
+		66, 0, 0, 0, // Original length
+		66, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
 		0x81,       // "established" trace reason with the encrypt bit set
 		0,          // flags
 		0, 0, 0, 0, // ifindex
-		246, 141, 178, 45, 33, 217, 246, 141, 178,
-		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
-		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, // Dst MAC
+		0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, // Src MAC
+		0x08, 0x00, // IPv4 ethertype
+		// IPv4 Header
+		0x45,  // Version (4), IHL (5)
+		0,     // TOS
+		0, 52, // length
+		234, 28, // ID
+		0x40, 0, // Flags (1), Offset
+		64,      // TTL
+		6,       // Protocol (TCP)
+		120, 49, // Checksum
+		192, 168, 60, 11, // Source IP
+		10, 16, 236, 178, // Destination IP
+		25, 43, 211, 206, 42, 239, 210, 28, 180,
+		// TCP
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
-		98, 0, 90, 176, 97, 0, 0}
+		98, 0, 90, 176, 97,
+		0, 0,
+	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -240,12 +266,36 @@ func TestL34Decode(t *testing.T) {
 	// SOURCE              DESTINATION          TYPE   SUMMARY
 	// ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
-		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		51, 51, 255, 0, 179, 229, 18, 145,
-		6, 226, 34, 26, 134, 221, 96, 0, 0, 0, 0, 32, 58, 255, 255, 2, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 1, 255, 0, 179, 229, 240, 13, 0, 0, 0, 0, 0, 0, 10,
-		16, 0, 0, 0, 0, 145, 149, 135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
+		4,       // Trace type
+		5,       // Observation point
+		168, 11, // Source
+		95, 22, 242, 184, // Hash
+		86, 0, 0, 0, // Original length
+		86, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
+		104, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		0,          // trace reason
+		0,          // flags
+		0, 0, 0, 0, // Ifindex
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		51, 51, 255, 0, 179, 229, // Dst MAC
+		18, 145, 6, 226, 34, 26, // Src MAC
+		134, 221, // IPv6 ethertype
+		// IPv6 Header
+		0x60,    // Version, TC (half)
+		0, 0, 0, // TC (half) + flow label
+		0, 32, // Length
+		58,                                                                                             // Next header (IPv6-ICMP)
+		255,                                                                                            // Hop limit
+		0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x00, 0xB3, 0xE5, // Src IPv6 address
+		0xF0, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x10, 0x00, 0x00, 0x00, 0x00, 0x91, 0x95, // Dst IPv6 address
+		// ICMPv6
+		135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
 		0, 0, 0, 10, 16, 0, 0, 0, 0, 179, 229, 1, 1, 18, 145, 6, 226, 34, 26, 0,
 		0, 0, 0, 0, 0}
 
