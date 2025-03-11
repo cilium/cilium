@@ -22,13 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type AccessLogServer struct {
 	logger             *slog.Logger
-	accessLogger       logger.ProxyAccessLogger
+	accessLogger       accesslog.ProxyAccessLogger
 	socketPath         string
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
@@ -36,7 +35,7 @@ type AccessLogServer struct {
 	bufferSize         uint
 }
 
-func newAccessLogServer(logger *slog.Logger, accessLogger logger.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
+func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
 	return &AccessLogServer{
 		logger:             logger,
 		accessLogger:       accessLogger,
@@ -195,10 +194,10 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
-	var l7tags logger.LogTag = func(lr *accesslog.LogRecord, endpointInfoRegistry logger.EndpointInfoRegistry) {}
+	var l7tags accesslog.LogTag = func(lr *accesslog.LogRecord, endpointInfoRegistry accesslog.EndpointInfoRegistry) {}
 
 	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
-		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
+		l7tags = accesslog.LogTags.HTTP(&accesslog.LogRecordHTTP{
 			Method:          httpLogEntry.Method,
 			Code:            int(httpLogEntry.Status),
 			URL:             ParseURL(httpLogEntry.Scheme, httpLogEntry.Host, httpLogEntry.Path),
@@ -220,9 +219,9 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 				kafkaTopics = kafkaLogEntry.Topics[1:] // Rest of the topics
 			}
 		}
-		l7tags = logger.LogTags.Kafka(kafkaRecord)
+		l7tags = accesslog.LogTags.Kafka(kafkaRecord)
 	} else if l7LogEntry := pblog.GetGenericL7(); l7LogEntry != nil {
-		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
+		l7tags = accesslog.LogTags.L7(&accesslog.LogRecordL7{
 			Proto:  l7LogEntry.GetProto(),
 			Fields: l7LogEntry.GetFields(),
 		})
@@ -233,7 +232,7 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 	// message. Swap source/destination info here for the response logs so that they are
 	// correct.
 	// TODO (jrajahalme): Consider doing this at our Envoy filters instead?
-	var addrInfo logger.AddressingInfo
+	var addrInfo accesslog.AddressingInfo
 	if flowType == accesslog.TypeResponse {
 		addrInfo.DstIPPort = pblog.SourceAddress
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.SourceSecurityId)
@@ -246,9 +245,9 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
 	}
 	r := s.accessLogger.NewLogRecord(flowType, pblog.IsIngress,
-		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
-		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
-		logger.LogTags.Addressing(ctx, addrInfo),
+		accesslog.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
+		accesslog.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
+		accesslog.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
 	s.accessLogger.Log(r)

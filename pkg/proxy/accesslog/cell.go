@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package logger
+package accesslog
 
 import (
 	"github.com/cilium/hive/cell"
@@ -14,7 +14,7 @@ var Cell = cell.Module(
 	"proxy-logger",
 	"Proxy Logger provides support for L7 proxy access flow logging",
 
-	cell.Provide(NewProcyAccessLogger),
+	cell.Provide(NewProxyAccessLogger),
 	cell.ProvidePrivate(newMonitorAgentLogRecordNotifier),
 	cell.Config(ProxyAccessLoggerConfig{}),
 )
