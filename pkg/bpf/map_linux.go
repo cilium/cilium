@@ -968,7 +968,7 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 		break
 	default:
 		bi.err = fmt.Errorf("unsupported map type %s, must be one either hash or lru-hash types", bi.m.Type())
-		return nil
+		return func(yield func(KP, VP) bool) {}
 	}
 
 	bi.chunkSize = startingChunkSize(int(bi.m.MaxEntries()))
