@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package logger
+package accesslog
 
 import (
 	"bytes"
@@ -23,23 +23,22 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // mockLogRecord is a log entry similar to the one used in fqdn.go for
 // DNS related events notification.
-func mockLogRecord(accessLogger ProxyAccessLogger) *accesslog.LogRecord {
+func mockLogRecord(accessLogger ProxyAccessLogger) *LogRecord {
 	return accessLogger.NewLogRecord(
-		accesslog.TypeResponse,
+		TypeResponse,
 		false,
-		func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
-			lr.TransportProtocol = accesslog.TransportProtocol(
+		func(lr *LogRecord, _ EndpointInfoRegistry) {
+			lr.TransportProtocol = TransportProtocol(
 				u8proto.ProtoIDs[strings.ToLower("udp")],
 			)
 		},
 		LogTags.Verdict(
-			accesslog.VerdictForwarded,
+			VerdictForwarded,
 			"just a benchmark",
 		),
 		LogTags.Addressing(context.Background(), AddressingInfo{
@@ -48,7 +47,7 @@ func mockLogRecord(accessLogger ProxyAccessLogger) *accesslog.LogRecord {
 			SrcIPPort:   "53",
 			SrcIdentity: 1,
 		}),
-		LogTags.DNS(&accesslog.LogRecordDNS{
+		LogTags.DNS(&LogRecordDNS{
 			Query: "data.test.svc.cluster.local",
 			IPs: []netip.Addr{
 				netip.MustParseAddr("1.1.1.1"),
@@ -60,7 +59,7 @@ func mockLogRecord(accessLogger ProxyAccessLogger) *accesslog.LogRecord {
 				"alt1.test.svc.cluster.local",
 				"alt2.test.svc.cluster.local",
 			},
-			ObservationSource: accesslog.DNSSourceProxy,
+			ObservationSource: DNSSourceProxy,
 			RCode:             dns.RcodeSuccess,
 			QTypes:            []uint16{dns.TypeA, dns.TypeAAAA},
 			AnswerTypes:       []uint16{dns.TypeA, dns.TypeAAAA},
@@ -131,7 +130,7 @@ func NewMockLogNotifier(monitor agent.Agent) *MockLogNotifier {
 }
 
 // NewProxyLogRecord sends the event to the monitor agent to notify the listeners.
-func (n *MockLogNotifier) NewProxyLogRecord(l *accesslog.LogRecord) error {
+func (n *MockLogNotifier) NewProxyLogRecord(l *LogRecord) error {
 	return n.monitorAgent.SendEvent(api.MessageTypeAccessLog, *l)
 }
 
@@ -163,7 +162,7 @@ var benchCases = []struct {
 }
 
 func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
-	accessLogger := NewProcyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
+	accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
 	node.WithTestLocalNodeStore(func() {
 		record := mockLogRecord(accessLogger)
 		for _, bm := range benchCases {
@@ -262,7 +261,7 @@ func BenchmarkLogNotifierWithListeners(b *testing.B) {
 		listener := NewMockMonitorListener(cfg.MonitorQueueSize)
 		notifier := NewMockLogNotifier(monitor)
 		notifier.RegisterNewListener(listener)
-		accessLogger := NewProcyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
+		accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
 
 		lc.Append(cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {

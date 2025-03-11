@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package logger
+package accesslog
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -34,7 +33,7 @@ const (
 )
 
 // LogTag attaches a tag to a log record
-type LogTag func(lr *accesslog.LogRecord, endpointInfoRegistry EndpointInfoRegistry)
+type LogTag func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry)
 
 // LogTags are optional structured tags that can be attached to log records.
 // See NewLogRecord() and ApplyTags() for example usage.
@@ -43,8 +42,8 @@ var LogTags logTags
 type logTags struct{}
 
 // Verdict attach verdict information to the log record
-func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+func (logTags) Verdict(v FlowVerdict, info string) LogTag {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Verdict = v
 		lr.Info = info
 	}
@@ -52,7 +51,7 @@ func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
 
 // Timestamp overwrites the starting timestamp of the log record
 func (logTags) Timestamp(ts time.Time) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 	}
 }
@@ -74,7 +73,7 @@ type AddressingInfo struct {
 // Addressing attaches addressing information about the source and destination
 // to the logrecord
 func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
-	return func(lr *accesslog.LogRecord, endpointInfoRegistry EndpointInfoRegistry) {
+	return func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry) {
 		lr.SourceEndpoint.ID = i.SrcEPID
 		if i.SrcSecIdentity != nil {
 			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
@@ -86,7 +85,7 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 		addrPort, err := netip.ParseAddrPort(i.SrcIPPort)
 		if err == nil {
 			if addrPort.Addr().Is6() {
-				lr.IPVersion = accesslog.VersionIPV6
+				lr.IPVersion = VersionIPV6
 			}
 
 			lr.SourceEndpoint.Port = addrPort.Port()
@@ -110,29 +109,29 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 }
 
 // HTTP attaches HTTP information to the log record
-func (logTags) HTTP(h *accesslog.LogRecordHTTP) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+func (logTags) HTTP(h *LogRecordHTTP) LogTag {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.HTTP = h
 	}
 }
 
 // Kafka attaches Kafka information to the log record
-func (logTags) Kafka(k *accesslog.LogRecordKafka) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+func (logTags) Kafka(k *LogRecordKafka) LogTag {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.Kafka = k
 	}
 }
 
 // DNS attaches DNS information to the log record
-func (logTags) DNS(d *accesslog.LogRecordDNS) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+func (logTags) DNS(d *LogRecordDNS) LogTag {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.DNS = d
 	}
 }
 
 // L7 attaches generic L7 information to the log record
-func (logTags) L7(h *accesslog.LogRecordL7) LogTag {
-	return func(lr *accesslog.LogRecord, _ EndpointInfoRegistry) {
+func (logTags) L7(h *LogRecordL7) LogTag {
+	return func(lr *LogRecord, _ EndpointInfoRegistry) {
 		lr.L7 = h
 	}
 }
@@ -147,5 +146,5 @@ type EndpointInfoRegistry interface {
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr)
+	FillEndpointInfo(ctx context.Context, info *EndpointInfo, addr netip.Addr)
 }

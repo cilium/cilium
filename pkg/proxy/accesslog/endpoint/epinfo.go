@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
@@ -28,7 +27,7 @@ type endpointInfoRegistry struct {
 	identityAllocator cache.IdentityAllocator
 }
 
-func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanager.EndpointsLookup, identityAllocator cache.IdentityAllocator) logger.EndpointInfoRegistry {
+func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanager.EndpointsLookup, identityAllocator cache.IdentityAllocator) accesslog.EndpointInfoRegistry {
 	// **NOTE** The global identity allocator is not yet initialized here;
 	// that happens in the daemon init via InitIdentityAllocator().
 	// Only the local identity allocator is initialized here.

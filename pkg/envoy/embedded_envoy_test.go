@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -251,7 +250,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 type proxyAccessLoggerMock struct{}
 
-func (p *proxyAccessLoggerMock) NewLogRecord(t accesslog.FlowType, ingress bool, tags ...logger.LogTag) *accesslog.LogRecord {
+func (p *proxyAccessLoggerMock) NewLogRecord(t accesslog.FlowType, ingress bool, tags ...accesslog.LogTag) *accesslog.LogRecord {
 	panic("unimplemented")
 }
 

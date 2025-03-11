@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
 func TestParseURL(t *testing.T) {
@@ -113,7 +112,7 @@ func TestKafkaLogMultipleTopics(t *testing.T) {
 	})
 }
 
-func newTestAccessLogServer(t *testing.T, notifier logger.LogRecordNotifier) *AccessLogServer {
-	accessLogger := logger.NewProcyAccessLogger(hivetest.Logger(t), logger.ProxyAccessLoggerConfig{}, notifier, nil)
+func newTestAccessLogServer(t *testing.T, notifier accesslog.LogRecordNotifier) *AccessLogServer {
+	accessLogger := accesslog.NewProxyAccessLogger(hivetest.Logger(t), accesslog.ProxyAccessLoggerConfig{}, notifier, nil)
 	return newAccessLogServer(hivetest.Logger(t), accessLogger, "", 0, nil, 0)
 }

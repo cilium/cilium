@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package logger
+package accesslog
 
 import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -17,11 +16,11 @@ type ProxyAccessLogger interface {
 	//
 	// Example:
 	// NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
-	NewLogRecord(t accesslog.FlowType, ingress bool, tags ...LogTag) *accesslog.LogRecord
+	NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord
 
 	// Log logs the given log record to the flow log (if flow debug logging is enabled)
 	// and sends it of to the monitor agent via notifier.
-	Log(lr *accesslog.LogRecord)
+	Log(lr *LogRecord)
 }
 
 type proxyAccessLogger struct {
@@ -39,10 +38,10 @@ type proxyAccessLogger struct {
 // should be avoided (i.e.: avoid using a single lock for slow logging operations).
 type LogRecordNotifier interface {
 	// NewProxyLogRecord is called for each new log record
-	NewProxyLogRecord(l *accesslog.LogRecord) error
+	NewProxyLogRecord(l *LogRecord) error
 }
 
-func NewProcyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry) ProxyAccessLogger {
+func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry) ProxyAccessLogger {
 	return &proxyAccessLogger{
 		logger:               logger,
 		notifier:             notifier,
@@ -51,21 +50,21 @@ func NewProcyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, n
 	}
 }
 
-func (r *proxyAccessLogger) NewLogRecord(t accesslog.FlowType, ingress bool, tags ...LogTag) *accesslog.LogRecord {
-	var observationPoint accesslog.ObservationPoint
+func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord {
+	var observationPoint ObservationPoint
 	if ingress {
-		observationPoint = accesslog.Ingress
+		observationPoint = Ingress
 	} else {
-		observationPoint = accesslog.Egress
+		observationPoint = Egress
 	}
 
-	lr := accesslog.LogRecord{
+	lr := LogRecord{
 		Type:              t,
 		ObservationPoint:  observationPoint,
-		IPVersion:         accesslog.VersionIPv4,
+		IPVersion:         VersionIPv4,
 		TransportProtocol: 6,
 		Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-		NodeAddressInfo:   accesslog.NodeAddressInfo{},
+		NodeAddressInfo:   NodeAddressInfo{},
 	}
 
 	if ip := node.GetIPv4(); ip != nil {
@@ -83,7 +82,7 @@ func (r *proxyAccessLogger) NewLogRecord(t accesslog.FlowType, ingress bool, tag
 	return &lr
 }
 
-func (r *proxyAccessLogger) Log(lr *accesslog.LogRecord) {
+func (r *proxyAccessLogger) Log(lr *LogRecord) {
 	if flowdebug.Enabled() {
 		r.logger.Debug("Logging flow record", r.getLogFields(lr)...)
 	}
@@ -93,7 +92,7 @@ func (r *proxyAccessLogger) Log(lr *accesslog.LogRecord) {
 	r.notifier.NewProxyLogRecord(lr)
 }
 
-func (r *proxyAccessLogger) getLogFields(lr *accesslog.LogRecord) []any {
+func (r *proxyAccessLogger) getLogFields(lr *LogRecord) []any {
 	fields := []any{}
 
 	fields = append(fields,
