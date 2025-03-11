@@ -28,7 +28,17 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+func setupTest(t *testing.T) {
+	t.Helper()
+
+	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
+	require.NoError(t, err)
+	defer apiStateFile.Close()
+	K8sAPIServerFilePath = apiStateFile.Name()
+}
+
 func Test_runHeartbeat(t *testing.T) {
+	setupTest(t)
 	// k8s api server never replied back in the expected time. We should close all connections
 	k8smetrics.LastSuccessInteraction.Reset()
 	time.Sleep(2 * time.Millisecond)
@@ -194,6 +204,7 @@ func Test_runHeartbeat(t *testing.T) {
 }
 
 func Test_client(t *testing.T) {
+	setupTest(t)
 	var requests lock.Map[string, *http.Request]
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
@@ -269,15 +280,12 @@ func Test_client(t *testing.T) {
 }
 
 func Test_clientMultipleAPIServers(t *testing.T) {
+	setupTest(t)
 	var requests lock.Map[string, *http.Request]
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
 		return v
 	}
-	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
-	require.NoError(t, err)
-	K8sAPIServerFilePath = apiStateFile.Name()
-
 	servers := make([]*httptest.Server, 3)
 	for i := 0; i < 3; i++ {
 		servers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +337,7 @@ func Test_clientMultipleAPIServers(t *testing.T) {
 	require.Equal(t, uint64(99), semVer.Minor)
 
 	// Test that all different clientsets are wired correctly.
-	_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})
+	_, err := clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, getRequest("/api/v1/namespaces/test/pods/pod"))
 
@@ -349,15 +357,15 @@ func Test_clientMultipleAPIServers(t *testing.T) {
 }
 
 func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
-	var requests lock.Map[string, *http.Request]
+	setupTest(t)
+	var (
+		requests lock.Map[string, *http.Request]
+		err      error
+	)
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
 		return v
 	}
-	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
-	require.NoError(t, err)
-	defer apiStateFile.Close()
-	K8sAPIServerFilePath = apiStateFile.Name()
 
 	servers := make([]*httptest.Server, 3)
 	for i := 0; i < len(servers); i++ {
@@ -461,15 +469,15 @@ func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
 }
 
 func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
-	var requests lock.Map[string, *http.Request]
+	setupTest(t)
+	var (
+		requests lock.Map[string, *http.Request]
+		err      error
+	)
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
 		return v
 	}
-	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
-	require.NoError(t, err)
-	defer apiStateFile.Close()
-	K8sAPIServerFilePath = apiStateFile.Name()
 
 	servers := make([]*httptest.Server, 4)
 	for i := 0; i < len(servers); i++ {
@@ -558,12 +566,16 @@ func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
 }
 
 func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
-	var healthServer lock.Map[string, string]
+	setupTest(t)
+	var (
+		requests     lock.Map[string, *http.Request]
+		err          error
+		healthServer lock.Map[string, string]
+	)
 	getServer := func(k string) string {
 		v, _ := healthServer.Load(k)
 		return v
 	}
-	var requests lock.Map[string, *http.Request]
 	getRequest := func(k string) *http.Request {
 		v, _ := requests.Load(k)
 		return v
@@ -665,7 +677,17 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 	require.NoError(t, h.Stop(tlog, ctx))
 }
 
+func setupBenchmark(b *testing.B) {
+	b.Helper()
+
+	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
+	require.NoError(b, err)
+	defer apiStateFile.Close()
+	K8sAPIServerFilePath = apiStateFile.Name()
+}
+
 func BenchmarkIsConnReady(b *testing.B) {
+	setupBenchmark(b)
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -707,11 +729,7 @@ func BenchmarkIsConnReady(b *testing.B) {
 }
 
 func BenchmarkIsConnReadyMultipleAPIServers(b *testing.B) {
-	apiStateFile, err := os.CreateTemp("", "kubeapi_state")
-	require.NoError(b, err)
-	defer apiStateFile.Close()
-	K8sAPIServerFilePath = apiStateFile.Name()
-
+	setupBenchmark(b)
 	servers := make([]*httptest.Server, 3)
 	for i := 0; i < len(servers); i++ {
 		servers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
