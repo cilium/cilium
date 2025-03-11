@@ -47,10 +47,8 @@ func (f filterTracker) String() string {
 }
 
 func (f *filterTracker) add(name string) bool {
-	for _, exists := range f.changed {
-		if name == exists {
-			return false
-		}
+	if slices.Contains(f.changed, name) {
+		return false
 	}
 
 	// wipe the existing values if this is the first time usage of this

@@ -5,6 +5,7 @@ package policy
 
 import (
 	"log/slog"
+	"slices"
 	"sort"
 	"sync"
 
@@ -125,10 +126,8 @@ func (l *labelIdentitySelector) xxxMatches(labels labels.LabelArray) bool {
 func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	if len(l.namespaces) > 0 {
 		if ns != "" {
-			for i := range l.namespaces {
-				if ns == l.namespaces[i] {
-					return true
-				}
+			if slices.Contains(l.namespaces, ns) {
+				return true
 			}
 		}
 		// namespace required, but no match
@@ -268,9 +267,7 @@ func (i *identitySelector) updateSelections(nextVersion *versioned.Tx) {
 	// Sort the numeric identities so that the map iteration order
 	// does not matter. This makes testing easier, but may help
 	// identifying changes easier also otherwise.
-	sort.Slice(selections, func(i, j int) bool {
-		return selections[i] < selections[j]
-	})
+	slices.Sort(selections)
 	i.setSelections(selections, nextVersion)
 }
 

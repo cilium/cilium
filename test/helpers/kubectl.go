@@ -17,6 +17,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -4395,11 +4396,8 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 			k8sService = &k8sSvc
 			break
 		}
-		for _, clusterIP := range k8sSvc.Spec.ClusterIPs {
-			if clusterIP == cSvc.Status.Realized.FrontendAddress.IP {
-				k8sService = &k8sSvc
-				break
-			}
+		if slices.Contains(k8sSvc.Spec.ClusterIPs, cSvc.Status.Realized.FrontendAddress.IP) {
+			k8sService = &k8sSvc
 		}
 		if k8sService != nil {
 			break

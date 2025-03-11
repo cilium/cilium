@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -177,13 +178,7 @@ func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decorati
 }
 
 func isEnded(levelsEnded []int, level int) bool {
-	for _, l := range levelsEnded {
-		if l == level {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(levelsEnded, level)
 }
 
 func dumpVal(level int, node *node) string {

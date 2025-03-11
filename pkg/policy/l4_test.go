@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -449,7 +450,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 			pRs := make([]struct{ startPort, endPort uint16 }, len(portRanges))
 			copy(pRs, portRanges)
 			// Iterate over every port range except the one being tested.
-			for _, altPR := range append(pRs[:i], pRs[i+1:]...) {
+			for _, altPR := range slices.Delete(pRs, i, i+1) {
 				t.Logf("Checking for port range %d-%d on main port range %d-%d", altPR.startPort, altPR.endPort, portRange.startPort, portRange.endPort)
 				altStartPort := fmt.Sprintf("%d", altPR.startPort)
 				// This range should not exist yet.

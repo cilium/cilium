@@ -4,6 +4,7 @@
 package format
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -42,11 +43,5 @@ func (i *Uint16Flags) Type() string {
 
 // Has returns true of value exist
 func (i *Uint16Flags) Has(value uint16) bool {
-	for _, v := range *i {
-		if v == value {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(*i, value)
 }

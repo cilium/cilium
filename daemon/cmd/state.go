@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -318,7 +319,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		if err := d.endpointManager.RestoreEndpoint(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
-			state.restored = append(state.restored[:i], state.restored[i+1:]...)
+			state.restored = slices.Delete(state.restored, i, i+1)
 		}
 	}
 

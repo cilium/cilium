@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/user"
 	"runtime"
+	"slices"
 )
 
 // A dockerGroupCheck checks that the current user is in the docker group.
@@ -36,10 +37,8 @@ func (dockerGroupCheck) Run() (checkResult, string) {
 		return checkFailed, err.Error()
 	}
 
-	for _, groupID := range groupIDs {
-		if groupID == dockerGroup.Gid {
-			return checkOK, fmt.Sprintf("user %s in docker group", currentUser.Username)
-		}
+	if slices.Contains(groupIDs, dockerGroup.Gid) {
+		return checkOK, fmt.Sprintf("user %s in docker group", currentUser.Username)
 	}
 
 	return checkError, fmt.Sprintf("user %s not in docker group", currentUser.Username)

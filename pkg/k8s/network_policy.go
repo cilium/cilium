@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -104,12 +105,7 @@ func parseNetworkPolicyPeer(namespace string, peer *slim_networkingv1.NetworkPol
 }
 
 func hasV1PolicyType(pTypes []slim_networkingv1.PolicyType, typ slim_networkingv1.PolicyType) bool {
-	for _, pType := range pTypes {
-		if pType == typ {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(pTypes, typ)
 }
 
 // ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
