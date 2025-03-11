@@ -50,13 +50,15 @@ You may change the configuration of a running installation in three ways:
 #. Via ``cilium config set``
 
    The `Cilium CLI <https://github.com/cilium/cilium-cli/>`_ has the ability
-   to update individual values in the ``cilium-config`` ConfigMap. This will
-   not affect running pods; pods must be deleted manually to pick up any changes.
+   to update individual values in the ``cilium-config`` ConfigMap. By default
+   Cilium Agent pods are restarted when configuration is changed. To gradually
+   restart do ``cilium config set --restart=false ...`` and manually delete
+   agent pods to pick up the changes.
 
 #. Via ``CiliumNodeConfig`` objects
 
    Cilium also supports configuration on sets of nodes. See the
-   :ref:`per-node-configuration` page for more details. Likewise, this also requires
+   :ref:`per-node-configuration` page for more details. This requires
    that pods be manually deleted for changes to take effect.
 
 
