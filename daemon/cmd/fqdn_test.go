@@ -91,7 +91,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 
 type noopNotifier struct{}
 
-func (*noopNotifier) NewProxyLogRecord(l *logger.LogRecord) error { return nil }
+func (*noopNotifier) NewProxyLogRecord(l *accesslog.LogRecord) error { return nil }
 
 type dummyInfoRegistry struct{}
 
