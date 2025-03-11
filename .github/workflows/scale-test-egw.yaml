@@ -353,7 +353,7 @@ jobs:
           # all updates to the default branch and (2) continually
           # updating CL2 may impact the stability of the scale test
           # results.
-          ref: ce821d6232cee6719dd86e7e68eee361e337e92a
+          ref: d51da38a445d653c6f7cd039728d313cb31290b9
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
