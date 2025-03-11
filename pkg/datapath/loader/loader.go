@@ -477,9 +477,25 @@ func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
-	// Selectively attach bpf_host to cilium_wg0.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
+	// Selectively attach/detach bpf_host to cilium_wg0.
+	switch {
+	case option.Config.NeedBPFHostOnWireGuardDevice():
+		// Hook needed, attach bpf_host to cilium_wg0.
 		devices = append(devices, wgTypes.IfaceName)
+	case option.Config.EnableWireguard:
+		// If WireGuard is not enabled, then either the interface
+		// does not exists or it is removed.
+		// If WireGuard is enabled, detach bpf_host from cilium_wg0.
+		iface, err := safenetlink.LinkByName(wgTypes.IfaceName)
+		if err != nil {
+			log.WithError(err).WithField("device", wgTypes.IfaceName).Warn("Link does not exist")
+			break
+		}
+		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
+		if err := detachSKBProgram(iface, symbolFromHostNetdevEp,
+			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+			return fmt.Errorf("interface %s ingress: %w", wgTypes.IfaceName, err)
+		}
 	}
 
 	if option.Config.EnableIPIPTermination {
@@ -753,9 +769,16 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
-		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s egress: %w", device, err)
+	if option.Config.NeedEgressOnWireGuardDevice() {
+		if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
+			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s egress: %w", device, err)
+		}
+	} else {
+		if err := detachSKBProgram(device, symbolToWireguard,
+			linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
+			log.WithField("device", device).Error(err)
+		}
 	}
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
