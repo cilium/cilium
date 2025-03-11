@@ -1025,23 +1025,32 @@ func TestBatchIteratorTypes(t *testing.T) {
 	iter := NewBatchIterator[TestKey, TestValue](m)
 	iter.IterateAll(context.TODO())
 	assert.Error(t, iter.Err())
+	assert.NotNil(t, iter)
 }
 
 func TestBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]) {
+	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]) {
+		makeKey := func(i int) MapKey {
+			// Note: We use a lpm key type as it is compatible with lpmtrie map tests
+			// and works fine for other tests.
+			return &TestLPMKey{
+				PrefixLen: 32,
+				Key:       uint32(i),
+			}
+		}
 		m := NewMap("cilium_test",
 			mapType,
-			&TestKey{},
+			makeKey(0),
 			&TestValue{},
 			mapSize,
 			0,
 		)
-		assert.NoError(t, m.OpenOrCreate())
+		require.NoError(t, m.OpenOrCreate())
 		defer assert.NoError(t, m.UnpinIfExists())
 		for i := range size {
-			mapKey := &TestKey{Key: uint32(i)}
+			mapKey := makeKey(i)
 			mapValue := &TestValue{Value: uint32(i)}
 			err := m.Update(mapKey, mapValue)
 			assert.NoError(t, err)
@@ -1049,7 +1058,7 @@ func TestBatchIterator(t *testing.T) {
 		ks := sets.New[int]()
 		vs := sets.New[int]()
 
-		iter := NewBatchIterator[TestKey, TestValue](m)
+		iter := NewBatchIterator[TestLPMKey, TestValue](m)
 		count := 0
 		for k, v := range iter.IterateAll(context.TODO(), opts...) {
 			count++
@@ -1071,7 +1080,7 @@ func TestBatchIterator(t *testing.T) {
 	for _, test := range []struct {
 		mapSize int
 		size    int
-		opts    []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]
+		opts    []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]
 		// LRU hash maps aren't totally safe to test like this, even if you're
 		// within the max map size number of elements, in practice the kernel
 		// will occasionally do a LRU eviction causing failures.
@@ -1087,8 +1096,8 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 13,
-			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
-				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
+			opts: []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]{
+				WithMaxRetries[TestLPMKey, TestValue](13), WithStartingChunkSize[TestLPMKey, TestValue](1)},
 			unsafeLRU: true,
 		},
 		{
@@ -1098,16 +1107,19 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 12,
-			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
-				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
+			opts: []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]{
+				WithMaxRetries[TestLPMKey, TestValue](1), WithStartingChunkSize[TestLPMKey, TestValue](1 << 13)},
 			unsafeLRU: true,
 		},
 	} {
-		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+		t.Run(fmt.Sprintf("hash size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
 			runTest(ebpf.Hash, test.size, test.mapSize, t, test.opts...)
 		})
+		t.Run(fmt.Sprintf("lpmtrie size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+			runTest(ebpf.LPMTrie, test.size, test.mapSize, t, test.opts...)
+		})
 		if !test.unsafeLRU {
-			t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+			t.Run(fmt.Sprintf("hashlru size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
 				runTest(ebpf.LRUHash, test.size, test.mapSize, t, test.opts...)
 			})
 		}
