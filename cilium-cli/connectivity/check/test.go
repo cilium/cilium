@@ -300,7 +300,10 @@ func (t *Test) willRun() (bool, string) {
 func (t *Test) finalize() {
 	t.Debug("Finalizing Test", t.Name())
 
-	for _, f := range t.finalizers {
+	// Iterate finalizers in backward order.
+	// As an example, first we create secrets that are referenced in policies.
+	// When performing cleanup, we want to first delete policies and then secrets.
+	for _, f := range slices.Backward(t.finalizers) {
 		// Use a detached context to make sure this call is not affected by
 		// context cancellation. Usually, finalization (e.g., netpol removal)
 		// needs to happen even when the user interrupted the program.
