@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/stretchr/testify/assert"
@@ -370,53 +371,114 @@ func TestDecodeTraceNotify(t *testing.T) {
 }
 
 func TestDecodeDropNotify(t *testing.T) {
-	buf := &bytes.Buffer{}
-	dn := monitor.DropNotify{
-		Type:     byte(monitorAPI.MessageTypeDrop),
-		File:     1, // bpf_host.c
-		Line:     42,
-		SrcLabel: 123,
-		DstLabel: 456,
-	}
-	err := binary.Write(buf, byteorder.Native, &dn)
-	require.NoError(t, err)
-	buffer := gopacket.NewSerializeBuffer()
-	err = gopacket.SerializeLayers(buffer,
+	packetBuffer := gopacket.NewSerializeBuffer()
+	if err := gopacket.SerializeLayers(packetBuffer,
 		gopacket.SerializeOptions{},
 		&layers.Ethernet{
-			SrcMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
-			DstMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
+			SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+			DstMAC:       net.HardwareAddr{4, 5, 6, 7, 8, 9},
+			EthernetType: layers.EthernetTypeIPv4,
 		},
 		&layers.IPv4{
+			IHL:   5,
 			SrcIP: net.IPv4(1, 2, 3, 4),
 			DstIP: net.IPv4(1, 2, 3, 4),
 		},
-	)
-	require.NoError(t, err)
-	buf.Write(buffer.Bytes())
-	require.NoError(t, err)
+	); err != nil {
+		t.Fatalf("SerializeLayers(...) buffer: %v", err)
+	}
+
+	SrcLabel := identity.NumericIdentity(123)
+	DstLabel := identity.NumericIdentity(456)
+
+	dropNotify := func(version uint16) monitor.DropNotify {
+		return monitor.DropNotify{
+			Type:     byte(monitorAPI.MessageTypeDrop),
+			File:     1, // bpf_host.c
+			Version:  version,
+			SrcLabel: SrcLabel,
+			DstLabel: DstLabel,
+		}
+	}
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == uint32(dn.SrcLabel) {
-				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
-			} else if securityIdentity == uint32(dn.DstLabel) {
-				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			m := map[identity.NumericIdentity][]string{
+				SrcLabel: {"k8s:src=label"},
+				DstLabel: {"k8s:dst=label"},
 			}
-			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+
+			v, ok := m[identity.NumericIdentity(securityIdentity)]
+			if !ok {
+				return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+			}
+			return &identity.Identity{Labels: labels.NewLabelsFromModel(v)}, nil
 		},
 	}
 
 	parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
 	require.NoError(t, err)
+	testCases := []struct {
+		name      string
+		dn        any
+		srcLabels []string
+		dstLabels []string
+		want      *flowpb.Flow
+	}{
+		{
+			name:      "v1",
+			dn:        dropNotify(1),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type: flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{
+					Type: 1,
+				},
+				Summary: "IPv4",
+				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			n := tc.dn
+			buf := &bytes.Buffer{}
+			if err := binary.Write(buf, byteorder.Native, n); err != nil {
+				t.Fatalf("Write(...) %T to buffer: %v", n, err)
+			}
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(buf.Bytes(), f)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
-	assert.NotNil(t, f.GetFile())
-	assert.Equal(t, "bpf_host.c", f.GetFile().GetName())
-	assert.Equal(t, uint32(42), f.GetFile().GetLine())
+			buf.Write(packetBuffer.Bytes())
+
+			f := &flowpb.Flow{}
+			if err := parser.Decode(buf.Bytes(), f); err != nil {
+				t.Fatalf("parser.Decode(bytes, f): %v", err)
+
+			}
+			require.NoError(t, err)
+
+			if diff := cmp.Diff(tc.want, f, cmpopts.IgnoreFields(flowpb.Flow{}, "File"), protocmp.Transform()); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
