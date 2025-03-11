@@ -5,6 +5,7 @@ package limits
 
 import (
 	"context"
+	"maps"
 
 	openapi "github.com/cilium/cilium/pkg/alibabacloud/api"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -28,9 +29,7 @@ func Update(limitMap map[string]ipamTypes.Limits) {
 	limits.Lock()
 	defer limits.Unlock()
 
-	for k, v := range limitMap {
-		limits.m[k] = v
-	}
+	maps.Copy(limits.m, limitMap)
 }
 
 // Get returns the instance limits of a particular instance type.

@@ -5,6 +5,7 @@ package labels
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/sirupsen/logrus"
 
@@ -74,13 +75,9 @@ func (o *OpLabels) SplitUserLabelChanges(lbls Labels) (add, del Labels) {
 func (o *OpLabels) IdentityLabels() Labels {
 	enabled := make(Labels, len(o.Custom)+len(o.OrchestrationIdentity))
 
-	for k, v := range o.Custom {
-		enabled[k] = v
-	}
+	maps.Copy(enabled, o.Custom)
 
-	for k, v := range o.OrchestrationIdentity {
-		enabled[k] = v
-	}
+	maps.Copy(enabled, o.OrchestrationIdentity)
 
 	return enabled
 }
@@ -98,21 +95,13 @@ func (o *OpLabels) GetIdentityLabel(key string) (l Label, found bool) {
 func (o *OpLabels) AllLabels() Labels {
 	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
 
-	for k, v := range o.Custom {
-		all[k] = v
-	}
+	maps.Copy(all, o.Custom)
 
-	for k, v := range o.Disabled {
-		all[k] = v
-	}
+	maps.Copy(all, o.Disabled)
 
-	for k, v := range o.OrchestrationIdentity {
-		all[k] = v
-	}
+	maps.Copy(all, o.OrchestrationIdentity)
 
-	for k, v := range o.OrchestrationInfo {
-		all[k] = v
-	}
+	maps.Copy(all, o.OrchestrationInfo)
 	return all
 }
 

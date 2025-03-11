@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
@@ -229,9 +230,7 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 	// manager mutex quickly again
 	controllers := controllerMap{}
 	m.mutex.RLock()
-	for key, c := range m.controllers {
-		controllers[key] = c
-	}
+	maps.Copy(controllers, m.controllers)
 	m.mutex.RUnlock()
 
 	statuses := models.ControllerStatuses{}

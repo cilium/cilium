@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 	"log/slog"
+	"maps"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,9 +168,7 @@ func mergeMap(left, right map[string]string) map[string]string {
 	if left == nil {
 		return right
 	} else {
-		for key, value := range right {
-			left[key] = value
-		}
+		maps.Copy(left, right)
 	}
 	return left
 }

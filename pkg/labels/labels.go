@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"strings"
@@ -625,9 +626,7 @@ func (l Labels) GetModel() []string {
 //
 //	Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
 func (l Labels) MergeLabels(from Labels) {
-	for k, v := range from {
-		l[k] = v
-	}
+	maps.Copy(l, from)
 }
 
 // Remove is similar to MergeLabels, but returns a new Labels object with the
