@@ -741,6 +741,7 @@ jobs:
             ${EXTRA[@]}" >> $GITHUB_OUTPUT
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        continue-on-error: ${{ matrix.quarantined || false }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -752,6 +753,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
@@ -760,6 +762,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
+        continue-on-error: ${{ matrix.quarantined || false }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -768,6 +771,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
+        continue-on-error: ${{ matrix.quarantined || false }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -777,10 +781,12 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Setup conn disrupt tests after a flush-ct Cilium tests
+        continue-on-error: ${{ matrix.quarantined || false }}
         shell: bash
         run: |
           cilium connectivity test \
@@ -790,12 +796,14 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Features tested before downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
       - name: Start unencrypted packets check for downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
@@ -805,6 +813,7 @@ jobs:
 
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -818,10 +827,12 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -833,6 +844,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
@@ -841,6 +853,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -850,6 +863,7 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Run concurrent Cilium tests
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -860,16 +874,19 @@ jobs:
             ${{ steps.cli-flags.outputs.flags }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
+        continue-on-error: ${{ matrix.quarantined || false }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ !success() }}
         shell: bash
         run: |
@@ -885,6 +902,7 @@ jobs:
           fi
 
       - name: Upload artifacts
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ !success() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
@@ -892,6 +910,7 @@ jobs:
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ always() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
@@ -899,6 +918,7 @@ jobs:
           path: cilium-junits/*.xml
 
       - name: Upload features tested
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ always() }}
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
@@ -906,6 +926,7 @@ jobs:
           path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
+        continue-on-error: ${{ matrix.quarantined || false }}
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
