@@ -177,8 +177,6 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health c
 		return len(remaining) == 0, nil
 	})
 
-	pcs.Release()
-
 	// We use OK here since the semantics of Stopped() in the OneShot job is still undefined.
 	if err == nil {
 		health.OK("Cleanup job is done successfully")
