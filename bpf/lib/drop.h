@@ -30,9 +30,15 @@ struct drop_notify {
 	__u8		file;
 	__s8		ext_error;
 	__u32		ifindex;
+	__u32		unused;
+	__u64		ip_trace_id;
 };
 
 #ifdef DROP_NOTIFY
+
+/* Drop notify version 2 includes IP Trace support. */
+#define NOTIFY_DROP_VER 2
+
 /*
  * We pass information in the meta area as follows:
  *
@@ -54,6 +60,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
@@ -78,7 +85,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
 		.src_label	= ctx_load_meta(ctx, 0),
 		.dst_label	= ctx_load_meta(ctx, 1),
 		.dst_id		= ctx_load_meta(ctx, 3),
@@ -86,6 +93,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
+		.ip_trace_id    = ip_trace_id,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,

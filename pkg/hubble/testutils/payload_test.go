@@ -26,16 +26,16 @@ func decodeHex(s string) []byte {
 
 func TestCreateL3L4Payload(t *testing.T) {
 	// These contain TraceNotify headers plus the ethernet header of the packet
-	packetv4Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a080045000054bfe900003f019ae2")
-	packetv4802Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a81000202080045000054bfe900003f019ae2")
-	packetv6Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff")
-	packetv6802Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff")
+	packetv4Prefix := "0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a080045000054bfe900003f019ae2"
+	packetv4802Prefix := "0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a81000202080045000054bfe900003f019ae2"
+	packetv6Prefix := "0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff"
+	packetv6802Prefix := "0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff"
 
 	// ICMPv4/v6 packets (with reversed src/dst IPs)
-	packetICMPv4 := decodeHex("010101010a107e4000003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637")
-	packetICMPv6Req := decodeHex("f00d0000000000000a10000000009195ff0200000000000000000001ff00b3e58700507500000000f00d0000000000000a1000000000b3e50101129106e2221a")
-	packetICMPv4Rev := decodeHex("0a107e400101010100003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637")
-	packetICMPv6Rev := decodeHex("ff0200000000000000000001ff00b3e5f00d0000000000000a100000000091958700507500000000f00d0000000000000a1000000000b3e50101129106e2221a")
+	packetICMPv4 := "010101010a107e4000003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637"
+	packetICMPv6Req := "f00d0000000000000a10000000009195ff0200000000000000000001ff00b3e58700507500000000f00d0000000000000a1000000000b3e50101129106e2221a"
+	packetICMPv4Rev := "0a107e400101010100003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637"
+	packetICMPv6Rev := "ff0200000000000000000001ff00b3e5f00d0000000000000a100000000091958700507500000000f00d0000000000000a1000000000b3e50101129106e2221a"
 
 	// The following structs are decoded pieces of the above packets
 	traceNotifyIPv4 := monitor.TraceNotifyV0{
@@ -163,7 +163,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv4,
 				l:   []gopacket.SerializableLayer{etherIPv4, ipv4, icmpv4, icmpv4Payload},
 			},
-			want: append(packetv4Prefix[:], packetICMPv4...),
+			want: decodeHex(packetv4Prefix + packetICMPv4),
 		},
 		{
 			name: "ICMPv6 Neighbor Solicitation",
@@ -171,7 +171,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv6,
 				l:   []gopacket.SerializableLayer{etherIPv6, ipv6, icmpv6, icmpv6Payload},
 			},
-			want: append(packetv6Prefix[:], packetICMPv6Req...),
+			want: decodeHex(packetv6Prefix + packetICMPv6Req),
 		},
 		{
 			name: "ICMPv4 Echo Reply Reversed",
@@ -179,7 +179,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv4,
 				l:   []gopacket.SerializableLayer{etherIPv4, ipv4Rev, icmpv4, icmpv4Payload},
 			},
-			want: append(packetv4Prefix[:], packetICMPv4Rev...),
+			want: decodeHex(packetv4Prefix + packetICMPv4Rev),
 		},
 		{
 			name: "ICMPv6 Neighbor Solicitation Reversed",
@@ -187,7 +187,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv6,
 				l:   []gopacket.SerializableLayer{etherIPv6, ipv6Rev, icmpv6, icmpv6Payload},
 			},
-			want: append(packetv6Prefix[:], packetICMPv6Rev...),
+			want: decodeHex(packetv6Prefix + packetICMPv6Rev),
 		},
 		{
 			name: "802.11q ICMPv4 Echo Reply",
@@ -195,7 +195,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv4,
 				l:   []gopacket.SerializableLayer{etherIPv4Dot1Q, dot1QIPv4, ipv4, icmpv4, icmpv4Payload},
 			},
-			want: append(packetv4802Prefix[:], packetICMPv4...),
+			want: decodeHex(packetv4802Prefix + packetICMPv4),
 		},
 		{
 			name: "802.11q ICMPv6 Neighbor Solicitation",
@@ -203,7 +203,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 				msg: traceNotifyIPv6,
 				l:   []gopacket.SerializableLayer{etherIPv6Dot1Q, dot1QIPv6, ipv6, icmpv6, icmpv6Payload},
 			},
-			want: append(packetv6802Prefix[:], packetICMPv6Req...),
+			want: decodeHex(packetv6802Prefix + packetICMPv6Req),
 		},
 	}
 	for _, tt := range tests {
