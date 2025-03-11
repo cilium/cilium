@@ -756,7 +756,6 @@
   "regexManagers": [
     {
       "fileMatch": [
-        "images/cilium/download-hubble\\.sh",
         "images/builder/install-protoc.sh",
         "images/builder/install-protoplugins.sh",
         "images/runtime/build-gops.sh"
