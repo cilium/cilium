@@ -402,48 +402,33 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
 {
-	struct ipv6_opt_hdr opthdr __align_stack_8;
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = nexthdr;
 
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		switch (nh) {
-		case NEXTHDR_NONE:
-			return DROP_INVALID_EXTHDR;
+		__u8 newnh = nh;
+		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, ETH_HLEN + len);
 
-		case NEXTHDR_FRAGMENT:
-			return DROP_FRAG_NOSUPPORT;
+		if (hdrlen < 0)
+			return hdrlen;
 
-		case NEXTHDR_HOP:
-		case NEXTHDR_ROUTING:
-		case NEXTHDR_AUTH:
-		case NEXTHDR_DEST:
-			if (ctx_load_bytes(ctx, ETH_HLEN + len, &opthdr, sizeof(opthdr)) < 0)
-				return DROP_INVALID;
-
-			if (nh == NEXTHDR_DEST && opthdr.hdrlen == DSR_IPV6_EXT_LEN) {
-				if (ctx_load_bytes(ctx, ETH_HLEN + len, dsr_opt,
-						   sizeof(*dsr_opt)) < 0)
-					return DROP_INVALID;
-				if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
-				    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
-					*found = true;
-					return 0;
-				}
-			}
-
-			if (nh == NEXTHDR_AUTH)
-				len += ipv6_authlen(&opthdr);
-			else
-				len += ipv6_optlen(&opthdr);
-
-			nh = opthdr.nexthdr;
-			break;
-
-		default:
+		if (!hdrlen)
 			return 0;
+
+		build_bug_on(sizeof(*dsr_opt) != 24);
+		if (nh == NEXTHDR_DEST && hdrlen == sizeof(*dsr_opt)) {
+			if (ctx_load_bytes(ctx, ETH_HLEN + len, dsr_opt, sizeof(*dsr_opt)) < 0)
+				return DROP_INVALID;
+			if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
+			    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
+				*found = true;
+				return 0;
+			}
 		}
+
+		len += hdrlen;
+		nh = newnh;
 	}
 
 	/* Reached limit of supported extension headers */
