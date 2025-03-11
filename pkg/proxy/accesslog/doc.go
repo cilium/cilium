@@ -2,4 +2,4 @@
 // Copyright Authors of Cilium
 
 // Package logger provides the accesslog logging logic for all proxies
-package logger
+package accesslog

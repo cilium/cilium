@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -232,7 +231,7 @@ func (d *Daemon) notifyOnDNSMsg(
 	// We determine the direction based on the DNS packet. The observation
 	// point is always Egress, however.
 	var flowType accesslog.FlowType
-	var addrInfo logger.AddressingInfo
+	var addrInfo accesslog.AddressingInfo
 	serverAddrPortStr := serverAddrPort.String()
 	if msg.Response {
 		flowType = accesslog.TypeResponse
@@ -381,12 +380,12 @@ func (d *Daemon) notifyOnDNSMsg(
 	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
 	defer lcncl()
 	record := d.proxyAccessLogger.NewLogRecord(flowType, false,
-		func(lr *accesslog.LogRecord, _ logger.EndpointInfoRegistry) {
+		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
-		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(logContext, addrInfo),
-		logger.LogTags.DNS(&accesslog.LogRecordDNS{
+		accesslog.LogTags.Verdict(verdict, reason),
+		accesslog.LogTags.Addressing(logContext, addrInfo),
+		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,
 			TTL:               TTL,
