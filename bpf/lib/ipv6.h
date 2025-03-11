@@ -40,40 +40,65 @@ static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 	return (opthdr->hdrlen + 2) << 2;
 }
 
+static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthdr, int off)
+{
+	struct ipv6_opt_hdr opthdr __align_stack_8;
+	__u8 nh = *nexthdr;
+
+	switch (nh) {
+	case NEXTHDR_NONE:
+		return DROP_INVALID_EXTHDR;
+
+	case NEXTHDR_FRAGMENT:
+		return DROP_FRAG_NOSUPPORT;
+
+	case NEXTHDR_AUTH:
+	case NEXTHDR_HOP:
+	case NEXTHDR_ROUTING:
+	case NEXTHDR_DEST:
+		if (ctx_load_bytes(ctx, off, &opthdr, sizeof(opthdr)) < 0)
+			return DROP_INVALID;
+
+		*nexthdr = opthdr.nexthdr;
+		break;
+
+	default: /* L4 protocol */
+		return 0;
+	}
+
+	switch (nh) {
+	case NEXTHDR_AUTH:
+		return ipv6_authlen(&opthdr);
+
+	case NEXTHDR_HOP:
+	case NEXTHDR_ROUTING:
+	case NEXTHDR_DEST:
+		return ipv6_optlen(&opthdr);
+
+	default:
+		/* Returned in the switch above. */
+		__builtin_unreachable();
+	}
+}
+
 static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *nexthdr, int l3_off)
 {
 	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr __align_stack_8;
 	__u8 nh = *nexthdr;
 
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		switch (nh) {
-		case NEXTHDR_NONE:
-			return DROP_INVALID_EXTHDR;
+		int hdrlen = ipv6_skip_exthdr(ctx, &nh, l3_off + len);
 
-		case NEXTHDR_FRAGMENT:
-			return DROP_FRAG_NOSUPPORT;
+		if (hdrlen < 0)
+			return hdrlen;
 
-		case NEXTHDR_HOP:
-		case NEXTHDR_ROUTING:
-		case NEXTHDR_AUTH:
-		case NEXTHDR_DEST:
-			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
-				return DROP_INVALID;
-
-			if (nh == NEXTHDR_AUTH)
-				len += ipv6_authlen(&opthdr);
-			else
-				len += ipv6_optlen(&opthdr);
-
-			nh = opthdr.nexthdr;
-			break;
-
-		default:
+		if (!hdrlen) {
 			*nexthdr = nh;
 			return len;
 		}
+
+		len += hdrlen;
 	}
 
 	/* Reached limit of supported extension headers */
