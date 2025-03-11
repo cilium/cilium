@@ -324,6 +324,7 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+            quarantined: true
 
           - name: '18'
             # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
@@ -336,6 +337,7 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+            quarantined: true
 
           - name: '19'
             # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
