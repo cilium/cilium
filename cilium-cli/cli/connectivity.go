@@ -95,9 +95,14 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		owners, err := owners_util.Load(params.CodeOwners)
-		if err != nil {
-			return fmt.Errorf("❗ Failed to load code owners: %w", err)
+		var owners codeowners.Ruleset
+		if params.LogCodeOwners {
+			var err error
+
+			owners, err = owners_util.Load(params.CodeOwners)
+			if err != nil {
+				return fmt.Errorf("❗ Failed to load code owners: %w", err)
+			}
 		}
 
 		logger := check.NewConcurrentLogger(params.Writer, params.TestConcurrency)
