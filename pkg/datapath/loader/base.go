@@ -288,7 +288,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 }
 
 func reinitializeWireguard(ctx context.Context) (err error) {
-	if !option.Config.EnableWireguard || !option.Config.NeedEgressOnWireGuardDevice() {
+	if !option.Config.EnableWireguard {
 		return
 	}
 
