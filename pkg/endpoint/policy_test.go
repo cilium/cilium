@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -146,7 +147,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	// Track all IDs we allocate so we can validate later that we never miss any
 	checkMutex := lock.Mutex{}
 	allocatedIDs := make(sets.Set[identity.NumericIdentity], testfactor)
-	done := false
+	done := atomic.Bool{}
 
 	// simulate ipcache churn: continuously allocate IDs and push them to the policy engine.
 	go func() {
@@ -163,7 +164,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 			checkMutex.Unlock()
 
 		}
-		done = true
+		done.Store(true)
 	}()
 
 	stats := new(regenerationStatistics)
@@ -201,7 +202,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 		checkMutex.Unlock()
 
-		if done {
+		if done.Load() {
 			break
 		}
 	}
