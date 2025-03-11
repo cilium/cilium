@@ -114,11 +114,7 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 }
 
 func mergeConfig(source ConfigSource, lower, upper map[string]string) map[string]string {
-	out := make(map[string]string, len(lower))
-
-	for k, v := range lower {
-		out[k] = v
-	}
+	out := maps.Clone(lower)
 
 	for k, v := range upper {
 		if _, set := out[k]; set {

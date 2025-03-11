@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"strings"
 	"time"
@@ -311,9 +312,7 @@ func (r *FlowRequirementResults) Merge(from *FlowRequirementResults) {
 	if r.Matched == nil {
 		r.Matched = from.Matched
 	} else {
-		for k, v := range from.Matched {
-			r.Matched[k] = v
-		}
+		maps.Copy(r.Matched, from.Matched)
 	}
 	r.Failures += from.Failures
 	r.NeedMoreFlows = r.NeedMoreFlows || from.NeedMoreFlows

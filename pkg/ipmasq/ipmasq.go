@@ -6,6 +6,7 @@ package ipmasq
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -185,9 +186,7 @@ func (a *IPMasqAgent) Update() error {
 
 	// Set default nonMasq CIDRS if user hasn't specified any
 	if isEmpty {
-		for cidrStr, cidr := range defaultNonMasqCIDRs {
-			a.nonMasqCIDRsFromConfig[cidrStr] = cidr
-		}
+		maps.Copy(a.nonMasqCIDRsFromConfig, defaultNonMasqCIDRs)
 	}
 
 	if !a.masqLinkLocalIPv4 {

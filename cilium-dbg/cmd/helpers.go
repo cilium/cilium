@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -423,13 +424,8 @@ func getIpEnableStatuses() (bool, bool) {
 }
 
 func mergeMaps(m1, m2 map[string]interface{}) map[string]interface{} {
-	m3 := make(map[string]interface{})
-	for k, v := range m1 {
-		m3[k] = v
-	}
-	for k, v := range m2 {
-		m3[k] = v
-	}
+	m3 := maps.Clone(m1)
+	maps.Copy(m3, m2)
 	return m3
 }
 

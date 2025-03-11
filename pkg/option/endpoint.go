@@ -3,6 +3,8 @@
 
 package option
 
+import "maps"
+
 var (
 	endpointMutableOptionLibrary = OptionLibrary{
 		ConntrackAccounting:  &specConntrackAccounting,
@@ -21,9 +23,5 @@ var (
 )
 
 func GetEndpointMutableOptionLibrary() OptionLibrary {
-	opt := OptionLibrary{}
-	for k, v := range endpointMutableOptionLibrary {
-		opt[k] = v
-	}
-	return opt
+	return maps.Clone(endpointMutableOptionLibrary)
 }

@@ -6,6 +6,7 @@ package ciliumidentity
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"testing"
 	"time"
@@ -97,9 +98,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 
 func testCreateCIDObj(id string, lbs map[string]string) *capi_v2.CiliumIdentity {
 	secLbs := make(map[string]string)
-	for k, v := range lbs {
-		secLbs[k] = v
-	}
+	maps.Copy(secLbs, lbs)
 
 	k := key.GetCIDKeyFromLabels(secLbs, labels.LabelSourceK8s)
 	secLbs = k.GetAsMap()

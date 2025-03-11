@@ -7,6 +7,7 @@ package labels
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -1006,11 +1007,7 @@ func (s ValidatedSetSelector) Requirements() (requirements Requirements, selecta
 }
 
 func (s ValidatedSetSelector) DeepCopySelector() Selector {
-	res := make(ValidatedSetSelector, len(s))
-	for k, v := range s {
-		res[k] = v
-	}
-	return res
+	return maps.Clone(s)
 }
 
 func (s ValidatedSetSelector) RequiresExactMatch(label string) (value string, found bool) {

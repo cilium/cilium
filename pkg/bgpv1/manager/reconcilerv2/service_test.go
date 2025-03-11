@@ -2210,9 +2210,7 @@ func advertisedPoliciesAttributesMatch(
 	// Index policies by name
 	expectedPolicies := make(map[string]*types.RoutePolicy)
 	for _, routePolicyMap := range expectedResourceRoutePolicyMap {
-		for policyName, policy := range routePolicyMap {
-			expectedPolicies[policyName] = policy
-		}
+		maps.Copy(expectedPolicies, routePolicyMap)
 	}
 
 	req.Len(response.Policies, len(expectedPolicies))

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync/atomic"
 
 	"k8s.io/client-go/tools/cache"
@@ -532,9 +533,7 @@ func (n *Node) releaseNeeded() (needed bool) {
 func (n *Node) Pool() (pool ipamTypes.AllocationMap) {
 	pool = ipamTypes.AllocationMap{}
 	n.mutex.RLock()
-	for k, allocationIP := range n.ipv4Alloc.available {
-		pool[k] = allocationIP
-	}
+	maps.Copy(pool, n.ipv4Alloc.available)
 	n.mutex.RUnlock()
 	return
 }

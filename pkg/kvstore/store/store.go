@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path"
 	"strings"
 	"sync"
@@ -355,12 +356,7 @@ func (s *SharedStore) NumEntries() int {
 func (s *SharedStore) SharedKeysMap() map[string]Key {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	sharedKeysCopy := make(map[string]Key, len(s.sharedKeys))
-
-	for k, v := range s.sharedKeys {
-		sharedKeysCopy[k] = v
-	}
-	return sharedKeysCopy
+	return maps.Clone(s.sharedKeys)
 }
 
 // UpdateLocalKeySync synchronously synchronizes a local key with the kvstore

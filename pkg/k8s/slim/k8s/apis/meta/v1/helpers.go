@@ -7,6 +7,7 @@ package v1
 
 import (
 	"fmt"
+	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -66,10 +67,7 @@ func LabelSelectorAsMap(ps *LabelSelector) (map[string]string, error) {
 	if ps == nil {
 		return nil, nil
 	}
-	selector := map[string]string{}
-	for k, v := range ps.MatchLabels {
-		selector[k] = v
-	}
+	selector := maps.Clone(ps.MatchLabels)
 	for _, expr := range ps.MatchExpressions {
 		switch expr.Operator {
 		case LabelSelectorOpIn:
@@ -145,9 +143,7 @@ func SetAsLabelSelector(ls labels.Set) *LabelSelector {
 	selector := &LabelSelector{
 		MatchLabels: make(map[string]string, len(ls)),
 	}
-	for label, value := range ls {
-		selector.MatchLabels[label] = value
-	}
+	maps.Copy(selector.MatchLabels, ls)
 
 	return selector
 }

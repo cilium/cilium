@@ -6,6 +6,7 @@ package option
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -141,11 +142,7 @@ func (l OptionLibrary) Validate(name string, value string) error {
 type OptionMap map[string]OptionSetting
 
 func (om OptionMap) DeepCopy() OptionMap {
-	cpy := make(OptionMap, len(om))
-	for k, v := range om {
-		cpy[k] = v
-	}
-	return cpy
+	return maps.Clone(om)
 }
 
 // IntOptions member functions with external access do not require

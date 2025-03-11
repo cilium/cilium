@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -1137,9 +1138,7 @@ func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolic
 		} else {
 			// proxylib go extension key/value policy
 			rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(l7))}
-			for k, v := range l7 {
-				rule.Rule[k] = v
-			}
+			maps.Copy(rule.Rule, l7)
 			allowRules = append(allowRules, rule)
 		}
 	}

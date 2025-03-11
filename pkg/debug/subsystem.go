@@ -5,6 +5,7 @@ package debug
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -56,13 +57,9 @@ func (s *statusFunctions) registerStatusObject(name string, obj StatusObject) er
 }
 
 func (s *statusFunctions) collectStatus() StatusMap {
-	fnCopy := functionMap{}
-
 	// Make a copy to not hold the mutex while collecting the status
 	s.mutex.RLock()
-	for name, fn := range s.functions {
-		fnCopy[name] = fn
-	}
+	fnCopy := maps.Clone(s.functions)
 	s.mutex.RUnlock()
 
 	status := StatusMap{}

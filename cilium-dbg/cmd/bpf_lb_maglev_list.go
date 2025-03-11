@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"errors"
+	"maps"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -52,9 +53,7 @@ func dumpMaglevTables() (map[string][]string, error) {
 	}
 
 	// Merge v6 lookup tables into result.
-	for k, v := range v6 {
-		out[k] = v
-	}
+	maps.Copy(out, v6)
 
 	return out, nil
 }

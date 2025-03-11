@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -255,9 +256,7 @@ func parsePodSelector(podSelectorIn *slim_metav1.LabelSelector, namespace string
 	podSelector := &slim_metav1.LabelSelector{
 		MatchLabels: make(map[string]slim_metav1.MatchLabelsValue, len(podSelectorIn.MatchLabels)),
 	}
-	for k, v := range podSelectorIn.MatchLabels {
-		podSelector.MatchLabels[k] = v
-	}
+	maps.Copy(podSelector.MatchLabels, podSelectorIn.MatchLabels)
 	// The PodSelector should only reflect to the same namespace
 	// the policy is being stored, thus we add the namespace to
 	// the MatchLabels map.

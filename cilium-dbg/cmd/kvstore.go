@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"maps"
 
 	"github.com/spf13/cobra"
 
@@ -42,9 +43,7 @@ func setupKvstore(ctx context.Context, logger *slog.Logger) {
 		}
 
 		if len(kvStoreOpts) == 0 {
-			for k, v := range cfgStatus.KvstoreConfiguration.Options {
-				kvStoreOpts[k] = v
-			}
+			maps.Copy(kvStoreOpts, cfgStatus.KvstoreConfiguration.Options)
 		}
 	}
 

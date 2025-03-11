@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"regexp"
@@ -38,10 +39,7 @@ var settings = cli.New()
 
 // Merge maps recursively merges the values of b into a copy of a, preferring the values from b
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
+	out := maps.Clone(a)
 	for k, v := range b {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {

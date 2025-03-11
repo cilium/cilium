@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 	"testing"
 
@@ -97,9 +98,7 @@ func newTestData(logger *slog.Logger) *testData {
 func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	initial := identity.IdentityMap{}
 	for _, im := range initIDs {
-		for id, lbls := range im {
-			initial[id] = lbls
-		}
+		maps.Copy(initial, im)
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)

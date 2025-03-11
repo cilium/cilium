@@ -198,9 +198,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 		},
 	}
 
-	for k, v := range p.Labels {
-		dep.Spec.Template.ObjectMeta.Labels[k] = v
-	}
+	maps.Copy(dep.Spec.Template.ObjectMeta.Labels, p.Labels)
 
 	return dep
 }
@@ -313,9 +311,7 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 		},
 	}
 
-	for k, v := range p.Labels {
-		ds.Spec.Template.ObjectMeta.Labels[k] = v
-	}
+	maps.Copy(ds.Spec.Template.ObjectMeta.Labels, p.Labels)
 
 	if p.NodeSelector != nil {
 		ds.Spec.Template.Spec.NodeSelector = p.NodeSelector

@@ -8,6 +8,7 @@ package eni
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"slices"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -122,9 +123,7 @@ func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
 	defer m.mutex.RUnlock()
 
 	subnetsCopy := make(ipamTypes.SubnetMap)
-	for k, v := range m.subnets {
-		subnetsCopy[k] = v
-	}
+	maps.Copy(subnetsCopy, m.subnets)
 
 	return subnetsCopy
 }

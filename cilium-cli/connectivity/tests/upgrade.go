@@ -6,6 +6,7 @@ package tests
 import (
 	"context"
 	gojson "encoding/json"
+	"maps"
 	"os"
 	"strconv"
 
@@ -88,10 +89,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		}
 		defer file.Close()
 
-		counts := make(map[string]string)
-		for pod, count := range restartCount {
-			counts[pod] = count
-		}
+		counts := maps.Clone(restartCount)
 		j, err := gojson.Marshal(counts)
 		if err != nil {
 			t.Fatalf("Failed to marshal JSON: %s", err)

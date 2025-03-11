@@ -267,9 +267,7 @@ func mergePolicy(
 	// This function aims to be purely functional.  Here, we are creating a copy of the input to hold the result
 	// of the merge operation.
 	outputPolicyStatements = map[string]*types.RoutePolicyStatement{}
-	for key, value := range inputPolicyStatements {
-		outputPolicyStatements[key] = value
-	}
+	maps.Copy(outputPolicyStatements, inputPolicyStatements)
 
 	for _, statement := range policy.Statements {
 		key := statement.Conditions.String()

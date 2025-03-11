@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"slices"
 	"sort"
@@ -632,9 +633,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 			allocated[poolName] = map[string]string{}
 		}
 
-		for ip, owner := range ipToOwner {
-			allocated[poolName][ip] = owner
-		}
+		maps.Copy(allocated[poolName], ipToOwner)
 	}
 
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))

@@ -5,6 +5,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"strconv"
@@ -129,9 +130,7 @@ func (p Pod) Port() uint32 {
 
 func (p Pod) Labels() map[string]string {
 	newMap := make(map[string]string, len(p.Pod.Labels))
-	for k, v := range p.Pod.Labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, p.Pod.Labels)
 	return newMap
 }
 
@@ -239,9 +238,7 @@ func (s Service) HasLabel(name, value string) bool {
 // Labels returns the copy of service labels
 func (s Service) Labels() map[string]string {
 	newMap := make(map[string]string, len(s.Service.Labels))
-	for k, v := range s.Service.Labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, s.Service.Labels)
 	return newMap
 }
 
@@ -436,9 +433,7 @@ func (he httpEndpoint) HasLabel(name, value string) bool {
 
 func (he httpEndpoint) Labels() map[string]string {
 	newMap := make(map[string]string, len(*he.labels))
-	for k, v := range *he.labels {
-		newMap[k] = v
-	}
+	maps.Copy(newMap, *he.labels)
 	return newMap
 }
 

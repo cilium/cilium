@@ -4,6 +4,8 @@
 package endpoint
 
 import (
+	"maps"
+
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
@@ -88,9 +90,7 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		"prepareBuild":               &s.prepareBuild,
 		"total":                      &s.totalTime,
 	}
-	for k, v := range s.datapathRealization.GetMap() {
-		result[k] = v
-	}
+	maps.Copy(result, s.datapathRealization.GetMap())
 	return result
 }
 

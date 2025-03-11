@@ -6,6 +6,7 @@ package eni
 import (
 	"context"
 	"log/slog"
+	"maps"
 
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
@@ -181,9 +182,7 @@ func (m *InstancesManager) GetVSwitches() ipamTypes.SubnetMap {
 	defer m.mutex.RUnlock()
 
 	subnetsCopy := make(ipamTypes.SubnetMap)
-	for k, v := range m.vSwitches {
-		subnetsCopy[k] = v
-	}
+	maps.Copy(subnetsCopy, m.vSwitches)
 
 	return subnetsCopy
 }

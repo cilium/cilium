@@ -3,6 +3,8 @@
 
 package option
 
+import "maps"
+
 var (
 	specPolicyTracing = Option{
 		Description: "Enable tracing when resolving policy (Debug)",
@@ -31,9 +33,7 @@ var (
 )
 
 func init() {
-	for k, v := range DaemonMutableOptionLibrary {
-		DaemonOptionLibrary[k] = v
-	}
+	maps.Copy(DaemonOptionLibrary, DaemonMutableOptionLibrary)
 }
 
 // ParseDaemonOption parses a string as daemon option
