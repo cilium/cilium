@@ -177,31 +177,31 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 // UpdateSubnets replaces the subents which the mock API will return
 func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
 		e.subnets[s.ID] = s.DeepCopy()
 	}
-	e.mutex.Unlock()
 }
 
 // UpdateRouteTables replaces the route tables which the mock API will return
 func (e *API) UpdateRouteTables(routeTables []*ipamTypes.RouteTable) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.routeTables = map[string]*ipamTypes.RouteTable{}
 	for _, rt := range routeTables {
 		e.routeTables[rt.ID] = rt.DeepCopy()
 	}
-	e.mutex.Unlock()
 }
 
 // UpdateSecurityGroups replaces the security groups which the mock API will return
 func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.securityGroups = map[string]*types.SecurityGroup{}
 	for _, sg := range securityGroups {
 		e.securityGroups[sg.ID] = sg.DeepCopy()
 	}
-	e.mutex.Unlock()
 }
 
 // UpdateENIs replaces the ENIs which the mock API will return
@@ -219,22 +219,24 @@ func (e *API) UpdateENIs(enis map[string]ENIMap) {
 
 func (e *API) UpdateInstanceTypes(instanceTypes []ec2_types.InstanceTypeInfo) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.instanceTypes = instanceTypes
-	e.mutex.Unlock()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
 // operation
 func (e *API) SetMockError(op Operation, err error) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.errors[op] = err
-	e.mutex.Unlock()
+
 }
 
 // SetDelay specifies the delay which should be simulated for an individual EC2
 // API operation
 func (e *API) SetDelay(op Operation, delay time.Duration) {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	if op == AllOperations {
 		for op := AllOperations + 1; op < MaxOperation; op++ {
 			e.delaySim.SetDelay(op, delay)
@@ -242,7 +244,6 @@ func (e *API) SetDelay(op Operation, delay time.Duration) {
 	} else {
 		e.delaySim.SetDelay(op, delay)
 	}
-	e.mutex.Unlock()
 }
 
 // SetLimiter adds a rate limiter to all simulated API calls
@@ -252,13 +253,13 @@ func (e *API) SetLimiter(limit float64, burst int) {
 
 func (e *API) rateLimit() {
 	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
 	if e.limiter == nil {
-		e.mutex.RUnlock()
 		return
 	}
 
 	r := e.limiter.Reserve()
-	e.mutex.RUnlock()
 	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
 		time.Sleep(delay)
 	}
