@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
@@ -730,9 +731,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// Populate cDefinesMap with extraMacrosMap to get all the configuration
 	// in the cDefinesMap itself.
-	for key, value := range extraMacrosMap {
-		cDefinesMap[key] = value
-	}
+	maps.Copy(cDefinesMap, extraMacrosMap)
 
 	// Write the JSON encoded config as base64 encoded commented string to
 	// the header file.

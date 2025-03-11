@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math/big"
 	"net/netip"
 	"slices"
@@ -458,9 +459,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	copy(sv.Ports, svc.Spec.Ports)
 	sv.Namespace = svc.Namespace
 	sv.Selector = make(map[string]string)
-	for k, v := range svc.Spec.Selector {
-		sv.Selector[k] = v
-	}
+	maps.Copy(sv.Selector, svc.Spec.Selector)
 	sv.Status = svc.Status.DeepCopy()
 
 	return sv

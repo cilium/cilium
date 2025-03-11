@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"reflect"
 	"slices"
@@ -565,9 +566,7 @@ func (n *nodeStore) refreshNode() error {
 
 	for _, a := range staleCopyOfAllocators {
 		a.mutex.RLock()
-		for ip, ipInfo := range a.allocated {
-			node.Status.IPAM.Used[ip] = ipInfo
-		}
+		maps.Copy(node.Status.IPAM.Used, a.allocated)
 		a.mutex.RUnlock()
 	}
 

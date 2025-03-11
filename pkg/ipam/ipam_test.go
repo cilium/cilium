@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"strings"
@@ -107,9 +108,7 @@ func (f fakePoolAllocator) Dump() (map[Pool]map[string]string, string) {
 		if _, ok := result[name]; !ok {
 			result[name] = map[string]string{}
 		}
-		for k, v := range dump[name] {
-			result[name][k] = v
-		}
+		maps.Copy(result[name], dump[name])
 	}
 	return result, fmt.Sprintf("%d pools", len(f.pools))
 }

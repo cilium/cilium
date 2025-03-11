@@ -4,6 +4,7 @@
 package counter
 
 import (
+	"maps"
 	"net"
 	"net/netip"
 	"testing"
@@ -101,9 +102,7 @@ func TestReferenceTracker(t *testing.T) {
 	expectedPrefixLengths = make(IntCounter, len(v6PrefixesLengths))
 
 	// Add the v6 prefixes (changed: true)
-	for k, v := range v6PrefixesLengths {
-		expectedPrefixLengths[k] = v
-	}
+	maps.Copy(expectedPrefixLengths, v6PrefixesLengths)
 	changed, err = result.Add(v6Prefixes)
 	require.NoError(t, err)
 	require.True(t, changed)

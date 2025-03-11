@@ -119,9 +119,7 @@ func toKubeServicePort(clusterSvc *store.ClusterService) []v1.ServicePort {
 	// Merge all the port config into one to get all the possible ports
 	globalPortConfig := store.PortConfiguration{}
 	for _, portConfig := range clusterSvc.Backends {
-		for name, l4Addr := range portConfig {
-			globalPortConfig[name] = l4Addr
-		}
+		maps.Copy(globalPortConfig, portConfig)
 	}
 
 	// Get the ServicePort from the PortConfig

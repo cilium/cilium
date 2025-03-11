@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/cilium/stream"
 
@@ -237,16 +238,9 @@ func (l *localIdentityCache) lookupByID(id identity.NumericIdentity) *identity.I
 
 // GetIdentities returns all local identities
 func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*identity.Identity {
-	cache := map[identity.NumericIdentity]*identity.Identity{}
-
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
-
-	for key, id := range l.identitiesByID {
-		cache[key] = id
-	}
-
-	return cache
+	return maps.Clone(l.identitiesByID)
 }
 
 func (l *localIdentityCache) checkpoint(dst []*identity.Identity) []*identity.Identity {

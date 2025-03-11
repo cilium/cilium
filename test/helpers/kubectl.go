@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"path"
@@ -2594,9 +2595,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		options["ipv6.enabled"] = "false"
 	}
 
-	for k, v := range cliOverrideOptions {
-		options[k] = v
-	}
+	maps.Copy(options, cliOverrideOptions)
 
 	return nil
 }
