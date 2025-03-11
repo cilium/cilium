@@ -1055,6 +1055,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Float64(option.ConnectivityProbeFrequencyRatio, defaults.ConnectivityProbeFrequencyRatio, "Ratio of the connectivity probe frequency vs resource usage, a float in [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing frequency is dynamically adjusted based on the cluster size.")
 	option.BindEnv(vp, option.ConnectivityProbeFrequencyRatio)
 
+	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
+	option.BindEnv(vp, option.IPTracingOptionType)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
