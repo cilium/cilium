@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -132,7 +133,7 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*
 
 	if len(toAdvertise) == 0 && len(toWithdraw) == 0 {
 		l.Debug("No reconciliation necessary")
-		return append([]*types.Path{}, params.currentAdvertisements...), nil
+		return slices.Clone(params.currentAdvertisements), nil
 	}
 
 	// create new adverts

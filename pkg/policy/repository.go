@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -692,12 +693,9 @@ func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.
 
 	// determine outgoing rules
 	for ruleKey, rule := range p.rules {
-		for _, searchLabels := range searchLabelsList {
-			if rule.Labels.Contains(searchLabels) {
-				p.del(ruleKey)
-				oldRules = append(oldRules, rule)
-				break
-			}
+		if slices.ContainsFunc(searchLabelsList, rule.Labels.Contains) {
+			p.del(ruleKey)
+			oldRules = append(oldRules, rule)
 		}
 	}
 

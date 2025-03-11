@@ -6,7 +6,7 @@ package cmd
 import (
 	"bytes"
 	"path"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -555,9 +555,7 @@ func TestParseTrafficString(t *testing.T) {
 
 func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 	sortProtos := func(ints []u8proto.U8proto) {
-		sort.Slice(ints, func(i, j int) bool {
-			return ints[i] < ints[j]
-		})
+		slices.Sort(ints)
 	}
 
 	allProtos := []u8proto.U8proto{}

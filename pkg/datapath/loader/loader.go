@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -230,13 +231,7 @@ func isObsoleteDev(dev string, devices []string) bool {
 	}
 
 	// exclude devices that will still be managed going forward.
-	for _, d := range devices {
-		if dev == d {
-			return false
-		}
-	}
-
-	return true
+	return !slices.Contains(devices, dev)
 }
 
 // removeObsoleteNetdevPrograms removes cil_to_netdev and cil_from_netdev from devices

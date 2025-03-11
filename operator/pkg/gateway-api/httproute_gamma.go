@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -134,13 +135,7 @@ func (r *gammaHttpRouteReconciler) hasGammaParent() func(object client.Object) b
 			return false
 		}
 
-		for _, parent := range hr.Spec.ParentRefs {
-			if helpers.IsGammaService(parent) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(hr.Spec.ParentRefs, helpers.IsGammaService)
 	}
 }
 

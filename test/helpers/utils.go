@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -672,12 +673,7 @@ func (kub *Kubectl) GetNodeCILabel(nodeName string) string {
 
 // IsNodeWithoutCilium returns true if node node doesn't run Cilium.
 func IsNodeWithoutCilium(node string) bool {
-	for _, n := range GetNodesWithoutCilium() {
-		if n == node {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GetNodesWithoutCilium(), node)
 }
 
 // SkipQuarantined returns whether test under quarantine should be skipped

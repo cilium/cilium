@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -146,10 +147,8 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 
 // constructWithH2ProtoIfNeed constructs a new slice of protocols with h2
 func constructWithH2ProtoIfNeed(existingProtocols []string) []string {
-	for _, p := range existingProtocols {
-		if p == alpnProtocolH2 {
-			return existingProtocols
-		}
+	if slices.Contains(existingProtocols, alpnProtocolH2) {
+		return existingProtocols
 	}
 	ret := make([]string, 0, len(existingProtocols)+1)
 	ret = append(ret, existingProtocols...)

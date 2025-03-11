@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -385,7 +386,7 @@ func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNo
 
 	taintFound := false
 
-	taints := append([]slim_corev1.Taint{}, k8sNode.Spec.Taints...)
+	taints := slices.Clone(k8sNode.Spec.Taints)
 	for _, taint := range k8sNode.Spec.Taints {
 		if taint.Key == pkgOption.Config.AgentNotReadyNodeTaintValue() {
 			taintFound = true
