@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
@@ -1085,12 +1086,8 @@ func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *fe
 
 	if podPolicies, ok := rpm.policyPods[podID]; ok {
 		newPodPolicy := true
-		for _, poID := range podPolicies {
-			// Existing pod policy update
-			if poID == config.id {
-				newPodPolicy = false
-				break
-			}
+		if slices.Contains(podPolicies, config.id) {
+			newPodPolicy = false
 		}
 		if newPodPolicy {
 			// Pod selected by a new policy

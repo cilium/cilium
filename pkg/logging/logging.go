@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -368,13 +369,7 @@ func (o LogOptions) validateOpts(logDriver string, supportedOpts map[string]bool
 			return fmt.Errorf("provided configuration key %q is not supported as a logging option for log driver %s", k, logDriver)
 		}
 		if validValues, ok := validKVs[k]; ok {
-			valid := false
-			for _, vv := range validValues {
-				if v == vv {
-					valid = true
-					break
-				}
-			}
+			valid := slices.Contains(validValues, v)
 			if !valid {
 				return fmt.Errorf("provided configuration value %q is not a valid value for %q in log driver %s, valid values: %v", v, k, logDriver, validValues)
 			}

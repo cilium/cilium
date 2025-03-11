@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -250,12 +251,7 @@ func (i *L7LBInfo) isProtoAndPortMatch(fe *lb.L4Addr) bool {
 		return true
 	}
 
-	for _, p := range i.ports {
-		if p == fe.Port {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(i.ports, fe.Port)
 }
 
 type L7LBResourceName struct {

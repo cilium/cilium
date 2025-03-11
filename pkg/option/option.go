@@ -61,13 +61,7 @@ const (
 
 // RequiresOption returns true if the option requires the specified option `name`.
 func (o Option) RequiresOption(name string) bool {
-	for _, o := range o.Requires {
-		if o == name {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(o.Requires, name)
 }
 
 type OptionLibrary map[string]*Option

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
@@ -329,10 +330,8 @@ func (g *goBGP) waitForSessionState(ctx context.Context, expectedStates []string
 		case e := <-g.peerNotif:
 			g.logger.Info("GoBGP test instance", types.PeerEventLogField, e)
 
-			for _, state := range expectedStates {
-				if e.state == state {
-					return nil
-				}
+			if slices.Contains(expectedStates, e.state) {
+				return nil
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("did not receive expected peering state %q: %w", expectedStates, ctx.Err())

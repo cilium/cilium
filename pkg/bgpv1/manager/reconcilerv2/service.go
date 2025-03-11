@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	corev1 "k8s.io/api/core/v1"
@@ -862,13 +863,7 @@ func checkServiceAdvertisement(advert v2.BGPAdvertisement, advertServiceType v2.
 	}
 
 	// check service type is enabled in advertisement
-	svcTypeEnabled := false
-	for _, serviceType := range advert.Service.Addresses {
-		if serviceType == advertServiceType {
-			svcTypeEnabled = true
-			break
-		}
-	}
+	svcTypeEnabled := slices.Contains(advert.Service.Addresses, advertServiceType)
 	if !svcTypeEnabled {
 		return false, nil
 	}

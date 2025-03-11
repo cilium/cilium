@@ -6,6 +6,7 @@ package policy
 import (
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 
@@ -53,12 +54,7 @@ func newUser(t *testing.T, name string, sc *SelectorCache) *cachedSelectionUser 
 }
 
 func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity) bool {
-	for i := range selections {
-		if selections[i] == nid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(selections, nid)
 }
 
 func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
@@ -197,7 +193,7 @@ func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []ide
 		}
 		for i := 0; i < len(cs.selections); i++ {
 			if nid == cs.selections[i] {
-				cs.selections = append(cs.selections[:i], cs.selections[i+1:]...)
+				cs.selections = slices.Delete(cs.selections, i, i+1)
 				i--
 			}
 		}
@@ -215,12 +211,7 @@ func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArray {
 	return nil
 }
 func (cs *testCachedSelector) Selects(_ *versioned.VersionHandle, nid identity.NumericIdentity) bool {
-	for _, id := range cs.selections {
-		if id == nid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cs.selections, nid)
 }
 
 func (cs *testCachedSelector) IsWildcard() bool {

@@ -9,7 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -350,9 +350,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		// uint32(prodFooSecLblsCtx.ID),
 		// uint32(prodFooJoeSecLblsCtx.ID),
 	}
-	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
-		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
-	})
+	slices.Sort(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
@@ -393,9 +391,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		uint32(prodFooSecLblsCtx.ID),
 		uint32(prodFooJoeSecLblsCtx.ID),
 	}
-	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
-		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
-	})
+	slices.Sort(expectedRemotePolicies)
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
 		EndpointIps:      []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},

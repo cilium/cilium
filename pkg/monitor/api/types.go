@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,13 +139,7 @@ func (m *MessageTypeFilter) Type() string {
 }
 
 func (m *MessageTypeFilter) Contains(typ int) bool {
-	for _, v := range *m {
-		if v == typ {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(*m, typ)
 }
 
 // Must be synchronized with <bpf/lib/trace.h>

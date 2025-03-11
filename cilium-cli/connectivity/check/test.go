@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -855,10 +856,5 @@ func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRed
 }
 
 func (t *Test) HasNetworkPolicies() bool {
-	for _, obj := range t.resources {
-		if isPolicy(obj) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(t.resources, isPolicy)
 }

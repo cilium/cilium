@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 
@@ -293,7 +294,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileP
 		// remove instance from status
 		for idx, instance := range current.BGPInstances {
 			if instance.Name == params.DeletedInstance {
-				current.BGPInstances = append(current.BGPInstances[:idx], current.BGPInstances[idx+1:]...)
+				current.BGPInstances = slices.Delete(current.BGPInstances, idx, idx+1)
 				break
 			}
 		}

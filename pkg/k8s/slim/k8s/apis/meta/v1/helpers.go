@@ -8,6 +8,7 @@ package v1
 import (
 	"fmt"
 	"maps"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -48,7 +49,7 @@ func LabelSelectorAsSelector(ps *LabelSelector) (labels.Selector, error) {
 		default:
 			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
 		}
-		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
+		r, err := labels.NewRequirement(expr.Key, op, slices.Clone(expr.Values))
 		if err != nil {
 			return nil, err
 		}

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
@@ -146,12 +147,7 @@ func (s *socatMulticast) addNodeWithoutGroup(nodeName string) {
 func (s *socatMulticast) isNodeWithoutGroup(nodeName string) bool {
 	NodeWithoutGroupMu.RLock()
 	defer NodeWithoutGroupMu.RUnlock()
-	for _, node := range NodeWithoutGroup {
-		if node == nodeName {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(NodeWithoutGroup, nodeName)
 }
 
 func (s *socatMulticast) addNotSubscribePodAddress(nodeName string, podAddress v2.NodeAddress) {

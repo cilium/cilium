@@ -1319,10 +1319,8 @@ func (k *K8sClusterMesh) checkConnectionMode() error {
 		defaults.ClusterMeshConnectionModeUnicast,
 	}
 
-	for _, mode := range validModes {
-		if k.params.ConnectionMode == mode {
-			return nil
-		}
+	if slices.Contains(validModes, k.params.ConnectionMode) {
+		return nil
 	}
 
 	k.Log("❌ %s is not a correct connection mode.", k.params.ConnectionMode)
@@ -1497,7 +1495,7 @@ func (k *K8sClusterMesh) retrieveRemoteHelmValues(ctx context.Context, remoteCli
 }
 
 func removeStringFromSlice(name string, names []string) []string {
-	namesCopy := append([]string{}, names...)
+	namesCopy := slices.Clone(names)
 	namesCopy = slices.DeleteFunc(namesCopy, func(n string) bool {
 		return n == name
 	})

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -153,7 +154,7 @@ func (n *nodeOperationsMock) releaseIP(ip string) error {
 	defer n.allocator.mutex.Unlock()
 	for i, allocatedIP := range n.allocatedIPs {
 		if allocatedIP == ip {
-			n.allocatedIPs = append(n.allocatedIPs[:i], n.allocatedIPs[i+1:]...)
+			n.allocatedIPs = slices.Delete(n.allocatedIPs, i, i+1)
 			n.allocator.allocatedIPs--
 			return nil
 		}
