@@ -1235,8 +1235,14 @@ func getRouterID(config *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, as
 		}
 		return routerID, nil
 	case option.BGPRouterIDAllocationModeIPPool:
-		// TODO: implement IP pool allocation
-		return "", fmt.Errorf("IP pool allocation mode not implemented")
+		if config.RouterID == nil {
+			return "", fmt.Errorf("can't find the router-id in the CiliumBGPNodeInstance")
+		}
+		routerID := *config.RouterID
+		if net.ParseIP(routerID).To4() == nil {
+			return "", fmt.Errorf("the router-id %s is not a valid IPv4 address", routerID)
+		}
+		return routerID, nil
 	default:
 		return "", fmt.Errorf("invalid router-id allocation mode: %s (supported modes: %s, %s)", option.Config.BGPRouterIDAllocationMode, option.BGPRouterIDAllocationModeDefault, option.BGPRouterIDAllocationModeIPPool)
 	}

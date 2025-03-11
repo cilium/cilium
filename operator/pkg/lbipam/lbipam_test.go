@@ -2361,7 +2361,7 @@ func TestRangeFromPrefix(t *testing.T) {
 				tt.Fatal(err)
 			}
 
-			from, to := rangeFromPrefix(prefix)
+			from, to := RangeFromPrefix(prefix)
 			if to.Compare(expectedTo) != 0 {
 				tt.Fatalf("expected '%s', got '%s'", expectedTo, to)
 			}
