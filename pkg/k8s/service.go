@@ -691,13 +691,9 @@ func (s *Service) UniquePorts() map[string]bool {
 func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) serviceStore.ClusterService {
 	svc := serviceStore.NewClusterService(id.Name, id.Namespace)
 
-	for key, value := range k8sService.Labels {
-		svc.Labels[key] = value
-	}
+	maps.Copy(svc.Labels, k8sService.Labels)
 
-	for key, value := range k8sService.Selector {
-		svc.Selector[key] = value
-	}
+	maps.Copy(svc.Selector, k8sService.Selector)
 
 	portConfig := serviceStore.PortConfiguration{}
 	for portName, port := range k8sService.Ports {

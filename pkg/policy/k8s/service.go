@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"errors"
+	"maps"
 	"sync"
 
 	"github.com/cilium/stream"
@@ -283,10 +284,7 @@ func appendEndpoints(toCIDRSet *api.CIDRRuleSlice, endpoints []api.CIDR) {
 
 // appendSelector appends the service selector as a generated EndpointSelector
 func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]string, namespace string) {
-	selector := make(map[string]string)
-	for k, v := range svcSelector {
-		selector[k] = v
-	}
+	selector := maps.Clone(svcSelector)
 	selector[labels.LabelSourceK8sKeyPrefix+k8sConst.PodNamespaceLabel] = namespace
 	endpointSelector := api.NewESFromMatchRequirements(selector, nil)
 	endpointSelector.Generated = true

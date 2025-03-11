@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"reflect"
@@ -181,9 +182,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	if img.Config != nil && img.Config.Labels != nil {
 		lbls = img.Config.Labels
 		// container labels overwrite image labels
-		for k, v := range cont.Config.Labels {
-			lbls[k] = v
-		}
+		maps.Copy(lbls, cont.Config.Labels)
 	}
 	addLbls := labels.Map2Labels(lbls, labels.LabelSourceContainer).GetModel()
 	ecr := &models.EndpointChangeRequest{

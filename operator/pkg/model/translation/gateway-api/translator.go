@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
@@ -376,8 +377,6 @@ func mergeMap(left, right map[string]string) map[string]string {
 	if left == nil {
 		return right
 	}
-	for key, value := range right {
-		left[key] = value
-	}
+	maps.Copy(left, right)
 	return left
 }

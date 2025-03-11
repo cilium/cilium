@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -154,9 +155,7 @@ func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 func MergeTags(tagMaps ...map[string]string) map[string]string {
 	merged := make(map[string]string)
 	for _, tagMap := range tagMaps {
-		for k, v := range tagMap {
-			merged[k] = v
-		}
+		maps.Copy(merged, tagMap)
 	}
 	return merged
 }

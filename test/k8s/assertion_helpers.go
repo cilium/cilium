@@ -5,6 +5,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -112,12 +113,8 @@ func RedeployCiliumWithMerge(vm *helpers.Kubectl,
 
 	// Merge configuration
 	newOpts := make(map[string]string, len(options))
-	for k, v := range from {
-		newOpts[k] = v
-	}
-	for k, v := range options {
-		newOpts[k] = v
-	}
+	maps.Copy(newOpts, from)
+	maps.Copy(newOpts, options)
 
 	RedeployCilium(vm, ciliumFilename, newOpts)
 }
