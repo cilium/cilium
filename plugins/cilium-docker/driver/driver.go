@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	dockerCliAPI "github.com/docker/docker/client"
 	"github.com/docker/libnetwork/drivers/remote/api"
@@ -128,13 +127,13 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 	log.Info("Starting docker events watcher")
 
 	go func() {
-		eventsCh, errCh := dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+		eventsCh, errCh := dockerCli.Events(context.Background(), events.ListOptions{})
 		for {
 			select {
 			case err := <-errCh:
 				log.WithError(err).Error("Unable to connect to docker events channel, reconnecting...")
 				time.Sleep(5 * time.Second)
-				eventsCh, errCh = dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+				eventsCh, errCh = dockerCli.Events(context.Background(), events.ListOptions{})
 			case event := <-eventsCh:
 				if event.Type != events.ContainerEventType || event.Action != "start" {
 					break

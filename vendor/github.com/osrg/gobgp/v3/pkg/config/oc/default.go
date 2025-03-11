@@ -109,6 +109,7 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 
 	n.State.PeerAs = n.Config.PeerAs
 	n.AsPathOptions.State.AllowOwnAs = n.AsPathOptions.Config.AllowOwnAs
+	n.AsPathOptions.State.AllowAsPathLoopLocal = n.AsPathOptions.Config.AllowAsPathLoopLocal
 
 	if !v.IsSet("neighbor.error-handling.config.treat-as-withdraw") {
 		n.ErrorHandling.Config.TreatAsWithdraw = true
@@ -516,13 +517,12 @@ func OverwriteNeighborConfigWithPeerGroup(c *Neighbor, pg *PeerGroup) error {
 
 func overwriteConfig(c, pg interface{}, tagPrefix string, v *viper.Viper) {
 	nValue := reflect.Indirect(reflect.ValueOf(c))
-	nType := reflect.Indirect(nValue).Type()
 	pgValue := reflect.Indirect(reflect.ValueOf(pg))
 	pgType := reflect.Indirect(pgValue).Type()
 
 	for i := 0; i < pgType.NumField(); i++ {
 		field := pgType.Field(i).Name
-		tag := tagPrefix + "." + nType.Field(i).Tag.Get("mapstructure")
+		tag := tagPrefix + "." + pgType.Field(i).Tag.Get("mapstructure")
 		if func() bool {
 			for _, t := range forcedOverwrittenConfig {
 				if t == tag {
@@ -531,7 +531,9 @@ func overwriteConfig(c, pg interface{}, tagPrefix string, v *viper.Viper) {
 			}
 			return false
 		}() || !v.IsSet(tag) {
-			nValue.FieldByName(field).Set(pgValue.FieldByName(field))
+			if nField := nValue.FieldByName(field); nField.IsValid() {
+				nField.Set(pgValue.FieldByName(field))
+			}
 		}
 	}
 }
