@@ -12,7 +12,7 @@ Multi-Pool (Beta)
 .. include:: ../../../beta.rst
 
 The Multi-Pool IPAM mode supports allocating PodCIDRs from multiple different IPAM pools, depending
-on properties of the workload defined by the user, e.g. annotations.
+on workload annotations and node labels defined by the user.
 
 Architecture
 ************
@@ -106,6 +106,66 @@ described above.
 
   For a practical tutorial on how to enable this mode in Cilium, see
   :ref:`gsg_ipam_crd_multi_pool`.
+
+Per-Node Default Pool
+---------------------
+
+Cilium can allocate specific IP pools to nodes based on their labels. This
+feature is particularly useful in multi-datacenter environments where different
+nodes require IP ranges that align with their respective datacenter's subnets.
+For instance, nodes in DC1 might use the range 10.1.0.0/16, while nodes in DC2
+might use the range 10.2.0.0/16.
+
+In particular, it is possible to set a per-node default pool by setting the
+``ipam-default-ip-pool`` in a ``CiliumNodeConfig`` resource on nodes matching
+certain node labels.
+
+.. code-block:: yaml
+
+    ---
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumPodIPPool
+    metadata:
+      name: dc1-pool
+    spec:
+      ipv4:
+        cidrs:
+          - 10.1.0.0/16
+        maskSize: 24
+    ---
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumPodIPPool
+    metadata:
+      name: dc2-pool
+    spec:
+      ipv4:
+        cidrs:
+          - 10.2.0.0/16
+        maskSize: 24
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNodeConfig
+    metadata:
+      name: ip-pool-dc1
+      namespace: kube-system
+    spec:
+      defaults:
+        ipam-default-ip-pool: dc1-pool
+      nodeSelector:
+        matchLabels:
+          topology.kubernetes.io/zone: dc1
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNodeConfig
+    metadata:
+      name: ip-pool-dc2
+      namespace: kube-system
+    spec:
+      defaults:
+        ipam-default-ip-pool: dc2-pool
+      nodeSelector:
+        matchLabels:
+          topology.kubernetes.io/zone: dc2
 
 Allocation Parameters
 ---------------------
