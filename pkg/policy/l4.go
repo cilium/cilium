@@ -1830,7 +1830,7 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 	if !isDelete {
 		for ePolicy := range l4.users {
 			if endpointID != ePolicy.PolicyOwner.GetID() {
-				ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
 					Reason:            "selector policy has changed because of another endpoint with the same identity",
 					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 				})
