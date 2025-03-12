@@ -200,18 +200,22 @@ func (s prefixInfo) Source() source.Source {
 }
 
 func (s prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
-	for _, rid := range s.sortedBySourceThenResourceID() {
-		if k := s[rid].encryptKey; k.IsValid() {
-			return k
+	if option.Config.EncryptionEnabled() || option.Config.NodeEncryptionEnabled() || option.Config.EnableWireguard {
+		for _, rid := range s.sortedBySourceThenResourceID() {
+			if k := s[rid].encryptKey; k.IsValid() {
+				return k
+			}
 		}
 	}
 	return ipcachetypes.EncryptKeyEmpty
 }
 
 func (s prefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
-	for _, rid := range s.sortedBySourceThenResourceID() {
-		if t := s[rid].tunnelPeer; t.IsValid() {
-			return t
+	if option.Config.TunnelingEnabled() || option.Config.NodeEncryptionEnabled() || option.Config.EnableWireguard || option.Config.EnableHostFirewall {
+		for _, rid := range s.sortedBySourceThenResourceID() {
+			if t := s[rid].tunnelPeer; t.IsValid() {
+				return t
+			}
 		}
 	}
 	return ipcachetypes.TunnelPeer{}

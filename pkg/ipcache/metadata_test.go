@@ -626,6 +626,14 @@ func TestOverrideIdentity(t *testing.T) {
 }
 
 func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeTunnel
+
+	prevEncryption := option.Config.EnableIPSec
+	defer func() { option.Config.EnableIPSec = prevEncryption }()
+	option.Config.EnableIPSec = true
+
 	cancel := setupTest(t)
 	defer cancel()
 
@@ -1342,6 +1350,14 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 }
 
 func TestIPCachePodCIDREntries(t *testing.T) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeTunnel
+
+	prevEncryption := option.Config.EnableIPSec
+	defer func() { option.Config.EnableIPSec = prevEncryption }()
+	option.Config.EnableIPSec = true
+
 	cancel := setupTest(t)
 	defer cancel()
 
