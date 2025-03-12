@@ -11,6 +11,8 @@ import (
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 )
 
+const nodeNameLabel = "node_name"
+
 type statusCollector struct {
 	daemonHealthGetter       daemonHealthGetter
 	connectivityStatusGetter connectivityStatusGetter
@@ -53,7 +55,7 @@ func newStatusCollectorWithClients(d daemonHealthGetter, c connectivityStatusGet
 		unreachableNodesDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "unreachable_nodes"),
 			"Number of nodes that cannot be reached",
-			nil, nil,
+			[]string{nodeNameLabel}, nil,
 		),
 		unreachableHealthEndpointsDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "unreachable_health_endpoints"),
@@ -126,7 +128,7 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// Nodes and endpoints healthStatusResponse
+	// Endpoints healthStatusResponse
 	var (
 		unreachableNodes     int
 		unreachableEndpoints int
@@ -135,6 +137,12 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, nodeStatus := range healthStatusResponse.Payload.Nodes {
 		for _, addr := range healthClientPkg.GetAllHostAddresses(nodeStatus) {
 			if healthClientPkg.GetPathConnectivityStatusType(addr) == healthClientPkg.ConnStatusUnreachable {
+				ch <- prometheus.MustNewConstMetric(
+					s.unreachableNodesDesc,
+					prometheus.GaugeValue,
+					1,
+					nodeStatus.Name,
+				)
 				unreachableNodes++
 				break
 			}
@@ -148,11 +156,14 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 
-	ch <- prometheus.MustNewConstMetric(
-		s.unreachableNodesDesc,
-		prometheus.GaugeValue,
-		float64(unreachableNodes),
-	)
+	if unreachableNodes == 0 {
+		ch <- prometheus.MustNewConstMetric(
+			s.unreachableNodesDesc,
+			prometheus.GaugeValue,
+			0,
+			"",
+		)
+	}
 
 	ch <- prometheus.MustNewConstMetric(
 		s.unreachableHealthEndpointsDesc,
