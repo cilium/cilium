@@ -102,7 +102,7 @@ workflows:
   conformance-gateway-api.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-ginkgo.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   conformance-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-ingress.yaml:
@@ -110,7 +110,7 @@ workflows:
   conformance-multi-pool.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-runtime.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
   tests-clustermesh-upgrade.yaml:
