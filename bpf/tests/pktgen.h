@@ -18,6 +18,7 @@
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/icmp.h>
 #include <linux/icmpv6.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
@@ -427,6 +428,13 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 
 static __always_inline
 __attribute__((warn_unused_result))
+struct icmphdr *pktgen__push_icmphdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct icmphdr), PKT_LAYER_ICMP);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
 struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct icmp6hdr), PKT_LAYER_ICMPV6);
@@ -684,6 +692,40 @@ pktgen__push_ipv4_vxlan_packet(struct pktgen *builder,
 		return NULL;
 
 	return pktgen__push_default_vxlanhdr(builder);
+}
+
+static __always_inline struct icmphdr *
+pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
+			      __u8 *smac, __u8 *dmac,
+			      __be32 saddr, __be32 daddr,
+			      __u8 icmp_type)
+{
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct icmphdr *l4;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_iphdr(builder);
+	if (!l3)
+		return NULL;
+
+	l3->saddr = saddr;
+	l3->daddr = daddr;
+
+	l4 = pktgen__push_icmphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->type = icmp_type;
+	l4->code = 0;
+	l4->checksum = 0;
+
+	return l4;
 }
 
 static __always_inline struct tcphdr *
