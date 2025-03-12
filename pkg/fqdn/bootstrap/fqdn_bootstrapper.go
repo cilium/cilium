@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,7 +44,7 @@ type fqdnProxyBootstrapper struct {
 	dnsRequestHandler DNSRequestHandler
 }
 
-var _ FQDNProxyBootstrapper = &fqdnProxyBootstrapper{}
+var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
@@ -67,29 +66,25 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		return nil
 	}
 
-	// A configured proxy port takes precedence over using the previous port.
-	port := uint16(option.Config.ToFQDNsProxyPort)
-	if port == 0 {
+	// A configured proxy wantPort takes precedence over using the previous wantPort.
+	wantPort := uint16(option.Config.ToFQDNsProxyPort)
+	if wantPort == 0 {
+		var isStatic bool
 		// Try reuse previous DNS proxy port number
-		if oldPort, isStatic, err := b.proxyPorts.GetProxyPort(proxytypes.DNSProxyName); err == nil {
-			if isStatic {
-				port = oldPort
-			} else {
-				openLocalPorts := b.proxyPorts.GetOpenLocalPorts()
-				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
-					port = oldPort
-				} else {
-					b.logger.Info("Unable re-use old DNS proxy port as it is already in use", logfields.Port, oldPort)
-				}
-			}
+		wantPort, isStatic, _ = b.proxyPorts.GetProxyPort(proxytypes.DNSProxyName)
+
+		if _, alreadyOpen := b.proxyPorts.GetOpenLocalPorts()[wantPort]; !isStatic && alreadyOpen {
+			wantPort = 0
+			b.logger.Info("Unable re-use old DNS proxy port as it is already in use", logfields.Port, wantPort)
 		}
 	}
+
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
 		Address:                "",
-		Port:                   port,
+		Port:                   wantPort,
 		IPv4:                   option.Config.EnableIPv4,
 		IPv6:                   option.Config.EnableIPv6,
 		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
@@ -97,25 +92,32 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
-	var dnsProxy fqdnproxy.DNSProxier
-	dnsProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsRequestHandler.NotifyOnDNSMsg)
+	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsRequestHandler.NotifyOnDNSMsg)
 	b.proxyInstance.Set(dnsProxy)
-	if err == nil {
-		// Increase the ProxyPort reference count so that it will never get released.
-		err = b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false)
-		if err == nil && port == dnsProxy.GetBindPort() {
-			b.logger.Info("Reusing previous DNS proxy port", logfields.Port, port)
-		}
-		dnsProxy.SetRejectReply(option.Config.FQDNRejectResponse)
-		// Restore old rules
-		for _, possibleEP := range possibleEndpoints {
-			// Upgrades from old ciliums have this nil
-			if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
-				dnsProxy.RestoreRules(possibleEP)
-			}
+
+	if err := dnsProxy.Listen(); err != nil {
+		return fmt.Errorf("error opening dns proxy socket(s): %w", err)
+	}
+
+	if wantPort == dnsProxy.GetBindPort() {
+		b.logger.Info("Reusing previous / configured DNS proxy port", logfields.Port, wantPort)
+	}
+
+	// Increase the ProxyPort reference count so that it will never get released.
+	if err := b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false); err != nil {
+		// should never happen
+		b.logger.Warn("BUG: Failed to increase DNS proxy port refcount", logfields.Error, err)
+	}
+
+	dnsProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+	// Restore old rules
+	for _, possibleEP := range possibleEndpoints {
+		// Upgrades from old ciliums have this nil
+		if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
+			dnsProxy.RestoreRules(possibleEP)
 		}
 	}
-	return err // filled by StartDNSProxy
+	return nil
 }
 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
