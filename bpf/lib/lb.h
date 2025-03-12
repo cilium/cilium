@@ -1321,6 +1321,10 @@ static __always_inline int
 lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
 		  struct ipv4_ct_tuple *tuple)
 {
+	fraginfo_t fraginfo;
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
+
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
@@ -1333,8 +1337,8 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv4_load_l4_ports(ctx, ip4, *l4_off, CT_EGRESS,
-					  &tuple->dport, NULL);
+		return ipv4_load_l4_ports(ctx, ip4, fraginfo, *l4_off,
+					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMP:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
@@ -1735,12 +1739,11 @@ lb4_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
-				     bool is_fragment, int l3_off, int l4_off,
+				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
-				     bool has_l4_header,
 				     const bool skip_xlate,
 				     __u32 *cluster_id __maybe_unused,
 				     __s8 *ext_err,
@@ -1761,8 +1764,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 	state->rev_nat_index = svc->rev_nat_index;
 
-	ret = ct_lazy_lookup4(map, tuple, ctx, is_fragment, l4_off, has_l4_header,
-			      CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
+	ret = ct_lazy_lookup4(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
+			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
 	if (ret < 0)
 		goto drop_err;
 
@@ -1901,7 +1904,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
-			 backend, has_l4_header);
+			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
