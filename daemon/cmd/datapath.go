@@ -296,7 +296,10 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	_, err := lbmap.NewSkipLBMap()
+	skiplbmap, err := lbmap.NewSkipLBMap()
+	if err == nil {
+		err = skiplbmap.OpenOrCreate()
+	}
 	if err != nil {
 		return fmt.Errorf("initializing local redirect policy maps: %w", err)
 	}
