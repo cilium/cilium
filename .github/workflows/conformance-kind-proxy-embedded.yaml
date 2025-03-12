@@ -82,7 +82,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@45a3879a8cb769c9e41b912635e03a38849c9242 # v0.18.1
+        uses: cilium/cilium-cli@c5674e5deb5102e851bb730afa8520e812d6f02a # Test action
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
