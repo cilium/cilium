@@ -104,8 +104,7 @@ jobs:
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
         if: |
           ${{ steps.go-cache.outputs.cache-hit != 'true' &&
-              (steps.go-cache.outputs.require-dir == '' ||
-               hashFiles(steps.go-cache.outputs.require-dir) != '')
+              steps.check.outputs.build != ''
            }}
         run: |
           set -eu -o pipefail
