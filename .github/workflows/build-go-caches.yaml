@@ -33,6 +33,9 @@ jobs:
           - name: cilium
             make-target: build-container
 
+          - name: cilium-cli
+            make-target: -C cilium-cli
+
           - name: operator-aws
             make-target: build-container-operator-aws
 
@@ -93,7 +96,10 @@ jobs:
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
         run: |
           set -eu -o pipefail
-          contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          # Don't build cilium-cli for arm64
+          if [[ ${{ matrix.name }} != cilium-cli ]]; then
+            contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          fi
           contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
           contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
           contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j $(nproc) || exit 1

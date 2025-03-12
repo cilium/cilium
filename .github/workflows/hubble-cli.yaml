@@ -3,6 +3,7 @@ name: Hubble CLI tests
 on:
   pull_request:
     paths-ignore:
+      - 'cilium-cli/**'
       - 'Documentation/**'
       - 'test/**'
   # The push event is only used to recreate the golang cache for hubble-cli
@@ -11,6 +12,7 @@ on:
       - v1.17
       - ft/v1.17/**
     paths-ignore:
+      - 'cilium-cli/**'
       - 'Documentation/**'
       - 'test/**'
 
