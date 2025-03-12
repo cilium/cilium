@@ -30,7 +30,11 @@ func KindPtr(name string) *gatewayv1.Kind {
 
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic http": {},
+		"basic http":                                             {},
+		"basic http nodeport service":                            {},
+		"basic http external traffic policy":                     {},
+		"basic http load balancer":                               {},
+		"multiple parentRefs":                                    {},
 		"Conformance/HTTPRouteSimpleSameNamespace":               {},
 		"Conformance/HTTPRouteCrossNamespace":                    {},
 		"Conformance/HTTPExactPathMatching":                      {},
@@ -65,8 +69,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 }
 
 func TestTLSGatewayAPI(t *testing.T) {
-	tests := map[string]struct {
-	}{
+	tests := map[string]struct{}{
 		"basic tls http": {},
 		"Conformance/TLSRouteSimpleSameNamespace": {},
 	}
@@ -84,8 +87,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 }
 
 func TestGRPCGatewayAPI(t *testing.T) {
-	tests := map[string]struct {
-	}{
+	tests := map[string]struct{}{
 		"basic grpc": {},
 	}
 

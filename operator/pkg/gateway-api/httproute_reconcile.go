@@ -16,6 +16,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -46,6 +47,12 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	hr := original.DeepCopy()
 
+	if !r.hasMatchingGatewayParent()(hr) {
+		scopedLog.Warn("HTTPRoute does not have a matching Gateway Parent, this should not be possible")
+		err := fmt.Errorf("Reconciliation failure: somehow selected a HTTPRoute without a matching Gateway parent")
+		return controllerruntime.Fail(err)
+	}
+
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
@@ -64,7 +71,17 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// gateway validators
 	for _, parent := range hr.Spec.ParentRefs {
 
-		// set acceptance to okay, this wil be overwritten in checks if needed
+		// If this parentRef is not a Gateway parentRef, then skip it.
+		if !helpers.IsGateway(parent) {
+			continue
+		}
+
+		// Similarly, if this Gateway is not a matching one, then
+		if !r.parentIsMatchingGateway(parent, hr.Namespace) {
+			continue
+		}
+
+		// set Accepted to okay, this wil be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
@@ -72,16 +89,16 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			Message: "Accepted HTTPRoute",
 		})
 
-		// set status to okay, this wil be overwritten in checks if needed
-		i.SetAllParentCondition(metav1.Condition{
+		// set ResolvedRefs to okay, this wil be overwritten in checks if needed
+		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,
 			Reason:  string(gatewayv1.RouteReasonResolvedRefs),
 			Message: "Service reference is valid",
 		})
 
-		// run the actual validators
-		for _, fn := range []routechecks.CheckParentFunc{
+		// run the Gateway validators
+		for _, fn := range []routechecks.CheckWithParentFunc{
 			routechecks.CheckGatewayRouteKindAllowed,
 			routechecks.CheckGatewayMatchingPorts,
 			routechecks.CheckGatewayMatchingHostnames,
@@ -97,21 +114,23 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				break
 			}
 		}
-	}
 
-	for _, fn := range []routechecks.CheckRuleFunc{
-		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackend,
-		routechecks.CheckHasServiceImportSupport,
-		routechecks.CheckBackendIsExistingService,
-	} {
-		continueCheck, err := fn(i)
-		if err != nil {
-			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, hr)
-		}
+		// Run the Rule validators, these need to be run per-parent so that we
+		// don't update status for parents we don't own.
+		for _, fn := range []routechecks.CheckWithParentFunc{
+			routechecks.CheckAgainstCrossNamespaceBackendReferences,
+			routechecks.CheckBackend,
+			routechecks.CheckHasServiceImportSupport,
+			routechecks.CheckBackendIsExistingService,
+		} {
+			continueCheck, err := fn(i, parent)
+			if err != nil {
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), hr, original)
+			}
 
-		if !continueCheck {
-			break
+			if !continueCheck {
+				break
+			}
 		}
 	}
 
