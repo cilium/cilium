@@ -115,12 +115,13 @@ jobs:
 
           if [ -n "${floating_tag}" ]; then
             floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${floating_tag}"
-            floating_race_tag="${floating_normal_tag}-race"
-            floating_unstripped_tag="${floating_normal_tag}-unstripped"
-
             normal_tag="${normal_tag},${floating_normal_tag}"
-            race_tag="${race_tag},${floating_race_tag}"
-            unstripped_tag="${unstripped_tag},${floating_unstripped_tag}"
+          fi
+
+          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
+            # Don't build race and unstripped images for merge_group or push events.
+            race_tag=""
+            unstripped_tag=""
           fi
 
           echo normal_tag=${normal_tag} >> $GITHUB_OUTPUT
@@ -199,6 +200,7 @@ jobs:
       - name: CI race detection Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_detect_race_condition
+        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != ''}}
         with:
           provenance: false
           context: .
@@ -215,6 +217,7 @@ jobs:
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_unstripped
+        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != ''}}
         with:
           provenance: false
           context: .
@@ -230,8 +233,12 @@ jobs:
       - name: Sign Container Images
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+          fi
 
       - name: Generate SBOM
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
@@ -241,6 +248,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM (race)
+        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -248,6 +256,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
       - name: Generate SBOM (unstripped)
+        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -256,26 +265,13 @@ jobs:
 
       - name: Attach SBOM to Container Images
         run: |
-          cosign attach sbom --sbom sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          cosign attach sbom --sbom sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          cosign attach sbom --sbom sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
-
-      - name: Sign SBOM Images
-        run: |
-          docker_build_ci_digest="${{ steps.docker_build_ci.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_digest/:/-}.sbom"
-          docker_build_ci_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_sbom_digest}"
-
-          docker_build_ci_detect_race_condition_digest="${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_detect_race_condition_digest/:/-}.sbom"
-          docker_build_ci_detect_race_condition_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_detect_race_condition_sbom_digest}"
-
-          docker_build_ci_unstripped_digest="${{ steps.docker_build_ci_unstripped.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_unstripped_digest/:/-}.sbom"
-          docker_build_ci_unstripped_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_unstripped_sbom_digest}"
+          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            cosign attest -r -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            cosign attest -r -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+          fi
 
       - name: CI Image Releases digests
         shell: bash
@@ -283,12 +279,14 @@ jobs:
           mkdir -p image-digest/
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           fi
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          fi
 
       # Upload artifact digests
       - name: Upload artifact digests
