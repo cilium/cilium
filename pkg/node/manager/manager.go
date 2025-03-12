@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -91,6 +92,8 @@ type IPCache interface {
 	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
 	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
 	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
+	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
 
 // IPSetFilterFn is a function allowing to optionally filter out the insertion
@@ -771,6 +774,15 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 	return nodeLabels, hasOverride
 }
 
+// worldLabelForPrefix returns the labels which will resolve to
+// reserved:world identity given the provided prefix and the
+// current cluster configuration in terms of dual-stack.
+func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
+	lbls := make(labels.Labels, 1)
+	lbls.AddWorldLabel(prefix.Addr())
+	return lbls
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -802,7 +814,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
 	var ipsetEntries []netip.Prefix
-	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix
+	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
@@ -876,6 +888,25 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
+	// Add the remote node's Pod CIDRs as fallback entries into IPCache with
+	// the nodeIP as the tunnel endpoint (no tunnel endpoint fallback is needed
+	// for the local node).
+	if !n.IsLocal() {
+		ipv4PodCIDRs := n.GetIPv4AllocCIDRs()
+		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
+
+		mu := make([]ipcache.MU, 0, len(ipv4PodCIDRs)+len(ipv6PodCIDRs))
+		for entry := range m.podCIDREntries(n.Source, resource, ipv4PodCIDRs, nodeIP, n.EncryptionKey) {
+			mu = append(mu, entry)
+			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix)
+		}
+		for entry := range m.podCIDREntries(n.Source, resource, ipv6PodCIDRs, nodeIP, n.EncryptionKey) {
+			mu = append(mu, entry)
+			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix)
+		}
+		m.ipcache.UpsertMetadataBatch(mu...)
+	}
+
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		healthIP := ip.IPToNetPrefix(address)
 		if !healthIP.IsValid() {
@@ -947,7 +978,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			}
 		}
 
-		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded)
 
 		entry.mutex.Unlock()
 	} else {
@@ -986,13 +1017,45 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 }
 
+func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.ResourceID, podCIDRs []*cidr.CIDR, tunnelIP netip.Addr, encryptKey uint8) iter.Seq[ipcache.MU] {
+	return func(yield func(ipcache.MU) bool) {
+		for _, podCIDR := range podCIDRs {
+			if podCIDR == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(podCIDR.IPNet)
+			if !ok {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				worldLabelForPrefix(prefix),
+				ipcacheTypes.TunnelPeer{Addr: tunnelIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(encryptKey))
+			}
+
+			yield(ipcache.MU{
+				Prefix:   prefix,
+				Source:   source,
+				Resource: resource,
+				Metadata: metadata,
+			})
+		}
+	}
+}
+
 // removeNodeFromIPCache removes all addresses associated with oldNode from the IPCache,
 // unless they are present in the nodeIPsAdded, healthIPsAdded, ingressIPsAdded lists.
+// Removes all pod CIDRs associated with the oldNode from IPCache, unless they are present
+// in podCIDRsAdded.
 // Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix,
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
@@ -1046,6 +1109,27 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
+
+	// Remove old pod CIDR fallback entries from IPCache
+	if !oldNode.IsLocal() {
+		oldIPv4PodCIDRs := oldNode.GetIPv4AllocCIDRs()
+		oldIPv6PodCIDRs := oldNode.GetIPv6AllocCIDRs()
+
+		mu := make([]ipcache.MU, 0, len(oldIPv4PodCIDRs)+len(oldIPv6PodCIDRs))
+		for entry := range m.podCIDREntries(oldNode.Source, resource, oldIPv4PodCIDRs, oldNodeIP, oldNode.EncryptionKey) {
+			if slices.Contains(podCIDRsAdded, entry.Prefix) {
+				continue
+			}
+			mu = append(mu, entry)
+		}
+		for entry := range m.podCIDREntries(oldNode.Source, resource, oldIPv6PodCIDRs, oldNodeIP, oldNode.EncryptionKey) {
+			if slices.Contains(podCIDRsAdded, entry.Prefix) {
+				continue
+			}
+			mu = append(mu, entry)
+		}
+		m.ipcache.RemoveMetadataBatch(mu...)
+	}
 
 	// Delete the old health IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
@@ -1129,7 +1213,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 	if n.Source != source.Restored {
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
 	}
 
 	m.metrics.NumNodes.Dec()
