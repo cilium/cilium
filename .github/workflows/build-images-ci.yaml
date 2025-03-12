@@ -309,10 +309,7 @@ jobs:
 
       - name: CI Image Releases digests
         shell: bash
-        if: |
-          ${{ matrix.require-dir == '' ||
-              hashFiles(matrix.require-dir) != ''
-          }}
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           mkdir -p image-digest/
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
