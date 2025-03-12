@@ -567,13 +567,42 @@ func TestIpcache(t *testing.T) {
 	}
 	mngr.NodeUpdated(n1)
 
+	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"))
+
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -592,18 +621,53 @@ func TestIpcache(t *testing.T) {
 
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"))
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
 	mngr.NodeDeleted(n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"))
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -677,12 +741,54 @@ func TestNodeEncryption(t *testing.T) {
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
+		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
+		IPv6AllocCIDR:           cidr.MustParseCIDR("f00d::/96"),
+		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("cafe::/96")},
+		EncryptionKey:           42,
 	}
 	mngr.NodeUpdated(n1)
 
+	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
+
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -692,9 +798,44 @@ func TestNodeEncryption(t *testing.T) {
 
 	mngr.NodeDeleted(n1)
 
+	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
+
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
