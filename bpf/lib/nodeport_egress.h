@@ -323,11 +323,12 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 			 * Check if its a reply packet, if it is, redirect it to the
 			 * parent interface.
 			 */
-			if (ipv4_load_l4_ports(ctx, ip4, l4_off, CT_EGRESS,
-					       (__be16 *)&tuple.dport, NULL) < 0)
-				return DROP_INVALID;
+			ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple, NULL);
+			if (ret < 0 && ret != DROP_CT_UNKNOWN_PROTO)
+				return ret;
 
-			if (ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
+			if (ret != DROP_CT_UNKNOWN_PROTO &&
+			    ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
 				/* Look up the parent interface's MAC address and set it as the
 				 * source MAC address of the packet. We will assume the destination
 				 * MAC address is still correct. This assumption only holds if the
