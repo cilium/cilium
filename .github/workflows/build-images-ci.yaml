@@ -36,6 +36,10 @@ jobs:
             dockerfile: ./images/cilium/Dockerfile
             platforms: linux/amd64,linux/arm64
 
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
             platforms: linux/amd64,linux/arm64
@@ -270,6 +274,7 @@ jobs:
 
       - name: Generate SBOM
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        if: ${{ matrix.name != 'cilium-cli' }}
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -292,6 +297,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
 
       - name: Attach SBOM attestation to container image
+        if: ${{ matrix.name != 'cilium-cli' }}
         run: |
           cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
