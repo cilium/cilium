@@ -320,6 +320,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
+	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -331,7 +332,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
  * then drop the packet.
  */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
