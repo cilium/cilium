@@ -506,6 +506,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
+	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 
@@ -529,7 +530,8 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = ipv4_is_fragment(ip4);
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
 #  endif
 
 	/* Perform policy lookup */
