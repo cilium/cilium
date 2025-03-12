@@ -8,6 +8,7 @@
 #include "dbg.h"
 #include "l4.h"
 #include "metrics.h"
+#include "ipfrag.h"
 
 #define IPV4_SADDR_OFF		offsetof(struct iphdr, saddr)
 #define IPV4_DADDR_OFF		offsetof(struct iphdr, daddr)
@@ -79,32 +80,6 @@ static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
 	return ip4->ihl * 4;
 }
 
-static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
-{
-	/* The frag_off portion of the header consists of:
-	 *
-	 * +----+----+----+----------------------------------+
-	 * | RS | DF | MF | ...13 bits of fragment offset... |
-	 * +----+----+----+----------------------------------+
-	 *
-	 * If "More fragments" or the offset is nonzero, then this is an IP
-	 * fragment (RFC791).
-	 */
-	return ip4->frag_off & bpf_htons(0x3FFF);
-}
-
-static __always_inline bool ipv4_is_not_first_fragment(const struct iphdr *ip4)
-{
-	/* Ignore "More fragments" bit to catch all fragments but the first */
-	return ip4->frag_off & bpf_htons(0x1FFF);
-}
-
-/* Simply a reverse of ipv4_is_not_first_fragment to avoid double negative. */
-static __always_inline bool ipv4_has_l4_header(const struct iphdr *ip4)
-{
-	return !ipv4_is_not_first_fragment(ip4);
-}
-
 static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 					      __be32 subnet, int prefixlen)
 {
@@ -129,39 +104,27 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 
 static __always_inline int
 ipv4_handle_fragmentation(struct __ctx_buff *ctx,
-			  const struct iphdr *ip4, int l4_off,
+			  const struct iphdr *ip4,
+			  fraginfo_t fraginfo,
+			  int l4_off,
 			  enum ct_dir ct_dir,
-			  struct ipv4_frag_l4ports *ports,
-			  bool *has_l4_header)
+			  struct ipv4_frag_l4ports *ports)
 {
-	bool is_fragment, not_first_fragment;
-	int ret;
-
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
 		.saddr = ip4->saddr,
-		.id = ip4->id,
-		.proto = ip4->protocol,
-		.pad = 0,
+		.id = (__be16)ipfrag_get_id(fraginfo),
+		.proto = ipfrag_get_protocol(fraginfo),
 	};
 
-	is_fragment = ipv4_is_fragment(ip4);
-
-	if (unlikely(is_fragment)) {
-		not_first_fragment = ipv4_is_not_first_fragment(ip4);
-		if (has_l4_header)
-			*has_l4_header = !not_first_fragment;
-
-		if (likely(not_first_fragment))
-			return ipv4_frag_get_l4ports(&frag_id, ports);
-	}
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return ipv4_frag_get_l4ports(&frag_id, ports);
 
 	/* load sport + dport into tuple */
-	ret = l4_load_ports(ctx, l4_off, (__be16 *)ports);
-	if (ret < 0)
+	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
 		return DROP_CT_INVALID_HDR;
 
-	if (unlikely(is_fragment)) {
+	if (unlikely(ipfrag_is_fragment(fraginfo))) {
 		/* First logical fragment for this datagram (not necessarily the first
 		 * we receive). Fragment has L4 header, create an entry in datagrams map.
 		 */
@@ -180,14 +143,15 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 
 static __always_inline int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
-		   int l4_off, enum ct_dir dir __maybe_unused,
-		   __be16 *ports, bool *has_l4_header __maybe_unused)
+		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
+		   __be16 *ports)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
-	return ipv4_handle_fragmentation(ctx, ip4, l4_off, dir,
-					 (struct ipv4_frag_l4ports *)ports,
-					 has_l4_header);
+	return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
+					 (struct ipv4_frag_l4ports *)ports);
 #else
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return DROP_FRAG_NOSUPPORT;
 	if (l4_load_ports(ctx, l4_off, ports) < 0)
 		return DROP_CT_INVALID_HDR;
 #endif

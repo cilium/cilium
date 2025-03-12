@@ -605,7 +605,8 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -723,7 +724,8 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -840,7 +842,8 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -946,7 +949,8 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, l4_off, &target, &trace, NULL);
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
