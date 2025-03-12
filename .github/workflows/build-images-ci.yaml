@@ -39,6 +39,7 @@ jobs:
           - name: cilium-cli
             dockerfile: ./cilium-cli/Dockerfile
             platforms: linux/amd64
+            require-dir: cilium-cli
 
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
@@ -209,12 +210,21 @@ jobs:
           df -h
           docker buildx du
 
+      - name: Check build constraints
+        id: check
+        run: |
+          if [[ -z "${{ matrix.require-dir }}" ]] ||
+             [[ -d "${{ matrix.require-dir }}" ]]; then
+            echo build="true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           provenance: false
           context: .
@@ -263,6 +273,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
@@ -309,6 +320,7 @@ jobs:
 
       - name: CI Image Releases digests
         shell: bash
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           mkdir -p image-digest/
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
@@ -325,6 +337,7 @@ jobs:
       # Upload artifact digests
       - name: Upload artifact digests
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ steps.check.outputs.build != '' }}
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
