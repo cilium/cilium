@@ -23,7 +23,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -31,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -146,10 +144,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
 
-	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
-	err = tunnel.TunnelMap().OpenOrCreate()
-	require.NoError(tb, err)
-
 	return s
 }
 
@@ -203,8 +197,6 @@ func tearDownTest(tb testing.TB) {
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
-	err := tunnel.TunnelMap().Unpin()
-	require.NoError(tb, err)
 }
 
 func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
@@ -269,14 +261,6 @@ func TestAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestAuxiliaryPrefixes(t)
 			})
-			t.Run("TestNodeUpdateEncapsulation", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestNodeUpdateEncapsulation(t)
-			})
-			t.Run("TestNodeUpdateEncapsulationWithOverride", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestNodeUpdateEncapsulationWithOverride(t)
-			})
 			t.Run("TestNodeUpdateIDs", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeUpdateIDs(t)
@@ -292,14 +276,6 @@ func TestAll(t *testing.T) {
 			t.Run("TestNodeUpdateDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeUpdateDirectRouting(t)
-			})
-			t.Run("TestAgentRestartOptionChanges", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestAgentRestartOptionChanges(t)
-			})
-			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestAgentRestartOptionChanges(t)
 			})
 		})
 	}
@@ -417,281 +393,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
-	}
-}
-
-func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(t *testing.T) {
-	s.commonNodeUpdateEncapsulation(t, true, nil)
-}
-
-func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulationWithOverride(t *testing.T) {
-	s.commonNodeUpdateEncapsulation(t, false, func(*nodeTypes.Node) bool { return true })
-}
-
-func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.T, encap bool, override func(*nodeTypes.Node) bool) {
-	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
-	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
-	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
-
-	externalNodeIP1 := net.ParseIP("4.4.4.4")
-	externalNodeIP2 := net.ParseIP("8.8.8.8")
-
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
-
-	require.NotNil(t, linuxNodeHandler)
-	linuxNodeHandler.OverrideEnableEncapsulation(override)
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = encap
-	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// nodev1: ip4Alloc1, ip6alloc1 => externalNodeIP1
-	nodev1 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev1.IPv4AllocCIDR = ip4Alloc1
-	}
-	if s.enableIPv6 {
-		nodev1.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	// nodev2: ip4Alloc1, ip6alloc1 => externalNodeIP2
-	nodev2 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev2.IPv4AllocCIDR = ip4Alloc1
-	}
-	if s.enableIPv6 {
-		nodev2.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
-	require.NoError(t, err)
-
-	// alloc range v1 should map to underlay2
-	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	// nodev3: ip4Alloc2, ip6alloc2 => externalNodeIP1
-	nodev3 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev3.IPv4AllocCIDR = ip4Alloc2
-	}
-	if s.enableIPv6 {
-		nodev3.IPv6AllocCIDR = ip6Alloc2
-	}
-
-	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
-	require.NoError(t, err)
-
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-
-		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-
-		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	// nodev4: stop announcing CIDRs
-	nodev4 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-	err = linuxNodeHandler.NodeUpdate(nodev3, nodev4)
-	require.NoError(t, err)
-
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
-
-	if s.enableIPv4 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-	}
-
-	// nodev5: re-announce CIDRs
-	nodev5 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev5.IPv4AllocCIDR = ip4Alloc2
-	}
-	if s.enableIPv6 {
-		nodev5.IPv6AllocCIDR = ip6Alloc2
-	}
-
-	err = linuxNodeHandler.NodeUpdate(nodev4, nodev5)
-	require.NoError(t, err)
-
-	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
-		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	// delete nodev5
-	err = linuxNodeHandler.NodeDelete(nodev5)
-	require.NoError(t, err)
-
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
-
-	if s.enableIPv4 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
 	}
 }
 
@@ -1154,90 +855,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
-}
-
-func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.T) {
-	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
-	underlayIP := net.ParseIP("4.4.4.4")
-
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
-
-	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = true
-
-	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: underlayIP, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv6 {
-		nodev1.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	if s.enableIPv4 {
-		nodev1.IPv4AllocCIDR = ip4Alloc1
-	}
-
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
-
-	// Simulate agent restart with address families disables
-	nodeConfig.EnableIPv4 = false
-	nodeConfig.EnableIPv6 = false
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// Simulate initial node addition
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	// Simulate agent restart with address families enabled again
-	nodeConfig.EnableIPv4 = true
-	nodeConfig.EnableIPv6 = true
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// Simulate initial node addition
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
-
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
 }
 
 func insertFakeRoute(t *testing.T, n *linuxNodeHandler, prefix *cidr.CIDR) {

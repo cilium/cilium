@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -44,8 +46,9 @@ import (
 )
 
 type nodeEvent struct {
-	event  string
-	prefix netip.Prefix
+	event    string
+	prefix   netip.Prefix
+	metadata ipcache.IPMetadata
 }
 
 type ipcacheMock struct {
@@ -71,23 +74,23 @@ func AddrOrPrefixToIP(ip string) (netip.Prefix, error) {
 	return prefix, err
 }
 
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
+func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity, aux ...ipcache.IPMetadata) (bool, error) {
 	addr, err := AddrOrPrefixToIP(ip)
 	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr}
+		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr, aux}
 		return false, err
 	}
-	i.events <- nodeEvent{"upsert", addr}
+	i.events <- nodeEvent{"upsert", addr, aux}
 	return false, nil
 }
 
-func (i *ipcacheMock) Delete(ip string, source source.Source) bool {
+func (i *ipcacheMock) Delete(ip string, source source.Source, aux ...ipcache.IPMetadata) bool {
 	addr, err := AddrOrPrefixToIP(ip)
 	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("delete failed: %s", err), addr}
+		i.events <- nodeEvent{fmt.Sprintf("delete failed: %s", err), addr, aux}
 		return false
 	}
-	i.events <- nodeEvent{"delete", addr}
+	i.events <- nodeEvent{"delete", addr, aux}
 	return false
 }
 
@@ -95,18 +98,32 @@ func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Sour
 	return source.Unspec
 }
 func (i *ipcacheMock) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{})
+	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{}, aux)
 }
 func (i *ipcacheMock) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	i.UpsertMetadata(prefix, src, resource)
 }
 
 func (i *ipcacheMock) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Delete(prefix.String(), source.CustomResource)
+	i.Delete(prefix.String(), source.CustomResource, aux)
 }
 
 func (i *ipcacheMock) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
 	i.Delete(prefix.String(), source.CustomResource)
+}
+
+func (i *ipcacheMock) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, update := range updates {
+		i.UpsertMetadata(update.Prefix, update.Source, update.Resource, update.Metadata)
+	}
+	return 0
+}
+
+func (i *ipcacheMock) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, update := range updates {
+		i.RemoveMetadata(update.Prefix, update.Resource, update.Metadata)
+	}
+	return 0
 }
 
 type ipsetMock struct {
@@ -502,6 +519,29 @@ func TestBackgroundSync(t *testing.T) {
 	allNodeValidateCallsReceived.Wait()
 }
 
+func expectIPCacheUpdate(
+	t *testing.T, ipcacheMock *ipcacheMock,
+	eventType string, prefix netip.Prefix, metadata ...ipcache.IPMetadata,
+) {
+	t.Helper()
+
+	select {
+	case ev := <-ipcacheMock.events:
+		require.Equal(t, eventType, ev.event)
+		require.Equal(t, prefix, ev.prefix)
+		if len(metadata) > 0 {
+			// unpack outer metadata slice
+			require.IsType(t, []ipcache.IPMetadata{}, ev.metadata)
+			md := ev.metadata.([]ipcache.IPMetadata)
+			require.Len(t, md, 1)
+			// assert inner metadata
+			require.Equal(t, metadata, md[0])
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout while waiting for ipcache upsert for %s", prefix)
+	}
+}
+
 func TestIpcache(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
@@ -519,29 +559,50 @@ func TestIpcache(t *testing.T) {
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
+
+		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
+		IPv6AllocCIDR:           cidr.MustParseCIDR("f00d::/96"),
+		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("cafe::/96")},
 	}
 	mngr.NodeUpdated(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
+	// node IP addresses
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
-	}
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
-	}
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -549,28 +610,64 @@ func TestIpcache(t *testing.T) {
 	default:
 	}
 
+	// Update node by removing ExternalIPs and secondary PodCIDRs
+	n1 = *n1.DeepCopy()
+	n1.IPAddresses = slices.DeleteFunc(n1.IPAddresses, func(address nodeTypes.Address) bool {
+		return address.IP.Equal(net.ParseIP("f00d::1"))
+	})
+	n1.IPv4SecondaryAllocCIDRs = nil
+	n1.IPv6SecondaryAllocCIDRs = nil
+	mngr.NodeUpdated(n1)
+
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+
 	mngr.NodeDeleted(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
-	}
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -599,26 +696,9 @@ func TestIpcacheHealthIP(t *testing.T) {
 	}
 	mngr.NodeUpdated(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::4")
-	}
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128))
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -628,26 +708,9 @@ func TestIpcacheHealthIP(t *testing.T) {
 
 	mngr.NodeDeleted(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.4")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
-	}
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128))
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -678,29 +741,54 @@ func TestNodeEncryption(t *testing.T) {
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
 		},
+		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
+		IPv6AllocCIDR:           cidr.MustParseCIDR("f00d::/96"),
+		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("cafe::/96")},
+		EncryptionKey:           42,
 	}
 	mngr.NodeUpdated(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
-	}
+	// node IP addresses
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
-	}
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
-	}
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -710,26 +798,44 @@ func TestNodeEncryption(t *testing.T) {
 
 	mngr.NodeDeleted(n1)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
-	}
+	// node IP addresses
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP 10.0.0.2")
-	}
+	// node IPv4 allocation CIDRs
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
-	select {
-	case event := <-ipcacheMock.events:
-		require.Equal(t, nodeEvent{event: "delete", prefix: netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)}, event)
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
-	}
+	// node IPv6 allocation CIDRs
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
+	expectIPCacheUpdate(
+		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
+		[]ipcache.IPMetadata{
+			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
+			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
+			ipcacheTypes.EncryptKey(42),
+		},
+	)
 
 	select {
 	case event := <-ipcacheMock.events:
@@ -740,19 +846,6 @@ func TestNodeEncryption(t *testing.T) {
 
 func TestNode(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
-	ipcacheExpect := func(eventType, ipStr string) {
-		select {
-		case event := <-ipcacheMock.events:
-			b := 32
-			if strings.Contains(ipStr, ":") {
-				b = 128
-			}
-			require.Equal(t, nodeEvent{event: eventType, prefix: netip.PrefixFrom(netip.MustParseAddr(ipStr), b)}, event)
-		case <-time.After(5 * time.Second):
-			t.Errorf("timeout while waiting for ipcache upsert for IP %s", ipStr)
-		}
-	}
-
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
@@ -793,10 +886,10 @@ func TestNode(t *testing.T) {
 		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
-	ipcacheExpect("upsert", "192.0.2.1")
-	ipcacheExpect("upsert", "2001:DB8::1")
-	ipcacheExpect("upsert", "192.0.2.2")
-	ipcacheExpect("upsert", "2001:DB8::2")
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.2"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::2"), 128))
 
 	n1V2 := n1.DeepCopy()
 	n1V2.IPAddresses = []nodeTypes.Address{
@@ -825,14 +918,14 @@ func TestNode(t *testing.T) {
 		t.Errorf("timeout while waiting for NodeUpdate() event for node2")
 	}
 
-	ipcacheExpect("upsert", "192.0.2.10")
-	ipcacheExpect("upsert", "2001:DB8::1")
-	ipcacheExpect("upsert", "192.0.2.20")
-	ipcacheExpect("upsert", "2001:DB8::20")
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.10"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.20"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::20"), 128))
 
-	ipcacheExpect("delete", "192.0.2.1")
-	ipcacheExpect("delete", "192.0.2.2")
-	ipcacheExpect("delete", "2001:DB8::2")
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("192.0.2.1"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("192.0.2.2"), 32))
+	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::2"), 128))
 
 	select {
 	case event := <-ipcacheMock.events:
