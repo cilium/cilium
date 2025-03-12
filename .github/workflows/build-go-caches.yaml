@@ -35,6 +35,7 @@ jobs:
 
           - name: cilium-cli
             make-target: -C cilium-cli
+            require-dir: /cilium-cli
 
           - name: operator-aws
             make-target: build-container-operator-aws
@@ -93,7 +94,11 @@ jobs:
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        if: |
+          ${{ steps.go-cache.outputs.cache-hit != 'true' &&
+              (steps.go-cache.outputs.require-dir == '' ||
+               hashFiles(steps.go-cache.outputs.require-dir))
+           }}
         run: |
           set -eu -o pipefail
           # Don't build cilium-cli for arm64
