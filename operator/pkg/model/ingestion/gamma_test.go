@@ -17,11 +17,11 @@ const (
 )
 
 func TestGammaConformance(t *testing.T) {
-	tests := map[string]struct {
-	}{
-		"Mesh Split":    {},
-		"Mesh Ports":    {},
-		"Mesh Frontend": {},
+	tests := map[string]struct{}{
+		"Mesh Split":          {},
+		"Mesh Ports":          {},
+		"Mesh Frontend":       {},
+		"multiple_parentRefs": {},
 	}
 
 	for name := range tests {

@@ -36,11 +36,9 @@ type Input interface {
 	GetHostnames() []gatewayv1.Hostname
 
 	SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition)
-	SetAllParentCondition(condition metav1.Condition)
 	Log() *slog.Logger
 }
 
 type (
-	CheckRuleFunc   func(input Input) (bool, error)
-	CheckParentFunc func(input Input, ref gatewayv1.ParentReference) (bool, error)
+	CheckWithParentFunc func(input Input, ref gatewayv1.ParentReference) (bool, error)
 )

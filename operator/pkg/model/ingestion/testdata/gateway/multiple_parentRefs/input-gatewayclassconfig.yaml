@@ -1,0 +1,7 @@
+kind: CiliumGatewayClassConfig
+metadata:
+  name: cilium-gateway-config
+  namespace: default
+spec:
+  service:
+    type: LoadBalancer
