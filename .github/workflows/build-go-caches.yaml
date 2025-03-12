@@ -90,6 +90,14 @@ jobs:
           mkdir -p /tmp/.cache/go/.cache/go-build
           mkdir -p /tmp/.cache/go/pkg
 
+      - name: Check build constraints
+        id: check
+        run: |
+          if [[ -z ${{ steps.go-cache.outputs.require-dir }} == '' ]] ||
+             [[ -d ${{ steps.go-cache.outputs.require-dir }} ]]; then
+            echo build="true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build all programs
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
