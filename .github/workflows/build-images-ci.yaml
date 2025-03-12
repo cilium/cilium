@@ -270,10 +270,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images
-        if: |
-          ${{ matrix.require-dir == '' ||
-              hashFiles(matrix.require-dir) != ''
-          }}
+        if: ${{ steps.check.outputs.build != '' }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
