@@ -176,6 +176,7 @@ func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointCo
 	strings := ELFMapSubstitutions(ep)
 
 	hcfg := config.NewBPFHost()
+	hcfg.BPFNode = cfg.BPFNode
 
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
@@ -313,11 +314,11 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // cilium_net and external (native) devices.
 func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
-	if err := attachCiliumHost(ep, spec); err != nil {
+	if err := attachCiliumHost(cfg, ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachCiliumNet(ep, spec); err != nil {
+	if err := attachCiliumNet(cfg, ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -330,10 +331,11 @@ func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoi
 
 // ciliumHostRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_host network device.
-func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map[string]string) {
+func ciliumHostRewrites(ep datapath.EndpointConfiguration, nodeCfg *datapath.LocalNodeConfiguration) (*config.BPFHost, map[string]string) {
 	strings := ELFMapSubstitutions(ep)
 
 	cfg := config.NewBPFHost()
+	cfg.BPFNode = nodeCfg.BPFNode
 
 	em := ep.GetNodeMAC()
 	if len(em) != 6 {
@@ -353,13 +355,13 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
-func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachCiliumHost(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
 
-	co, renames := ciliumHostRewrites(ep)
+	co, renames := ciliumHostRewrites(ep, cfg)
 
 	var hostObj hostObjects
 	commit, err := bpf.LoadAndAssign(&hostObj, spec, &bpf.CollectionOptions{
@@ -399,10 +401,11 @@ func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 
 // ciliumNetRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_net network device.
-func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
+func ciliumNetRewrites(ep datapath.EndpointConfiguration, nodeCfg *datapath.LocalNodeConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
 	strings := ELFMapSubstitutions(ep)
 
 	cfg := config.NewBPFHost()
+	cfg.BPFNode = nodeCfg.BPFNode
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
@@ -429,13 +432,13 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*c
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
 
-	co, renames := ciliumNetRewrites(ep, net)
+	co, renames := ciliumNetRewrites(ep, cfg, net)
 
 	var netObj hostNetObjects
 	commit, err := bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
@@ -549,10 +552,11 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 
 // endpointRewrites prepares configuration data for attaching bpf_lxc.c to the
 // specified workload endpoint.
-func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[string]string) {
+func endpointRewrites(ep datapath.EndpointConfiguration, nodeConfig *datapath.LocalNodeConfiguration) (*config.BPFLXC, map[string]string) {
 	maps := ELFMapSubstitutions(ep)
 
 	cfg := config.NewBPFLXC()
+	cfg.BPFNode = nodeConfig.BPFNode
 
 	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
 		cfg.EndpointIPv61 = sliceToBe64(ipv6[0:8])
@@ -587,10 +591,10 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
-	co, renames := endpointRewrites(ep)
+	co, renames := endpointRewrites(ep, cfg)
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
@@ -784,7 +788,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(ep, spec)
+	err = reloadEndpoint(cfg, ep, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }

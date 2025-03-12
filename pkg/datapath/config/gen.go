@@ -9,3 +9,4 @@ package config
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_overlay.o -kind object -name BPFOverlay -out overlay_config.go
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_network.o -kind object -name BPFNetwork -out network_config.go
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_wireguard.o -kind object -name BPFWireguard -out wireguard_config.go
+//go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_lxc.o -kind node -name BPFNode -out node_config.go

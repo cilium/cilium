@@ -9,6 +9,7 @@ package config
 // do not instantiate directly! Always use [NewBPFWireguard] to ensure the
 // default values configured in the ELF are honored.
 type BPFWireguard struct {
+	BPFNode
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
@@ -29,5 +30,5 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard() *BPFWireguard {
-	return &BPFWireguard{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	return &BPFWireguard{*NewBPFNode(), 0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 }
