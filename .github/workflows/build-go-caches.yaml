@@ -97,7 +97,7 @@ jobs:
         if: |
           ${{ steps.go-cache.outputs.cache-hit != 'true' &&
               (steps.go-cache.outputs.require-dir == '' ||
-               hashFiles(steps.go-cache.outputs.require-dir))
+               hashFiles(steps.go-cache.outputs.require-dir) != '')
            }}
         run: |
           set -eu -o pipefail

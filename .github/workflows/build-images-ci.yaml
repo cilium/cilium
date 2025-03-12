@@ -214,9 +214,8 @@ jobs:
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         with:
           provenance: false
@@ -234,9 +233,8 @@ jobs:
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_detect_race_condition
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         with:
           provenance: false
@@ -256,9 +254,8 @@ jobs:
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_ci_unstripped
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         with:
           provenance: false
@@ -275,9 +272,8 @@ jobs:
 
       - name: Sign Container Images
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
@@ -318,9 +314,8 @@ jobs:
       - name: CI Image Releases digests
         shell: bash
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         run: |
           mkdir -p image-digest/
@@ -337,9 +332,8 @@ jobs:
       - name: Upload artifact digests
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         if: |
-          ${{ always() &&
-              (matrix.require-dir == '' ||
-               hashFiles(matrix.require-dir))
+          ${{ matrix.require-dir == '' ||
+              hashFiles(matrix.require-dir) != ''
           }}
         with:
           name: image-digest ${{ matrix.name }}
