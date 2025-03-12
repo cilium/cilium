@@ -321,8 +321,7 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 		}
 
 		// Check that we have a full match on the key
-		secondary, _ := decodeNonUniqueKey(key)
-		if len(secondary) == len(q.key) {
+		if nonUniqueKey(key).secondaryLen() == len(q.key) {
 			break
 		}
 	}

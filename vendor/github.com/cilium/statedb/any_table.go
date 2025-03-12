@@ -69,8 +69,7 @@ func (t AnyTable) Get(txn ReadTxn, index string, key string) (any, Revision, boo
 		if !ok {
 			break
 		}
-		secondary, _ := decodeNonUniqueKey(k)
-		if len(secondary) == len(rawKey) {
+		if nonUniqueKey(k).secondaryLen() == len(rawKey) {
 			return obj.data, obj.revision, true, nil
 		}
 	}
