@@ -630,31 +630,53 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 #if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
 		struct lb4_health *val;
+		int flags = 0;
 
 		key = get_socket_cookie(ctx);
 		val = map_lookup_elem(&cilium_lb4_health, &key);
 		if (!val)
 			return CTX_ACT_OK;
-		ret = health_encap_v4(ctx, val->peer.address, 0);
-		if (ret != 0)
-			return ret;
-		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return ctx_redirect(ctx, ENCAP4_IFINDEX, 0);
+
+		if (__lookup_ip4_endpoint(val->peer.address)) {
+			union macaddr mac = {};
+
+			if (eth_store_daddr(ctx, (__u8 *)&mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			flags = BPF_F_INGRESS;
+		} else {
+			ret = health_encap_v4(ctx, val->peer.address, 0);
+			if (ret != 0)
+				return ret;
+			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+		}
+
+		return ctx_redirect(ctx, ENCAP4_IFINDEX, flags);
 	}
 #endif
 #if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IPV6): {
 		struct lb6_health *val;
+		int flags = 0;
 
 		key = get_socket_cookie(ctx);
 		val = map_lookup_elem(&cilium_lb6_health, &key);
 		if (!val)
 			return CTX_ACT_OK;
-		ret = health_encap_v6(ctx, &val->peer.address, 0);
-		if (ret != 0)
-			return ret;
-		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return ctx_redirect(ctx, ENCAP6_IFINDEX, 0);
+
+		if (__lookup_ip6_endpoint(&val->peer.address)) {
+			union macaddr mac = {};
+
+			if (eth_store_daddr(ctx, (__u8 *)&mac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			flags = BPF_F_INGRESS;
+		} else {
+			ret = health_encap_v6(ctx, &val->peer.address, 0);
+			if (ret != 0)
+				return ret;
+			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+		}
+
+		return ctx_redirect(ctx, ENCAP6_IFINDEX, flags);
 	}
 #endif
 	default:
