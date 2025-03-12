@@ -37,6 +37,7 @@
 #include "lib/identity.h"
 #include "lib/l3.h"
 #include "lib/l4.h"
+#include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
