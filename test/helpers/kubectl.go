@@ -2815,7 +2815,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 			}
 			total := 0
 			invalid := 0
-			for _, line := range strings.Split(status.String(), "\n") {
+			for line := range strings.SplitSeq(status.String(), "\n") {
 				if line == "" {
 					continue
 				}
