@@ -626,6 +626,14 @@ func TestOverrideIdentity(t *testing.T) {
 }
 
 func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeTunnel
+
+	prevEncryption := option.Config.EnableIPSec
+	defer func() { option.Config.EnableIPSec = prevEncryption }()
+	option.Config.EnableIPSec = true
+
 	cancel := setupTest(t)
 	defer cancel()
 
@@ -643,16 +651,13 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	assert.Equal(t, uint8(7), key)
 
 	// Assert that an entry with a weaker source (and from a different
-	// resource) should fail, i.e. at least does not overwrite the existing
-	// (stronger) ipcache entry.
+	// resource) should trigger a conflict warning.
 	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Generated, "generated-uid",
 		types.TunnelPeer{Addr: netip.MustParseAddr("192.168.1.101")},
 		types.EncryptKey(6))
+	assert.True(t, IPIdentityCache.metadata.m[inClusterPrefix]["generated-uid"].shouldLogConflicts())
 	_, _, err = IPIdentityCache.doInjectLabels(ctx, []cmtypes.PrefixCluster{inClusterPrefix})
 	assert.NoError(t, err)
-	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
-	assert.Equal(t, "192.168.1.100", ip.String())
-	assert.Equal(t, uint8(7), key)
 
 	// Remove the entry with the encryptKey=7 and encryptKey=6.
 	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", types.EncryptKey(7))
@@ -663,7 +668,6 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 
 	// Assert that there should only be the entry with the tunnelPeer set.
 	ip, key = IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
-	assert.Equal(t, "192.168.1.100", ip.String())
 	assert.Equal(t, uint8(0), key)
 
 	// The following tests whether an entry with a high priority source
@@ -1342,6 +1346,14 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 }
 
 func TestIPCachePodCIDREntries(t *testing.T) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeTunnel
+
+	prevEncryption := option.Config.EnableIPSec
+	defer func() { option.Config.EnableIPSec = prevEncryption }()
+	option.Config.EnableIPSec = true
+
 	cancel := setupTest(t)
 	defer cancel()
 
