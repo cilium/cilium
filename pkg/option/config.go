@@ -2382,7 +2382,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
 		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired ||
-		c.EnableIPSecEncryptedOverlay
+		c.EnableIPSec
 }
 
 // NeedBPFHostOnWireGuardDevice returns true if the agent needs to attach
