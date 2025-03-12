@@ -294,7 +294,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	)
 
 	// Delete Maglev.
-	if ops.lbAlgorithm(fe) == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	if ops.useMaglev(fe) {
 		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
@@ -768,8 +768,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	// Update Maglev
-	algorithm := ops.lbAlgorithm(fe)
-	if algorithm == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	if ops.useMaglev(fe) {
 		ops.log.Debug("Update Maglev", logfields.FrontendID, feID)
 		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
 			return err
@@ -831,7 +830,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Debug("Update master service", logfields.ID, feID)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount, algorithm); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -861,6 +860,35 @@ func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgori
 	return defaultAlgorithm
 }
 
+func (ops *BPFOps) useMaglev(fe *Frontend) bool {
+	if ops.lbAlgorithm(fe) != loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+		return false
+	}
+	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
+	// enabled because ClusterIP can also be accessed from outside with this
+	// setting. We don't do it unconditionally to avoid increasing memory
+	// footprint.
+	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
+		return false
+	}
+	// Wildcarded frontend is not exposed for external traffic.
+	if fe.Address.AddrCluster.IsUnspecified() {
+		return false
+	}
+	// Only provision the Maglev LUT for service types which are reachable
+	// from outside the node.
+	switch fe.Type {
+	case loadbalancer.SVCTypeClusterIP,
+		loadbalancer.SVCTypeNodePort,
+		loadbalancer.SVCTypeLoadBalancer,
+		loadbalancer.SVCTypeHostPort,
+		loadbalancer.SVCTypeExternalIPs:
+		return true
+	}
+	return false
+
+}
+
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
 	var err error
 	svcKey = svcKey.ToNetwork()
@@ -877,7 +905,7 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int, algorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
 	svcKey.SetBackendSlot(0)
 	if activeBackends == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -889,7 +917,7 @@ func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 		svcVal.SetQCount(terminatingBackends + inactiveBackends)
 	}
 	svcVal.SetBackendID(0)
-	svcVal.SetLbAlg(algorithm)
+	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
 
 	svc := fe.Service()
 
