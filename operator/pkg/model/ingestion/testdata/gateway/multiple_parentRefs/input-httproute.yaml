@@ -1,0 +1,24 @@
+- metadata:
+    creationTimestamp: null
+    name: http-app-1
+    namespace: default
+  spec:
+    parentRefs:
+    - name: my-gateway
+    - group: ""
+      kind: Service
+      name: echo    
+    rules:
+    - backendRefs:
+      - name: my-service
+        port: 8080
+      - group: multicluster.x-k8s.io
+        kind: ServiceImport
+        name: my-service
+        port: 8080
+      matches:
+      - path:
+          type: PathPrefix
+          value: /bar
+  status:
+    parents: null

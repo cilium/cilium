@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
+func CheckAgainstCrossNamespaceBackendReferences(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	continueChecks := true
 
 	for _, rule := range input.GetRules() {
@@ -24,7 +24,7 @@ func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
 
 			if ns != input.GetNamespace() && !helpers.IsBackendReferenceAllowed(input.GetNamespace(), be, input.GetGVK(), input.GetGrants()) {
 				// no reference grants, update the status for all the parents
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonRefNotPermitted),
@@ -38,13 +38,13 @@ func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
 	return continueChecks, nil
 }
 
-func CheckBackend(input Input) (bool, error) {
+func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	continueChecks := true
 
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
 			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) {
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonInvalidKind),
@@ -55,7 +55,7 @@ func CheckBackend(input Input) (bool, error) {
 				continue
 			}
 			if be.BackendObjectReference.Port == nil {
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonInvalidKind),
@@ -71,7 +71,7 @@ func CheckBackend(input Input) (bool, error) {
 	return continueChecks, nil
 }
 
-func CheckHasServiceImportSupport(input Input) (bool, error) {
+func CheckHasServiceImportSupport(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
 			if !helpers.IsServiceImport(be.BackendObjectReference) {
@@ -79,7 +79,7 @@ func CheckHasServiceImportSupport(input Input) (bool, error) {
 			}
 
 			if !helpers.HasServiceImportSupport(input.GetClient().Scheme()) {
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:   string(gatewayv1.RouteConditionResolvedRefs),
 					Status: metav1.ConditionFalse,
 					Reason: string(gatewayv1.RouteReasonBackendNotFound),
@@ -96,7 +96,7 @@ func CheckHasServiceImportSupport(input Input) (bool, error) {
 	return true, nil
 }
 
-func CheckBackendIsExistingService(input Input) (bool, error) {
+func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
 			ns := helpers.NamespaceDerefOr(be.Namespace, input.GetNamespace())
@@ -106,7 +106,7 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 				// The `Accepted` condition on a route only describes whether
 				// the route attached successfully to its parent, so no error
 				// is returned here, so that the next validation can be run.
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
@@ -124,7 +124,7 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 				// The `Accepted` condition on a route only describes whether
 				// the route attached successfully to its parent, so no error
 				// is returned here, so that the next validation can be run.
-				input.SetAllParentCondition(metav1.Condition{
+				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
