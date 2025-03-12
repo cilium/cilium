@@ -342,7 +342,7 @@ queried for the connectivity status of the last probe.
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status
+   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status --verbose
    Probe time:   2018-06-16T09:51:58Z
    Nodes:
      ip-172-0-52-116.us-west-2.compute.internal (localhost):
@@ -778,9 +778,9 @@ fails between endpoints across multiple nodes.
 Troubleshooting steps:
 ~~~~~~~~~~~~~~~~~~~~~~
 
-#. Run ``cilium-health status`` on the node of the source and destination
-   endpoint. It should describe the connectivity from that node to other
-   nodes in the cluster, and to a simulated endpoint on each other node.
+#. Run ``cilium-health status --verbose`` on the node of the source and
+   destination endpoint. It should describe the connectivity from that node to
+   other nodes in the cluster, and to a simulated endpoint on each other node.
    Identify points in the cluster that cannot talk to each other. If the
    command does not describe the status of the other node, there may be an
    issue with the KV-Store.
