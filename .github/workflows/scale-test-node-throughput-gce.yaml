@@ -149,6 +149,8 @@ jobs:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.SHA }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Display version info of installed tools
         run: |
