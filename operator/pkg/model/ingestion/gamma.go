@@ -56,6 +56,15 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 			}
 		}
 
+		// When retrieving objects from the apiserver, generally this should not
+		// happen, because controller-tools should screen out HTTPRoutes with zero GAMMA parents.
+		// However, if one of the watch predicates does not also check for GAMMA parents, we can end up here.
+		// So this is a final safety.
+		if len(gammaParents) == 0 {
+			log.Debugf("gamma Ingestion: No GAMMA parents found for HTTPRoute %s/%s", hr.Namespace, hr.Name)
+			continue
+		}
+
 		hrSource := model.FullyQualifiedResource{
 			Name:      hr.GetName(),
 			Namespace: hr.GetNamespace(),
@@ -63,12 +72,6 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 			Kind:      "HTTPRoute",
 			Version:   gatewayv1.GroupVersion.Version,
 			UID:       string(hr.GetUID()),
-		}
-
-		// We shouldn't be able to do this, because the reconciliation should
-		// screen out HTTPRoutes with zero GAMMA parents.
-		if len(gammaParents) == 0 {
-			continue
 		}
 
 		for _, gp := range gammaParents {
