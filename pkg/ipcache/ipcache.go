@@ -566,48 +566,6 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	return
 }
 
-// UpsertPrefixes inserts the prefixes into the IPCache and associates CIDR
-// labels with these prefixes, thereby making these prefixes selectable in
-// policy via local ("CIDR") identities.
-//
-// This will trigger asynchronous calculation of any datapath updates necessary
-// to implement the logic associated with the new CIDR labels.
-//
-// Returns a revision number that can be passed to WaitForRevision().
-func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) (revision uint64) {
-	ipc.metadata.Lock()
-	affectedPrefixed := make([]netip.Prefix, 0, len(prefixes))
-	for _, p := range prefixes {
-		affectedPrefixed = append(affectedPrefixed, ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))...)
-	}
-	ipc.metadata.Unlock()
-	revision = ipc.metadata.enqueuePrefixUpdates(affectedPrefixed...)
-	ipc.TriggerLabelInjection()
-	return
-}
-
-// RemovePrefixes removes the association between the prefixes and the CIDR
-// labels corresponding to those prefixes.
-//
-// This is the reverse operation of UpsertPrefixes(). If multiple callers call
-// UpsertPrefixes() with different resources, then RemovePrefixes() will only
-// remove the association for the target resource. That is, *all* callers must
-// call RemovePrefixes() before this the these prefixes become disassociated
-// from the "CIDR" labels.
-//
-// This will trigger asynchronous calculation of any datapath updates necessary
-// to implement the logic associated with the removed CIDR labels.
-func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.metadata.Lock()
-	affectedPrefixes := make([]netip.Prefix, 0, len(prefixes))
-	for _, p := range prefixes {
-		affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))...)
-	}
-	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
-	ipc.TriggerLabelInjection()
-}
-
 // UpsertLabels upserts a given IP and its corresponding labels associated
 // with it into the ipcache metadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.

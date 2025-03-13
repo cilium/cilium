@@ -351,7 +351,7 @@ func TestInjectExisting(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - NameManager.updateDNSIPs calls UpsertPrefixes() when then inserts them
+	// - NameManager.updateDNSIPs calls UpsertMetadataBatch() when then inserts them
 	//   via TriggerLabelInjection.
 	fqdnResourceID := types.NewResourceID(types.ResourceKindDaemon, "", "fqdn-name-manager")
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
@@ -373,7 +373,7 @@ func TestInjectExisting(t *testing.T) {
 		types.ResourceKindEndpoint, "default", "kubernetes")
 	IPIdentityCache.metadata.upsertLocked(prefix, source.KubeAPIServer, resource, labels.LabelKubeAPIServer)
 
-	// Now, emulate a ToServices policy, which calls UpsertPrefixes
+	// Now, emulate a ToServices policy, which calls UpsertMetadataBatch
 	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(prefix))
 
 	// Now, the second half of UpsertLabels -- identity injection
@@ -450,7 +450,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
 
-	// Simulate adding CIDR policy by simulating UpsertPrefixes
+	// Simulate adding CIDR policy by simulating UpsertMetadataBatch
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(worldPrefix))
 	remaining, hostChanged, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
