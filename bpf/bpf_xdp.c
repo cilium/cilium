@@ -106,6 +106,7 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
+	bool punt_to_stack = false;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
@@ -194,7 +195,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 no_encap:
 #endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
-		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, NULL, &ext_err, &is_dsr);
+		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
 		if (ret == NAT_46X64_RECIRC)
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 						 &ext_err);
@@ -261,6 +262,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
+	bool punt_to_stack = false;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
@@ -274,7 +276,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 		}
 
-		ret = nodeport_lb6(ctx, ip6, UNKNOWN_ID, NULL, &ext_err, &is_dsr);
+		ret = nodeport_lb6(ctx, ip6, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
 		if (IS_ERR(ret))
 			goto drop_err;
 	}
