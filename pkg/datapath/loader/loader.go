@@ -482,7 +482,12 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		devices = append(devices, wgTypes.IfaceName)
 	}
 
-	if option.Config.EnableIPIPTermination {
+	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
+	// service lookup after IPIP termination. Do not attach in case of the
+	// devices being created via health datapath (see Reinitialize()) since
+	// it can push packets up the local stack which should be handled by
+	// the host instead.
+	if option.Config.EnableIPIPTermination && !option.Config.EnableHealthDatapath {
 		if option.Config.IPv4Enabled() {
 			devices = append(devices, defaults.IPIPv4Device)
 		}
