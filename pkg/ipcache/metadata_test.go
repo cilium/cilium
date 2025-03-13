@@ -367,7 +367,7 @@ func TestInjectExisting(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, wantID, id.ID)
 
-	// Simulate the first half of UpsertLabels -- insert the labels only in to the metadata cache
+	// Simulate the first half of UpsertMetadata -- insert the labels only in to the metadata cache
 	// This is to "force" a race condition
 	resource := types.NewResourceID(
 		types.ResourceKindEndpoint, "default", "kubernetes")
@@ -376,7 +376,7 @@ func TestInjectExisting(t *testing.T) {
 	// Now, emulate a ToServices policy, which calls UpsertMetadataBatch
 	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(prefix))
 
-	// Now, the second half of UpsertLabels -- identity injection
+	// Now, the second half of UpsertMetadata -- identity injection
 	remaining, hostChanged, err = IPIdentityCache.doInjectLabels(context.Background(), []netip.Prefix{prefix})
 	assert.NoError(t, err)
 	assert.Empty(t, remaining)
@@ -483,7 +483,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 
 	// Simulate removing CIDR policy.
-	IPIdentityCache.RemoveLabels(worldPrefix, labels.Labels{}, "policy-uid")
+	IPIdentityCache.RemoveMetadata(worldPrefix, "policy-uid", labels.Labels{})
 	remaining, hostChanged, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Empty(t, remaining)
