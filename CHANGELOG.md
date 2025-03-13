@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.15.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* docs: clarify wording of remote-nodes in context of a clustermesh (Backport PR cilium/cilium#38107, Upstream PR cilium/cilium#37989, @oblazek)
+
+**Bugfixes:**
+* Egress route reconciliation (Backport PR cilium/cilium#38124, Upstream PR cilium/cilium#37962, @dylandreimerink)
+* Fix creation and deletion of host port maps that would occasionally leave pods without them (Backport PR cilium/cilium#37899, Upstream PR cilium/cilium#37419, @javanthropus)
+* Fix envoy metrics could not be obtained on IPv6-only clusters (Backport PR cilium/cilium#37899, Upstream PR cilium/cilium#37818, @haozhangami)
+* Fix: cilium-operator no longer patches services on shutdown (Backport PR cilium/cilium#38107, Upstream PR cilium/cilium#37967, @rsafonseca)
+
+**CI Changes:**
+* .github: Remove misleading step from ipsec workflow (Backport PR cilium/cilium#37744, Upstream PR cilium/cilium#37681, @joestringer)
+* ci: add leak detection to conformance-ipsec-upgrade (Backport PR cilium/cilium#36576, Upstream PR cilium/cilium#36377, @smagnani96)
+* CI: GKE backslash missing disable insecure kubelet (Backport PR cilium/cilium#37899, Upstream PR cilium/cilium#37850, @auriaave)
+* CI: GKE, disable insecure kubelet readonly port (Backport PR cilium/cilium#37899, Upstream PR cilium/cilium#37844, @auriaave)
+* ci: switch to monitor aggregation medium (Backport PR cilium/cilium#38107, Upstream PR cilium/cilium#38036, @marseel)
+* Cleanups after LLVM upgrade. (Backport PR cilium/cilium#37800, Upstream PR cilium/cilium#32067, @gentoo-root)
+
+**Misc Changes:**
+* .github: add missing files to build-image base images (cilium/cilium#38066, @aanm)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#37954, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#37999, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#38050, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.0 (v1.15) (cilium/cilium#37953, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.2 (v1.15) (cilium/cilium#38078, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.7 (v1.15) (cilium/cilium#38000, @cilium-renovate[bot])
+* chore(deps): update module github.com/go-jose/go-jose/v4 to v4.0.5 [security] (v1.15) (cilium/cilium#37835, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.31.5-1741765102-efed3defcc70ab5b263a0fc44c93d316b846a211 (v1.15) (cilium/cilium#38150, @cilium-renovate[bot])
+* docs: fix broken links (Backport PR cilium/cilium#38107, Upstream PR cilium/cilium#37995, @nueavv)
+* Fix helm value for IPAM Multi-Pool (Backport PR cilium/cilium#38013, Upstream PR cilium/cilium#37963, @saintdle)
+* images: update cilium-runtime/builder images (cilium/cilium#38186, @jrajahalme)
+* Remove grpc-health-probe binary from the Hubble Relay image as it is no longer used (Backport PR cilium/cilium#37899, Upstream PR cilium/cilium#37806, @rolinh)
+
+**Other Changes:**
+* [v1.15] Revert "chore(deps): update dependency cilium/cilium-cli to v0.18.0" (cilium/cilium#38004, @julianwiedmann)
+* install: Update image digests for v1.15.14 (cilium/cilium#37710, @cilium-release-bot[bot])
+* v1.15: gh/workflows: Remove conformance-externalworkloads (cilium/cilium#37740, @brb)
+
 ## v1.15.14
 
 Summary of Changes
