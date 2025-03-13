@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
@@ -15,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -149,6 +151,7 @@ type ManagerTestSuite struct {
 	prevOptionDPMode            string
 	prevOptionExternalClusterIP bool
 	ipv6                        bool
+	logger                      *slog.Logger
 }
 
 var (
@@ -163,7 +166,9 @@ var (
 )
 
 func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
-	m := &ManagerTestSuite{}
+	logger := hivetest.Logger(tb)
+
+	m := &ManagerTestSuite{logger: logger}
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 
@@ -172,8 +177,8 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	m.lbmap = mockmaps.NewLBMockMap()
 	m.newServiceMock(ctx, m.lbmap)
 
-	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
-	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
+	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory(logger)
+	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(logger, m.svcHealth)
 
 	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
 	option.Config.EnableSessionAffinity = true
@@ -227,7 +232,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(ctx context.Context, lbmap datapathTypes.LBMap) {
-	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
+	m.svc = newService(m.logger, &FakeMonitorAgent{}, lbmap, nil, nil, true)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 	health, _ := cell.NewSimpleHealth()
 	go m.svc.handleHealthCheckEvent(ctx, health)
@@ -767,7 +772,8 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
-			svc := newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
+			logger := hivetest.Logger(t)
+			svc := newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -777,7 +783,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
+			svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -2364,7 +2370,8 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	m.svc.lbmap.AddBackend(backend5, backend5.L3n4Addr.IsIPv6())
 	require.Len(t, m.lbmap.BackendByID, len(backends)+4)
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
+	logger := hivetest.Logger(t)
+	m.svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()

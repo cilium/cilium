@@ -3,14 +3,20 @@
 
 package healthserver
 
+import (
+	"log/slog"
+)
+
 // MockHealthHTTPServerFactory mocks the healthHTTPServerFactory interface
 type MockHealthHTTPServerFactory struct {
+	logger        *slog.Logger
 	serversByPort map[uint16]*mockHealthServer
 }
 
 // NewMockHealthHTTPServerFactory creates a new health server factory for testing
-func NewMockHealthHTTPServerFactory() *MockHealthHTTPServerFactory {
+func NewMockHealthHTTPServerFactory(logger *slog.Logger) *MockHealthHTTPServerFactory {
 	return &MockHealthHTTPServerFactory{
+		logger:        logger,
 		serversByPort: map[uint16]*mockHealthServer{},
 	}
 }
