@@ -2665,6 +2665,13 @@
           },
           "type": "object"
         },
+        "networkPolicyEnrichment": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "listenAddress": {
           "type": "string"
         },
