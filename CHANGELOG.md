@@ -1,5 +1,103 @@
 # Changelog
 
+## v1.17.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* docs: clarify wording of remote-nodes in context of a clustermesh (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37989, @oblazek)
+* Increase granularity of the `api_duration_seconds` metric buckets (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37365, @jaredledvina)
+* New agent option `--policy-restore-timeout` (default 3m) has been added to bound the maximum time Cilium agent waits for endpoint policies to regenerate before starting serving resources to `cilium-envoy` proxy. (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37658, @jrajahalme)
+* Set json output as default for `cilium-dbg endpoint get` (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#36537, @saiaunghlyanhtet)
+* Set json output as default for `cilium-dbg endpoint get` (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#36537, @saiaunghlyanhtet)
+
+**Bugfixes:**
+* Apply Egress bandwith-limiting only once for traffic that is matched by an Egress Gateway policy. (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37674, @julianwiedmann)
+* Auth policy is properly maintained also when covered by proxy redirects. (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37685, @jrajahalme)
+* Do not auto detect / auto select IPoIB devices (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37553, @dylandreimerink)
+* Egress route reconciliation (Backport PR cilium/cilium#38118, Upstream PR cilium/cilium#37962, @dylandreimerink)
+* Fix a regression that made it impossible to disable Hubble via Helm charts (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37587, @devodev)
+* Fix bug causing `cilium-dbg bpf` commands to fail with a map not found error in IPv6-only clusters. (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37787, @pchaigno)
+* Fix creating ServiceMonitor for Hubble when dynamic metrics are enabled in the Helm chart (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37474, @dustinspecker)
+* Fix creation and deletion of host port maps that would occasionally leave pods without them (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37419, @javanthropus)
+* Fix dropped NodePort traffic to hostNetwork backends with Geneve+DSR (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#36978, @tommasopozzetti)
+* Fix envoy metrics could not be obtained on IPv6-only clusters (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37818, @haozhangami)
+* Fix helm charts to properly configure tls and peer service for dynamic Hubble metrics. (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37543, @rectified95)
+* Fix service id exceeds max limit (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37191, @haozhangami)
+* Fix the `--dns-policy-unload-on-shutdown` feature for restored endpoints (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37532, @antonipp)
+* Fix the possible race condition caused by async update from aws to instance map in issue #36428 (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37650, @liyihuang)
+* Fix traffic not getting masqueraded with wildcard devices or egress-masquerade-interfaces when enable-masquerade-to-route-source flag is set. (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37450, @liyihuang)
+* fix(helm): multiPoolPreAllocation fix conditional avoid null (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37585, @acelinkio)
+* fix: cilium-config configmap was incorrectly resulting in values like `2.09715…2e+06` instead of `2097152` (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37236, @dee-kryvenko)
+* fix: duplicate label maps in helm chart templates and add missing commonlabels (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37693, @cmergenthaler)
+* Fix: Resolved an issue causing ArgoCD to report constant out-of-sync status due to the hasKey check in Helm. The condition has been simplified to ensure proper synchronization. No functional changes to deployments. (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37536, @nicl-dev)
+* Fixed Envoy JSON log format conversion in Helm, preventing crashes. (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37656, @kahirokunn)
+* helm: fix large number handling (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37670, @justin0u0)
+* hubble: escape terminal special characters from observe output (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37401, @devodev)
+* hubble: fix locking of hubble metrics registry for dynamically configured metrics (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37923, @marseel)
+* identity: fix bug where fromNodes/toNodes could be used to allow custom endpoint (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#36657, @oblazek)
+* ipam/multi-pool: Periodically perform pool maintenance (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37895, @gandro)
+* operator: explicit controller-runtime controller names to avoid naming conflicts (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37606, @mhofstetter)
+* operator: Fix duplicate configurations (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37293, @joestringer)
+* Restore aggregration of network trace events for Egress Gateway reply traffic on the gateway node (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#38029, @julianwiedmann)
+* Updated Gateway API and GAMMA processing to remove incorrect behavior when both parentRefs were present. (Backport PR cilium/cilium#38154, Upstream PR cilium/cilium#38143, @youngnick)
+* Workaround for iptables 1.8.10, used in OpenShift 4.16, 4.17 and 4.18, returning a wrong error message `iptables: Incompatible with this kernel` to `iptables -n -L CHAIN` when the chain does not exist. This prevents iptables configuration and induced unnecessary loops and log messages. (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37749, @fgiloux)
+
+**CI Changes:**
+* .github: Remove misleading step from ipsec workflow (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37681, @joestringer)
+* .github: s/enbaled/enabled/ (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37449, @chansuke)
+* bgpv1: wait for watchers to be ready in tests (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37884, @harsimran-pabla)
+* CI: GKE backslash missing disable insecure kubelet (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37850, @auriaave)
+* CI: GKE, disable insecure kubelet readonly port (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37844, @auriaave)
+* ci: switch to monitor aggregation medium (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#38036, @marseel)
+* gh: ci-e2e-upgrade: Add encryption leak checks for wireguard (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37551, @jschwinger233)
+* gh: ipsec-e2e: add concurrency for connectivity tests (Backport PR cilium/cilium#37925, Upstream PR cilium/cilium#37891, @julianwiedmann)
+* gh: update naming for bpftrace leak detection script (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37865, @julianwiedmann)
+
+**Misc Changes:**
+* always render enable-hubble in the Cilium configmap (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37703, @kaworu)
+* bpf: Add option to utilize core maps via BPF_F_NO_COMMON_LRU (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#38037, @borkmann)
+* bpf: minor clean-ups for the ENI symmetric routing feature (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37379, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#37950, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#37944, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#38048, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.17.0 (v1.17) (cilium/cilium#37793, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.0 (v1.17) (cilium/cilium#37949, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.2 (v1.17) (cilium/cilium#38057, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.7 (v1.17) (cilium/cilium#37996, @cilium-renovate[bot])
+* chore(deps): update module github.com/go-jose/go-jose/v4 to v4.0.5 [security] (v1.17) (cilium/cilium#37833, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.31.5-1741765102-efed3defcc70ab5b263a0fc44c93d316b846a211 (v1.17) (cilium/cilium#38148, @cilium-renovate[bot])
+* cilium-dbg: output parentIfIndex in bpf endpoint list (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37398, @Mahdi-BZ)
+* cilium: Allow to configure tunnel source port range (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37777, @borkmann)
+* cilium: Pull in vxlan netlink Go fix and uncomment assertion in test (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37808, @borkmann)
+* docs: complete load balancer service manifest in kubeproxy-free (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37466, @ybelleguic)
+* docs: fix broken links (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37995, @nueavv)
+* docs: masquerading: mention that BPF masq also pulls in BPF Host-Routing (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37604, @julianwiedmann)
+* docs: use latest for rtd theme commit with fixed version selector (Backport PR cilium/cilium#37614, Upstream PR cilium/cilium#37421, @ayuspin)
+* envoy: remove duplicated service/endpointslice informers when envoyConfig is enabled (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37683, @marseel)
+* Fix API generation and add trusted dependencies to renovate config (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#36957, @aanm)
+* Fix API generation and add trusted dependencies to renovate config (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#36957, @aanm)
+* Fix helm value for IPAM Multi-Pool (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37963, @saintdle)
+* fqdn/dnsproxy: use `netip.Addr` for `DNSProxy.usedServers` (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#37985, @tklauser)
+* gha: Update the helm flag for TLS related test (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37428, @sayboras)
+* ipcache: Slightly optimize calls to fetch tunnel and encrypt metadata (Backport PR cilium/cilium#38104, Upstream PR cilium/cilium#38021, @christarazi)
+* labels: fix TestNewFrom test (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37846, @giorio94)
+* Moves Unix socket listener configuration to a new file specifically for Linux builds. (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37399, @ritwikranjan)
+* operator: Explicitly init the FQDN regex LRU cache (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37366, @christarazi)
+* pkg/hive: always use default logger when decorating cells (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37636, @aanm)
+* policy: Skip iteration when proxy port priority is zero (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37422, @jrajahalme)
+* Remove grpc-health-probe binary from the Hubble Relay image as it is no longer used (Backport PR cilium/cilium#37904, Upstream PR cilium/cilium#37806, @rolinh)
+* Update Hubble UI to v0.13.2 which contains security fixes, add the missing traffic direction in the flow table, and enhance the home namespace list. See [v0.13.2](https://github.com/cilium/hubble-ui/releases/tag/v0.13.2) for more details (Backport PR cilium/cilium#37742, Upstream PR cilium/cilium#37631, @yannikmesserli)
+* use runtime image set by env var action in build and lint (Backport PR cilium/cilium#37648, Upstream PR cilium/cilium#37253, @Artyop)
+
+**Other Changes:**
+* [v1.17] Revert "Fix dropped NodePort traffic to hostNetwork backends with Geneve+DSR" (cilium/cilium#38101, @julianwiedmann)
+* Backport set runtime action 1.17 (cilium/cilium#37854, @Artyop)
+* gha: Update GatewayAPI conformance report (cilium/cilium#37671, @sayboras)
+* install: Update image digests for v1.17.1 (cilium/cilium#37580, @cilium-release-bot[bot])
+* v1.17: gh/workflows: Remove conformance-externalworkloads (cilium/cilium#37738, @brb)
+
 ## v1.17.1
 
 Summary of Changes
