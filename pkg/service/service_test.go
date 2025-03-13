@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"iter"
 	"log/slog"
 	"maps"
 	"net"
@@ -33,9 +34,11 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/netns"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	testsockets "github.com/cilium/cilium/pkg/testutils/sockets"
 	"github.com/cilium/cilium/pkg/time"
@@ -2736,4 +2739,179 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	// The subscriber callback function asserts expected callbacks, and also
 	// closes the channel.
 	<-cbCh1
+}
+
+func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
+	var conn net.Conn
+	assert.NoError(t, ns.Do(func() error {
+		ls, err := netlink.LinkList()
+		assert.NoError(t, err)
+		for _, l := range ls {
+			// Netns should be default created with loopback dev
+			// we assign a localhost address to it to allow us to
+			// bind sockets.
+			if l.Attrs().Name == "lo" {
+				netlink.AddrAdd(l, &netlink.Addr{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("127.0.0.1"),
+						Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+					},
+				})
+			}
+			_, err := netlink.AddrList(l, unix.AF_INET)
+			assert.NoError(t, err)
+		}
+		conn, err = net.Dial("udp", addr)
+		assert.NoError(t, err)
+		conn.Write([]byte("ping"))
+		return err
+	}))
+	return conn
+}
+
+func TestTerminateUDPConnectionsToBackend(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	ns1, err := netns.New()
+	require.NoError(t, err)
+	// ns2 has a connection that should not be matched due
+	// to a different port.
+	ns2, err := netns.New()
+	require.NoError(t, err)
+	// ns3 will match revnat, but with a different cookie value
+	// so we expect to avoid a socket close (i.e. this is
+	// the case where we have matching tuple values, but
+	// in an unexpected socket cookie value).
+	ns3, err := netns.New()
+	require.NoError(t, err)
+
+	var conn1, conn2, conn3 net.Conn
+	conn1 = initializeNetns(t, ns1, "127.0.0.1:30000")
+	defer conn1.Close()
+
+	conn2 = initializeNetns(t, ns2, "127.0.0.1:30002")
+	defer conn2.Close()
+
+	conn3 = initializeNetns(t, ns3, "127.0.0.1:30001")
+	defer conn3.Close()
+
+	getCookie := func(ns *netns.NetNS, port uint16) uint32 {
+		if ns == nil {
+			var err error
+			ns, err = netns.Current()
+			require.NoError(t, err)
+		}
+		out := uint32(0)
+		ns.Do(func() error {
+			sock, err := netlink.SocketDiagUDP(unix.AF_INET)
+			assert.NoError(t, err)
+			for _, s := range sock {
+				if s.ID.DestinationPort == port {
+					out = s.ID.Cookie[0]
+					break
+				}
+			}
+			return nil
+		})
+		return out
+	}
+
+	cookie := getCookie(ns1, 30000)
+
+	lbmap := mockmaps.NewLBMockMap()
+
+	lbmap.AddSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000)
+
+	logger := hivetest.Logger(t)
+	s := Service{
+		logger: logger,
+		config: &option.DaemonConfig{
+			EnableSocketLB:                         true,
+			EnableSocketLBPodConnectionTermination: true,
+			BPFSocketLBHostnsOnly:                  false,
+		},
+
+		backendConnectionHandler: &backendConnectionHandler{},
+
+		// Don't need to pin ns's for the purpose of the test.
+		nsIterator: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
+			ch := make(chan error)
+			return func(yield func(string, *netns.NetNS) bool) {
+				yield("cni-0000", ns1)
+				yield("cni-0001", ns2)
+				yield("cni-0002", ns3)
+				close(ch)
+			}, ch
+		},
+
+		lbmap: lbmap,
+	}
+	ip, err := netip.ParseAddr("127.0.0.1")
+	require.NoError(t, err)
+	l4a := lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30000, 0)
+
+	assertForceClose := func(closed bool, c net.Conn) {
+		if closed {
+			c.SetDeadline(time.Now().Add(time.Millisecond * 250))
+			_, err = c.Read([]byte{0})
+			assert.ErrorIs(t, err, unix.ECONNABORTED, "first sock connection should have been aborted")
+		} else {
+			c.SetDeadline(time.Now().Add(time.Millisecond * 250))
+			_, err = c.Read([]byte{0})
+			//nolint:errorlint
+			assert.True(t, err.(net.Error).Timeout(),
+				"other connection should not be prematurely closed, thus read cmd on the sock should simply be allowed to timeout")
+		}
+	}
+
+	// 1. First, we have conn1 in ns1 which has:
+	// 	* Is tracked in the l3nl4addr map.
+	// 	* Real socket cookie.
+	// 	* BPFSocketLBHostnsOnly is disabled
+	// Therefore we expect a socket close.
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+
+	assertForceClose(true, conn1)
+	assertForceClose(false, conn2)
+
+	l4a = lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+	assertForceClose(false, conn3)
+
+	// 2. Will otherwise close, but we have lb host ns only enabled so we expect
+	// 	connection to *not* close.
+	assert.NoError(t, ns3.Do(func() error {
+		conn3, err = net.Dial("udp", "127.0.0.1:30001")
+		assert.NoError(t, err)
+		return nil
+	}))
+	cookie3 := getCookie(ns3, 30001)
+	lbmap.AddSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30001)
+	l4a = lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
+	s.config.BPFSocketLBHostnsOnly = true
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+	assertForceClose(false, conn3)
+
+	// 3. Now we try a similar test, but with a connection in host ns
+	// 	so this one should close.
+	conn3, err = net.Dial("udp", "127.0.0.1:30004")
+	assert.NoError(t, err)
+	lbmap.AddSockRevNat(uint64(getCookie(nil, 30004)), net.IP{127, 0, 0, 1}, 30004)
+	l4a = lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30004, 0)
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+	assertForceClose(true, conn3)
+
+	// 4. Now we try one in ns3 again, but we turn off lb host ns only so we expect a connection
+	// 	to be closed.
+	assert.NoError(t, ns3.Do(func() error {
+		conn3, err = net.Dial("udp", "127.0.0.1:30003")
+		assert.NoError(t, err)
+		return nil
+	}))
+	cookie3 = getCookie(ns3, 30003)
+	lbmap.AddSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30003)
+	l4a = lb.NewL3n4Addr(lb.UDP, cmtypes.AddrClusterFrom(ip, 0), 30003, 0)
+	s.config.BPFSocketLBHostnsOnly = false
+	assert.NoError(t, s.TerminateUDPConnectionsToBackend(l4a))
+	assertForceClose(true, conn3)
 }
