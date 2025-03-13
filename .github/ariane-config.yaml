@@ -90,6 +90,9 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+  /ci-clustermesh-upgrade-vine:
+    workflows:
+    - tests-clustermesh-upgrade-vine.yaml
 
 workflows:
   conformance-aks.yaml:
@@ -128,3 +131,5 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation)/|(.github/renovate\.json5|CODEOWNERS|USERS.md)$)
+  tests-clustermesh-upgrade-vine.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
