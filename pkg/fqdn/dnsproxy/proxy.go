@@ -62,7 +62,10 @@ const (
 // A singleton is always running inside cilium-agent.
 // Note: All public fields are read only and do not require locking
 type DNSProxy struct {
-	// BindPort is the port in BindAddr.
+	cfg DNSProxyConfig
+
+	// BindPort is the port in BindAddr. This may be different from
+	// the port specified in cfg.
 	BindPort uint16
 
 	// LookupRegisteredEndpoint is a provided callback that returns the endpoint ID
@@ -675,7 +678,7 @@ type DNSProxyConfig struct {
 	ConcurrencyGracePeriod time.Duration
 }
 
-// StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
+// NewDNSProxy creates a proxy used for DNS L7 redirects that listens on
 // address and port on IPv4 and/or IPv6 depending on the values of ipv4/ipv6.
 // address is the bind address to listen on. Empty binds to all local
 // addresses.
@@ -686,7 +689,7 @@ type DNSProxyConfig struct {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(
+func NewDNSProxy(
 	dnsProxyConfig DNSProxyConfig,
 	lookupEPFunc LookupEndpointIDByIPFunc,
 	lookupSecIDFunc LookupSecIDByIPFunc,
@@ -702,6 +705,7 @@ func StartDNSProxy(
 	}
 
 	p := &DNSProxy{
+		cfg:                      dnsProxyConfig,
 		LookupRegisteredEndpoint: lookupEPFunc,
 		LookupSecIDByIP:          lookupSecIDFunc,
 		LookupIPsBySecID:         lookupIPsFunc,
@@ -724,6 +728,10 @@ func StartDNSProxy(
 	}
 	p.rejectReply.Store(dns.RcodeRefused)
 
+	return p, nil
+}
+
+func (p *DNSProxy) Listen() error {
 	// Start the DNS listeners on UDP and TCP for IPv4 and/or IPv6
 	var (
 		dnsServers []*dns.Server
@@ -733,7 +741,7 @@ func StartDNSProxy(
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		dnsServers, bindPort, err = bindToAddr(dnsProxyConfig.Address, dnsProxyConfig.Port, p, dnsProxyConfig.IPv4, dnsProxyConfig.IPv6, p.DNSClients)
+		dnsServers, bindPort, err = bindToAddr(p.cfg.Address, p.cfg.Port, p, p.cfg.IPv4, p.cfg.IPv6, p.DNSClients)
 		if err == nil {
 			break
 		}
@@ -741,7 +749,7 @@ func StartDNSProxy(
 		time.Sleep(ProxyBindRetryInterval)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind DNS proxy: %w", err)
+		return fmt.Errorf("failed to bind DNS proxy: %w", err)
 	}
 
 	p.BindPort = bindPort
@@ -774,7 +782,7 @@ func StartDNSProxy(
 	// This function is called in proxy.Cleanup, which is added to Daemon cleanup module in bootstrapFQDN
 	p.unbindAddress = func() { shutdownServers(p.DNSServers) }
 
-	return p, nil
+	return nil
 }
 
 func shutdownServers(dnsServers []*dns.Server) {

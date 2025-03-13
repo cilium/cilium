@@ -85,7 +85,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		ConcurrencyLimit:       0,
 		ConcurrencyGracePeriod: 0,
 	}
-	proxy, err := StartDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
+	proxy, err := NewDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 			if s.restoring {
@@ -128,7 +128,9 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 			return nil
 		},
 	)
-	require.NoError(tb, err, "error starting DNS Proxy")
+	require.NoError(tb, err, "error creating DNS Proxy")
+	err = proxy.Listen()
+	require.NoError(tb, err, "error listening for DNS requests")
 	s.proxy = proxy
 
 	// This is here because Listener or Listener.Addr() was nil. The

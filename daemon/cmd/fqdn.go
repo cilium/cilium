@@ -95,9 +95,16 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
+	dnsproxy, err := dnsproxy.NewDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
 		d.notifyOnDNSMsg)
+	if err != nil { // unreachable; only if funcs are nil
+		log.Error("BUG: could not create DNS proxy")
+		return err
+	}
+	proxy.DefaultDNSProxy = dnsproxy
+	err = dnsproxy.Listen()
 	if err == nil {
+
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
 		if err == nil && port == proxy.DefaultDNSProxy.GetBindPort() {
