@@ -488,7 +488,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 			func(addr tables.NodeAddress) bool { return addr.DeviceName != tables.WildcardDeviceName }))
 
 	if option.Config.EnableIPv6 {
-		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+		log.Debugf("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 
 		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv6 native routing prefix: %s", c.String())
@@ -508,7 +508,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4Router())
 
 	if option.Config.EnableIPv4 {
-		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
+		log.Debugf("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
