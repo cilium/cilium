@@ -179,6 +179,19 @@ default value), then you will need the following kernel configuration options.
         CONFIG_NETFILTER_XT_SET=m
         CONFIG_IP_SET=m
         CONFIG_IP_SET_HASH_IP=m
+        CONFIG_NETFILTER_XT_MATCH_COMMENT=m
+
+Requirements for Tunneling and Routing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cilium uses tunneling protocols like VXLAN by default for pod-to-pod communication
+across nodes, as well as policy routing for various traffic management functionality. 
+The following kernel configuration options are required for proper operation:
+
+::
+
+        CONFIG_VXLAN=y
+        CONFIG_FIB_RULES=y
 
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
