@@ -535,20 +535,19 @@ func (w *Writer) ReleaseBackendsFromSource(txn WriteTxn, name loadbalancer.Servi
 	return w.RefreshFrontends(txn, name)
 }
 
-func (w *Writer) SetRedirectToByName(txn WriteTxn, name loadbalancer.ServiceName, to *loadbalancer.ServiceName) {
-	for fe := range w.fes.List(txn, FrontendByServiceName(name)) {
-		if to == nil && fe.RedirectTo == nil {
-			continue
-		}
-		if to != nil && fe.RedirectTo != nil && to.Equal(*fe.RedirectTo) {
-			continue
-		}
-
-		fe = fe.Clone()
-		fe.RedirectTo = to
-		w.refreshFrontend(txn, fe)
-		w.fes.Insert(txn, fe)
+func (w *Writer) SetRedirectTo(txn WriteTxn, fe *Frontend, to *loadbalancer.ServiceName) {
+	if to == nil && fe.RedirectTo == nil {
+		return
 	}
+
+	if to != nil && fe.RedirectTo != nil && to.Equal(*fe.RedirectTo) {
+		return
+	}
+
+	fe = fe.Clone()
+	fe.RedirectTo = to
+	w.refreshFrontend(txn, fe)
+	w.fes.Insert(txn, fe)
 }
 
 func (w *Writer) ReleaseBackendsForService(txn WriteTxn, name loadbalancer.ServiceName) error {
