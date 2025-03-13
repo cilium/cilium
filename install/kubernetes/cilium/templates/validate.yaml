@@ -208,7 +208,7 @@
   {{- end }}
 {{- end }}
 
-{{/* validate endpoint routes */}}
+{{/* validate multi-pool requirements */}}
 {{- if and (eq .Values.ipam.mode "multi-pool") (not .Values.endpointRoutes.enabled) }}
   {{- fail "Multi-pool mode requires enable-endpoint-routes" }}
 {{- end }}
