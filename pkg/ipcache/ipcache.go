@@ -282,7 +282,7 @@ func (ipc *IPCache) getEndpointFlagsRLocked(ip string) uint8 {
 // When deleting ipcache entries that were previously inserted via this
 // function, ensure that the corresponding delete occurs via Delete().
 //
-// Deprecated: Prefer UpsertLabels() instead.
+// Deprecated: Prefer UpsertMetadata() instead.
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -566,21 +566,6 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	return
 }
 
-// UpsertLabels upserts a given IP and its corresponding labels associated
-// with it into the ipcache metadata map. The given labels are not modified nor
-// is its reference saved, as they're copied when inserting into the map.
-// This will trigger asynchronous calculation of any local identity changes
-// that must occur to associate the specified labels with the prefix, and push
-// any datapath updates necessary to implement the logic associated with the
-// metadata currently associated with the 'prefix'.
-func (ipc *IPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.UpsertMetadata(prefix, src, resource, lbls)
-}
-
-func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource ipcacheTypes.ResourceID) {
-	ipc.RemoveMetadata(cidr, resource, lbls)
-}
-
 // OverrideIdentity overrides the identity for a given prefix in the IPCache metadata
 // map. This is used when a resource indicates that this prefix already has a
 // defined identity, and where any additional labels associated with the prefix
@@ -595,13 +580,13 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 // Callers must arrange for RemoveIdentityOverride() to eventually be called
 // to reverse this operation if the underlying resource is removed.
 //
-// Use with caution: For most use cases, UpsertLabels() is a better API to
+// Use with caution: For most use cases, UpsertMetadata() is a better API to
 // allow metadata to be associated with the prefix. This will delegate identity
 // resolution to the IPCache internally, which provides better compatibility
 // between various features that may use the IPCache to associate metadata with
 // the same netip prefixes. Using this API may cause feature incompatibilities
-// with users of other APIs such as UpsertLabels(), UpsertMetadata() and other
-// variations on inserting metadata into the IPCache.
+// with users of other APIs such as UpsertMetadata() and other variations on
+// inserting metadata into the IPCache.
 func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
 }

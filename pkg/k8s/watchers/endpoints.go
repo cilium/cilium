@@ -167,6 +167,6 @@ func (k *K8sEndpointsWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map
 	)
 
 	for ip := range desiredIPs {
-		k.ipcache.UpsertLabels(ip, labels.LabelKubeAPIServer, src, rid)
+		k.ipcache.UpsertMetadata(ip, src, rid, labels.LabelKubeAPIServer)
 	}
 }
