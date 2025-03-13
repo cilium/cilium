@@ -6,6 +6,7 @@ k8s/add pod.yaml service.yaml endpointslice.yaml
 db/cmp services services-before.table
 db/cmp frontends frontends-before.table
 
+
 # Compare maps
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps-before.expected
@@ -30,6 +31,27 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
+# Remove and re-add the service we're redirecting to check that it's
+# reprocessed.
+k8s/delete service.yaml endpointslice.yaml
+db/cmp services services-no-echo.table
+k8s/add service.yaml endpointslice.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Compare maps after re-adding
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-readded.expected
+
+# Changing the backend port name removes the frontend redirect
+sed 'name: "tcp"' 'name: "foo"' lrp-svc.yaml
+k8s/update lrp-svc.yaml
+db/cmp frontends frontends-no-tcp-redirect.table
+sed 'name: "foo"' 'name: "tcp"' lrp-svc.yaml
+k8s/update lrp-svc.yaml
+db/cmp frontends frontends.table
+
 # Removing policy reverts (but we'll get new backend id)
 k8s/delete lrp-svc.yaml
 db/cmp services services-before.table
@@ -50,31 +72,64 @@ test/echo                     k8s
 -- services.table --
 Name                          Source
 test/echo                     k8s   
-test/lrp-svc-local-redirect   k8s   
+test/lrp-svc:local-redirect   k8s   
+
+-- services-no-echo.table --
+Name                          Source
+test/lrp-svc:local-redirect   k8s   
 
 -- frontends-before.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status   
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.1.1:7070/UDP                                 Done
 169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done 
 
 -- frontends.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc-local-redirect   Done
+169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+
+
+-- frontends-no-tcp-redirect.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done 
 
 -- maps-before.expected --
-BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
-REV: ID=1 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+BE: ID=1 ADDR=10.244.1.1:7070/UDP STATE=active
+BE: ID=2 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:7070
+REV: ID=2 ADDR=169.254.169.254:8080
+SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- maps.expected --
-BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
-REV: ID=1 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+BE: ID=3 ADDR=10.244.2.1:70/UDP STATE=active
+BE: ID=4 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:7070
+REV: ID=2 ADDR=169.254.169.254:8080
+SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-readded.expected --
+BE: ID=7 ADDR=10.244.2.1:70/UDP STATE=active
+BE: ID=8 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=3 ADDR=169.254.169.254:7070
+REV: ID=4 ADDR=169.254.169.254:8080
+SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-after.expected --
-BE: ID=3 ADDR=10.244.1.1:8080/TCP STATE=active
-REV: ID=1 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+BE: ID=11 ADDR=10.244.1.1:7070/UDP STATE=active
+BE: ID=12 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=3 ADDR=169.254.169.254:7070
+REV: ID=4 ADDR=169.254.169.254:8080
+SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=12 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- lrp-svc.yaml --
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy
@@ -91,8 +146,12 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "80"
+      - port: "8080"
+        name: "tcp"
         protocol: TCP
+      - port: "7070"
+        name: "udp"
+        protocol: UDP
 
 -- pod.yaml --
 apiVersion: v1
@@ -110,6 +169,9 @@ spec:
         - containerPort: 80
           name: tcp
           protocol: TCP
+        - containerPort: 70
+          name: udp
+          protocol: UDP
 status:
   hostIP: 172.19.0.3
   hostIPs:
@@ -146,6 +208,11 @@ spec:
     port: 8080
     protocol: TCP
     targetPort: 8080
+  - name: udp
+    port: 7070
+    protocol: UDP
+    targetPort: 7070
+    
   selector:
     name: echo
   sessionAffinity: None
@@ -155,17 +222,10 @@ spec:
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  annotations:
-  creationTimestamp: "2022-09-13T11:11:26Z"
-  generateName: echo-
-  generation: 3
   labels:
-    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
     kubernetes.io/service-name: echo
   name: echo-kvlm2
   namespace: test
-  resourceVersion: "797"
-  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
 addressType: IPv4
 endpoints:
 - addresses:
@@ -175,14 +235,11 @@ endpoints:
     serving: true
     terminating: false
   nodeName: nodeport-worker
-  targetRef:
-    kind: Pod
-    name: echo-757d4cb97f-9gmf7
-    namespace: test
-    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
 ports:
 - name: tcp
   port: 8080
   protocol: TCP
-
+- name: udp
+  port: 7070
+  protocol: UDP
 

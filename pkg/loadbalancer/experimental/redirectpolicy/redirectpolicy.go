@@ -17,6 +17,18 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+// localRedirectServiceSuffix is the suffix to append to the local redirect policy
+// name to construct the pseudo-service name to which the matched pods are associated
+// as backends. ':' is used as separator as that is not an allowed character in k8s.
+const localRedirectServiceSuffix = ":local-redirect"
+
+func lrpServiceName(lrpID k8s.ServiceID) lb.ServiceName {
+	return lb.ServiceName{
+		Name:      lrpID.Name + localRedirectServiceSuffix,
+		Namespace: lrpID.Namespace,
+	}
+}
+
 type lrpConfigType = int
 
 const (
@@ -94,7 +106,7 @@ type LocalRedirectPolicy struct {
 	BackendPorts []bePortInfo
 	// BackendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
-	BackendPortsByPortName map[portName]bePortInfo
+	BackendPortsByPortName map[lb.FEPortName]bePortInfo
 	// SkipRedirectFromBackend is the flag that enables/disables redirection
 	// for traffic matching the policy frontend(s) from the backends selected by the policy
 	SkipRedirectFromBackend bool
@@ -127,19 +139,29 @@ func (lrp *LocalRedirectPolicy) TableRow() []string {
 	}
 }
 
-type portName = string
+func (lrp *LocalRedirectPolicy) ServiceName() lb.ServiceName {
+	return lrpServiceName(lrp.ID)
+}
 
 // feMapping stores frontend address and a list of associated backend addresses.
 type feMapping struct {
 	feAddr lb.L3n4Addr
-	fePort portName
+	fePort lb.FEPortName
+}
+
+func (m feMapping) String() string {
+	return fmt.Sprintf("%s (%s)", m.feAddr.StringWithProtocol(), m.fePort)
 }
 
 type bePortInfo struct {
 	// l4Addr is the port and protocol
 	l4Addr lb.L4Addr
 	// name is the port name
-	name string
+	name lb.FEPortName
+}
+
+func (p bePortInfo) String() string {
+	return fmt.Sprintf("%s (%s)", &p.l4Addr, p.name)
 }
 
 // parse parses the specified cilium local redirect policy spec, and returns
@@ -180,7 +202,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		fe             lb.L3n4Addr
 		feMappings     []feMapping
 		bePorts        []bePortInfo
-		bePortsMap     = make(map[portName]bePortInfo)
+		bePortsMap     = make(map[lb.FEPortName]bePortInfo)
 	)
 
 	// Parse frontend config
@@ -214,7 +236,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 			fe = *lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
-				fePort: pName,
+				fePort: lb.FEPortName(pName),
 			}
 		}
 		lrpType = lrpConfigTypeAddr
@@ -252,7 +274,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 			fe = *lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
-				fePort: pName,
+				fePort: lb.FEPortName(pName),
 			}
 		}
 		lrpType = lrpConfigTypeSvc
@@ -281,12 +303,12 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 				Protocol: proto,
 				Port:     p,
 			},
-			name: pName,
+			name: lb.FEPortName(pName),
 		}
 		bePorts[i] = beP
 		if len(pName) > 0 {
 			// Port name is present.
-			bePortsMap[pName] = bePorts[i]
+			bePortsMap[lb.FEPortName(pName)] = bePorts[i]
 
 		}
 	}

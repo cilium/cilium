@@ -109,6 +109,9 @@ func (m *skipLBMap) Close() (err error) {
 
 func (m *skipLBMap) AllLB4() iter.Seq2[*SkipLB4Key, *SkipLB4Value] {
 	return func(yield func(*SkipLB4Key, *SkipLB4Value) bool) {
+		if m.bpfMap4 == nil {
+			return
+		}
 		stop := false
 		m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
 			func(k, v interface{}) {
@@ -124,6 +127,9 @@ func (m *skipLBMap) AllLB4() iter.Seq2[*SkipLB4Key, *SkipLB4Value] {
 
 func (m *skipLBMap) AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value] {
 	return func(yield func(*SkipLB6Key, *SkipLB6Value) bool) {
+		if m.bpfMap6 == nil {
+			return
+		}
 		stop := false
 		m.bpfMap6.IterateWithCallback(&SkipLB6Key{}, &SkipLB6Value{},
 			func(k, v interface{}) {

@@ -84,8 +84,29 @@ db/cmp desired-skiplbmap skiplbmap.table
 skiplbmap skiplbmap.actual
 * cmp skiplbmap.actual skiplbmap.expected
 
+# Change the pod labels and check that SkipLB entries are cleaned up.
+sed 'app: proxy' 'app: foo' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+
+# Check the map
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+# Revert the change
+sed 'app: foo' 'app: proxy' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap.table
+
+# Check the map again
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.expected
+
 # Cleanup
-k8s/delete pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+k8s/delete lrp-svc.yaml
+db/cmp frontends frontends-noredirect.table
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+k8s/delete pod.yaml service.yaml endpointslice.yaml
 db/delete desired-skiplbmap pod-cookie.yaml
 
 # Wait until empty
@@ -117,6 +138,10 @@ test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  12345        Done
 Pod            SkipRedirects                                 NetnsCookie  Status
 test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  <unset>
 
+-- skiplbmap-noredirect.table --
+Pod            SkipRedirects                                 NetnsCookie  Status
+test/lrp-pod                                                 12345        Done
+
 -- skiplbmap.expected --
 COOKIE=12345 IP=1001::1 PORT=8080
 COOKIE=12345 IP=169.254.169.254 PORT=8080
@@ -128,12 +153,17 @@ test/echo                     k8s
 -- services.table --
 Name                          Source
 test/echo                     k8s   
-test/lrp-svc-local-redirect   k8s   
+test/lrp-svc:local-redirect   k8s   
 
 -- frontends.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc-local-redirect   Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc-local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc:local-redirect   Done
+
+-- frontends-noredirect.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo        Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
 
 -- maps.empty --
 
@@ -172,7 +202,8 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "80"
+      - port: "8080"
+        name: "tcp"
         protocol: TCP
 
 -- pod.yaml --

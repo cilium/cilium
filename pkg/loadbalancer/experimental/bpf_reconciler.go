@@ -391,7 +391,11 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
-		if _, ok := ops.backendReferences[addr]; !ok {
+		expectedSlots := 0
+		if bes, ok := ops.backendReferences[addr]; ok {
+			expectedSlots = 1 + len(bes)
+		}
+		if svcKey.GetBackendSlot()+1 > expectedSlots {
 			ops.log.Info("pruneServiceMaps: deleting",
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
