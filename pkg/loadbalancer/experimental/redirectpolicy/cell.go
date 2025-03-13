@@ -8,6 +8,10 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell implements the processing of the CiliumLocalRedirectPolicy CRD.
@@ -20,20 +24,24 @@ var Cell = cell.Module(
 	"Controller for CiliumLocalRedirectPolicy",
 
 	cell.Provide(
-		newLRPIsEnabled,
-
-		NewLRPTable,
+		// Provide Table[*LocalRedirectPolicy]. Used from replaceAPI.
 		statedb.RWTable[*LocalRedirectPolicy].ToTable,
 
-		newLRPListerWatcher,
+		// Provide the lrpIsEnabled value. Provided globally as it is
+		// used by replaceAPI (DecorateAll runs in root scope).
+		newLRPIsEnabled,
 
-		newDesiredSkipLBTable,
+		// Provide the [lbmap.SkipLBMap]. Provided globally to register it.
 		newSkipLBMap,
-	),
 
-	cell.Provide(
 		// Provide the 'skiplbmap' command for inspecting SkipLBMap.
 		newSkipLBMapCommand,
+	),
+
+	cell.ProvidePrivate(
+		newLRPListerWatcher,
+		NewLRPTable,
+		newDesiredSkipLBTable,
 	),
 
 	cell.Invoke(
@@ -46,8 +54,10 @@ var Cell = cell.Module(
 
 		// Register the SkipLBMap recnociler and the endpoint subscriber for pulling
 		// pod netns cookies
-		registerSkipLB,
+		registerSkipLBReconciler,
 	),
+
+	metrics.Metric(newControllerMetrics),
 
 	// Replace the REST API implementation if enabled
 	cell.DecorateAll(replaceAPI),
@@ -58,4 +68,30 @@ func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB,
 		return old
 	}
 	return &getLrpHandler{db, lrps}
+}
+
+type lrpIsEnabled bool
+
+func newLRPIsEnabled(expConfig experimental.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
+	return lrpIsEnabled(
+		expConfig.EnableExperimentalLB && daemonConfig.EnableLocalRedirectPolicy,
+	)
+}
+
+type controllerMetrics struct {
+	ControllerDuration metric.Histogram
+}
+
+func newControllerMetrics() controllerMetrics {
+	return controllerMetrics{
+		ControllerDuration: metric.NewHistogram(metric.HistogramOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "localredirectpolicy",
+			Name:      "controller_duration_seconds",
+			Help:      "Histogram of LocalRedirectPolicy processing times",
+			Disabled:  true,
+			// Use buckets in the 0.5ms-1.0s range.
+			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
+		}),
+	}
 }

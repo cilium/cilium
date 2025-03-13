@@ -117,11 +117,11 @@ test/echo                     k8s
 
 -- services.table --
 Name                          Source
-test/lrp-addr-local-redirect  k8s
+test/lrp-addr:local-redirect  k8s
 
 -- frontends.table --
 Address                    Type          ServiceName                    PortName   Backends              RedirectTo                    Status
-169.254.169.255:8080/TCP   LocalRedirect test/lrp-addr-local-redirect              10.244.2.1:80/TCP                                   Done
+169.254.169.255:8080/TCP   LocalRedirect test/lrp-addr:local-redirect              10.244.2.1:80/TCP                                   Done
 
 -- maps.empty --
 
