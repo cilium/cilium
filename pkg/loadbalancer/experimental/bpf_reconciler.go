@@ -274,8 +274,6 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 			ops.log.Warn("no nodePortAddrs", logfields.Port, fe.Address.Port)
 		}
 	}
-
-	ops.log.Debug("Delete done", logfields.Address, fe.Address)
 	return nil
 }
 
@@ -561,7 +559,6 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
-		// TODO rest of the maps.
 	)
 }
 
@@ -697,6 +694,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
+	backendCount := len(orderedBackends)
 
 	// Update backends that are new or changed.
 	for i, be := range orderedBackends {
@@ -746,6 +744,9 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		// For now we update these regardless so that we handle properly the SessionAffinity being
 		// flipped on and then off.
 		if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
+			ops.log.Debug("Update affinity",
+				logfields.ID, feID,
+				logfields.BackendID, beID)
 			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
 				return fmt.Errorf("upsert affinity match: %w", err)
 			}
@@ -774,9 +775,6 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 			return err
 		}
 	}
-
-	// Backends updated successfully, we can now update the references.
-	numPreviousBackends := len(ops.backendReferences[fe.Address])
 
 	// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
 	// always reflects what was successfully added to the BPF maps in order
@@ -823,23 +821,31 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	// Update RevNat
 	ops.log.Debug("Update RevNat",
 		logfields.ID, feID,
-		logfields.Address, fe.Address,
-	)
+		logfields.Address, fe.Address)
 	if err := ops.upsertRevNat(feID, svcKey, svcVal); err != nil {
 		return fmt.Errorf("upsert reverse nat: %w", err)
 	}
 
-	ops.log.Debug("Update master service", logfields.ID, feID)
+	ops.log.Debug("Update master service",
+		logfields.ID, feID,
+		logfields.Type, fe.Type,
+		logfields.ProxyRedirect, fe.service.ProxyRedirect,
+		logfields.Address, fe.Address,
+		logfields.Count, backendCount)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
-	ops.log.Debug("Cleanup service slots",
-		logfields.ID, feID,
-		logfields.Active, activeCount,
-		logfields.Previous, numPreviousBackends)
-	if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+terminatingCount+inactiveCount); err != nil {
-		return fmt.Errorf("cleanup service slots: %w", err)
+	numPreviousBackends := len(ops.backendReferences[fe.Address])
+
+	if backendCount != numPreviousBackends {
+		ops.log.Debug("Cleanup service slots",
+			logfields.ID, feID,
+			logfields.Count, backendCount,
+			logfields.Previous, numPreviousBackends)
+		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+terminatingCount+inactiveCount); err != nil {
+			return fmt.Errorf("cleanup service slots: %w", err)
+		}
 	}
 
 	// Finally update the new references. This makes sure any failures reconciling the service slots
@@ -990,7 +996,6 @@ func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		RevNATID:  uint16(id),
 	}
 	var value lbmap.AffinityMatchValue
-	ops.log.Debug("upsertAffinityMatch", logfields.Key, key)
 	return ops.LBMaps.UpdateAffinityMatch(key.ToNetwork(), &value)
 }
 
@@ -999,10 +1004,6 @@ func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		BackendID: beID,
 		RevNATID:  uint16(id),
 	}
-	ops.log.Debug("deleteAffinityMatch",
-		logfields.ServiceID, id,
-		logfields.BackendID, beID,
-	)
 	return ops.LBMaps.DeleteAffinityMatch(key.ToNetwork())
 }
 
@@ -1015,11 +1016,6 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 	if revNATKey.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	ops.log.Debug("upsertRevNat",
-		logfields.Key, revNATKey,
-		logfields.Value, revNATValue,
-	)
-
 	err := ops.LBMaps.UpdateRevNat(revNATKey.ToNetwork(), revNATValue.ToNetwork())
 	if err != nil {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
