@@ -1262,20 +1262,20 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 			key, tuple, svc, &ct_state_svc,
 			nodeport_xlate6(svc, tuple), ext_err, 0);
-	if (ret == LB_PUNT_TO_STACK) {
-		*punt_to_stack = true;
-		return CTX_ACT_OK;
-	}
+	if (IS_ERR(ret)) {
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-	if (ret == DROP_NO_SERVICE) {
-		edt_set_aggregate(ctx, 0);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-					 ext_err);
-	}
+		if (ret == DROP_NO_SERVICE) {
+			edt_set_aggregate(ctx, 0);
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
+						 ext_err);
+		}
 #endif
-
-	if (IS_ERR(ret))
+		if (ret == LB_PUNT_TO_STACK) {
+			*punt_to_stack = true;
+			return CTX_ACT_OK;
+		}
 		return ret;
+	}
 
 	backend_local = __lookup_ip6_endpoint(&tuple->daddr);
 	if (!backend_local && lb6_svc_is_hostport(svc))
@@ -2570,10 +2570,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ret = lb4_local(get_ct_map4(tuple), ctx, is_fragment, l3_off, l4_off,
 				key, tuple, svc, &ct_state_svc, has_l4_header,
 				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
-		if (ret == LB_PUNT_TO_STACK) {
-			*punt_to_stack = true;
-			return CTX_ACT_OK;
-		}
+	}
+	if (IS_ERR(ret)) {
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
 			/* Packet is TX'ed back out, avoid EDT false-positives: */
@@ -2582,9 +2580,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 						 ext_err);
 		}
 #endif
-	}
-	if (IS_ERR(ret))
+		if (ret == LB_PUNT_TO_STACK) {
+			*punt_to_stack = true;
+			return CTX_ACT_OK;
+		}
 		return ret;
+	}
 
 	backend_local = __lookup_ip4_endpoint(tuple->daddr);
 	if (!backend_local && lb4_svc_is_hostport(svc))
