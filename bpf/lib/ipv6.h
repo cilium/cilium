@@ -7,6 +7,7 @@
 
 #include "dbg.h"
 #include "l4.h"
+#include "metrics.h"
 #include "ipfrag.h"
 
 /* Number of extension headers that can be skipped */
@@ -330,18 +331,45 @@ ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 
 #ifdef ENABLE_IPV6_FRAGMENTS
 static __always_inline int
+ipv6_frag_get_l4ports(const struct ipv6_frag_id *frag_id,
+		      struct ipv6_frag_l4ports *ports)
+{
+	struct ipv6_frag_l4ports *tmp;
+
+	tmp = map_lookup_elem(&cilium_ipv6_frag_datagrams, frag_id);
+	if (!tmp)
+		return DROP_FRAG_NOT_FOUND;
+
+	memcpy(ports, tmp, sizeof(*ports));
+	return 0;
+}
+
+static __always_inline int
 ipv6_handle_fragmentation(struct __ctx_buff *ctx,
-			  const struct ipv6hdr *ip6 __maybe_unused,
+			  const struct ipv6hdr *ip6,
 			  fraginfo_t fraginfo,
 			  int l4_off,
-			  enum ct_dir ct_dir __maybe_unused,
+			  enum ct_dir ct_dir,
 			  struct ipv6_frag_l4ports *ports)
 {
+	struct ipv6_frag_id frag_id __align_stack_8 = {
+		.id = ipfrag_get_id(fraginfo),
+		.proto = ipfrag_get_protocol(fraginfo),
+	};
+	ipv6_addr_copy(&frag_id.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&frag_id.saddr, (union v6addr *)&ip6->saddr);
+
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
-		return DROP_FRAG_NOSUPPORT;
+		return ipv6_frag_get_l4ports(&frag_id, ports);
 
 	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
 		return DROP_CT_INVALID_HDR;
+
+	if (unlikely(ipfrag_is_fragment(fraginfo))) {
+		if (map_update_elem(&cilium_ipv6_frag_datagrams, &frag_id, ports, BPF_ANY))
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+				       REASON_FRAG_PACKET_UPDATE);
+	}
 
 	return 0;
 }
