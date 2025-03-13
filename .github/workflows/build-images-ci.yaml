@@ -210,8 +210,8 @@ jobs:
       - name: Check build constraints
         id: check
         run: |
-          if [[ -z "${{ steps.go-cache.outputs.require-dir }}" ]] ||
-             [[ -d "${{ steps.go-cache.outputs.require-dir }}" ]]; then
+          if [[ -z "${{ matrix.require-dir }}" ]] ||
+             [[ -d "${{ matrix.require-dir }}" ]]; then
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
