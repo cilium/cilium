@@ -68,26 +68,28 @@ type ConnectivityTest struct {
 	// Clients for source and destination clusters.
 	clients *deploymentClients
 
-	ciliumPods           map[string]Pod
-	echoPods             map[string]Pod
-	echoExternalPods     map[string]Pod
-	clientPods           map[string]Pod
-	clientCPPods         map[string]Pod
+	ciliumPods            map[string]Pod
+	echoPods              map[string]Pod
+	echoHostNetNsPods     map[string]Pod
+	echoExternalPods      map[string]Pod
+	clientPods            map[string]Pod
+	clientCPPods          map[string]Pod
 	l7LBClientPods       map[string]Pod
-	perfClientPods       []Pod
-	perfServerPod        []Pod
-	perfProfilingPods    map[string]Pod
-	PerfResults          []common.PerfSummary
-	echoServices         map[string]Service
-	echoExternalServices map[string]Service
-	ingressService       map[string]Service
+	perfClientPods        []Pod
+	perfServerPod         []Pod
+	perfProfilingPods     map[string]Pod
+	PerfResults           []common.PerfSummary
+	echoServices          map[string]Service
+	echoHostNetNsServices map[string]Service
+	echoExternalServices  map[string]Service
+	ingressService        map[string]Service
 	l7LBService          map[string]Service
-	k8sService           Service
-	lrpClientPods        map[string]Pod
-	lrpBackendPods       map[string]Pod
-	frrPods              []Pod
-	socatServerPods      []Pod
-	socatClientPods      []Pod
+	k8sService            Service
+	lrpClientPods         map[string]Pod
+	lrpBackendPods        map[string]Pod
+	frrPods               []Pod
+	socatServerPods       []Pod
+	socatClientPods       []Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -226,6 +228,7 @@ func NewConnectivityTest(
 		logger:                   logger,
 		ciliumPods:               make(map[string]Pod),
 		echoPods:                 make(map[string]Pod),
+		echoHostNetNsPods:        make(map[string]Pod),
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
 		clientCPPods:             make(map[string]Pod),
@@ -239,6 +242,7 @@ func NewConnectivityTest(
 		perfServerPod:            []Pod{},
 		PerfResults:              []common.PerfSummary{},
 		echoServices:             make(map[string]Service),
+		echoHostNetNsServices:    make(map[string]Service),
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
 		l7LBService:              make(map[string]Service),
@@ -424,7 +428,7 @@ func (ct *ConnectivityTest) PrintTestInfo() {
 		ct.Debugf("  %s", t)
 	}
 	// Newline denoting start of test output.
-	ct.Logf("🏃[%s] Running %d tests ...", ct.params.TestNamespace, len(ct.tests))
+	ct.Logf("�[%s] Running %d tests ...", ct.params.TestNamespace, len(ct.tests))
 }
 
 // Run kicks off execution of all Tests registered to the ConnectivityTest.
@@ -532,7 +536,7 @@ func (ct *ConnectivityTest) report() error {
 	nf := len(failed)
 
 	if nf > 0 {
-		ct.Header(fmt.Sprintf("📋 Test Report [%s]", ct.params.TestNamespace))
+		ct.Header(fmt.Sprintf("� Test Report [%s]", ct.params.TestNamespace))
 
 		// There are failed tests, fetch all failed actions.
 		fa := len(ct.failedActions())
@@ -546,7 +550,7 @@ func (ct *ConnectivityTest) report() error {
 			for _, a := range t.failedActions() {
 				failedActions++
 				if a.failureMessage != "" {
-					ct.Logf("  🟥 %s: %s", a, a.failureMessage)
+					ct.Logf("  � %s: %s", a, a.failureMessage)
 				} else {
 					ct.Log("  ❌", a)
 				}
@@ -572,9 +576,9 @@ func (ct *ConnectivityTest) report() error {
 	}
 
 	if ct.params.Perf && !ct.params.PerfParameters.NetQos && !ct.params.PerfParameters.Bandwidth {
-		ct.Header(fmt.Sprintf("🔥 Network Performance Test Summary [%s]:", ct.params.TestNamespace))
+		ct.Header(fmt.Sprintf("� Network Performance Test Summary [%s]:", ct.params.TestNamespace))
 		ct.Logf("%s", strings.Repeat("-", 200))
-		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Node", "Test", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99", "Transaction rate OP/s")
+		ct.Logf("� %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Node", "Test", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99", "Transaction rate OP/s")
 		ct.Logf("%s", strings.Repeat("-", 200))
 		nodeString := func(sameNode bool) string {
 			if sameNode {
@@ -584,7 +588,7 @@ func (ct *ConnectivityTest) report() error {
 		}
 		for _, result := range ct.PerfResults {
 			if result.Result.Latency != nil && result.Result.TransactionRateMetric != nil {
-				ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-12.2f",
+				ct.Logf("� %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-12.2f",
 					result.PerfTest.Scenario,
 					nodeString(result.PerfTest.SameNode),
 					result.PerfTest.Test,
@@ -601,11 +605,11 @@ func (ct *ConnectivityTest) report() error {
 		}
 		ct.Logf("%s", strings.Repeat("-", 200))
 		ct.Logf("%s", strings.Repeat("-", 88))
-		ct.Logf("📋 %-15s | %-10s | %-18s | %-15s | %-15s ", "Scenario", "Node", "Test", "Duration", "Throughput Mb/s")
+		ct.Logf("� %-15s | %-10s | %-18s | %-15s | %-15s ", "Scenario", "Node", "Test", "Duration", "Throughput Mb/s")
 		ct.Logf("%s", strings.Repeat("-", 88))
 		for _, result := range ct.PerfResults {
 			if result.Result.ThroughputMetric != nil {
-				ct.Logf("📋 %-15s | %-10s | %-18s | %-15s | %-12.2f ",
+				ct.Logf("� %-15s | %-10s | %-18s | %-15s | %-12.2f ",
 					result.PerfTest.Scenario,
 					nodeString(result.PerfTest.SameNode),
 					result.PerfTest.Test,
@@ -626,7 +630,7 @@ func (ct *ConnectivityTest) report() error {
 }
 
 func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
-	ct.Log("🔭 Enabling Hubble telescope...")
+	ct.Log("� Enabling Hubble telescope...")
 
 	c, err := grpc.NewClient(ct.params.HubbleServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1168,6 +1172,10 @@ func (ct *ConnectivityTest) EchoServices() map[string]Service {
 
 func (ct *ConnectivityTest) EchoServicesAll() map[string]Service {
 	return ct.echoServices
+}
+
+func (ct *ConnectivityTest) EchoHostNetNsServices() map[string]Service {
+	return ct.echoHostNetNsServices
 }
 
 func (ct *ConnectivityTest) EchoExternalServices() map[string]Service {
