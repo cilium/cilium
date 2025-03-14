@@ -151,10 +151,19 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__s64 fraginfo __maybe_unused;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	if (is_defined(ENABLE_HOST_FIREWALL) || !from_host) {
 		__u8 nexthdr = ip6->nexthdr;
@@ -602,6 +611,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct iphdr *ip4;
+	__s64 fraginfo __maybe_unused;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -611,7 +621,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
  * then drop the packet.
  */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
@@ -1486,6 +1497,7 @@ skip_host_firewall:
 		struct remote_endpoint_info *info;
 		struct endpoint_info *src_ep;
 		bool is_reply;
+		__s64 fraginfo;
 
 		if (src_sec_identity == HOST_ID)
 			goto skip_egress_gateway;
@@ -1501,13 +1513,15 @@ skip_host_firewall:
 			goto drop_err;
 		}
 
+		fraginfo = ipfrag_encode_ipv4(ip4);
+
 		tuple.nexthdr = ip4->protocol;
 		tuple.daddr = ip4->daddr;
 		tuple.saddr = ip4->saddr;
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple,
-					NULL);
+		ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+					CT_EGRESS, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CT_UNKNOWN_PROTO)
 				goto skip_egress_gateway;

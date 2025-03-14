@@ -104,6 +104,7 @@ var bpfMapsPath = []string{
 	"tc/globals/cilium_ipmasq_v4",
 	"tc/globals/cilium_ipmasq_v6",
 	"tc/globals/cilium_ipv4_frag_datagrams",
+	"tc/globals/cilium_ipv6_frag_datagrams",
 	"tc/globals/cilium_throttle",
 	"tc/globals/cilium_encrypt_state",
 	"tc/globals/cilium_egress_gw_policy_v4",

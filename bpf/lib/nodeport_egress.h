@@ -64,9 +64,14 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__s64 fraginfo;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
@@ -80,13 +85,14 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, &tuple, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
-	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
+	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
+			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -141,11 +147,16 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
+	__s64 fraginfo;
 	struct ipv6hdr *ip6;
 	int ret, l4_off;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
@@ -176,13 +187,15 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 skip_fib:
 #endif
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			      SCOPE_REVERSE, CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, fraginfo,
+			      l4_off, CT_INGRESS, SCOPE_REVERSE,
+			      CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
 			      NULL, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
-		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info);
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
+				    ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 
@@ -305,10 +318,13 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
+	__s64 fraginfo;
 	int l4_off, ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
@@ -323,11 +339,13 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 			 * Check if its a reply packet, if it is, redirect it to the
 			 * parent interface.
 			 */
-			if (ipv4_load_l4_ports(ctx, ip4, l4_off, CT_EGRESS,
-					       (__be16 *)&tuple.dport, NULL) < 0)
-				return DROP_INVALID;
+			ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+						CT_EGRESS, &tuple);
+			if (ret < 0 && ret != DROP_CT_UNKNOWN_PROTO)
+				return ret;
 
-			if (ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
+			if (ret != DROP_CT_UNKNOWN_PROTO &&
+			    ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
 				/* Look up the parent interface's MAC address and set it as the
 				 * source MAC address of the packet. We will assume the destination
 				 * MAC address is still correct. This assumption only holds if the
@@ -351,7 +369,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
-	ret = snat_v4_needs_masquerade(ctx, &tuple, ip4, l4_off, &target);
+	ret = snat_v4_needs_masquerade(ctx, &tuple, ip4, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -375,7 +393,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 apply_snat:
 	*saddr = tuple.saddr;
-	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
+	ret = snat_v4_nat(ctx, &tuple, ip4, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
@@ -439,14 +457,13 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
-	bool has_l4_header, is_fragment;
 	struct iphdr *ip4;
+	__s64 fraginfo;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	has_l4_header = ipv4_has_l4_header(ip4);
-	is_fragment = ipv4_is_fragment(ip4);
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
@@ -480,8 +497,8 @@ skip_fib:
 #endif
 
 	/* Cache is_fragment in advance, nodeport_fib_lookup_and_redirect may invalidate ip4. */
-	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, is_fragment,
-			      l4_off, has_l4_header, CT_INGRESS, SCOPE_REVERSE,
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo,
+			      l4_off, CT_INGRESS, SCOPE_REVERSE,
 			      CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
 			      &ct_state, &trace->monitor);
 
@@ -492,7 +509,7 @@ skip_fib:
 		trace->reason = TRACE_REASON_CT_REPLY;
 
 		ret = __lb4_rev_nat(ctx, l3_off, l4_off, &tuple,
-				    nat_info, false, has_l4_header);
+				    nat_info, false, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 
