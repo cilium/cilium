@@ -4,6 +4,7 @@
 package health
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -18,7 +19,8 @@ import (
 
 func healthCommands(db *statedb.DB, table statedb.Table[types.Status]) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
-		"health": healthTreeCommand(db, table),
+		"health":    healthTreeCommand(db, table),
+		"health/ok": allOK(db, table),
 	})
 }
 
@@ -89,4 +91,42 @@ func getHealth(db *statedb.DB, table statedb.Table[types.Status], prefix, match 
 		}
 	}
 	return ss
+}
+
+func allOK(db *statedb.DB, table statedb.Table[types.Status]) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Report and fail if there are degraded health reports",
+			Args:    "[reporter-id-prefix]",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("match", "m", "", "Output only health reports where the reporter ID path contains the substring")
+			},
+			Detail: []string{
+				"Checks that all specified health reporters are healthy.\n",
+				"If a non empty prefix is passed, only sub-trees of that .\n",
+				"reporter will be checked\n",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			var prefix string
+			if len(args) > 0 {
+				prefix = args[0]
+			}
+
+			match, err := s.Flags.GetString("match")
+			if err != nil {
+				return nil, err
+			}
+
+			w := s.LogWriter()
+
+			ss := getHealth(db, table, prefix, match, []string{types.LevelDegraded})
+			healthPkg.GetAndFormatModulesHealth(w, ss, true, "")
+
+			if len(ss) != 0 {
+				return nil, fmt.Errorf("found %d degraded health reports", len(ss))
+			}
+			return nil, nil
+		},
+	)
 }
