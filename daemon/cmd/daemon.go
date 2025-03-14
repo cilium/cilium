@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"runtime"
 	"sync"
 
@@ -165,7 +164,7 @@ type Daemon struct {
 	apiLimiterSet *rate.APILimiterSet
 
 	// CIDRs for which identities were restored during bootstrap
-	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
+	restoredCIDRs map[cmtypes.PrefixCluster]identity.NumericIdentity
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager

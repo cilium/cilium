@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
@@ -170,7 +171,7 @@ func (n *manager) CompleteBootstrap() {
 		ipcacheUpdates := make([]ipcache.MU, 0, len(n.restoredPrefixes))
 		for prefix := range n.restoredPrefixes {
 			ipcacheUpdates = append(ipcacheUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewPrefixCluster(prefix, 0),
 				Source:   source.Restored,
 				Resource: restorationIPCacheResource,
 				Metadata: []ipcache.IPMetadata{
@@ -291,7 +292,7 @@ func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcach
 
 		for _, addr := range metadata.addrs {
 			updates = append(updates, ipcache.MU{
-				Prefix:   netip.PrefixFrom(addr, addr.BitLen()),
+				Prefix:   cmtypes.NewPrefixCluster(netip.PrefixFrom(addr, addr.BitLen()), 0),
 				Source:   source.Generated,
 				Resource: resource,
 				Metadata: []ipcache.IPMetadata{
@@ -332,7 +333,7 @@ func (n *manager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
 	for ip, names := range maybeRemoved {
 		for _, name := range names {
 			ipCacheUpdates = append(ipCacheUpdates, ipcache.MU{
-				Prefix:   netip.PrefixFrom(ip, ip.BitLen()),
+				Prefix:   cmtypes.NewPrefixCluster(netip.PrefixFrom(ip, ip.BitLen()), 0),
 				Source:   source.Generated,
 				Resource: ipcacheResource(name),
 				Metadata: []ipcache.IPMetadata{

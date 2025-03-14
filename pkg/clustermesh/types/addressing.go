@@ -286,6 +286,11 @@ type PrefixCluster struct {
 	clusterID uint32
 }
 
+// NewPrefixCluster builds a PrefixCluster from a prefix and a clusterID
+func NewPrefixCluster(prefix netip.Prefix, clusterID uint32) PrefixCluster {
+	return PrefixCluster{prefix, clusterID}
+}
+
 // ParsePrefixCluster parses s as an Prefix + ClusterID and returns PrefixCluster.
 // The string s can be a bare IP prefix string (any prefix format allowed in
 // netip.ParsePrefix()) or prefix string + @ + ClusterID with decimal. Bare prefix
@@ -333,11 +338,11 @@ func ParsePrefixCluster(s string) (PrefixCluster, error) {
 // MustParsePrefixCluster calls ParsePrefixCluster(s) and panics on error.
 // It is intended for use in tests with hard-coded strings.
 func MustParsePrefixCluster(s string) PrefixCluster {
-	prefixCluster, err := ParsePrefixCluster(s)
+	prefix, err := ParsePrefixCluster(s)
 	if err != nil {
 		panic(err)
 	}
-	return prefixCluster
+	return prefix
 }
 
 func (pc PrefixCluster) IsSingleIP() bool {
