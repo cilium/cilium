@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -44,6 +45,16 @@ type BackendParams struct {
 
 	// State of the backend, e.g. active, quarantined or terminating.
 	State loadbalancer.BackendState
+
+	// Unhealthy marks a backend as unhealthy and overrides [State] to mark the backend
+	// as quarantined. We require a separate field for active health checking to merge
+	// with the original source of this backend. Negative is used here to allow the
+	// zero value to mean that the backend is healthy.
+	Unhealthy bool
+
+	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated. Zero
+	// value if never updated.
+	UnhealthyUpdatedAt time.Time
 }
 
 // Backend is a composite of the per-service backend instances that share the same
@@ -147,10 +158,14 @@ func showInstances(be *Backend) string {
 	for k, inst := range be.PreferredInstances() {
 		b.WriteString(k.ServiceName.String())
 
-		if inst.State != loadbalancer.BackendStateActive {
+		if inst.State != loadbalancer.BackendStateActive || inst.Unhealthy {
 			b.WriteString(" [")
-			s, _ := inst.State.String()
-			b.WriteString(s)
+			if inst.Unhealthy {
+				b.WriteString("unhealthy")
+			} else {
+				s, _ := inst.State.String()
+				b.WriteString(s)
+			}
 			b.WriteRune(']')
 		}
 		if len(inst.PortNames) > 0 {
