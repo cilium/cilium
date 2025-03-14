@@ -125,8 +125,8 @@ func BenchmarkInsertBackend(b *testing.B) {
 				name,
 				source.Kubernetes,
 				BackendParams{
-					L3n4Addr: beAddr,
-					State:    loadbalancer.BackendStateActive,
+					Address: beAddr,
+					State:   loadbalancer.BackendStateActive,
 				},
 			)
 		}
@@ -166,8 +166,8 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		name,
 		source.Kubernetes,
 		BackendParams{
-			L3n4Addr: beAddr,
-			State:    loadbalancer.BackendStateActive,
+			Address: beAddr,
+			State:   loadbalancer.BackendStateActive,
 		},
 	)
 	wtxn.Commit()
@@ -180,8 +180,8 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			name,
 			source.Kubernetes,
 			BackendParams{
-				L3n4Addr: beAddr,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr,
+				State:   loadbalancer.BackendStateActive,
 			},
 		)
 	}

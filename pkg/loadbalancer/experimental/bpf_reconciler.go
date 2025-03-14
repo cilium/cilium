@@ -751,7 +751,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	// Clean up any orphan backends to make room for new backends
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range orderedBackends {
-		backendAddrs.Insert(be.L3n4Addr)
+		backendAddrs.Insert(be.Address)
 	}
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
@@ -772,27 +772,27 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	// Update backends that are new or changed.
 	for i, be := range orderedBackends {
 		var beID loadbalancer.BackendID
-		if s, ok := ops.backendStates[be.L3n4Addr]; ok && s.id != 0 {
+		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
 		} else {
-			acquiredID, err := ops.backendIDAlloc.acquireLocalID(be.L3n4Addr, 0)
+			acquiredID, err := ops.backendIDAlloc.acquireLocalID(be.Address, 0)
 			if err != nil {
 				return err
 			}
 			beID = loadbalancer.BackendID(acquiredID)
 		}
 
-		if ops.needsUpdate(be.L3n4Addr, be.Revision) {
+		if ops.needsUpdate(be.Address, be.Revision) {
 			ops.log.Debug("Update backend",
 				logfields.Backend, be,
 				logfields.ID, beID,
-				logfields.Address, be.L3n4Addr,
+				logfields.Address, be.Address,
 			)
 			if err := ops.upsertBackend(beID, be.BackendParams); err != nil {
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
-			ops.updateBackendRevision(beID, be.L3n4Addr, be.Revision)
+			ops.updateBackendRevision(beID, be.Address, be.Revision)
 		}
 
 		// Update the service slot for the backend. We do this regardless
@@ -832,7 +832,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		}
 
 		if !be.UnhealthyUpdatedAt.IsZero() {
-			ops.deleteRestoredQuarantinedBackends(fe.Address, be.L3n4Addr)
+			ops.deleteRestoredQuarantinedBackends(fe.Address, be.Address)
 		}
 
 		state := be.State
@@ -1037,19 +1037,19 @@ func (ops *BPFOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 
 func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *BackendParams) (err error) {
 	var lbbe lbmap.Backend
-	proto, err := u8proto.ParseProtocol(be.L3n4Addr.Protocol)
+	proto, err := u8proto.ParseProtocol(be.Address.Protocol)
 	if err != nil {
-		return fmt.Errorf("invalid L4 protocol %q: %w", be.L3n4Addr.Protocol, err)
+		return fmt.Errorf("invalid L4 protocol %q: %w", be.Address.Protocol, err)
 	}
 
-	if be.AddrCluster.Is6() {
-		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, proto,
+	if be.Address.AddrCluster.Is6() {
+		lbbe, err = lbmap.NewBackend6V3(id, be.Address.AddrCluster, be.Address.Port, proto,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
 		}
 	} else {
-		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, proto,
+		lbbe, err = lbmap.NewBackend4V3(id, be.Address.AddrCluster, be.Address.Port, proto,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
@@ -1201,14 +1201,14 @@ func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer
 	var errs []error
 	backendInfos := func(yield func(maglev.BackendInfo) bool) {
 		for _, be := range bes {
-			id, err := ops.backendIDAlloc.lookupLocalID(be.L3n4Addr)
+			id, err := ops.backendIDAlloc.lookupLocalID(be.Address)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("local id for address %s not found: %w", be.L3n4Addr.String(), err))
+				errs = append(errs, fmt.Errorf("local id for address %s not found: %w", be.Address.String(), err))
 				continue
 			}
 			if !yield(maglev.BackendInfo{
 				ID:     loadbalancer.BackendID(id),
-				Addr:   be.L3n4Addr,
+				Addr:   be.Address,
 				Weight: be.Weight,
 			}) {
 				break
@@ -1230,7 +1230,7 @@ func (ops *BPFOps) sortedBackends(fe *Frontend) []backendWithRevision {
 
 	bes := []backendWithRevision{}
 	for be, rev := range fe.Backends {
-		if be.UnhealthyUpdatedAt.IsZero() && quarantined.Has(be.L3n4Addr) {
+		if be.UnhealthyUpdatedAt.IsZero() && quarantined.Has(be.Address) {
 			be.Unhealthy = true
 		}
 		bes = append(bes, backendWithRevision{&be, rev})
@@ -1247,11 +1247,11 @@ func (ops *BPFOps) sortedBackends(fe *Frontend) []backendWithRevision {
 		case a.State > b.State:
 			return false
 		default:
-			switch a.L3n4Addr.AddrCluster.Addr().Compare(b.L3n4Addr.AddrCluster.Addr()) {
+			switch a.Address.AddrCluster.Addr().Compare(b.Address.AddrCluster.Addr()) {
 			case -1:
 				return true
 			case 0:
-				return a.L3n4Addr.Port < b.L3n4Addr.Port
+				return a.Address.Port < b.Address.Port
 			default:
 				return false
 			}
