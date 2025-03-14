@@ -50,7 +50,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -459,6 +460,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
+		if device == wgTypes.IfaceName {
+			// When downgrading from v1.18, upon successfully attaching cil_from_netdev
+			// to cilium_wg0, we must remove the cil_from_wireguard program.
+			if err := detachSKBProgram(iface, symbolFromWireguard,
+				linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+				log.WithField("device", device).Error(err)
+			}
+		}
+
 		if option.Config.AreDevicesRequired() {
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
@@ -637,9 +647,30 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
-		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s egress: %w", device, err)
+	// Attach/detach cil_to_wireguard to/from egress.
+	if option.Config.NeedEgressOnWireGuardDevice() {
+		if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
+			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s egress: %w", device, err)
+		}
+	} else {
+		if err := detachSKBProgram(device, symbolToWireguard,
+			linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
+			log.WithField("device", device).Error(err)
+		}
+	}
+	// Selectively detach cil_from_netdev from ingress.
+	if !option.Config.NeedBPFHostOnWireGuardDevice() {
+		if err := detachSKBProgram(device, symbolFromHostNetdevEp,
+			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+			log.WithField("device", wgTypes.IfaceName).Error(err)
+		}
+		// When downgrading from v1.18 and the hook is not needed anymore,
+		// we must also detach cil_from_wireguard from ingress.
+		if err := detachSKBProgram(device, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+			log.WithField("device", device).Error(err)
+		}
 	}
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
