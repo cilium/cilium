@@ -463,7 +463,10 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --include-unsafe-tests \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
@@ -604,7 +607,10 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --include-unsafe-tests \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
@@ -614,7 +620,10 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --include-unsafe-tests \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
@@ -688,8 +697,10 @@ jobs:
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
             --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
@@ -699,7 +710,10 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --include-unsafe-tests \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
@@ -749,7 +763,10 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --include-unsafe-tests \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
