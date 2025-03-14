@@ -572,7 +572,7 @@ L2 Pod Announcements
 L2 Pod Announcements announce Pod IP addresses on the L2 network using
 Gratuitous ARP replies. When enabled, the node transmits Gratuitous ARP
 replies for every locally created pod, on the configured network
-interface. This feature is enabled separately from the above L2
+interface(s). This feature is enabled separately from the above L2
 announcements feature.
 
 To enable L2 Pod Announcements, set the following:
@@ -595,6 +595,30 @@ To enable L2 Pod Announcements, set the following:
 
             enable-l2-pod-announcements: true
             l2-pod-announcements-interface: eth0
+
+The ``l2podAnnouncements.interface``/``l2-pod-announcements-interface`` options allows you to specify 
+one interface use to send announcements.  If you would like to send announcements on multiple interfaces, you should use the
+``l2podAnnouncements.interfacePattern``/``l2-pod-announcements-interface-pattern`` option instead. 
+This option takes a regex, matching on multiple interfaces.
+
+.. tabs::
+    .. group-tab:: Helm
+
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2podAnnouncements.enabled=true \\
+               --set l2podAnnouncements.interfacePattern='^(eth0|ens1)$'
+
+
+    .. group-tab:: ConfigMap
+
+        .. code-block:: yaml
+
+            enable-l2-pod-announcements: true
+            l2-pod-announcements-interface-pattern: "^(eth0|ens1)$"
 
 .. note::
    Since this feature has no IPv6 support yet, only ARP messages are
