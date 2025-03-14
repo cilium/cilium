@@ -1285,3 +1285,10 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
 		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
 		(!ct.Features[features.IPsecEnabled].Enabled || !ct.Features[features.KPRNodePort].Enabled)
 }
+
+func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {
+	return ct.params.IncludeUnsafeTests &&
+		ct.params.IncludeConnDisruptTestEgressGateway &&
+		ct.Features[features.EgressGateway].Enabled &&
+		ct.Features[features.NodeWithoutCilium].Enabled
+}
