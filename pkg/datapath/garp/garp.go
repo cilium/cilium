@@ -10,69 +10,35 @@ import (
 
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type Sender interface {
-	Send(netip.Addr) error
+	// Send a Gratuitous ARP packet, for a given IP over the given interface.
+	Send(iface Interface, ip netip.Addr) error
+
+	// InterfaceByIndex get Interface by ifindex
+	InterfaceByIndex(idx int) (Interface, error)
 }
 
-func newGARPSender(log logrus.FieldLogger, cfg Config) (Sender, error) {
-	if cfg.L2PodAnnouncementsInterface == "" {
-		return nil, nil
-	}
-
-	iface, err := interfaceByName(cfg.L2PodAnnouncementsInterface)
-	if err != nil {
-		return nil, fmt.Errorf("gratuitous arp sender interface %q not found: %w", cfg.L2PodAnnouncementsInterface, err)
-	}
-
-	l := log.WithField(logfields.Interface, iface.Name)
-	l.Info("initialised gratuitous arp sender")
-
-	return &sender{
-		logger: l,
-		iface:  iface,
-	}, nil
+func newSender() Sender {
+	return &sender{}
 }
 
-type sender struct {
-	logger logrus.FieldLogger
-
+type Interface struct {
 	iface *net.Interface
 }
 
-// Send implements Sender
-func (s *sender) Send(ip netip.Addr) error {
-	err := send(s.iface, ip)
-	if err == nil {
-		s.logger.WithField(logfields.IPAddr, ip).Debug("sent gratuitous arp message")
-	}
+type sender struct{}
 
-	return err
-}
-
-func SendOnInterfaceIdx(ifaceIdx int, ip netip.Addr) error {
-	iface, err := interfaceByIndex(ifaceIdx)
-	if err != nil {
-		return fmt.Errorf("gratuitous arp sender interface %d not found: %w", ifaceIdx, err)
-	}
-
-	return send(iface, ip)
-}
-
-func send(iface *net.Interface, ip netip.Addr) error {
-	arpClient, err := arp.Dial(iface)
+func (s *sender) Send(iface Interface, ip netip.Addr) error {
+	arpClient, err := arp.Dial(iface.iface)
 	if err != nil {
 		return fmt.Errorf("failed to open ARP socket: %w", err)
 	}
 	defer arpClient.Close()
 
-	arp, err := arp.NewPacket(arp.OperationReply, iface.HardwareAddr, ip, ethernet.Broadcast, ip)
+	arp, err := arp.NewPacket(arp.OperationReply, iface.iface.HardwareAddr, ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return fmt.Errorf("failed to craft ARP reply packet: %w", err)
 	}
@@ -85,37 +51,20 @@ func send(iface *net.Interface, ip netip.Addr) error {
 	return nil
 }
 
-// interfaceByName get *net.Interface by name using netlink.
-//
-// The reason not to use net.InterfaceByName directly is to avoid potential
-// deadlocks (#15051).
-func interfaceByName(name string) (*net.Interface, error) {
-	link, err := safenetlink.LinkByName(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &net.Interface{
-		Index:        link.Attrs().Index,
-		MTU:          link.Attrs().MTU,
-		Name:         link.Attrs().Name,
-		Flags:        link.Attrs().Flags,
-		HardwareAddr: link.Attrs().HardwareAddr,
-	}, nil
-}
-
-// interfaceByIndex get *net.Interface by index using netlink.
-func interfaceByIndex(idx int) (*net.Interface, error) {
+// InterfaceByIndex get Interface by ifindex
+func (s *sender) InterfaceByIndex(idx int) (Interface, error) {
 	link, err := netlink.LinkByIndex(idx)
 	if err != nil {
-		return nil, err
+		return Interface{}, err
 	}
 
-	return &net.Interface{
-		Index:        link.Attrs().Index,
-		MTU:          link.Attrs().MTU,
-		Name:         link.Attrs().Name,
-		Flags:        link.Attrs().Flags,
-		HardwareAddr: link.Attrs().HardwareAddr,
+	return Interface{
+		iface: &net.Interface{
+			Index:        link.Attrs().Index,
+			MTU:          link.Attrs().MTU,
+			Name:         link.Attrs().Name,
+			Flags:        link.Attrs().Flags,
+			HardwareAddr: link.Attrs().HardwareAddr,
+		},
 	}, nil
 }
