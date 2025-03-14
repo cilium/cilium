@@ -366,7 +366,7 @@ func computeLoadAssignments(
 				backends = map[string]*experimental.Backend{}
 				backendMap[portName] = backends
 			}
-			backends[be.L3n4Addr.String()] = be
+			backends[be.Address.String()] = be
 		}
 	}
 
@@ -379,7 +379,7 @@ func computeLoadAssignments(
 			// The below is to make sure that UDP and SCTP are not allowed instead of comparing with lb.TCP
 			// The reason is to avoid extra dependencies with ongoing work to differentiate protocols in datapath,
 			// which might add more values such as lb.Any, lb.None, etc.
-			if be.Protocol == loadbalancer.UDP || be.Protocol == loadbalancer.SCTP {
+			if be.Address.Protocol == loadbalancer.UDP || be.Address.Protocol == loadbalancer.SCTP {
 				continue
 			}
 
@@ -389,9 +389,9 @@ func computeLoadAssignments(
 						Address: &envoy_config_core.Address{
 							Address: &envoy_config_core.Address_SocketAddress{
 								SocketAddress: &envoy_config_core.SocketAddress{
-									Address: be.AddrCluster.String(),
+									Address: be.Address.AddrCluster.String(),
 									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
-										PortValue: uint32(be.Port),
+										PortValue: uint32(be.Address.Port),
 									},
 								},
 							},

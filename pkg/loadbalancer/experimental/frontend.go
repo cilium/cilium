@@ -146,7 +146,7 @@ func showBackends(bes backendsSeq2) string {
 	var b strings.Builder
 	for be := range bes {
 		if count < maxToShow {
-			b.WriteString(be.L3n4Addr.String())
+			b.WriteString(be.Address.String())
 			b.WriteString(", ")
 		}
 		count++

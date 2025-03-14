@@ -95,11 +95,11 @@ func concatBe(bes backendsSeq2, be BackendParams, rev statedb.Revision) backends
 
 func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState) Backend {
 	return Backend{
-		L3n4Addr: addr,
+		Address: addr,
 		Instances: emptyInstances.Set(
 			BackendInstanceKey{testServiceName, 0},
 			BackendParams{
-				L3n4Addr:  addr,
+				Address:   addr,
 				NodeName:  "",
 				ZoneID:    0,
 				PortNames: nil,

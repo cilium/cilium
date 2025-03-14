@@ -220,7 +220,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 						healthServiceName,
 						source.Local,
 						BackendParams{
-							L3n4Addr: lb.L3n4Addr{
+							Address: lb.L3n4Addr{
 								AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
 								L4Addr: lb.L4Addr{
 									Protocol: lb.TCP,

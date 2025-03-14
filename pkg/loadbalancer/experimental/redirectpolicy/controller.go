@@ -336,7 +336,7 @@ func (c *lrpController) updateRedirectBackends(wtxn experimental.WriteTxn, ws *s
 				continue
 			}
 			beps = append(beps, experimental.BackendParams{
-				L3n4Addr:  addr.L3n4Addr,
+				Address:   addr.L3n4Addr,
 				State:     lb.BackendStateActive,
 				PortNames: []string{addr.portName},
 			})
@@ -348,7 +348,7 @@ func (c *lrpController) updateRedirectBackends(wtxn experimental.WriteTxn, ws *s
 	orphanCount := 0
 	for be := range c.p.Writer.Backends().List(wtxn, experimental.BackendByServiceName(lrpServiceName)) {
 		if slices.ContainsFunc(beps, func(bep experimental.BackendParams) bool {
-			return bep.L3n4Addr.DeepEqual(&be.L3n4Addr)
+			return bep.Address.DeepEqual(&be.Address)
 		}) {
 			newCount--
 		} else {
