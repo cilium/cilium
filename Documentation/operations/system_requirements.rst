@@ -187,6 +187,7 @@ The following kernel configuration options are required for proper operation:
 ::
 
         CONFIG_VXLAN=y
+        CONFIG_GENEVE=y
         CONFIG_FIB_RULES=y
 
 Requirements for L7 and FQDN Policies
