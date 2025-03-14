@@ -6,10 +6,12 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-k8s/add service.yaml endpointslice.yaml
+# Add the service and then endpoints
+k8s/add service.yaml
 db/cmp services services.table
-db/cmp frontends frontends.table
+k8s/add endpointslice.yaml
 db/cmp backends backends.table 
+db/cmp frontends frontends.table
 
 # Check the BPF maps
 lb/maps-dump lbmaps.actual
@@ -21,6 +23,81 @@ db/cmp services services_empty.table
 db/cmp frontends frontends_empty.table
 db/cmp backends backends_empty.table
 
+# Check that BPF maps are emptied as otherwise the reconciler might
+# not have yet processed the deletion
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.empty lbmaps.actual
+
+# Do it again but this time add endpoint slice first and then service.
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+k8s/add service.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps2.expected lbmaps.actual
+
+# Remove service and add it back
+k8s/delete service.yaml
+db/cmp services services_empty.table
+
+# Check that BPF maps are emptied as otherwise the reconciler might
+# not have yet processed the deletion
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.empty lbmaps.actual
+
+# Add the service back. We should now get the same map contents, except
+# with new IDs.
+k8s/add service.yaml
+db/cmp services services.table
+db/cmp backends backends.table
+db/cmp frontends frontends.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps3.expected lbmaps.actual
+
+# Test scaling to 3 endpoints.
+k8s/update endpointslice2.yaml
+db/cmp frontends frontends_3_backends.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps4.expected lbmaps.actual
+
+# Remove all backends
+k8s/delete endpointslice2.yaml
+
+# Backends should be gone now
+* db/empty backends
+db/cmp frontends frontends_0_backends.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps5.expected lbmaps.actual
+
+# Go back to 1 backend
+k8s/add endpointslice.yaml
+db/cmp services services.table
+db/cmp backends backends.table
+db/cmp frontends frontends.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps6.expected lbmaps.actual
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml 
+db/cmp services services_empty.table
+db/cmp frontends frontends_empty.table
+db/cmp backends backends_empty.table
+
+# Check that BPF maps are now empty
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.empty lbmaps.actual
+
 #####
 
 -- services.table --
@@ -30,6 +107,14 @@ test/echo   k8s                  Cluster            Cluster            42s      
 -- frontends.table --
 Address               Type        ServiceName   PortName   Backends           Status
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP  Done
+
+-- frontends_3_backends.table --
+Address               Type        ServiceName   PortName   Backends                                                 Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP  Done
+
+-- frontends_0_backends.table --
+Address               Type        ServiceName   PortName   Backends  Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http                 Done
 
 -- backends.table --
 Address             Instances          Shadows
@@ -74,17 +159,10 @@ spec:
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  annotations:
-  creationTimestamp: "2022-09-13T11:11:26Z"
-  generateName: echo-
-  generation: 3
   labels:
-    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
     kubernetes.io/service-name: echo
   name: echo-kvlm2
   namespace: test
-  resourceVersion: "797"
-  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
 addressType: IPv4
 endpoints:
 - addresses:
@@ -104,9 +182,73 @@ ports:
   port: 80
   protocol: TCP
 
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lbmaps.empty --
+
 -- lbmaps.expected --
 AFF: ID=1 BEID=1
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+-- lbmaps2.expected --
+AFF: ID=2 BEID=2
+BE: ID=2 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=2 ADDR=10.96.50.104:80
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+-- lbmaps3.expected --
+AFF: ID=3 BEID=3
+BE: ID=3 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+-- lbmaps4.expected --
+AFF: ID=3 BEID=3
+AFF: ID=3 BEID=4
+AFF: ID=3 BEID=5
+BE: ID=3 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.3:80/TCP STATE=active
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+-- lbmaps5.expected --
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+-- lbmaps6.expected --
+AFF: ID=3 BEID=6
+BE: ID=6 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable

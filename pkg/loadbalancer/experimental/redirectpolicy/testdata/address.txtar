@@ -32,18 +32,18 @@ Name                          Source
 
 -- services.table --
 Name                          Source
-test/lrp-addr-local-redirect  k8s   
+test/lrp-addr:local-redirect  k8s   
 
 -- frontends-empty.table --
 Address                    Type        ServiceName
 
 -- frontends.table --
 Address                    Type          ServiceName                    Backends            RedirectTo  Status
-169.254.169.254:8080/TCP   LocalRedirect test/lrp-addr-local-redirect   10.244.2.1:80/TCP               Done
+169.254.169.254:8080/TCP   LocalRedirect test/lrp-addr:local-redirect   10.244.2.1:80/TCP               Done
 
 -- backends.table --
 Address             Instances
-10.244.2.1:80/TCP   test/lrp-addr-local-redirect (tcp)
+10.244.2.1:80/TCP   test/lrp-addr:local-redirect (tcp)
 
 -- maps.expected --
 BE: ID=1 ADDR=10.244.2.1:80/TCP STATE=active

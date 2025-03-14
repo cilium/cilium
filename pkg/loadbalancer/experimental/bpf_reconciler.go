@@ -13,6 +13,7 @@ import (
 	"sort"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -46,11 +47,33 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
+const (
+	// initGracePeriod is the amount of time we wait for the load-balancing tables to be initialized before
+	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
+	// down temporarily due to not yet seeing all backends.
+	//
+	// We must not wait forever for initialization though due to potential interdependencies between load-balancing
+	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
+	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
+	// while agent was down).
+	initGracePeriod = 10 * time.Second
+)
+
+func newBPFReconciler(p reconciler.Params, g job.Group, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
 	}
-	return reconciler.Register(
+
+	// Use a custom lifecycle to start the reconciler so we can delay it starts until tables are initialized.
+	rlc := &cell.DefaultLifecycle{}
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(ctx cell.HookContext) error {
+			return rlc.Stop(p.Log, ctx)
+		},
+	})
+	p.Lifecycle = rlc
+
+	r, err := reconciler.Register(
 		p,
 		w.fes,
 
@@ -69,6 +92,30 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (
 			30*time.Minute,
 		),
 	)
+
+	g.Add(
+		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
+			// We give a short grace period for initializers to finish populating the initial contents
+			// of the tables to avoid scaling down load-balancing due to e.g. seeing services before
+			// the endpoint slices.
+			health.OK("Waiting for load-balancing tables to initialize")
+			_, initWatch := w.Frontends().Initialized(p.DB.ReadTxn())
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-initWatch:
+			case <-time.After(initGracePeriod):
+			}
+			health.OK("Starting")
+			if err := rlc.Start(p.Log, ctx); err != nil {
+				return err
+			}
+			health.OK("Started")
+			return nil
+		}),
+	)
+
+	return r, err
 }
 
 type BPFOps struct {
@@ -247,7 +294,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	)
 
 	// Delete Maglev.
-	if ops.lbAlgorithm(fe) == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	if ops.useMaglev(fe) {
 		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
@@ -344,7 +391,11 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
-		if _, ok := ops.backendReferences[addr]; !ok {
+		expectedSlots := 0
+		if bes, ok := ops.backendReferences[addr]; ok {
+			expectedSlots = 1 + len(bes)
+		}
+		if svcKey.GetBackendSlot()+1 > expectedSlots {
 			ops.log.Info("pruneServiceMaps: deleting",
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
@@ -717,8 +768,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	// Update Maglev
-	algorithm := ops.lbAlgorithm(fe)
-	if algorithm == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+	if ops.useMaglev(fe) {
 		ops.log.Debug("Update Maglev", logfields.FrontendID, feID)
 		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
 			return err
@@ -780,7 +830,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Debug("Update master service", logfields.ID, feID)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount, algorithm); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -810,6 +860,35 @@ func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgori
 	return defaultAlgorithm
 }
 
+func (ops *BPFOps) useMaglev(fe *Frontend) bool {
+	if ops.lbAlgorithm(fe) != loadbalancer.SVCLoadBalancingAlgorithmMaglev {
+		return false
+	}
+	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
+	// enabled because ClusterIP can also be accessed from outside with this
+	// setting. We don't do it unconditionally to avoid increasing memory
+	// footprint.
+	if fe.Type == loadbalancer.SVCTypeClusterIP && !ops.cfg.ExternalClusterIP {
+		return false
+	}
+	// Wildcarded frontend is not exposed for external traffic.
+	if fe.Address.AddrCluster.IsUnspecified() {
+		return false
+	}
+	// Only provision the Maglev LUT for service types which are reachable
+	// from outside the node.
+	switch fe.Type {
+	case loadbalancer.SVCTypeClusterIP,
+		loadbalancer.SVCTypeNodePort,
+		loadbalancer.SVCTypeLoadBalancer,
+		loadbalancer.SVCTypeHostPort,
+		loadbalancer.SVCTypeExternalIPs:
+		return true
+	}
+	return false
+
+}
+
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
 	var err error
 	svcKey = svcKey.ToNetwork()
@@ -826,7 +905,7 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int, algorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int) error {
 	svcKey.SetBackendSlot(0)
 	if activeBackends == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -838,7 +917,7 @@ func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 		svcVal.SetQCount(terminatingBackends + inactiveBackends)
 	}
 	svcVal.SetBackendID(0)
-	svcVal.SetLbAlg(algorithm)
+	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
 
 	svc := fe.Service()
 

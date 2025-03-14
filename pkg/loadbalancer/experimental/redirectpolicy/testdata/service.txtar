@@ -30,6 +30,19 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
+# Remove and re-add the service we're redirecting to check that it's
+# reprocessed.
+k8s/delete service.yaml endpointslice.yaml
+db/cmp services services-no-echo.table
+k8s/add service.yaml endpointslice.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Compare maps after readding
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-readded.expected
+
 # Removing policy reverts (but we'll get new backend id)
 k8s/delete lrp-svc.yaml
 db/cmp services services-before.table
@@ -50,7 +63,11 @@ test/echo                     k8s
 -- services.table --
 Name                          Source
 test/echo                     k8s   
-test/lrp-svc-local-redirect   k8s   
+test/lrp-svc:local-redirect   k8s   
+
+-- services-no-echo.table --
+Name                          Source
+test/lrp-svc:local-redirect   k8s   
 
 -- frontends-before.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status   
@@ -58,7 +75,7 @@ Address                    Type        ServiceName   PortName   Backends        
 
 -- frontends.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc-local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
 
 -- maps-before.expected --
 BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
@@ -70,11 +87,16 @@ BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
 REV: ID=1 ADDR=169.254.169.254:8080
 SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-readded.expected --
+BE: ID=4 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=2 ADDR=169.254.169.254:8080
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-after.expected --
-BE: ID=3 ADDR=10.244.1.1:8080/TCP STATE=active
-REV: ID=1 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+BE: ID=5 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=2 ADDR=169.254.169.254:8080
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- lrp-svc.yaml --
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy
@@ -91,7 +113,8 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "80"
+      - port: "8080"
+        name: "tcp"
         protocol: TCP
 
 -- pod.yaml --

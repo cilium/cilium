@@ -53,12 +53,15 @@ Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAf
 test/echo   k8s                  Cluster            Cluster                              0                     false              
 
 -- frontends.table --
-Address               Type        ServiceName   PortName   Backends            Status
-10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP   Done
+Address               Type        ServiceName   PortName   Backends                                                  Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP   Done
+10.96.50.105:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP, 10.244.1.3:80/TCP   Done
 
 -- backends.table --
 Address             Instances
 10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:80/TCP   test/echo (http)
+10.244.1.3:80/TCP   test/echo (http)
 
 -- services_empty.table --
 Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
@@ -82,6 +85,7 @@ spec:
   clusterIP: 10.96.50.104
   clusterIPs:
   - 10.96.50.104
+  - 10.96.50.105
   ports:
   - name: http
     port: 80
@@ -110,6 +114,8 @@ addressType: IPv4
 endpoints:
 - addresses:
   - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
   conditions:
     ready: true
     serving: true
@@ -127,8 +133,17 @@ ports:
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+REV: ID=2 ADDR=10.96.50.105:80
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.105:80/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- lbmaps-empty.expected --
 
