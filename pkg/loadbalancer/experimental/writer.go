@@ -318,10 +318,10 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, tbl statedb.Table[*B
 	bes := tbl.List(txn, BackendByServiceName(serviceName))
 	return func(yield func(BackendParams, statedb.Revision) bool) {
 		for be, rev := range bes {
-			if be.L3n4Addr.IsIPv6() != isIPv6 {
+			if be.Address.IsIPv6() != isIPv6 {
 				continue
 			}
-			if fe.Address.Protocol != be.Protocol {
+			if fe.Address.Protocol != be.Address.Protocol {
 				continue
 			}
 			instance := be.GetInstance(serviceName)
@@ -399,13 +399,13 @@ func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source source.Source, bes ...BackendParams) error {
 	addrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range bes {
-		addrs.Insert(be.L3n4Addr)
+		addrs.Insert(be.Address)
 	}
 	perSourceOrphans := statedb.Filter(
 		w.bes.List(txn, BackendByServiceName(name)),
 		func(be *Backend) bool {
 			inst := be.GetInstanceFromSource(name, source)
-			return inst != nil && !addrs.Has(be.L3n4Addr)
+			return inst != nil && !addrs.Has(be.Address)
 		})
 
 	refs, err := w.updateBackends(txn, name, source, bes)
@@ -439,9 +439,9 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 
 	for _, bep := range bes {
 		var be Backend
-		be.L3n4Addr = bep.L3n4Addr
+		be.Address = bep.Address
 
-		if old, _, ok := w.bes.Get(txn, BackendByAddress(bep.L3n4Addr)); ok {
+		if old, _, ok := w.bes.Get(txn, BackendByAddress(bep.Address)); ok {
 			be = *old
 		}
 

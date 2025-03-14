@@ -248,7 +248,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			// Release orphaned backends
 			newAddrs := sets.New[loadbalancer.L3n4Addr]()
 			for _, be := range backends {
-				newAddrs.Insert(be.L3n4Addr)
+				newAddrs.Insert(be.Address)
 			}
 			old := currentBackends[obj.EndpointSliceName]
 			p.Writer.ReleaseBackends(txn, name, old.Difference(newAddrs).UnsortedList()...)
@@ -660,7 +660,7 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 			state = loadbalancer.BackendStateTerminating
 		}
 		be := BackendParams{
-			L3n4Addr:  l3n4Addr,
+			Address:   l3n4Addr,
 			NodeName:  entry.backend.NodeName,
 			PortNames: entry.portNames,
 			Weight:    loadbalancer.DefaultBackendWeight,
@@ -733,7 +733,7 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, extConfig ExternalConfig
 				ipv6 = ipv6 || addr.Is6()
 
 				bep := BackendParams{
-					L3n4Addr: loadbalancer.L3n4Addr{
+					Address: loadbalancer.L3n4Addr{
 						AddrCluster: addr,
 						L4Addr: loadbalancer.L4Addr{
 							Protocol: proto,
