@@ -77,6 +77,22 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		} else {
 			ct.Info("Skipping conn-disrupt-test for NS traffic")
 		}
+
+		if ct.ShouldRunConnDisruptEgressGateway() {
+			pods, err = client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptEgressGateway})
+			if err != nil {
+				t.Fatalf("Unable to list test-conn-disrupt-egw pods: %s", err)
+			}
+			if len(pods.Items) == 0 {
+				t.Fatal("No test-conn-disrupt-{client,server} for Egress Gateway pods found")
+			}
+
+			for _, pod := range pods.Items {
+				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+			}
+		} else {
+			ct.Info("Skipping conn-disrupt-test for Egress Gateway")
+		}
 	}
 
 	// Only store restart counters which will be used later when running the same
