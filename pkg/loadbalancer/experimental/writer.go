@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Writer provides validated write access to the service load-balancing state.
@@ -183,6 +184,27 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params FrontendParams) (old *Front
 		return nil, ErrServiceNotFound
 	}
 	return w.upsertFrontendParams(txn, params, svc)
+}
+
+func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.ServiceName, backend loadbalancer.L3n4Addr, healthy bool) (bool, error) {
+	be, _, ok := w.bes.Get(txn, BackendByAddress(backend))
+	if !ok {
+		return false, ErrServiceNotFound
+	}
+	inst := be.GetInstance(serviceName)
+	if inst == nil {
+		return false, ErrServiceNotFound
+	}
+	if inst.Unhealthy == !healthy && !inst.UnhealthyUpdatedAt.IsZero() {
+		return false, nil
+	}
+
+	be = be.Clone()
+	inst.Unhealthy = !healthy
+	inst.UnhealthyUpdatedAt = time.Now()
+	be.Instances = be.Instances.Set(BackendInstanceKey{serviceName, w.sourcePriority(inst.Source)}, *inst)
+	w.bes.Insert(txn, be)
+	return true, w.RefreshFrontends(txn, serviceName)
 }
 
 func (w *Writer) upsertFrontendParams(txn WriteTxn, params FrontendParams, svc *Service) (old *Frontend, err error) {
@@ -421,6 +443,12 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 
 		if old, _, ok := w.bes.Get(txn, BackendByAddress(bep.L3n4Addr)); ok {
 			be = *old
+		}
+
+		if inst := be.GetInstanceFromSource(serviceName, source); inst != nil {
+			// Previous instance exists, keep the health information.
+			bep.Unhealthy = inst.Unhealthy
+			bep.UnhealthyUpdatedAt = inst.UnhealthyUpdatedAt
 		}
 
 		bep.Source = source
