@@ -323,7 +323,7 @@ func (t *Test) flush() {
 	if _, err := io.Copy(buf, t.logBuf); err != nil {
 		panic(err)
 	}
-	t.ctx.logger.Print(t, buf.String())
+	t.ctx.logger.Print(t, buf.Bytes())
 
 	// Assign a nil buffer so future writes go to user-specified writer.
 	t.logBuf = nil
@@ -484,6 +484,14 @@ func (a *Action) Fatalf(format string, s ...interface{}) {
 
 func timestamp() string {
 	return fmt.Sprintf("[%s] ", time.Now().Format(time.RFC3339))
+}
+
+func timestampBytes() []byte {
+	b := make([]byte, 0, 32) // roughly enough space
+	b = append(b, '[')
+	b = time.Now().AppendFormat(b, time.RFC3339)
+	b = append(b, ']', ' ')
+	return b
 }
 
 type debugWriter struct {
