@@ -10,7 +10,9 @@ import (
 	"iter"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -129,6 +131,12 @@ type BPFOps struct {
 	backendIDAlloc     idAllocator
 	restoredBackendIDs sets.Set[loadbalancer.BackendID]
 
+	// restoredQuarantinedBackends are backends that were quarantined for
+	// a specific frontend. This comes into play when we have active health checker.
+	// On restart we restore this information and use this until we get an update
+	// from a health checker ([Backend.UnhealthyUpdatedAt] is non-zero).
+	restoredQuarantinedBackends map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
+
 	// backendStates maps from backend address to associated state.
 	// This is used to track which frontends reference a specific backend
 	// in order to delete orphaned backeds.
@@ -180,42 +188,32 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		return nil
 	}
 	ops := &BPFOps{
-		cfg:                p.ExtCfg,
-		maglev:             p.Maglev,
-		serviceIDAlloc:     newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
-		restoredServiceIDs: sets.New[loadbalancer.ID](),
-		backendIDAlloc:     newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
-		restoredBackendIDs: sets.New[loadbalancer.BackendID](),
-		log:                p.Log,
-		backendStates:      map[loadbalancer.L3n4Addr]backendState{},
-		backendReferences:  map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
-		nodePortAddrByPort: map[nodePortAddrKey][]netip.Addr{},
-		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
-		LBMaps:             p.LBMaps,
-		db:                 p.DB,
-		nodeAddrs:          p.NodeAddresses,
+		cfg:       p.ExtCfg,
+		maglev:    p.Maglev,
+		log:       p.Log,
+		LBMaps:    p.LBMaps,
+		db:        p.DB,
+		nodeAddrs: p.NodeAddresses,
 	}
 	p.Lifecycle.Append(cell.Hook{OnStart: ops.start})
 	return ops
 }
 
-func (ops *BPFOps) start(ctx cell.HookContext) (err error) {
-	// Restore the ID allocations from the BPF maps in order to reuse
-	// them and thus avoiding traffic disruptions.
-	err = ops.LBMaps.DumpService(func(key lbmap.ServiceKey, value lbmap.ServiceValue) {
-		key = key.ToHost()
-		value = value.ToHost()
-		if key.GetBackendSlot() != 0 {
-			return
-		}
-		id := loadbalancer.ID(value.GetRevNat())
-		ops.serviceIDAlloc.addID(svcKeyToAddr(key), id)
-		ops.restoredServiceIDs.Insert(id)
-	})
-	if err != nil {
-		return fmt.Errorf("restore service ids: %w", err)
-	}
+func (ops *BPFOps) start(cell.HookContext) (err error) {
+	return ops.resetAndRestore()
+}
 
+func (ops *BPFOps) resetAndRestore() (err error) {
+	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
+	ops.restoredServiceIDs = sets.New[loadbalancer.ID]()
+	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
+	ops.restoredBackendIDs = sets.New[loadbalancer.BackendID]()
+	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
+	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
+	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
+	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
+
+	// Restore backend IDs
 	err = ops.LBMaps.DumpBackend(func(key lbmap.BackendKey, value lbmap.BackendValue) {
 		value = value.ToHost()
 		ops.backendIDAlloc.addID(beValueToAddr(value), loadbalancer.ID(key.GetID()))
@@ -225,6 +223,49 @@ func (ops *BPFOps) start(ctx cell.HookContext) (err error) {
 		return fmt.Errorf("restore backend ids: %w", err)
 	}
 
+	// Gather all services key'd by address.
+	serviceSlots := map[loadbalancer.L3n4Addr][]lbmap.ServiceValue{}
+	err = ops.LBMaps.DumpService(func(key lbmap.ServiceKey, value lbmap.ServiceValue) {
+		key = key.ToHost()
+		value = value.ToHost()
+		addr := svcKeyToAddr(key)
+		s := slices.Grow(serviceSlots[addr], key.GetBackendSlot()+1)
+		s = s[:max(len(s), key.GetBackendSlot()+1)]
+		s[key.GetBackendSlot()] = value
+		serviceSlots[addr] = s
+	})
+	if err != nil {
+		return fmt.Errorf("restore service ids: %w", err)
+	}
+
+	for addr, slots := range serviceSlots {
+		// Restore the ID allocations from the BPF maps in order to reuse
+		// them and thus avoiding traffic disruptions.
+		master := slots[0]
+		if master == nil {
+			continue
+		}
+
+		id := loadbalancer.ID(master.GetRevNat())
+		ops.serviceIDAlloc.addID(addr, id)
+		ops.restoredServiceIDs.Insert(id)
+
+		if master.GetQCount() > 0 && len(slots) == 1+master.GetCount()+master.GetQCount() {
+			if ops.restoredQuarantinedBackends == nil {
+				ops.restoredQuarantinedBackends = make(map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr])
+			}
+			backends := ops.restoredQuarantinedBackends[addr]
+			if backends == nil {
+				backends = sets.New[loadbalancer.L3n4Addr]()
+				ops.restoredQuarantinedBackends[addr] = backends
+			}
+			for _, slot := range slots[1+master.GetCount():] {
+				if addr := ops.backendIDAlloc.entitiesID[loadbalancer.ID(slot.GetBackendID())]; addr != nil {
+					backends.Insert(addr.L3n4Addr)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -274,7 +315,28 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 			ops.log.Warn("no nodePortAddrs", logfields.Port, fe.Address.Port)
 		}
 	}
+
 	return nil
+}
+
+func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, bes ...loadbalancer.L3n4Addr) {
+	if ops.restoredQuarantinedBackends == nil {
+		return
+	}
+	if len(bes) == 0 {
+		delete(ops.restoredQuarantinedBackends, fe)
+	} else {
+		backends := ops.restoredQuarantinedBackends[fe]
+		if len(backends) > 0 {
+			backends.Delete(bes...)
+		}
+		if len(backends) == 0 {
+			delete(ops.restoredQuarantinedBackends, fe)
+		}
+	}
+	if len(ops.restoredQuarantinedBackends) == 0 {
+		ops.restoredQuarantinedBackends = nil
+	}
 }
 
 func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
@@ -290,6 +352,9 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 		logfields.ID, feID,
 		logfields.Address, fe.Address,
 	)
+
+	// Drop any restored quarantine state
+	ops.deleteRestoredQuarantinedBackends(fe.Address)
 
 	// Delete Maglev.
 	if ops.useMaglev(fe) {
@@ -398,6 +463,13 @@ func (ops *BPFOps) pruneServiceMaps() error {
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
+
+			// Drop restored quarantined state
+			if svcKey.GetBackendSlot() > 0 {
+				if beAddr, found := ops.backendIDAlloc.entitiesID[loadbalancer.ID(svcValue.GetBackendID())]; found {
+					ops.deleteRestoredQuarantinedBackends(addr, beAddr.L3n4Addr)
+				}
+			}
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
@@ -674,7 +746,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	svcVal.SetRevNat(int(feID))
 
 	// Gather backends for the service
-	orderedBackends := sortedBackends(fe)
+	orderedBackends := ops.sortedBackends(fe)
 
 	// Clean up any orphan backends to make room for new backends
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
@@ -684,6 +756,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
 		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
+		ops.deleteRestoredQuarantinedBackends(fe.Address, orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
@@ -758,7 +831,19 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 			}
 		}
 
-		switch be.State {
+		if !be.UnhealthyUpdatedAt.IsZero() {
+			ops.deleteRestoredQuarantinedBackends(fe.Address, be.L3n4Addr)
+		}
+
+		state := be.State
+		if be.Unhealthy {
+			// We only care about [be.Unhealthy] for the Count/QCount and not for
+			// the state in the backend maps as the backend might be healthy for some
+			// service and unhealthy for another.
+			state = loadbalancer.BackendStateQuarantined
+		}
+
+		switch state {
 		case loadbalancer.BackendStateActive:
 			activeCount++
 		case loadbalancer.BackendStateTerminating:
@@ -1140,14 +1225,23 @@ func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer
 //
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
-func sortedBackends(fe *Frontend) []backendWithRevision {
+func (ops *BPFOps) sortedBackends(fe *Frontend) []backendWithRevision {
+	quarantined := ops.restoredQuarantinedBackends[fe.Address]
+
 	bes := []backendWithRevision{}
 	for be, rev := range fe.Backends {
+		if be.UnhealthyUpdatedAt.IsZero() && quarantined.Has(be.L3n4Addr) {
+			be.Unhealthy = true
+		}
 		bes = append(bes, backendWithRevision{&be, rev})
 	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]
 		switch {
+		case !a.Unhealthy && b.Unhealthy:
+			return true
+		case a.Unhealthy && !b.Unhealthy:
+			return false
 		case a.State < b.State:
 			return true
 		case a.State > b.State:
@@ -1164,6 +1258,23 @@ func sortedBackends(fe *Frontend) []backendWithRevision {
 		}
 	})
 	return bes
+}
+
+// stateSummary returns a multi-line summary of the internal state.
+// Used in tests.
+func (ops *BPFOps) stateSummary() string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.entities))
+	fmt.Fprintf(&b, "restoredServiceIDs: %d\n", len(ops.restoredServiceIDs))
+	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.entities))
+	fmt.Fprintf(&b, "restoredBackendIDs: %d\n", len(ops.restoredBackendIDs))
+	fmt.Fprintf(&b, "backendStates: %d\n", len(ops.backendStates))
+	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
+	fmt.Fprintf(&b, "nodePortAddrByPort: %d\n", len(ops.nodePortAddrByPort))
+	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
+	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
+	return b.String()
 }
 
 // idAllocator contains an internal state of the ID allocator.
