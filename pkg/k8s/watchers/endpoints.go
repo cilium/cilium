@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -19,11 +20,14 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 type k8sEndpointsWatcherParams struct {
 	cell.In
+
+	DaemonConfig *option.DaemonConfig
 
 	Resources         agentK8s.Resources
 	K8sResourceSynced *k8sSynced.Resources
@@ -40,6 +44,7 @@ func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatch
 		resources:         params.Resources,
 		k8sSvcCache:       params.ServiceCache,
 		ipcache:           params.IPCache,
+		clusterID:         params.DaemonConfig.ClusterID,
 		stop:              make(chan struct{}),
 	}
 }
@@ -56,6 +61,7 @@ type K8sEndpointsWatcher struct {
 
 	k8sSvcCache k8s.ServiceCache
 	ipcache     ipcacheManager
+	clusterID   uint32
 
 	stop chan struct{}
 }
@@ -124,10 +130,10 @@ func (k *K8sEndpointsWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoint
 		eps.ObjectMeta.GetNamespace(),
 		eps.ObjectMeta.GetName(),
 	)
-	desiredIPs := make(map[netip.Prefix]struct{})
+	desiredIPs := make(map[cmtypes.PrefixCluster]struct{})
 	for addrCluster := range eps.Backends {
 		addr := addrCluster.Addr()
-		desiredIPs[netip.PrefixFrom(addr, addr.BitLen())] = struct{}{}
+		desiredIPs[cmtypes.NewPrefixCluster(netip.PrefixFrom(addr, addr.BitLen()), k.clusterID)] = struct{}{}
 	}
 	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }
@@ -142,7 +148,7 @@ func (k *K8sEndpointsWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoint
 //
 // The actual implementation of this logic down to the datapath is handled
 // asynchronously.
-func (k *K8sEndpointsWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[netip.Prefix]struct{}, rid ipcacheTypes.ResourceID) {
+func (k *K8sEndpointsWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[cmtypes.PrefixCluster]struct{}, rid ipcacheTypes.ResourceID) {
 	src := source.KubeAPIServer
 
 	// We must perform a diff on the ipcache.identityMetadata map in order to

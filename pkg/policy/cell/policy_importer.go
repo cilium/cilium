@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	monitorapi "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -37,9 +39,10 @@ type PolicyImporter interface {
 type policyImporterParams struct {
 	cell.In
 
-	Log      *slog.Logger
-	JobGroup job.Group
-	Config   Config
+	Log          *slog.Logger
+	JobGroup     job.Group
+	Config       Config
+	DaemonConfig *option.DaemonConfig
 
 	Repo            policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
@@ -52,6 +55,7 @@ type policyImporter struct {
 	repo         policy.PolicyRepository
 	epm          epmanager
 	ipc          ipcacher
+	clusterID    uint32
 	monitorAgent agent.Agent
 
 	// prefixesByResources is the list of prefixes
@@ -78,6 +82,7 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 		repo:         cfg.Repo,
 		epm:          cfg.EndpointManager,
 		ipc:          cfg.IPCache,
+		clusterID:    cfg.DaemonConfig.ClusterID,
 		monitorAgent: cfg.MonitorAgent,
 
 		q: make(chan *policytypes.PolicyUpdate, cfg.Config.PolicyQueueSize),
@@ -165,7 +170,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 		if resource == ResourceIDAnonymous {
 			for _, prefix := range newPrefixes {
 				ipcUpdates = append(ipcUpdates, ipcache.MU{
-					Prefix:   prefix,
+					Prefix:   cmtypes.NewPrefixCluster(prefix, i.clusterID),
 					Source:   prefixSource[resource],
 					Resource: resource,
 					Metadata: []ipcache.IPMetadata{labels.GetCIDRLabels(prefix)},
@@ -197,7 +202,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 			}
 
 			ipcUpdates = append(ipcUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewPrefixCluster(prefix, i.clusterID),
 				Source:   prefixSource[resource],
 				Resource: resource,
 				Metadata: []ipcache.IPMetadata{labels.GetCIDRLabels(prefix)},
@@ -241,7 +246,7 @@ func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID
 		// Prune all stale prefixes
 		for _, oldPrefix := range oldPrefixes {
 			ipcUpdates = append(ipcUpdates, ipcache.MU{
-				Prefix:   oldPrefix,
+				Prefix:   cmtypes.NewPrefixCluster(oldPrefix, i.clusterID),
 				Resource: resource,
 				Metadata: []ipcache.IPMetadata{labels.Labels{}},
 			})

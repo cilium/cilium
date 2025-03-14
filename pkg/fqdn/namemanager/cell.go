@@ -53,9 +53,10 @@ type NameManagerConfig struct {
 type ManagerParams struct {
 	cell.In
 
-	Config  NameManagerConfig
-	IPCache ipc
-	EPMgr   endpoints
+	Config       NameManagerConfig
+	DaemonConfig *option.DaemonConfig
+	IPCache      ipc
+	EPMgr        endpoints
 }
 
 func adaptors(ipcache *ipcache.IPCache, epLookup endpointmanager.EndpointsLookup) (ipc, endpoints) {
