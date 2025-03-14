@@ -202,6 +202,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTest, "include-conn-disrupt-test", false, "Include conn disrupt test")
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTestNSTraffic, "include-conn-disrupt-test-ns-traffic", false, "Include conn disrupt test for NS traffic")
+	cmd.Flags().BoolVar(&params.IncludeConnDisruptTestEgressGateway, "include-conn-disrupt-test-egw", false, "Include conn disrupt test for Egress Gateway")
 	cmd.Flags().BoolVar(&params.ConnDisruptTestSetup, "conn-disrupt-test-setup", false, "Set up conn disrupt test dependencies")
 	cmd.Flags().StringVar(&params.ConnDisruptTestRestartsPath, "conn-disrupt-test-restarts-path", "/tmp/cilium-conn-disrupt-restarts", "Conn disrupt test temporary result file (used internally)")
 	cmd.Flags().StringVar(&params.ConnDisruptTestXfrmErrorsPath, "conn-disrupt-test-xfrm-errors-path", "/tmp/cilium-conn-disrupt-xfrm-errors", "Conn disrupt test temporary result file (used internally)")
