@@ -19,6 +19,11 @@ Docker. Cilium can be used along with Kata Containers, using both enables
 higher degree of security. Kata Containers enhances security in the compute
 layer, while Cilium provides policy and observability in the networking layer.
 
+.. warning::
+   Due to the different Kata Containers Networking model, there are limitations
+   that can cause connectivity disruptions in Cilium. Please refer to the below
+   `Limitations`_ section.
+
 This guide shows how to install Cilium along with Kata Containers. It assumes
 that you have already followed the official
 `Kata Containers installation user guide <https://github.com/kata-containers/documentation/tree/master/install>`_
@@ -89,3 +94,81 @@ Run Kata Containers with Cilium CNI
 Now that your Kubernetes cluster is configured with the Kata Containers runtime
 and Cilium as the CNI, you can run a sample workload by following
 `these instructions <https://github.com/kata-containers/packaging/tree/master/kata-deploy#run-a-sample-workload>`_.
+
+Limitations
+===========
+
+Due to its different `Networking Design Architecture <https://github.com/kata-containers/documentation/blob/master/design/architecture.md#networking>`_,
+the Kata runtime adds an additional layer of abstraction inside the Container
+Networking Namespace created by Cilium (referred to as "outer"). In that
+namespace, Kata creates an isolated VM with an additional Container Networking
+Namespace (referred to as "inside") to host the requested Pod, as depicted below.
+
+.. image:: https://raw.githubusercontent.com/kata-containers/documentation/refs/heads/master/design/arch-images/network.png
+   :alt: Kata Container Networking Architecture
+
+
+Upon the outer Container Networking Namespace creation, the Cilium CNI
+performs the following two actions:
+
+1. creates the ``eth0`` interface with the same ``device MTU`` of either the detected
+   underlying network, or the MTU specified in the Cilium ConfigMap;
+2. adjusts the ``default route MTU`` (computed as ``device MTU - overhead``) to account
+   for the additional networking overhead given by the Cilium configuration
+   (ex. +50B for VXLAN, +80B for WireGuard, etc.).
+
+However, during the inner Container Networking Namespace creation (i.e., the pod
+inside the VM), only the outer ``eth0 device MTU`` (1) is copied over by Kata to
+the inner ``eth0``, while the ``default route MTU`` (2) is ignored. For this reason,
+depending on the types of connections, users might experience performance degradation
+or even packet drops between traditional pods and KataPod connections due to
+multiple (unexpected) fragmentation.
+
+There are currently two possible workarounds, with (b) being preferred:
+
+a. set a lower MTU value in the Cilium ConfigMap to account for the overhead.
+   This would allow the KataPod to have a lower device MTU and prevent unwanted
+   fragmentation. However, this is not recommended as it would have a relevant
+   impact on all the other types of communications (ex. traditional pod-to-pod,
+   pod-to-node, etc.) due to the lower device MTU value being set on all the
+   Cilium-managed interfaces.
+
+b. modify the KataPod deployment by adding an ``initContainer`` (with NET_ADMIN)
+   to adjust the route MTU inside the inner pod. This would not only align the
+   KataPod configuration to all the other pods, but also it would not harm
+   all the other types of connections, given that it is a self-contained
+   solution in the KataPod itself. The correct ``route MTU`` value to set can be
+   either manually computed or retrieved by issuing ``ip route`` on a Cilium Pod
+   (or inside a traditional pod). Here follows an example of a KataPod deployment
+   (``runtimeClassName: kata-clh``) on a cluster with only Cilium VXLAN enabled
+   (``route MTU = 1500B - 50B = 1450``):
+
+   .. code-block:: yaml
+
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: nginx-pod
+        labels:
+          app: nginx
+      spec:
+        runtimeClassName: kata-clh
+        containers:
+          - name: nginx
+            image: nginx:latest
+            ports:
+              - containerPort: 80
+        initContainers:
+          - name: set-mtu
+            image: busybox:latest
+            command:
+              - sh
+              - -c
+              - |
+                DEFAULT="$(ip route show default)"
+                ip route replace "$DEFAULT" mtu 1450
+            securityContext:
+              capabilities:
+                add:
+                  - NET_ADMIN
+
