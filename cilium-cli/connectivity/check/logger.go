@@ -133,9 +133,15 @@ func (c *ConcurrentLogger) collector() {
 func (c *ConcurrentLogger) printer() {
 	// read messages while the collector is working
 	for c.collectorStarted.Load() {
+		collectedTestCount := c.collectedTestCount()
+		if collectedTestCount == 0 {
+			// wait for the first test to start
+			time.Sleep(time.Millisecond * 50)
+			continue
+		}
 		// double-check if there are new messages to avoid
 		// deadlock reading from the `nsTestsCh` channel
-		if c.nsTestFinishCount < c.collectedTestCount() {
+		if c.nsTestFinishCount < collectedTestCount {
 			c.printTestMessages(<-c.nsTestsCh)
 		}
 	}
