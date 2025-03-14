@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
@@ -71,17 +73,27 @@ const (
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
 	kindHostNetNS                    = "host-netns"
 
-	testConnDisruptClientDeploymentName          = "test-conn-disrupt-client"
-	testConnDisruptClientNSTrafficDeploymentName = "test-conn-disrupt-client"
-	testConnDisruptServerDeploymentName          = "test-conn-disrupt-server"
-	testConnDisruptServerNSTrafficDeploymentName = "test-conn-disrupt-server-ns-traffic"
-	testConnDisruptServiceName                   = "test-conn-disrupt"
-	testConnDisruptNSTrafficServiceName          = "test-conn-disrupt-ns-traffic"
-	testConnDisruptCNPName                       = "test-conn-disrupt"
-	testConnDisruptNSTrafficCNPName              = "test-conn-disrupt-ns-traffic"
-	testConnDisruptServerNSTrafficAppLabel       = "test-conn-disrupt-server-ns-traffic"
-	KindTestConnDisrupt                          = "test-conn-disrupt"
-	KindTestConnDisruptNSTraffic                 = "test-conn-disrupt-ns-traffic"
+	testConnDisruptClientDeploymentName                              = "test-conn-disrupt-client"
+	testConnDisruptClientNSTrafficDeploymentName                     = "test-conn-disrupt-client"
+	testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName    = "test-conn-disrupt-client-egw-gw-node"
+	testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName = "test-conn-disrupt-client-egw-non-gw-node"
+	testConnDisruptServerDeploymentName                              = "test-conn-disrupt-server"
+	testConnDisruptServerNSTrafficDeploymentName                     = "test-conn-disrupt-server-ns-traffic"
+	testConnDisruptServerEgressGatewayDeploymentName                 = "test-conn-disrupt-server-egw"
+	testConnDisruptServiceName                                       = "test-conn-disrupt"
+	testConnDisruptNSTrafficServiceName                              = "test-conn-disrupt-ns-traffic"
+	testConnDisruptEgressGatewayServiceName                          = "test-conn-disrupt-egw"
+	testConnDisruptCNPName                                           = "test-conn-disrupt"
+	testConnDisruptNSTrafficCNPName                                  = "test-conn-disrupt-ns-traffic"
+	testConnDisruptEgressGatewayCNPName                              = "test-conn-disrupt-egw"
+	testConnDisruptCEGPName                                          = "test-conn-disrupt"
+	testConnDisruptServerNSTrafficAppLabel                           = "test-conn-disrupt-server-ns-traffic"
+	testConnDisruptServerEgressGatewayAppLabel                       = "test-conn-disrupt-server-egw"
+	testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel          = "test-conn-disrupt-client-egw-gw-node"
+	testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel       = "test-conn-disrupt-client-egw-non-gw-node"
+	KindTestConnDisrupt                                              = "test-conn-disrupt"
+	KindTestConnDisruptNSTraffic                                     = "test-conn-disrupt-ns-traffic"
+	KindTestConnDisruptEgressGateway                                 = "test-conn-disrupt-egw"
 
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
 )
@@ -486,6 +498,81 @@ func newConnDisruptCNPForNSTraffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 	}
 }
 
+func newConnDisruptCNPForEgressGateway(ns string) *ciliumv2.CiliumNetworkPolicy {
+	selector := policyapi.EndpointSelector{
+		LabelSelector: &slimmetav1.LabelSelector{
+			MatchLabels: map[string]string{"kind": KindTestConnDisruptEgressGateway},
+		},
+	}
+
+	ports := []policyapi.PortRule{{
+		Ports: []policyapi.PortProtocol{{
+			Protocol: policyapi.ProtoTCP,
+			Port:     "8000",
+		}},
+	}}
+
+	return &ciliumv2.CiliumNetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       ciliumv2.CNPKindDefinition,
+			APIVersion: ciliumv2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptEgressGatewayCNPName, Namespace: ns},
+		Spec: &policyapi.Rule{
+			EndpointSelector: selector,
+			Egress: []policyapi.EgressRule{
+				{
+					EgressCommonRule: policyapi.EgressCommonRule{
+						ToEntities: policyapi.EntitySlice{
+							policyapi.EntityWorld,
+						},
+					},
+					ToPorts: ports,
+				},
+				{
+					ToPorts: []policyapi.PortRule{{
+						Ports: []policyapi.PortProtocol{
+							{Protocol: policyapi.ProtoUDP, Port: "53"},
+							{Protocol: policyapi.ProtoUDP, Port: "5353"},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
+	return &ciliumv2.CiliumEgressGatewayPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       ciliumv2.CEGPKindDefinition,
+			APIVersion: ciliumv2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptCEGPName},
+		Spec: ciliumv2.CiliumEgressGatewayPolicySpec{
+			Selectors: []ciliumv2.EgressRule{
+				{
+					PodSelector: &slimmetav1.LabelSelector{
+						MatchLabels: map[string]slimmetav1.MatchLabelsValue{
+							k8sconst.PodNamespaceLabel: ns,
+							"kind":                     KindTestConnDisruptEgressGateway,
+						},
+					},
+				},
+			},
+			DestinationCIDRs: []ciliumv2.IPv4CIDR{"0.0.0.0/0"},
+			ExcludedCIDRs:    []ciliumv2.IPv4CIDR{},
+			EgressGateway: &ciliumv2.EgressGateway{
+				NodeSelector: &slimmetav1.LabelSelector{
+					MatchLabels: map[string]slimmetav1.MatchLabelsValue{
+						"kubernetes.io/hostname": gwNode,
+					},
+				},
+			},
+		},
+	}
+}
+
 func (ct *ConnectivityTest) ingresses() map[string]string {
 	ingresses := map[string]string{"same-node": echoSameNodeDeploymentName}
 	if !ct.Params().SingleNode || ct.Params().MultiCluster != "" {
@@ -559,19 +646,19 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// test namespace in case of tests concurrent run)
 	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
 		if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
-			testConnDisruptServiceName, "test-conn-disrupt-server", newConnDisruptCNP); err != nil {
+			testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP); err != nil {
 			return err
 		}
 
 		if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientDeploymentName, KindTestConnDisrupt,
 			"test-conn-disrupt-client", fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-			5, false); err != nil {
+			5, false, nil); err != nil {
 			return err
 		}
 
 		if ct.ShouldRunConnDisruptNSTraffic() {
 			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerNSTrafficDeploymentName, KindTestConnDisruptNSTraffic, 1,
-				testConnDisruptNSTrafficServiceName, testConnDisruptServerNSTrafficAppLabel, newConnDisruptCNPForNSTraffic); err != nil {
+				testConnDisruptNSTrafficServiceName, testConnDisruptServerNSTrafficAppLabel, false, newConnDisruptCNPForNSTraffic); err != nil {
 				return err
 			}
 
@@ -580,6 +667,51 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for NS traffic")
+		}
+
+		if ct.ShouldRunConnDisruptEgressGateway() {
+			gatewayNode, nonGatewayNode, err := ct.getGatewayAndNonGatewayNodes()
+			if err != nil {
+				return err
+			}
+			cegp := newConnDisruptCEGP(ct.params.TestNamespace, gatewayNode)
+			ct.Logf("✨ [%s] Deploying %s CiliumEgressGatewayPolicy...", ct.K8sClient().ClusterName(), cegp.Name)
+			_, err = ct.K8sClient().ApplyGeneric(ctx, cegp)
+			if err != nil {
+				return fmt.Errorf("unable to create CiliumEgressGatewayPolicy %s: %w", cegp.Name, err)
+			}
+
+			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerEgressGatewayDeploymentName, KindTestConnDisruptEgressGateway, 1,
+				testConnDisruptEgressGatewayServiceName, testConnDisruptServerEgressGatewayAppLabel, true, newConnDisruptCNPForEgressGateway); err != nil {
+				return err
+			}
+
+			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
+				testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}); err != nil {
+				return err
+			}
+			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
+				testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}); err != nil {
+				return err
+			}
+			for _, clientDeploy := range []string{testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName} {
+				err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.params.TestNamespace, clientDeploy)
+				if err != nil {
+					ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
+				}
+			}
+			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(),
+				func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
+					return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
+				}, func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
+					return nil, nil
+				}); err != nil {
+				ct.Fail(err)
+			}
+		} else {
+			ct.Info("Skipping conn-disrupt-test for Egress Gateway")
 		}
 	}
 
@@ -1132,7 +1264,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.Context, deployName, kind string, replicas int, svcName, appLabel string,
-	cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy) error {
+	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy) error {
 	_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), deployName)
@@ -1146,7 +1278,7 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 			InitialDelaySeconds: int32(1),
 			FailureThreshold:    int32(20),
 		}
-		testConnDisruptServerDeployment := newDeployment(deploymentParameters{
+		param := deploymentParameters{
 			Name:           deployName,
 			Kind:           kind,
 			Image:          ct.params.TestConnDisruptImage,
@@ -1158,7 +1290,15 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
 			},
-		})
+		}
+		if isExternal {
+			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
+			param.HostNetwork = true
+			param.Tolerations = []corev1.Toleration{
+				{Operator: corev1.TolerationOpExists},
+			}
+		}
+		testConnDisruptServerDeployment := newDeployment(param)
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(deployName), metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create service account %s: %w", deployName, err)
@@ -1207,7 +1347,7 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 	return err
 }
 
-func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Context, deployName, kind, appLabel, address string, replicas int, isExternal bool) error {
+func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Context, deployName, kind, appLabel, address string, replicas int, isExternal bool, nodeSelector map[string]string) error {
 	_, err := ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.dst.ClusterName(), deployName)
@@ -1244,6 +1384,9 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Co
 			param.Tolerations = []corev1.Toleration{
 				{Operator: corev1.TolerationOpExists},
 			}
+		}
+		if nodeSelector != nil {
+			param.NodeSelector = nodeSelector
 		}
 		testConnDisruptClientDeployment := newDeployment(param)
 
@@ -1299,7 +1442,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 						KindTestConnDisruptNSTraffic,
 						fmt.Sprintf("test-conn-disrupt-client-%s-%s-%s", n.nodeType, family, strings.ToLower(string(addr.Type))),
 						netip.AddrPortFrom(netip.MustParseAddr(addr.Address), np).String(),
-						1, true); err != nil {
+						1, true, nil); err != nil {
 						errs = errors.Join(errs, err)
 					}
 					ct.testConnDisruptClientNSTrafficDeploymentNames = append(ct.testConnDisruptClientNSTrafficDeploymentNames, deployName)
@@ -1344,6 +1487,100 @@ func (ct *ConnectivityTest) getBackendNodeAndNonBackendNode(ctx context.Context)
 	}
 
 	return nodes, err
+}
+
+func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, error) {
+	var workerNodes []string
+	for _, node := range ct.nodes {
+		if _, found := ct.controlPlaneNodes[node.Name]; !found {
+			workerNodes = append(workerNodes, node.Name)
+		}
+	}
+	if len(workerNodes) < 2 {
+		return "", "", fmt.Errorf("unable to pick gateway and non gateway nodes")
+	}
+	slices.Sort(workerNodes)
+
+	return workerNodes[0], workerNodes[1], nil
+
+}
+
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) net.IP {
+	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
+	if !ok {
+		return nil
+	}
+
+	for _, addr := range gatewayNode.Status.Addresses {
+		if addr.Type != corev1.NodeInternalIP {
+			continue
+		}
+
+		ip := net.ParseIP(addr.Address)
+		if ip == nil || ip.To4() == nil {
+			continue
+		}
+
+		return ip
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context) ([]string, error) {
+	var appLabels []string
+	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel))
+	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel))
+
+	var podIPs []string
+	for _, appLabel := range appLabels {
+		connDisruptPods, err := ct.K8sClient().ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: appLabel})
+		if err != nil {
+			return nil, fmt.Errorf("unable to list pods with lable %s: %w", appLabel, err)
+		}
+
+		for _, connDisruptPod := range connDisruptPods.Items {
+			podIPs = append(podIPs, connDisruptPod.Status.PodIP)
+		}
+	}
+
+	return podIPs, nil
+}
+
+func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Context, ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
+	var targetEntries []BPFEgressGatewayPolicyEntry
+
+	podIPs, err := ct.getConnDisruptClientEgressGatewayPodIPs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	gatewayNode, _, err := ct.getGatewayAndNonGatewayNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode)
+	if gatewayIP == nil {
+		return nil, nil
+	}
+
+	egressIP := "0.0.0.0"
+	if ciliumPod.Pod.Spec.NodeName == gatewayNode {
+		egressIP = gatewayIP.String()
+	}
+
+	for _, podIP := range podIPs {
+		targetEntries = append(targetEntries,
+			BPFEgressGatewayPolicyEntry{
+				SourceIP:  podIP,
+				DestCIDR:  "0.0.0.0/0",
+				EgressIP:  egressIP,
+				GatewayIP: gatewayIP.String(),
+			})
+	}
+
+	return targetEntries, nil
 }
 
 func (ct *ConnectivityTest) hasNetworkPolicies(ctx context.Context) (bool, error) {
@@ -1599,6 +1836,11 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 			srcList = append(srcList, testConnDisruptServerNSTrafficDeploymentName)
 			dstList = append(dstList, ct.testConnDisruptClientNSTrafficDeploymentNames...)
 		}
+		if ct.ShouldRunConnDisruptEgressGateway() {
+			srcList = append(srcList, testConnDisruptServerEgressGatewayDeploymentName)
+			dstList = append(dstList, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName,
+				testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName)
+		}
 	}
 
 	if ct.params.MultiCluster != "" || !ct.params.SingleNode {
@@ -1669,13 +1911,22 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 		_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
 	}
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerEgressGatewayDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerEgressGatewayDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficServiceName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptCNPName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficCNPName, metav1.DeleteOptions{})
+	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayCNPName, metav1.DeleteOptions{})
+	_ = client.DeleteCiliumEgressGatewayPolicy(ctx, testConnDisruptCEGPName, metav1.DeleteOptions{})
 
 	return nil
 }

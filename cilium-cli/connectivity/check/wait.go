@@ -343,6 +343,86 @@ func WaitForIPCache(ctx context.Context, log Logger, agent Pod, pods []Pod) erro
 	}
 }
 
+// BPFEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
+type BPFEgressGatewayPolicyEntry struct {
+	SourceIP  string `json:"sourceIP"`
+	DestCIDR  string `json:"destCIDR"`
+	EgressIP  string `json:"egressIP"`
+	GatewayIP string `json:"gatewayIP"`
+}
+
+// matches is an helper used to compare the receiver bpfEgressGatewayPolicyEntry with another entry
+func (e *BPFEgressGatewayPolicyEntry) matches(t BPFEgressGatewayPolicyEntry) bool {
+	return t.SourceIP == e.SourceIP &&
+		t.DestCIDR == e.DestCIDR &&
+		t.EgressIP == e.EgressIP &&
+		t.GatewayIP == e.GatewayIP
+}
+
+// WaitForEgressGatewayBpfPolicyEntries waits for the egress gateway policy maps on each node to WaitForEgressGatewayBpfPolicyEntries
+// with the entries returned by the targetEntriesCallback
+func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[string]Pod,
+	targetEntriesCallback func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
+	excludeEntries func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
+) error {
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
+	defer w.Cancel()
+
+	ensureBpfPolicyEntries := func() error {
+		for _, ciliumPod := range ciliumPods {
+			targetEntries, err := targetEntriesCallback(ciliumPod)
+			if err != nil {
+				return fmt.Errorf("failed to get target entries: %w", err)
+			}
+
+			cmd := strings.Split("cilium bpf egress list -o json", " ")
+			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+			if err != nil {
+				return fmt.Errorf("failed to run cilium bpf egress list command: %w", err)
+			}
+
+			var entries []BPFEgressGatewayPolicyEntry
+			json.Unmarshal(stdout.Bytes(), &entries)
+
+			excludes, err := excludeEntries(ciliumPod)
+			if err != nil {
+				return fmt.Errorf("failed to get exclude entries: %w", err)
+			}
+			for _, exclude := range excludes {
+				entries = slices.DeleteFunc(entries, func(entry BPFEgressGatewayPolicyEntry) bool {
+					return entry.matches(exclude)
+				})
+			}
+
+			for _, targetEntry := range targetEntries {
+				if !slices.ContainsFunc(entries, targetEntry.matches) {
+					return fmt.Errorf("could not find egress gateway policy entry matching %+v", targetEntry)
+				}
+			}
+
+			for _, entry := range entries {
+				if !slices.ContainsFunc(targetEntries, entry.matches) {
+					return fmt.Errorf("untracked entry %+v in the egress gateway policy map", entry)
+				}
+			}
+		}
+
+		return nil
+	}
+
+	for {
+		if err := ensureBpfPolicyEntries(); err != nil {
+			if err := w.Retry(err); err != nil {
+				return fmt.Errorf("failed to ensure egress gateway policy map is properly populated: %w", err)
+			}
+
+			continue
+		}
+
+		return nil
+	}
+}
+
 func validateIPCache(ctx context.Context, agent Pod, pods []Pod) error {
 	stdout, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
 		defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
