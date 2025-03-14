@@ -2425,10 +2425,10 @@ envoy:
     # type: [null, string]
     # @schema
     override: ~
-    repository: "docker.io/sayboras/cilium-envoy"
-    tag: "ubi-7235681768200a4effbbebb019e5d51b60a57daa"
+    repository: "quay.io/vkurchenko/cilium-envoy"
+    tag: "ubi"
     pullPolicy: "Always"
-    digest: "sha256:5e891ca465a8dd7973b34d8c72000ba49c6958af72dafb216c8889ed968a15cb"
+    digest: "sha256:d2e73de811d9b7007c63a5f1f252de90c9879a4ed9439ec00e9b6bf22f2969dd"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
