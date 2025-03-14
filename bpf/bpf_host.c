@@ -1250,6 +1250,11 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		obs_point = TRACE_FROM_CRYPTO;
 #endif
 
+#ifdef IP_TRACING_OPTION_TYPE
+	if (IP_TRACING_OPTION_TYPE > 0)
+		check_and_store_ip_trace_id(ctx, IP_TRACING_OPTION_TYPE);
+#endif
+
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
 	 */
@@ -1746,6 +1751,11 @@ skip_ipsec_nodeport_revdnat:
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
 
 out:
 	if (IS_ERR(ret))
