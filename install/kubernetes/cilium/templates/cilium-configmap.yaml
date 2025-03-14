@@ -1180,7 +1180,11 @@ data:
 
 {{- if .Values.l2podAnnouncements.enabled }}
   enable-l2-pod-announcements: {{ .Values.l2podAnnouncements.enabled | quote }}
+  {{- if .Values.l2podAnnouncements.interfacePattern }}
+  l2-pod-announcements-interface-pattern: {{ .Values.l2podAnnouncements.interfacePattern | quote }}
+  {{- else }}
   l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.bgpControlPlane.enabled }}
