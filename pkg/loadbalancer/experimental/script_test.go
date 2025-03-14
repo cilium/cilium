@@ -14,9 +14,11 @@ import (
 	"os"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -33,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -100,7 +103,11 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
+					func(ops *BPFOps, w *Writer) uhive.ScriptCmdsOut {
+						return uhive.NewScriptCmds(testCommands{w, ops}.cmds())
+					},
 				),
+
 				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			)
 
@@ -125,7 +132,9 @@ func TestScript(t *testing.T) {
 			cmds["http/get"] = httpGetCmd
 
 			return &script.Engine{
-				Cmds: cmds,
+				Cmds:             cmds,
+				RetryInterval:    20 * time.Millisecond,
+				MaxRetryInterval: 500 * time.Millisecond,
 			}
 		}, []string{
 			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),
@@ -169,3 +178,70 @@ var httpGetCmd = script.Command(
 		return nil, err
 	},
 )
+
+type testCommands struct {
+	w   *Writer
+	ops *BPFOps
+}
+
+func (tc testCommands) cmds() map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"test/update-backend-health": tc.updateHealth(),
+		"test/bpfops-reset":          tc.opsReset(),
+		"test/bpfops-summary":        tc.opsSummary(),
+	}
+}
+
+func (tc testCommands) updateHealth() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Update backend healthyness",
+			Args:    "service-name backend-addr healthy",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 3 {
+				return nil, fmt.Errorf("%w: expected service name, backend address and health", script.ErrUsage)
+			}
+			ns, name, _ := strings.Cut(args[0], "/")
+			svc := loadbalancer.ServiceName{Namespace: ns, Name: name}
+
+			var beAddr loadbalancer.L3n4Addr
+			if err := beAddr.ParseFromString(args[1]); err != nil {
+				return nil, err
+			}
+
+			healthy, err := strconv.ParseBool(args[2])
+			if err != nil {
+				return nil, err
+			}
+
+			txn := tc.w.WriteTxn()
+			defer txn.Commit()
+
+			_, err = tc.w.UpdateBackendHealth(txn, svc, beAddr, healthy)
+			return nil, err
+		})
+}
+
+func (tc testCommands) opsReset() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Reset and restart BPF ops",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return nil, tc.ops.resetAndRestore()
+		})
+}
+
+func (tc testCommands) opsSummary() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Write out summary of BPFOps state",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				stdout = tc.ops.stateSummary()
+				return
+			}, nil
+		})
+}

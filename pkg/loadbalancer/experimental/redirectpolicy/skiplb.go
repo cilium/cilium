@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -47,7 +49,7 @@ type skiplbParams struct {
 	NetNSCookieSupport experimental.HaveNetNSCookieSupport
 }
 
-func registerSkipLB(p skiplbParams, rp reconciler.Params) {
+func registerSkipLBReconciler(p skiplbParams, rp reconciler.Params) {
 	if !p.IsEnabled {
 		return
 	}
@@ -92,17 +94,35 @@ func registerSkipLB(p skiplbParams, rp reconciler.Params) {
 	)
 }
 
+func skipRedirectsEqual(a, b map[loadbalancer.ServiceName][]loadbalancer.L3n4Addr) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, addrA := range a {
+		addrB, ok := b[k]
+		if !ok {
+			return false
+		}
+		if !slices.EqualFunc(addrA, addrB, func(a, b loadbalancer.L3n4Addr) bool { return a.DeepEqual(&b) }) {
+			return false
+		}
+	}
+	return true
+}
+
 type desiredSkipLB struct {
 	PodNamespacedName        string
+	LRPID                    k8s.ServiceID
 	SkipRedirectForFrontends map[loadbalancer.ServiceName][]loadbalancer.L3n4Addr
 	ReconciledAddrs          sets.Set[loadbalancer.L3n4Addr]
 	NetnsCookie              *uint64
 	Status                   reconciler.Status
 }
 
-func newDesiredSkipLB(pod string) *desiredSkipLB {
+func newDesiredSkipLB(lrpID k8s.ServiceID, pod string) *desiredSkipLB {
 	return &desiredSkipLB{
 		PodNamespacedName:        pod,
+		LRPID:                    lrpID,
 		SkipRedirectForFrontends: map[loadbalancer.ServiceName][]loadbalancer.L3n4Addr{},
 	}
 }
@@ -110,6 +130,7 @@ func newDesiredSkipLB(pod string) *desiredSkipLB {
 func (dsl *desiredSkipLB) TableHeader() []string {
 	return []string{
 		"Pod",
+		"LocalRedirectPolicy",
 		"SkipRedirects",
 		"NetnsCookie",
 		"Status",
@@ -131,6 +152,7 @@ func (dsl *desiredSkipLB) TableRow() []string {
 
 	return []string{
 		dsl.PodNamespacedName,
+		dsl.LRPID.String(),
 		strings.Join(skipRedirects, ", "),
 		cookie,
 		string(dsl.Status.Kind),
@@ -153,10 +175,23 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
+	desiredSkipLBLRPIndex = statedb.Index[*desiredSkipLB, k8s.ServiceID]{
+		Name: "lrp-id",
+		FromObject: func(obj *desiredSkipLB) index.KeySet {
+			return index.NewKeySet(index.String(obj.LRPID.String()))
+		},
+		FromKey:    index.Stringer[k8s.ServiceID],
+		FromString: index.FromString,
+		Unique:     false,
+	}
 )
 
 func newDesiredSkipLBTable(db *statedb.DB) (statedb.RWTable[*desiredSkipLB], error) {
-	tbl, err := statedb.NewTable("desired-skiplbmap", desiredSkipLBPodIndex)
+	tbl, err := statedb.NewTable(
+		"desired-skiplbmap",
+		desiredSkipLBPodIndex,
+		desiredSkipLBLRPIndex,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +332,7 @@ func (sub *skiplbEndpointSubscriber) EndpointCreated(ep *endpoint.Endpoint) {
 	if old, _, found := sub.desiredSkipLB.Get(wtxn, desiredSkipLBPodIndex.Query(ep.GetK8sNamespaceAndPodName())); found {
 		dsl = old.clone()
 	} else {
-		dsl = newDesiredSkipLB(ep.GetK8sNamespaceAndPodName())
+		dsl = newDesiredSkipLB(k8s.ServiceID{}, ep.GetK8sNamespaceAndPodName())
 	}
 	dsl.NetnsCookie = &cookie
 	sub.desiredSkipLB.Insert(wtxn, dsl)
@@ -313,7 +348,7 @@ func (sub *skiplbEndpointSubscriber) EndpointDeleted(ep *endpoint.Endpoint, conf
 	defer wtxn.Commit()
 	sub.desiredSkipLB.Delete(
 		wtxn,
-		newDesiredSkipLB(ep.GetK8sNamespaceAndPodName()),
+		newDesiredSkipLB(k8s.ServiceID{}, ep.GetK8sNamespaceAndPodName()),
 	)
 }
 

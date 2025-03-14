@@ -13,7 +13,10 @@ db/initialized
 db/insert desired-skiplbmap pod-cookie.yaml
 
 # Add pods, services and endpoints.
-k8s/add pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+k8s/add pod.yaml service.yaml lrp-svc.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
 db/cmp frontends frontends.table
@@ -81,8 +84,29 @@ db/cmp desired-skiplbmap skiplbmap.table
 skiplbmap skiplbmap.actual
 * cmp skiplbmap.actual skiplbmap.expected
 
+# Change the pod labels and check that SkipLB entries are cleaned up.
+sed 'app: proxy' 'app: foo' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+
+# Check the map
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.empty
+
+# Revert the change
+sed 'app: foo' 'app: proxy' pod.yaml
+k8s/update pod.yaml
+db/cmp desired-skiplbmap skiplbmap.table
+
+# Check the map again
+skiplbmap skiplbmap.actual
+* cmp skiplbmap.actual skiplbmap.expected
+
 # Cleanup
-k8s/delete pod.yaml service.yaml endpointslice.yaml lrp-svc.yaml
+k8s/delete lrp-svc.yaml
+db/cmp frontends frontends-noredirect.table
+db/cmp desired-skiplbmap skiplbmap-noredirect.table
+k8s/delete pod.yaml service.yaml endpointslice.yaml
 db/delete desired-skiplbmap pod-cookie.yaml
 
 # Wait until empty
@@ -97,6 +121,11 @@ lb/maps-dump lbmaps.actual
 podnamespacedname: test/lrp-pod
 netnscookie: 12345
 
+-- backends.table --
+Address
+10.244.1.1:8080/TCP
+[2001::1]:8080/TCP
+
 -- lrp.table --
 Name           Type     FrontendType                Frontends
 test/lrp-svc   service  all
@@ -109,6 +138,10 @@ test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  12345        Done
 Pod            SkipRedirects                                 NetnsCookie  Status
 test/lrp-pod   169.254.169.254:8080/TCP, [1001::1]:8080/TCP  <unset>
 
+-- skiplbmap-noredirect.table --
+Pod            SkipRedirects                                 NetnsCookie  Status
+test/lrp-pod                                                 12345        Done
+
 -- skiplbmap.expected --
 COOKIE=12345 IP=1001::1 PORT=8080
 COOKIE=12345 IP=169.254.169.254 PORT=8080
@@ -120,33 +153,38 @@ test/echo                     k8s
 -- services.table --
 Name                          Source
 test/echo                     k8s   
-test/lrp-svc-local-redirect   k8s   
+test/lrp-svc:local-redirect   k8s   
 
 -- frontends.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc-local-redirect   Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc-local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc:local-redirect   Done
+
+-- frontends-noredirect.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo        Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
 
 -- maps.empty --
 
 -- maps-case1.expected --
 BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
 BE: ID=4 ADDR=[2002::2]:80/TCP STATE=active
-REV: ID=1 ADDR=[1001::1]:8080
-REV: ID=2 ADDR=169.254.169.254:8080
-SVC: ID=1 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=1 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[1001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-case2.expected --
 BE: ID=7 ADDR=10.244.2.1:80/TCP STATE=active
 BE: ID=8 ADDR=[2002::2]:80/TCP STATE=active
-REV: ID=3 ADDR=[1001::1]:8080
-REV: ID=4 ADDR=169.254.169.254:8080
-SVC: ID=3 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=3 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+REV: ID=3 ADDR=169.254.169.254:8080
+REV: ID=4 ADDR=[1001::1]:8080
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- lrp-svc.yaml --
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy
@@ -164,7 +202,8 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "80"
+      - port: "8080"
+        name: "tcp"
         protocol: TCP
 
 -- pod.yaml --

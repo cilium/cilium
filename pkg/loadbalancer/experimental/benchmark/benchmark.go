@@ -139,12 +139,11 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Feed in all the test objects
 		//
 		fmt.Printf("Iteration %d: upsert ", i)
-		for _, svc := range svcs {
-			services <- upsertEvent(svc)
-		}
-
 		for _, slice := range epSlices {
 			endpoints <- upsertEvent(slice)
+		}
+		for _, svc := range svcs {
+			services <- upsertEvent(svc)
 		}
 
 		fmt.Print("wait ")
@@ -453,8 +452,8 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				}
 				backends := slices.Collect(statedb.ToSeq(iter.Seq2[experimental.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
-					if backends[0].AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].AddrCluster, wantAddr))
+					if backends[0].Address.AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].Address.AddrCluster, wantAddr))
 					}
 				}
 
@@ -471,15 +470,15 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 			for be := range writer.Backends().All(txn) {
 				want := epSlices[i]
 				for wantAddr, wantBe := range want.Backends { // There is only one element in this map.
-					if be.AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.AddrCluster, wantAddr))
+					if be.Address.AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster, wantAddr))
 					}
 					for _, wantPort := range wantBe.Ports { // There is only one element in this map.
-						if be.Port != wantPort.Port {
-							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Port, wantPort.Port))
+						if be.Address.Port != wantPort.Port {
+							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port, wantPort.Port))
 						}
-						if be.Protocol != wantPort.Protocol {
-							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Protocol, wantPort.Protocol))
+						if be.Address.Protocol != wantPort.Protocol {
+							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Address.Protocol, wantPort.Protocol))
 						}
 					}
 				}

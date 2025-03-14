@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 
 // BackendParams defines the parameters of a backend for insertion into the backends table.
 type BackendParams struct {
-	loadbalancer.L3n4Addr
+	Address loadbalancer.L3n4Addr
 
 	// PortNames are the optional names for the ports. A frontend can specify which
 	// backends to select by port name.
@@ -44,12 +45,22 @@ type BackendParams struct {
 
 	// State of the backend, e.g. active, quarantined or terminating.
 	State loadbalancer.BackendState
+
+	// Unhealthy marks a backend as unhealthy and overrides [State] to mark the backend
+	// as quarantined. We require a separate field for active health checking to merge
+	// with the original source of this backend. Negative is used here to allow the
+	// zero value to mean that the backend is healthy.
+	Unhealthy bool
+
+	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated. Zero
+	// value if never updated.
+	UnhealthyUpdatedAt time.Time
 }
 
 // Backend is a composite of the per-service backend instances that share the same
 // IP address and port.
 type Backend struct {
-	loadbalancer.L3n4Addr
+	Address loadbalancer.L3n4Addr
 
 	// Instances of this backend. A backend is always linked to a specific
 	// service and the instances may call the backend by different name
@@ -130,7 +141,7 @@ func (be *Backend) TableRow() []string {
 		}
 	}
 	return []string{
-		be.StringWithProtocol(),
+		be.Address.StringWithProtocol(),
 		showInstances(be),
 		showShadows(be),
 		nodeName,
@@ -147,10 +158,14 @@ func showInstances(be *Backend) string {
 	for k, inst := range be.PreferredInstances() {
 		b.WriteString(k.ServiceName.String())
 
-		if inst.State != loadbalancer.BackendStateActive {
+		if inst.State != loadbalancer.BackendStateActive || inst.Unhealthy {
 			b.WriteString(" [")
-			s, _ := inst.State.String()
-			b.WriteString(s)
+			if inst.Unhealthy {
+				b.WriteString("unhealthy")
+			} else {
+				s, _ := inst.State.String()
+				b.WriteString(s)
+			}
 			b.WriteRune(']')
 		}
 		if len(inst.PortNames) > 0 {
@@ -267,7 +282,7 @@ var (
 	backendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
 		Name: "address",
 		FromObject: func(obj *Backend) index.KeySet {
-			return index.NewKeySet(obj.L3n4Addr.Bytes())
+			return index.NewKeySet(obj.Address.Bytes())
 		},
 		FromKey:    func(l loadbalancer.L3n4Addr) index.Key { return index.Key(l.Bytes()) },
 		FromString: loadbalancer.L3n4AddrFromString,

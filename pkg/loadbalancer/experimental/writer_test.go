@@ -256,12 +256,12 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			name1,
 			source.Kubernetes,
 			BackendParams{
-				L3n4Addr: beAddr1,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr1,
+				State:   loadbalancer.BackendStateActive,
 			},
 			BackendParams{
-				L3n4Addr: beAddr2,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr2,
+				State:   loadbalancer.BackendStateActive,
 			},
 		)
 
@@ -271,8 +271,8 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 			name2,
 			source.Kubernetes,
 			BackendParams{
-				L3n4Addr: beAddr3,
-				State:    loadbalancer.BackendStateActive,
+				Address: beAddr3,
+				State:   loadbalancer.BackendStateActive,
 			},
 		)
 
@@ -287,20 +287,20 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		for _, addr := range []loadbalancer.L3n4Addr{beAddr1, beAddr2, beAddr3} {
 			be, _, found := p.BackendTable.Get(txn, BackendByAddress(addr))
 			if assert.True(t, found, "Backend not found with address %s", addr) {
-				assert.True(t, be.L3n4Addr.DeepEqual(&addr), "Backend address %s does not match %s", be.L3n4Addr, addr)
+				assert.True(t, be.Address.DeepEqual(&addr), "Backend address %s does not match %s", be.Address, addr)
 			}
 		}
 
 		// By service
 		bes := statedb.Collect(p.BackendTable.List(txn, BackendByServiceName(name1)))
 		require.Len(t, bes, 2)
-		require.True(t, bes[0].L3n4Addr.DeepEqual(&beAddr1))
-		require.True(t, bes[1].L3n4Addr.DeepEqual(&beAddr2))
+		require.True(t, bes[0].Address.DeepEqual(&beAddr1))
+		require.True(t, bes[1].Address.DeepEqual(&beAddr2))
 
 		// Backends for [name2] can be found even though the service doesn't exist (yet).
 		bes = statedb.Collect(p.BackendTable.List(txn, BackendByServiceName(name2)))
 		require.Len(t, bes, 1)
-		require.True(t, bes[0].L3n4Addr.DeepEqual(&beAddr3))
+		require.True(t, bes[0].Address.DeepEqual(&beAddr3))
 	}
 
 	// ReleaseBackend
@@ -309,7 +309,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 
 		// Release the [name1] reference to [beAddr1].
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.ReleaseBackend(wtxn, name1, beAddr1)
+		err := p.Writer.ReleaseBackends(wtxn, name1, beAddr1)
 		require.NoError(t, err, "ReleaseBackend failed")
 
 		wtxn.Abort()
@@ -393,7 +393,7 @@ func TestWriter_Initializers(t *testing.T) {
 	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
 }
 
-func TestSetBackends(t *testing.T) {
+func TestWriter_SetBackends(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -406,9 +406,9 @@ func TestSetBackends(t *testing.T) {
 	beAddr2 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
 	beAddr3 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
 
-	backend1 := BackendParams{L3n4Addr: beAddr1}
-	backend2 := BackendParams{L3n4Addr: beAddr2}
-	backend3 := BackendParams{L3n4Addr: beAddr3}
+	backend1 := BackendParams{Address: beAddr1}
+	backend2 := BackendParams{Address: beAddr2}
+	backend3 := BackendParams{Address: beAddr3}
 
 	type testCase struct {
 		desc   string
@@ -518,7 +518,7 @@ func TestSetBackends(t *testing.T) {
 							require.Nil(t, ptr) // ...or not be associated with the service.
 						}
 						for be := range fe.Backends {
-							require.NotEqual(t, addr, be.L3n4Addr)
+							require.NotEqual(t, addr, be.Address)
 						}
 					} else {
 						be, _, found := p.Writer.Backends().Get(txn, BackendByAddress(addr))
@@ -527,7 +527,7 @@ func TestSetBackends(t *testing.T) {
 						require.NotNil(t, ptr)
 						foundInFrontend := false
 						for be := range fe.Backends {
-							foundInFrontend = foundInFrontend || be.L3n4Addr == addr
+							foundInFrontend = foundInFrontend || be.Address == addr
 						}
 						require.True(t, foundInFrontend)
 					}
@@ -541,7 +541,7 @@ func TestSetBackends(t *testing.T) {
 	}
 }
 
-func TestWithConflictingSources(t *testing.T) {
+func TestWriter_WithConflictingSources(t *testing.T) {
 	p := fixture(t)
 
 	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
@@ -550,7 +550,7 @@ func TestWithConflictingSources(t *testing.T) {
 	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1234), 1234, loadbalancer.ScopeExternal)
 	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1235), 1235, loadbalancer.ScopeExternal)
 
-	backendTemplate := BackendParams{L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
+	backendTemplate := BackendParams{Address: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
 	backend10 := backendTemplate
 	backend10.Weight = 10
 	backend11 := backendTemplate
@@ -675,4 +675,43 @@ func TestWithConflictingSources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriter_SetSelectBackends(t *testing.T) {
+	p := fixture(t)
+	w := p.Writer
+
+	var feAddr loadbalancer.L3n4Addr
+	feAddr.ParseFromString("1.0.0.1:80/TCP")
+	svcName := loadbalancer.ServiceName{Namespace: "test", Name: "svc"}
+
+	var beAddr loadbalancer.L3n4Addr
+	beAddr.ParseFromString("2.0.0.1:80/TCP")
+
+	w.SetSelectBackendsFunc(func(txn statedb.ReadTxn, backends statedb.Table[*Backend], fe *Frontend) iter.Seq2[BackendParams, statedb.Revision] {
+		require.NotNil(t, txn)
+		require.NotNil(t, backends)
+		require.NotNil(t, fe)
+		require.Equal(t, feAddr.String(), fe.Address.String())
+
+		return func(yield func(BackendParams, uint64) bool) {
+			yield(BackendParams{
+				Address: beAddr,
+				Source:  "test",
+			}, 1)
+		}
+	})
+
+	wtxn := w.WriteTxn()
+	err := w.UpsertServiceAndFrontends(wtxn,
+		&Service{Name: svcName},
+		FrontendParams{Address: feAddr, ServiceName: loadbalancer.ServiceName{Namespace: "test", Name: "test"}})
+	require.NoError(t, err, "UpsertServiceAndFrontends")
+	txn := wtxn.Commit()
+
+	fe, _, found := w.Frontends().Get(txn, FrontendByAddress(feAddr))
+	require.True(t, found)
+	bes := slices.Collect(statedb.ToSeq(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
+	require.Len(t, bes, 1)
+	require.Equal(t, beAddr.String(), bes[0].Address.String())
 }
