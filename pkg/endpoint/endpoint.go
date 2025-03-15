@@ -1912,6 +1912,14 @@ func (e *Endpoint) RunRestoredMetadataResolver(bwm dptypes.BandwidthManager, res
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labels.Labels) error {
+	return e.modifyIdentityLabelsWithDelay(source, addLabels, delLabels, 0)
+}
+
+func (e *Endpoint) ModifyIdentityLabelsWithDelay(source string, addLabels, delLabels labels.Labels, DelayUpdate time.Duration) error {
+	return e.modifyIdentityLabelsWithDelay(source, addLabels, delLabels, DelayUpdate)
+}
+
+func (e *Endpoint) modifyIdentityLabelsWithDelay(source string, addLabels, delLabels labels.Labels, DelayUpdate time.Duration) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1944,7 +1952,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	e.unlock()
 
 	if changed {
-		e.runIdentityResolver(context.Background(), false)
+		e.runIdentityResolverWithDelay(context.Background(), false, DelayUpdate)
 	}
 	return nil
 }
@@ -2098,6 +2106,14 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 //
 // Must be called with e.mutex NOT held.
 func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (regenTriggered bool) {
+	return e.realRunIdentityResolverWithDelay(ctx, blocking, 0)
+}
+
+func (e *Endpoint) runIdentityResolverWithDelay(ctx context.Context, blocking bool, DelayUpdate time.Duration) (regenTriggered bool) {
+	return e.realRunIdentityResolverWithDelay(ctx, blocking, DelayUpdate)
+}
+
+func (e *Endpoint) realRunIdentityResolverWithDelay(ctx context.Context, blocking bool, DelayUpdate time.Duration) (regenTriggered bool) {
 	err := e.rlockAlive()
 	if err != nil {
 		// If a labels update and an endpoint delete API request arrive
@@ -2142,6 +2158,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (rege
 			},
 			RunInterval: 5 * time.Minute,
 			Context:     e.aliveCtx,
+			DelayUpdate: DelayUpdate,
 		},
 	)
 

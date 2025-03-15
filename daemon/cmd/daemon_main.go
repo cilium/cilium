@@ -448,6 +448,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
 	option.BindEnv(vp, option.IdentityChangeGracePeriod)
 
+	flags.Duration(option.DelayCIdentityOfNsLabelChange, 30*time.Second, "Randomly delay CiliumIdentity updates for Endpoints by up to this time after Namespace labels change")
+	option.BindEnv(vp, option.DelayCIdentityOfNsLabelChange)
+
 	flags.Duration(option.IdentityRestoreGracePeriod, defaults.IdentityRestoreGracePeriodK8s, "Time to wait before releasing unused restored CIDR identities during agent restart")
 	option.BindEnv(vp, option.IdentityRestoreGracePeriod)
 
