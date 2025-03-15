@@ -83,7 +83,7 @@ func TestNewConnectivityTests(t *testing.T) {
 		}
 
 		// function to test
-		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}, 1), owners)
+		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}), owners)
 
 		require.NoError(t, err)
 		require.Len(t, actual, tt.expectedCount)

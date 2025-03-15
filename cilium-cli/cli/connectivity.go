@@ -105,7 +105,7 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		logger := check.NewConcurrentLogger(params.Writer, params.TestConcurrency)
+		logger := check.NewConcurrentLogger(params.Writer)
 		connTests, err := newConnectivityTests(params, hooks, logger, owners)
 		if err != nil {
 			return err
