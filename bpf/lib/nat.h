@@ -293,10 +293,10 @@ out:
 static __always_inline int
 snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv4_ct_tuple *tuple,
-			   bool has_l4_header,
+			   __s64 fraginfo,
 			   struct ipv4_nat_entry **state,
 			   struct ipv4_nat_entry *tmp,
-			   struct iphdr *ip4, __u32 off,
+			   __u32 off,
 			   const struct ipv4_nat_target *target,
 			   struct trace_ctx *trace,
 			   __s8 *ext_err)
@@ -318,10 +318,9 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		/* Lookup with SCOPE_FORWARD. Ports are already in correct layout: */
 		ipv4_ct_tuple_swap_addrs(&tuple_snat);
 
-		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
-				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
-				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
-				      NULL, &trace->monitor);
+		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat, ctx,
+				      fraginfo, off, CT_EGRESS, SCOPE_FORWARD,
+				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -389,9 +388,9 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv4_ct_tuple *tuple,
-			       bool has_l4_header,
+			       __s64 fraginfo,
 			       struct ipv4_nat_entry **state,
-			       struct iphdr *ip4, __u32 off,
+			       __u32 off,
 			       const struct ipv4_nat_target *target,
 			       struct trace_ctx *trace)
 {
@@ -416,10 +415,9 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		 */
 		ipv4_ct_tuple_swap_ports(&tuple_revsnat);
 
-		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat,
-				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
-				      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_ANY,
-				      NULL, &trace->monitor);
+		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat, ctx,
+				      fraginfo, off, CT_INGRESS, SCOPE_REVERSE,
+				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -580,6 +578,7 @@ static __always_inline int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv4_ct_tuple *tuple __maybe_unused,
 			 struct iphdr *ip4 __maybe_unused,
+			 __s64 fraginfo __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
@@ -634,7 +633,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		target->from_local_endpoint = true;
 
-		err = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, tuple, NULL);
+		err = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+					CT_EGRESS, tuple);
 		switch (err) {
 		case 0:
 			/* If the packet is a reply it means that outside has
@@ -738,7 +738,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_header)
+snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
@@ -814,26 +814,26 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 		return ret;
 
 	/* Rewrite outer headers. No port rewrite needed. */
-	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, has_l4_header, (int)off,
+	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, true, (int)off,
 				       tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
 				       0, 0, 0);
 }
 
 static __always_inline int
-__snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	      struct iphdr *ip4, bool has_l4_header, int l4_off,
-	      bool update_tuple, const struct ipv4_nat_target *target,
+__snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, __s64 fraginfo,
+	      int l4_off, bool update_tuple, const struct ipv4_nat_target *target,
 	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry *state, tmp;
 	int ret;
 
-	ret = snat_v4_nat_handle_mapping(ctx, tuple, has_l4_header, &state,
-					 &tmp, ip4, l4_off, target, trace, ext_err);
+	ret = snat_v4_nat_handle_mapping(ctx, tuple, fraginfo, &state, &tmp,
+					 l4_off, target, trace, ext_err);
 	if (ret < 0)
 		return ret;
 
-	ret = snat_v4_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN, has_l4_header, l4_off,
+	ret = snat_v4_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
+				      ipfrag_has_l4_header(fraginfo), l4_off,
 				      tuple->saddr, state->to_saddr, IPV4_SADDR_OFF,
 				      tuple->sport, state->to_sport, port_off);
 
@@ -847,8 +847,8 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	    struct iphdr *ip4, int off, bool has_l4_header,
-	    const struct ipv4_nat_target *target,
+	    struct iphdr *ip4, __s64 fraginfo,
+	    int off, const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
@@ -857,14 +857,22 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
+	/* If we don't track fragments, packets without an L4 header can't be
+	 * NATed. Even though the first fragment always has an L4 header, NATing
+	 * it in this situation is useless, because the following fragments
+	 * won't be able to pass the NAT.
+	 */
+	if (!is_defined(ENABLE_IPV4_FRAGMENTS) && ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, ip4, off, CT_EGRESS,
-					 &tuple->dport, &has_l4_header);
+		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
+					 CT_EGRESS, &tuple->dport);
 		if (ret < 0)
 			return ret;
 
@@ -872,6 +880,13 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
+		/* Fragmented ECHO packets are not supported currently. Drop all
+		 * fragments, because letting the first fragment pass would be
+		 * useless anyway.
+		 * ICMP error packets are not supposed to be fragmented.
+		 */
+		if (unlikely(ipfrag_is_fragment(fraginfo)))
+			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 
@@ -898,7 +913,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			}
 
 nat_icmp_v4:
-			return snat_v4_nat_handle_icmp_error(ctx, off, has_l4_header);
+			return snat_v4_nat_handle_icmp_error(ctx, off);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -910,8 +925,7 @@ nat_icmp_v4:
 	if (snat_v4_nat_can_skip(target, tuple))
 		return NAT_PUNT_TO_STACK;
 
-	return __snat_v4_nat(ctx, tuple, ip4, has_l4_header, off, false, target,
-			     port_off, trace, ext_err);
+	return __snat_v4_nat(ctx, tuple, fraginfo, off, false, target, port_off, trace, ext_err);
 }
 
 static __always_inline __maybe_unused int
@@ -998,7 +1012,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	bool has_l4_header = true;
+	__s64 fraginfo;
 	__u64 off, inner_l3_off;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
@@ -1009,6 +1023,8 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	fraginfo = ipfrag_encode_ipv4(ip4);
+
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
@@ -1018,8 +1034,8 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, ip4, (int)off, CT_INGRESS,
-					 &tuple.dport, &has_l4_header);
+		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, (int)off,
+					 CT_INGRESS, &tuple.dport);
 		if (ret < 0)
 			return ret;
 
@@ -1027,8 +1043,16 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
+		/* Fragmented ECHOREPLY packets are not supported currently.
+		 * Drop all fragments, because letting the first fragment pass
+		 * would be useless anyway.
+		 * ICMP error packets are not supposed to be fragmented.
+		 */
+		if (unlikely(ipfrag_is_fragment(fraginfo)))
+			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, (__u32)off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
+
 		switch (icmphdr.type) {
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
@@ -1056,7 +1080,6 @@ rev_nat_icmp_v4:
 			if (IS_ERR(ret))
 				return ret;
 
-			has_l4_header = true;
 			goto rewrite;
 		default:
 			return NAT_PUNT_TO_STACK;
@@ -1068,8 +1091,8 @@ rev_nat_icmp_v4:
 
 	if (snat_v4_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, &state,
-					     ip4, (__u32)off, target, trace);
+	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, fraginfo, &state,
+					     (__u32)off, target, trace);
 	if (ret < 0)
 		return ret;
 
@@ -1077,7 +1100,8 @@ rev_nat_icmp_v4:
 	to_dport = state->to_dport;
 
 rewrite:
-	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN, has_l4_header, (int)off,
+	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN,
+				       ipfrag_has_l4_header(fraginfo), (int)off,
 				       tuple.daddr, state->to_daddr, IPV4_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
