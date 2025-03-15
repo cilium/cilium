@@ -55,6 +55,7 @@ type params struct {
 	NetLink             linkByNamer
 	JobGroup            job.Group
 	Health              cell.Health
+	GARPSender          garp.Sender
 }
 
 type linkByNamer interface {
@@ -138,7 +139,7 @@ func (p *l2ResponderReconciler) cycle(
 			return nil
 		}
 
-		err = garpOnNewEntry(arMap, e.IP, idx)
+		err = garpOnNewEntry(arMap, p.params.GARPSender, e.IP, idx)
 		if err != nil {
 			return err
 		}
@@ -243,7 +244,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			continue
 		}
 
-		err = garpOnNewEntry(arMap, netip.AddrFrom4(key.IP), int(key.IfIndex))
+		err = garpOnNewEntry(arMap, p.params.GARPSender, netip.AddrFrom4(key.IP), int(key.IfIndex))
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -259,13 +260,18 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 // If the given IP and network interface index does not yet exist in the l2 responder map,
 // a failover might have taken place. Therefor we should send out a gARP reply to let
 // the local network know the IP has moved to minimize downtime due to ARP caching.
-func garpOnNewEntry(arMap l2respondermap.Map, ip netip.Addr, ifIndex int) error {
+func garpOnNewEntry(arMap l2respondermap.Map, sender garp.Sender, ip netip.Addr, ifIndex int) error {
 	_, err := arMap.Lookup(ip, uint32(ifIndex))
 	if !errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 
-	err = garp.SendOnInterfaceIdx(ifIndex, ip)
+	iface, err := sender.InterfaceByIndex(ifIndex)
+	if err != nil {
+		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
+	}
+
+	err = sender.Send(iface, ip)
 	if err != nil {
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}
