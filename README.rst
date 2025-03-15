@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-02-12 | ``quay.io/cilium/cilium:v1.17.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.1>`__  |
+| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.17.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.2>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-02-18 | ``quay.io/cilium/cilium:v1.16.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.7>`__  |
+| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.16.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.8>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-02-18 | ``quay.io/cilium/cilium:v1.15.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.14>`__ |
+| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-03-14 | ``quay.io/cilium/cilium:v1.15.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.15>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
