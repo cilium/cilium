@@ -14,7 +14,7 @@ import (
 )
 
 func TestRedact(t *testing.T) {
-	want := "level=info msg=\"configured Hubble with redact options\" options=\"&{CacheSize:3 HubbleRedactSettings:{Enabled:true RedactHTTPQuery:false RedactHTTPUserInfo:false RedactKafkaAPIKey:false RedactHttpHeaders:{Allow:map[] Deny:map[]}}}\"\n"
+	want := "level=info msg=\"configured Hubble with redact\" options=\"{Enabled:true RedactHTTPQuery:false RedactHTTPUserInfo:false RedactKafkaAPIKey:false RedactHttpHeaders:{Allow:map[] Deny:map[]}}\"\n"
 	var buf bytes.Buffer
 	logger := slog.New(
 		slog.NewTextHandler(&buf,
@@ -23,9 +23,8 @@ func TestRedact(t *testing.T) {
 			},
 		),
 	)
-	opt := Redact(logger, false, false, false, nil, nil)
+	opt := WithRedact(logger, false, false, false, nil, nil)
 	opt(&Options{
-		CacheSize: 3,
 		HubbleRedactSettings: HubbleRedactSettings{
 			Enabled:            false,
 			RedactHTTPQuery:    false,
@@ -36,6 +35,23 @@ func TestRedact(t *testing.T) {
 				Deny:  map[string]struct{}{"tracecontent": {}},
 			},
 		},
+	})
+	assert.Equal(t, want, buf.String())
+}
+
+func TestEnableNetworkPolicyEnrichment(t *testing.T) {
+	want := "level=info msg=\"configured Hubble with network policy enrichment\" options=true\n"
+	var buf bytes.Buffer
+	logger := slog.New(
+		slog.NewTextHandler(&buf,
+			&slog.HandlerOptions{
+				ReplaceAttr: logging.ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
+	opt := WithNetworkPolicyEnrichment(logger, true)
+	opt(&Options{
+		EnableNetworkPolicyEnrichment: true,
 	})
 	assert.Equal(t, want, buf.String())
 }
