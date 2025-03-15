@@ -260,14 +260,16 @@ func checkDeadlock(stack []uintptr, ptr interface{}, currentID int64, ch <-chan 
 }
 
 type lockOrder struct {
-	mu    sync.Mutex
-	cur   map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
-	order map[beforeAfter]ss       // expected order of locks.
+	mu          sync.Mutex
+	cur         map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
+	pToStackGID map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
+	order       map[beforeAfter]ss       // expected order of locks.
 }
 
 type stackGID struct {
 	stack []uintptr
 	gid   int64
+	time  time.Time
 }
 
 type beforeAfter struct {
@@ -292,7 +294,7 @@ func newLockOrder() *lockOrder {
 func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 	gid := goid.Get()
 	l.mu.Lock()
-	l.cur[p] = stackGID{stack, gid}
+	l.cur[p] = stackGID{stack, gid, time.Now()}
 	l.mu.Unlock()
 }
 
@@ -302,6 +304,7 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	}
 	gid := goid.Get()
 	l.mu.Lock()
+	l.pToStackGID[p] = stackGID{stack, gid, time.Now()}
 	for b, bs := range l.cur {
 		if b == p {
 			if bs.gid == gid {
@@ -324,13 +327,14 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 			continue
 		}
 		if s, ok := l.order[beforeAfter{p, b}]; ok {
+			pGID := l.pToStackGID[p]
 			Opts.mu.Lock()
-			fmt.Fprintln(Opts.LogBuf, header, "Inconsistent locking. saw this ordering in one goroutine:")
+			fmt.Fprintf(Opts.LogBuf, header+"Inconsistent locking. saw this ordering in one goroutine[%d] at %s:\n", pGID.gid, pGID.time)
 			fmt.Fprintln(Opts.LogBuf, "happened before")
 			printStack(Opts.LogBuf, s.before)
 			fmt.Fprintln(Opts.LogBuf, "happened after")
 			printStack(Opts.LogBuf, s.after)
-			fmt.Fprintln(Opts.LogBuf, "in another goroutine: happened before")
+			fmt.Fprintf(Opts.LogBuf, "in another goroutine[%d] at %s: happened before\n", bs.gid, bs.time)
 			printStack(Opts.LogBuf, bs.stack)
 			fmt.Fprintln(Opts.LogBuf, "happened after")
 			printStack(Opts.LogBuf, stack)
