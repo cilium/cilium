@@ -393,6 +393,18 @@ func TestRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
 	require.Equal(t, dns.RcodeNameError, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
+func TestRejectNonMatchingRefusedResponseWithServFail(t *testing.T) {
+	s := setupDNSProxyTestSuite(t)
+
+	request := s.requestRejectNonMatchingRefusedResponse(t)
+
+	// reject a query with SERVFAIL
+	s.proxy.SetRejectReply(option.FQDNProxyDenyWithServFail)
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
+	require.NoError(t, err, "DNS request from test client failed when it should succeed")
+	require.Equal(t, dns.RcodeServerFailure, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
+}
+
 func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
