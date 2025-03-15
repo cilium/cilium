@@ -4,14 +4,15 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -23,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -272,6 +272,7 @@ func (svc *svcInfo) checkLBSourceRange() bool {
 // The changes can be triggered either by k8s_watcher or directly by
 // API calls to the /services endpoint.
 type Service struct {
+	logger *slog.Logger
 	lock.RWMutex
 
 	svcByHash map[string]*svcInfo
@@ -301,13 +302,14 @@ type Service struct {
 }
 
 // newService creates a new instance of the service handler.
-func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
+func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
-		localHealthServer = healthserver.New()
+		localHealthServer = healthserver.New(logger)
 	}
 
 	svc := &Service{
+		logger:                   logger,
 		svcByHash:                map[string]*svcInfo{},
 		svcByID:                  map[lb.ID]*svcInfo{},
 		backendRefCount:          counter.Counter[string]{},
@@ -317,7 +319,7 @@ func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
-		backendConnectionHandler: backendConnectionHandler{},
+		backendConnectionHandler: backendConnectionHandler{logger: logger},
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
@@ -338,13 +340,14 @@ func (s *Service) RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resour
 		return errors.New("proxy port for L7 LB redirection must be nonzero")
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceName:       serviceName.Name,
-			logfields.ServiceNamespace:  serviceName.Namespace,
-			logfields.L7LBProxyPort:     proxyPort,
-			logfields.L7LBFrontendPorts: frontendPorts,
-		}).Debug("Registering service for L7 proxy port redirection")
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug(
+			"Registering service for L7 proxy port redirection",
+			logfields.ServiceName, serviceName.Name,
+			logfields.ServiceNamespace, serviceName.Namespace,
+			logfields.L7LBProxyPort, proxyPort,
+			logfields.L7LBFrontendPorts, frontendPorts,
+		)
 	}
 
 	s.Lock()
@@ -392,12 +395,13 @@ func (s *Service) RegisterL7LBServiceBackendSync(serviceName lb.ServiceName, bac
 		return nil
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceName:      serviceName.Name,
-			logfields.ServiceNamespace: serviceName.Namespace,
-			logfields.ProxyName:        backendSyncRegistration.ProxyName(),
-		}).Debug("Registering service backend sync for L7 loadbalancer")
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug(
+			"Registering service backend sync for L7 loadbalancer",
+			logfields.ServiceName, serviceName.Name,
+			logfields.ServiceNamespace, serviceName.Namespace,
+			logfields.ProxyName, backendSyncRegistration.ProxyName(),
+		)
 	}
 
 	s.Lock()
@@ -423,11 +427,12 @@ func (s *Service) registerL7LBServiceBackendSync(serviceName lb.ServiceName, bac
 }
 
 func (s *Service) DeregisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName) error {
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceName:      serviceName.Name,
-			logfields.ServiceNamespace: serviceName.Namespace,
-		}).Debug("Deregistering service from L7 load balancing")
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug(
+			"Deregistering service from L7 load balancing",
+			logfields.ServiceName, serviceName.Name,
+			logfields.ServiceNamespace, serviceName.Namespace,
+		)
 	}
 
 	s.Lock()
@@ -471,12 +476,13 @@ func (s *Service) DeregisterL7LBServiceBackendSync(serviceName lb.ServiceName, b
 		return nil
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceName:      serviceName.Name,
-			logfields.ServiceNamespace: serviceName.Namespace,
-			logfields.ProxyName:        backendSyncRegistration.ProxyName(),
-		}).Debug("Deregistering service backend sync for L7 loadbalancer")
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		s.logger.Debug(
+			"Deregistering service backend sync for L7 loadbalancer",
+			logfields.ServiceName, serviceName.Name,
+			logfields.ServiceNamespace, serviceName.Namespace,
+			logfields.ProxyName, backendSyncRegistration.ProxyName(),
+		)
 	}
 
 	s.Lock()
@@ -573,7 +579,11 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 					0,
 				)
 				if err != nil {
-					log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Debug("Error creating map value")
+					s.logger.Debug(
+						"Error creating map value",
+						logfields.Error, err,
+						logfields.BPFMapName, v3Map.Name(),
+					)
 					return
 				}
 			} else {
@@ -588,14 +598,22 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 					0,
 				)
 				if err != nil {
-					log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Debug("Error creating map value")
+					s.logger.Debug(
+						"Error creating map value",
+						logfields.Error, err,
+						logfields.BPFMapName, v3Map.Name(),
+					)
 					return
 				}
 			}
 
 			err := v3Map.Update(key, v3BackendVal)
 			if err != nil {
-				log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Warn("Error updating map")
+				s.logger.Warn(
+					"Error updating map",
+					logfields.Error, err,
+					logfields.BPFMapName, v3Map.Name(),
+				)
 			}
 		}
 
@@ -615,12 +633,20 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 		// referencing it has been removed.
 		err = v2Map.Close()
 		if err != nil {
-			log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Error closing map")
+			s.logger.Warn(
+				"Error closing map",
+				logfields.Error, err,
+				logfields.BPFMapName, v2Map.Name(),
+			)
 		}
 
 		err = v2Map.Unpin()
 		if err != nil {
-			log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Error unpinning map")
+			s.logger.Warn(
+				"Error unpinning map",
+				logfields.Error, err,
+				logfields.BPFMapName, v2Map.Name(),
+			)
 		}
 
 	}
@@ -678,9 +704,9 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	}
 
 	if v2BackendMapExistsV4 || v2BackendMapExistsV6 {
-		log.Info("Backend map v2 exists. Migrating entries to backend map v3.")
+		s.logger.Info("Backend map v2 exists. Migrating entries to backend map v3.")
 		if err := s.populateBackendMapV3FromV2(v2BackendMapExistsV4, v2BackendMapExistsV6); err != nil {
-			log.WithError(err).Warn("Error populating V3 map from V2 map, might interrupt existing connections during upgrade")
+			s.logger.Warn("Error populating V3 map from V2 map, might interrupt existing connections during upgrade", logfields.Error, err)
 		}
 	}
 
@@ -731,46 +757,36 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Implement a "lazy load" function for the scoped logger, so the expensive
 	// call to 'WithFields' is only done if needed.
-	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
-	scopedLog := log
-	scopedLogPopulated := false
-	getScopedLog := func() *logrus.Entry {
-		if !scopedLogPopulated {
-			scopedLog = scopedLog.WithFields(logrus.Fields{
-				logfields.ServiceIP: params.Frontend.L3n4Addr,
-				logfields.Backends:  params.Backends,
+	debugLogsEnabled := s.logger.Enabled(context.Background(), slog.LevelDebug)
+	scopedLog := s.logger.With(
+		logfields.ServiceIP, params.Frontend.L3n4Addr,
+		logfields.Backends, params.Backends,
 
-				logfields.ServiceType:                params.Type,
-				logfields.ServiceForwardingMode:      params.ForwardingMode,
-				logfields.ServiceExtTrafficPolicy:    params.ExtTrafficPolicy,
-				logfields.ServiceIntTrafficPolicy:    params.IntTrafficPolicy,
-				logfields.ServiceHealthCheckNodePort: params.HealthCheckNodePort,
-				logfields.ServiceName:                params.Name.Name,
-				logfields.ServiceNamespace:           params.Name.Namespace,
+		logfields.ServiceType, params.Type,
+		logfields.ServiceForwardingMode, params.ForwardingMode,
+		logfields.ServiceExtTrafficPolicy, params.ExtTrafficPolicy,
+		logfields.ServiceIntTrafficPolicy, params.IntTrafficPolicy,
+		logfields.ServiceHealthCheckNodePort, params.HealthCheckNodePort,
+		logfields.ServiceName, params.Name.Name,
+		logfields.ServiceNamespace, params.Name.Namespace,
 
-				logfields.SessionAffinity:        params.SessionAffinity,
-				logfields.SessionAffinityTimeout: params.SessionAffinityTimeoutSec,
+		logfields.SessionAffinity, params.SessionAffinity,
+		logfields.SessionAffinityTimeout, params.SessionAffinityTimeoutSec,
 
-				logfields.LoadBalancerSourceRanges:       params.LoadBalancerSourceRanges,
-				logfields.LoadBalancerSourceRangesPolicy: params.SourceRangesPolicy,
-				logfields.LoadBalancerAlgorithm:          params.LoadBalancerAlgorithm,
+		logfields.LoadBalancerSourceRanges, params.LoadBalancerSourceRanges,
+		logfields.LoadBalancerSourceRangesPolicy, params.SourceRangesPolicy,
+		logfields.LoadBalancerAlgorithm, params.LoadBalancerAlgorithm,
 
-				logfields.L7LBProxyPort: params.L7LBProxyPort,
-			})
+		logfields.L7LBProxyPort, params.L7LBProxyPort,
+	)
 
-			scopedLogPopulated = true
-		}
-		return scopedLog
-	}
-
-	if debugLogsEnabled {
-		getScopedLog().Debug("Upserting service")
-	}
+	scopedLog.Debug("Upserting service")
 
 	if !option.Config.EnableSVCSourceRangeCheck &&
 		len(params.LoadBalancerSourceRanges) != 0 {
-		getScopedLog().Warnf("--%s is disabled, ignoring loadBalancerSourceRanges",
-			option.EnableSVCSourceRangeCheck)
+		scopedLog.Warn(fmt.Sprintf("--%s is disabled, ignoring loadBalancerSourceRanges",
+			option.EnableSVCSourceRangeCheck),
+		)
 	}
 
 	// Backends must either be the same IP proto as the frontend, or can be of
@@ -818,10 +834,9 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// TODO(brb) defer ServiceID release after we have a lbmap "rollback"
 	// If getScopedLog() has not been called, this field will still be included
 	// from this point on in the function.
-	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
-	if debugLogsEnabled {
-		getScopedLog().Debug("Acquired service ID")
-	}
+	scopedLog.Debug("Acquired service ID",
+		logfields.ServiceID, svc.frontend.ID,
+	)
 
 	filterBackends := svc.filterBackends(params.Frontend)
 	prevBackendCount := len(svc.backends)
@@ -865,7 +880,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// Update lbmaps (BPF service maps)
 	if err = s.upsertServiceIntoLBMaps(svc, svc.isExtLocal(), svc.isIntLocal(), prevBackendCount,
 		newBackends, obsoleteBackends, prevSessionAffinity, prevLoadBalancerSourceRanges,
-		obsoleteSVCBackendIDs, getScopedLog, debugLogsEnabled); err != nil {
+		obsoleteSVCBackendIDs, scopedLog, debugLogsEnabled); err != nil {
 		return false, lb.ID(0), err
 	}
 
@@ -887,8 +902,11 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 			activeBackends := 0
 			if l7lbInfo != nil {
 				// Set this to 1 because Envoy will be running in this case.
-				getScopedLog().WithField(logfields.ServiceHealthCheckNodePort, svc.svcHealthCheckNodePort).
-					Debug("L7 service with HealthcheckNodePort enabled")
+				scopedLog.Debug(
+					"L7 service with HealthcheckNodePort enabled",
+					logfields.ServiceID, svc.frontend.ID,
+					logfields.ServiceHealthCheckNodePort, svc.svcHealthCheckNodePort,
+				)
 				activeBackends = 1
 			} else {
 				for _, b := range backendsCopy {
@@ -1029,10 +1047,11 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 	}
 	svc.healthcheckFrontendHash = healthCheckFrontend.Hash()
 
-	log.WithFields(logrus.Fields{
-		logfields.ServiceName:      svc.svcName.Name,
-		logfields.ServiceNamespace: svc.svcName.Namespace,
-	}).Debug("Created healthcheck service for frontend")
+	s.logger.Debug(
+		"Created healthcheck service for frontend",
+		logfields.ServiceName, svc.svcName.Name,
+		logfields.ServiceNamespace, svc.svcName.Namespace,
+	)
 
 	return nil
 }
@@ -1047,13 +1066,14 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 		return nil, nil
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		for _, b := range backends {
-			log.WithFields(logrus.Fields{
-				logfields.L3n4Addr:         b.L3n4Addr.String(),
-				logfields.BackendState:     b.State,
-				logfields.BackendPreferred: b.Preferred,
-			}).Debug("Update backend states")
+			s.logger.Debug(
+				"Update backend states",
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.BackendState, b.State,
+				logfields.BackendPreferred, b.Preferred,
+			)
 		}
 	}
 
@@ -1134,13 +1154,14 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 				p.PreferredBackends, p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
 				updateSvcs[id] = p
 				svcAddrs = append(svcAddrs, info.frontend.L3n4Addr)
-				log.WithFields(logrus.Fields{
-					logfields.ServiceID:        p.ID,
-					logfields.BackendID:        b.ID,
-					logfields.L3n4Addr:         b.L3n4Addr.String(),
-					logfields.BackendState:     b.State,
-					logfields.BackendPreferred: b.Preferred,
-				}).Info("Persisting service with backend state update")
+				s.logger.Info(
+					"Persisting service with backend state update",
+					logfields.ServiceID, p.ID,
+					logfields.BackendID, b.ID,
+					logfields.L3n4Addr, b.L3n4Addr,
+					logfields.BackendState, b.State,
+					logfields.BackendPreferred, b.Preferred,
+				)
 			}
 			s.svcByID[id] = info
 			s.svcByHash[info.frontend.Hash()] = info
@@ -1150,12 +1171,13 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 	if updateBackendMap {
 		// Update the persisted backend state in BPF maps.
 		for _, b := range updatedBackends {
-			log.WithFields(logrus.Fields{
-				logfields.BackendID:        b.ID,
-				logfields.L3n4Addr:         b.L3n4Addr.String(),
-				logfields.BackendState:     b.State,
-				logfields.BackendPreferred: b.Preferred,
-			}).Info("Persisting updated backend state for backend")
+			s.logger.Info(
+				"Persisting updated backend state for backend",
+				logfields.BackendID, b.ID,
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.BackendState, b.State,
+				logfields.BackendPreferred, b.Preferred,
+			)
 			if err := s.lbmap.UpdateBackendWithState(b); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v: %w", b, err))
 			}
@@ -1394,11 +1416,11 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 		}
 
 		if svc.restoredFromDatapath {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceID: svc.frontend.ID,
-				logfields.L3n4Addr:  logfields.Repr(svc.frontend.L3n4Addr),
-			}).
-				Warn("Deleting no longer present service")
+			s.logger.Warn(
+				"Deleting no longer present service",
+				logfields.ServiceID, svc.frontend.ID,
+				logfields.L3n4Addr, svc.frontend.L3n4Addr,
+			)
 
 			if err := s.deleteServiceLocked(svc); err != nil {
 				return stale, fmt.Errorf("Unable to remove service %+v: %w", svc, err)
@@ -1406,12 +1428,13 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 		} else if svc.restoredBackendHashes.Len() > 0 {
 			// The service is still associated with stale backends
 			stale = append(stale, svcID)
-			log.WithFields(logrus.Fields{
-				logfields.ServiceID:      svc.frontend.ID,
-				logfields.ServiceName:    svc.svcName.String(),
-				logfields.L3n4Addr:       logfields.Repr(svc.frontend.L3n4Addr),
-				logfields.OrphanBackends: svc.restoredBackendHashes.Len(),
-			}).Info("Service has stale backends: triggering refresh")
+			s.logger.Info(
+				"Service has stale backends: triggering refresh",
+				logfields.ServiceID, svc.frontend.ID,
+				logfields.ServiceName, svc.svcName,
+				logfields.L3n4Addr, svc.frontend.L3n4Addr,
+				logfields.OrphanBackends, svc.restoredBackendHashes.Len(),
+			)
 		}
 
 		svc.restoredBackendHashes = nil
@@ -1474,7 +1497,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 
 	if !found {
 		// Allocate service ID for the new service
-		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
+		addrID, err := AcquireID(s.logger, p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
 		if err != nil {
 			return nil, false, false, nil,
 				fmt.Errorf("Unable to allocate service ID %d for %v: %w",
@@ -1566,33 +1589,39 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 }
 
 func (s *Service) deleteBackendsFromAffinityMatchMap(svcID lb.ID, backendIDs []lb.BackendID) {
-	log.WithFields(logrus.Fields{
-		logfields.Backends:  backendIDs,
-		logfields.ServiceID: svcID,
-	}).Debug("Deleting backends from session affinity match")
+	s.logger.Debug(
+		"Deleting backends from session affinity match",
+		logfields.Backends, backendIDs,
+		logfields.ServiceID, svcID,
+	)
 
 	for _, bID := range backendIDs {
 		if err := s.lbmap.DeleteAffinityMatch(uint16(svcID), bID); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.BackendID: bID,
-				logfields.ServiceID: svcID,
-			}).WithError(err).Warn("Unable to remove entry from affinity match map")
+			s.logger.Warn(
+				"Unable to remove entry from affinity match map",
+				logfields.Error, err,
+				logfields.BackendID, bID,
+				logfields.ServiceID, svcID,
+			)
 		}
 	}
 }
 
 func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.BackendID) {
-	log.WithFields(logrus.Fields{
-		logfields.Backends:  backendIDs,
-		logfields.ServiceID: svcID,
-	}).Debug("Adding backends to affinity match map")
+	s.logger.Debug(
+		"Adding backends to affinity match map",
+		logfields.Backends, backendIDs,
+		logfields.ServiceID, svcID,
+	)
 
 	for _, bID := range backendIDs {
 		if err := s.lbmap.AddAffinityMatch(uint16(svcID), bID); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.BackendID: bID,
-				logfields.ServiceID: svcID,
-			}).WithError(err).Warn("Unable to add entry to affinity match map")
+			s.logger.Warn(
+				"Unable to add entry to affinity match map",
+				logfields.Error, err,
+				logfields.BackendID, bID,
+				logfields.ServiceID, svcID,
+			)
 		}
 	}
 }
@@ -1600,7 +1629,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal bool,
 	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackends []*lb.Backend,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
-	obsoleteSVCBackendIDs []lb.BackendID, getScopedLog func() *logrus.Entry,
+	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *slog.Logger,
 	debugLogsEnabled bool,
 ) error {
 	v6FE := svc.frontend.IsIPv6()
@@ -1652,11 +1681,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		if debugLogsEnabled {
-			getScopedLog().WithFields(logrus.Fields{
-				logfields.BackendID:     b.ID,
-				logfields.BackendWeight: b.Weight,
-				logfields.L3n4Addr:      b.L3n4Addr,
-			}).Debug("Adding new backend")
+			scopedLog.Debug("Adding new backend",
+				logfields.BackendID, b.ID,
+				logfields.BackendWeight, b.Weight,
+				logfields.L3n4Addr, b.L3n4Addr,
+			)
 		}
 
 		if err := s.lbmap.AddBackend(b, b.L3n4Addr.IsIPv6()); err != nil {
@@ -1740,8 +1769,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	for _, be := range obsoleteBackends {
 		id := be.ID
 		if debugLogsEnabled {
-			getScopedLog().WithField(logfields.BackendID, id).
-				Debug("Removing obsolete backend")
+			scopedLog.Debug("Removing obsolete backend",
+				logfields.BackendID, id,
+			)
 		}
 		s.lbmap.DeleteBackendByID(id)
 		s.TerminateUDPConnectionsToBackend(&be.L3n4Addr)
@@ -1757,17 +1787,18 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 		return fmt.Errorf("Unable to dump backend maps: %w", err)
 	}
 
-	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
+	debugLogsEnabled := s.logger.Enabled(context.Background(), slog.LevelDebug)
 
 	svcBackendsCount := len(svcBackendsById)
 	for _, b := range backends {
 		if debugLogsEnabled {
-			log.WithFields(logrus.Fields{
-				logfields.BackendID:        b.ID,
-				logfields.L3n4Addr:         b.L3n4Addr.String(),
-				logfields.BackendState:     b.State,
-				logfields.BackendPreferred: b.Preferred,
-			}).Debug("Restoring backend")
+			s.logger.Debug(
+				"Restoring backend",
+				logfields.BackendID, b.ID,
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.BackendState, b.State,
+				logfields.BackendPreferred, b.Preferred,
+			)
 		}
 
 		if _, ok := svcBackendsById[b.ID]; !ok && (svcBackendsCount != 0) {
@@ -1810,26 +1841,29 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 				// As the backends map is not expected to be updated during restore,
 				// the deletion call shouldn't fail. But log the error, just
 				// in case...
-				log.Errorf("unable to delete leaked backend: %v", id)
+				s.logger.Error("unable to delete leaked backend", logfields.ID, id)
 			}
 			if debugLogsEnabled {
-				log.WithFields(logrus.Fields{
-					logfields.BackendID:        b.ID,
-					logfields.L3n4Addr:         b.L3n4Addr,
-					logfields.BackendState:     b.State,
-					logfields.BackendPreferred: b.Preferred,
-				}).Debug("Leaked backend entry not restored")
+				s.logger.Debug(
+					"Leaked backend entry not restored",
+					logfields.BackendID, b.ID,
+					logfields.L3n4Addr, b.L3n4Addr,
+					logfields.BackendState, b.State,
+					logfields.BackendPreferred, b.Preferred,
+				)
 			}
 			skipped++
 			continue
 		}
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.BackendID:        b.ID,
-				logfields.L3n4Addr:         b.L3n4Addr,
-				logfields.BackendState:     b.State,
-				logfields.BackendPreferred: b.Preferred,
-			}).Warning("Unable to restore backend")
+			s.logger.Warn(
+				"Unable to restore backend",
+				logfields.Error, err,
+				logfields.BackendID, b.ID,
+				logfields.L3n4Addr, b.L3n4Addr,
+				logfields.BackendState, b.State,
+				logfields.BackendPreferred, b.Preferred,
+			)
 			failed++
 			continue
 		}
@@ -1838,11 +1872,12 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 		s.backendByHash[hash] = b
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.RestoredBackends: restored,
-		logfields.FailedBackends:   failed,
-		logfields.SkippedBackends:  skipped,
-	}).Info("Restored backends from maps")
+	s.logger.Info(
+		"Restored backends from maps",
+		logfields.RestoredBackends, restored,
+		logfields.FailedBackends, failed,
+		logfields.SkippedBackends, skipped,
+	)
 
 	return nil
 }
@@ -1852,8 +1887,10 @@ func (s *Service) deleteOrphanBackends() {
 
 	for hash, b := range s.backendByHash {
 		if s.backendRefCount[hash] == 0 {
-			log.WithField(logfields.BackendID, b.ID).
-				Debug("Removing orphan backend")
+			s.logger.Debug(
+				"Removing orphan backend",
+				logfields.BackendID, b.ID,
+			)
 			// The b.ID is unique across IPv4/6, hence attempt
 			// to clean it from both maps, and ignore errors.
 			DeleteBackendID(b.ID)
@@ -1862,9 +1899,10 @@ func (s *Service) deleteOrphanBackends() {
 			orphanBackends++
 		}
 	}
-	log.WithFields(logrus.Fields{
-		logfields.OrphanBackends: orphanBackends,
-	}).Info("Deleted orphan backends")
+	s.logger.Info(
+		"Deleted orphan backends",
+		logfields.OrphanBackends, orphanBackends,
+	)
 }
 
 func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{}) {
@@ -1872,19 +1910,22 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 
 	svcs, errors := s.lbmap.DumpServiceMaps()
 	for _, err := range errors {
-		log.WithError(err).Warning("Error occurred while dumping service maps")
+		s.logger.Warn("Error occurred while dumping service maps", logfields.Error, err)
 	}
 
 	for _, svc := range svcs {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: svc.Frontend.ID,
-			logfields.ServiceIP: svc.Frontend.L3n4Addr.String(),
-		})
-		scopedLog.Debug("Restoring service")
+		s.logger.Debug("Restoring service",
+			logfields.ServiceID, svc.Frontend.ID,
+			logfields.ServiceIP, svc.Frontend.L3n4Addr,
+		)
 
-		if _, err := RestoreID(svc.Frontend.L3n4Addr, uint32(svc.Frontend.ID)); err != nil {
+		if _, err := RestoreID(s.logger, svc.Frontend.L3n4Addr, uint32(svc.Frontend.ID)); err != nil {
 			failed++
-			scopedLog.WithError(err).Warning("Unable to restore service ID")
+			s.logger.Warn("Unable to restore service ID",
+				logfields.Error, err,
+				logfields.ServiceID, svc.Frontend.ID,
+				logfields.ServiceIP, svc.Frontend.L3n4Addr,
+			)
 		}
 
 		newSVC := &svcInfo{
@@ -1947,7 +1988,11 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
 				ipv6); err != nil {
-				scopedLog.WithError(err).Warning("Unable to upsert into the Maglev BPF map.")
+				s.logger.Warn("Unable to upsert into the Maglev BPF map.",
+					logfields.Error, err,
+					logfields.ServiceID, svc.Frontend.ID,
+					logfields.ServiceIP, svc.Frontend.L3n4Addr,
+				)
 				continue
 			}
 		}
@@ -1957,21 +2002,21 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 		restored++
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.RestoredSVCs: restored,
-		logfields.FailedSVCs:   failed,
-	}).Info("Restored services from maps")
+	s.logger.Info(
+		"Restored services from maps",
+		logfields.RestoredSVCs, restored,
+		logfields.FailedSVCs, failed,
+	)
 }
 
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	ipv6 := svc.frontend.L3n4Addr.IsIPv6() || svc.svcNatPolicy == lb.SVCNatPolicyNat46
 	obsoleteBackendIDs, obsoleteBackends := s.deleteBackendsFromCacheLocked(svc)
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceID: svc.frontend.ID,
-		logfields.ServiceIP: svc.frontend.L3n4Addr,
-		logfields.Backends:  svc.backends,
-	})
-	scopedLog.Debug("Deleting service")
+	s.logger.Debug("Deleting service",
+		logfields.ServiceID, svc.frontend.ID,
+		logfields.ServiceIP, svc.frontend.L3n4Addr,
+		logfields.Backends, svc.backends,
+	)
 
 	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends),
 		svc.useMaglev(), svc.svcNatPolicy); err != nil {
@@ -1998,11 +2043,16 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	delete(s.svcByID, svc.frontend.ID)
 
 	for _, id := range obsoleteBackendIDs {
-		scopedLog.WithField(logfields.BackendID, id).
-			Debug("Deleting obsolete backend")
+		s.logger.Debug(
+			"Deleting obsolete backend",
+			logfields.BackendID, id,
+			logfields.ServiceID, svc.frontend.ID,
+			logfields.ServiceIP, svc.frontend.L3n4Addr,
+			logfields.Backends, svc.backends,
+		)
 		s.lbmap.DeleteBackendByID(id)
 	}
-	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
+	if err := DeleteID(s.logger, uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %w", svc.frontend.ID, err)
 	}
 
@@ -2268,14 +2318,15 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 
 	// Delete the services of the removed frontends
 	for _, svc := range removedFEs {
-		log := log.WithField(logfields.K8sNamespace, svc.svcName.Namespace).
-			WithField(logfields.K8sSvcName, svc.svcName.Name).
-			WithField(logfields.L3n4Addr, svc.frontend.L3n4Addr)
-
 		if err := s.deleteServiceLocked(svc); err != nil {
 			return fmt.Errorf("delete service: %w", err)
 		} else {
-			log.Debug("Deleted nodeport service of a removed frontend")
+			s.logger.Debug(
+				"Deleted nodeport service of a removed frontend",
+				logfields.K8sNamespace, svc.svcName.Namespace,
+				logfields.K8sSvcName, svc.svcName.Name,
+				logfields.L3n4Addr, svc.frontend.L3n4Addr,
+			)
 		}
 	}
 
@@ -2298,14 +2349,16 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 				svc := svcInfo.deepCopyToLBSVC()
 				svc.Frontend = *fe
 
-				log := log.WithField(logfields.K8sNamespace, svc.Name.Namespace).
-					WithField(logfields.K8sSvcName, svc.Name.Name).
-					WithField(logfields.L3n4Addr, svc.Frontend.L3n4Addr)
 				_, _, err := s.upsertService(svc)
 				if err != nil {
 					return fmt.Errorf("upsert service: %w", err)
 				} else {
-					log.Debug("Created nodeport service for new frontend")
+					s.logger.Debug(
+						"Created nodeport service for new frontend",
+						logfields.K8sNamespace, svc.Name.Namespace,
+						logfields.K8sSvcName, svc.Name.Name,
+						logfields.L3n4Addr, svc.Frontend.L3n4Addr,
+					)
 				}
 			}
 		}

@@ -5,6 +5,7 @@ package service
 
 import (
 	"errors"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -46,7 +46,7 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	default:
 		return
 	}
-	log.Debugf("handling udp connections to deleted backend %v", l3n4Addr)
+	s.logger.Debug("handling udp connections to deleted backend", logfields.Deleted, l3n4Addr)
 	if l3n4Addr.IsIPv6() {
 		family = syscall.AF_INET6
 	} else {
@@ -74,15 +74,18 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	if err != nil {
 		if errors.Is(err, unix.EOPNOTSUPP) {
 			opSupported = false
-			log.Errorf("Forcefully terminating sockets connected to deleted service backends " +
+			s.logger.Error("Forcefully terminating sockets connected to deleted service backends " +
 				"not supported by underlying kernel: see kube-proxy free guide for " +
 				"the required kernel configurations")
 			return
 		} else {
-			log.WithError(err).WithField(logfields.L3n4Addr, l3n4Addr).Error(
-				"error while forcefully terminating sockets connected to " +
-					"deleted service backend. Consider restarting any application pods sending traffic " +
-					"to the backend")
+			s.logger.Error(
+				"error while forcefully terminating sockets connected to "+
+					"deleted service backend. Consider restarting any application pods sending traffic "+
+					"to the backend",
+				logfields.Error, err,
+				logfields.L3n4Addr, l3n4Addr,
+			)
 		}
 	}
 
@@ -90,20 +93,24 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 	if option.Config.EnableSocketLBPodConnectionTermination && !option.Config.BPFSocketLBHostnsOnly {
 		files, err := os.ReadDir(defaults.NetNsPath)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"netns-dir":        defaults.NetNsPath,
-				logfields.L3n4Addr: l3n4Addr,
-			}).Error("Error opening the netns dir while " +
-				"terminating connections to deleted service backend")
+			s.logger.Error(
+				"Error opening the netns dir while "+
+					"terminating connections to deleted service backend",
+				logfields.Error, err,
+				logfields.L3n4Addr, l3n4Addr,
+				logfields.NetNSDir, defaults.NetNsPath,
+			)
 			return
 		}
 
 		for _, file := range files {
 			ns, err := netns.OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
 			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					"netns": file.Name(),
-				}).Debug("Error opening netns")
+				s.logger.Debug(
+					"Error opening netns",
+					logfields.Error, err,
+					logfields.NetNSName, file.Name(),
+				)
 				continue
 			}
 			err = ns.Do(func() error {
@@ -117,12 +124,14 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 			})
 			ns.Close()
 			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					"netns":            file.Name(),
-					logfields.L3n4Addr: l3n4Addr,
-				}).Error("error while forcefully terminating sockets in netns connected to " +
-					"deleted service backend. Consider restarting any application pods sending traffic " +
-					"to the backend")
+				s.logger.Error(
+					"error while forcefully terminating sockets in netns connected to "+
+						"deleted service backend. Consider restarting any application pods sending traffic "+
+						"to the backend",
+					logfields.Error, err,
+					logfields.L3n4Addr, l3n4Addr,
+					logfields.NetNSName, file.Name(),
+				)
 				continue
 			}
 		}
@@ -130,7 +139,9 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 }
 
 // backendConnectionHandler is added for dependency injection in tests.
-type backendConnectionHandler struct{}
+type backendConnectionHandler struct {
+	logger *slog.Logger
+}
 
 func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
 	return sockets.Destroy(filter)

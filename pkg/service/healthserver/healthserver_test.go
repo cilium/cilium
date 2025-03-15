@@ -8,13 +8,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
 
 func TestServiceHealthServer_UpsertService(t *testing.T) {
-	f := NewMockHealthHTTPServerFactory()
-	h := WithHealthHTTPServerFactory(f)
+	logger := hivetest.Logger(t)
+	f := NewMockHealthHTTPServerFactory(logger)
+	h := WithHealthHTTPServerFactory(logger, f)
 
 	// Insert svc1
 	h.UpsertService(1, "default", "svc1", 1, 32000)

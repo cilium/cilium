@@ -8,21 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/counter"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "service-healthserver")
 
 // ServiceName is the name and namespace of the service
 type ServiceName struct {
@@ -63,6 +60,7 @@ type healthHTTPServerFactory interface {
 // responds with 200 OK if there are local endpoints for the service, or with
 // 503 Service Unavailable if the service does not have any local endpoints.
 type ServiceHealthServer struct {
+	logger                  *slog.Logger
 	healthHTTPServerByPort  map[uint16]healthHTTPServer
 	portRefCount            counter.IntCounter
 	portByServiceID         map[lb.ID]uint16
@@ -71,14 +69,15 @@ type ServiceHealthServer struct {
 
 // New creates a new health service server which services health checks by
 // serving an HTTP endpoint for each service on the given HealthCheckNodePort.
-func New() *ServiceHealthServer {
-	return WithHealthHTTPServerFactory(&httpHealthHTTPServerFactory{})
+func New(logger *slog.Logger) *ServiceHealthServer {
+	return WithHealthHTTPServerFactory(logger, &httpHealthHTTPServerFactory{logger: logger})
 }
 
 // WithHealthHTTPServerFactory creates a new health server with a specific health
 // server factory for testing purposes.
-func WithHealthHTTPServerFactory(healthHTTPServerFactory healthHTTPServerFactory) *ServiceHealthServer {
+func WithHealthHTTPServerFactory(logger *slog.Logger, healthHTTPServerFactory healthHTTPServerFactory) *ServiceHealthServer {
 	return &ServiceHealthServer{
+		logger:                  logger,
 		healthHTTPServerByPort:  map[uint16]healthHTTPServer{},
 		portRefCount:            counter.IntCounter{},
 		portByServiceID:         map[lb.ID]uint16{},
@@ -90,7 +89,10 @@ func (s *ServiceHealthServer) removeHTTPListener(port uint16) {
 	if s.portRefCount.Delete(int(port)) {
 		srv, ok := s.healthHTTPServerByPort[port]
 		if !ok {
-			log.WithField(logfields.Port, port).Warn("Invalid refcount for service health check port")
+			s.logger.Warn(
+				"Invalid refcount for service health check port",
+				logfields.Port, port,
+			)
 			return
 		}
 		srv.shutdown()
@@ -134,12 +136,13 @@ func (s *ServiceHealthServer) UpsertService(svcID lb.ID, ns, name string, localE
 
 	srv, foundSrv := s.healthHTTPServerByPort[port]
 	if !foundSrv {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceID:                  svcID,
-			logfields.ServiceNamespace:           ns,
-			logfields.ServiceName:                name,
-			logfields.ServiceHealthCheckNodePort: port,
-		}).Warn("Unable to find service health check listener")
+		s.logger.Warn(
+			"Unable to find service health check listener",
+			logfields.ServiceID, svcID,
+			logfields.ServiceNamespace, ns,
+			logfields.ServiceName, name,
+			logfields.ServiceHealthCheckNodePort, port,
+		)
 		return
 	}
 
@@ -162,7 +165,9 @@ type httpHealthServer struct {
 	service atomic.Value
 }
 
-type httpHealthHTTPServerFactory struct{}
+type httpHealthHTTPServerFactory struct {
+	logger *slog.Logger
+}
 
 func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Service) healthHTTPServer {
 	srv := &httpHealthServer{}
@@ -173,26 +178,31 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 	}
 
 	go func() {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceName:                svc.Service.Name,
-			logfields.ServiceNamespace:           svc.Service.Namespace,
-			logfields.ServiceHealthCheckNodePort: port,
-		}).Debug("Starting new service health server")
+		h.logger.Debug(
+			"Starting new service health server",
+			logfields.ServiceNamespace, svc.Service.Namespace,
+			logfields.ServiceName, svc.Service.Name,
+			logfields.ServiceHealthCheckNodePort, port,
+		)
 
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			svc := srv.loadService()
 			if errors.Is(err, unix.EADDRINUSE) {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceName:                svc.Service.Name,
-					logfields.ServiceNamespace:           svc.Service.Namespace,
-					logfields.ServiceHealthCheckNodePort: port,
-				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", option.EnableHealthCheckNodePort)
+				h.logger.Error(
+					fmt.Sprintf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", option.EnableHealthCheckNodePort),
+					logfields.Error, err,
+					logfields.ServiceNamespace, svc.Service.Namespace,
+					logfields.ServiceName, svc.Service.Name,
+					logfields.ServiceHealthCheckNodePort, port,
+				)
 			}
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.ServiceName:                svc.Service.Name,
-				logfields.ServiceNamespace:           svc.Service.Namespace,
-				logfields.ServiceHealthCheckNodePort: port,
-			}).Error("ListenAndServe failed for service health server")
+			h.logger.Error(
+				"ListenAndServe failed for service health server",
+				logfields.Error, err,
+				logfields.ServiceNamespace, svc.Service.Namespace,
+				logfields.ServiceName, svc.Service.Name,
+				logfields.ServiceHealthCheckNodePort, port,
+			)
 		}
 	}()
 

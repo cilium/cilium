@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -53,19 +54,19 @@ func TestServices(t *testing.T) {
 
 	ffsIDu16 := loadbalancer.ServiceID(uint16(FirstFreeServiceID))
 
-	l3n4AddrID, err := AcquireID(l3n4Addr1, 0)
+	l3n4AddrID, err := AcquireID(hivetest.Logger(t), l3n4Addr1, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16), l3n4AddrID.ID)
 
-	l3n4AddrID, err = AcquireID(l3n4Addr1, 0)
+	l3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr1, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16), l3n4AddrID.ID)
 
-	l3n4AddrID, err = AcquireID(l3n4Addr2, 0)
+	l3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr2, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16+1), l3n4AddrID.ID)
 
-	l3n4AddrID, err = AcquireID(l3n4Addr3, 0)
+	l3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr3, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16+2), l3n4AddrID.ID)
 
@@ -75,7 +76,7 @@ func TestServices(t *testing.T) {
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
 	require.EqualValues(t, wantL3n4AddrID, gotL3n4AddrID)
 
-	err = DeleteID(FirstFreeServiceID)
+	err = DeleteID(hivetest.Logger(t), FirstFreeServiceID)
 	require.NoError(t, err)
 	gotL3n4AddrID, err = GetID(FirstFreeServiceID)
 	require.NoError(t, err)
@@ -87,50 +88,50 @@ func TestServices(t *testing.T) {
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
 	require.EqualValues(t, wantL3n4AddrID, gotL3n4AddrID)
 
-	err = DeleteID(FirstFreeServiceID)
+	err = DeleteID(hivetest.Logger(t), FirstFreeServiceID)
 	require.NoError(t, err)
 
 	err = setIDSpace(FirstFreeServiceID, FirstFreeServiceID)
 	require.NoError(t, err)
 
-	err = DeleteID(FirstFreeServiceID)
+	err = DeleteID(hivetest.Logger(t), FirstFreeServiceID)
 	require.NoError(t, err)
 	gotL3n4AddrID, err = GetID(FirstFreeServiceID)
 	require.NoError(t, err)
 	require.Equal(t, nilL3n4AddrID, gotL3n4AddrID)
 
-	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr2, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(FirstFreeServiceID+1), gotL3n4AddrID.ID)
 
-	err = DeleteID(uint32(gotL3n4AddrID.ID))
+	err = DeleteID(hivetest.Logger(t), uint32(gotL3n4AddrID.ID))
 	require.NoError(t, err)
-	err = DeleteID(FirstFreeServiceID + 1)
+	err = DeleteID(hivetest.Logger(t), FirstFreeServiceID+1)
 	require.NoError(t, err)
-	err = DeleteID(FirstFreeServiceID + 1)
+	err = DeleteID(hivetest.Logger(t), FirstFreeServiceID+1)
 	require.NoError(t, err)
 
-	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr2, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16), gotL3n4AddrID.ID)
 
-	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 0)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr1, 0)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(FirstFreeServiceID+1), gotL3n4AddrID.ID)
 
-	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr1, 99)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(FirstFreeServiceID+1), gotL3n4AddrID.ID)
 
-	err = DeleteID(uint32(FirstFreeServiceID + 1))
+	err = DeleteID(hivetest.Logger(t), uint32(FirstFreeServiceID+1))
 	require.NoError(t, err)
 
-	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr1, 99)
 	require.NoError(t, err)
 	require.Equal(t, loadbalancer.ID(99), gotL3n4AddrID.ID)
 
 	// ID "99" has been already allocated to l3n4Addr1
-	gotL3n4AddrID, err = AcquireID(l3n4Addr4, 99)
+	gotL3n4AddrID, err = AcquireID(hivetest.Logger(t), l3n4Addr4, 99)
 	require.Error(t, err)
 	require.Nil(t, gotL3n4AddrID)
 }
@@ -208,10 +209,11 @@ func BenchmarkAllocation(b *testing.B) {
 		L4Addr:      loadbalancer.L4Addr{Port: 0, Protocol: "UDP"},
 	}
 
+	logger := hivetest.Logger(b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		addr.L4Addr.Port = uint16(b.N)
-		_, err := AcquireID(addr, 0)
+		_, err := AcquireID(logger, addr, 0)
 		require.NoError(b, err)
 	}
 	b.StopTimer()
