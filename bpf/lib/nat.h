@@ -1118,6 +1118,8 @@ struct ipv6_nat_target {
 	const __u16 max_port; /* host endianness */
 	bool from_local_endpoint;
 	bool needs_ct;
+	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
+	__u32 ifindex; /* Obtained from EGW policy */
 };
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
@@ -1442,6 +1444,11 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
+	if (target->egress_gateway)
+		return false;
+#endif
+
 	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
 }
 
@@ -1534,6 +1541,22 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			return err;
 		}
 	}
+
+/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed. */
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+	if (egress_gw_snat_needed_hook_v6(&tuple->saddr, &tuple->daddr, &target->addr,
+					  &target->ifindex)) {
+		if (ipv6_addr_equals(&target->addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6))
+			return DROP_NO_EGRESS_IP;
+
+		target->egress_gateway = true;
+		/* If the endpoint is local, then the connection is already tracked. */
+		if (!local_ep)
+			target->needs_ct = true;
+
+		return NAT_NEEDED;
+	}
+#endif
 
 # ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
 	{

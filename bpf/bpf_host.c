@@ -1481,7 +1481,9 @@ skip_host_firewall:
 	{
 		void *data, *data_end;
 		struct iphdr *ip4;
-		struct ipv4_ct_tuple tuple = {};
+		struct ipv6hdr __maybe_unused *ip6;
+		struct ipv4_ct_tuple tuple4 = {};
+		struct ipv6_ct_tuple __maybe_unused tuple6 = {};
 		int l4_off;
 		struct remote_endpoint_info *info;
 		struct endpoint_info *src_ep;
@@ -1490,49 +1492,96 @@ skip_host_firewall:
 		if (src_sec_identity == HOST_ID)
 			goto skip_egress_gateway;
 
-		if (proto != bpf_htons(ETH_P_IP))
-			goto skip_egress_gateway;
-
 		if (ctx_egw_done(ctx))
 			goto skip_egress_gateway;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
-			goto drop_err;
-		}
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
 
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
+			tuple4.nexthdr = ip4->protocol;
+			tuple4.daddr = ip4->daddr;
+			tuple4.saddr = ip4->saddr;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple,
-					NULL);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_CT_UNKNOWN_PROTO)
+			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+			ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple4,
+						NULL);
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CT_UNKNOWN_PROTO)
+					goto skip_egress_gateway;
+				goto drop_err;
+			}
+
+			/* Only handle outbound connections: */
+			is_reply = ct_is_reply4(get_ct_map4(&tuple4), &tuple4);
+			if (is_reply)
 				goto skip_egress_gateway;
 
-			goto drop_err;
+			src_ep = __lookup_ip4_endpoint(ip4->saddr);
+			if (src_ep)
+				src_sec_identity = src_ep->sec_id;
+
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+			if (info && info->sec_identity)
+				dst_sec_identity = info->sec_identity;
+
+			/* lower-level code expects CT tuple to be flipped: */
+			__ipv4_ct_tuple_reverse(&tuple4);
+			ret = egress_gw_handle_packet(ctx, &tuple4,
+						      src_sec_identity, dst_sec_identity,
+						      &trace);
+			break;
+#if defined(ENABLE_IPV6)
+		case bpf_htons(ETH_P_IPV6):
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+
+			tuple6.nexthdr = ip6->nexthdr;
+			ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
+			ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
+
+			l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &tuple6.nexthdr);
+			if (l4_off < 0) {
+				ret = l4_off;
+				goto drop_err;
+			}
+
+			ret = ct_extract_ports6(ctx, l4_off, &tuple6);
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CT_UNKNOWN_PROTO)
+					goto skip_egress_gateway;
+				goto drop_err;
+			}
+
+			/* Only handle outbound connections: */
+			is_reply = ct_is_reply6(get_ct_map6(&tuple6), &tuple6);
+			if (is_reply)
+				goto skip_egress_gateway;
+
+			src_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+			if (src_ep)
+				src_sec_identity = src_ep->sec_id;
+
+			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+			if (info && info->sec_identity)
+				dst_sec_identity = info->sec_identity;
+
+			/* lower-level code expects CT tuple to be flipped: */
+			__ipv6_ct_tuple_reverse(&tuple6);
+			ret = egress_gw_handle_packet_v6(ctx, &tuple6,
+							 src_sec_identity, dst_sec_identity,
+							 &trace);
+			break;
+#endif
+		default:
+			goto skip_egress_gateway;
 		}
 
-		/* Only handle outbound connections: */
-		is_reply = ct_is_reply4(get_ct_map4(&tuple), &tuple);
-		if (is_reply)
-			goto skip_egress_gateway;
-
-		src_ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (src_ep)
-			src_sec_identity = src_ep->sec_id;
-
-		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (info && info->sec_identity)
-			dst_sec_identity = info->sec_identity;
-
-		/* lower-level code expects CT tuple to be flipped: */
-		__ipv4_ct_tuple_reverse(&tuple);
-		ret = egress_gw_handle_packet(ctx, &tuple,
-					      src_sec_identity, dst_sec_identity,
-					      &trace);
 		if (IS_ERR(ret))
 			goto drop_err;
 
