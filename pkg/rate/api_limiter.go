@@ -376,8 +376,7 @@ func (p *APILimiterParameters) mergeUserConfigKeyValue(key, value string) error 
 }
 
 func (p *APILimiterParameters) mergeUserConfig(config string) error {
-	tokens := strings.Split(config, ",")
-	for _, token := range tokens {
+	for token := range strings.SplitSeq(config, ",") {
 		if token == "" {
 			continue
 		}

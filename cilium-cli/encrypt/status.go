@@ -154,8 +154,7 @@ func nodeStatusFromText(str string) (models.EncryptionStatus, error) {
 			Interfaces: make([]*models.WireguardInterface, 0),
 		},
 	}
-	lines := strings.Split(str, "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(str, "\n") {
 		parts := strings.Split(line, ":")
 		if len(parts) < 2 {
 			continue

@@ -27,7 +27,7 @@ func cgroup2Path() (string, error) {
 			return
 		}
 
-		for _, line := range strings.Split(string(mounts), "\n") {
+		for line := range strings.SplitSeq(string(mounts), "\n") {
 			mount := strings.SplitN(line, " ", 3)
 			if mount[0] == "cgroup2" {
 				c.path, c.err = mount[1], nil
