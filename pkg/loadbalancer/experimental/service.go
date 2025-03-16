@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -211,10 +210,6 @@ func (svc *Service) showPortNames() string {
 
 	}
 	return b.String()
-}
-
-func (svc *Service) GetLBAlgorithmAnnotation() loadbalancer.SVCLoadBalancingAlgorithm {
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
 var (
