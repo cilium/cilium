@@ -5,8 +5,6 @@ package annotation
 
 import (
 	"regexp"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -216,12 +214,17 @@ const (
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.
 var CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
 
+type annotatedObject interface {
+	GetAnnotations() map[string]string
+}
+
 // Get returns the annotation value associated with the given key, or any of
 // the additional aliases if not found.
-func Get(obj metav1.Object, key string, aliases ...string) (value string, ok bool) {
+func Get(obj annotatedObject, key string, aliases ...string) (value string, ok bool) {
 	keys := append([]string{key}, aliases...)
+	annotations := obj.GetAnnotations()
 	for _, k := range keys {
-		if value, ok = obj.GetAnnotations()[k]; ok {
+		if value, ok = annotations[k]; ok {
 			return value, ok
 		}
 	}

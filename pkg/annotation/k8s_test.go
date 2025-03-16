@@ -7,14 +7,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 )
+
+type object struct {
+	Annotations map[string]string
+}
+
+func (o *object) GetAnnotations() map[string]string {
+	return o.Annotations
+}
 
 func TestGet(t *testing.T) {
 	var (
 		key     = "key"
 		aliases = []string{"key-alt-1", "key-alt-2"}
-		obj     = corev1.Service{}
+		obj     = object{}
 	)
 
 	tests := []struct {
@@ -52,7 +59,7 @@ func TestGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj.ObjectMeta.Annotations = tt.annotations
+			obj.Annotations = tt.annotations
 			value, ok := Get(&obj, key, aliases...)
 			require.Equal(t, tt.wantValue, value)
 			require.Equal(t, tt.wantOK, ok)
