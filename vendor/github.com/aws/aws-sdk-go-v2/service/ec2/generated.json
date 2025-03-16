@@ -682,6 +682,7 @@
         "protocol_test.go",
         "serializers.go",
         "snapshot_test.go",
+        "sra_operation_order_test.go",
         "types/enums.go",
         "types/types.go",
         "validators.go"
