@@ -12,8 +12,7 @@ import (
 )
 
 // Describes the Availability Zones, Local Zones, and Wavelength Zones that are
-// available to you. If there is an event impacting a zone, you can use this
-// request to view the state and any provided messages for that zone.
+// available to you.
 //
 // For more information about Availability Zones, Local Zones, and Wavelength
 // Zones, see [Regions and zones]in the Amazon EC2 User Guide.
@@ -54,6 +53,11 @@ type DescribeAvailabilityZonesInput struct {
 	DryRun *bool
 
 	// The filters.
+	//
+	//   - group-long-name - The long name of the zone group for the Availability Zone
+	//   (for example, US West (Oregon) 1 ), the Local Zone (for example, for Zone
+	//   group us-west-2-lax-1 , it is US West (Los Angeles) , or the Wavelength Zone
+	//   (for example, for Zone group us-east-1-wl1 , it is US East (Verizon) .
 	//
 	//   - group-name - The name of the zone group for the Availability Zone (for
 	//   example, us-east-1-zg-1 ), the Local Zone (for example, us-west-2-lax-1 ), or

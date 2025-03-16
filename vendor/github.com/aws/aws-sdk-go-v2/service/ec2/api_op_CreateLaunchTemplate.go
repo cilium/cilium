@@ -52,7 +52,10 @@ type CreateLaunchTemplateInput struct {
 	LaunchTemplateName *string
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see [Ensuring idempotency].
+	// request. If a client token isn't specified, a randomly generated token is used
+	// in the request to ensure idempotency.
+	//
+	// For more information, see [Ensuring idempotency].
 	//
 	// Constraint: Maximum 128 ASCII characters.
 	//
@@ -166,6 +169,9 @@ func (c *Client) addOperationCreateLaunchTemplateMiddlewares(stack *middleware.S
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
+	if err = addIdempotencyToken_opCreateLaunchTemplateMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateLaunchTemplateValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -200,6 +206,39 @@ func (c *Client) addOperationCreateLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	return nil
+}
+
+type idempotencyToken_initializeOpCreateLaunchTemplate struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpCreateLaunchTemplate) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpCreateLaunchTemplate) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*CreateLaunchTemplateInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateLaunchTemplateInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opCreateLaunchTemplateMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateLaunchTemplate{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
 func newServiceMetadataMiddleware_opCreateLaunchTemplate(region string) *awsmiddleware.RegisterServiceMetadata {

@@ -62885,6 +62885,19 @@ func awsEc2query_deserializeDocumentAddress(v **types.Address, decoder smithyxml
 				sv.PublicIpv4Pool = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("serviceManaged", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ServiceManaged = types.ServiceManaged(xtv)
+			}
+
 		case strings.EqualFold("tagSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
@@ -65856,6 +65869,19 @@ func awsEc2query_deserializeDocumentAvailabilityZone(v **types.AvailabilityZone,
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("groupLongName", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.GroupLongName = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("groupName", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -149028,6 +149054,12 @@ func awsEc2query_deserializeDocumentVpc(v **types.Vpc, decoder smithyxml.NodeDec
 				sv.DhcpOptionsId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("encryptionControl", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControl(&sv.EncryptionControl, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("instanceTenancy", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -149959,6 +149991,247 @@ func awsEc2query_deserializeDocumentVpcClassicLinkListUnwrapped(v *[]types.VpcCl
 	*v = sv
 	return nil
 }
+func awsEc2query_deserializeDocumentVpcEncryptionControl(v **types.VpcEncryptionControl, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.VpcEncryptionControl
+	if *v == nil {
+		sv = &types.VpcEncryptionControl{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("mode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Mode = types.VpcEncryptionControlMode(xtv)
+			}
+
+		case strings.EqualFold("resourceExclusions", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusions(&sv.ResourceExclusions, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = types.VpcEncryptionControlState(xtv)
+			}
+
+		case strings.EqualFold("stateMessage", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.StateMessage = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("tagSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("vpcEncryptionControlId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VpcEncryptionControlId = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("vpcId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VpcId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(v **types.VpcEncryptionControlExclusion, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.VpcEncryptionControlExclusion
+	if *v == nil {
+		sv = &types.VpcEncryptionControlExclusion{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("state", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.State = types.VpcEncryptionControlExclusionState(xtv)
+			}
+
+		case strings.EqualFold("stateMessage", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.StateMessage = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentVpcEncryptionControlExclusions(v **types.VpcEncryptionControlExclusions, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.VpcEncryptionControlExclusions
+	if *v == nil {
+		sv = &types.VpcEncryptionControlExclusions{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("egressOnlyInternetGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(&sv.EgressOnlyInternetGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("internetGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(&sv.InternetGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("natGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(&sv.NatGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("virtualPrivateGateway", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(&sv.VirtualPrivateGateway, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("vpcPeering", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentVpcEncryptionControlExclusion(&sv.VpcPeering, nodeDecoder); err != nil {
+				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
 func awsEc2query_deserializeDocumentVpcEndpoint(v **types.VpcEndpoint, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)

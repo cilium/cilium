@@ -324,6 +324,11 @@ type Address struct {
 	// The ID of an address pool.
 	PublicIpv4Pool *string
 
+	// The service that manages the elastic IP address.
+	//
+	// The only option supported today is alb .
+	ServiceManaged ServiceManaged
+
 	// Any tags assigned to the Elastic IP address.
 	Tags []Tag
 
@@ -814,6 +819,10 @@ type AuthorizationRule struct {
 // Describes Availability Zones, Local Zones, and Wavelength Zones.
 type AvailabilityZone struct {
 
+	// The long name of the Availability Zone group, Local Zone group, or Wavelength
+	// Zone group.
+	GroupLongName *string
+
 	// The name of the zone group. For example:
 	//
 	//   - Availability Zones - us-east-1-zg-1
@@ -833,7 +842,7 @@ type AvailabilityZone struct {
 	// opt-in-not-required .
 	//
 	// For Local Zones and Wavelength Zones, this parameter is the opt-in status. The
-	// possible values are opted-in , and not-opted-in .
+	// possible values are opted-in and not-opted-in .
 	OptInStatus AvailabilityZoneOptInStatus
 
 	// The ID of the zone that handles some of the Local Zone or Wavelength Zone
@@ -847,8 +856,8 @@ type AvailabilityZone struct {
 	// The name of the Region.
 	RegionName *string
 
-	// The state of the Availability Zone, Local Zone, or Wavelength Zone. This value
-	// is always available .
+	// The state of the Availability Zone, Local Zone, or Wavelength Zone. The
+	// possible values are available , unavailable , and constrained .
 	State AvailabilityZoneState
 
 	// The ID of the Availability Zone, Local Zone, or Wavelength Zone.
@@ -857,8 +866,9 @@ type AvailabilityZone struct {
 	// The name of the Availability Zone, Local Zone, or Wavelength Zone.
 	ZoneName *string
 
-	// The type of zone. The valid values are availability-zone , local-zone , and
-	// wavelength-zone .
+	// The type of zone.
+	//
+	// Valid values: availability-zone | local-zone | wavelength-zone
 	ZoneType *string
 
 	noSmithyDocumentSerde
@@ -21409,6 +21419,8 @@ type Vpc struct {
 	// The ID of the set of DHCP options you've associated with the VPC.
 	DhcpOptionsId *string
 
+	EncryptionControl *VpcEncryptionControl
+
 	// The allowed tenancy of instances launched into the VPC.
 	InstanceTenancy Tenancy
 
@@ -21590,6 +21602,46 @@ type VpcClassicLink struct {
 
 	// The ID of the VPC.
 	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
+type VpcEncryptionControl struct {
+	Mode VpcEncryptionControlMode
+
+	ResourceExclusions *VpcEncryptionControlExclusions
+
+	State VpcEncryptionControlState
+
+	StateMessage *string
+
+	Tags []Tag
+
+	VpcEncryptionControlId *string
+
+	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
+type VpcEncryptionControlExclusion struct {
+	State VpcEncryptionControlExclusionState
+
+	StateMessage *string
+
+	noSmithyDocumentSerde
+}
+
+type VpcEncryptionControlExclusions struct {
+	EgressOnlyInternetGateway *VpcEncryptionControlExclusion
+
+	InternetGateway *VpcEncryptionControlExclusion
+
+	NatGateway *VpcEncryptionControlExclusion
+
+	VirtualPrivateGateway *VpcEncryptionControlExclusion
+
+	VpcPeering *VpcEncryptionControlExclusion
 
 	noSmithyDocumentSerde
 }

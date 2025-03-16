@@ -1,3 +1,23 @@
+# v1.210.0 (2025-03-13)
+
+* **Feature**: This release changes the CreateLaunchTemplate, CreateLaunchTemplateVersion, ModifyLaunchTemplate CLI and SDKs such that if you do not specify a client token, a randomly generated token is used for the request to ensure idempotency.
+
+# v1.209.0 (2025-03-11)
+
+* **Feature**: This release adds the GroupLongName field to the response of the DescribeAvailabilityZones API.
+
+# v1.208.0 (2025-03-07)
+
+* **Feature**: Add serviceManaged field to DescribeAddresses API response.
+
+# v1.207.1 (2025-03-04.2)
+
+* **Bug Fix**: Add assurance test for operation order.
+
+# v1.207.0 (2025-03-04)
+
+* **Feature**: Update the DescribeVpcs response
+
 # v1.206.0 (2025-02-27)
 
 * **Feature**: Track credential providers via User-Agent Feature ids
