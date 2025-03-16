@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -29,7 +28,7 @@ var Cell = cell.Module(
 	cell.Provide(NewClusterMesh),
 
 	// Convert concrete objects into more restricted interfaces used by clustermesh.
-	cell.ProvidePrivate(func(sc k8s.ServiceCache) ServiceMerger { return sc }),
+	cell.ProvidePrivate(newServiceMerger),
 	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) ipcache.IPCacher { return ipcache }),
 	cell.ProvidePrivate(func(mgr nodemanager.NodeManager) (nodeStore.NodeManager, kvstore.ClusterSizeDependantIntervalFunc) {
 		return mgr, mgr.ClusterSizeDependantInterval
