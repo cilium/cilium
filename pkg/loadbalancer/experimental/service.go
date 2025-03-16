@@ -100,6 +100,14 @@ const (
 	TrafficDistributionPreferClose = TrafficDistribution("PreferClose")
 )
 
+func (svc *Service) GetLBAlgorithmAnnotation() loadbalancer.SVCLoadBalancingAlgorithm {
+	return loadbalancer.ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
+}
+
+func (svc *Service) GetAnnotations() map[string]string {
+	return svc.Annotations
+}
+
 type ProxyRedirect struct {
 	ProxyPort uint16
 
@@ -230,10 +238,6 @@ func (svc *Service) showPortNames() string {
 
 	}
 	return b.String()
-}
-
-func (svc *Service) GetLBAlgorithmAnnotation() loadbalancer.SVCLoadBalancingAlgorithm {
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
 var (

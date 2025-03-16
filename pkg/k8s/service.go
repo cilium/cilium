@@ -26,47 +26,6 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
-const (
-	serviceAffinityNone   = ""
-	serviceAffinityLocal  = "local"
-	serviceAffinityRemote = "remote"
-)
-
-func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
-	if value, ok := annotation.Get(svc, annotation.GlobalService, annotation.GlobalServiceAlias); ok {
-		return strings.ToLower(value) == "true"
-	}
-
-	return false
-}
-
-func getAnnotationShared(svc *slim_corev1.Service) bool {
-	// The SharedService annotation is ignored if the service is not declared as global.
-	if !getAnnotationIncludeExternal(svc) {
-		return false
-	}
-
-	if value, ok := annotation.Get(svc, annotation.SharedService, annotation.SharedServiceAlias); ok {
-		return strings.ToLower(value) == "true"
-	}
-
-	// A global service is marked as shared by default.
-	return true
-}
-
-func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
-	// The ServiceAffinity annotation is ignored if the service is not declared as global.
-	if !getAnnotationIncludeExternal(svc) {
-		return serviceAffinityNone
-	}
-
-	if value, ok := annotation.Get(svc, annotation.ServiceAffinity, annotation.ServiceAffinityAlias); ok {
-		return strings.ToLower(value)
-	}
-
-	return serviceAffinityNone
-}
-
 func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
 		val := loadbalancer.ToSVCForwardingMode(strings.ToLower(value))
@@ -291,9 +250,9 @@ func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs [
 
 	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
 	svcInfo.ProxyDelegation = getAnnotationServiceProxyDelegation(svc)
-	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
-	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
-	svcInfo.Shared = getAnnotationShared(svc)
+	svcInfo.IncludeExternal = annotation.GetAnnotationIncludeExternal(svc)
+	svcInfo.ServiceAffinity = annotation.GetAnnotationServiceAffinity(svc)
+	svcInfo.Shared = annotation.GetAnnotationShared(svc)
 
 	svcInfo.ForwardingMode = loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode)
 	if option.Config.LoadBalancerAlgorithmAnnotation {

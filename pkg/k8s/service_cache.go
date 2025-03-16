@@ -19,6 +19,7 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
@@ -679,7 +680,7 @@ func (s *ServiceCacheImpl) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		for _, e := range endpoints.Backends {
 			// The endpoints returned by GetEndpoints are already deep copies,
 			// hence we can mutate them in-place without problems.
-			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
+			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == annotation.ServiceAffinityLocal
 		}
 	} else {
 		endpoints = newEndpoints()
@@ -704,7 +705,7 @@ func (s *ServiceCacheImpl) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 							logfields.ClusterName, clusterName,
 						)
 					} else {
-						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
+						e.Preferred = svc.ServiceAffinity == annotation.ServiceAffinityRemote
 						endpoints.Backends[ip] = e.DeepCopy()
 					}
 				}
