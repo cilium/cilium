@@ -20,14 +20,12 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -39,16 +37,17 @@ import (
 type adapterParams struct {
 	cell.In
 
-	JobGroup   job.Group
-	Log        *slog.Logger
-	Config     Config
-	DB         *statedb.DB
-	Services   statedb.Table[*Service]
-	Backends   statedb.Table[*Backend]
-	Frontends  statedb.Table[*Frontend]
-	Ops        *BPFOps
-	Writer     *Writer
-	TestConfig *TestConfig `optional:"true"`
+	JobGroup     job.Group
+	Log          *slog.Logger
+	DaemonConfig *option.DaemonConfig
+	Config       Config
+	DB           *statedb.DB
+	Services     statedb.Table[*Service]
+	Backends     statedb.Table[*Backend]
+	Frontends    statedb.Table[*Frontend]
+	Ops          *BPFOps
+	Writer       *Writer
+	TestConfig   *TestConfig `optional:"true"`
 }
 
 type decorateParams struct {
@@ -96,12 +95,13 @@ func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManager
 		initDone = func(WriteTxn) {}
 	}
 	sma = &serviceManagerAdapter{
-		log:       p.Log,
-		db:        p.DB,
-		services:  p.Services,
-		frontends: p.Frontends,
-		writer:    p.Writer,
-		initDone:  initDone,
+		log:          p.Log,
+		daemonConfig: p.DaemonConfig,
+		db:           p.DB,
+		services:     p.Services,
+		frontends:    p.Frontends,
+		writer:       p.Writer,
+		initDone:     initDone,
 	}
 	return
 }
@@ -166,149 +166,16 @@ func (s *serviceCacheAdapter) LocalServices() sets.Set[k8s.ServiceID] {
 	return nil
 }
 
-// MergeClusterServiceDelete implements k8s.ServiceCache.
-func (s *serviceCacheAdapter) MergeClusterServiceDelete(service *store.ClusterService, swg *lock.StoppableWaitGroup) {
-	name := loadbalancer.ServiceName{
-		Namespace: service.Namespace,
-		Name:      service.Name,
-		// TODO ClusterAware
-		// Cluster: csvc.Cluster,
-	}
-	txn := s.writer.WriteTxn()
-	defer txn.Commit()
-	s.writer.DeleteServiceAndFrontends(
-		txn,
-		name,
-	)
-}
-
-// MergeClusterServiceUpdate implements k8s.ServiceCache.
-func (s *serviceCacheAdapter) MergeClusterServiceUpdate(service *store.ClusterService, swg *lock.StoppableWaitGroup) {
-	svc, fes := clusterServiceToServiceAndFrontends(service)
-
-	txn := s.writer.WriteTxn()
-	defer txn.Commit()
-	s.writer.UpsertServiceAndFrontends(
-		txn,
-		svc,
-		fes...,
-	)
-}
-
 // MergeExternalServiceDelete implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) MergeExternalServiceDelete(service *store.ClusterService, swg *lock.StoppableWaitGroup) {
-	if service.Cluster == option.Config.ClusterName {
-		// Ignore updates of own cluster
-		return
-	}
-	name := loadbalancer.ServiceName{
-		Namespace: service.Namespace,
-		Name:      service.Name,
-		// TODO ClusterAware
-		// Cluster: csvc.Cluster,
-	}
-	txn := s.writer.WriteTxn()
-	defer txn.Commit()
-	s.writer.DeleteBackendsOfService(
-		txn,
-		name,
-		source.ClusterMesh,
-	)
+	// pkg/clustermesh/service_merger.go implements this for experimental control-plane.
+	panic("unimplemented")
 }
 
 // MergeExternalServiceUpdate implements k8s.ServiceCache.
 func (s *serviceCacheAdapter) MergeExternalServiceUpdate(service *store.ClusterService, swg *lock.StoppableWaitGroup) {
-	if service.Cluster == option.Config.ClusterName {
-		// Ignore updates of own cluster
-		return
-	}
-
-	name := loadbalancer.ServiceName{
-		Namespace: service.Namespace,
-		Name:      service.Name,
-		// TODO ClusterAware
-		// Cluster: service.Cluster,
-	}
-
-	backends := clusterServiceToBackendParams(service)
-	txn := s.writer.WriteTxn()
-	defer txn.Commit()
-	s.writer.UpsertBackends(
-		txn,
-		name,
-		source.ClusterMesh,
-		backends...,
-	)
-}
-
-func clusterServiceToBackendParams(service *store.ClusterService) (beps []BackendParams) {
-	for ipString, portConfig := range service.Backends {
-		addrCluster, err := cmtypes.ParseAddrCluster(ipString)
-		if err != nil {
-			continue
-		}
-		for name, l4 := range portConfig {
-			portNames := []string(nil)
-			if name != "" {
-				portNames = []string{name}
-			}
-			bep := BackendParams{
-				Address: loadbalancer.L3n4Addr{
-					AddrCluster: addrCluster,
-					L4Addr:      *l4,
-				},
-				PortNames: portNames,
-				Weight:    0,
-				NodeName:  "",
-				State:     loadbalancer.BackendStateActive,
-			}
-			beps = append(beps, bep)
-		}
-	}
-	return
-}
-
-func clusterServiceToServiceAndFrontends(csvc *store.ClusterService) (*Service, []FrontendParams) {
-	name := loadbalancer.ServiceName{
-		// TODO ClusterAware
-		// Cluster: csvc.Cluster,
-		Name:      csvc.Name,
-		Namespace: csvc.Namespace,
-	}
-	svc := &Service{
-		Name:             name,
-		Source:           source.ClusterMesh,
-		Labels:           labels.Map2Labels(csvc.Labels, string(source.ClusterMesh)),
-		Selector:         csvc.Selector,
-		NatPolicy:        loadbalancer.SVCNatPolicyNone,
-		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-	}
-
-	fes := make([]FrontendParams, 0, len(csvc.Frontends))
-	for ipStr, ports := range csvc.Frontends {
-		addrCluster, err := cmtypes.ParseAddrCluster(ipStr)
-		if err != nil {
-			continue
-		}
-		for portName, port := range ports {
-			l4 := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			portName := loadbalancer.FEPortName(portName)
-			fes = append(fes,
-				FrontendParams{
-					Address: loadbalancer.L3n4Addr{
-						AddrCluster: addrCluster,
-						L4Addr:      *l4,
-					},
-					Type:        loadbalancer.SVCTypeClusterIP,
-					ServiceName: name,
-					PortName:    portName,
-					ServicePort: l4.Port,
-				},
-			)
-		}
-	}
-	return svc, fes
+	// pkg/clustermesh/service_merger.go implements this for experimental control-plane.
+	panic("unimplemented")
 }
 
 // UpdateEndpoints implements k8s.ServiceCache.
@@ -474,11 +341,12 @@ func (s *serviceCacheAdapter) feedNotifications(ctx context.Context, _ cell.Heal
 var _ k8s.ServiceCache = &serviceCacheAdapter{}
 
 type serviceManagerAdapter struct {
-	log       *slog.Logger
-	db        *statedb.DB
-	services  statedb.Table[*Service]
-	frontends statedb.Table[*Frontend]
-	writer    *Writer
+	log          *slog.Logger
+	daemonConfig *option.DaemonConfig
+	db           *statedb.DB
+	services     statedb.Table[*Service]
+	frontends    statedb.Table[*Frontend]
+	writer       *Writer
 
 	initDone func(WriteTxn)
 }
@@ -541,7 +409,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 				ID:         0,
 				Weight:     be.Weight,
 				NodeName:   be.NodeName,
-				ZoneID:     option.Config.GetZoneID(be.Zone),
+				ZoneID:     s.daemonConfig.GetZoneID(be.Zone),
 				L3n4Addr:   be.Address,
 				State:      be.State,
 				Preferred:  true,
