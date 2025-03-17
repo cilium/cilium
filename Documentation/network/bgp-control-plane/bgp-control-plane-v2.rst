@@ -193,6 +193,11 @@ recommended to set the ``HoldTimer`` and ``KeepaliveTimer`` to a lower value
 for faster possible failure detection. For example, you can set the minimum
 possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
 
+To ensure a fast reconnection after losing connectivity with the peer,
+reduce the ``connectRetryTimeSeconds`` (for example to ``5`` or less).
+As random jitter is applied to the configured value internally, the actual value used for the
+``ConnectRetryTimer`` is within the interval ``[ConnectRetryTimeSeconds, 2 * ConnectRetryTimeSeconds)``.
+
 .. code-block:: yaml
 
     apiVersion: cilium.io/v2alpha1
@@ -201,7 +206,7 @@ possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
       name: cilium-peer
     spec:
       timers:
-        connectRetryTimeSeconds: 12
+        connectRetryTimeSeconds: 5
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
 
