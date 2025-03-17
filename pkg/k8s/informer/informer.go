@@ -15,11 +15,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
 
 func init() {
 	utilRuntime.PanicHandlers = append(
@@ -33,7 +30,7 @@ func init() {
 				//   panicking with ErrAbortHandler also suppresses logging of a stack trace to the server's error log.
 				return
 			}
-			log.Fatal("Panic in Kubernetes runtime handler")
+			logging.Fatal(logging.DefaultSlogLogger, "Panic in Kubernetes runtime handler")
 		},
 	)
 }

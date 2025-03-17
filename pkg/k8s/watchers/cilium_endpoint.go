@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"sync/atomic"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -28,6 +30,8 @@ import (
 
 type k8sCiliumEndpointsWatcherParams struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	Resources         agentK8s.Resources
 	K8sResourceSynced *k8sSynced.Resources
@@ -40,6 +44,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
 	return &K8sCiliumEndpointsWatcher{
+		logger:            params.Logger,
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
 		resources:         params.Resources,
@@ -50,6 +55,7 @@ func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCi
 }
 
 type K8sCiliumEndpointsWatcher struct {
+	logger *slog.Logger
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
@@ -169,7 +175,10 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 
 	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
 	if nodeIP == nil {
-		log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
+		k.logger.Warn(
+			"Unable to parse node IP while processing CiliumEndpoint update",
+			logfields.NodeIP, endpoint.Networking.NodeIP,
+		)
 		return
 	}
 

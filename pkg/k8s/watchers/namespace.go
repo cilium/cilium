@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -29,6 +30,8 @@ import (
 type k8sNamespaceWatcherParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Resources         agentK8s.Resources
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
@@ -38,6 +41,7 @@ type k8sNamespaceWatcherParams struct {
 
 func newK8sNamespaceWatcher(params k8sNamespaceWatcherParams) *K8sNamespaceWatcher {
 	return &K8sNamespaceWatcher{
+		logger:            params.Logger,
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
 		resources:         params.Resources,
@@ -47,6 +51,8 @@ func newK8sNamespaceWatcher(params k8sNamespaceWatcherParams) *K8sNamespaceWatch
 }
 
 type K8sNamespaceWatcher struct {
+	logger *slog.Logger
+
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
@@ -75,6 +81,7 @@ func (k *K8sNamespaceWatcher) namespacesInit() {
 	k.k8sAPIGroups.AddAPI(apiGroup)
 
 	nsUpdater := namespaceUpdater{
+		logger:          k.logger,
 		oldIdtyLabels:   make(map[string]labels.Labels),
 		endpointManager: k.endpointManager,
 	}
@@ -109,6 +116,8 @@ func (k *K8sNamespaceWatcher) stopWatcher() {
 }
 
 type namespaceUpdater struct {
+	logger *slog.Logger
+
 	oldIdtyLabels map[string]labels.Labels
 
 	endpointManager endpointManager
@@ -142,8 +151,11 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 		if newNS.Name == epNS {
 			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels)
 			if err != nil {
-				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
-					Warning("unable to update endpoint with new identity labels from namespace labels")
+				u.logger.Warn(
+					"unable to update endpoint with new identity labels from namespace labels",
+					logfields.Error, err,
+					logfields.EndpointID, ep.ID,
+				)
 				failed = true
 			}
 		}

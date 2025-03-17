@@ -231,10 +231,10 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 	// the derivative status in the parent policy  will be updated with the
 	// error.
 	if clusterScoped {
-		derivativeCCNP, derivativeErr = createDerivativeCCNP(ctx, cnp)
+		derivativeCCNP, derivativeErr = createDerivativeCCNP(ctx, logger, cnp)
 		derivativePolicy = derivativeCCNP
 	} else {
-		derivativeCNP, derivativeErr = createDerivativeCNP(ctx, cnp)
+		derivativeCNP, derivativeErr = createDerivativeCNP(ctx, logger, cnp)
 		derivativePolicy = derivativeCNP
 	}
 

@@ -6,6 +6,8 @@ package experimental
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -46,10 +48,10 @@ func BenchmarkParseEndpointSlice(b *testing.B) {
 		panic(err)
 	}
 	epSlice := obj.(*slim_discovery_v1.EndpointSlice)
-
+	logger := hivetest.Logger(b)
 	b.ResetTimer()
 	for range b.N {
-		k8s.ParseEndpointSliceV1(epSlice)
+		k8s.ParseEndpointSliceV1(logger, epSlice)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpointslices/sec")
 }
@@ -60,7 +62,8 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 		panic(err)
 	}
 	epSlice := obj.(*slim_discovery_v1.EndpointSlice)
-	eps := k8s.ParseEndpointSliceV1(epSlice)
+	logger := hivetest.Logger(b)
+	eps := k8s.ParseEndpointSliceV1(logger, epSlice)
 
 	b.ResetTimer()
 	for range b.N {

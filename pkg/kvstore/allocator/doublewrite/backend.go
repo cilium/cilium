@@ -21,7 +21,7 @@ import (
 // It should be used for migration purposes only.
 func NewDoubleWriteBackend(logger *slog.Logger, c DoubleWriteBackendConfiguration) (allocator.Backend, error) {
 	logger = logger.With(logfields.LogSubsys, "double-write-allocator")
-	crdBackend, err := identitybackend.NewCRDBackend(c.CRDBackendConfiguration)
+	crdBackend, err := identitybackend.NewCRDBackend(logger, c.CRDBackendConfiguration)
 	if err != nil {
 		return nil, err
 	}

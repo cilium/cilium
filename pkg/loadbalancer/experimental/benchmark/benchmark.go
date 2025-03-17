@@ -34,6 +34,7 @@ import (
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -369,7 +370,7 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 
 		tmpSlice.Name = fmt.Sprintf("%s-%06d", slice.Name, j)
 
-		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(&tmpSlice))
+		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logging.DefaultSlogLogger, &tmpSlice))
 	}
 	return
 }

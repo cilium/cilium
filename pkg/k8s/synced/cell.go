@@ -6,6 +6,7 @@ package synced
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -20,6 +21,7 @@ import (
 type syncedParams struct {
 	cell.In
 
+	Logger      *slog.Logger
 	CacheStatus CacheStatus
 }
 
@@ -33,6 +35,7 @@ var Cell = cell.Module(
 
 	cell.Provide(func(params syncedParams) *Resources {
 		return &Resources{
+			logger:      params.Logger,
 			CacheStatus: params.CacheStatus,
 		}
 	}),
@@ -81,6 +84,8 @@ var RejectedCRDSyncPromise = func() promise.Promise[CRDSync] {
 type syncCRDsPromiseParams struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle     cell.Lifecycle
 	Jobs          job.Registry
 	Health        cell.Health
@@ -100,7 +105,7 @@ func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
 
 	g := params.Jobs.NewGroup(params.Health)
 	g.Add(job.OneShot("sync-crds", func(ctx context.Context, health cell.Health) error {
-		err := SyncCRDs(ctx, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups, params.Config)
+		err := SyncCRDs(ctx, params.Logger, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups, params.Config)
 		if err != nil {
 			crdSyncResolver.Reject(err)
 		} else {

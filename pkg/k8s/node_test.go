@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -49,7 +50,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n := ParseNode(k8sNode, source.Local)
+	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -80,7 +81,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -99,7 +100,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.254.0.0/16", n.IPv4AllocCIDR.String())
@@ -120,7 +121,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -176,7 +177,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -220,7 +221,7 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 		},
 	}
 
-	n := ParseNode(k8sNode, source.Local)
+	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -245,7 +246,7 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n.Name)
 	require.Nil(t, n.IPv4AllocCIDR)
 	require.NotNil(t, n.IPv6AllocCIDR)
@@ -366,7 +367,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	n1 := ParseNode(k8sNode, source.Local)
+	n1 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node1", n1.Name)
 	require.NotNil(t, n1.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n1.IPv4AllocCIDR.String())
@@ -381,7 +382,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	n2 := ParseNode(k8sNode, source.Local)
+	n2 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
 	require.Equal(t, "node2", n2.Name)
 	require.NotNil(t, n2.IPv4AllocCIDR)
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
@@ -405,7 +406,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	id, svc := ParseService(k8sSvc, nil)
+	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
 	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
 	require.EqualValues(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,

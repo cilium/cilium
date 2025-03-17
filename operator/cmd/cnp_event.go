@@ -46,7 +46,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricCreate)
-				if cnp := informer.CastInformerEvent[types.SlimCNP](obj); cnp != nil {
+				if cnp := informer.CastInformerEvent[types.SlimCNP](logging.DefaultSlogLogger, obj); cnp != nil {
 					// We need to deepcopy this structure because we are writing
 					// fields.
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
@@ -57,8 +57,8 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricUpdate)
-				if oldCNP := informer.CastInformerEvent[types.SlimCNP](oldObj); oldCNP != nil {
-					if newCNP := informer.CastInformerEvent[types.SlimCNP](newObj); newCNP != nil {
+				if oldCNP := informer.CastInformerEvent[types.SlimCNP](logging.DefaultSlogLogger, oldObj); oldCNP != nil {
+					if newCNP := informer.CastInformerEvent[types.SlimCNP](logging.DefaultSlogLogger, newObj); newCNP != nil {
 						if oldCNP.DeepEqual(newCNP) {
 							return
 						}
@@ -75,7 +75,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 			},
 			DeleteFunc: func(obj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricDelete)
-				cnp := informer.CastInformerEvent[types.SlimCNP](obj)
+				cnp := informer.CastInformerEvent[types.SlimCNP](logging.DefaultSlogLogger, obj)
 				if cnp == nil {
 					return
 				}

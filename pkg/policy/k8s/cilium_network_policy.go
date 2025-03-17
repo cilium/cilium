@@ -139,7 +139,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
 	}
 
-	rules, err := cnp.Parse()
+	rules, err := cnp.Parse(scopedLog)
 	if err != nil {
 		scopedLog.Warn(
 			"Unable to add CiliumNetworkPolicy",

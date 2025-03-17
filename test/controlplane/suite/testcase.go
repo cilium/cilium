@@ -107,7 +107,7 @@ func (cpt *ControlPlaneTest) SetupEnvironment() *ControlPlaneTest {
 	types.SetName(cpt.nodeName)
 
 	// Configure k8s and perform capability detection with the fake client.
-	version.Update(cpt.clients, true)
+	version.Update(hivetest.Logger(cpt.t), cpt.clients, true)
 
 	cpt.tempDir = setupTestDirectories()
 

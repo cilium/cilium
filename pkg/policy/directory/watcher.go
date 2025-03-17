@@ -96,7 +96,7 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 	)
 
 	// convert to rules
-	rules, err := cnp.Parse()
+	rules, err := cnp.Parse(p.log)
 	if err != nil {
 		return err
 	}

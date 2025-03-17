@@ -16,12 +16,13 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(nil, nil, k8s.NewSVCMetricsNoop())
+	K8sSvcCache = k8s.NewServiceCache(logging.DefaultSlogLogger, nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvs store.SyncStore
 )

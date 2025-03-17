@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -179,6 +180,7 @@ func TestCESSubscriber_CEPTransferOnStartup(t *testing.T) {
 	fakeEPWatcher := newFakeEPWatcher()
 	fakeEndpointCache := &fakeEndpointCache{}
 	cesSub := &cesSubscriber{
+		logger:    hivetest.Logger(t),
 		epWatcher: fakeEPWatcher,
 		epCache:   fakeEndpointCache,
 		cepMap:    newCEPToCESMap(),
@@ -254,6 +256,7 @@ func TestCESSubscriber_CEPTransferViaUpdate(t *testing.T) {
 	fakeEPWatcher := newFakeEPWatcher()
 	fakeEndpointCache := &fakeEndpointCache{}
 	cesSub := &cesSubscriber{
+		logger:    hivetest.Logger(t),
 		epWatcher: fakeEPWatcher,
 		epCache:   fakeEndpointCache,
 		cepMap:    newCEPToCESMap(),
@@ -365,6 +368,7 @@ func TestCESSubscriber_deleteCEPfromCES(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			fakeEPWatcher := newFakeEPWatcher()
 			cesSub := &cesSubscriber{
+				logger:    hivetest.Logger(t),
 				epWatcher: fakeEPWatcher,
 				cepMap:    newCEPToCESMap(),
 			}
@@ -616,6 +620,7 @@ func TestCESSubscriber_OnAdd(t *testing.T) {
 				currentCES: make(map[string]string),
 			}
 			subscriber := &cesSubscriber{
+				logger:    hivetest.Logger(t),
 				epWatcher: watcher,
 				epCache:   newFakeEndpointCache(tc.local...),
 				cepMap:    m,
@@ -807,6 +812,7 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 				currentCES: make(map[string]string),
 			}
 			subscriber := &cesSubscriber{
+				logger:    hivetest.Logger(t),
 				epWatcher: watcher,
 				epCache:   newFakeEndpointCache(),
 				cepMap:    m,
@@ -867,6 +873,7 @@ func TestCESSubscriber_OnDelete(t *testing.T) {
 				currentCES: make(map[string]string),
 			}
 			subscriber := &cesSubscriber{
+				logger:    hivetest.Logger(t),
 				epWatcher: watcher,
 				epCache:   newFakeEndpointCache(),
 				cepMap:    m,

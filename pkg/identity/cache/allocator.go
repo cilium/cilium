@@ -227,7 +227,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		case option.IdentityAllocationModeCRD:
 			log.Debug("Identity allocation backed by CRD")
-			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
+			backend, err = identitybackend.NewCRDBackend(logging.DefaultSlogLogger, identitybackend.CRDBackendConfiguration{
 				Store:    nil,
 				StoreSet: &atomic.Bool{},
 				Client:   client,
