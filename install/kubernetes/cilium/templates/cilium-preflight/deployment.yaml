@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/name: cilium-pre-flight-check
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}    
+    {{- end }}
 spec:
   selector:
     matchLabels:

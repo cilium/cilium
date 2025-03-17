@@ -75,7 +75,7 @@ spec:
         {{- with .Values.authentication.mutual.spire.install.server.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
-        {{- end }}        
+        {{- end }}
         ports:
         - name: grpc
           containerPort: 8081
