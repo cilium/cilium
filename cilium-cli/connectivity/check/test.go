@@ -69,6 +69,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
 		conditionFn: nil,
+		verbose:     verbose,
 	}
 	// Setting the internal buffer to nil causes the logger to
 	// write directly to stdout in verbose or debug mode.
@@ -141,8 +142,9 @@ type Test struct {
 
 	// Buffer to store output until it's flushed by a failure.
 	// Unused when run in verbose or debug mode.
-	logMu  lock.RWMutex
-	logBuf io.ReadWriter
+	logMu   lock.RWMutex
+	logBuf  io.ReadWriter
+	verbose bool
 
 	// conditionFn is a function that returns true if the test needs to run,
 	// and false otherwise. By default, it's set to a function that returns
