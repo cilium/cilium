@@ -15,13 +15,6 @@
 #define ENABLE_NODEPORT 1
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include <bpf/config/node.h>
-
-/*
  * Simulate sending traffic from pod_one on node_one to pod_two
  * on node_two, through a nodeport on node_three, as well as sending
  * reply from pod_two to pod_one through node_three.

@@ -366,9 +366,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 {
 	void *data, *data_end;
 	__u16 inner_proto;
-	union v6addr router_ip;
-
-	BPF_V6(router_ip, ROUTER_IP);
+	union v6addr router_ip = CONFIG(router_ipv6);
 
 	if (!validate_ethertype(ctx, &inner_proto))
 		return DROP_UNSUPPORTED_L2;

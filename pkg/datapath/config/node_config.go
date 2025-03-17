@@ -9,8 +9,10 @@ package config
 // instantiate directly! Always use [NewNode] to ensure the default values
 // configured in the ELF are honored.
 type Node struct {
+	// Internal IPv6 router address assigned to the cilium_host interface.
+	RouterIPv6 [16]byte `config:"router_ipv6"`
 }
 
 func NewNode() *Node {
-	return &Node{}
+	return &Node{[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}
 }
