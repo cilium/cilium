@@ -1270,11 +1270,15 @@ skip_vtep:
 		 * The destination is remote node, but the connection is originated from tunnel.
 		 * Maybe the remote cluster performed SNAT for the inter-cluster communication
 		 * and this is the reply for that. In that case, we need to send it back to tunnel.
+		 *
+		 * If we don't have an authorative tunnel_endpoint for the remote node, just use
+		 * the node's IP.
 		 */
-		if (ct_status == CT_REPLY) {
-			if (identity_is_remote_node(*dst_sec_identity) && ct_state->from_tunnel)
-				tunnel_endpoint = ip4->daddr;
-		}
+		if (ct_status == CT_REPLY &&
+		    ct_state->from_tunnel &&
+		    identity_is_remote_node(*dst_sec_identity) &&
+		    tunnel_endpoint == 0)
+			tunnel_endpoint = ip4->daddr;
 #endif
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
