@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -90,9 +89,8 @@ type linuxNodeHandler struct {
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
 
-	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
-	enableEncapsulation    func(node *nodeTypes.Node) bool
-	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
+	enableEncapsulation func(node *nodeTypes.Node) bool
+	nodeNeighborQueue   datapath.NodeNeighborEnqueuer
 }
 
 var (
@@ -152,7 +150,6 @@ func newNodeHandler(
 		nodeIDsByIPs:           map[string]uint16{},
 		nodeIPsByIDs:           map[uint16]sets.Set[string]{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(log),
-		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		nodeNeighborQueue:      nbq,
 		ipsecUpdateNeeded:      map[nodeTypes.Identity]bool{},
 	}
@@ -1568,10 +1565,6 @@ func deleteDefaultLocalRule(family int) error {
 	}
 
 	return nil
-}
-
-func (n *linuxNodeHandler) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
-	n.prefixClusterMutatorFn = mutator
 }
 
 func (n *linuxNodeHandler) OverrideEnableEncapsulation(fn func(*nodeTypes.Node) bool) {
