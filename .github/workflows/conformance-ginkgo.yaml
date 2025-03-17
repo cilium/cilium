@@ -18,8 +18,8 @@ on:
         required: false
         default: '{}'
   push:
-    branches:
-      - 'renovate/main-**'
+    #branches:
+    #  - 'renovate/main-**'
   # Run every 8 hours
   schedule:
     - cron:  '0 1/8 * * *'
