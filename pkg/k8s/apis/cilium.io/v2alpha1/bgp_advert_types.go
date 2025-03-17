@@ -62,6 +62,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpadvertisement",path="ciliumbgpadvertisements",scope="Cluster",shortName={cbgpadvert}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:deprecatedversion
 
 // CiliumBGPAdvertisement is the Schema for the ciliumbgpadvertisements API
 type CiliumBGPAdvertisement struct {
