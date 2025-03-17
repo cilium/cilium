@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"sync/atomic"
 
@@ -21,12 +22,15 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nm "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
 type k8sCiliumNodeWatcherParams struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	Clientset         k8sClient.Clientset
 	Resources         agentK8s.Resources
@@ -38,6 +42,7 @@ type k8sCiliumNodeWatcherParams struct {
 
 func newK8sCiliumNodeWatcher(params k8sCiliumNodeWatcherParams) *K8sCiliumNodeWatcher {
 	return &K8sCiliumNodeWatcher{
+		logger:            params.Logger,
 		clientset:         params.Clientset,
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
@@ -47,6 +52,8 @@ func newK8sCiliumNodeWatcher(params k8sCiliumNodeWatcherParams) *K8sCiliumNodeWa
 }
 
 type K8sCiliumNodeWatcher struct {
+	logger *slog.Logger
+
 	clientset k8sClient.Clientset
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
@@ -87,7 +94,7 @@ func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context) {
 				store, err := k.resources.CiliumNode.Store(ctx)
 				if err != nil {
 					if !errors.Is(err, context.Canceled) {
-						log.WithError(err).Warning("unable to retrieve CiliumNode local store, going to query kube-apiserver directly")
+						k.logger.Warn("unable to retrieve CiliumNode local store, going to query kube-apiserver directly", logfields.Error, err)
 					}
 				} else {
 					k.ciliumNodeStore.Store(&store)

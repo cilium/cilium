@@ -204,10 +204,10 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	log.Info("Setting up kubernetes client")
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.RegisterCRDs(clientset)
+	ciliumClient.RegisterCRDs(logging.DefaultSlogLogger, clientset)
 
 	// Create a CRD Backend
-	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
+	crdBackend, err := identitybackend.NewCRDBackend(logging.DefaultSlogLogger, identitybackend.CRDBackendConfiguration{
 		Store:    nil,
 		StoreSet: &atomic.Bool{},
 		Client:   clientset,

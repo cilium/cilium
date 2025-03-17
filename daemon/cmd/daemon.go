@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"runtime"
@@ -91,6 +92,7 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ctx               context.Context
+	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
 	buildEndpointSem  *semaphore.Weighted
@@ -368,6 +370,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d := Daemon{
 		ctx:               ctx,
+		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -775,6 +778,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		latestLocalNode, err := d.nodeLocalStore.Get(ctx)
 		if err == nil {
 			_, err = k8s.AnnotateNode(
+				d.logger,
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,

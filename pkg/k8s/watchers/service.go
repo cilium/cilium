@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+	"github.com/cloudflare/cfssl/log"
 	"k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -27,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -40,6 +40,8 @@ import (
 
 type k8sServiceWatcherParams struct {
 	cell.In
+
+	Logger *slog.Logger
 
 	K8sEventReporter *K8sEventReporter
 
@@ -55,6 +57,7 @@ type k8sServiceWatcherParams struct {
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 	return &K8sServiceWatcher{
+		logger:                params.Logger,
 		k8sEventReporter:      params.K8sEventReporter,
 		k8sResourceSynced:     params.K8sResourceSynced,
 		k8sAPIGroups:          params.K8sAPIGroups,
@@ -68,6 +71,7 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 }
 
 type K8sServiceWatcher struct {
+	logger           *slog.Logger
 	k8sEventReporter *K8sEventReporter
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -166,19 +170,17 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 
 		svc := event.Service
 
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.K8sSvcName:   event.ID.Name,
-			logfields.K8sNamespace: event.ID.Namespace,
-		})
-
-		if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
-			scopedLog.WithFields(logrus.Fields{
-				"action":        event.Action.String(),
-				"service":       event.Service.String(),
-				"old-service":   event.OldService.String(),
-				"endpoints":     event.Endpoints.String(),
-				"old-endpoints": event.OldEndpoints.String(),
-			}).Debug("Kubernetes service definition changed")
+		if k.logger.Enabled(context.Background(), slog.LevelDebug) {
+			k.logger.Debug(
+				"Kubernetes service definition changed",
+				logfields.Action, event.Action,
+				logfields.Service, event.Service,
+				logfields.OldService, event.OldService,
+				logfields.Endpoints, event.Endpoints,
+				logfields.OldEndpoints, event.OldEndpoints,
+				logfields.K8sSvcName, event.ID.Name,
+				logfields.K8sNamespace, event.ID.Namespace,
+			)
 		}
 
 		switch event.Action {
@@ -211,10 +213,10 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 	if svcInfo.IsHeadless && len(svcInfo.FrontendIPs) == 0 {
 		return
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svc.Name,
-		logfields.K8sNamespace: svc.Namespace,
-	})
+	scopedLog := k.logger.With(
+		logfields.K8sSvcName, svc.Name,
+		logfields.K8sNamespace, svc.Namespace,
+	)
 
 	for _, checkProtocol := range []bool{true, false} {
 		if !checkProtocol {
@@ -260,12 +262,22 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 
 		for _, fe := range frontends {
 			if found, err := k.svcManager.DeleteService(*fe); err != nil {
-				scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
-					Warn("Error deleting service by frontend")
+				scopedLog.Warn(
+					"Error deleting service by frontend",
+					logfields.Error, err,
+					logfields.Object, fe,
+				)
 			} else if !found {
-				scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
+				scopedLog.Warn(
+					"service not found",
+					logfields.Object, fe,
+				)
 			} else {
-				scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
+				if option.Config.Debug {
+					scopedLog.Debug(
+						fmt.Sprintf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port),
+					)
+				}
 			}
 		}
 	}
@@ -529,10 +541,10 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		return
 	}
 
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svcID.Name,
-		logfields.K8sNamespace: svcID.Namespace,
-	})
+	scopedLog := k.logger.With(
+		logfields.K8sSvcName, svcID.Name,
+		logfields.K8sNamespace, svcID.Namespace,
+	)
 
 	if !option.Config.LoadBalancerProtocolDifferentiation {
 		oldSvc = stripServiceProtocol(oldSvc)
@@ -542,7 +554,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 
 	svcs, err := k.datapathSVCs(svc, endpoints)
 	if err != nil {
-		scopedLog.WithError(err).Error("Error while evaluating datapath services")
+		scopedLog.Error("Error while evaluating datapath services", logfields.Error, err)
 		return
 	}
 	svcMap := hashSVCMap(svcs)
@@ -552,7 +564,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		// are no longer in the updated service and delete them in the datapath.
 		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
 		if err != nil {
-			scopedLog.WithError(err).Error("Error while evaluating datapath services for old service")
+			scopedLog.Error("Error while evaluating datapath services for old service", logfields.Error, err)
 			return
 		}
 		oldSVCMap := hashSVCMap(oldSVCs)
@@ -560,12 +572,20 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		for svcHash, oldSvc := range oldSVCMap {
 			if _, ok := svcMap[svcHash]; !ok {
 				if found, err := k.svcManager.DeleteService(oldSvc); err != nil {
-					scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(oldSvc)).
-						Warn("Error deleting service by frontend")
+					scopedLog.Warn(
+						"Error deleting service by frontend",
+						logfields.Error, err,
+						logfields.Object, oldSvc,
+					)
 				} else if !found {
-					scopedLog.WithField(logfields.Object, logfields.Repr(oldSvc)).Warn("service not found")
+					scopedLog.Warn(
+						"service not found",
+						logfields.Object, oldSvc,
+					)
 				} else {
-					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port)
+					if option.Config.Debug {
+						scopedLog.Debug(fmt.Sprintf("# cilium lb delete-service %s %d 0", oldSvc.AddrCluster.String(), oldSvc.Port))
+					}
 				}
 			}
 		}
@@ -595,9 +615,9 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
-				scopedLog.WithError(err).Debug("Error while inserting service in LB map")
+				scopedLog.Debug("Error while inserting service in LB map", logfields.Error, err)
 			} else {
-				scopedLog.WithError(err).Error("Error while inserting service in LB map")
+				scopedLog.Error("Error while inserting service in LB map", logfields.Error, err)
 			}
 		}
 		k.updateK8sAPIServiceMappings(p)
@@ -617,12 +637,14 @@ func (k *K8sServiceWatcher) updateK8sAPIServiceMappings(svc *loadbalancer.SVC) {
 	for i := range mapping.Endpoints {
 		mapping.Endpoints[i] = svc.Backends[i].AddrString()
 	}
-	log.WithField("entry", mapping).Info("writing kubernetes service mapping")
-	client.UpdateK8sAPIServerEntry(mapping)
+	log.Info("writing kubernetes service mapping",
+		logfields.Entry, mapping,
+	)
+	client.UpdateK8sAPIServerEntry(k.logger, mapping)
 }
 
 // k8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
 func (k *K8sServiceWatcher) k8sServiceEventProcessed(action string, startTime time.Time) {
-	duration, _ := safetime.TimeSinceSafe(startTime, log)
+	duration, _ := safetime.TimeSinceSafe(startTime, k.logger)
 	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }

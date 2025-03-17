@@ -6,6 +6,7 @@ package groups
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -26,7 +27,7 @@ func getDerivativeName(obj v1.Object) string {
 }
 
 // createDerivativeCNP will return a new CNP based on the given rule.
-func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
+func createDerivativeCNP(ctx context.Context, logger *slog.Logger, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
 	// CNP informer may provide a CNP object without APIVersion or Kind.
 	// Setting manually to make sure that the derivative policy works ok.
 	derivativeCNP := &cilium_v2.CiliumNetworkPolicy{
@@ -51,7 +52,7 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 		err   error
 	)
 
-	rules, err = cnp.Parse()
+	rules, err = cnp.Parse(logger)
 
 	if err != nil {
 		// We return a valid pointer for derivative policy here instead of nil.
@@ -66,7 +67,7 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 }
 
 // createDerivativeCCNP will return a new CCNP based on the given rule.
-func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumClusterwideNetworkPolicy, error) {
+func createDerivativeCCNP(ctx context.Context, logger *slog.Logger, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumClusterwideNetworkPolicy, error) {
 	ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 		TypeMeta:   cnp.TypeMeta,
 		ObjectMeta: cnp.ObjectMeta,
@@ -99,7 +100,7 @@ func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolic
 		err   error
 	)
 
-	rules, err = ccnp.Parse()
+	rules, err = ccnp.Parse(logger)
 
 	if err != nil {
 		// We return a valid pointer for derivative policy here instead of nil.

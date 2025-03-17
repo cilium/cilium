@@ -131,7 +131,7 @@ func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter sl
 }
 
 func ciliumPodHandler(obj interface{}, queue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
-	if pod := informer.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
+	if pod := informer.CastInformerEvent[slim_corev1.Pod](logger, obj); pod != nil {
 		nodeName := pod.Spec.NodeName
 		// Pod might not yet be scheduled to a node
 		if nodeName != "" {

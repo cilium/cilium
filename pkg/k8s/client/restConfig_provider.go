@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -34,8 +33,6 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-client")
-
 	// K8sAPIServerFilePath is the file path for storing kube-apiserver service and
 	// endpoints for high availability failover.
 	K8sAPIServerFilePath = filepath.Join(option.Config.StateDir, "k8sapi_server_state.json")
@@ -69,7 +66,7 @@ type restConfigManager struct {
 	apiServerURLs        []*url.URL
 	isConnectedToService bool
 	lock.RWMutex
-	log  logrus.FieldLogger
+	log  *slog.Logger
 	rt   *rotatingHttpRoundTripper
 	jobs job.Group
 }
@@ -82,7 +79,7 @@ type restConfig interface {
 
 // UpdateK8sAPIServerEntry writes the provided kubernetes service to endpoint mapping
 // to K8sAPIServerFilePath.
-func UpdateK8sAPIServerEntry(mapping K8sServiceEndpointMapping) {
+func UpdateK8sAPIServerEntry(logger *slog.Logger, mapping K8sServiceEndpointMapping) {
 	f, err := os.OpenFile(K8sAPIServerFilePath, os.O_RDWR, 0644)
 	if err != nil {
 		return
@@ -90,8 +87,11 @@ func UpdateK8sAPIServerEntry(mapping K8sServiceEndpointMapping) {
 	defer f.Close()
 
 	if err = json.NewEncoder(f).Encode(mapping); err != nil {
-		log.WithError(err).WithField("entry", mapping).Error("failed to write kubernetes service entry," +
-			"agent may not be able to fail over to an active k8sapi-server")
+		logger.Error("failed to write kubernetes service entry,"+
+			"agent may not be able to fail over to an active k8sapi-server",
+			logfields.Error, err,
+			logfields.Entry, mapping,
+		)
 	}
 }
 
@@ -113,7 +113,7 @@ func (r *restConfigManager) canRotateAPIServerURL() bool {
 	return len(r.apiServerURLs) > 1 && !r.isConnectedToService
 }
 
-func restConfigManagerInit(cfg Config, name string, log logrus.FieldLogger, jobs job.Group) (restConfig, error) {
+func restConfigManagerInit(cfg Config, name string, log *slog.Logger, jobs job.Group) (restConfig, error) {
 	var err error
 	manager := restConfigManager{
 		log: log,
@@ -211,7 +211,10 @@ func (r *restConfigManager) parseConfig(cfg Config) {
 		}
 		serverURL, err = url.Parse(s)
 		if err != nil {
-			r.log.WithError(err).Errorf("Failed to parse APIServerURL %s, skipping", serverURL)
+			r.log.Error("Failed to parse APIServerURL, skipping",
+				logfields.Error, err,
+				logfields.URL, serverURL,
+			)
 			return
 		}
 		r.apiServerURLs = append(r.apiServerURLs, serverURL)
@@ -228,7 +231,10 @@ func (r *restConfigManager) parseConfig(cfg Config) {
 
 		serverURL, err := url.Parse(apiServerURL)
 		if err != nil {
-			r.log.WithError(err).Errorf("Failed to parse APIServerURL %s, skipping", apiServerURL)
+			r.log.Error("Failed to parse APIServerURL, skipping",
+				logfields.Error, err,
+				logfields.URL, apiServerURL,
+			)
 			continue
 		}
 
@@ -265,13 +271,15 @@ func (r *restConfigManager) rotateAPIServerURL() {
 	r.Lock()
 	r.restConfig.Host = r.rt.apiServerURL.String()
 	r.Unlock()
-	r.log.WithField("url", r.rt.apiServerURL).Info("Rotated api server")
+	r.log.Info("Rotated api server",
+		logfields.URL, r.rt.apiServerURL,
+	)
 }
 
 // rotatingHttpRoundTripper sets the remote host in the rest configuration used to make API requests to the API server.
 type rotatingHttpRoundTripper struct {
 	delegate     http.RoundTripper
-	log          logrus.FieldLogger
+	log          *slog.Logger
 	apiServerURL *url.URL
 	lock.RWMutex // Synchronizes access to apiServerURL
 }
@@ -280,7 +288,9 @@ func (rt *rotatingHttpRoundTripper) RoundTrip(req *http.Request) (*http.Response
 	rt.RLock()
 	defer rt.RUnlock()
 
-	rt.log.WithField("host", rt.apiServerURL).Debug("Kubernetes api server host")
+	rt.log.Debug("Kubernetes api server host",
+		logfields.URL, rt.apiServerURL,
+	)
 	req.URL.Host = rt.apiServerURL.Host
 	return rt.delegate.RoundTrip(req)
 }
@@ -344,11 +354,16 @@ func (r *restConfigManager) k8sAPIServerFileWatcher(ctx context.Context, watcher
 			if !event.Op.Has(fsnotify.Write) {
 				continue
 			}
-			r.log.WithField("file", K8sAPIServerFilePath).Info("Processing write event ")
+			r.log.Info("Processing write event",
+				logfields.Path, K8sAPIServerFilePath,
+			)
 			r.updateK8sAPIServerURL()
 		case err := <-watcher.Errors:
 			health.Degraded(fmt.Sprintf("Failed to load  %q", K8sAPIServerFilePath), err)
-			r.log.WithField("file", K8sAPIServerFilePath).WithError(err).Error("Unexpected error while watching")
+			r.log.Error("Unexpected error while watching",
+				logfields.Path, K8sAPIServerFilePath,
+				logfields.Error, err,
+			)
 		}
 
 	}
@@ -357,23 +372,29 @@ func (r *restConfigManager) k8sAPIServerFileWatcher(ctx context.Context, watcher
 func (r *restConfigManager) updateK8sAPIServerURL() {
 	f, err := os.Open(K8sAPIServerFilePath)
 	if err != nil {
-		r.log.WithError(err).WithField(logfields.Path, K8sAPIServerFilePath).Error("unable " +
-			"to open file, agent may not be able to fail over to an active kube-apiserver")
+		r.log.Error("unable "+
+			"to open file, agent may not be able to fail over to an active kube-apiserver",
+			logfields.Path, K8sAPIServerFilePath,
+			logfields.Error, err,
+		)
 	}
 	defer f.Close()
 
 	var mapping K8sServiceEndpointMapping
 	if err = json.NewDecoder(f).Decode(&mapping); err != nil {
-		r.log.WithError(err).WithFields(logrus.Fields{
-			logfields.Path: K8sAPIServerFilePath,
-			"entry":        mapping,
-		}).Error("failed to " +
-			"decode file entry, agent may not be able to fail over to an active kube-apiserver")
+		r.log.Error("failed to "+
+			"decode file entry, agent may not be able to fail over to an active kube-apiserver",
+			logfields.Error, err,
+			logfields.Path, K8sAPIServerFilePath,
+			logfields.Entry, mapping,
+		)
 	}
 	if err = r.checkConnToService(mapping.Service); err != nil {
 		return
 	}
-	r.log.WithField("host", mapping.Service).Info("Updated kubeapi server url host")
+	r.log.Info("Updated kubeapi server url host",
+		logfields.URL, mapping.Service,
+	)
 	// Set in tests
 	mapping.Service = strings.TrimPrefix(mapping.Service, "http://")
 	r.rt.Lock()
@@ -388,7 +409,10 @@ func (r *restConfigManager) updateK8sAPIServerURL() {
 		endpoint = fmt.Sprintf("https://%s", endpoint)
 		serverURL, err := url.Parse(endpoint)
 		if err != nil {
-			r.log.WithError(err).Errorf("Failed to parse endpoint %s, skipping", endpoint)
+			r.log.Info("Failed to parse endpoint, skipping",
+				logfields.Endpoint, endpoint,
+				logfields.Error, err,
+			)
 			continue
 		}
 		updatedServerURLs = append(updatedServerURLs, serverURL)
@@ -415,13 +439,17 @@ func (r *restConfigManager) checkConnToService(host string) error {
 		hostURL := fmt.Sprintf("https://%s", host)
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			log.WithError(err).Error("unable to read cluster config")
+			r.log.Error("unable to read cluster config",
+				logfields.Error, err,
+			)
 			return err
 		}
 		config.Host = hostURL
 	}
 	wait.Until(func() {
-		r.log.WithField(logfields.Address, config.Host).Info("Checking connection to kubeapi service")
+		r.log.Info("Checking connection to kubeapi service",
+			logfields.Address, config.Host,
+		)
 		httpClient, _ := rest.HTTPClientFor(config)
 
 		cs, _ := kubernetes.NewForConfigAndClient(config, httpClient)
@@ -436,11 +464,16 @@ func (r *restConfigManager) checkConnToService(host string) error {
 			return
 		}
 
-		r.log.WithError(err).WithField(logfields.Address, config.Host).Error("kubeapi service not ready yet")
+		r.log.Error("kubeapi service not ready yet",
+			logfields.Address, config.Host,
+			logfields.Error, err,
+		)
 		close(stop)
 	}, connRetryInterval, stop)
 	if err == nil {
-		r.log.WithField(logfields.Address, config.Host).Info("Connected to kubeapi service")
+		r.log.Info("Connected to kubeapi service",
+			logfields.Address, config.Host,
+		)
 	}
 	return err
 }

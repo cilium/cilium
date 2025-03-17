@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -594,7 +595,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			} else {
 				option.Config.EnableNodeSelectorLabels = false
 			}
-			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
+			got := ParseToCiliumRule(hivetest.Logger(t), tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
 
 			// Sanitize to set AggregatedSelectors field.
 			tt.want.Sanitize()

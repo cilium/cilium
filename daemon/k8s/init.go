@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -61,7 +62,7 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 				break
 			}
 			if event.Kind == resource.Upsert {
-				n = k8s.ParseNode(event.Object, source.Unspec)
+				n = k8s.ParseNode(logging.DefaultSlogLogger, event.Object, source.Unspec)
 				log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
 				if err := waitForCIDR(); err != nil {
 					log.WithError(err).Warning("Waiting for k8s node information")

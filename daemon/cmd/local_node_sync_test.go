@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,6 +84,7 @@ func TestLocalNodeSync(t *testing.T) {
 		}}
 		fln  = newFakeLocalNode()
 		sync = newLocalNodeSynchronizer(localNodeSynchronizerParams{
+			Logger: hivetest.Logger(t),
 			Config: &option.DaemonConfig{
 				IPv4NodeAddr:               "1.2.3.4",
 				IPv6NodeAddr:               "fd00::1",
@@ -129,9 +131,11 @@ func TestLocalNodeSync(t *testing.T) {
 	require.Equal(t, k8stypes.UID("uid2"), update.UID)
 	require.Equal(t, "provider://foobaz", update.ProviderID)
 }
+
 func TestInitLocalNode_initFromK8s(t *testing.T) {
 	lni := &localNodeSynchronizer{
 		localNodeSynchronizerParams: localNodeSynchronizerParams{
+			Logger: hivetest.Logger(t),
 			Config: &option.DaemonConfig{
 				IPv4NodeAddr:                 "auto",
 				IPv6NodeAddr:                 "auto",

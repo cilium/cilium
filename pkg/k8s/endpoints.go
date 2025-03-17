@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -311,7 +313,7 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
+func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 	endpoints := newEndpoints()
 	endpoints.ObjectMeta = ep.ObjectMeta
 	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
@@ -322,7 +324,10 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		return endpoints
 	}
 
-	log.Debugf("Processing %d endpoints for EndpointSlice %s", len(ep.Endpoints), ep.Name)
+	logger.Debug("Processing endpoints for EndpointSlice",
+		logfields.LenEndpoints, len(ep.Endpoints),
+		logfields.Name, ep.Name,
+	)
 	for _, sub := range ep.Endpoints {
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
@@ -347,12 +352,20 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		// allow endpoints that are Serving and Terminating
 		if !isReady {
 			if !option.Config.EnableK8sTerminatingEndpoint {
-				log.Debugf("discarding Endpoint on EndpointSlice %s: not Ready and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				logger.Debug(
+					"discarding Endpoint on EndpointSlice: not Ready",
+					logfields.Name, ep.Name,
+					logfields.EnableK8sTerminatingEndpoint, option.Config.EnableK8sTerminatingEndpoint,
+				)
 				continue
 			}
 			// filter not Serving endpoints since those can not receive traffic
 			if !isServing {
-				log.Debugf("discarding Endpoint on EndpointSlice %s: not Serving and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				logger.Debug(
+					"discarding Endpoint on EndpointSlice: not Serving",
+					logfields.Name, ep.Name,
+					logfields.EnableK8sTerminatingEndpoint, option.Config.EnableK8sTerminatingEndpoint,
+				)
 				continue
 			}
 		}
@@ -360,7 +373,12 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
-				log.WithError(err).Infof("Unable to parse address %s for EndpointSlices %s", addr, ep.Name)
+				logger.Info(
+					"Unable to parse address for EndpointSlices",
+					logfields.Error, err,
+					logfields.Address, addr,
+					logfields.Name, ep.Name,
+				)
 				continue
 			}
 
@@ -386,7 +404,11 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 				// If is not ready check if is serving and terminating
 				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&
 					isServing && isTerminating {
-					log.Debugf("Endpoint address %s on EndpointSlice %s is Terminating", addr, ep.Name)
+					logger.Debug(
+						"Endpoint address on EndpointSlice is Terminating",
+						logfields.Address, addr,
+						logfields.Name, ep.Name,
+					)
 					backend.Terminating = true
 					metrics.TerminatingEndpointsEvents.Inc()
 				}
@@ -408,7 +430,11 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 		}
 	}
 
-	log.Debugf("EndpointSlice %s has %d backends", ep.Name, len(endpoints.Backends))
+	logger.Debug(
+		"EndpointSlice has backends",
+		logfields.LenBackends, len(endpoints.Backends),
+		logfields.Name, ep.Name,
+	)
 	return endpoints
 }
 

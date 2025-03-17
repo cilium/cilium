@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,7 @@ func newDB(t *testing.T) (*statedb.DB, statedb.Table[datapathTables.NodeAddress]
 }
 
 func Test_addK8sSVCs_ClusterIP(t *testing.T) {
+	logger := hivetest.Logger(t)
 	option.Config.LoadBalancerProtocolDifferentiation = true
 
 	k8sSvc := &slim_corev1.Service{
@@ -335,8 +337,9 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -366,6 +369,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 }
 
 func TestChangeSVCPort(t *testing.T) {
+	logger := hivetest.Logger(t)
 	option.Config.LoadBalancerProtocolDifferentiation = true
 
 	k8sSvc := &slim_corev1.Service{
@@ -470,8 +474,9 @@ func TestChangeSVCPort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -490,6 +495,7 @@ func TestChangeSVCPort(t *testing.T) {
 }
 
 func Test_addK8sSVCs_NodePort(t *testing.T) {
+	logger := hivetest.Logger(t)
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
 	option.Config.LoadBalancerProtocolDifferentiation = true
@@ -937,8 +943,9 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -967,6 +974,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 }
 
 func Test_addK8sSVCs_GH9576_1(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Adding service without any endpoints and later on modifying the service,
 	// cilium should:
 	// 1) delete the non existing services from the datapath.
@@ -1233,8 +1241,9 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -1258,6 +1267,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 }
 
 func Test_addK8sSVCs_GH9576_2(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Adding service without any endpoints and later on modifying the service,
 	// cilium should:
 	// 1) delete the non existing endpoints from the datapath, i.e., updating
@@ -1522,8 +1532,9 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -1547,6 +1558,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 }
 
 func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
+	logger := hivetest.Logger(t)
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
 	option.Config.LoadBalancerProtocolDifferentiation = true
@@ -2445,8 +2457,9 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -2479,6 +2492,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 }
 
 func TestHeadless(t *testing.T) {
+	logger := hivetest.Logger(t)
 	option.Config.LoadBalancerProtocolDifferentiation = true
 
 	k8sSvc := &slim_corev1.Service{
@@ -2576,8 +2590,9 @@ func TestHeadless(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
+	k8sSvcCache := k8s.NewServiceCache(logger, db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
+		logger:      logger,
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
 	}
@@ -2664,7 +2679,7 @@ func TestK8sServiceWatcher_checkServiceNodeExposure(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			k := &K8sServiceWatcher{localNodeStore: node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{Labels: tt.nodeLabels}})}
+			k := &K8sServiceWatcher{logger: hivetest.Logger(t), localNodeStore: node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{Labels: tt.nodeLabels}})}
 			exposedOnLocalNode, err := k.checkServiceNodeExposure(&k8s.Service{Annotations: tt.svcAnnotations})
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantExposed, exposedOnLocalNode)

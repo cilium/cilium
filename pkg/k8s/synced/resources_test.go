@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -91,7 +92,7 @@ func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 				t.Parallel()
 
 				assert := assert.New(t)
-				r := &Resources{CacheStatus: make(CacheStatus)}
+				r := &Resources{logger: hivetest.Logger(t), CacheStatus: make(CacheStatus)}
 				stop := make(chan struct{})
 				swg := lock.NewStoppableWaitGroup()
 				start := time.Now()

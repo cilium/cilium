@@ -6,13 +6,14 @@ package identitybackend
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cloudflare/cfssl/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -26,13 +27,8 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "crd-allocator")
 )
 
 const (
@@ -47,8 +43,8 @@ const (
 	byKeyIndex = "by-key-index"
 )
 
-func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
-	return &crdBackend{CRDBackendConfiguration: c}, nil
+func NewCRDBackend(logger *slog.Logger, c CRDBackendConfiguration) (allocator.Backend, error) {
+	return &crdBackend{logger: logger, CRDBackendConfiguration: c}, nil
 }
 
 type CRDBackendConfiguration struct {
@@ -59,6 +55,7 @@ type CRDBackendConfiguration struct {
 }
 
 type crdBackend struct {
+	logger *slog.Logger
 	CRDBackendConfiguration
 }
 
@@ -98,7 +95,10 @@ func SanitizeK8sLabels(old map[string]string) (selected, skipped map[string]stri
 // Returns an allocator key with the cilium identity stored in it.
 func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (allocator.AllocatorKey, error) {
 	selectedLabels, skippedLabels := SanitizeK8sLabels(key.GetAsMap())
-	log.WithField(logfields.Labels, skippedLabels).Info("Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination")
+	c.logger.Info(
+		"Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination",
+		logfields.Labels, skippedLabels,
+	)
 
 	identity := &v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -157,7 +157,11 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 
 	ts, ok = ci.Annotations[HeartBeatAnnotation]
 	if ok {
-		log.WithField(logfields.Identity, ci).Infof("Identity marked for deletion (at %s); attempting to unmark it", ts)
+		c.logger.Info(
+			"Identity marked for deletion; attempting to unmark it",
+			logfields.Timeout, ts,
+			logfields.Identity, ci,
+		)
 		ci = ci.DeepCopy()
 		delete(ci.Annotations, HeartBeatAnnotation)
 		_, err = c.Client.CiliumV2().CiliumIdentities().Update(ctx, ci, metav1.UpdateOptions{})
@@ -183,19 +187,22 @@ func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, id
 func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
 	err := c.AcquireReference(ctx, id, key, nil)
 	if err == nil {
-		log.WithFields(logrus.Fields{
-			logfields.Identity: id,
-			logfields.Labels:   key,
-		}).Debug("Acquired reference for identity")
+		c.logger.Debug(
+			"Acquired reference for identity",
+			logfields.Identity, id,
+			logfields.Labels, key,
+		)
 		return nil
 	}
 
 	// The CRD (aka the master key) is missing. Try to recover by recreating it
 	// if reliablyMissing is set.
-	log.WithError(err).WithFields(logrus.Fields{
-		logfields.Identity: id,
-		logfields.Labels:   key,
-	}).Warning("Unable update CRD identity information with a reference for this node")
+	c.logger.Warn(
+		"Unable update CRD identity information with a reference for this node",
+		logfields.Error, err,
+		logfields.Identity, id,
+		logfields.Labels, key,
+	)
 
 	if reliablyMissing {
 		// Recreate a missing master key
@@ -364,7 +371,10 @@ func (c *crdBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err 
 	for _, identity := range c.Store.List() {
 		idParsed, err := strconv.ParseUint(identity.(*v2.CiliumIdentity).Name, 10, 64)
 		if err != nil {
-			log.WithField(logfields.Identity, identity.(*v2.CiliumIdentity).Name).Warn("Cannot parse identity ID")
+			c.logger.Warn(
+				"Cannot parse identity ID",
+				logfields.Identity, identity.(*v2.CiliumIdentity).Name,
+			)
 			continue
 		}
 		identityIDs = append(identityIDs, idpool.ID(idParsed))
@@ -412,7 +422,10 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						handler.OnDelete(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				} else {
-					log.Debugf("Ignoring unknown delete event %#v", obj)
+					log.Debug(
+						"Ignoring unknown delete event",
+						logfields.Object, obj,
+					)
 				}
 			},
 		},

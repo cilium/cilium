@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -243,6 +243,7 @@ type ServiceCache interface {
 // ServiceCacheImpl is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
 type ServiceCacheImpl struct {
+	logger *slog.Logger
 	config ServiceCacheConfig
 
 	// Events may only be read by single consumer. The consumer must acknowledge
@@ -278,11 +279,12 @@ type ServiceCacheImpl struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
+func NewServiceCache(logger *slog.Logger, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], svcMetrics SVCMetrics) *ServiceCacheImpl {
 	events := make(chan ServiceEvent, option.Config.K8sServiceCacheSize)
 	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
 
 	return &ServiceCacheImpl{
+		logger:                logger,
 		db:                    db,
 		nodeAddrs:             nodeAddrs,
 		services:              map[ServiceID]*Service{},
@@ -297,8 +299,8 @@ func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.Node
 	}
 }
 
-func newServiceCache(lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
-	sc := NewServiceCache(db, nodeAddrs, metrics)
+func newServiceCache(logger *slog.Logger, lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress], metrics SVCMetrics) ServiceCache {
+	sc := NewServiceCache(logger, db, nodeAddrs, metrics)
 	sc.config = cfg
 
 	var wg sync.WaitGroup
@@ -434,7 +436,7 @@ func (s *ServiceCacheImpl) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.
 		)
 	}
 
-	svcID, newService := ParseService(k8sSvc, addrs)
+	svcID, newService := ParseService(s.logger, k8sSvc, addrs)
 	if newService == nil {
 		return svcID
 	}
@@ -694,12 +696,13 @@ func (s *ServiceCacheImpl) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 			for clusterName, remoteClusterEndpoints := range externalEndpoints.endpoints {
 				for ip, e := range remoteClusterEndpoints.Backends {
 					if _, ok := endpoints.Backends[ip]; ok {
-						log.WithFields(logrus.Fields{
-							logfields.K8sSvcName:   id.Name,
-							logfields.K8sNamespace: id.Namespace,
-							logfields.IPAddr:       ip,
-							"cluster":              clusterName,
-						}).Warning("Conflicting service backend IP")
+						s.logger.Warn(
+							"Conflicting service backend IP",
+							logfields.K8sSvcName, id.Name,
+							logfields.K8sNamespace, id.Namespace,
+							logfields.IPAddr, ip,
+							logfields.ClusterName, clusterName,
+						)
 					} else {
 						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
 						endpoints.Backends[ip] = e.DeepCopy()
@@ -739,7 +742,6 @@ func (s *ServiceCacheImpl) MergeExternalServiceUpdate(service *serviceStore.Clus
 
 func (s *ServiceCacheImpl) mergeServiceUpdateLocked(service *serviceStore.ClusterService,
 	oldService *Service, swg *lock.StoppableWaitGroup, opts ...mergeExternalServiceOption) {
-	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 	if slices.Contains(opts, optClusterAware) {
@@ -760,13 +762,21 @@ func (s *ServiceCacheImpl) mergeServiceUpdateLocked(service *serviceStore.Cluste
 	if service.Cluster != option.Config.ClusterName && !service.Shared {
 		delete(externalEndpoints.endpoints, service.Cluster)
 	} else {
-		scopedLog.Debugf("Updating backends to %+v", service.Backends)
+		s.logger.Debug(
+			"Updating backends",
+			logfields.ServiceName, service,
+			logfields.Backends, service.Backends,
+		)
+
 		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
 			addr, err := cmtypes.ParseAddrCluster(ipString)
 			if err != nil {
-				scopedLog.WithField(logfields.IPAddr, ipString).
-					Error("Skipping service backend due to invalid IP address")
+				s.logger.Error(
+					"Skipping service backend due to invalid IP address",
+					logfields.ServiceName, service,
+					logfields.IPAddr, ipString,
+				)
 				continue
 			}
 
@@ -818,8 +828,6 @@ func (s *ServiceCacheImpl) MergeExternalServiceDelete(service *serviceStore.Clus
 }
 
 func (s *ServiceCacheImpl) mergeExternalServiceDeleteLocked(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup, opts ...mergeExternalServiceOption) {
-	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
-
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 	if slices.Contains(opts, optClusterAware) {
 		id.Cluster = service.Cluster
@@ -827,7 +835,10 @@ func (s *ServiceCacheImpl) mergeExternalServiceDeleteLocked(service *serviceStor
 
 	externalEndpoints, ok := s.externalEndpoints[id]
 	if ok {
-		scopedLog.Debug("Deleting external endpoints")
+		s.logger.Debug(
+			"Deleting external endpoints",
+			logfields.ServiceName, service,
+		)
 
 		oldEPs, _ := s.correlateEndpoints(id)
 
@@ -859,7 +870,10 @@ func (s *ServiceCacheImpl) mergeExternalServiceDeleteLocked(service *serviceStor
 			s.emitEvent(event)
 		}
 	} else {
-		scopedLog.Debug("Received delete event for non-existing endpoints")
+		s.logger.Debug(
+			"Received delete event for non-existing endpoints",
+			logfields.ServiceName, service,
+		)
 	}
 }
 

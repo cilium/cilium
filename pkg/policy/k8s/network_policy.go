@@ -19,7 +19,7 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	rules, err := k8s.ParseNetworkPolicy(k8sNP)
+	rules, err := k8s.ParseNetworkPolicy(p.log, k8sNP)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		p.log.Error(
@@ -59,7 +59,7 @@ func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	labels := k8s.GetPolicyLabelsv1(k8sNP)
+	labels := k8s.GetPolicyLabelsv1(p.log, k8sNP)
 
 	if labels == nil {
 		logging.Fatal(p.log, "provided v1 NetworkPolicy is nil, so cannot delete it")

@@ -13,19 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/hive/cell"
-
 	"github.com/cilium/cilium/pkg/hive"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -39,7 +37,7 @@ func Test_runHeartbeat(t *testing.T) {
 
 	called := make(chan struct{})
 	runHeartbeat(
-		logging.DefaultLogger,
+		hivetest.Logger(t),
 		func(ctx context.Context) error {
 			// Block any attempt to connect return from a heartbeat until the
 			// test is complete.
@@ -78,7 +76,7 @@ func Test_runHeartbeat(t *testing.T) {
 
 	called = make(chan struct{})
 	runHeartbeat(
-		logging.DefaultLogger,
+		hivetest.Logger(t),
 		func(ctx context.Context) error {
 			// Block any attempt to connect return from a heartbeat until the
 			// test is complete.
@@ -111,7 +109,7 @@ func Test_runHeartbeat(t *testing.T) {
 
 	called = make(chan struct{})
 	runHeartbeat(
-		logging.DefaultLogger,
+		hivetest.Logger(t),
 		func(ctx context.Context) error {
 			close(called)
 			return nil
@@ -135,7 +133,7 @@ func Test_runHeartbeat(t *testing.T) {
 
 	called = make(chan struct{})
 	runHeartbeat(
-		logging.DefaultLogger,
+		hivetest.Logger(t),
 		func(ctx context.Context) error {
 			close(called)
 			return nil
@@ -167,7 +165,7 @@ func Test_runHeartbeat(t *testing.T) {
 
 	called = make(chan struct{})
 	runHeartbeat(
-		logging.DefaultLogger,
+		hivetest.Logger(t),
 		func(ctx context.Context) error {
 			return &errors.StatusError{
 				ErrStatus: metav1.Status{
@@ -410,7 +408,7 @@ func Test_clientMultipleAPIServersServiceSwitchover(t *testing.T) {
 	mapping := K8sServiceEndpointMapping{
 		Service: servers[2].URL,
 	}
-	UpdateK8sAPIServerEntry(mapping)
+	UpdateK8sAPIServerEntry(tlog, mapping)
 	// All servers are stopped in order to validate that the agent fails over correctly.
 	servers[0].Close()
 	servers[1].Close()
@@ -528,7 +526,7 @@ func Test_clientMultipleAPIServersFailedRestore(t *testing.T) {
 	defer servers[2].Close()
 	servers[3].Start()
 	defer servers[3].Close()
-	UpdateK8sAPIServerEntry(mapping)
+	UpdateK8sAPIServerEntry(tlog, mapping)
 
 	h = hive.New(
 		Cell,
@@ -655,7 +653,7 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 		// Add bogus endpoints
 		Endpoints: []string{"10.0.0.0:60"},
 	}
-	UpdateK8sAPIServerEntry(mapping)
+	UpdateK8sAPIServerEntry(tlog, mapping)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		_, err = clientset.CoreV1().Pods("test").Get(context.TODO(), "pod", metav1.GetOptions{})

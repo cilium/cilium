@@ -361,7 +361,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			err := tc.out.Sanitize()
 			require.NoError(t, err)
 
-			rules, err := ParseNetworkPolicy(np)
+			rules, err := ParseNetworkPolicy(hivetest.Logger(t), np)
 			require.NoError(t, err)
 			require.Len(t, rules, 1)
 			require.Equal(t, &tc.out, rules[0])
@@ -534,7 +534,7 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 		expectedRule,
 	}
 
-	rules, err := ParseNetworkPolicy(&np)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.EqualValues(t, expectedRules, rules)
@@ -597,7 +597,7 @@ func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) *pol
 		if p.Namespace == "" {
 			p.Namespace = "default"
 		}
-		rules, err := ParseNetworkPolicy(p)
+		rules, err := ParseNetworkPolicy(hivetest.Logger(t), p)
 		require.NoError(t, err)
 		rev := repo.GetRevision()
 		_, id := repo.MustAddList(rules)
@@ -756,7 +756,7 @@ func TestParseNetworkPolicyNamedPort(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 }
@@ -774,7 +774,7 @@ func TestParseNetworkPolicyEmptyPort(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 	require.Len(t, rules[0].Ingress, 1)
@@ -815,7 +815,7 @@ func TestParseNetworkPolicyUnknownProto(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
 	require.Error(t, err)
 	require.Empty(t, rules)
 }
@@ -881,7 +881,7 @@ func TestParseNetworkPolicyNoIngress(t *testing.T) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), netPolicy)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 }
@@ -941,7 +941,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 			err := json.Unmarshal(p, &np)
 			require.NoError(t, err, "Failed to unmarshal policy %d", i)
 
-			rules, err := ParseNetworkPolicy(&np)
+			rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
 			require.NoError(t, err, "Failed to parse policy %d", i)
 			require.Len(t, rules, 1)
 
@@ -1409,7 +1409,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	err := json.Unmarshal(ex1, &np)
 	require.NoError(t, err)
 
-	rules, err := ParseNetworkPolicy(&np)
+	rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.Len(t, rules, 1)
@@ -1457,7 +1457,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	err = json.Unmarshal(ex2, &np)
 	require.NoError(t, err)
 
-	rules, err = ParseNetworkPolicy(&np)
+	rules, err = ParseNetworkPolicy(hivetest.Logger(t), &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 	require.Len(t, rules, 1)
@@ -1695,7 +1695,7 @@ func TestGetPolicyLabelsv1(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		lbls := GetPolicyLabelsv1(tt.np)
+		lbls := GetPolicyLabelsv1(hivetest.Logger(t), tt.np)
 		require.NotNil(t, lbls)
 		require.Len(t, lbls, 4, "Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels.")
 		assertLabel(lbls[0], "io.cilium.k8s.policy.derived-from", tt.derivedFrom)

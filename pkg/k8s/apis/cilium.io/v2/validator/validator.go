@@ -6,18 +6,18 @@ package validator
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
+
+	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
-	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -34,16 +34,17 @@ var (
 
 // NPValidator is a validator structure used to validate CNP and CCNP.
 type NPValidator struct {
+	logger        *slog.Logger
 	cnpValidator  validation.SchemaCreateValidator
 	ccnpValidator validation.SchemaCreateValidator
 }
 
-func NewNPValidator() (*NPValidator, error) {
+func NewNPValidator(logger *slog.Logger) (*NPValidator, error) {
 	// There are some default variables set by the CustomResourceValidation
 	// Marshaller so we need to marshal and unmarshal the CNPCRV to have those
 	// default values, the same way k8s api-server has it.
 	cnpCRVJSONBytes, err := json.Marshal(
-		client.GetPregeneratedCRD(client.CNPCRDName).Spec.Versions[0].Schema,
+		client.GetPregeneratedCRD(logger, client.CNPCRDName).Spec.Versions[0].Schema,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CNPCRV: %w", err)
@@ -72,7 +73,7 @@ func NewNPValidator() (*NPValidator, error) {
 	// Marshaller so we need to marshal and unmarshal the CCNPCRV to have those
 	// default values, the same way k8s api-server has it.
 	ccnpCRVJSONBytes, err := json.Marshal(
-		client.GetPregeneratedCRD(client.CCNPCRDName).Spec.Versions[0].Schema,
+		client.GetPregeneratedCRD(logger, client.CCNPCRDName).Spec.Versions[0].Schema,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CCNPCRV: %w", err)
@@ -98,6 +99,7 @@ func NewNPValidator() (*NPValidator, error) {
 	}
 
 	return &NPValidator{
+		logger:        logger,
 		cnpValidator:  cnpValidator,
 		ccnpValidator: ccnpValidator,
 	}, nil
@@ -109,11 +111,11 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 		return errs.ToAggregate()
 	}
 
-	if err := detectUnknownFields(cnp); err != nil {
+	if err := detectUnknownFields(n.logger, cnp); err != nil {
 		return err
 	}
 
-	if err := checkInitLabelsPolicy(cnp); err != nil {
+	if err := checkInitLabelsPolicy(n.logger, cnp); err != nil {
 		return err
 	}
 
@@ -126,14 +128,14 @@ func (n *NPValidator) ValidateCCNP(ccnp *unstructured.Unstructured) error {
 		return errs.ToAggregate()
 	}
 
-	if err := detectUnknownFields(ccnp); err != nil {
+	if err := detectUnknownFields(n.logger, ccnp); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func checkInitLabelsPolicy(cnp *unstructured.Unstructured) error {
+func checkInitLabelsPolicy(logger *slog.Logger, cnp *unstructured.Unstructured) error {
 	cnpBytes, err := cnp.MarshalJSON()
 	if err != nil {
 		return err
@@ -152,9 +154,10 @@ func checkInitLabelsPolicy(cnp *unstructured.Unstructured) error {
 		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
 		if spec.EndpointSelector.HasKey(podInitLbl) {
 			logOnce.Do(func() {
-				log.WithFields(logrus.Fields{
-					logfields.CiliumNetworkPolicyName: cnp.GetName(),
-				}).Error(logInitPolicyCNP)
+				logger.Error(
+					logInitPolicyCNP,
+					logfields.CiliumNetworkPolicyName, cnp.GetName(),
+				)
 			})
 			return errInitPolicyCNP
 		}

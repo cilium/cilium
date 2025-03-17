@@ -604,6 +604,8 @@ const (
 	// K8sNamespace is the namespace something belongs to
 	K8sNamespace = "k8sNamespace"
 
+	K8sNamespaceIllegal = "k8sNamespace.illegal"
+
 	// K8sIdentityAnnotation is a k8s non-identifying annotations on k8s objects
 	K8sIdentityAnnotation = "k8sIdentityAnnotation"
 
@@ -1394,4 +1396,54 @@ const (
 	ListLimit = "listLimit"
 
 	TimeWindow = "timeWindow"
+
+	Entry = "entry"
+
+	LastEventReceived = "lastEventReceived"
+
+	PodIP = "podIP"
+
+	PodIPs = "podIPs"
+
+	NewPodIP = "newPodIP"
+
+	NewPodIPs = "newPodIPs"
+
+	NewHostIP = "newHostIP"
+
+	OldPodIP = "oldPodIP"
+
+	OldPodIPs = "oldPodIPs"
+
+	OldHostIP = "oldHostIP"
+
+	OldLabels = "oldLabels"
+
+	OldAnnotations = "oldAnnotations"
+
+	NewLabels = "newLabels"
+
+	NewAnnotations = "newAnnotations"
+
+	OldService = "oldService"
+
+	OldEndpoints = "oldEndpoints"
+
+	LenEndpoints = "lenEndpoints"
+
+	LenBackends = "lenBackends"
+
+	EnableK8sTerminatingEndpoint = "enableK8sTerminatingEndpoint"
+
+	CRDs = "CRDs"
+
+	PodCIDRs = "podCIDRs"
+
+	LenIPs = "lenIPs"
+
+	Alias = "alias"
+
+	GlobalConfiguration = "globalConfiguration"
+
+	Annotation = "annotation"
 )

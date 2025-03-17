@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -429,8 +430,8 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](oldObj); oldK8sNP != nil {
-						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](newObj); newK8sNP != nil {
+					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), oldObj); oldK8sNP != nil {
+						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), newObj); newK8sNP != nil {
 							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
 								return
 							}
@@ -438,7 +439,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					k8sNP := informer.CastInformerEvent[slim_corev1.Node](obj)
+					k8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -447,7 +448,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = informer.CastInformerEvent[slim_corev1.Node](deletedObj.Obj)
+						k8sNP = informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}
