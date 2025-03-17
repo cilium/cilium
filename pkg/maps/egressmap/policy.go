@@ -56,12 +56,7 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 }
 
 // PolicyMap is used to communicate EGW policies to the datapath.
-type PolicyMap interface {
-	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error)
-	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error
-	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
-	IterateWithCallback(EgressPolicyIterateCallback) error
-}
+type PolicyMap policyMap
 
 // policyMap is the internal representation of an egress policy map.
 type policyMap struct {
@@ -77,7 +72,7 @@ func createPolicyMapFromDaemonConfig(in struct {
 }) (out struct {
 	cell.Out
 
-	bpf.MapOut[PolicyMap]
+	bpf.MapOut[*PolicyMap]
 	defines.NodeOut
 }) {
 	out.NodeDefines = map[string]string{
@@ -88,18 +83,18 @@ func createPolicyMapFromDaemonConfig(in struct {
 		return
 	}
 
-	out.MapOut = bpf.NewMapOut(PolicyMap(createPolicyMap(in.Lifecycle, in.PolicyConfig, ebpf.PinByName)))
+	out.MapOut = bpf.NewMapOut(createPolicyMap(in.Lifecycle, in.PolicyConfig, ebpf.PinByName))
 	return
 }
 
 // CreatePrivatePolicyMap creates an unpinned policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap(lc cell.Lifecycle, cfg PolicyConfig) PolicyMap {
+func CreatePrivatePolicyMap(lc cell.Lifecycle, cfg PolicyConfig) *PolicyMap {
 	return createPolicyMap(lc, cfg, ebpf.PinNone)
 }
 
-func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
+func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap {
 	m := bpf.NewMap(
 		PolicyMapName,
 		ebpf.LPMTrie,
@@ -124,16 +119,16 @@ func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) 
 		},
 	})
 
-	return &policyMap{m}
+	return &PolicyMap{m}
 }
 
-func OpenPinnedPolicyMap() (PolicyMap, error) {
+func OpenPinnedPolicyMap() (*PolicyMap, error) {
 	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapName), &EgressPolicyKey4{}, &EgressPolicyVal4{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &policyMap{m}, nil
+	return &PolicyMap{m}, nil
 }
 
 // NewEgressPolicyKey4 returns a new EgressPolicyKey4 object representing the
@@ -214,7 +209,7 @@ func (v *EgressPolicyVal4) String() string {
 
 // Lookup returns the egress policy object associated with the provided (source
 // IP, destination CIDR) tuple.
-func (m *policyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
+func (m *PolicyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val, err := m.m.Lookup(&key)
 	if err != nil {
@@ -226,7 +221,7 @@ func (m *policyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressP
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *policyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
+func (m *PolicyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val := NewEgressPolicyVal4(egressIP, gatewayIP)
 
@@ -234,7 +229,7 @@ func (m *policyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP,
 }
 
 // Delete deletes the (sourceIP, destCIDR) egress policy entry.
-func (m *policyMap) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+func (m *PolicyMap) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 
 	return m.m.Delete(&key)
@@ -247,7 +242,7 @@ type EgressPolicyIterateCallback func(*EgressPolicyKey4, *EgressPolicyVal4)
 
 // IterateWithCallback iterates through all the keys/values of an egress policy
 // map, passing each key/value pair to the cb callback.
-func (m policyMap) IterateWithCallback(cb EgressPolicyIterateCallback) error {
+func (m *PolicyMap) IterateWithCallback(cb EgressPolicyIterateCallback) error {
 	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		key := k.(*EgressPolicyKey4)
 		value := v.(*EgressPolicyVal4)
