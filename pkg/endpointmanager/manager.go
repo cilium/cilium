@@ -102,6 +102,8 @@ type endpointManager struct {
 	epIDAllocator *epIDAllocator
 
 	monitorAgent monitoragent.Agent
+
+	policyUpdateCallbackDetails
 }
 
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
@@ -122,6 +124,7 @@ func New(epSynchronizer EndpointResourceSynchronizer, ks *ipcache.IPIdentitySync
 		localNodeStore:               lns,
 		epIDAllocator:                newEPIDAllocator(),
 		monitorAgent:                 monitorAgent,
+		policyUpdateCallbackDetails:  newPolicyUpdateCallbackDetails(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 	mgr.policyMapPressure = newPolicyMapPressure()
@@ -213,6 +216,11 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
 			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
 		}
+
+		// Perform policy update call if required.
+		// This should not block the main flow for Endpoint.
+		mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, true)
+
 		wg.Done()
 	}()
 
@@ -608,6 +616,9 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 // at the WithoutDatapath level.
 func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
 	mgr.controllers.TriggerController(regenEndpointControllerName)
+
+	// Trigger regeneration of all Endpoint Policies
+	mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, false)
 }
 
 // OverrideEndpointOpts applies the given options to all endpoints.
@@ -816,6 +827,8 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 			wg.Done()
 		}(ep)
 	}
+
+	mgr.policyUpdateCallback(&sync.WaitGroup{}, idsToRegen, true)
 
 	wg.Wait()
 }
