@@ -91,7 +91,7 @@ spec:
           {{- with .Values.authentication.mutual.spire.install.agent.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
-          {{- end }}                  
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /live
