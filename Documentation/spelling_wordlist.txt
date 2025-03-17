@@ -636,6 +636,7 @@ rebased
 rebasing
 recompiles
 reconfigurations
+reconnection
 reconnections
 recv
 regenerations
