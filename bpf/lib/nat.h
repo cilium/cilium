@@ -251,7 +251,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
-					       retries ? port + 1 :
 					       (__u16)get_prandom_u32());
 	}
 
@@ -1235,7 +1234,6 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
-					       retries ? port + 1 :
 					       (__u16)get_prandom_u32());
 	}
 
