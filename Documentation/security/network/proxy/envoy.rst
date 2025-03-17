@@ -36,6 +36,7 @@ instead of running it from within the Cilium Agent Pod.
 The communication between Cilium agent and Envoy proxy takes place via UNIX domain sockets in both deployment modes.
 Be that streaming the access logs (e.g. L7 Protocol Visibility), updating the configuration via
 `xDS <https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol>`_ or accessing the admin interface.
+Due to the use of UNIX domain sockets, Envoy DaemonSet and the Cilium Agent need to have compatible types when SELinux is enabled on the host. This is the case if not specified otherwise, both using the highly privileged type: ``spc_t``. SELinux is enabled by default on Red Hat OpenShift Container Platform.
 
 Enable and configure Envoy DaemonSet
 ====================================
@@ -58,11 +59,6 @@ Potential Benefits
  :class: attention
 
   If you'd like to see Cilium Envoy in action, check out `eCHO episode 127: Cilium & Envoy <https://www.youtube.com/watch?v=HEwruycGbCU>`__.
-
-Known Limitations
-=================
-
-- Due to Pod-to-Pod communication with the Cilium Agent via UNIX domain sockets, Envoy DaemonSet isn't supported with SELinux enabled on the host. This is the default for Red Hat OpenShift.
 
 *************
 Go Extensions
