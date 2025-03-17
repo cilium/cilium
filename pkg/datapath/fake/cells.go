@@ -55,7 +55,7 @@ var Cell = cell.Module(
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
-		func() egressmap.PolicyMap { return nil },
+		func() *egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
