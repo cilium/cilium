@@ -1146,7 +1146,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
 # ifdef ENABLE_WIREGUARD
-		if (!from_host) {
+		if (!from_host && THIS_INTERFACE_IFINDEX != WG_IFINDEX) {
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
@@ -1190,7 +1190,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
 #ifdef ENABLE_WIREGUARD
-		if (!from_host) {
+		if (!from_host && THIS_INTERFACE_IFINDEX != WG_IFINDEX) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
