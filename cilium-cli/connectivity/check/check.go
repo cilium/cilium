@@ -94,7 +94,7 @@ type Parameters struct {
 	CiliumPodSelector      string
 	NodeSelector           map[string]string
 	DeploymentAnnotations  annotationsMap
-	NamespaceAnnotations   annotations
+	NamespaceAnnotations   map[string]string
 	ExternalTarget         string
 	ExternalOtherTarget    string
 	ExternalCIDR           string
