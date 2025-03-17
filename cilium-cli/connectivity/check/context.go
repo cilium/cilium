@@ -561,12 +561,12 @@ func (ct *ConnectivityTest) report() error {
 			}
 		}
 		ct.Logf("%s", strings.Repeat("-", 200))
-		ct.Logf("%s", strings.Repeat("-", 85))
-		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s ", "Scenario", "Node", "Test", "Duration", "Throughput Mb/s")
-		ct.Logf("%s", strings.Repeat("-", 85))
+		ct.Logf("%s", strings.Repeat("-", 88))
+		ct.Logf("📋 %-15s | %-10s | %-18s | %-15s | %-15s ", "Scenario", "Node", "Test", "Duration", "Throughput Mb/s")
+		ct.Logf("%s", strings.Repeat("-", 88))
 		for _, result := range ct.PerfResults {
 			if result.Result.ThroughputMetric != nil {
-				ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-12.2f ",
+				ct.Logf("📋 %-15s | %-10s | %-18s | %-15s | %-12.2f ",
 					result.PerfTest.Scenario,
 					nodeString(result.PerfTest.SameNode),
 					result.PerfTest.Test,
@@ -575,7 +575,7 @@ func (ct *ConnectivityTest) report() error {
 				)
 			}
 		}
-		ct.Logf("%s", strings.Repeat("-", 85))
+		ct.Logf("%s", strings.Repeat("-", 88))
 		if ct.Params().PerfParameters.ReportDir != "" {
 			common.ExportPerfSummaries(ct.PerfResults, ct.Params().PerfParameters.ReportDir)
 		}
