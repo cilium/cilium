@@ -115,6 +115,8 @@ func init() {
 		"edt_info":                {bwmap.EdtInfo{}},
 		"egress_gw_policy_key":    {egressmap.EgressPolicyKey4{}},
 		"egress_gw_policy_entry":  {egressmap.EgressPolicyVal4{}},
+		"egress_gw_policy_key6":   {egressmap.EgressPolicyKey6{}},
+		"egress_gw_policy_entry6": {egressmap.EgressPolicyVal6{}},
 		"srv6_vrf_key4":           {srv6map.VRFKey4{}},
 		"srv6_vrf_key6":           {srv6map.VRFKey6{}},
 		"srv6_policy_key4":        {srv6map.PolicyKey4{}},

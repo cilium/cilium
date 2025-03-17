@@ -38,7 +38,7 @@ var bpfEgressListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress list")
 
-		policyMap, err := egressmap.OpenPinnedPolicyMap()
+		policyMap, err := egressmap.OpenPinnedPolicyMap4()
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find egress gateway bpf maps")

@@ -127,7 +127,7 @@ type Manager struct {
 	identityAllocator identityCache.IdentityAllocator
 
 	// policyMap communicates the active policies to the datapath.
-	policyMap *egressmap.PolicyMap
+	policyMap *egressmap.PolicyMap4
 
 	// reconciliationTriggerInterval is the amount of time between triggers
 	// of reconciliations are invoked
@@ -158,7 +158,7 @@ type Params struct {
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
 	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap         *egressmap.PolicyMap
+	PolicyMap         *egressmap.PolicyMap4
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
