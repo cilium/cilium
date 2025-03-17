@@ -742,14 +742,14 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgres
 	}
 }
 
-func assertEgressRules(t *testing.T, policyMap egressmap.PolicyMap, rules []egressRule) {
+func assertEgressRules(t *testing.T, policyMap *egressmap.PolicyMap, rules []egressRule) {
 	t.Helper()
 
 	err := tryAssertEgressRules(policyMap, rules)
 	require.NoError(t, err)
 }
 
-func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) error {
+func tryAssertEgressRules(policyMap *egressmap.PolicyMap, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
