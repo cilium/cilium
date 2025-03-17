@@ -16,14 +16,6 @@
 
 #define CLUSTER_ID 0
 
-/* Hack: the agent declares and assigns ROUTER_IP in the runtime-generated
- * node_config.h, replacing this file before compilation. Declare the variables
- * manually here, so dpgen doesn't pick it up at compile time and we don't
- * substitute an empty default value.
- */
-volatile const __u64 __config_ROUTER_IP_1;
-volatile const __u64 __config_ROUTER_IP_2;
-
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
