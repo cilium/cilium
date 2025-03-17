@@ -189,12 +189,12 @@
   {{- end }}
 {{- end }}
 
-{{/*validate ClusterMesh */}}
+{{/* validate ClusterMesh */}}
 {{- if and (ne (int .Values.clustermesh.maxConnectedClusters) 255) (ne (int .Values.clustermesh.maxConnectedClusters) 511) }}
   {{- fail "max-connected-clusters must be set to 255 or 511" }}
 {{- end }}
 
-{{/*validate Envoy baseID */}}
+{{/* validate Envoy baseID */}}
 {{- if not (and (ge (int .Values.envoy.baseID) 0) (le (int .Values.envoy.baseID) 4294967295)) }}
   {{- fail "envoy.baseID must be an int. Supported values 0 - 4294967295" }}
 {{- end }}
@@ -206,4 +206,9 @@
       {{ fail "k8sClientExponentialBackoff cannot be enabled when extraEnv contains KUBE_CLIENT_BACKOFF_BASE or KUBE_CLIENT_BACKOFF_DURATION" }}
     {{- end }}
   {{- end }}
+{{- end }}
+
+{{/* validate multi-pool requirements */}}
+{{- if and (eq .Values.ipam.mode "multi-pool") (not .Values.endpointRoutes.enabled) }}
+  {{- fail "Multi-pool mode requires enable-endpoint-routes" }}
 {{- end }}
