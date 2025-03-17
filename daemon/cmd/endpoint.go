@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -209,7 +210,7 @@ func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoi
 		return nil, err
 	}
 
-	containerPorts, lbls := k8s.GetPodMetadata(ns, p)
+	containerPorts, lbls := k8s.GetPodMetadata(logging.DefaultSlogLogger, ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return &endpoint.K8sMetadata{

@@ -186,12 +186,13 @@ func TestGetIdentity(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			_, client := k8sClient.NewFakeClientset(hivetest.Logger(t))
-			backend, err := NewCRDBackend(CRDBackendConfiguration{
-				Store:    nil,
-				StoreSet: &atomic.Bool{},
-				Client:   client,
-				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
-			})
+			backend, err := NewCRDBackend(hivetest.Logger(t),
+				CRDBackendConfiguration{
+					Store:    nil,
+					StoreSet: &atomic.Bool{},
+					Client:   client,
+					KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				})
 			if err != nil {
 				t.Fatalf("Can't create CRD Backend: %s", err)
 			}

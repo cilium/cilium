@@ -217,8 +217,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := informer.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
-					if newNode := informer.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
+				if oldNode := informer.CastInformerEvent[cilium_v2.CiliumNode](logging.DefaultSlogLogger, oldObj); oldNode != nil {
+					if newNode := informer.CastInformerEvent[cilium_v2.CiliumNode](logging.DefaultSlogLogger, newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}

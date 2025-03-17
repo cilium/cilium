@@ -15,10 +15,10 @@ import (
 var cesNotify = subscriber.NewCES()
 
 func (k *K8sCiliumEndpointsWatcher) ciliumEndpointSliceInit(ctx context.Context) {
-	log.Info("Initializing CES controller")
+	k.logger.Info("Initializing CES controller")
 
 	// Register for all ces updates.
-	cesNotify.Register(newCESSubscriber(k))
+	cesNotify.Register(newCESSubscriber(k.logger, k))
 
 	var synced atomic.Bool
 

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -2013,7 +2014,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 		} else {
 			option.Config.EnableK8sTerminatingEndpoint = true
 		}
-		got := ParseEndpointSliceV1(args.eps)
+		got := ParseEndpointSliceV1(hivetest.Logger(t), args.eps)
 		require.EqualValues(t, want, got, "Test name: %q", tt.name)
 	}
 }

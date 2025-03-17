@@ -5,18 +5,19 @@ package k8s
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/identity/key"
-
 	"github.com/cilium/hive/cell"
+	"github.com/cloudflare/cfssl/log"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -294,7 +295,7 @@ func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*meta
 	return resource.New[*cilium_api_v2.CiliumBGPPeerConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPPeerConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
+func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -317,7 +318,9 @@ func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts 
 	return resource.New[*Endpoints](
 		lc,
 		lw,
-		resource.WithLazyTransform(lw.getSourceObj, transformEndpoint),
+		resource.WithLazyTransform(lw.getSourceObj, func(i any) (any, error) {
+			return transformEndpoint(logger, i)
+		}),
 		resource.WithMetric("Endpoint"),
 		resource.WithName("endpoints"),
 	), nil
@@ -379,12 +382,12 @@ func (lw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interfac
 	return lw.getListerWatcher().Watch(opts)
 }
 
-func transformEndpoint(obj any) (any, error) {
+func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
 	switch obj := obj.(type) {
 	case *slim_corev1.Endpoints:
 		return ParseEndpoints(obj), nil
 	case *slim_discoveryv1.EndpointSlice:
-		return ParseEndpointSliceV1(obj), nil
+		return ParseEndpointSliceV1(logger, obj), nil
 	case *slim_discoveryv1beta1.EndpointSlice:
 		return ParseEndpointSliceV1Beta1(obj), nil
 	default:
@@ -427,8 +430,10 @@ func ciliumEndpointLocalPodIndexFunc(obj any) ([]string, error) {
 	}
 	indices := []string{}
 	if cep.Networking == nil {
-		log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
-			Debug("cannot index CiliumEndpoint by node without network status")
+		log.Debug(
+			"cannot index CiliumEndpoint by node without network status",
+			slog.Any("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()),
+		)
 		return nil, nil
 	}
 	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {

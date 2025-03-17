@@ -4,7 +4,7 @@
 package k8s
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -19,13 +19,13 @@ const UseOriginalSourceAddressLabel = "cilium.io/use-original-source-address"
 
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string) {
+func GetPodMetadata(logger *slog.Logger, k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string) {
 	namespace := pod.Namespace
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sNamespace: namespace,
-		logfields.K8sPodName:   pod.Name,
-	})
-	scopedLog.Debug("Connecting to k8s local stores to retrieve labels for pod")
+	logger.Debug(
+		"Connecting to k8s local stores to retrieve labels for pod",
+		logfields.K8sNamespace, namespace,
+		logfields.K8sPodName, pod.Name,
+	)
 
 	objMetaCpy := pod.ObjectMeta.DeepCopy()
 	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)

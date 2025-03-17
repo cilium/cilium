@@ -5,12 +5,12 @@ package k8s
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -189,19 +189,23 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:    svc.ObjectMeta.Name,
-		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
-		logfields.K8sSvcType:    svc.Spec.Type,
-	})
+func ParseService(logger *slog.Logger, svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
+	scopedLog := logger.With(
+		logfields.K8sSvcName, svc.ObjectMeta.Name,
+		logfields.K8sNamespace, svc.ObjectMeta.Namespace,
+		logfields.K8sAPIVersion, svc.TypeMeta.APIVersion,
+		logfields.K8sSvcType, svc.Spec.Type,
+	)
 	var loadBalancerIPs []string
 
 	svcID := ParseServiceID(svc)
 	expType, err := NewSvcExposureType(svc)
 	if err != nil {
-		scopedLog.WithError(err).Warnf("Ignoring %q annotation", annotation.ServiceTypeExposure)
+		scopedLog.Warn(
+			"Ignoring annotation",
+			logfields.Error, err,
+			logfields.Annotation, annotation.ServiceTypeExposure,
+		)
 	}
 
 	var svcType loadbalancer.SVCType
@@ -220,7 +224,9 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		return ServiceID{}, nil
 
 	default:
-		scopedLog.Warn("Ignoring k8s service: unsupported type")
+		scopedLog.Warn(
+			"Ignoring k8s service: unsupported type",
+		)
 		return ServiceID{}, nil
 	}
 
@@ -295,8 +301,12 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 		svcInfo.ForwardingMode, err = getAnnotationServiceForwardingMode(svc)
 		if err != nil {
-			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
-				annotation.ServiceForwardingMode, svcInfo.ForwardingMode)
+			scopedLog.Warn(
+				"Ignoring annotation, applying global configuration",
+				logfields.Error, err,
+				logfields.Annotation, annotation.ServiceForwardingMode,
+				logfields.GlobalConfiguration, svcInfo.ForwardingMode,
+			)
 		}
 	}
 
@@ -306,8 +316,12 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
 		if err != nil {
-			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
-				annotation.ServiceLoadBalancingAlgorithm, svcInfo.LoadBalancerAlgorithm)
+			scopedLog.Warn(
+				"Ignoring annotation, applying global configuration",
+				logfields.Error, err,
+				logfields.Annotation, annotation.ServiceLoadBalancingAlgorithm,
+				logfields.GlobalConfiguration, svcInfo.LoadBalancerAlgorithm,
+			)
 		}
 	}
 
@@ -320,8 +334,11 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 			svcInfo.SessionAffinityTimeoutSec = uint32(v1.DefaultClientIPServiceAffinitySeconds)
 		}
 		if svcInfo.SessionAffinityTimeoutSec > defaults.SessionAffinityTimeoutMaxFallback {
-			scopedLog.Warnf("Clamping maximum possible session affinity timeout from %d to %d seconds",
-				svcInfo.SessionAffinityTimeoutSec, defaults.SessionAffinityTimeoutMaxFallback)
+			scopedLog.Warn(
+				"Clamping maximum possible session affinity timeout (seconds)",
+				logfields.From, svcInfo.SessionAffinityTimeoutSec,
+				logfields.To, defaults.SessionAffinityTimeoutMaxFallback,
+			)
 			svcInfo.SessionAffinityTimeoutSec = defaults.SessionAffinityTimeoutMaxFallback
 		}
 	}

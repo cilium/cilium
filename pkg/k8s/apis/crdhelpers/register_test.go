@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -87,7 +88,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
-				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -98,7 +99,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
-				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -125,7 +126,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -165,7 +166,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
-				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},

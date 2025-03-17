@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/cilium/hive/hivetest"
 )
 
 func FuzzCiliumNetworkPolicyParse(f *testing.F) {
@@ -14,7 +15,7 @@ func FuzzCiliumNetworkPolicyParse(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		r := &CiliumNetworkPolicy{}
 		ff.GenerateStruct(r)
-		_, _ = r.Parse()
+		_, _ = r.Parse(hivetest.Logger(t))
 	})
 }
 
@@ -23,6 +24,6 @@ func FuzzCiliumClusterwideNetworkPolicyParse(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		r := &CiliumClusterwideNetworkPolicy{}
 		ff.GenerateStruct(r)
-		_, _ = r.Parse()
+		_, _ = r.Parse(hivetest.Logger(t))
 	})
 }

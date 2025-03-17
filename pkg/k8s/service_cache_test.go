@@ -147,7 +147,7 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	cache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	cache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
@@ -253,7 +253,7 @@ func TestServiceCacheEndpoints(t *testing.T) {
 }
 
 func TestServiceCacheEndpointSlice(t *testing.T) {
-	endpoints := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	endpoints := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-afbh9",
@@ -292,7 +292,7 @@ func testServiceCache(t *testing.T,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup)) {
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -457,7 +457,7 @@ func testServiceCache(t *testing.T,
 
 func TestForEachService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc1 := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -504,7 +504,7 @@ func TestForEachService(t *testing.T) {
 			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
-	k8sEndpoints2 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpoints2 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "baz-xxxxx",
@@ -568,7 +568,7 @@ func TestServiceMutators(t *testing.T) {
 	var m1, m2 int
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
 		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
@@ -591,7 +591,7 @@ func TestServiceMutators(t *testing.T) {
 
 func TestExternalServiceMerging(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -914,7 +914,7 @@ func TestExternalServiceMerging(t *testing.T) {
 		return true
 	}, 2*time.Second))
 
-	k8sSvcID, _ := ParseService(k8sSvc, nil)
+	k8sSvcID, _ := ParseService(hivetest.Logger(t), k8sSvc, nil)
 	addresses := svcCache.getServiceIP(k8sSvcID)
 	require.EqualValues(t, loadbalancer.NewL3n4Addr(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.0.0.1"), 80, loadbalancer.ScopeExternal), addresses)
 
@@ -952,7 +952,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	swg := lock.NewStoppableWaitGroup()
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	// Store the service with the non-cluster-aware ID
 	svcCache.services[id1] = &svc
@@ -1013,7 +1013,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 func TestNonSharedService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1062,7 +1062,7 @@ func TestNonSharedService(t *testing.T) {
 }
 
 func TestServiceCacheWith2EndpointSlice(t *testing.T) {
-	k8sEndpointSlice1 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice1 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-yyyyy",
@@ -1087,7 +1087,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 		},
 	})
 
-	k8sEndpointSlice2 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice2 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -1112,7 +1112,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 		},
 	})
 
-	k8sEndpointSlice3 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice3 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -1138,7 +1138,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1306,7 +1306,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 }
 
 func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
-	k8sEndpointSlice1 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice1 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-yyyyy",
@@ -1331,7 +1331,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 		},
 	})
 
-	k8sEndpointSlice2 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice2 := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -1357,7 +1357,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	svcCache := NewServiceCache(hivetest.Logger(t), db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1540,7 +1540,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		},
 	}
 	veryTrue := true
-	k8sEndpointSlice := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice := ParseEndpointSliceV1(hivetest.Logger(t), &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-ep-filtering",
@@ -1571,7 +1571,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 	}})
 	db, nodeAddrs := newDB(t)
-	svcCache := newServiceCache(hivetest.Lifecycle(t),
+	svcCache := newServiceCache(hivetest.Logger(t), hivetest.Lifecycle(t),
 		ServiceCacheConfig{EnableServiceTopology: true}, store,
 		db, nodeAddrs, NewSVCMetricsNoop())
 
@@ -1647,7 +1647,7 @@ func BenchmarkCorrelateEndpoints(b *testing.B) {
 	const epsPerSlice = 100
 
 	db, nodeAddrs := newDB(b)
-	cache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
+	cache := NewServiceCache(hivetest.Logger(b), db, nodeAddrs, NewSVCMetricsNoop())
 
 	var swg lock.StoppableWaitGroup
 	id := ServiceID{Name: "foo", Namespace: "bar"}
