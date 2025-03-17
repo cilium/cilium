@@ -300,7 +300,7 @@ Removed Options
 
 * The previously deprecated high-scale mode for ipcache has been removed.
 * The previously deprecated hubble-relay flag ``--dial-timeout`` has been removed.
-* The previously deprecated External Workflows feature has been removed.
+* The previously deprecated External Workloads feature has been removed. To remove stale resources, run ``kubectl delete crd ciliumexternalworkloads.cilium.io``. In addition, you might want to delete a K8s secret used by External Workloads. Run ``kubectl -n kube-system get secrets`` to find one.
 * The previously deprecated ``--datapath-mode=lb-only`` for plain Docker mode has been removed.
 * The ``update-ec2-adapter-limit-via-api`` CLI flag for the operator has been removed since the operator will only and always use the 
   EC2API to update the EC2 instance limit.
