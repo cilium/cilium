@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	logfilter "github.com/cilium/cilium/cilium-cli/utils/log"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -378,7 +379,13 @@ func (t *Test) ContainerLogs(ctx context.Context) {
 		if err != nil {
 			t.Fatalf("Error reading Cilium logs: %s", err)
 		}
-		t.Infof("Cilium agent %s/%s logs since %s:\n%s", pod.Pod.Namespace, pod.Pod.Name, t.startTime.String(), log)
+		t.Infof(
+			"Cilium agent %s/%s logs since %s:\n%s",
+			pod.Pod.Namespace,
+			pod.Pod.Name,
+			t.startTime.String(),
+			logfilter.Reduce(log, t.verbose),
+		)
 	}
 }
 
