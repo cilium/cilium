@@ -2426,7 +2426,7 @@ envoy:
     repository: "quay.io/vkurchenko/cilium-envoy"
     tag: "ubi-7235681768200a4effbbebb019e5d51b60a57daa"
     pullPolicy: "Always"
-    digest: "sha256:8657a3b3a5c92213f3abcaeed03b09924afb96440d182d0802ad7331e782ecdf"
+    digest: "sha256:cc2d3819142f297b2edc5a98129b537fa391ba1504538cc9da0687417c578251"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
