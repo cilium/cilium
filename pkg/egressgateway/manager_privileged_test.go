@@ -126,7 +126,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
-	policyMap := egressmap.CreatePrivatePolicyMap(lc, egressmap.DefaultPolicyConfig)
+	policyMap := egressmap.CreatePrivatePolicyMap4(lc, egressmap.DefaultPolicyConfig)
 
 	k.manager, err = newEgressGatewayManager(Params{
 		Logger:            logger,
@@ -742,14 +742,14 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgres
 	}
 }
 
-func assertEgressRules(t *testing.T, policyMap *egressmap.PolicyMap, rules []egressRule) {
+func assertEgressRules(t *testing.T, policyMap *egressmap.PolicyMap4, rules []egressRule) {
 	t.Helper()
 
 	err := tryAssertEgressRules(policyMap, rules)
 	require.NoError(t, err)
 }
 
-func tryAssertEgressRules(policyMap *egressmap.PolicyMap, rules []egressRule) error {
+func tryAssertEgressRules(policyMap *egressmap.PolicyMap4, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
