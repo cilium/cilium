@@ -65,7 +65,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI, envoyTLSWarning,
-		ciliumNodeConfigDeprecation, hubbleUIEnvVarFallback, k8sClientNetworkStatusError}
+		ciliumNodeConfigDeprecation, hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -383,4 +383,6 @@ var (
 	// envoyTLSWarningTemplate is the legitimate warning log for negative TLS SNI test case
 	// This is a template string as we need to replace %s for external target flag
 	envoyTLSWarningTemplate = "cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*%s.*and raw socket is not allowed"
+	// bgpV2alpha1ResourceDeprecation is expected when using deprecated BGP resource versions in a test, specifically when running the tests after a Cilium downgrade.
+	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
 )
