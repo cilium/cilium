@@ -193,9 +193,10 @@ type endpointManagerParams struct {
 type endpointManagerOut struct {
 	cell.Out
 
-	Lookup  EndpointsLookup
-	Modify  EndpointsModify
-	Manager EndpointManager
+	Lookup   EndpointsLookup
+	Modify   EndpointsModify
+	Manager  EndpointManager
+	Callback PolicyUpdateCallbackManager
 }
 
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
@@ -221,9 +222,10 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	mgr.InitMetrics(p.MetricsRegistry)
 
 	return endpointManagerOut{
-		Lookup:  mgr,
-		Modify:  mgr,
-		Manager: mgr,
+		Lookup:   mgr,
+		Modify:   mgr,
+		Manager:  mgr,
+		Callback: mgr,
 	}
 }
 
