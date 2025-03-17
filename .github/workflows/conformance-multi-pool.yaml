@@ -166,7 +166,7 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
-            --namespace-annotations='{\"ipam.cilium.io/ip-pool\":\"cilium-test-pool\"}' \
+            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
             --deployment-pod-annotations='{ \
                 \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
