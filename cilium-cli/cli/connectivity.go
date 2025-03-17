@@ -44,6 +44,7 @@ var params = check.Parameters{
 	ExternalDeploymentPort: 8080,
 	EchoServerHostPort:     4000,
 	JunitProperties:        make(map[string]string),
+	NamespaceAnnotations:   make(map[string]string),
 	NodeSelector:           make(map[string]string),
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
@@ -148,9 +149,6 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
 	cmd.Flags().StringVar(&params.CiliumPodSelector, "cilium-pod-selector", defaults.CiliumPodSelector, "Label selector matching all cilium-related pods")
 	cmd.Flags().Var(option.NewNamedMapOptions("node-selector", &params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
-	cmd.Flags().Var(&params.NamespaceAnnotations, "namespace-annotations", "Add annotations to the connectivity test namespace, e.g. '{\"foo\":\"bar\"}'")
-	cmd.Flags().MarkHidden("namespace-annotations")
-	cmd.Flags().MarkHidden("deployment-pod-annotations")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringSliceVar(&tests, "test", []string{}, "Run tests that match one of the given regular expressions, skip tests by starting the expression with '!', target Scenarios with e.g. '/pod-to-cidr'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
@@ -288,7 +286,10 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1)")
+	flags.Var(option.NewNamedMapOptions("namespace-annotations", &params.NamespaceAnnotations, nil), "namespace-annotations", "Add annotations to the connectivity test namespace")
+	flags.MarkHidden("namespace-annotations")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
+	flags.MarkHidden("deployment-pod-annotations")
 	flags.BoolVar(&params.PrintImageArtifacts, "print-image-artifacts", false, "Prints the used image artifacts")
 }
 
