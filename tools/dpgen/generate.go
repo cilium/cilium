@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"strings"
@@ -93,7 +94,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			return "", fmt.Errorf("variable %s: getting default Go value: %w", n, err)
 		}
 
-		fields = append(fields, field{comment, camelCase(n), n, typ, fmt.Sprintf("%#v", defValue)})
+		fields = append(fields, field{comment, camelCase(n), n, typ, goValueLiteral(defValue)})
 	}
 
 	slices.SortStableFunc(fields, func(a, b field) int {
@@ -128,7 +129,10 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	for _, f := range fields {
 		vals = append(vals, f.defValue)
 	}
-	b.WriteString(strings.Join(vals, ", "))
+	for _, e := range embeds {
+		vals = append(vals, fmt.Sprintf("*New%s()", e))
+	}
+	b.WriteString(join(vals))
 	b.WriteString("}\n")
 	b.WriteString("}\n")
 
@@ -171,6 +175,14 @@ func varGoValue(v *ebpf.VariableSpec) (any, error) {
 		default:
 			return nil, fmt.Errorf("unsupported encoding %v", t.Encoding)
 		}
+
+	case *btf.Union:
+		s := make([]byte, t.Size)
+		if err := v.Get(&s); err != nil {
+			return nil, fmt.Errorf("getting value: %w", err)
+		}
+		return s, nil
+
 	default:
 		return "", fmt.Errorf("unsupported type %T", t)
 	}
@@ -255,26 +267,82 @@ func sentencify(s string) string {
 // btfVarGoType converts the type of an integer btf.Var to its equivalent Go
 // type name.
 func btfVarGoType(v *btf.Var) (string, error) {
-	i, ok := btf.As[*btf.Int](v.Type)
-	if !ok {
-		return "", fmt.Errorf("unsupported type %T", v.Type)
+	switch t := btf.UnderlyingType(v.Type).(type) {
+	case *btf.Int:
+		if t.Encoding == btf.Char {
+			return "byte", nil
+		}
+
+		if t.Encoding == btf.Bool {
+			return "bool", nil
+		}
+
+		if t.Size > 8 {
+			return "", fmt.Errorf("unsupported size %d", t.Size)
+		}
+
+		base := "int"
+		if t.Encoding == btf.Unsigned {
+			base = "uint"
+		}
+		return fmt.Sprintf("%s%d", base, t.Size*8), nil
+
+	case *btf.Union:
+		// Unions can't be represented in Go and are most often used for accessing
+		// subfields of addresses. Emit a fixed-size byte array instead.
+		return fmt.Sprintf("[%d]byte", t.Size), nil
+
+	default:
+		return "", fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
+	}
+}
+
+// goValueLiteral returns a string representation of a Go value.
+func goValueLiteral(v any) string {
+	str := fmt.Sprintf("%#v", v)
+	switch t := v.(type) {
+	case []byte:
+		// Replace a slice literal with a fixed-size array literal. Since we can't
+		// create arrays of a given size at runtime to feed to fmt.Sprintf(), do a
+		// manual conversion.
+		str = strings.Replace(str, "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
+	}
+	return str
+}
+
+// join joins a slice of strings into a comma-separated string, wrapping lines
+// and indenting with two tabs.
+func join(vars []string) string {
+	// Chosen to roughly fit "return &BPFFoo{" and some defaults on the first line.
+	const maxLen = 60
+
+	var out bytes.Buffer
+	var line bytes.Buffer
+
+	for i, s := range vars {
+		line.WriteString(s)
+		if i == len(vars)-1 {
+			// Last entry, no further output.
+			break
+		}
+
+		// Not the last entry, write a comma.
+		line.WriteString(",")
+
+		if line.Len() > maxLen || len(vars[i+1]) > maxLen {
+			// If the current line or the next entry are too long, flush the line and
+			// write a newline.
+			out.Write(line.Bytes())
+			line.Reset()
+
+			line.WriteString("\n\t\t")
+		} else {
+			// Otherwise, separate entries with a space.
+			line.WriteString(" ")
+		}
 	}
 
-	if i.Encoding == btf.Char {
-		return "byte", nil
-	}
+	out.Write(line.Bytes())
 
-	if i.Encoding == btf.Bool {
-		return "bool", nil
-	}
-
-	if i.Size > 8 {
-		return "", fmt.Errorf("unsupported size %d", i.Size)
-	}
-
-	base := "int"
-	if i.Encoding == btf.Unsigned {
-		base = "uint"
-	}
-	return fmt.Sprintf("%s%d", base, i.Size*8), nil
+	return out.String()
 }
