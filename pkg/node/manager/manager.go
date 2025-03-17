@@ -704,9 +704,8 @@ func (m *manager) checkpoint() error {
 func (m *manager) nodeAddressShouldUseTunnel(address nodeTypes.Address) bool {
 	// If the host firewall is enabled, all traffic to remote nodes must go
 	// through the tunnel to preserve the source identity as part of the
-	// encapsulation. In encryption case we also want to use vxlan device
-	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
-	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
+	// encapsulation.
+	return address.Type == addressing.NodeCiliumInternalIP ||
 		m.conf.EnableHostFirewall
 }
 
