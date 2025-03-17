@@ -518,10 +518,8 @@ func (ct *ConnectivityTest) maybeNodeToNodeEncryptionAffinity() *corev1.NodeAffi
 	}
 }
 
-// deploy ensures the test Namespace, Services and Deployments are running on the cluster.
-func (ct *ConnectivityTest) deploy(ctx context.Context) error {
-	var err error
-
+// deployNamespace sets up the test namespace.
+func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 	for _, client := range ct.Clients() {
 		if ct.params.ForceDeploy {
 			if err := ct.deleteDeployments(ctx, client); err != nil {
@@ -549,10 +547,13 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	// Deploy perf actors (only in the first test namespace
-	// in case of tests concurrent run)
-	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
-		return ct.deployPerf(ctx)
+	return nil
+}
+
+// deploy ensures the test Namespace, Services and Deployments are running on the cluster.
+func (ct *ConnectivityTest) deploy(ctx context.Context) error {
+	if err := ct.deployNamespace(ctx); err != nil {
+		return err
 	}
 
 	// Deploy test-conn-disrupt actors (only in the first
@@ -583,7 +584,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
+	_, err := ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
 		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
@@ -1436,7 +1437,9 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 }
 
 func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
-	var err error
+	if err := ct.deployNamespace(ctx); err != nil {
+		return err
+	}
 
 	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).String()
 	nodeSelectorClient := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorClient).String()
@@ -1542,45 +1545,44 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	return nil
 }
 
-// deploymentList returns 2 lists of Deployments to be used for running tests with.
-func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
-	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
-		if ct.params.PerfParameters.NetQos {
-			srcList = append(srcList, perClientLowPriorityDeploymentName)
-			srcList = append(srcList, perClientHighPriorityDeploymentName)
-			srcList = append(srcList, perfServerDeploymentName)
-			return
-		}
-
-		if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
-			if ct.params.PerfParameters.SameNode {
-				srcList = append(srcList, perfClientDeploymentName)
-			}
-			if ct.params.PerfParameters.OtherNode {
-				srcList = append(srcList, perfClientAcrossDeploymentName)
-			}
-		}
-		if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.HostToPod {
-			srcList = append(srcList, perfServerDeploymentName)
-		}
-
-		if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.HostToPod {
-			if ct.params.PerfParameters.SameNode {
-				srcList = append(srcList, perfClientHostNetDeploymentName)
-			}
-			if ct.params.PerfParameters.OtherNode {
-				srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
-			}
-		}
-		if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
-			srcList = append(srcList, perfServerHostNetDeploymentName)
-		}
-
-		// Return early, we can't run regular connectivity tests
-		// along perf test
+// deploymentListPerf returns the list of deployments required by the performance tests.
+func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []string) {
+	if ct.params.PerfParameters.NetQos {
+		srcList = append(srcList, perClientLowPriorityDeploymentName)
+		srcList = append(srcList, perClientHighPriorityDeploymentName)
+		srcList = append(srcList, perfServerDeploymentName)
 		return
 	}
 
+	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
+		if ct.params.PerfParameters.SameNode {
+			srcList = append(srcList, perfClientDeploymentName)
+		}
+		if ct.params.PerfParameters.OtherNode {
+			srcList = append(srcList, perfClientAcrossDeploymentName)
+		}
+	}
+	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.HostToPod {
+		srcList = append(srcList, perfServerDeploymentName)
+	}
+
+	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.HostToPod {
+		if ct.params.PerfParameters.SameNode {
+			srcList = append(srcList, perfClientHostNetDeploymentName)
+		}
+		if ct.params.PerfParameters.OtherNode {
+			srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
+		}
+	}
+	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
+		srcList = append(srcList, perfServerHostNetDeploymentName)
+	}
+
+	return
+}
+
+// deploymentList returns 2 lists of Deployments to be used for running tests with.
+func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
 	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
 		srcList = append(srcList, client3DeploymentName)
@@ -1680,12 +1682,9 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	return nil
 }
 
-// validateDeployment checks if the Deployments we created have the expected Pods in them.
-func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
-
+func (ct *ConnectivityTest) validateDeploymentCommon(ctx context.Context, srcDeployments, dstDeployments []string) error {
 	ct.Debug("Validating Deployments...")
 
-	srcDeployments, dstDeployments := ct.deploymentList()
 	for _, name := range srcDeployments {
 		if err := WaitForDeployment(ctx, ct, ct.clients.src, ct.Params().TestNamespace, name); err != nil {
 			return err
@@ -1698,34 +1697,51 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.params.Perf {
-		perfPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindPerfName})
-		if err != nil {
-			return fmt.Errorf("unable to list perf pods: %w", err)
+	return nil
+}
+
+func (ct *ConnectivityTest) validateDeploymentPerf(ctx context.Context) error {
+	srcDeployments, dstDeployments := ct.deploymentListPerf()
+	if err := ct.validateDeploymentCommon(ctx, srcDeployments, dstDeployments); err != nil {
+		return err
+	}
+
+	perfPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindPerfName})
+	if err != nil {
+		return fmt.Errorf("unable to list perf pods: %w", err)
+	}
+
+	for _, perfPod := range perfPods.Items {
+		_, hasLabel := perfPod.GetLabels()["server"]
+		if hasLabel {
+			ct.perfServerPod = append(ct.perfServerPod, Pod{
+				K8sClient: ct.client,
+				Pod:       perfPod.DeepCopy(),
+				port:      5201,
+			})
+		} else {
+			ct.perfClientPods = append(ct.perfClientPods, Pod{
+				K8sClient: ct.client,
+				Pod:       perfPod.DeepCopy(),
+			})
 		}
-		for _, perfPod := range perfPods.Items {
-			_, hasLabel := perfPod.GetLabels()["server"]
-			if hasLabel {
-				ct.perfServerPod = append(ct.perfServerPod, Pod{
-					K8sClient: ct.client,
-					Pod:       perfPod.DeepCopy(),
-					port:      5201,
-				})
-			} else {
-				ct.perfClientPods = append(ct.perfClientPods, Pod{
-					K8sClient: ct.client,
-					Pod:       perfPod.DeepCopy(),
-				})
-			}
-		}
-		// Sort pods so results are always displayed in the same order in console
-		sort.SliceStable(ct.perfServerPod, func(i, j int) bool {
-			return ct.perfServerPod[i].Pod.Name < ct.perfServerPod[j].Pod.Name
-		})
-		sort.SliceStable(ct.perfClientPods, func(i, j int) bool {
-			return ct.perfClientPods[i].Pod.Name < ct.perfClientPods[j].Pod.Name
-		})
-		return nil
+	}
+
+	// Sort pods so results are always displayed in the same order in console
+	sort.SliceStable(ct.perfServerPod, func(i, j int) bool {
+		return ct.perfServerPod[i].Pod.Name < ct.perfServerPod[j].Pod.Name
+	})
+	sort.SliceStable(ct.perfClientPods, func(i, j int) bool {
+		return ct.perfClientPods[i].Pod.Name < ct.perfClientPods[j].Pod.Name
+	})
+
+	return nil
+}
+
+func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
+	srcDeployments, dstDeployments := ct.deploymentList()
+	if err := ct.validateDeploymentCommon(ctx, srcDeployments, dstDeployments); err != nil {
+		return err
 	}
 
 	if ct.Features[features.LocalRedirectPolicy].Enabled {

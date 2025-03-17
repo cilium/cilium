@@ -303,6 +303,21 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
+	setupAndValidate := ct.setupAndValidate
+	if ct.Params().Perf {
+		setupAndValidate = ct.setupAndValidatePerf
+	}
+
+	if err := setupAndValidate(ctx, extra); err != nil {
+		return err
+	}
+
+	// Setup and validate all the extras coming from extended functionalities.
+	return extra.SetupAndValidate(ctx, ct)
+}
+
+func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHooks) error {
 	if err := ct.detectSingleNode(ctx); err != nil {
 		return err
 	}
@@ -375,8 +390,23 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 		}
 	}
 
-	// Setup and validate all the extras coming from extended functionalities.
-	return extra.SetupAndValidate(ctx, ct)
+	return nil
+}
+
+func (ct *ConnectivityTest) setupAndValidatePerf(ctx context.Context, _ SetupHooks) error {
+	if err := ct.initClients(ctx); err != nil {
+		return err
+	}
+
+	if err := ct.deployPerf(ctx); err != nil {
+		return err
+	}
+
+	if err := ct.validateDeploymentPerf(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // PrintTestInfo prints connectivity test names and count.
