@@ -293,6 +293,10 @@ communicating via the proxy must reconnect to re-establish connections.
 1.18 Upgrade Notes
 ------------------
 * ``cilium-dbg bpf policy`` now prints ``ANY`` and not ``reserved:unknown`` for a bpf policy entry that allows any peer identity.
+* The ``v2alpha1`` version of ``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfig`` and
+  ``CiliumBGPNodeConfigOverride`` CRDs was deprecated in favor of the ``v2`` version. Change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` for these CRDs in all your BGP configs. The previously deprecated field
+  ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
 
 
 Removed Options
