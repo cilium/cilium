@@ -44,6 +44,7 @@ var params = check.Parameters{
 	ExternalDeploymentPort: 8080,
 	EchoServerHostPort:     4000,
 	JunitProperties:        make(map[string]string),
+	NamespaceLabels:        make(map[string]string),
 	NamespaceAnnotations:   make(map[string]string),
 	NodeSelector:           make(map[string]string),
 	Writer:                 os.Stdout,
@@ -287,6 +288,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1)")
+	flags.Var(option.NewNamedMapOptions("namespace-labels", &params.NamespaceLabels, nil), "namespace-labels", "Add labels to the connectivity test namespace")
 	flags.Var(option.NewNamedMapOptions("namespace-annotations", &params.NamespaceAnnotations, nil), "namespace-annotations", "Add annotations to the connectivity test namespace")
 	flags.MarkHidden("namespace-annotations")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
