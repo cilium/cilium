@@ -13,13 +13,6 @@
 #define TUNNEL_MODE
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include <bpf/config/node.h>
-
-/*
  * Test Configuration Settings
  * Simulate sending traffic from node_one to pod_two.
  *

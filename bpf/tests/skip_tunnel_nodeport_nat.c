@@ -16,13 +16,6 @@
 #define ENABLE_NODEPORT 1
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include <bpf/config/node.h>
-
-/*
  * Simulate sending traffic from pod_one on node_one to pod_two
  * on node_two, through a nodeport on node_three, as well as sending
  * reply from pod_two to pod_one through node_three.
@@ -295,9 +288,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 			test_fatal("l3 out of bounds");
 
 		if (expected_result == CTX_ACT_REDIRECT) {
-			union v6addr router_ip;
-
-			BPF_V6(router_ip, ROUTER_IP);
+			union v6addr router_ip = CONFIG(router_ipv6);
 
 			if (memcmp((__u8 *)&l3->saddr, &router_ip, 16) != 0)
 				test_fatal("src IP was not changed to IPV6_GATEWAY");

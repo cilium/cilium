@@ -17,13 +17,6 @@
 #define ENABLE_MASQUERADE_IPV6 1
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include <bpf/config/node.h>
-
-/*
  * Simulate sending traffic from pod_one on node_one directly to
  * node_two. Tests are written from the perspective of node_one,
  * allowing us access to nodeport_snat_fwd_ipv{4,6}.

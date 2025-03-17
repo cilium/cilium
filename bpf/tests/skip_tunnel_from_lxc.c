@@ -27,13 +27,6 @@
 #define TUNNEL_MODE
 
 /*
- * Now include testing defaults
- */
-#define ROUTER_IP
-#undef ROUTER_IP
-#include <bpf/config/node.h>
-
-/*
  * Include entrypoint into lxc egress stack
  */
 #include "bpf_lxc.c"
