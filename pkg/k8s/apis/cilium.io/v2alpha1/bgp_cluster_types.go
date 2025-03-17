@@ -15,6 +15,7 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpclusterconfig",path="ciliumbgpclusterconfigs",scope="Cluster",shortName={cbgpcluster}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:deprecatedversion
 
 // CiliumBGPClusterConfig is the Schema for the CiliumBGPClusterConfig API
 type CiliumBGPClusterConfig struct {
