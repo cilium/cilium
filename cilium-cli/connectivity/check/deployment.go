@@ -539,7 +539,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        ct.params.TestNamespace,
 					Annotations: ct.params.NamespaceAnnotations,
-					Labels:      appLabels,
+					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 				},
 			}
 			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
