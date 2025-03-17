@@ -524,6 +524,9 @@ func IgnoreUnknown() cmp.Option {
 // handled by this option. To sort Go slices that are not repeated fields,
 // consider using [github.com/google/go-cmp/cmp/cmpopts.SortSlices] instead.
 //
+// The sorting of messages does not take into account ignored fields or oneofs
+// as a result of [IgnoreFields] or [IgnoreOneofs].
+//
 // This must be used in conjunction with [Transform].
 func SortRepeated(lessFunc any) cmp.Option {
 	t, ok := checkTTBFunc(lessFunc)
@@ -623,6 +626,9 @@ func checkTTBFunc(lessFunc any) (reflect.Type, bool) {
 //	FilterField(m, "foo_field", SortRepeated(func(x, y *foopb.MyMessage) bool {
 //	    ... // user-provided definition for less
 //	}))
+//
+// The sorting of messages does not take into account ignored fields or oneofs
+// as a result of [IgnoreFields] or [IgnoreOneofs].
 //
 // This must be used in conjunction with [Transform].
 func SortRepeatedFields(message proto.Message, names ...protoreflect.Name) cmp.Option {
