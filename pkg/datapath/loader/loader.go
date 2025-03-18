@@ -560,9 +560,8 @@ func attachNetworkDevices(ep datapath.Endpoint, lnc *datapath.LocalNodeConfigura
 func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (*config.BPFLXC, map[string]string) {
 	cfg := config.NewBPFLXC(nodeConfig(lnc))
 
-	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
-		cfg.EndpointIPv61 = sliceToBe64(ipv6[0:8])
-		cfg.EndpointIPv62 = sliceToBe64(ipv6[8:16])
+	if ep.IPv6Address().IsValid() {
+		cfg.EndpointIPv6 = ep.IPv6Address().As16()
 	}
 	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
 		cfg.EndpointIPv4 = byteorder.NetIPv4ToHost32(net.IP(ipv4))

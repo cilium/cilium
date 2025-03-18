@@ -16,10 +16,8 @@ type BPFLXC struct {
 	EndpointID uint16 `config:"endpoint_id"`
 	// The endpoint's IPv4 address.
 	EndpointIPv4 uint32 `config:"endpoint_ipv4"`
-	// The endpoint's first 64 bits of the IPv6 address.
-	EndpointIPv61 uint64 `config:"endpoint_ipv6_1"`
-	// The endpoint's second 64 bits of the IPv6 address.
-	EndpointIPv62 uint64 `config:"endpoint_ipv6_2"`
+	// The endpoint's IPv6 address.
+	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
 	// Ifindex of the interface the bpf program is attached to.
@@ -45,6 +43,7 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-		0x0, 0x0, node}
+	return &BPFLXC{0x5dc, 0x0, 0x0,
+		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
