@@ -59,7 +59,7 @@ func GetFactory(t *testing.T) (Factory, *Metrics) {
 func (fb *fakeBackend) Update(ctx context.Context, key string, value []byte, lease bool) error {
 	if lease != fb.expectLease {
 		key = "error"
-		value = []byte(fmt.Sprintf("incorrect lease setting, expected(%v) - found(%v)", fb.expectLease, lease))
+		value = fmt.Appendf(nil, "incorrect lease setting, expected(%v) - found(%v)", fb.expectLease, lease)
 	}
 
 	select {

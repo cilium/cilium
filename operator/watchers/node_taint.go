@@ -292,7 +292,7 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 	if err != nil {
 		return err
 	}
-	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
+	patch := fmt.Appendf(nil, `{"status":{"conditions":%s}}`, raw)
 	_, err = c.CoreV1().Nodes().PatchStatus(ctx, nodeName, patch)
 	if err != nil {
 		logger.Info("Failed to patch node while setting condition",

@@ -59,7 +59,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation no
 	if err != nil {
 		return err
 	}
-	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+	patch := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
 	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, k8sTypes.StrategicMergePatchType, patch, metav1.PatchOptions{}, "status")
 
