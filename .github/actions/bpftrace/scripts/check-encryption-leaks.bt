@@ -124,8 +124,10 @@ kprobe:br_forward
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
-          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
-            strftime("%H:%M:%S:%f", nsecs),
+          $time = strftime("%H:%M:%S:%f", nsecs);
+
+          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
+            $time, $skb,
             ntop($ip4h->saddr),
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
             ntop($ip4h->daddr),
@@ -143,8 +145,8 @@ kprobe:br_forward
           if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
             $dns = (struct dnshdr*)($udph + 1);
             $query = (uint8 *)($dns + 1);
-            printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
-              strftime("%H:%M:%S:%f", nsecs),
+            printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+              $time, $skb,
               bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
               bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
               str(kptr($query)));
@@ -185,8 +187,10 @@ kprobe:br_forward
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
-          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
-            strftime("%H:%M:%S:%f", nsecs),
+          $time = strftime("%H:%M:%S:%f", nsecs);
+
+          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
+            $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8),
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
             ntop($ip6h->daddr.in6_u.u6_addr8),
@@ -204,8 +208,8 @@ kprobe:br_forward
           if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
             $dns = (struct dnshdr*)($udph + 1);
             $query = (uint8 *)($dns + 1);
-            printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
-              strftime("%H:%M:%S:%f", nsecs),
+            printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+              $time, $skb,
               bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
               bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
               str(kptr($query)));
