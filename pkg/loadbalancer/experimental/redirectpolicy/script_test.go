@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -65,6 +66,7 @@ func TestScript(t *testing.T) {
 				daemonk8s.TablesCell,
 				experimental.Cell,
 				Cell,
+				node.LocalNodeStoreCell,
 				maglev.Cell,
 				cell.Provide(
 					source.NewSources,

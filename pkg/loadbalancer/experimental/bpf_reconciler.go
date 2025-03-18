@@ -1044,13 +1044,13 @@ func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *BackendParams) (
 
 	if be.Address.AddrCluster.Is6() {
 		lbbe, err = lbmap.NewBackend6V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, be.ZoneID)
+			be.State, ops.cfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}
 	} else {
 		lbbe, err = lbmap.NewBackend4V3(id, be.Address.AddrCluster, be.Address.Port, proto,
-			be.State, be.ZoneID)
+			be.State, ops.cfg.GetZoneID(be.Zone))
 		if err != nil {
 			return err
 		}

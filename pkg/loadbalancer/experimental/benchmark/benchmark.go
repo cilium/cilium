@@ -73,6 +73,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 			Log:    log,
 			Pinned: false,
 			Cfg: experimental.ExternalConfig{
+				ZoneMapper: &option.DaemonConfig{},
 				LBMapsConfig: experimental.LBMapsConfig{
 					MaxSockRevNatMapEntries:  3 * testSize,
 					ServiceMapMaxEntries:     3 * testSize,
@@ -522,6 +523,7 @@ func testHive(maps experimental.LBMaps,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
 	extConfig := experimental.ExternalConfig{
+		ZoneMapper:        &option.DaemonConfig{},
 		EnableIPv4:        true,
 		EnableIPv6:        true,
 		ExternalClusterIP: false,
