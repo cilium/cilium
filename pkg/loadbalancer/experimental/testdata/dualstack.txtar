@@ -26,9 +26,9 @@ lb/maps-dump lbmaps.actual
 
 # Cleanup
 k8s/delete service.yaml endpointslice-ipv4.yaml endpointslice-ipv6.yaml
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+
+# Tables should be empty
+* db/empty services frontends backends
 
 #####
 
@@ -50,8 +50,8 @@ Address NodePort Primary DeviceName
 2001::1 true     true    test
 
 -- services.table --
-Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-default/echo-dualstack   k8s                  Cluster            Cluster                              0                     false              
+Name                     Source   PortNames         TrafficPolicy   Flags
+default/echo-dualstack   k8s      http=80, tftp=69  Cluster
 
 -- frontends-ipv4.table --
 Address                     Type        ServiceName              PortName   Backends                                                     Status
@@ -85,15 +85,6 @@ Address                        Instances
 [fd00:10:244:1::247e]:80/TCP   default/echo-dualstack (http)
 [fd00:10:244:2::a314]:69/UDP   default/echo-dualstack (tftp)
 [fd00:10:244:2::a314]:80/TCP   default/echo-dualstack (http)
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address
 
 -- service.yaml --
 apiVersion: v1

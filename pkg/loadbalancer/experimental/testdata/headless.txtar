@@ -6,22 +6,23 @@ hive start
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
 db/initialized
 
-# Add a headless service with backends. It should appear in the services table, but should have
-# no frontends.
+# Add a headless service with backends.
 k8s/add service_clusterip_none.yaml endpointslice.yaml
+
+# Check tables. The headless service should exist, but without frontends.
 db/cmp services services.table
 db/cmp backends backends.table 
-db/cmp frontends frontends_empty.table
+* db/empty frontends
 
 # The BPF maps should be empty since there are no frontends.
-lb/maps-dump lbmaps.actual
-cmp lbmaps.empty lbmaps.actual
+* lb/maps-empty
 
 # Cleanup the headless service. The endpoint slice is not deleted
 # so we still have backends referencing the removed service.
 k8s/delete service_clusterip_none.yaml
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
+
+# Check tables
+* db/empty services frontends
 db/cmp backends backends.table
 
 # Add a non-headless service
@@ -39,38 +40,28 @@ replace 'placeholder' 'service.kubernetes.io/headless' service.yaml
 k8s/update service.yaml
 
 # Frontends are now removed.
+* db/empty frontends
 db/cmp services services.table
-db/cmp backends backends.table 
-db/cmp frontends frontends_empty.table
+db/cmp backends backends.table
 
 # The BPF maps should be empty since there are no frontends.
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.empty lbmaps.actual
+* lb/maps-empty
 
 # Clean up everything.
 k8s/delete service.yaml endpointslice.yaml
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+
+# Tables should be empty
+* db/empty services frontends backends
 
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0                     false
-
--- services_empty.table --
-Name  Source
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster
 
 -- backends.table --
 Address             Instances          Shadows        NodeName
 10.244.1.1:80/TCP   test/echo (http)                  nodeport-worker
-
--- backends_empty.table --
-Address
-
--- frontends_empty.table --
-Address  Type
 
 -- frontends.table --
 Address        Type       Status  Backends 
@@ -153,8 +144,6 @@ ports:
 - name: http
   port: 80
   protocol: TCP
-
--- lbmaps.empty --
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active

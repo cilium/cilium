@@ -38,8 +38,8 @@ db/cmp services services.table
 #####
 
 -- services.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo    k8s                  Cluster            Cluster                              0                     false              
+Name         Source   TrafficPolicy   Flags
+test/echo    k8s      Cluster
 
 -- frontends-all.table --
 Address               Type         ServiceName   PortName   Status  Backends

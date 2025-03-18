@@ -15,16 +15,17 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
-k8s/delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+k8s/delete service.yaml endpointslice.yaml
+
+# Maps and tables should be empty
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0                     false              10.0.0.0/8
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         SourceRanges=10.0.0.0/8
 
 -- frontends.table --
 Address               Type          ServiceName   PortName   Backends            Status
@@ -34,15 +35,6 @@ Address               Type          ServiceName   PortName   Backends           
 -- backends.table --
 Address             Instances          NodeName
 10.244.1.1:80/TCP   test/echo (http)   nodeport-worker
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address
 
 -- service.yaml --
 apiVersion: v1

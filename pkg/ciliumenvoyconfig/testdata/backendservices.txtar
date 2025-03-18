@@ -4,10 +4,6 @@
 hive start
 db/initialized
 
-# Start with clean state.
-db/cmp services services_empty.table
-db/cmp ciliumenvoyconfigs cec_empty.table
-
 # Set up the services and endpoints. Add the test/frontend first and wait for it
 # to reconcile.
 k8s/add service.yaml endpointslice.yaml
@@ -40,36 +36,32 @@ lb/maps-dump lbmaps.out
 
 # Check that right updates towards Envoy happened.
 envoy envoy.out
-replace 'count=2' 'count=1' envoy.out
 * cmp envoy.out envoy1.expected
 
 # Cleanup
 k8s/delete cec.yaml
-db/cmp services services.table
-db/cmp ciliumenvoyconfigs cec_empty.table
 
-# The listener should now be deleted. The update count may be either
-# 1 or 2 depending on when the controller is woken up.
+# Proxy redirect should be gone and CEC table should be empty
+db/cmp services services.table
+* db/empty ciliumenvoyconfigs
+
+# The listener should now be deleted.
 envoy envoy.out
-replace 'count=2' 'count=1' envoy.out
 * cmp envoy.out envoy2.expected
 
 # ---------------------------------------------
 
--- services_empty.table --
-Name  ProxyRedirect
-
 -- services.table --
-Name                       ProxyRedirect
+Name                       Flags
 test/backend
 test/backend_unnamed_port
 test/frontend   
 
 -- services_redirected.table --
-Name                      ProxyRedirect
+Name                      Flags
 test/backend
 test/backend_unnamed_port
-test/frontend             1000 (ports: [80])
+test/frontend             ProxyRedirect=1000 (ports: [80])
 
 -- frontends1.table --
 Address            Type        ServiceName     PortName   Backends           Status   Error
@@ -94,9 +86,6 @@ Address            Type        ServiceName                PortName   Backends   
 -- envoy-resources.table --
 Name           Listeners             Endpoints                                                                                               Status   Error
 test/ingress   test/ingress/listener test/backend:9080: 2.1.0.1, 2.1.0.2, test/backend_unnamed_port:9080: 3.1.0.1, test/frontend:80: 1.1.0.1 Done
-
--- cec_empty.table --
-Name    Services
 
 -- cec.table --
 Name           Services        BackendServices

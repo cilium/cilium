@@ -126,9 +126,9 @@ loadbalancer.reflector      job-reflect-pods                  OK      Running
 loadbalancer.reflector      job-reflect-services-endpoints    OK      Running
 
 -- services.table --
-Name                   Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   HealthCheckNodePort
-test/echo              k8s                  Local              Local              $HEALTHPORT1
-test/echo:healthserver local                Local              Local              0
+Name                   Source   PortNames  TrafficPolicy   Flags
+test/echo              k8s      http=80    Local           HealthCheckNodePort=$HEALTHPORT1
+test/echo:healthserver local               Local
 
 -- frontends.table --
 Address               Type         ServiceName            PortName   Status  Backends
@@ -156,10 +156,6 @@ Address               Type         ServiceName            PortName   Status  Bac
 10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    
 
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
-
 -- backends1.table --
 Instances              Address
 test/echo (http)       10.244.1.1:80/TCP
@@ -179,9 +175,6 @@ test/echo (http)       10.244.1.4:80/TCP
 Address               Instances              NodeName
 10.244.1.3:80/TCP     test/echo (http)       othernode
 10.244.1.4:80/TCP     test/echo (http)       othernode
-
--- backends_empty.table --
-Address             State    Instances            NodeName           ZoneID
 
 -- service.yaml --
 apiVersion: v1

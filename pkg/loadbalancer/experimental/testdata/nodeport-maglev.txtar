@@ -32,16 +32,17 @@ lb/maps-dump lbmaps.actual
 
 # Cleanup. Backends first in this test.
 k8s/delete endpointslice.yaml endpointslice2.yaml
-db/cmp backends backends_empty.table
+
+# Backends should be empty
+* db/empty backends
 db/cmp frontends frontends_nobackends.table
 
+# Finally remove the services
 k8s/delete service.yaml service2.yaml
-db/cmp frontends frontends_empty.table
-db/cmp services services_empty.table
 
-# Check that BPF maps are empty
-lb/maps-dump lbmaps.actual
-* cmp lbmaps-empty.expected lbmaps.actual
+# Check that tables and BPF maps are empty
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
@@ -56,13 +57,9 @@ Address NodePort Primary DeviceName
 1.1.1.1 true     true    test
 
 -- services.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo    k8s                  Cluster            Cluster                              0                     false
-test/echo2   k8s                  Cluster            Cluster                              0                     false
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
+Name         Source   PortNames  TrafficPolicy   Flags
+test/echo    k8s      http=80    Cluster         
+test/echo2   k8s      http2=80   Cluster         
 
 -- frontends1.table --
 Address               Type        ServiceName   PortName   Status  Backends
@@ -83,9 +80,6 @@ Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done
 10.96.50.105:80/TCP   ClusterIP   test/echo2    http2      Done
 
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
 -- backends1.table --
 Address             Instances            NodeName         
 10.244.1.1:80/TCP   test/echo (http)     nodeport-worker  
@@ -103,9 +97,6 @@ Address             Instances            NodeName
 10.244.2.2:80/TCP   test/echo2 (http2)   nodeport-worker  
 10.244.2.3:80/TCP   test/echo2 (http2)   nodeport-worker2 
 10.244.2.4:80/TCP   test/echo2 (http2)   nodeport-worker2 
-
--- backends_empty.table --
-Address
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
@@ -154,8 +145,6 @@ SVC: ID=6 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterI
 SVC: ID=6 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=6 ADDR=10.96.50.105:80/TCP SLOT=3 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=6 ADDR=10.96.50.105:80/TCP SLOT=4 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- lbmaps-empty.expected --
-
 -- service.yaml --
 apiVersion: v1
 kind: Service
