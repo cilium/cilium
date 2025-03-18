@@ -29,11 +29,6 @@ static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 
 #include <bpf_host.c>
 
-/* aka FRONTEND_IP aka v6_pod_two: */
-DEFINE_IPV6(nat_ipv6_masquerade,
-	    0xfd, 0x04, 0, 0, 0, 0, 0, 0,
-	    0, 0, 0, 0, 0, 0, 0, 0x02);
-
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
