@@ -115,9 +115,9 @@ func (s defaultScenario) Name() string {
 
 var ghWorkflowRegexp = regexp.MustCompile("^(?:.+?)/(?:.+?)/(.+?)@.*$")
 
-func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
+func (ct *ConnectivityTest) GetOwners(scenarios ...ownedScenario) []string {
 	if !ct.params.LogCodeOwners {
-		return
+		return nil
 	}
 
 	rules := make(map[ownedScenario]*codeowners.Rule)
@@ -126,7 +126,7 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
 		if err != nil || rule == nil || rule.Owners == nil {
 			ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
 				"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
-			return
+			return nil
 		}
 		rules[scenario] = rule
 	}
@@ -154,22 +154,35 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
 		excludeOwners[owner] = struct{}{}
 	}
 
-	ct.Log("    ⛑️ The following owners are responsible for reliability of the testsuite: ")
+	var owners []string
 	for scenario, rule := range rules {
 		for _, o := range rule.Owners {
 			owner := o.String()
 			if _, ok := excludeOwners[owner]; ok {
 				continue
 			}
-			ct.Log("        - " + owner + " (" + scenario.Name() + ")")
+			owners = append(owners, fmt.Sprintf("%s (%s)", owner, scenario.Name()))
 		}
 		for _, o := range workflowOwners {
 			owner := o.String()
 			if _, ok := excludeOwners[owner]; ok {
 				continue
 			}
-			ct.Log("        - " + owner + " (" + ghWorkflow + ")")
+			owners = append(owners, fmt.Sprintf("%s (%s)", owner, ghWorkflow))
 		}
+	}
+	return owners
+}
+
+func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
+	owners := ct.GetOwners(scenarios...)
+	if len(owners) == 0 {
+		return
+	}
+
+	ct.Log("    ⛑️ The following owners are responsible for reliability of the testsuite: ")
+	for _, o := range owners {
+		ct.Log("        - " + o)
 	}
 }
 
