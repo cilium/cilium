@@ -1418,7 +1418,7 @@ func TestCheckServiceNodeExposure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			exposedOnLocalNode, err := CheckServiceNodeExposure(
 				node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{Labels: tt.nodeLabels}}),
-				&Service{Annotations: tt.svcAnnotations},
+				tt.svcAnnotations,
 			)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantExposed, exposedOnLocalNode)
