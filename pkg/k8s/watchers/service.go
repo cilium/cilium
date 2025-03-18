@@ -12,10 +12,8 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
@@ -393,10 +391,11 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 	svcs := []loadbalancer.LegacySVC{}
 
 	if checkNodeExposure {
-		if nodeMatches, err := k.checkServiceNodeExposure(svc); err != nil || !nodeMatches {
+		if nodeMatches, err := k8s.CheckServiceNodeExposure(k.localNodeStore, svc); err != nil || !nodeMatches {
 			return svcs, err
 		}
 	}
+
 	uniqPorts := svc.UniquePorts()
 
 	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
@@ -458,43 +457,6 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 	}
 
 	return svcs, nil
-}
-
-// checkServiceNodeExposure returns true if the service should be installed onto the
-// local node, and false if the node should ignore and not install the service.
-func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, error) {
-	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
-		ln, err := k.localNodeStore.Get(context.Background())
-		if err != nil {
-			return false, fmt.Errorf("failed to retrieve local node: %w", err)
-		}
-
-		selector, err := labels.Parse(serviceAnnotationValue)
-		if err != nil {
-			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
-		}
-
-		if selector.Matches(labels.Set(ln.Labels)) {
-			return true, nil
-		}
-
-		// prioritize any existing node-selector annotation - and return in any case
-		return false, nil
-	}
-
-	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
-		ln, err := k.localNodeStore.Get(context.Background())
-		if err != nil {
-			return false, fmt.Errorf("failed to retrieve local node: %w", err)
-		}
-
-		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
-		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
-			return false, nil
-		}
-	}
-
-	return true, nil
 }
 
 // hashSVCMap returns a mapping of all frontend's hash to the its corresponded
