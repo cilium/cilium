@@ -5,7 +5,6 @@ package config
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/cilium/cilium/pkg/common"
 )
@@ -15,15 +14,6 @@ import (
 // fmt.Print(FmtDefineAddress("foo", []byte{1, 2, 3})) // "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n"
 func FmtDefineAddress(name string, addr []byte) string {
 	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, common.GoArray2C(addr))
-}
-
-// defineIPv6 writes the C definition for the given IPv6 address.
-func defineIPv6(name string, addr []byte) string {
-	if len(addr) != net.IPv6len {
-		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, common.GoArray2C(addr))
-	}
-	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n#define %s_V\n",
-		name, common.GoArray2C(addr), name)
 }
 
 func dumpRaw(name string, addr []byte) string {

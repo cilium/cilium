@@ -141,8 +141,6 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-DEFINE_IPV6(NODE_IPV6, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x0, 0x2, 0xf, 0xff, 0xff);
-
 PKTGEN("tc", "02_ipv6_from_netdev_ns_for_node_ip")
 int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 {
