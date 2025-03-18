@@ -20,10 +20,7 @@ static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
 #ifdef ENABLE_IPV6
-	union v6addr valid = {};
-
-	BPF_V6(valid, LXC_IP);
-
+	union v6addr valid = CONFIG(endpoint_ipv6);
 	return ipv6_addr_equals((union v6addr *)&ip6->saddr, &valid);
 #else
 	return 0;
