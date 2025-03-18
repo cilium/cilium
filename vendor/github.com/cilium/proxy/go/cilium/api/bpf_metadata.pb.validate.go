@@ -102,6 +102,8 @@ func (m *BpfMetadata) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for L7LbPolicyName
+
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}
