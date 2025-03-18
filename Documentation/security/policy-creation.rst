@@ -77,7 +77,7 @@ This approach is meant to be temporary.  **Restarting Cilium pod will reset the 
 Mode to match the daemon's configuration.**
 
 Policy Audit Mode is enabled for a given endpoint by modifying the endpoint configuration via
-the ``cilium`` tool on the endpoint's Kubernetes node. The steps include:
+the ``cilium-dbg`` tool on the endpoint's Kubernetes node. The steps include:
 
 #. Determine the endpoint id on which Policy Audit Mode will be enabled.
 #. Identify the Cilium pod running on the same Kubernetes node corresponding to the endpoint.
