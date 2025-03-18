@@ -115,7 +115,9 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	}
 
 	if len(embeds) > 0 {
-		b.WriteString("\n")
+		if len(fields) > 0 {
+			b.WriteString("\n")
+		}
 		for _, e := range embeds {
 			b.WriteString(fmt.Sprintf("\t%s\n", e))
 		}
@@ -123,14 +125,19 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	b.WriteString("}\n")
 
 	// Render a constructor with default values set using ASSIGN_CONFIG.
-	b.WriteString(fmt.Sprintf("\nfunc New%s() *%s {\n", name, name))
+	var params []string
+	for _, e := range embeds {
+		params = append(params, fmt.Sprintf("%s %s", strings.ToLower(e), e))
+	}
+
+	b.WriteString(fmt.Sprintf("\nfunc New%s(%s) *%s {\n", name, strings.Join(params, ", "), name))
 	b.WriteString(fmt.Sprintf("\treturn &%s{", name))
 	var vals []string
 	for _, f := range fields {
 		vals = append(vals, f.defValue)
 	}
 	for _, e := range embeds {
-		vals = append(vals, fmt.Sprintf("*New%s()", e))
+		vals = append(vals, strings.ToLower(e))
 	}
 	b.WriteString(join(vals))
 	b.WriteString("}\n")
