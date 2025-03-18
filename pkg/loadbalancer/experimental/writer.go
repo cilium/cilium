@@ -9,6 +9,7 @@ import (
 	"iter"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"text/tabwriter"
 
 	"github.com/cilium/hive/cell"
@@ -26,7 +27,9 @@ import (
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
-	nodeName  string
+	nodeName string
+	nodeZone atomic.Pointer[string]
+
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	svcs      statedb.RWTable[*Service]
@@ -102,10 +105,6 @@ func (w *Writer) IsEnabled() bool {
 	return w != nil
 }
 
-type WriteTxn struct {
-	statedb.WriteTxn
-}
-
 // RegisterInitializer registers a component as an initializer to the load-balancing
 // tables. This blocks pruning of data until this and all other registered initializers
 // have called the returned 'complete' function.
@@ -146,12 +145,45 @@ func (w *Writer) ReadTxn() statedb.ReadTxn {
 	return w.db.ReadTxn()
 }
 
+type WriteTxn struct {
+	statedb.WriteTxn
+}
+
 // WriteTxn returns a write transaction against services & backends and other additional
 // tables to be used with the methods of [Writer]. The returned transaction MUST be
 // Abort()'ed or Commit()'ed.
 func (w *Writer) WriteTxn(extraTables ...statedb.TableMeta) WriteTxn {
 	return WriteTxn{
 		w.db.WriteTxn(w.svcs, append(extraTables, w.bes, w.fes)...),
+	}
+}
+
+func (w *Writer) updateZone(zone string) {
+	// Grab a write transaction before updating [w.nodeZone]
+	// to make sure there's no changes to the tables while we
+	// refresh the frontends.
+	txn := w.WriteTxn()
+	defer txn.Abort()
+
+	if zone == "" {
+		w.nodeZone.Store(nil)
+	} else {
+		w.nodeZone.Store(&zone)
+	}
+
+	// Refresh all frontends associated with topology-aware services
+	// as the backend selection might change.
+	updated := false
+	for fe := range w.fes.All(txn) {
+		if fe.service.TrafficDistribution == TrafficDistributionPreferClose {
+			fe = fe.Clone()
+			w.refreshFrontend(txn, fe)
+			w.fes.Insert(txn, fe)
+			updated = true
+		}
+	}
+	if updated {
+		txn.Commit()
 	}
 }
 
@@ -327,6 +359,15 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, tbl statedb.Table[*B
 			instance := be.GetInstance(serviceName)
 			if onlyLocal && len(instance.NodeName) != 0 && instance.NodeName != w.nodeName {
 				continue
+			}
+			if fe.RedirectTo == nil && fe.service.TrafficDistribution == TrafficDistributionPreferClose {
+				thisZone := w.nodeZone.Load()
+				if len(instance.ForZones) > 0 && thisZone != nil {
+					// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
+					if !slices.Contains(instance.ForZones, *thisZone) {
+						continue
+					}
+				}
 			}
 			if fe.PortName != "" {
 				// A backend with specific port name requested. Look up what this backend

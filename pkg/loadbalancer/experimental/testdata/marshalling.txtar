@@ -75,6 +75,7 @@ Address              Instances
   "PortNames": {
     "http": 80
   },
+  "TrafficDistribution": "",
   "Properties": []
 }
 -- frontends-expected.json --
@@ -111,7 +112,8 @@ Address              Instances
       ],
       "Weight": 100,
       "NodeName": "nodeport-worker",
-      "ZoneID": 0,
+      "Zone": "",
+      "ForZones": null,
       "Source": "k8s",
       "State": 0,
       "Unhealthy": false,
@@ -154,7 +156,8 @@ Address              Instances
       ],
       "Weight": 100,
       "NodeName": "nodeport-worker",
-      "ZoneID": 0,
+      "Zone": "",
+      "ForZones": null,
       "Source": "k8s",
       "State": 0,
       "Unhealthy": false,
@@ -194,7 +197,8 @@ Address              Instances
         ],
         "Weight": 100,
         "NodeName": "nodeport-worker",
-        "ZoneID": 0,
+        "Zone": "",
+        "ForZones": null,
         "Source": "k8s",
         "State": 0,
         "Unhealthy": false,
@@ -232,7 +236,8 @@ Address              Instances
         ],
         "Weight": 100,
         "NodeName": "nodeport-worker",
-        "ZoneID": 0,
+        "Zone": "",
+        "ForZones": null,
         "Source": "k8s",
         "State": 0,
         "Unhealthy": false,
@@ -262,6 +267,7 @@ loopbackhostport: false
 sourceranges: []
 portnames:
     http: 80
+trafficdistribution: ""
 properties: []
 -- frontends-expected.yaml --
 frontendparams:
@@ -283,7 +289,8 @@ backends:
         - http
       weight: 100
       nodename: nodeport-worker
-      zoneid: 0
+      zone: ""
+      forzones: []
       source: k8s
       state: 0
       unhealthy: false
@@ -310,7 +317,8 @@ backends:
         - http
       weight: 100
       nodename: nodeport-worker
-      zoneid: 0
+      zone: ""
+      forzones: []
       source: k8s
       state: 0
       unhealthy: false
@@ -332,7 +340,8 @@ instances:
             - http
         weight: 100
         nodename: nodeport-worker
-        zoneid: 0
+        zone: ""
+        forzones: []
         source: k8s
         state: 0
         unhealthy: false
@@ -352,7 +361,8 @@ instances:
             - http
         weight: 100
         nodename: nodeport-worker
-        zoneid: 0
+        zone: ""
+        forzones: []
         source: k8s
         state: 0
         unhealthy: false

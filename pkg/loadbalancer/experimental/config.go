@@ -64,6 +64,7 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
 	LBMapsConfig
+	ZoneMapper
 
 	EnableIPv4, EnableIPv6          bool
 	ExternalClusterIP               bool
@@ -78,6 +79,7 @@ type ExternalConfig struct {
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
 		LBMapsConfig:                    newLBMapsConfig(cfg),
+		ZoneMapper:                      cfg,
 		EnableIPv4:                      cfg.EnableIPv4,
 		EnableIPv6:                      cfg.EnableIPv6,
 		ExternalClusterIP:               cfg.ExternalClusterIP,
@@ -88,4 +90,8 @@ func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		NodePortAlg:                     cfg.NodePortAlg,
 		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}
+}
+
+type ZoneMapper interface {
+	GetZoneID(string) uint8
 }

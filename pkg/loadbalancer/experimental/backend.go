@@ -38,7 +38,10 @@ type BackendParams struct {
 	NodeName string
 
 	// Zone where backend is located.
-	ZoneID uint8
+	Zone string
+
+	// ForZones where this backend should be consumed in
+	ForZones []string
 
 	// Source of the backend.
 	Source source.Source

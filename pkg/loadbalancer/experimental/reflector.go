@@ -439,6 +439,10 @@ func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Servi
 		}
 	}
 
+	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal && isTopologyAware(svc) {
+		s.TrafficDistribution = TrafficDistributionPreferClose
+	}
+
 	// A service that is annotated as headless has no frontends, even if the service spec contains
 	// ClusterIPs etc.
 	if isHeadless(svc) {
@@ -678,6 +682,8 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 			NodeName:  entry.backend.NodeName,
 			PortNames: entry.portNames,
 			Weight:    loadbalancer.DefaultBackendWeight,
+			Zone:      entry.backend.Zone,
+			ForZones:  entry.backend.HintsForZones,
 			State:     state,
 		}
 		out = append(out, be)
@@ -917,4 +923,19 @@ func joinObservables[T any](src stream.Observable[T], srcs ...stream.Observable[
 				src.Observe(ctx, emit, comp)
 			}
 		})
+}
+
+func isTopologyAware(svc *slim_corev1.Service) bool {
+	return getAnnotationTopologyAwareHints(svc) ||
+		(svc.Spec.TrafficDistribution != nil &&
+			*svc.Spec.TrafficDistribution == corev1.ServiceTrafficDistributionPreferClose)
+}
+
+func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
+	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
+	value, ok := svc.ObjectMeta.Annotations[corev1.DeprecatedAnnotationTopologyAwareHints]
+	if !ok {
+		value = svc.ObjectMeta.Annotations[corev1.AnnotationTopologyMode]
+	}
+	return !(value == "" || value == "disabled" || value == "Disabled")
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -83,6 +84,7 @@ func TestScript(t *testing.T) {
 					TestFaultProbability: 0.1,
 				}),
 				maglev.Cell,
+				node.LocalNodeStoreCell,
 				cell.Provide(
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
@@ -103,8 +105,8 @@ func TestScript(t *testing.T) {
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
-					func(ops *BPFOps, w *Writer) uhive.ScriptCmdsOut {
-						return uhive.NewScriptCmds(testCommands{w, ops}.cmds())
+					func(ops *BPFOps, lns *node.LocalNodeStore, w *Writer) uhive.ScriptCmdsOut {
+						return uhive.NewScriptCmds(testCommands{w, lns, ops}.cmds())
 					},
 				),
 
@@ -181,6 +183,7 @@ var httpGetCmd = script.Command(
 
 type testCommands struct {
 	w   *Writer
+	lns *node.LocalNodeStore
 	ops *BPFOps
 }
 
@@ -189,6 +192,7 @@ func (tc testCommands) cmds() map[string]script.Cmd {
 		"test/update-backend-health": tc.updateHealth(),
 		"test/bpfops-reset":          tc.opsReset(),
 		"test/bpfops-summary":        tc.opsSummary(),
+		"test/set-node-labels":       tc.setNodeLabels(),
 	}
 }
 
@@ -244,4 +248,25 @@ func (tc testCommands) opsSummary() script.Cmd {
 				return
 			}, nil
 		})
+}
+
+func (tc testCommands) setNodeLabels() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Set local node labels", Args: "key=value..."},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			labels := map[string]string{}
+			for _, arg := range args {
+				key, value, found := strings.Cut(arg, "=")
+				if !found {
+					return nil, fmt.Errorf("bad key=value: %q", arg)
+				}
+				labels[key] = value
+			}
+			tc.lns.Update(func(n *node.LocalNode) {
+				n.Labels = labels
+				s.Logf("Labels set to %v\n", labels)
+			})
+			return nil, nil
+		})
+
 }

@@ -108,6 +108,7 @@ devicename: test
 Module                      Component                         Level   Message                    Error
 loadbalancer.healthserver   job-control-loop                  OK      0 health servers running
 loadbalancer                job-node-addr-reconciler          OK      Running
+loadbalancer                job-zone-watcher                  OK      Running
 loadbalancer.reconciler     job-reconcile                     OK      OK, 0 object(s)
 loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
 loadbalancer.reconciler     job-start-reconciler              Stopped Started
@@ -119,6 +120,7 @@ Module                      Component                         Level   Message   
 loadbalancer.healthserver   job-control-loop                  OK      1 health servers running
 loadbalancer.healthserver   job-listener-$HEALTHPORT1                OK      Running
 loadbalancer                job-node-addr-reconciler          OK      Running
+loadbalancer                job-zone-watcher                  OK      Running
 loadbalancer.reconciler     job-reconcile                     OK      OK, 4 object(s)
 loadbalancer.reconciler     job-refresh                       OK      Next refresh in 30m0s
 loadbalancer.reconciler     job-start-reconciler              Stopped Started

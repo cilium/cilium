@@ -48,6 +48,9 @@ var Cell = cell.Module(
 	// the node addresses change.
 	cell.Invoke(registerNodePortAddressReconciler),
 
+	// Register a background job to watch for node zone label changes.
+	cell.Invoke(registerNodeZoneWatcher),
+
 	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
 	// implementation is enabled.
 	cell.Provide(newAdapters),
