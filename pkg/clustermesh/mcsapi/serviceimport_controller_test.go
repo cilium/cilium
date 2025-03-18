@@ -839,6 +839,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		name                 string
 		remoteSvcImportValid func(*mcsapiv1alpha1.ServiceImport) bool
 		localSvcImportValid  func(*mcsapiv1alpha1.ServiceImport) bool
+		assertMsgInclude     string
 	}{
 		{
 			name: "conflict-type",
@@ -848,6 +849,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return svcImport.Spec.Type == mcsapiv1alpha1.ClusterSetIP
 			},
+			assertMsgInclude: "1/2 clusters disagree",
 		},
 		{
 			name: "conflict-port-name",
@@ -949,6 +951,12 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, conditionTypeReady))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportValid))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict))
+
+			if conflictTest.assertMsgInclude != "" {
+				condition := meta.FindStatusCondition(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
+				require.NotNil(t, condition)
+				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
+			}
 		})
 	}
 
