@@ -308,7 +308,7 @@ You can observe the L7 policy via ``kubectl``:
               Path:    /v1/request-landing
     Events:            <none>
 
-and ``cilium`` CLI:
+and ``cilium-dbg`` CLI:
 
 .. code-block:: shell-session
 
