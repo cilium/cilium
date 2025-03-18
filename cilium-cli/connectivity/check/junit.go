@@ -5,11 +5,14 @@ package check
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
 )
+
+const MetadataDelimiter = ";metadata;"
 
 // NewJUnitCollector factory function that returns JUnitCollector.
 func NewJUnitCollector(junitProperties map[string]string, junitFile string) *JUnitCollector {
@@ -68,7 +71,8 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			j.testSuite.Failures++
 			msgs := []string{}
 			for _, a := range t.failedActions() {
-				msgs = append(msgs, a.String())
+				owners := ct.GetOwners(a.Scenario())
+				msgs = append(msgs, fmt.Sprintf("%s%sOwners: %s", a, MetadataDelimiter, strings.Join(owners, ", ")))
 			}
 			test.Failure.Value = strings.Join(msgs, "\n")
 		}
