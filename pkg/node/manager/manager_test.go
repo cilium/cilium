@@ -879,7 +879,9 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	}
 
 	ipcacheMock := newIPcacheMock()
-	config := &option.DaemonConfig{}
+	config := &option.DaemonConfig{
+		StateDir: t.TempDir(),
+	}
 	hive := hive.New(
 		cell.Provide(func() testParams {
 			return testParams{
