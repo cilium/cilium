@@ -11,6 +11,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -36,7 +37,10 @@ func BenchmarkConvertService(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		convertService(benchmarkExternalConfig, slog.New(slog.DiscardHandler), svc)
+		convertService(benchmarkExternalConfig, slog.New(slog.DiscardHandler),
+			node.NewTestLocalNodeStore(node.LocalNode{}),
+			svc,
+		)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "services/sec")
 }
