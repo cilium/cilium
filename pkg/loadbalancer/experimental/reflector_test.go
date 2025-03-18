@@ -4,6 +4,7 @@
 package experimental
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -35,7 +36,7 @@ func BenchmarkConvertService(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		convertService(benchmarkExternalConfig, svc)
+		convertService(benchmarkExternalConfig, slog.New(slog.DiscardHandler), svc)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "services/sec")
 }

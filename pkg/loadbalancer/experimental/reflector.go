@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
@@ -201,7 +202,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.ExtConfig, obj)
+			svc, fes := convertService(p.ExtConfig, p.Log, obj)
 			if svc == nil {
 				return
 			}
@@ -373,7 +374,7 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &Service{
 		Name:                name,
@@ -382,6 +383,15 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 		Selector:            svc.Spec.Selector,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
+	}
+
+	expType, err := k8s.NewSvcExposureType(svc)
+	if err != nil {
+		log.Warn("Ignoring annotation",
+			logfields.Error, err,
+			logfields.Annotations, annotation.ServiceTypeExposure,
+			logfields.Service, svc.GetName(),
+		)
 	}
 
 	if len(svc.Spec.Ports) > 0 {
@@ -436,38 +446,40 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 	}
 
 	// ClusterIP
-	var clusterIPs []string
-	if len(svc.Spec.ClusterIPs) > 0 {
-		clusterIPs = slices.Sorted(slices.Values(svc.Spec.ClusterIPs))
-	} else {
-		clusterIPs = []string{svc.Spec.ClusterIP}
-	}
-
-	for _, ip := range clusterIPs {
-		addr, err := cmtypes.ParseAddrCluster(ip)
-		if err != nil {
-			continue
+	if expType.CanExpose(slim_corev1.ServiceTypeClusterIP) {
+		var clusterIPs []string
+		if len(svc.Spec.ClusterIPs) > 0 {
+			clusterIPs = slices.Sorted(slices.Values(svc.Spec.ClusterIPs))
+		} else {
+			clusterIPs = []string{svc.Spec.ClusterIP}
 		}
 
-		if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
-			continue
-		}
-
-		for _, port := range svc.Spec.Ports {
-			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if p == nil {
+		for _, ip := range clusterIPs {
+			addr, err := cmtypes.ParseAddrCluster(ip)
+			if err != nil {
 				continue
 			}
-			fe := FrontendParams{
-				Type:        loadbalancer.SVCTypeClusterIP,
-				PortName:    loadbalancer.FEPortName(port.Name),
-				ServiceName: name,
-				ServicePort: uint16(port.Port),
+
+			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+				continue
 			}
-			fe.Address.AddrCluster = addr
-			fe.Address.Scope = loadbalancer.ScopeExternal
-			fe.Address.L4Addr = *p
-			fes = append(fes, fe)
+
+			for _, port := range svc.Spec.Ports {
+				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				if p == nil {
+					continue
+				}
+				fe := FrontendParams{
+					Type:        loadbalancer.SVCTypeClusterIP,
+					PortName:    loadbalancer.FEPortName(port.Name),
+					ServiceName: name,
+					ServicePort: uint16(port.Port),
+				}
+				fe.Address.AddrCluster = addr
+				fe.Address.Scope = loadbalancer.ScopeExternal
+				fe.Address.L4Addr = *p
+				fes = append(fes, fe)
+			}
 		}
 	}
 
@@ -476,7 +488,9 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 
 	if cfg.KubeProxyReplacement {
 		// NodePort
-		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
+			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
+
 			for _, scope := range scopes {
 				for _, family := range getIPFamilies(svc) {
 					if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
@@ -517,7 +531,7 @@ func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, f
 		}
 
 		// LoadBalancer
-		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
 			for _, ip := range svc.Status.LoadBalancer.Ingress {
 				if ip.IP == "" {
 					continue

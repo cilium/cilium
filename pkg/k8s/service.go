@@ -150,7 +150,7 @@ func isValidServiceFrontendIP(netIP net.IP) bool {
 // latter two, one can set the annotation with the value "LoadBalancer".
 type exposeSvcType slim_corev1.ServiceType
 
-func newSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
+func NewSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
 	typ, isSet := svc.Annotations[annotation.ServiceTypeExposure]
 	if !isSet {
 		return nil, nil
@@ -171,8 +171,8 @@ func newSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
 	return &expType, nil
 }
 
-// canExpose checks whether a given service type can be provisioned.
-func (e *exposeSvcType) canExpose(t slim_corev1.ServiceType) bool {
+// CanExpose checks whether a given service type can be provisioned.
+func (e *exposeSvcType) CanExpose(t slim_corev1.ServiceType) bool {
 	if e == nil {
 		return true
 	}
@@ -199,7 +199,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	var loadBalancerIPs []string
 
 	svcID := ParseServiceID(svc)
-	expType, err := newSvcExposureType(svc)
+	expType, err := NewSvcExposureType(svc)
 	if err != nil {
 		scopedLog.WithError(err).Warnf("Ignoring %q annotation", annotation.ServiceTypeExposure)
 	}
@@ -229,7 +229,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	}
 
 	var clusterIPs []net.IP
-	if expType.canExpose(slim_corev1.ServiceTypeClusterIP) {
+	if expType.CanExpose(slim_corev1.ServiceTypeClusterIP) {
 		if len(svc.Spec.ClusterIPs) == 0 {
 			if clsIP := net.ParseIP(svc.Spec.ClusterIP); clsIP != nil {
 				clusterIPs = []net.IP{clsIP}
@@ -265,7 +265,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
-	if expType.canExpose(slim_corev1.ServiceTypeLoadBalancer) {
+	if expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
 		for _, ip := range svc.Status.LoadBalancer.Ingress {
 			if ip.IP != "" && (ip.IPMode == nil || *ip.IPMode == slim_corev1.LoadBalancerIPModeVIP) {
 				loadBalancerIPs = append(loadBalancerIPs, ip.IP)
@@ -348,7 +348,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 			svcInfo.Ports[portName] = p
 		}
 
-		if expType.canExpose(slim_corev1.ServiceTypeNodePort) &&
+		if expType.CanExpose(slim_corev1.ServiceTypeNodePort) &&
 			(svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) {
 
 			if option.Config.EnableNodePort {
