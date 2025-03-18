@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -53,7 +52,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_netdev"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -467,15 +467,10 @@ func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 }
 
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
-// devices and the wireguard device. Attaches cil_from_netdev to ingress and
-// optionally cil_to_netdev to egress if enabled features require it.
+// devices. Attaches cil_from_netdev to ingress and optionally cil_to_netdev to
+// egress if enabled features require it.
 func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
-
-	// Selectively attach bpf_host to cilium_wg0.
-	if option.Config.NeedBPFHostOnWireGuardDevice() {
-		devices = append(devices, wgTypes.IfaceName)
-	}
 
 	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
 	// service lookup after IPIP termination. Do not attach in case of the
@@ -523,15 +518,10 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		}
 
 		if option.Config.AreDevicesRequired() {
-			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
-			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
-			// the rev-NAT xlations.
-			if device != wgTypes.IfaceName {
-				// Attach cil_to_netdev to egress.
-				if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
-					linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-					return fmt.Errorf("interface %s egress: %w", device, err)
-				}
+			// Attach cil_to_netdev to egress.
+			if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
+				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+				return fmt.Errorf("interface %s egress: %w", device, err)
 			}
 		} else {
 			// Remove any previously attached device from egress path if BPF
@@ -737,6 +727,11 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 	cfg := config.NewBPFWireguard()
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	cfg.WireguardSecctxFromIPCache = secctxFromIpcacheEnabled
+	if option.Config.EnableHostLegacyRouting {
+		cfg.WireguardSecctxFromIPCache = secctxFromIpcacheDisabled
+	}
+
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -765,11 +760,16 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 			log.WithField("device", device).Error(err)
 		}
 	}
-	// Selectively detach cil_from_netdev from ingress.
-	if !option.Config.NeedBPFHostOnWireGuardDevice() {
-		if err := detachSKBProgram(device, symbolFromHostNetdevEp,
+	// Attach/detach cil_from_wireguard to/from ingress.
+	if option.Config.NeedIngressOnWireGuardDevice() {
+		if err := attachSKBProgram(device, obj.FromWireguard, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s ingress: %w", device, err)
+		}
+	} else {
+		if err := detachSKBProgram(device, symbolFromWireguard,
 			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithField("device", wgTypes.IfaceName).Error(err)
+			log.WithField("device", device).Error(err)
 		}
 	}
 	if err := commit(); err != nil {
