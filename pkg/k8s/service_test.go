@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
@@ -21,6 +22,8 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -1342,6 +1345,83 @@ func TestParseServiceIDFrom(t *testing.T) {
 			if got := ParseServiceIDFrom(tt.args.dn); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseServiceIDFrom() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestCheckServiceNodeExposure(t *testing.T) {
+	tests := []struct {
+		name           string // description of this test case
+		nodeLabels     map[string]string
+		svcAnnotations map[string]string
+		wantExposed    bool
+	}{
+		{
+			name:           "no annotation matches all nodes",
+			nodeLabels:     map[string]string{},
+			svcAnnotations: map[string]string{},
+			wantExposed:    true,
+		},
+		{
+			name:           "match via service.cilium.io/node annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeExposure: "beefy"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via service.cilium.io/node annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeExposure: "slow"},
+			wantExposed:    false,
+		},
+		{
+			name:           "exact match via service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node == beefy"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via exact service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node == slow"},
+			wantExposed:    false,
+		},
+		{
+			name:           "in match via service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "beefy"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    true,
+		},
+		{
+			name:           "in match via service.cilium.io/node-selector annotation 2",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "slow"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    true,
+		},
+		{
+			name:           "no match via in service.cilium.io/node-selector annotation",
+			nodeLabels:     map[string]string{"service.cilium.io/node": "another"},
+			svcAnnotations: map[string]string{annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )"},
+			wantExposed:    false,
+		},
+		{
+			name:       "no match via via node annotation if node-selector exists and doesn't match",
+			nodeLabels: map[string]string{"service.cilium.io/node": "another"},
+			svcAnnotations: map[string]string{
+				annotation.ServiceNodeSelectorExposure: "service.cilium.io/node in ( beefy , slow )",
+				annotation.ServiceNodeExposure:         "another",
+			},
+			wantExposed: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exposedOnLocalNode, err := CheckServiceNodeExposure(
+				node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{Labels: tt.nodeLabels}}),
+				&Service{Annotations: tt.svcAnnotations},
+			)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantExposed, exposedOnLocalNode)
 		})
 	}
 }
