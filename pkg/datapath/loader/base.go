@@ -296,7 +296,7 @@ func reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []s
 		return nil
 	}
 	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
 		// is enabled, otherwise we will get "operation not supported" error.
