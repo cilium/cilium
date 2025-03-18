@@ -374,7 +374,7 @@ func configureWithSourceRanges(svcType loadbalancer.SVCType) bool {
 func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) ([]loadbalancer.SVC, error) {
 	svcs := []loadbalancer.SVC{}
 
-	if nodeMatches, err := k8s.CheckServiceNodeExposure(k.localNodeStore, svc); err != nil || !nodeMatches {
+	if nodeMatches, err := k8s.CheckServiceNodeExposure(k.localNodeStore, svc.Annotations); err != nil || !nodeMatches {
 		return svcs, err
 	}
 	uniqPorts := svc.UniquePorts()
