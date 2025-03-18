@@ -391,7 +391,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 	svcs := []loadbalancer.LegacySVC{}
 
 	if checkNodeExposure {
-		if nodeMatches, err := k8s.CheckServiceNodeExposure(k.localNodeStore, svc); err != nil || !nodeMatches {
+		if nodeMatches, err := k8s.CheckServiceNodeExposure(k.localNodeStore, svc.Annotations); err != nil || !nodeMatches {
 			return svcs, err
 		}
 	}

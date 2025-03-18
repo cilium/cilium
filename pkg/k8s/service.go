@@ -806,8 +806,8 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 
 // CheckServiceNodeExposure returns true if the service should be installed onto the
 // local node, and false if the node should ignore and not install the service.
-func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, svc *Service) (bool, error) {
-	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, annotations map[string]string) (bool, error) {
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
 		ln, err := localNodeStore.Get(context.Background())
 		if err != nil {
 			return false, fmt.Errorf("failed to retrieve local node: %w", err)
@@ -826,7 +826,7 @@ func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, svc *Service)
 		return false, nil
 	}
 
-	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
 		ln, err := localNodeStore.Get(context.Background())
 		if err != nil {
 			return false, fmt.Errorf("failed to retrieve local node: %w", err)
