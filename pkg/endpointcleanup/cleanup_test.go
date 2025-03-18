@@ -231,9 +231,7 @@ func TestGC(t *testing.T) {
 				}),
 			)
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
+			ctx := t.Context()
 			tlog := hivetest.Logger(t)
 			assert.NoError(t, hive.Start(tlog, ctx))
 

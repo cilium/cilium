@@ -58,9 +58,8 @@ func TestExporter(t *testing.T) {
 	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
-	ctx := context.Background()
 	for _, ev := range events {
-		err := exporter.Export(ctx, ev)
+		err := exporter.Export(t.Context(), ev)
 		assert.NoError(t, err)
 
 	}
@@ -267,11 +266,8 @@ func TestExporterWithFieldMask(t *testing.T) {
 	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	for _, ev := range events {
-		err := exporter.Export(ctx, ev)
+		err := exporter.Export(t.Context(), ev)
 		assert.NoError(t, err)
 	}
 
@@ -459,8 +455,7 @@ func BenchmarkExporter(b *testing.B) {
 	exporter, err := newExporter(log, opts)
 	assert.NoError(b, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {

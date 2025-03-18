@@ -92,8 +92,7 @@ func TestUsersManagement(t *testing.T) {
 		cell.Invoke(registerUsersManager),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	tlog := hivetest.Logger(t)
 	if err := hive.Start(tlog, ctx); err != nil {

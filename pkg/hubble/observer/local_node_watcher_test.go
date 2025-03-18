@@ -4,7 +4,6 @@
 package observer
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,9 +14,6 @@ import (
 )
 
 func Test_LocalNodeWatcher(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	localNode := node.LocalNode{
 		Node: types.Node{
 			Name: "ip-1-2-3-4.us-west-2.compute.internal",
@@ -58,14 +54,14 @@ func Test_LocalNodeWatcher(t *testing.T) {
 
 	t.Run("NewLocalNodeWatcher", func(t *testing.T) {
 		var err error
-		watcher, err = NewLocalNodeWatcher(ctx, store)
+		watcher, err = NewLocalNodeWatcher(t.Context(), store)
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
 	})
 
 	t.Run("OnDecodedFlow", func(t *testing.T) {
 		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
+		stop, err := watcher.OnDecodedFlow(t.Context(), &flow)
 		require.False(t, stop)
 		require.NoError(t, err)
 		require.Equal(t, localNodeLabelSlice, flow.GetNodeLabels())
@@ -76,7 +72,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 			*ln = updatedNode
 		})
 		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
+		stop, err := watcher.OnDecodedFlow(t.Context(), &flow)
 		require.False(t, stop)
 		require.NoError(t, err)
 		require.Equal(t, updatedNodeLabelSlice, flow.GetNodeLabels())
@@ -85,7 +81,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 	t.Run("complete", func(t *testing.T) {
 		watcher.complete(nil)
 		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
+		stop, err := watcher.OnDecodedFlow(t.Context(), &flow)
 		require.False(t, stop)
 		require.NoError(t, err)
 		require.Empty(t, flow.GetNodeLabels())
