@@ -321,8 +321,10 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			}
 
 			conflictCount := 1
-			if i+1 < len(orderedSvcExports) {
-				for _, otherSvcExport := range orderedSvcExports[i+1:] {
+			// The iterator "i" ranges from the second element in the array which means
+			// we have to look for i+2 to process the next element
+			if i+2 < len(orderedSvcExports) {
+				for _, otherSvcExport := range orderedSvcExports[i+2:] {
 					if !fieldStruct.equalFunc(orderedSvcExports[0], otherSvcExport) {
 						conflictCount += 1
 					}
