@@ -18,15 +18,12 @@ lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
-k8s/delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+k8s/delete service.yaml endpointslice.yaml
 
 # Check that BPF maps are emptied as otherwise the reconciler might
 # not have yet processed the deletion
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.empty lbmaps.actual
+* db/empty services frontends backends
+* lb/maps-empty
 
 # Do it again but this time add endpoint slice first and then service.
 k8s/add endpointslice.yaml
@@ -41,12 +38,11 @@ lb/maps-dump lbmaps.actual
 
 # Remove service and add it back
 k8s/delete service.yaml
-db/cmp services services_empty.table
 
 # Check that BPF maps are emptied as otherwise the reconciler might
 # not have yet processed the deletion
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.empty lbmaps.actual
+* db/empty services
+* lb/maps-empty
 
 # Add the service back. We should now get the same map contents, except
 # with new IDs.
@@ -88,21 +84,18 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps6.expected lbmaps.actual
 
-# Cleanup
-k8s/delete service.yaml endpointslice.yaml 
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+# Remove the services and endpoint slices.
+k8s/delete service.yaml endpointslice.yaml
 
-# Check that BPF maps are now empty
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.empty lbmaps.actual
+# Check that tables and BPF maps are now empty
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster            42s               0                     false
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         SessionAffinity=42s
 
 -- frontends.table --
 Address               Type        ServiceName   PortName   Backends           Status
@@ -119,15 +112,6 @@ Address               Type        ServiceName   PortName   Backends  Status
 -- backends.table --
 Address             Instances          Shadows
 10.244.1.1:80/TCP   test/echo (http)
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address
 
 -- service.yaml --
 apiVersion: v1
@@ -210,8 +194,6 @@ ports:
 - name: http
   port: 80
   protocol: TCP
-
--- lbmaps.empty --
 
 -- lbmaps.expected --
 AFF: ID=1 BEID=1

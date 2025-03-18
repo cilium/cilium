@@ -24,9 +24,6 @@ envoy envoy.out
 
 # ---------------------------------------------
 
--- cec_empty.table --
-Name    Services
-
 -- cec_a.table --
 Name                    Selected  NodeSelector
 test/envoy-a            true      foo=a       
