@@ -100,7 +100,9 @@ kprobe:br_forward
   if ($proto == PROTO_IPV4) {
     if (
       (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
-      (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP && ($udph->dest == PORT_WIREGUARD || $udph->source == PORT_WIREGUARD)))
+      (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP &&
+                                      (bswap($udph->dest) == PORT_WIREGUARD ||
+                                        bswap($udph->source) == PORT_WIREGUARD)))
       ) {
       $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
       $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
@@ -148,7 +150,9 @@ kprobe:br_forward
   if ($proto == PROTO_IPV6) {
     if (
       (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
-      (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP && ($udph->dest == PORT_WIREGUARD || $udph->source == PORT_WIREGUARD)))
+      (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP &&
+                                      (bswap($udph->dest) == PORT_WIREGUARD ||
+                                        bswap($udph->source) == PORT_WIREGUARD)))
       ) {
       $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
       $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
