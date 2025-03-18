@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	"github.com/cilium/cilium/pkg/hubble/parser"
+	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -35,11 +37,21 @@ var Cell = cell.Module(
 	"hubble",
 	"Exposes the Observer gRPC API and Hubble metrics",
 
-	cell.Provide(newHubbleIntegration),
-	cell.Config(defaultConfig),
+	Core,
 
 	// Hubble flow log exporters
 	exportercell.Cell,
+
+	// Parser for Hubble flows
+	parsercell.Cell,
+)
+
+// The core cell group, which contains the Hubble integration and the
+// Hubble integration configuration isolated from the dependency graph
+// will enable us to run hubble with a different dataplane
+var Core = cell.Group(
+	cell.Provide(newHubbleIntegration),
+	cell.Config(defaultConfig),
 )
 
 type hubbleParams struct {
@@ -64,6 +76,8 @@ type hubbleParams struct {
 	// NOTE: ordering is not guaranteed, do not rely on it.
 	ObserverOptions  []observeroption.Option                `group:"hubble-observer-options"`
 	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
+
+	PayloadParser parser.Decoder
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
@@ -90,6 +104,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.Recorder,
 		params.ObserverOptions,
 		params.ExporterBuilders,
+		params.PayloadParser,
 		params.AgentConfig,
 		params.Config,
 		params.Logger,
