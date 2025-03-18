@@ -17,7 +17,7 @@
  */
 #define ROUTER_IP
 #undef ROUTER_IP
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /*
  * Test Configuration Settings

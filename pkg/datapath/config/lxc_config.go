@@ -40,9 +40,11 @@ type BPFLXC struct {
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+
+	Node
 }
 
-func NewBPFLXC() *BPFLXC {
+func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-		0x0, 0x0}
+		0x0, 0x0, node}
 }

@@ -87,8 +87,8 @@ func TestHashTemplate(t *testing.T) {
 
 type fakeConfigWriter []byte
 
-func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-	if cfg == nil {
+func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *datapath.LocalNodeConfiguration) error {
+	if lnc == nil {
 		return errors.New("LocalNodeConfiguration is nil")
 	}
 	_, err := w.Write(fc)

@@ -31,7 +31,7 @@
 #define ENABLE_INTER_CLUSTER_SNAT
 
 /* Import map definitions and some default values */
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /* Overwrite the default port range defined in node_config.h
  * to have deterministic source port selection.

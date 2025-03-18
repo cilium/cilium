@@ -26,8 +26,10 @@ type BPFXDP struct {
 	NATIPv6Masquerade1 uint64 `config:"nat_ipv6_masquerade_1"`
 	// Second half of the masquerade address for IPv6 traffic.
 	NATIPv6Masquerade2 uint64 `config:"nat_ipv6_masquerade_2"`
+
+	Node
 }
 
-func NewBPFXDP() *BPFXDP {
-	return &BPFXDP{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+func NewBPFXDP(node Node) *BPFXDP {
+	return &BPFXDP{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
