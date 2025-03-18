@@ -207,7 +207,11 @@ kprobe:br_forward
 }
 
 // Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
-// Ignore connections with the destination address outside pod CIDRs.
+// Ignore connections:
+// - with the destination address outside PodCIDR;
+// - with CiliumInternalIPs (IPSec only).
+// In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case, we'd need to
+// rework this CiliumInternalIP condition.
 kprobe:tcp_connect
 {
   if (strncmp(comm, "wrk:", 4) != 0) {
@@ -219,27 +223,43 @@ kprobe:tcp_connect
   $dst_is_pod = false;
 
   if ($inet_family == AF_INET) {
+    $src_is_pod = (bswap($sk->__sk_common.skc_rcv_saddr) & MASK4) == CIDR4;
     $dst_is_pod = (bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4;
+
+    $src_is_internal =
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($1)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($3)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($5));
+    $dst_is_internal =
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($1)) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($3)) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($5));
+
+    if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_L7_IP4] = true;
+    }
   }
 
   if ($inet_family == AF_INET6) {
+    $src_is_pod = bswap($sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr16[0]) == CIDR6;
     $dst_is_pod = bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6;
-  }
 
-  if (!$dst_is_pod) {
-    return
-  }
+    $src_is_internal =
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($6));
+    $dst_is_internal =
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($6));
 
-  if ($inet_family == AF_INET) {
-    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
-    @trace_sk[$sk] = true;
-    @sanity[TYPE_PROXY_L7_IP4] = true;
-  }
-
-  if ($inet_family == AF_INET6) {
-    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
-    @trace_sk[$sk] = true;
-    @sanity[TYPE_PROXY_L7_IP6] = true;
+    if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_L7_IP6] = true;
+    }
   }
 }
 
