@@ -788,6 +788,8 @@ func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.
 		}).Info("Conntrack garbage collector interval recalculated")
 	}
 
+	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
+
 	return newInterval
 }
 
