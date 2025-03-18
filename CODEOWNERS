@@ -272,20 +272,20 @@
 /api/v1/peer/ @cilium/sig-hubble-api
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
-/bpf/ @cilium/sig-datapath
-/bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
-/bpf/Makefile* @cilium/loader
-/bpf/custom/Makefile* @cilium/build @cilium/loader
-/bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
-/bpf/lib/encrypt.h @cilium/ipsec
-/bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
-/bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
+/bpf/ @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
-/bpf/lib/ids.h @cilium/loader
-/bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
+/bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
+/bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
+/bpf/lib/egress_gateway.h @cilium/egress-gateway
+/bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/ids.h @cilium/loader
+/bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
+/bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
+/bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
+/bpf/Makefile* @cilium/loader
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
