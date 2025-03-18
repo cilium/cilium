@@ -269,6 +269,23 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
   }
 }
 
+// Clear traced UDP connections.
+kprobe:udp_destroy_sock
+{
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  if ($inet_family == AF_INET6) {
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  delete(@trace_sk[$sk]);
+}
+
 // Additionally trace traffic flows in which the source got masquerated.
 kprobe:__dev_queue_xmit
 {
