@@ -131,29 +131,16 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_PROXY:
 	case TRACE_TO_PROXY:
 		break;
-	/* We define TRACE_{FROM,TO}_CRYPTO only (a) when Wireguard is enabled and (b) for:
-	 * - bpf_wireguard (cil_to_wireguard), attached as egress to cilium_wg0;
-	 * - bpf_host (cil_from_netdev), attached as ingress to cilium_wg0.
-	 * In both the cases, THIS_INTERFACE_IFINDEX is set to WG_IFINDEX value.
-	 * Using these obs points from different programs would result in a build bug.
-	 */
-#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_WIREGUARD) || defined(IS_BPF_HOST))
+	/* TRACE_TO_CRYPTO is used for tracing encrypted packets in cilium_wg0. */
 	case TRACE_TO_CRYPTO:
-		build_bug_on(THIS_INTERFACE_IFINDEX != WG_IFINDEX);
 		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 				REASON_ENCRYPTING, line, file);
 		break;
+	/* TRACE_FROM_CRYPTO is used for tracing decrypted packets in cilium_wg0. */
 	case TRACE_FROM_CRYPTO:
-		build_bug_on(THIS_INTERFACE_IFINDEX != WG_IFINDEX);
 		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 				REASON_DECRYPTING, line, file);
 		break;
-#else
-	case TRACE_TO_CRYPTO:
-	case TRACE_FROM_CRYPTO:
-		build_bug_on(obs_point);
-		break;
-#endif
 	}
 }
 
