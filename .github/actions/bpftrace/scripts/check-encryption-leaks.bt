@@ -54,6 +54,7 @@ kprobe:br_forward
   $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
   $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
+  $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
 
   if ($skb->encapsulation) {
     // $skb->inner_protocol does not appear to be correctly initialized
@@ -61,6 +62,7 @@ kprobe:br_forward
     $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
     $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
+    $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
 
     if ($proto == PROTO_IPV4) {
       $pod_to_pod_via_proxy =
@@ -114,9 +116,7 @@ kprobe:br_forward
             @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol]);
 
       if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
-        $tcph = (struct tcphdr*)$udph;
-
-        if (!$tcph->rst) {
+        if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
             ntop($ip4h->saddr),
@@ -164,9 +164,7 @@ kprobe:br_forward
             @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr]);
 
       if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
-        $tcph = (struct tcphdr*)$udph;
-
-        if (!$tcph->rst) {
+        if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
             ntop($ip6h->saddr.in6_u.u6_addr8),
