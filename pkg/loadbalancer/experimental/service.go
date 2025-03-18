@@ -80,10 +80,25 @@ type Service struct {
 	// PortNames maps a port name to a port number.
 	PortNames map[string]uint16
 
+	// TrafficDistribution if not default will influence how backends are chosen for
+	// frontends associated with this service.
+	TrafficDistribution TrafficDistribution
+
 	// Properties are additional untyped properties that can carry feature
 	// specific metadata about the service.
 	Properties part.Map[string, any]
 }
+
+type TrafficDistribution string
+
+const (
+	// TrafficDistributionDefault will ignore any topology aware hints for choosing the backends.
+	TrafficDistributionDefault = TrafficDistribution("")
+
+	// TrafficDistributionPreferClose Indicates preference for routing traffic to topologically close backends,
+	// that is to backends that are in the same zone.
+	TrafficDistributionPreferClose = TrafficDistribution("PreferClose")
+)
 
 type ProxyRedirect struct {
 	ProxyPort uint16
@@ -186,6 +201,10 @@ func (svc *Service) TableRow() []string {
 			propKeys = append(propKeys, k)
 		}
 		flags = append(flags, "Properties="+strings.Join(propKeys, ", "))
+	}
+
+	if svc.TrafficDistribution != TrafficDistributionDefault {
+		flags = append(flags, "TrafficDistribution="+string(svc.TrafficDistribution))
 	}
 
 	sort.Strings(flags)

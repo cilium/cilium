@@ -260,7 +260,6 @@ func clusterServiceToBackendParams(service *store.ClusterService) (beps []Backen
 				PortNames: portNames,
 				Weight:    0,
 				NodeName:  "",
-				ZoneID:    0,
 				State:     loadbalancer.BackendStateActive,
 			}
 			beps = append(beps, bep)
@@ -542,7 +541,7 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 				ID:         0,
 				Weight:     be.Weight,
 				NodeName:   be.NodeName,
-				ZoneID:     be.ZoneID,
+				ZoneID:     option.Config.GetZoneID(be.Zone),
 				L3n4Addr:   be.Address,
 				State:      be.State,
 				Preferred:  true,

@@ -101,7 +101,6 @@ func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState)
 			BackendParams{
 				Address:   addr,
 				NodeName:  "",
-				ZoneID:    0,
 				PortNames: nil,
 				Weight:    0,
 				State:     state,
@@ -951,6 +950,7 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := ExternalConfig{
+		ZoneMapper: &option.DaemonConfig{},
 		LBMapsConfig: LBMapsConfig{
 			MaxSockRevNatMapEntries:  1000,
 			ServiceMapMaxEntries:     1000,
