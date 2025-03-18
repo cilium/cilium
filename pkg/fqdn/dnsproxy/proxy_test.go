@@ -405,6 +405,21 @@ func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
 	require.Equal(t, dns.RcodeRefused, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
+func TestErrorResponseServfail(t *testing.T) {
+	s := setupDNSProxyTestSuite(t)
+	// Trigger an error in the lookupTargetDNSServer function to force a SERVFAIL response
+	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (network u8proto.U8proto, server netip.AddrPort, err error) {
+		return u8proto.UDP, netip.AddrPortFrom(netip.MustParseAddr("0.0.0.0"), uint16(0)), fmt.Errorf("cannot find target DNS server")
+	}
+
+	request := new(dns.Msg)
+	request.SetQuestion("cilium.io.", dns.TypeA)
+
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
+	require.NoError(t, err, "DNS request from test client failed when it should succeed")
+	require.Equal(t, dns.RcodeServerFailure, response.Rcode, "DNS request from test client did not trigger a SERVFAIL response")
+}
+
 func TestRespondViaCorrectProtocol(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
