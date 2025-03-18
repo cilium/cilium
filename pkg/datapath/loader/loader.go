@@ -50,7 +50,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -459,6 +460,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
+		// When downgrading from v1.18, upon successfully attaching cil_from_netdev
+		// to cilium_wg0, we must remove the cil_from_wireguard program.
+		if device == wgTypes.IfaceName {
+			if err := detachSKBProgram(iface, symbolFromWireguard,
+				linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+				log.WithField("device", device).Error(err)
+			}
+		}
+
 		if option.Config.AreDevicesRequired() {
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
@@ -654,6 +664,14 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 		if err := detachSKBProgram(device, symbolFromHostNetdevEp,
 			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
 			log.WithField("device", wgTypes.IfaceName).Error(err)
+		}
+		// When downgrading from v1.18 we must also detach cil_from_wireguard:
+		// - if the hook is still needed, then cil_from_wireguard is removed in
+		//   attachNetworkDevices() as soon as cil_from_netdev is inserted;
+		// - otherwise we handle here its removal.
+		if err := detachSKBProgram(device, symbolFromWireguard,
+			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
+			log.WithField("device", device).Error(err)
 		}
 	}
 	if err := commit(); err != nil {
