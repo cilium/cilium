@@ -1,3 +1,7 @@
+{{$MASQ_DELAY_THRESHOLD := DefaultParam .CL2_EGW_MASQ_DELAY_THRESHOLD 1}}
+{{$CPU_USAGE_THRESHOLD := DefaultParam .CL2_EGW_MASQ_CPU_USAGE_THRESHOLD 0.12}}
+{{$MEM_USAGE_THRESHOLD := DefaultParam .CL2_EGW_MASQ_MEM_USAGE_THRESHOLD 250}}
+
 steps:
 - name: "{{ .action }} masquerade delay metrics"
   measurements:
@@ -12,16 +16,16 @@ steps:
       queries:
       - name: P50
         query: quantile(0.5, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
-        threshold: 1
+        threshold: {{ $MASQ_DELAY_THRESHOLD }}
       - name: P90
         query: quantile(0.9, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
-        threshold: 1
+        threshold: {{ $MASQ_DELAY_THRESHOLD }}
       - name: P95
         query: quantile(0.95, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
-        threshold: 2
+        threshold: {{ $MASQ_DELAY_THRESHOLD }}
       - name: P99
         query: quantile(0.99, egw_scale_test_masquerade_delay_seconds_total{k8s_instance="{{ .instance }}"})
-        threshold: 2
+        threshold: {{ MultiplyFloat $MASQ_DELAY_THRESHOLD 1.25 }}
 
   - Identifier: MasqueradeDelayLeakedPingsTotal{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
@@ -65,7 +69,7 @@ steps:
         query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
       - name: Max
         query: max(avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
-        threshold: 0.15
+        threshold: {{ $CPU_USAGE_THRESHOLD }}
 
   - Identifier: MasqueradeDelayCiliumMemUsage{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
@@ -80,4 +84,4 @@ steps:
         query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
       - name: Max
         query: max(max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
-        threshold: 260
+        threshold: {{ $MEM_USAGE_THRESHOLD }}
