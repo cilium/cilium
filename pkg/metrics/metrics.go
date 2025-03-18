@@ -420,6 +420,9 @@ var (
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
 
+	// ConntrackInterval is the interval in secodns between conntrack GC runs
+	ConntrackInterval = NoOpGaugeVec
+
 	// ConntrackDumpReset marks the count for conntrack dump resets
 	ConntrackDumpResets = NoOpCounterVec
 
@@ -689,6 +692,7 @@ type LegacyMetrics struct {
 	ConntrackGCSize                  metric.Vec[metric.Gauge]
 	NatGCSize                        metric.Vec[metric.Gauge]
 	ConntrackGCDuration              metric.Vec[metric.Observer]
+	ConntrackInterval                metric.Vec[metric.Gauge]
 	ConntrackDumpResets              metric.Vec[metric.Counter]
 	SignalsHandled                   metric.Vec[metric.Counter]
 	ServicesEventsCount              metric.Vec[metric.Counter]
@@ -981,6 +985,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help: "Duration in seconds of the garbage collector process " +
 				"labeled by datapath family and completion status",
 		}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus}),
+
+		ConntrackInterval: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_gc_interval_seconds",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemDatapath,
+			Name:       "conntrack_gc_interval_seconds",
+			Help:       "Interval in seconds between conntrack garbage collector runs",
+		}, []string{"global"}),
 
 		ConntrackDumpResets: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total",
@@ -1411,6 +1423,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackGCSize = lm.ConntrackGCSize
 	NatGCSize = lm.NatGCSize
 	ConntrackGCDuration = lm.ConntrackGCDuration
+	ConntrackInterval = lm.ConntrackInterval
 	ConntrackDumpResets = lm.ConntrackDumpResets
 	SignalsHandled = lm.SignalsHandled
 	ServicesEventsCount = lm.ServicesEventsCount
