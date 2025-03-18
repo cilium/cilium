@@ -42,9 +42,9 @@ point the pod is ready.
     service/deathstar    ClusterIP   10.96.110.8   <none>        80/TCP    107s
     service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   3m53s
 
-Each pod will be represented in Cilium as an :ref:`endpoint` in the local cilium agent. 
-We can invoke the ``cilium`` tool inside the Cilium pod to list them (in a single-node installation
-``kubectl -n kube-system exec ds/cilium -- cilium-dbg endpoint list`` lists them all, but in a 
+Each pod will be represented in Cilium as an :ref:`endpoint` in the local cilium agent.
+We can invoke the ``cilium-dbg`` tool inside the Cilium pod to list them (in a single-node installation
+``kubectl -n kube-system exec ds/cilium -- cilium-dbg endpoint list`` lists them all, but in a
 multi-node installation, only the ones running on the same node will be listed):
 
 .. code-block:: shell-session
