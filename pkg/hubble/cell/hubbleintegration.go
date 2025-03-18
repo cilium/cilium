@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/netip"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -22,9 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
@@ -37,8 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
-	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	hubbleRecorder "github.com/cilium/cilium/pkg/hubble/recorder"
@@ -46,12 +41,10 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
-	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -90,6 +83,9 @@ type hubbleIntegration struct {
 	recorder          *recorder.Recorder
 	exporters         []exporter.FlowLogExporter
 
+	// payloadParser is used to decode monitor events into Hubble events.
+	payloadParser parser.Decoder
+
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
 	config      config
@@ -110,14 +106,12 @@ func new(
 	recorder *recorder.Recorder,
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
+	payloadParser parser.Decoder,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log *slog.Logger,
 ) (*hubbleIntegration, error) {
 	config.normalize()
-	if err := config.validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate configuration: %w", err)
-	}
 
 	// NOTE: exporter builders MUST always be resolved early and outside of a
 	// Hive job.Group or cell.Lifecycle hook. This is because their Build()
@@ -142,6 +136,7 @@ func new(
 		recorder:          recorder,
 		observerOptions:   observerOptions,
 		exporters:         exporters,
+		payloadParser:     payloadParser,
 		agentConfig:       agentConfig,
 		config:            config,
 		log:               log,
@@ -223,89 +218,10 @@ func (h *hubbleIntegration) Status(ctx context.Context) *models.HubbleStatus {
 	return hubbleStatus
 }
 
-// GetIdentity implements IdentityGetter. It looks up identity by ID from
-// Cilium's identity cache. Hubble uses the identity info to populate flow
-// source and destination labels.
-func (h *hubbleIntegration) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
-	ident := h.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
-	if ident == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return ident, nil
-}
-
-// GetEndpointInfo implements EndpointGetter. It returns endpoint info for a
-// given IP address. Hubble uses this function to populate fields like
-// namespace and pod name for local endpoints.
-func (h *hubbleIntegration) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
-	if !ip.IsValid() {
-		return nil, false
-	}
-	ep := h.endpointManager.LookupIP(ip)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-// GetEndpointInfoByID implements EndpointGetter. It returns endpoint info for
-// a given Cilium endpoint id. Used by Hubble.
-func (h *hubbleIntegration) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
-	ep := h.endpointManager.LookupCiliumID(id)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-// GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given
-// IP from the FQDN cache of an endpoint specified by sourceEpID.
-func (h *hubbleIntegration) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
-	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
-	if ep == nil {
-		return nil
-	}
-
-	if !ip.IsValid() {
-		return nil
-	}
-	names := ep.DNSHistory.LookupIP(ip)
-
-	for i := range names {
-		names[i] = strings.TrimSuffix(names[i], ".")
-	}
-
-	return names
-}
-
-// GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.
-// Hubble uses this function to annotate flows with service information.
-func (h *hubbleIntegration) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
-	if !ip.IsValid() {
-		return nil
-	}
-	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	addr := loadbalancer.L3n4Addr{
-		AddrCluster: addrCluster,
-		L4Addr: loadbalancer.L4Addr{
-			Port: port,
-		},
-	}
-	namespace, name, ok := h.serviceManager.GetServiceNameByAddr(addr)
-	if !ok {
-		return nil
-	}
-	return &flowpb.Service{
-		Namespace: namespace,
-		Name:      name,
-	}
-}
-
 func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserverServer, error) {
 	var (
 		observerOpts []observeroption.Option
 		localSrvOpts []serveroption.Option
-		parserOpts   []parserOptions.Option
 	)
 
 	if len(h.config.MonitorEvents) > 0 {
@@ -447,27 +363,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		)
 	}
 
-	if h.config.EnableRedact {
-		parserOpts = append(
-			parserOpts,
-			parserOptions.WithRedact(
-				h.log,
-				h.config.RedactHttpURLQuery,
-				h.config.RedactHttpUserInfo,
-				h.config.RedactKafkaAPIKey,
-				h.config.RedactHttpHeadersAllow,
-				h.config.RedactHttpHeadersDeny,
-			),
-		)
-	}
-
-	parserOpts = append(parserOpts, parserOptions.WithNetworkPolicyCorrelation(h.log, h.config.EnableNetworkPolicyCorrelation))
-
-	payloadParser, err := parser.New(h.log, h, h, h, h.ipcache, h, link.NewLinkCache(), h.cgroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create parser: %w", err)
-	}
-
 	maxFlows, err := container.NewCapacity(h.config.EventBufferCapacity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute event buffer capacity: %w", err)
@@ -492,7 +387,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	go namespaceManager.Run(ctx)
 
 	hubbleObserver, err := observer.NewLocalServer(
-		payloadParser,
+		h.payloadParser,
 		namespaceManager,
 		h.log,
 		observerOpts...,
