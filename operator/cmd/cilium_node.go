@@ -80,12 +80,25 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 		nodeManagerSyncHandler func(key string) error
 		kvStoreSyncHandler     func(key string) error
 		connectedToKVStore     = make(chan struct{})
-
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
-		ciliumNodeManagerQueue = workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
-		kvStoreQueue           = workqueue.NewTypedRateLimitingQueue[string](
-			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
-		)
+	)
+
+	var ciliumNodeManagerQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
+		Name: "node_manager",
+	}
+	var kvStoreQueueConfig = workqueue.TypedRateLimitingQueueConfig[string]{
+		Name: "kvstore",
+	}
+
+	if operatorOption.Config.EnableMetrics {
+		ciliumNodeManagerQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
+		kvStoreQueueConfig.MetricsProvider = NewWorkqueuePrometheusMetricsProvider()
+	}
+
+	var ciliumNodeManagerQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](workqueue.DefaultTypedControllerRateLimiter[string](), ciliumNodeManagerQueueConfig)
+	var kvStoreQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
+		kvStoreQueueConfig,
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into

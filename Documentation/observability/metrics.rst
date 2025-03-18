@@ -832,6 +832,24 @@ Name                                        Labels                      Descript
 ``cid_controller_work_queue_latency``       ``resource``, ``phase``     Duration of CID controller work queues enqueuing and processing latencies in seconds
 =========================================== =========================== =====================================================================================
 
+Internal WorkQueues
+~~~~~~~~~~~~~~~~~~~~
+
+The Operator uses internal queues to manage the processing of various tasks. Currently only the Cilium Node Synchronizer queues are reporting the metrics listed below.
+
+==================================================== ============================================= ========== ===========================================================
+Name                                                 Labels                                        Default    Description
+==================================================== ============================================= ========== ===========================================================
+``workqueue_depth``                                  ``queue_name``                                 Enabled    Current depth of workqueue
+``workqueue_adds_total``                             ``queue_name``                                 Enabled    Total number of adds handled by workqueue
+``workqueue_queue_duration_seconds``                 ``queue_name``                                 Enabled    Duration in seconds an item stays in workqueue prior to request
+``workqueue_work_duration_seconds``                  ``queue_name``                                 Enabled    Duration in seconds to process an item from workqueue
+``workqueue_unfinished_work_seconds``                ``queue_name``                                 Enabled    Duration in seconds of work in progress that hasn't been observed by work_duration. Large values indicate stuck threads. You can deduce the number of stuck threads by observing the rate at which this value increases.
+``workqueue_longest_running_processor_seconds``      ``queue_name``                                 Enabled    Duration in seconds of the longest running processor for workqueue
+``workqueue_retries_total``                          ``queue_name``                                 Enabled    Total number of retries handled by workqueue
+==================================================== ============================================= ========== ===========================================================
+
+
 Hubble
 ------
 

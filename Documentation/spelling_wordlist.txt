@@ -118,6 +118,7 @@ Starovoitov
 Stormtroopers
 Suchakra
 Suricata
+Synchronizer
 Talos
 Telco
 Terraform
