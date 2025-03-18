@@ -20,7 +20,7 @@
  */
 #define ROUTER_IP
 #undef ROUTER_IP
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /*
  * Simulate sending traffic from pod_one on node_one to pod_two

@@ -34,6 +34,19 @@
 	 */ \
 	volatile const type __config_##name;
 
+/* Declare a global node-level configuration variable that is emitted to a
+ * separate Go config struct embedded into all individual object configs. Access
+ * the variable using the CONFIG() macro.
+ */
+#define NODE_CONFIG(type, name, description) \
+	__section(__CONFIG_SECTION) \
+	/* Tag this variable as being a node-level variable. dpgen will emit
+	 * these to a node-specific Go struct that can be embedded into
+	 * object-level configuration structs. */ \
+	__attribute__((btf_decl_tag("kind:node"))) \
+	__attribute__((btf_decl_tag(description))) \
+	volatile const type __config_##name;
+
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
  * Can be used only once per config variable within a single compilation unit.
  */

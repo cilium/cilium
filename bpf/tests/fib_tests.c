@@ -69,7 +69,7 @@ long mock_redirect_neigh(__maybe_unused int ifindex,
 }
 
 #include "lib/dbg.h"
-#include "node_config.h"
+#include <bpf/config/node.h>
 #include "lib/fib.h"
 
 CHECK("tc", "fib_do_redirect_happy_path")

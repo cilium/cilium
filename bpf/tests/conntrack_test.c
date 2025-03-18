@@ -8,7 +8,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 
-#include "node_config.h"
+#include <bpf/config/node.h>
 #include "lib/common.h"
 
 static __u64 __now;
