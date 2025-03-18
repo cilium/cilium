@@ -491,7 +491,6 @@ Makefile* @cilium/build
 /pkg/azure/ @cilium/azure
 /pkg/backoff/ @cilium/sig-agent
 /pkg/bufuuid/ @cilium/sig-scalability
-/pkg/datapath/linux/bandwidth/ @cilium/sig-datapath
 /pkg/bgpv1/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
@@ -517,6 +516,8 @@ Makefile* @cilium/build
 /pkg/crypto/certloader @cilium/sig-hubble
 /pkg/datapath/ @cilium/sig-datapath
 /pkg/datapath/fake/ipsec.go @cilium/ipsec
+/pkg/datapath/ipcache/ @cilium/ipcache
+/pkg/datapath/linux/bandwidth/ @cilium/sig-datapath
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
 /pkg/datapath/linux/ipsec/xfrm_collector* @cilium/ipsec @cilium/metrics
@@ -525,10 +526,9 @@ Makefile* @cilium/build
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
 /pkg/datapath/linux/sysctl/ @cilium/sig-datapath
+/pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
-/pkg/datapath/loader/ @cilium/loader
-/pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
 /pkg/dial @cilium/sig-agent
