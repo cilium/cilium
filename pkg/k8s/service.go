@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -20,9 +21,11 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -799,4 +802,41 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		return true
 	}
 	return false
+}
+
+// CheckServiceNodeExposure returns true if the service should be installed onto the
+// local node, and false if the node should ignore and not install the service.
+func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, svc *Service) (bool, error) {
+	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		selector, err := labels.Parse(serviceAnnotationValue)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
+		}
+
+		if selector.Matches(labels.Set(ln.Labels)) {
+			return true, nil
+		}
+
+		// prioritize any existing node-selector annotation - and return in any case
+		return false, nil
+	}
+
+	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
