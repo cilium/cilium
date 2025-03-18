@@ -33,8 +33,10 @@ type BPFHost struct {
 	NATIPv6Masquerade2 uint64 `config:"nat_ipv6_masquerade_2"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+
+	Node
 }
 
-func NewBPFHost() *BPFHost {
-	return &BPFHost{0x5dc, 0xe, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+func NewBPFHost(node Node) *BPFHost {
+	return &BPFHost{0x5dc, 0xe, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }

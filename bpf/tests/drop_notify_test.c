@@ -19,7 +19,7 @@
 
 /* Include node config */
 #include "bpf/ctx/skb.h"
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /* Include lib/maps.h which contains the definition of tail_call_internal first to */
 /* avoid it to be included again in lib/drop.h. */

@@ -3,8 +3,8 @@
 
 #include <bpf/ctx/unspec.h>
 #include <bpf/config/global.h>
+#include <bpf/config/node.h>
 
-#include "node_config.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/nat.h"
