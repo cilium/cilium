@@ -19,11 +19,11 @@ func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, st
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeConfiguration, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeConfiguration, extraCArgs []string) error {
 	panic("implement me")
 }
 
@@ -47,7 +47,7 @@ func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 
@@ -59,6 +59,6 @@ func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) err
 	return nil
 }
 
-func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, cfg *datapath.LocalNodeConfiguration) error {
+func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) error {
 	return nil
 }

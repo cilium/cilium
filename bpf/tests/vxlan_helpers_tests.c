@@ -12,7 +12,7 @@
 #define VXLAN_VNI_NEW 0xCAFEBE
 #define UDP_CHECK 0xDEAD
 
-#include "node_config.h"
+#include <bpf/config/node.h>
 #include "lib/common.h"
 #include "lib/vxlan.h"
 

@@ -44,7 +44,7 @@
 /* Import some default values */
 
 /* Import map definitions and some default values */
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /* Overwrite (local) CLUSTER_ID defined in node_config.h */
 #undef CLUSTER_ID

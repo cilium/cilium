@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 
 	"github.com/cilium/cilium/pkg/option"
@@ -107,7 +108,7 @@ func xdpCompileArgs(extraCArgs []string) ([]string, error) {
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
+func compileAndLoadXDPProg(ctx context.Context, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
 	args, err := xdpCompileArgs(extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
@@ -144,7 +145,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	cfg := config.NewBPFXDP()
+	cfg := config.NewBPFXDP(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
 	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
 
