@@ -4,32 +4,48 @@
 package experimental
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb/reconciler"
 )
 
-func scriptCommands(cfg Config, m LBMaps, r reconciler.Reconciler[*Frontend]) hive.ScriptCmdsOut {
-	if !cfg.EnableExperimentalLB {
+type scriptCommandsParams struct {
+	cell.In
+
+	Config     Config
+	TestConfig *TestConfig `optional:"true"`
+	LBMaps     LBMaps
+	Reconciler reconciler.Reconciler[*Frontend]
+}
+
+func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {
+	if !p.Config.EnableExperimentalLB {
 		return hive.ScriptCmdsOut{}
 	}
 
-	var snapshot mapSnapshots
-	return hive.NewScriptCmds(map[string]script.Cmd{
+	cmds := map[string]script.Cmd{
 		"lb/prune": script.Command(
 			script.CmdUsage{Summary: "Trigger pruning of load-balancing BPF maps"},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				r.Prune()
+				p.Reconciler.Prune()
 				return nil, nil
 			},
 		),
-		"lb/maps-dump":     lbmapDumpCommand(m),
-		"lb/maps-snapshot": lbmapSnapshotCommand(m, &snapshot),
-		"lb/maps-restore":  lbmapRestoreCommand(m, &snapshot),
-	})
+		"lb/maps-dump": lbmapDumpCommand(p.LBMaps),
+	}
+	if p.TestConfig != nil {
+		var snapshot mapSnapshots
+		cmds["lb/maps-empty"] = lbmapEmpty(p.LBMaps)
+		cmds["lb/maps-snapshot"] = lbmapSnapshotCommand(p.LBMaps, &snapshot)
+		cmds["lb/maps-restore"] = lbmapRestoreCommand(p.LBMaps, &snapshot)
+	}
+
+	return hive.NewScriptCmds(cmds)
 }
 
 func lbmapDumpCommand(m LBMaps) script.Cmd {
@@ -56,7 +72,10 @@ func lbmapDumpCommand(m LBMaps) script.Cmd {
 					false,
 					nil,
 				)
-				data := strings.Join(out, "\n") + "\n"
+				data := strings.Join(out, "\n")
+				if len(data) > 0 {
+					data += "\n"
+				}
 				if len(args) == 1 {
 					err = os.WriteFile(s.Path(args[0]), []byte(data), 0644)
 				} else {
@@ -64,6 +83,28 @@ func lbmapDumpCommand(m LBMaps) script.Cmd {
 				}
 				return
 			}, nil
+		},
+	)
+}
+
+func lbmapEmpty(m LBMaps) script.Cmd {
+	if f, ok := m.(*FaultyLBMaps); ok {
+		m = f.impl
+	}
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Check that load-balancing BPF maps are empty",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			out := DumpLBMaps(
+				m,
+				false,
+				nil,
+			)
+			if len(out) > 0 {
+				return nil, fmt.Errorf("%d entries remain in LBMaps", len(out))
+			}
+			return nil, nil
 		},
 	)
 }

@@ -8,10 +8,6 @@ db/cmp node-addresses nodeaddrs.table
 
 # Start the test application
 hive start
-
-# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-# (otherwise might miss events due to List() vs Watch() race in fake client).
-# NOTE: The 100ms delay you might see is from WaitForCacheSync polling at 100ms.
 db/initialized
 
 # Add the first service and endpoints
@@ -46,12 +42,16 @@ lb/maps-dump lbmaps-updated.actual
 
 # Cleanup. Backends first in this test.
 k8s/delete endpointslice.yaml endpointslice2.yaml
-db/cmp backends backends_empty.table
+
+# Backends should be empty now.
+* db/empty backends
 db/cmp frontends frontends_nobackends.table
 
+# Then delete the services
 k8s/delete service.yaml service2.yaml
-db/cmp frontends frontends_empty.table
-db/cmp services services_empty.table
+
+# All tables should be empty
+* db/empty frontends services backends
 
 #####
 
@@ -83,13 +83,9 @@ Address NodePort Primary DeviceName
 3.3.3.3 false    true    test3
 
 -- services.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo    k8s                  Cluster            Cluster                              0                     false              
-test/echo2   k8s                  Cluster            Cluster                              0                     false              
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
+Name         Source   PortNames  TrafficPolicy   Flags
+test/echo    k8s      http=80    Cluster         
+test/echo2   k8s      http2=80   Cluster         
 
 -- frontends1.table --
 Address               Type        ServiceName   PortName   Status  Backends
@@ -110,10 +106,6 @@ Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done        
 10.96.50.105:80/TCP   ClusterIP   test/echo2    http2      Done        
 
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
-
 -- backends1.table --
 Address             Instances            NodeName        
 10.244.1.1:80/TCP   test/echo (http)     nodeport-worker 
@@ -131,9 +123,6 @@ Address             Instances            NodeName
 10.244.2.2:80/TCP   test/echo2 (http2)   nodeport-worker 
 10.244.2.3:80/TCP   test/echo2 (http2)   nodeport-worker2
 10.244.2.4:80/TCP   test/echo2 (http2)   nodeport-worker2
-
--- backends_empty.table --
-Address
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active

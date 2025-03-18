@@ -26,13 +26,11 @@ k8s/delete service.yaml endpointslice.yaml
 
 # Check that everything empty
 * db/empty frontends services backends
-lb/maps-dump maps.actual
-* cmp maps.actual maps.empty
+* lb/maps-empty
 
 # Restore previous BPF map state and reset BPF ops to restore state from maps.
 lb/maps-restore
 test/bpfops-reset
-lb/maps-dump
 
 # We should see a quarantined restored backend.
 test/bpfops-summary

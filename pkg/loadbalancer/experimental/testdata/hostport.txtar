@@ -29,12 +29,14 @@ lb/maps-dump lbmaps.actual
 # "terminate" the pod
 replace 'phase: Running' 'phase: Succeeded' pod.yaml
 k8s/update pod.yaml
-db/cmp services services2.table
+
+# Services should be empty
+* db/empty services
 
 # Add a new pod to take over the HostPort
 k8s/add other-pod.yaml
-db/cmp frontends frontends3.table
-db/cmp services services3.table
+db/cmp frontends frontends2.table
+db/cmp services services2.table
 
 # Check that BPF maps now contain the new pod for the same host port.
 lb/maps-dump lbmaps.actual
@@ -44,8 +46,8 @@ lb/maps-dump lbmaps.actual
 k8s/delete pod.yaml
 
 # Check that tables and the BPF maps are the same.
-db/cmp frontends frontends3.table
-db/cmp services services3.table
+db/cmp frontends frontends2.table
+db/cmp services services2.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps2.expected lbmaps.actual
 
@@ -53,8 +55,8 @@ lb/maps-dump lbmaps.actual
 db/show backends
 replace 4444 5555 other-pod.yaml
 k8s/update other-pod.yaml
-db/cmp frontends frontends4.table
-db/cmp backends backends4.table
+db/cmp frontends frontends3.table
+db/cmp backends backends3.table
 
 # Check that BPF maps now have the port 5555
 lb/maps-dump lbmaps.actual
@@ -62,9 +64,10 @@ lb/maps-dump lbmaps.actual
 
 # Cleanup
 k8s/delete other-pod.yaml
-db/cmp services services_empty.table
-db/cmp frontends frontends_empty.table
-db/cmp backends backends_empty.table
+
+# Tables and maps should be empty
+* db/empty services frontends backends
+* lb/maps-empty
 
 #####
 
@@ -84,20 +87,17 @@ default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8    k8s
 
 -- services2.table --
 Name                                                                  Source
-
--- services3.table --
-Name                                                                  Source
 default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 k8s
 
 -- frontends.table --
 Address           Type      Status  ServiceName                                                         Backends
 0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP
 
--- frontends3.table --
+-- frontends2.table --
 Address           Type      Status  ServiceName                                                           Backends
 0.0.0.0:4444/TCP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
 
--- frontends4.table --
+-- frontends3.table --
 Address           Type      Status  ServiceName                                                           Backends
 0.0.0.0:5555/TCP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
 
@@ -105,18 +105,9 @@ Address           Type      Status  ServiceName                                 
 Address             Instances 
 10.244.1.113:80/TCP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
 
--- backends4.table --
+-- backends3.table --
 Address             Instances 
 10.244.1.114:80/TCP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
-
--- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-
--- frontends_empty.table --
-Address               Type        ServiceName   PortName   Status  Backends
-
--- backends_empty.table --
-Address
 
 -- pod.yaml --
 apiVersion: v1

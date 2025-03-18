@@ -4,10 +4,6 @@
 hive start
 db/initialized
 
-# Start with clean state.
-db/cmp services services_empty.table
-db/cmp ciliumenvoyconfigs cec_empty.table
-
 # Set up the services and endpoints
 k8s/add service.yaml
 db/cmp services services.table
@@ -39,7 +35,9 @@ envoy envoy.out
 
 # Drop the service
 k8s/delete service.yaml
-db/cmp services services_empty.table
+
+# Services should be empty
+* db/empty services
 
 # Add back the service and endpoints
 k8s/add service.yaml endpointslice.yaml
@@ -51,8 +49,9 @@ envoy envoy.out
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
 k8s/delete cec.yaml
-db/cmp ciliumenvoyconfigs cec_empty.table
-db/cmp envoy-resources envoy_resources_empty.table
+
+# Tables should be empty
+* db/empty ciliumenvoyconfigs envoy-resources
 db/cmp services services.table
 
 # The listener should now be deleted.
@@ -61,27 +60,18 @@ envoy envoy.out
 
 # ---------------------------------------------
 
--- services_empty.table --
-Name        ProxyRedirect
-
 -- services.table --
-Name        ProxyRedirect
+Name        Flags
 test/echo   
 
 -- services_redirected.table --
-Name        ProxyRedirect
-test/echo   1000
+Name        Flags
+test/echo   ProxyRedirect=1000
 
 -- backends.table --
 Address
 10.244.1.1:25/TCP
 10.244.1.1:8080/TCP
-
--- cec_empty.table --
-Name    Services
-
--- envoy_resources_empty.table --
-Name
 
 -- cec.table --
 Name                    Services

@@ -45,11 +45,9 @@ db/delete desired-skiplbmap pod-cookie.yaml
 
 # Wait until empty
 * db/empty frontends localredirectpolicies services desired-skiplbmap
-db/show desired-skiplbmap
 skiplbmap skiplbmap.actual
 * cmp skiplbmap.actual skiplbmap.empty
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.actual maps.empty
+* lb/maps-empty
 
 ### Case 2: 1) pod,service,eps, 2) LRP, 3) cookie
 
@@ -111,11 +109,9 @@ db/delete desired-skiplbmap pod-cookie.yaml
 
 # Wait until empty
 * db/empty frontends localredirectpolicies services desired-skiplbmap
-db/show desired-skiplbmap
+* lb/maps-empty
 skiplbmap skiplbmap.actual
 * cmp skiplbmap.actual skiplbmap.empty
-lb/maps-dump lbmaps.actual
-* cmp lbmaps.actual maps.empty
 
 -- pod-cookie.yaml --
 podnamespacedname: test/lrp-pod
@@ -164,8 +160,6 @@ Address                    Type        ServiceName   PortName   Backends        
 Address                    Type        ServiceName   PortName   Backends              RedirectTo        Status
 169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
 [1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
-
--- maps.empty --
 
 -- maps-case1.expected --
 BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
