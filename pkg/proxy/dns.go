@@ -8,9 +8,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	defaultdns "github.com/cilium/cilium/pkg/proxy/defaultdns"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -36,7 +36,6 @@ func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) (revert.RevertFunc, e
 		return nil, errors.New("no dns proxy exists to update")
 	}
 	return dnsProxy.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
-
 }
 
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
