@@ -21,6 +21,8 @@
 #define AF_INET	2
 #define AF_INET6 10
 
+#define PORT_VXLAN 8472
+#define PORT_GENEVE 6081
 #define PORT_DNS 53
 #define PORT_WIREGUARD 51871
 
@@ -56,7 +58,15 @@ kprobe:br_forward
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
 
-  if ($skb->encapsulation) {
+  // $skb->encapsulation might be unset when encap headers are manually pushed,
+  // despite $skb->inner references being correct.
+  $encap =
+      (($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_UDP) ||
+        ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_UDP)) &&
+      ((bswap($udph->source) == PORT_VXLAN || bswap($udph->dest) == PORT_VXLAN) ||
+        (bswap($udph->source) == PORT_GENEVE || bswap($udph->dest) == PORT_GENEVE));
+
+  if ($skb->encapsulation || $encap) {
     // $skb->inner_protocol does not appear to be correctly initialized
     $proto = bswap(*((uint16*) ($skb->head + $skb->inner_mac_header + 12)));
     $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
@@ -117,7 +127,7 @@ kprobe:br_forward
 
       if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
-          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
+          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
             ntop($ip4h->saddr),
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -128,7 +138,7 @@ kprobe:br_forward
             $ip4h->protocol == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
             $ip4h->protocol == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
             $ip4h->protocol == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
-            $skb->encapsulation,
+            $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy);
@@ -165,7 +175,7 @@ kprobe:br_forward
 
       if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
-          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
+          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
             ntop($ip6h->saddr.in6_u.u6_addr8),
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -176,7 +186,7 @@ kprobe:br_forward
             $ip6h->nexthdr == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
             $ip6h->nexthdr == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
             $ip6h->nexthdr == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
-            $skb->encapsulation,
+            $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
             $pod_to_pod_via_proxy);
