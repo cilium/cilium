@@ -171,9 +171,6 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 					Mode:    mode,
 				}
 			}
-			if f.SessionAffinity != nil {
-				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
-			}
 			if f.SocketLB != nil {
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}

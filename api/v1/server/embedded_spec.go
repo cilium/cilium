@@ -3853,14 +3853,6 @@ func init() {
                 }
               }
             },
-            "sessionAffinity": {
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
-                }
-              }
-            },
             "socketLB": {
               "type": "object",
               "properties": {
@@ -9653,14 +9645,6 @@ func init() {
                 }
               }
             },
-            "sessionAffinity": {
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
-                }
-              }
-            },
             "socketLB": {
               "type": "object",
               "properties": {
@@ -9838,14 +9822,6 @@ func init() {
             }
           }
         },
-        "sessionAffinity": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            }
-          }
-        },
         "socketLB": {
           "type": "object",
           "properties": {
@@ -10004,14 +9980,6 @@ func init() {
         },
         "portMin": {
           "type": "integer"
-        }
-      }
-    },
-    "KubeProxyReplacementFeaturesSessionAffinity": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
         }
       }
     },

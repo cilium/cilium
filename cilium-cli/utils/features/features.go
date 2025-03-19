@@ -34,7 +34,6 @@ const (
 	KPRSocketLBHostnsOnly   Feature = "kpr-socket-lb-hostns-only"
 	KPRNodePort             Feature = "kpr-nodeport"
 	KPRNodePortAcceleration Feature = "kpr-nodeport-acceleration"
-	KPRSessionAffinity      Feature = "kpr-session-affinity"
 
 	BPFLBExternalClusterIP Feature = "bpf-lb-external-clusterip"
 

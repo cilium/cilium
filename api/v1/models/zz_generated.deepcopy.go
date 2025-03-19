@@ -482,11 +482,6 @@ func (in *KubeProxyReplacementFeatures) DeepCopyInto(out *KubeProxyReplacementFe
 		*out = new(KubeProxyReplacementFeaturesNodePort)
 		**out = **in
 	}
-	if in.SessionAffinity != nil {
-		in, out := &in.SessionAffinity, &out.SessionAffinity
-		*out = new(KubeProxyReplacementFeaturesSessionAffinity)
-		**out = **in
-	}
 	if in.SocketLB != nil {
 		in, out := &in.SocketLB, &out.SocketLB
 		*out = new(KubeProxyReplacementFeaturesSocketLB)
