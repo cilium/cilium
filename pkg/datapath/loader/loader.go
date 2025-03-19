@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -180,10 +181,9 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
-	em := link.Attrs().HardwareAddr
+	em := mac.MAC(link.Attrs().HardwareAddr)
 	if len(em) == 6 {
-		cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
-		cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+		cfg.InterfaceMAC = em.As8()
 	} else {
 		cfg.EthHeaderLength = 0
 	}
@@ -333,8 +333,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	if len(em) != 6 {
 		panic(fmt.Sprintf("invalid MAC address for cilium_host: %q", em))
 	}
-	cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
-	cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+	cfg.InterfaceMAC = em.As8()
 
 	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
 
@@ -404,12 +403,11 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
-	em := link.Attrs().HardwareAddr
+	em := mac.MAC(link.Attrs().HardwareAddr)
 	if len(em) != 6 {
 		panic(fmt.Sprintf("invalid MAC address for %s: %q", link.Attrs().Name, em))
 	}
-	cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
-	cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+	cfg.InterfaceMAC = em.As8()
 
 	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
 	if option.Config.EnableHostLegacyRouting {
@@ -570,8 +568,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	// at its default non-zero value.
 	em := ep.GetNodeMAC()
 	if len(em) == 6 {
-		cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
-		cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+		cfg.InterfaceMAC = em.As8()
 	}
 
 	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
