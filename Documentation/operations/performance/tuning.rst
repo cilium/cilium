@@ -161,6 +161,9 @@ whether your installation is running with eBPF host-routing, run ``cilium status
 in any of the Cilium pods and look for the line reporting the status for
 "Host Routing" which should state "BPF".
 
+.. note::
+   BPF host routing is incompatible with Istio (see :gh-issue:`36022` for details).
+
 **Requirements:**
 
 * Kernel >= 5.10
