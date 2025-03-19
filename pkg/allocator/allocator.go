@@ -320,7 +320,8 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 		remoteCaches: map[string]*remoteCache{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
-			Factor: 2.0,
+			Factor: 1.48, //Sum[.02 *1.48^x,{x,1,16}] = 32 seconds maximum total delay
+			Jitter: true,
 		},
 		maxAllocAttempts: defaultMaxAllocAttempts,
 	}
@@ -699,6 +700,11 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	// make a copy of the template and customize it
 	boff := a.backoffTemplate
 	boff.Name = key.String()
+
+	// Wait an initial (jittered) time to try and prevent multiple
+	// agents colliding on same ID when lots of pods are started
+	// with the same set of labels
+	boff.Wait(ctx)
 
 	for attempt := 0; attempt < a.maxAllocAttempts; attempt++ {
 		// Check our list of local keys already in use and increment the
