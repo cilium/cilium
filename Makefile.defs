@@ -87,6 +87,10 @@ GO_BUILD_LDFLAGS ?=
 # go build/test -tags values
 GO_TAGS_FLAGS += osusergo
 
+# Keep the Go <=1.22 semantics for parsing type aliases.
+GODEBUG += gotypesalias=0
+export GODEBUG
+
 # This is declared here as it is needed to change the covermode depending on if
 # RACE is specified.
 GOTEST_COVER_OPTS =
