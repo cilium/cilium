@@ -41,6 +41,7 @@ func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[experimental.Ba
 	case affinity == experimental.ServiceAffinityNone:
 		useRemote = true
 	default:
+		// Counts of healthy local and remote backends.
 		localBackends, remoteBackends := 0, 0
 		for be := range defaultBackends {
 			// Don't count unhealthy backends. We include terminating backends in the count as
@@ -51,19 +52,21 @@ func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[experimental.Ba
 				continue
 			}
 			if be.Source == source.ClusterMesh {
-				localBackends++
-			} else {
 				remoteBackends++
+			} else {
+				localBackends++
 			}
 		}
 		switch affinity {
 		case experimental.ServiceAffinityLocal:
-			useRemote = localBackends == 0
+			// Always include the local backends even if they are unhealthy and
+			// only include (healthy) remote ones if there are no healthy local backends.
+			useLocal = true
+			useRemote = localBackends == 0 && remoteBackends > 0
 		case experimental.ServiceAffinityRemote:
+			// Same as above but reversed.
 			useRemote = true
-
-			// Only use local backends if there are no remote ones.
-			useLocal = remoteBackends == 0
+			useLocal = remoteBackends == 0 && localBackends > 0
 		}
 	}
 
