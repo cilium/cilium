@@ -6,7 +6,7 @@ ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc7225
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.32.3-1741174427-7235681768200a4effbbebb019e5d51b60a57daa@sha256:a1ac7ec1539fd26a28b6a4a97af740f62a49cbb0f41dc772c48ae60be14fb93b
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.33.0-1742406225-d064f7ad7ef9f0f8ff58120b5f0ba627ddc36f93@sha256:22523dbbac6abc3fde0c6d7935d993e75b3c578c2b28848a072996d4dcafd922
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
