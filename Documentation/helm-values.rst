@@ -2279,9 +2279,13 @@
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
-     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"labels":{},"nodePort":31235,"type":"ClusterIP"}``
    * - :spelling:ignore:`hubble.ui.service.annotations`
      - Annotations to be added for the Hubble UI service
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.ui.service.labels`
+     - Labels to be added for the Hubble UI service
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.ui.service.nodePort`
