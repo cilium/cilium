@@ -3585,6 +3585,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "labels": {
+                  "type": "object"
+                },
                 "nodePort": {
                   "type": "integer"
                 },
