@@ -152,6 +152,11 @@ type Allocator struct {
 	// operatorIDManagement indicates if cilium-operator is managing Cilium Identities.
 	operatorIDManagement bool
 
+	// jitterAllocate causes the first allocation attempt to wait for a short
+	// random time. This attempts to prevent cases where the same key gets duplicate
+	// identities when allocated at the same time on different nodes.
+	jitterAllocate bool
+
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing.
 	maxAllocAttempts int
@@ -438,6 +443,15 @@ func WithCacheValidator(validator CacheValidator) AllocatorOption {
 	return func(a *Allocator) { a.cacheValidators = append(a.cacheValidators, validator) }
 }
 
+// WithInitialJitter enables a short random wait before the first
+// allocation attempt.
+func WithInitialJitter() AllocatorOption {
+	return func(a *Allocator) {
+		a.jitterAllocate = true
+		a.backoffTemplate.Jitter = true
+	}
+}
+
 // GetEvents returns the events channel given to the allocator when
 // constructed.
 // Note: This channel is not owned by the allocator!
@@ -716,6 +730,15 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			)
 			a.mainCache.insert(key, val)
 			return val, false, false, nil
+		}
+
+		// jitter the first allocation, if enabled.
+		// This helps prevent multiple numerical identities being allocated
+		// for the same key.
+		if a.jitterAllocate && attempt == 0 {
+			if waitErr := boff.Wait(ctx); waitErr != nil {
+				return 0, false, false, waitErr
+			}
 		}
 
 		// FIXME: Add non-locking variant
