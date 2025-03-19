@@ -17,5 +17,5 @@ package ecs
 
 // DetailInfosInDescribeRenewalPrice is a nested struct in ecs response
 type DetailInfosInDescribeRenewalPrice struct {
-	ResourcePriceModel []ResourcePriceModel `json:"ResourcePriceModel" xml:"ResourcePriceModel"`
+	DetailInfo []DetailInfo `json:"DetailInfo" xml:"DetailInfo"`
 }

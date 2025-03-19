@@ -71,16 +71,25 @@ func (client *Client) ModifyElasticityAssuranceWithCallback(request *ModifyElast
 // ModifyElasticityAssuranceRequest is the request struct for api ModifyElasticityAssurance
 type ModifyElasticityAssuranceRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken            string           `position:"Query" name:"ClientToken"`
-	Description            string           `position:"Query" name:"Description"`
-	PrivatePoolOptionsId   string           `position:"Query" name:"PrivatePoolOptions.Id"`
-	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
-	PrivatePoolOptionsName string           `position:"Query" name:"PrivatePoolOptions.Name"`
-	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
-	PackageType            string           `position:"Query" name:"PackageType"`
-	InstanceAmount         requests.Integer `position:"Query" name:"InstanceAmount"`
+	ResourceOwnerId        requests.Integer                            `position:"Query" name:"ResourceOwnerId"`
+	ClientToken            string                                      `position:"Query" name:"ClientToken"`
+	Description            string                                      `position:"Query" name:"Description"`
+	PrivatePoolOptionsId   string                                      `position:"Query" name:"PrivatePoolOptions.Id"`
+	ResourceOwnerAccount   string                                      `position:"Query" name:"ResourceOwnerAccount"`
+	PrivatePoolOptionsName string                                      `position:"Query" name:"PrivatePoolOptions.Name"`
+	OwnerAccount           string                                      `position:"Query" name:"OwnerAccount"`
+	OwnerId                requests.Integer                            `position:"Query" name:"OwnerId"`
+	RecurrenceRules        *[]ModifyElasticityAssuranceRecurrenceRules `position:"Query" name:"RecurrenceRules"  type:"Repeated"`
+	PackageType            string                                      `position:"Query" name:"PackageType"`
+	InstanceAmount         requests.Integer                            `position:"Query" name:"InstanceAmount"`
+}
+
+// ModifyElasticityAssuranceRecurrenceRules is a repeated param struct in ModifyElasticityAssuranceRequest
+type ModifyElasticityAssuranceRecurrenceRules struct {
+	RecurrenceType  string `name:"RecurrenceType"`
+	RecurrenceValue string `name:"RecurrenceValue"`
+	StartHour       string `name:"StartHour"`
+	EndHour         string `name:"EndHour"`
 }
 
 // ModifyElasticityAssuranceResponse is the response struct for api ModifyElasticityAssurance

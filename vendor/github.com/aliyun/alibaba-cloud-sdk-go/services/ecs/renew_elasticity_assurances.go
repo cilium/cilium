@@ -74,12 +74,14 @@ type RenewElasticityAssurancesRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	PrivatePoolOptionsId *[]string        `position:"Query" name:"PrivatePoolOptions.Id"  type:"Repeated"`
+	AutoRenewPeriod      requests.Integer `position:"Query" name:"AutoRenewPeriod"`
 	Period               requests.Integer `position:"Query" name:"Period"`
 	AutoPay              requests.Boolean `position:"Query" name:"AutoPay"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
+	AutoRenew            requests.Boolean `position:"Query" name:"AutoRenew"`
 }
 
 // RenewElasticityAssurancesResponse is the response struct for api RenewElasticityAssurances

@@ -185,7 +185,7 @@ type programJitedInfo struct {
 	// subprograms.
 	//
 	// Available from 4.18.
-	ksyms    []uintptr
+	ksyms    []uint64
 	numKsyms uint32
 
 	// insns holds the JITed machine native instructions of the program,
@@ -344,7 +344,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 
 	if info.NrJitedKsyms > 0 {
 		pi.jitedInfo.numKsyms = info.NrJitedKsyms
-		pi.jitedInfo.ksyms = make([]uintptr, info.NrJitedKsyms)
+		pi.jitedInfo.ksyms = make([]uint64, info.NrJitedKsyms)
 		info2.JitedKsyms = sys.NewSlicePointer(pi.jitedInfo.ksyms)
 		info2.NrJitedKsyms = info.NrJitedKsyms
 		makeSecondCall = true
@@ -630,8 +630,25 @@ func (pi *ProgramInfo) VerifiedInstructions() (uint32, bool) {
 // programs without subprograms (bpf2bpf calls).
 //
 // The bool return value indicates whether this optional field is available.
+//
+// When a kernel address can't fit into uintptr (which is usually the case when
+// running 32 bit program on a 64 bit kernel), this returns an empty slice and
+// a false.
 func (pi *ProgramInfo) JitedKsymAddrs() ([]uintptr, bool) {
-	return pi.jitedInfo.ksyms, len(pi.jitedInfo.ksyms) > 0
+	ksyms := make([]uintptr, 0, len(pi.jitedInfo.ksyms))
+	if cap(ksyms) == 0 {
+		return ksyms, false
+	}
+	// Check if a kernel address fits into uintptr (it might not when
+	// using a 32 bit binary on a 64 bit kernel). This check should work
+	// with any kernel address, since they have 1s at the highest bits.
+	if a := pi.jitedInfo.ksyms[0]; uint64(uintptr(a)) != a {
+		return nil, false
+	}
+	for _, ksym := range pi.jitedInfo.ksyms {
+		ksyms = append(ksyms, uintptr(ksym))
+	}
+	return ksyms, true
 }
 
 // JitedInsns returns the JITed machine native instructions of the program.

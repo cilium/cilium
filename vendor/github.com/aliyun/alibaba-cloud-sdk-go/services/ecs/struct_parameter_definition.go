@@ -21,5 +21,6 @@ type ParameterDefinition struct {
 	Description    string         `json:"Description" xml:"Description"`
 	DefaultValue   string         `json:"DefaultValue" xml:"DefaultValue"`
 	ParameterName  string         `json:"ParameterName" xml:"ParameterName"`
+	PatternRegex   string         `json:"PatternRegex" xml:"PatternRegex"`
 	PossibleValues PossibleValues `json:"PossibleValues" xml:"PossibleValues"`
 }

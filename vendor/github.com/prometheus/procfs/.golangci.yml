@@ -2,7 +2,10 @@
 linters:
   enable:
   - errcheck
+  - forbidigo
   - godot
+  - gofmt
+  - goimports
   - gosimple
   - govet
   - ineffassign
@@ -12,11 +15,17 @@ linters:
   - testifylint
   - unused
 
-linter-settings:
+linters-settings:
+  forbidigo:
+    forbid:
+      - p: ^fmt\.Print.*$
+        msg: Do not commit print statements.
   godot:
     capital: true
     exclude:
     # Ignore "See: URL"
     - 'See:'
+  goimports:
+      local-prefixes: github.com/prometheus/procfs
   misspell:
     locale: US

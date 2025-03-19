@@ -39,5 +39,6 @@ type ImagePipelineSet struct {
 	AddAccounts             AddAccounts                  `json:"AddAccounts" xml:"AddAccounts"`
 	ImportImageOptions      ImportImageOptions           `json:"ImportImageOptions" xml:"ImportImageOptions"`
 	AdvancedOptions         AdvancedOptions              `json:"AdvancedOptions" xml:"AdvancedOptions"`
+	ImageOptions            ImageOptions                 `json:"ImageOptions" xml:"ImageOptions"`
 	Tags                    TagsInDescribeImagePipelines `json:"Tags" xml:"Tags"`
 }

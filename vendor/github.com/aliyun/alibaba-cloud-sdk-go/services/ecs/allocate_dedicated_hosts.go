@@ -71,32 +71,34 @@ func (client *Client) AllocateDedicatedHostsWithCallback(request *AllocateDedica
 // AllocateDedicatedHostsRequest is the request struct for api AllocateDedicatedHosts
 type AllocateDedicatedHostsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId                requests.Integer             `position:"Query" name:"ResourceOwnerId"`
-	ClientToken                    string                       `position:"Query" name:"ClientToken"`
-	Description                    string                       `position:"Query" name:"Description"`
-	CpuOverCommitRatio             requests.Float               `position:"Query" name:"CpuOverCommitRatio"`
-	ResourceGroupId                string                       `position:"Query" name:"ResourceGroupId"`
-	MinQuantity                    requests.Integer             `position:"Query" name:"MinQuantity"`
-	ActionOnMaintenance            string                       `position:"Query" name:"ActionOnMaintenance"`
-	DedicatedHostClusterId         string                       `position:"Query" name:"DedicatedHostClusterId"`
-	Tag                            *[]AllocateDedicatedHostsTag `position:"Query" name:"Tag"  type:"Repeated"`
-	DedicatedHostType              string                       `position:"Query" name:"DedicatedHostType"`
-	AutoRenewPeriod                requests.Integer             `position:"Query" name:"AutoRenewPeriod"`
-	Period                         requests.Integer             `position:"Query" name:"Period"`
-	Quantity                       requests.Integer             `position:"Query" name:"Quantity"`
-	DedicatedHostName              string                       `position:"Query" name:"DedicatedHostName"`
-	ResourceOwnerAccount           string                       `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`
-	AutoReleaseTime                string                       `position:"Query" name:"AutoReleaseTime"`
-	OwnerId                        requests.Integer             `position:"Query" name:"OwnerId"`
-	SchedulerOptionsFenceId        string                       `position:"Query" name:"SchedulerOptions.FenceId"`
-	PeriodUnit                     string                       `position:"Query" name:"PeriodUnit"`
-	AutoRenew                      requests.Boolean             `position:"Query" name:"AutoRenew"`
-	NetworkAttributesSlbUdpTimeout requests.Integer             `position:"Query" name:"NetworkAttributes.SlbUdpTimeout"`
-	ZoneId                         string                       `position:"Query" name:"ZoneId"`
-	AutoPlacement                  string                       `position:"Query" name:"AutoPlacement"`
-	ChargeType                     string                       `position:"Query" name:"ChargeType"`
-	NetworkAttributesUdpTimeout    requests.Integer             `position:"Query" name:"NetworkAttributes.UdpTimeout"`
+	ResourceOwnerId                requests.Integer                       `position:"Query" name:"ResourceOwnerId"`
+	CpuOverCommitRatio             requests.Float                         `position:"Query" name:"CpuOverCommitRatio"`
+	ResourceGroupId                string                                 `position:"Query" name:"ResourceGroupId"`
+	MinQuantity                    requests.Integer                       `position:"Query" name:"MinQuantity"`
+	ActionOnMaintenance            string                                 `position:"Query" name:"ActionOnMaintenance"`
+	Tag                            *[]AllocateDedicatedHostsTag           `position:"Query" name:"Tag"  type:"Repeated"`
+	AutoRenewPeriod                requests.Integer                       `position:"Query" name:"AutoRenewPeriod"`
+	Period                         requests.Integer                       `position:"Query" name:"Period"`
+	DedicatedHostName              string                                 `position:"Query" name:"DedicatedHostName"`
+	OwnerId                        requests.Integer                       `position:"Query" name:"OwnerId"`
+	PromotionOptions               AllocateDedicatedHostsPromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	PeriodUnit                     string                                 `position:"Query" name:"PeriodUnit"`
+	AutoRenew                      requests.Boolean                       `position:"Query" name:"AutoRenew"`
+	NetworkAttributesSlbUdpTimeout requests.Integer                       `position:"Query" name:"NetworkAttributes.SlbUdpTimeout"`
+	ZoneId                         string                                 `position:"Query" name:"ZoneId"`
+	AutoPlacement                  string                                 `position:"Query" name:"AutoPlacement"`
+	NetworkAttributesUdpTimeout    requests.Integer                       `position:"Query" name:"NetworkAttributes.UdpTimeout"`
+	ClientToken                    string                                 `position:"Query" name:"ClientToken"`
+	Description                    string                                 `position:"Query" name:"Description"`
+	DedicatedHostClusterId         string                                 `position:"Query" name:"DedicatedHostClusterId"`
+	DedicatedHostType              string                                 `position:"Query" name:"DedicatedHostType"`
+	Quantity                       requests.Integer                       `position:"Query" name:"Quantity"`
+	AutoPay                        requests.Boolean                       `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount           string                                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                   string                                 `position:"Query" name:"OwnerAccount"`
+	AutoReleaseTime                string                                 `position:"Query" name:"AutoReleaseTime"`
+	SchedulerOptionsFenceId        string                                 `position:"Query" name:"SchedulerOptions.FenceId"`
+	ChargeType                     string                                 `position:"Query" name:"ChargeType"`
 }
 
 // AllocateDedicatedHostsTag is a repeated param struct in AllocateDedicatedHostsRequest
@@ -105,10 +107,16 @@ type AllocateDedicatedHostsTag struct {
 	Value string `name:"Value"`
 }
 
+// AllocateDedicatedHostsPromotionOptions is a repeated param struct in AllocateDedicatedHostsRequest
+type AllocateDedicatedHostsPromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
+}
+
 // AllocateDedicatedHostsResponse is the response struct for api AllocateDedicatedHosts
 type AllocateDedicatedHostsResponse struct {
 	*responses.BaseResponse
 	RequestId           string              `json:"RequestId" xml:"RequestId"`
+	OrderId             string              `json:"OrderId" xml:"OrderId"`
 	DedicatedHostIdSets DedicatedHostIdSets `json:"DedicatedHostIdSets" xml:"DedicatedHostIdSets"`
 }
 

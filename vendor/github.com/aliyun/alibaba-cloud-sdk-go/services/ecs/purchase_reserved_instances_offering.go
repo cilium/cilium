@@ -71,26 +71,28 @@ func (client *Client) PurchaseReservedInstancesOfferingWithCallback(request *Pur
 // PurchaseReservedInstancesOfferingRequest is the request struct for api PurchaseReservedInstancesOffering
 type PurchaseReservedInstancesOfferingRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer                        `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string                                  `position:"Query" name:"ClientToken"`
-	Description          string                                  `position:"Query" name:"Description"`
-	StartTime            string                                  `position:"Query" name:"StartTime"`
-	Platform             string                                  `position:"Query" name:"Platform"`
-	ResourceGroupId      string                                  `position:"Query" name:"ResourceGroupId"`
-	Scope                string                                  `position:"Query" name:"Scope"`
-	InstanceType         string                                  `position:"Query" name:"InstanceType"`
-	Tag                  *[]PurchaseReservedInstancesOfferingTag `position:"Query" name:"Tag"  type:"Repeated"`
-	AutoRenewPeriod      requests.Integer                        `position:"Query" name:"AutoRenewPeriod"`
-	Period               requests.Integer                        `position:"Query" name:"Period"`
-	ResourceOwnerAccount string                                  `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                                  `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer                        `position:"Query" name:"OwnerId"`
-	PeriodUnit           string                                  `position:"Query" name:"PeriodUnit"`
-	OfferingType         string                                  `position:"Query" name:"OfferingType"`
-	AutoRenew            requests.Boolean                        `position:"Query" name:"AutoRenew"`
-	ZoneId               string                                  `position:"Query" name:"ZoneId"`
-	ReservedInstanceName string                                  `position:"Query" name:"ReservedInstanceName"`
-	InstanceAmount       requests.Integer                        `position:"Query" name:"InstanceAmount"`
+	ResourceOwnerId      requests.Integer                                  `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                                            `position:"Query" name:"ClientToken"`
+	Description          string                                            `position:"Query" name:"Description"`
+	StartTime            string                                            `position:"Query" name:"StartTime"`
+	Platform             string                                            `position:"Query" name:"Platform"`
+	ResourceGroupId      string                                            `position:"Query" name:"ResourceGroupId"`
+	Scope                string                                            `position:"Query" name:"Scope"`
+	InstanceType         string                                            `position:"Query" name:"InstanceType"`
+	Tag                  *[]PurchaseReservedInstancesOfferingTag           `position:"Query" name:"Tag"  type:"Repeated"`
+	AutoRenewPeriod      requests.Integer                                  `position:"Query" name:"AutoRenewPeriod"`
+	Period               requests.Integer                                  `position:"Query" name:"Period"`
+	AutoPay              requests.Boolean                                  `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount string                                            `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                                            `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                                  `position:"Query" name:"OwnerId"`
+	PromotionOptions     PurchaseReservedInstancesOfferingPromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	PeriodUnit           string                                            `position:"Query" name:"PeriodUnit"`
+	OfferingType         string                                            `position:"Query" name:"OfferingType"`
+	AutoRenew            requests.Boolean                                  `position:"Query" name:"AutoRenew"`
+	ZoneId               string                                            `position:"Query" name:"ZoneId"`
+	ReservedInstanceName string                                            `position:"Query" name:"ReservedInstanceName"`
+	InstanceAmount       requests.Integer                                  `position:"Query" name:"InstanceAmount"`
 }
 
 // PurchaseReservedInstancesOfferingTag is a repeated param struct in PurchaseReservedInstancesOfferingRequest
@@ -99,10 +101,16 @@ type PurchaseReservedInstancesOfferingTag struct {
 	Value string `name:"Value"`
 }
 
+// PurchaseReservedInstancesOfferingPromotionOptions is a repeated param struct in PurchaseReservedInstancesOfferingRequest
+type PurchaseReservedInstancesOfferingPromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
+}
+
 // PurchaseReservedInstancesOfferingResponse is the response struct for api PurchaseReservedInstancesOffering
 type PurchaseReservedInstancesOfferingResponse struct {
 	*responses.BaseResponse
 	RequestId              string                                                    `json:"RequestId" xml:"RequestId"`
+	OrderId                string                                                    `json:"OrderId" xml:"OrderId"`
 	ReservedInstanceIdSets ReservedInstanceIdSetsInPurchaseReservedInstancesOffering `json:"ReservedInstanceIdSets" xml:"ReservedInstanceIdSets"`
 }
 
