@@ -114,6 +114,7 @@ Address              Instances
       "NodeName": "nodeport-worker",
       "Zone": "",
       "ForZones": null,
+      "ClusterID": 0,
       "Source": "k8s",
       "State": 0,
       "Unhealthy": false,
@@ -158,6 +159,7 @@ Address              Instances
       "NodeName": "nodeport-worker",
       "Zone": "",
       "ForZones": null,
+      "ClusterID": 0,
       "Source": "k8s",
       "State": 0,
       "Unhealthy": false,
@@ -199,6 +201,7 @@ Address              Instances
         "NodeName": "nodeport-worker",
         "Zone": "",
         "ForZones": null,
+        "ClusterID": 0,
         "Source": "k8s",
         "State": 0,
         "Unhealthy": false,
@@ -238,6 +241,7 @@ Address              Instances
         "NodeName": "nodeport-worker",
         "Zone": "",
         "ForZones": null,
+        "ClusterID": 0,
         "Source": "k8s",
         "State": 0,
         "Unhealthy": false,
@@ -291,6 +295,7 @@ backends:
       nodename: nodeport-worker
       zone: ""
       forzones: []
+      clusterid: 0
       source: k8s
       state: 0
       unhealthy: false
@@ -319,6 +324,7 @@ backends:
       nodename: nodeport-worker
       zone: ""
       forzones: []
+      clusterid: 0
       source: k8s
       state: 0
       unhealthy: false
@@ -342,6 +348,7 @@ instances:
         nodename: nodeport-worker
         zone: ""
         forzones: []
+        clusterid: 0
         source: k8s
         state: 0
         unhealthy: false
@@ -363,6 +370,7 @@ instances:
         nodename: nodeport-worker
         zone: ""
         forzones: []
+        clusterid: 0
         source: k8s
         state: 0
         unhealthy: false

@@ -44,6 +44,9 @@ type Writer struct {
 
 type SelectBackendsFunc = func(statedb.ReadTxn, statedb.Table[*Backend], *Frontend) iter.Seq2[BackendParams, statedb.Revision]
 
+// Backends for the local cluster are associated with ID 0, regardless of the real cluster id.
+const LocalClusterID = 0
+
 type writerParams struct {
 	cell.In
 
@@ -422,7 +425,7 @@ func (w *Writer) DeleteServicesBySource(txn WriteTxn, source source.Source) erro
 
 // UpsertBackends adds/updates backends for the given service.
 func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, bes ...BackendParams) error {
-	refs, err := w.updateBackends(txn, serviceName, source, bes)
+	refs, err := w.updateBackends(txn, serviceName, source, LocalClusterID, bes)
 	if err != nil {
 		return err
 	}
@@ -438,18 +441,25 @@ func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 // SetBackends sets the backends associated with a service. Existing backends from this source that
 // are associated with the service but are not given are released.
 func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source source.Source, bes ...BackendParams) error {
+	return w.SetBackendsOfCluster(txn, name, source, LocalClusterID, bes...)
+}
+
+// SetBackendsOfCluster sets the backends associated with a service from the specified cluster. It will
+// not affect the backends from other clusters associated with the service.
+func (w *Writer) SetBackendsOfCluster(txn WriteTxn, name loadbalancer.ServiceName, source source.Source, clusterID uint32, bes ...BackendParams) error {
 	addrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range bes {
 		addrs.Insert(be.Address)
 	}
-	perSourceOrphans := statedb.Filter(
+
+	orphans := statedb.Filter(
 		w.bes.List(txn, BackendByServiceName(name)),
 		func(be *Backend) bool {
 			inst := be.GetInstanceFromSource(name, source)
-			return inst != nil && !addrs.Has(be.Address)
+			return inst != nil && inst.ClusterID == clusterID && !addrs.Has(be.Address)
 		})
 
-	refs, err := w.updateBackends(txn, name, source, bes)
+	refs, err := w.updateBackends(txn, name, source, clusterID, bes)
 	if err != nil {
 		return err
 	}
@@ -457,8 +467,8 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 
 	// Release orphaned backends, e.g. all backends from this source referencing this
 	// service.
-	for be := range perSourceOrphans {
-		if _, err := w.removeBackendRefPerSource(txn, name, be, source); err != nil {
+	for be := range orphans {
+		if _, err := w.removeBackendRefPerSource(txn, name, be, source, clusterID); err != nil {
 			return err
 		}
 	}
@@ -473,7 +483,7 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 	return nil
 }
 
-func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, bes []BackendParams) (sets.Set[loadbalancer.ServiceName], error) {
+func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, clusterID uint32, bes []BackendParams) (sets.Set[loadbalancer.ServiceName], error) {
 	// Collect all the service names linked with the updated backends in order to bump the
 	// associated frontends for reconciliation.
 	referencedServices := sets.New[loadbalancer.ServiceName]()
@@ -493,6 +503,7 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 		}
 
 		bep.Source = source
+		bep.ClusterID = clusterID
 		be.Instances = be.Instances.Set(
 			BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(bep.Source)},
 			bep,
@@ -510,14 +521,18 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 }
 
 func (w *Writer) DeleteBackendsOfService(txn WriteTxn, name loadbalancer.ServiceName, src source.Source) error {
+	return w.DeleteBackendsOfServiceFromCluster(txn, name, src, LocalClusterID)
+}
+
+func (w *Writer) DeleteBackendsOfServiceFromCluster(txn WriteTxn, name loadbalancer.ServiceName, src source.Source, clusterID uint32) error {
 	for be := range w.bes.List(txn, BackendByServiceName(name)) {
 		if inst := be.GetInstanceFromSource(name, src); inst != nil {
-			be, orphaned := be.releasePerSource(name, src)
+			beNew, orphaned := be.releasePerSource(name, src, clusterID)
 			var err error
 			if orphaned {
-				_, _, err = w.bes.Delete(txn, be)
-			} else {
-				_, _, err = w.bes.Insert(txn, be)
+				_, _, err = w.bes.Delete(txn, beNew)
+			} else if beNew != be {
+				_, _, err = w.bes.Insert(txn, beNew)
 			}
 			if err != nil {
 				return err
@@ -525,43 +540,6 @@ func (w *Writer) DeleteBackendsOfService(txn WriteTxn, name loadbalancer.Service
 		}
 	}
 	return w.RefreshFrontends(txn, name)
-}
-
-func (w *Writer) DeleteBackendsBySource(txn WriteTxn, src source.Source) error {
-	// Iterating over all as this is a rare operation so we can afford it.
-	names := sets.New[loadbalancer.ServiceName]()
-	for be := range w.bes.All(txn) {
-		orphaned, matched := false, false
-		for k, inst := range be.Instances.All() {
-			if inst.Source == src {
-				names.Insert(k.ServiceName)
-				be, orphaned = be.releasePerSource(k.ServiceName, src)
-				matched = true
-			}
-		}
-		if !matched {
-			continue
-		}
-		var err error
-		if orphaned {
-			_, _, err = w.bes.Delete(txn, be)
-		} else {
-			_, _, err = w.bes.Insert(txn, be)
-		}
-		if err != nil {
-			return err
-		}
-	}
-
-	// Mark the frontends of all referenced services as pending to reconcile the
-	// deleted backends. We need to reconcile every frontend to update the references
-	// to the backends in the services and maglev BPF maps.
-	for name := range names {
-		if err := w.RefreshFrontends(txn, name); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (w *Writer) removeBackendRef(txn WriteTxn, name loadbalancer.ServiceName, be *Backend) (err error) {
@@ -574,8 +552,8 @@ func (w *Writer) removeBackendRef(txn WriteTxn, name loadbalancer.ServiceName, b
 	return err
 }
 
-func (w *Writer) removeBackendRefPerSource(txn WriteTxn, name loadbalancer.ServiceName, be *Backend, src source.Source) (backend *Backend, err error) {
-	be, orphan := be.releasePerSource(name, src)
+func (w *Writer) removeBackendRefPerSource(txn WriteTxn, name loadbalancer.ServiceName, be *Backend, src source.Source, clusterID uint32) (backend *Backend, err error) {
+	be, orphan := be.releasePerSource(name, src, clusterID)
 	if orphan {
 		_, _, err = w.bes.Delete(txn, be)
 	} else {
@@ -601,18 +579,6 @@ func (w *Writer) ReleaseBackends(txn WriteTxn, name loadbalancer.ServiceName, ad
 	return w.RefreshFrontends(txn, name)
 }
 
-func (w *Writer) ReleaseBackendsFromSource(txn WriteTxn, name loadbalancer.ServiceName, source source.Source) error {
-	for be := range w.bes.List(txn, BackendByServiceName(name)) {
-		if inst := be.GetInstanceFromSource(name, source); inst == nil {
-			continue
-		}
-		if _, err := w.removeBackendRefPerSource(txn, name, be, source); err != nil {
-			return err
-		}
-	}
-	return w.RefreshFrontends(txn, name)
-}
-
 func (w *Writer) SetRedirectTo(txn WriteTxn, fe *Frontend, to *loadbalancer.ServiceName) {
 	if to == nil && fe.RedirectTo == nil {
 		return
@@ -626,17 +592,6 @@ func (w *Writer) SetRedirectTo(txn WriteTxn, fe *Frontend, to *loadbalancer.Serv
 	fe.RedirectTo = to
 	w.refreshFrontend(txn, fe)
 	w.fes.Insert(txn, fe)
-}
-
-func (w *Writer) ReleaseBackendsForService(txn WriteTxn, name loadbalancer.ServiceName) error {
-	be, _, ok := w.bes.Get(txn, BackendByServiceName(name))
-	if !ok {
-		return statedb.ErrObjectNotFound
-	}
-	if err := w.removeBackendRef(txn, name, be); err != nil {
-		return err
-	}
-	return w.RefreshFrontends(txn, name)
 }
 
 func (w *Writer) DebugDump(txn statedb.ReadTxn, to io.Writer) {

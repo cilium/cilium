@@ -43,6 +43,9 @@ type BackendParams struct {
 	// ForZones where this backend should be consumed in
 	ForZones []string
 
+	// ClusterID of the cluster in which the backend is located. 0 for local cluster.
+	ClusterID uint32
+
 	// Source of the backend.
 	Source source.Source
 
@@ -259,10 +262,10 @@ func (be *Backend) release(name loadbalancer.ServiceName) (*Backend, bool) {
 	return &beCopy, beCopy.Instances.Len() == 0
 }
 
-func (be *Backend) releasePerSource(name loadbalancer.ServiceName, source source.Source) (*Backend, bool) {
+func (be *Backend) releasePerSource(name loadbalancer.ServiceName, source source.Source, clusterID uint32) (*Backend, bool) {
 	var keyToDelete *BackendInstanceKey
 	for k, inst := range be.instancesOfService(name) {
-		if inst.Source == source {
+		if inst.Source == source && inst.ClusterID == clusterID {
 			keyToDelete = &k
 			break
 		}
