@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -109,4 +110,108 @@ func BenchmarkMatchesInvalid1000Parallel(b *testing.B) {
 			es.Matches(match)
 		}
 	})
+}
+
+func TestEndpointSelectorUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputJSON   string
+		expected    EndpointSelector
+		expectedErr bool
+	}{
+		{
+			name:      "Empty JSON",
+			inputJSON: `{}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels:      map[string]string(nil),
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement(nil),
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "With MatchLabels",
+			inputJSON: `{"matchLabels": {"app": "frontend"}}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "frontend"},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:      "With MatchExpressions",
+			inputJSON: `{"matchExpressions": [{"key": "role", "operator": "In", "values": ["database"]}]}`,
+			expected: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "role",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"database"},
+						},
+					},
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name:        "Invalid JSON",
+			inputJSON:   `{"matchLabels": {"app": "frontend"`,
+			expected:    EndpointSelector{},
+			expectedErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			es := EndpointSelector{}
+			err := es.UnmarshalJSON([]byte(tt.inputJSON))
+			if tt.expectedErr {
+				assert.Errorf(t, err, "UnmarshalJSON(%v)", tt.inputJSON)
+				return
+			}
+			assert.Equalf(t, tt.expected.MatchLabels, es.MatchLabels, "MarshalJSON() MatchLabels")
+			assert.Equalf(t, tt.expected.MatchExpressions, es.MatchExpressions, "MarshalJSON() MatchExpressions")
+		})
+	}
+}
+
+func TestEndpointSelectorMarshalJSON(t *testing.T) {
+	tests := []struct {
+		name             string
+		endpointSelector EndpointSelector
+		expectedJSON     string
+		wantErr          assert.ErrorAssertionFunc
+	}{
+		{
+			name: "With MatchLabels and MatchExpressions",
+			endpointSelector: EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app": "frontend",
+					},
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "env",
+							Operator: slim_metav1.LabelSelectorOpIn,
+							Values:   []string{"staging"},
+						},
+					},
+				},
+			},
+			expectedJSON: `{"matchLabels":{"app":"frontend"}, "matchExpressions":[{"key":"env","operator":"In","values":["staging"]}]}`,
+			wantErr:      assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.endpointSelector.MarshalJSON()
+			if !tt.wantErr(t, err, "MarshalJSON()") {
+				return
+			}
+			assert.Equalf(t, tt.expectedJSON, string(got), "MarshalJSON()")
+		})
+	}
 }
