@@ -66,6 +66,11 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+	n.ParseCiliumExtendedKey()
+	return nil
+}
+
+func (n *EndpointSelector) ParseCiliumExtendedKey() {
 	if n.MatchLabels != nil {
 		ml := map[string]string{}
 		for k, v := range n.MatchLabels {
@@ -81,9 +86,9 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
+
 	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 	n.cachedLabelSelectorString = n.LabelSelector.String()
-	return nil
 }
 
 // MarshalJSON returns a JSON representation of the byte array.
@@ -246,7 +251,7 @@ var (
 )
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
-// where it the given srcPrefix will be encoded in the label's keys.
+// where is the given srcPrefix will be encoded in the label's keys.
 func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelector) EndpointSelector {
 	var (
 		matchLabels      map[string]string
