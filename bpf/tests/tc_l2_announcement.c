@@ -19,16 +19,7 @@
 #include <bpf_host.c>
 
 ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
-/* Hack: Set the interface mac to mac_two.
- *
- * Note: MAC addresses are defined in network endianness in this test suite,
- * while the fetch_mac and friends encode things in a way where they end up in
- * memory in native endianness. Remove this in favor of a normal assignment when
- * making interface_mac an array, this will stop compiling anyway.
- */
-ASSIGN_CONFIG(__u32, interface_mac_1, bpf_htonl(0x13371337))
-ASSIGN_CONFIG(__u16, interface_mac_2, bpf_htons(0x1337))
+ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

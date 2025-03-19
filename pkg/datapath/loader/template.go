@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -118,30 +117,4 @@ func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 	return &templateCfg{
 		CompileTimeConfiguration: cfg,
 	}
-}
-
-// sliceToU16 converts the input slice of two bytes to a uint16.
-func sliceToU16(input []byte) uint16 {
-	result := uint16(input[0]) << 8
-	result |= uint16(input[1])
-	return result
-}
-
-// sliceToBe16 converts the input slice of two bytes to a big-endian uint16.
-func sliceToBe16(input []byte) uint16 {
-	return byteorder.HostToNetwork16(sliceToU16(input))
-}
-
-// sliceToU32 converts the input slice of four bytes to a uint32.
-func sliceToU32(input []byte) uint32 {
-	result := uint32(input[0]) << 24
-	result |= uint32(input[1]) << 16
-	result |= uint32(input[2]) << 8
-	result |= uint32(input[3])
-	return result
-}
-
-// sliceToBe32 converts the input slice of four bytes to a big-endian uint32.
-func sliceToBe32(input []byte) uint32 {
-	return byteorder.HostToNetwork32(sliceToU32(input))
 }
