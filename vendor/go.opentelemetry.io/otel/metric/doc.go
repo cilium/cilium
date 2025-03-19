@@ -57,6 +57,23 @@ asynchronous measurement, a Gauge ([Int64ObservableGauge] and
 See the [OpenTelemetry documentation] for more information about instruments
 and their intended use.
 
+# Instrument Name
+
+OpenTelemetry defines an [instrument name syntax] that restricts what
+instrument names are allowed.
+
+Instrument names should ...
+
+  - Not be empty.
+  - Have an alphabetic character as their first letter.
+  - Have any letter after the first be an alphanumeric character, ‘_’, ‘.’,
+    ‘-’, or ‘/’.
+  - Have a maximum length of 255 letters.
+
+To ensure compatibility with observability platforms, all instruments created
+need to conform to this syntax. Not all implementations of the API will validate
+these names, it is the callers responsibility to ensure compliance.
+
 # Measurements
 
 Measurements are made by recording values and information about the values with
@@ -153,6 +170,7 @@ It is strongly recommended that authors only embed
 That implementation is the only one OpenTelemetry authors can guarantee will
 fully implement all the API interfaces when a user updates their API.
 
+[instrument name syntax]: https://opentelemetry.io/docs/specs/otel/metrics/api/#instrument-name-syntax
 [OpenTelemetry documentation]: https://opentelemetry.io/docs/concepts/signals/metrics/
 [GetMeterProvider]: https://pkg.go.dev/go.opentelemetry.io/otel#GetMeterProvider
 */

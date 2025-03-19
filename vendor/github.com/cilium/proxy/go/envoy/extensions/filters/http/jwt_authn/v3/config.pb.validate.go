@@ -573,6 +573,17 @@ func (m *RemoteJwks) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetHttpUri() == nil {
+		err := RemoteJwksValidationError{
+			field:  "HttpUri",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetHttpUri()).(type) {
 		case interface{ ValidateAll() error }:
@@ -2299,6 +2310,8 @@ func (m *JwtAuthentication) validate(all bool) error {
 
 		}
 	}
+
+	// no validation rules for StripFailureResponse
 
 	if len(errors) > 0 {
 		return JwtAuthenticationMultiError(errors)
