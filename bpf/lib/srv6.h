@@ -4,7 +4,6 @@
 #pragma once
 
 #include "lib/common.h"
-#include "lib/fib.h"
 #include "lib/identity.h"
 
 #include "maps.h"
