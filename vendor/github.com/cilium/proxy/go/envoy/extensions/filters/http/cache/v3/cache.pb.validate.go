@@ -180,6 +180,8 @@ func (m *CacheConfig) validate(all bool) error {
 
 	// no validation rules for MaxBodyBytes
 
+	// no validation rules for IgnoreRequestCacheControlHeader
+
 	if len(errors) > 0 {
 		return CacheConfigMultiError(errors)
 	}

@@ -59,10 +59,10 @@ func (m *RedirectPolicy) validate(all bool) error {
 
 	if wrapper := m.GetStatusCode(); wrapper != nil {
 
-		if val := wrapper.GetValue(); val < 100 || val > 999 {
+		if val := wrapper.GetValue(); val < 200 || val > 999 {
 			err := RedirectPolicyValidationError{
 				field:  "StatusCode",
-				reason: "value must be inside range [100, 999]",
+				reason: "value must be inside range [200, 999]",
 			}
 			if !all {
 				return err

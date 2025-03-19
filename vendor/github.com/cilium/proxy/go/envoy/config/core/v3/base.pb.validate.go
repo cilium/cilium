@@ -1495,6 +1495,420 @@ var _ interface {
 	ErrorName() string
 } = RuntimeFeatureFlagValidationError{}
 
+// Validate checks the field values on KeyValue with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *KeyValue) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KeyValue with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in KeyValueMultiError, or nil
+// if none found.
+func (m *KeyValue) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KeyValue) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetKey()) < 1 {
+		err := KeyValueValidationError{
+			field:  "Key",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(m.GetKey()) > 16384 {
+		err := KeyValueValidationError{
+			field:  "Key",
+			reason: "value length must be at most 16384 bytes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for Value
+
+	if len(errors) > 0 {
+		return KeyValueMultiError(errors)
+	}
+
+	return nil
+}
+
+// KeyValueMultiError is an error wrapping multiple validation errors returned
+// by KeyValue.ValidateAll() if the designated constraints aren't met.
+type KeyValueMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KeyValueMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KeyValueMultiError) AllErrors() []error { return m }
+
+// KeyValueValidationError is the validation error returned by
+// KeyValue.Validate if the designated constraints aren't met.
+type KeyValueValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e KeyValueValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e KeyValueValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e KeyValueValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e KeyValueValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e KeyValueValidationError) ErrorName() string { return "KeyValueValidationError" }
+
+// Error satisfies the builtin error interface
+func (e KeyValueValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKeyValue.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = KeyValueValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = KeyValueValidationError{}
+
+// Validate checks the field values on KeyValueAppend with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *KeyValueAppend) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KeyValueAppend with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in KeyValueAppendMultiError,
+// or nil if none found.
+func (m *KeyValueAppend) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KeyValueAppend) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetEntry() == nil {
+		err := KeyValueAppendValidationError{
+			field:  "Entry",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetEntry()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, KeyValueAppendValidationError{
+					field:  "Entry",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, KeyValueAppendValidationError{
+					field:  "Entry",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEntry()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return KeyValueAppendValidationError{
+				field:  "Entry",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if _, ok := KeyValueAppend_KeyValueAppendAction_name[int32(m.GetAction())]; !ok {
+		err := KeyValueAppendValidationError{
+			field:  "Action",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return KeyValueAppendMultiError(errors)
+	}
+
+	return nil
+}
+
+// KeyValueAppendMultiError is an error wrapping multiple validation errors
+// returned by KeyValueAppend.ValidateAll() if the designated constraints
+// aren't met.
+type KeyValueAppendMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KeyValueAppendMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KeyValueAppendMultiError) AllErrors() []error { return m }
+
+// KeyValueAppendValidationError is the validation error returned by
+// KeyValueAppend.Validate if the designated constraints aren't met.
+type KeyValueAppendValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e KeyValueAppendValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e KeyValueAppendValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e KeyValueAppendValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e KeyValueAppendValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e KeyValueAppendValidationError) ErrorName() string { return "KeyValueAppendValidationError" }
+
+// Error satisfies the builtin error interface
+func (e KeyValueAppendValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKeyValueAppend.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = KeyValueAppendValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = KeyValueAppendValidationError{}
+
+// Validate checks the field values on KeyValueMutation with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *KeyValueMutation) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on KeyValueMutation with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// KeyValueMutationMultiError, or nil if none found.
+func (m *KeyValueMutation) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *KeyValueMutation) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAppend()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, KeyValueMutationValidationError{
+					field:  "Append",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, KeyValueMutationValidationError{
+					field:  "Append",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAppend()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return KeyValueMutationValidationError{
+				field:  "Append",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(m.GetRemove()) > 16384 {
+		err := KeyValueMutationValidationError{
+			field:  "Remove",
+			reason: "value length must be at most 16384 bytes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return KeyValueMutationMultiError(errors)
+	}
+
+	return nil
+}
+
+// KeyValueMutationMultiError is an error wrapping multiple validation errors
+// returned by KeyValueMutation.ValidateAll() if the designated constraints
+// aren't met.
+type KeyValueMutationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m KeyValueMutationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m KeyValueMutationMultiError) AllErrors() []error { return m }
+
+// KeyValueMutationValidationError is the validation error returned by
+// KeyValueMutation.Validate if the designated constraints aren't met.
+type KeyValueMutationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e KeyValueMutationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e KeyValueMutationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e KeyValueMutationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e KeyValueMutationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e KeyValueMutationValidationError) ErrorName() string { return "KeyValueMutationValidationError" }
+
+// Error satisfies the builtin error interface
+func (e KeyValueMutationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKeyValueMutation.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = KeyValueMutationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = KeyValueMutationValidationError{}
+
 // Validate checks the field values on QueryParameter with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -2226,6 +2640,35 @@ func (m *DataSource) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetWatchedDirectory()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DataSourceValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DataSourceValidationError{
+					field:  "WatchedDirectory",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWatchedDirectory()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return DataSourceValidationError{
+				field:  "WatchedDirectory",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	oneofSpecifierPresent := false
 	switch v := m.Specifier.(type) {
