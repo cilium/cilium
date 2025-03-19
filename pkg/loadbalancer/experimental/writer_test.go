@@ -242,9 +242,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		wtxn.Commit()
 	}
 
-	fe, _, found := p.FrontendTable.Get(p.DB.ReadTxn(), FrontendByServiceName(name1))
-	require.True(t, found, "Lookup frontend failed")
-
 	// UpsertBackends
 	beAddr1, beAddr2, beAddr3 := mkAddr(4000), mkAddr(5000), mkAddr(6000)
 	{
@@ -311,22 +308,6 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
 		err := p.Writer.ReleaseBackends(wtxn, name1, beAddr1)
 		require.NoError(t, err, "ReleaseBackend failed")
-
-		wtxn.Abort()
-	}
-
-	// DeleteBackendsBySource
-	{
-		wtxn := p.Writer.WriteTxn()
-
-		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
-		err := p.Writer.DeleteBackendsBySource(wtxn, source.Kubernetes)
-		require.NoError(t, err, "DeleteBackendsBySource failed")
-		bes := p.BackendTable.All(wtxn)
-		require.Empty(t, statedb.Collect(bes))
-
-		// No backends remain for the service.
-		require.Empty(t, statedb.Collect(iter.Seq2[BackendParams, statedb.Revision](fe.Backends)))
 
 		wtxn.Abort()
 	}
@@ -409,6 +390,10 @@ func TestWriter_SetBackends(t *testing.T) {
 	backend1 := BackendParams{Address: beAddr1}
 	backend2 := BackendParams{Address: beAddr2}
 	backend3 := BackendParams{Address: beAddr3}
+
+	backend1_cluster1 := BackendParams{Address: beAddr1, ClusterID: 1}
+	backend2_cluster1 := BackendParams{Address: beAddr2, ClusterID: 1}
+	backend3_cluster2 := BackendParams{Address: beAddr3, ClusterID: 2}
 
 	type testCase struct {
 		desc   string
@@ -499,6 +484,28 @@ func TestWriter_SetBackends(t *testing.T) {
 				name2: {beAddr1: false, beAddr2: false, beAddr3: false},
 			},
 			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: false, beAddr3: false},
+		},
+		{
+			desc: "add backend from other clusters",
+			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 1, backend1_cluster1, backend2_cluster1))
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: true, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "delete backend2 from first cluster",
+			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 1, backend1_cluster1))
+				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: false, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: false, beAddr3: true},
 		},
 	}
 
@@ -607,9 +614,10 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)}, // no change here
 		},
 		{
-			desc: "delete backends by source",
+			desc: "delete backends",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.DeleteBackendsBySource(wtxn, source.KubeAPIServer))
+				require.NoError(t, w.DeleteBackendsOfService(wtxn, name1, source.KubeAPIServer))
+				require.NoError(t, w.DeleteBackendsOfService(wtxn, name2, source.KubeAPIServer))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: nil}, // change from the previous case surfaces now
 		},
@@ -622,9 +630,9 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
 		},
 		{
-			desc: "delete backend by source for one service",
+			desc: "delete via SetBackends",
 			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.ReleaseBackendsFromSource(wtxn, name1, source.KubeAPIServer))
+				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: ptr.To[weight](20)},
 		},
@@ -634,13 +642,6 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer, backend11))
 			},
 			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](11), name2: ptr.To[weight](20)},
-		},
-		{
-			desc: "delete it again via SetBackends",
-			action: func(t *testing.T, w *Writer, wtxn WriteTxn) {
-				require.NoError(t, w.SetBackends(wtxn, name1, source.KubeAPIServer))
-			},
-			want: map[loadbalancer.ServiceName]*weight{name1: ptr.To[weight](12), name2: ptr.To[weight](20)},
 		},
 	}
 
