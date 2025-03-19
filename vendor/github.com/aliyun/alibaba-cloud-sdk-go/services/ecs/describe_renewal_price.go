@@ -71,15 +71,21 @@ func (client *Client) DescribeRenewalPriceWithCallback(request *DescribeRenewalP
 // DescribeRenewalPriceRequest is the request struct for api DescribeRenewalPrice
 type DescribeRenewalPriceRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PriceUnit            string           `position:"Query" name:"PriceUnit"`
-	ResourceId           string           `position:"Query" name:"ResourceId"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	ExpectedRenewDay     requests.Integer `position:"Query" name:"ExpectedRenewDay"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	ResourceType         string           `position:"Query" name:"ResourceType"`
+	ResourceOwnerId      requests.Integer                     `position:"Query" name:"ResourceOwnerId"`
+	PriceUnit            string                               `position:"Query" name:"PriceUnit"`
+	ResourceId           string                               `position:"Query" name:"ResourceId"`
+	Period               requests.Integer                     `position:"Query" name:"Period"`
+	ResourceOwnerAccount string                               `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                               `position:"Query" name:"OwnerAccount"`
+	ExpectedRenewDay     requests.Integer                     `position:"Query" name:"ExpectedRenewDay"`
+	OwnerId              requests.Integer                     `position:"Query" name:"OwnerId"`
+	ResourceType         string                               `position:"Query" name:"ResourceType"`
+	PromotionOptions     DescribeRenewalPricePromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+}
+
+// DescribeRenewalPricePromotionOptions is a repeated param struct in DescribeRenewalPriceRequest
+type DescribeRenewalPricePromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // DescribeRenewalPriceResponse is the response struct for api DescribeRenewalPrice

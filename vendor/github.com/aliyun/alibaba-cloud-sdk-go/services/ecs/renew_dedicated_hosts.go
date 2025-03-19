@@ -71,20 +71,28 @@ func (client *Client) RenewDedicatedHostsWithCallback(request *RenewDedicatedHos
 // RenewDedicatedHostsRequest is the request struct for api RenewDedicatedHosts
 type RenewDedicatedHostsRequest struct {
 	*requests.RpcRequest
-	DedicatedHostIds     string           `position:"Query" name:"DedicatedHostIds"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
+	DedicatedHostIds     string                              `position:"Query" name:"DedicatedHostIds"`
+	ResourceOwnerId      requests.Integer                    `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                              `position:"Query" name:"ClientToken"`
+	Period               requests.Integer                    `position:"Query" name:"Period"`
+	AutoPay              requests.Boolean                    `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount string                              `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                              `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                    `position:"Query" name:"OwnerId"`
+	PromotionOptions     RenewDedicatedHostsPromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	PeriodUnit           string                              `position:"Query" name:"PeriodUnit"`
+}
+
+// RenewDedicatedHostsPromotionOptions is a repeated param struct in RenewDedicatedHostsRequest
+type RenewDedicatedHostsPromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // RenewDedicatedHostsResponse is the response struct for api RenewDedicatedHosts
 type RenewDedicatedHostsResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
+	OrderId   string `json:"OrderId" xml:"OrderId"`
 }
 
 // CreateRenewDedicatedHostsRequest creates a request to invoke RenewDedicatedHosts API

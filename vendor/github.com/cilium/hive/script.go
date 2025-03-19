@@ -82,8 +82,8 @@ func hiveScriptCmd(h *Hive, log *slog.Logger) script.Cmd {
 				defer cancel()
 				return nil, h.Stop(log, ctx)
 			default:
-				h.PrintObjects(s.LogWriter(), log)
-				return nil, nil
+				err := h.PrintObjects(s.LogWriter(), log)
+				return nil, err
 			}
 		},
 	)

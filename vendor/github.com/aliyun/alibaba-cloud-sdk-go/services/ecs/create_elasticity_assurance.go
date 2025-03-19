@@ -71,35 +71,46 @@ func (client *Client) CreateElasticityAssuranceWithCallback(request *CreateElast
 // CreateElasticityAssuranceRequest is the request struct for api CreateElasticityAssurance
 type CreateElasticityAssuranceRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId                 requests.Integer                `position:"Query" name:"ResourceOwnerId"`
-	ClientToken                     string                          `position:"Query" name:"ClientToken"`
-	Description                     string                          `position:"Query" name:"Description"`
-	StartTime                       string                          `position:"Query" name:"StartTime"`
-	Platform                        string                          `position:"Query" name:"Platform"`
-	ResourceGroupId                 string                          `position:"Query" name:"ResourceGroupId"`
-	PrivatePoolOptionsMatchCriteria string                          `position:"Query" name:"PrivatePoolOptions.MatchCriteria"`
-	InstanceType                    *[]string                       `position:"Query" name:"InstanceType"  type:"Repeated"`
-	Tag                             *[]CreateElasticityAssuranceTag `position:"Query" name:"Tag"  type:"Repeated"`
-	InstanceChargeType              string                          `position:"Query" name:"InstanceChargeType"`
-	Period                          requests.Integer                `position:"Query" name:"Period"`
-	ResourceOwnerAccount            string                          `position:"Query" name:"ResourceOwnerAccount"`
-	PrivatePoolOptionsName          string                          `position:"Query" name:"PrivatePoolOptions.Name"`
-	OwnerAccount                    string                          `position:"Query" name:"OwnerAccount"`
-	AssuranceTimes                  string                          `position:"Query" name:"AssuranceTimes"`
-	OwnerId                         requests.Integer                `position:"Query" name:"OwnerId"`
-	ResourceType                    string                          `position:"Query" name:"ResourceType"`
-	InstanceCpuCoreCount            requests.Integer                `position:"Query" name:"InstanceCpuCoreCount"`
-	PeriodUnit                      string                          `position:"Query" name:"PeriodUnit"`
-	ZoneId                          *[]string                       `position:"Query" name:"ZoneId"  type:"Repeated"`
-	ChargeType                      string                          `position:"Query" name:"ChargeType"`
-	PackageType                     string                          `position:"Query" name:"PackageType"`
-	InstanceAmount                  requests.Integer                `position:"Query" name:"InstanceAmount"`
+	ResourceOwnerId                 requests.Integer                            `position:"Query" name:"ResourceOwnerId"`
+	ClientToken                     string                                      `position:"Query" name:"ClientToken"`
+	Description                     string                                      `position:"Query" name:"Description"`
+	StartTime                       string                                      `position:"Query" name:"StartTime"`
+	Platform                        string                                      `position:"Query" name:"Platform"`
+	ResourceGroupId                 string                                      `position:"Query" name:"ResourceGroupId"`
+	PrivatePoolOptionsMatchCriteria string                                      `position:"Query" name:"PrivatePoolOptions.MatchCriteria"`
+	InstanceType                    *[]string                                   `position:"Query" name:"InstanceType"  type:"Repeated"`
+	Tag                             *[]CreateElasticityAssuranceTag             `position:"Query" name:"Tag"  type:"Repeated"`
+	InstanceChargeType              string                                      `position:"Query" name:"InstanceChargeType"`
+	AutoRenewPeriod                 requests.Integer                            `position:"Query" name:"AutoRenewPeriod"`
+	Period                          requests.Integer                            `position:"Query" name:"Period"`
+	ResourceOwnerAccount            string                                      `position:"Query" name:"ResourceOwnerAccount"`
+	PrivatePoolOptionsName          string                                      `position:"Query" name:"PrivatePoolOptions.Name"`
+	OwnerAccount                    string                                      `position:"Query" name:"OwnerAccount"`
+	AssuranceTimes                  string                                      `position:"Query" name:"AssuranceTimes"`
+	OwnerId                         requests.Integer                            `position:"Query" name:"OwnerId"`
+	ResourceType                    string                                      `position:"Query" name:"ResourceType"`
+	InstanceCpuCoreCount            requests.Integer                            `position:"Query" name:"InstanceCpuCoreCount"`
+	PeriodUnit                      string                                      `position:"Query" name:"PeriodUnit"`
+	AutoRenew                       requests.Boolean                            `position:"Query" name:"AutoRenew"`
+	ZoneId                          *[]string                                   `position:"Query" name:"ZoneId"  type:"Repeated"`
+	RecurrenceRules                 *[]CreateElasticityAssuranceRecurrenceRules `position:"Query" name:"RecurrenceRules"  type:"Repeated"`
+	ChargeType                      string                                      `position:"Query" name:"ChargeType"`
+	PackageType                     string                                      `position:"Query" name:"PackageType"`
+	InstanceAmount                  requests.Integer                            `position:"Query" name:"InstanceAmount"`
 }
 
 // CreateElasticityAssuranceTag is a repeated param struct in CreateElasticityAssuranceRequest
 type CreateElasticityAssuranceTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
+}
+
+// CreateElasticityAssuranceRecurrenceRules is a repeated param struct in CreateElasticityAssuranceRequest
+type CreateElasticityAssuranceRecurrenceRules struct {
+	RecurrenceType  string `name:"RecurrenceType"`
+	RecurrenceValue string `name:"RecurrenceValue"`
+	StartHour       string `name:"StartHour"`
+	EndHour         string `name:"EndHour"`
 }
 
 // CreateElasticityAssuranceResponse is the response struct for api CreateElasticityAssurance

@@ -14,10 +14,11 @@ import (
 // command can be used to inspect the dependency graph.
 func (h *Hive) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "hive",
-		Short: "Inspect the hive",
-		Run: func(cmd *cobra.Command, args []string) {
-			h.PrintObjects(os.Stdout, slog.Default())
+		Use:          "hive",
+		Short:        "Inspect the hive",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return h.PrintObjects(os.Stdout, slog.Default())
 		},
 		TraverseChildren: false,
 	}
@@ -25,10 +26,11 @@ func (h *Hive) Command() *cobra.Command {
 
 	cmd.AddCommand(
 		&cobra.Command{
-			Use:   "dot-graph",
-			Short: "Output the dependencies graph in graphviz dot format",
-			Run: func(cmd *cobra.Command, args []string) {
-				h.PrintDotGraph()
+			Use:          "dot-graph",
+			Short:        "Output the dependencies graph in graphviz dot format",
+			SilenceUsage: true,
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return h.PrintDotGraph()
 			},
 			TraverseChildren: false,
 		})
