@@ -229,6 +229,9 @@ func (h *Hive) Run(log *slog.Logger) error {
 
 	var errs error
 	if err := h.Start(log, startCtx); err != nil {
+		if errors.Is(err, ErrPopulate{}) {
+			return err
+		}
 		errs = errors.Join(errs, fmt.Errorf("failed to start: %w", err))
 	}
 
@@ -326,12 +329,27 @@ func (h *Hive) AppendInvoke(invoke func(*slog.Logger, time.Duration) error) {
 	h.invokes = append(h.invokes, invoke)
 }
 
+type ErrPopulate struct {
+	err error
+}
+
+// Error implements error.
+func (e ErrPopulate) Error() string {
+	return fmt.Sprintf("failed to populate object graph: %s", dig.RootCause(e.err))
+}
+
+func (e ErrPopulate) Pretty() string {
+	return fmt.Sprintf("Failed to populate object graph:\n%+v", e.err)
+}
+
+var _ error = ErrPopulate{}
+
 // Start starts the hive. The context allows cancelling the start.
 // If context is cancelled and the start hooks do not respect the cancellation
 // then after 5 more seconds the process will be terminated forcefully.
 func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 	if err := h.Populate(log); err != nil {
-		return err
+		return ErrPopulate{err}
 	}
 
 	defer close(h.fatalOnTimeout(ctx))
@@ -393,9 +411,11 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 	}
 }
 
-func (h *Hive) PrintObjects(w io.Writer, log *slog.Logger) {
+func (h *Hive) PrintObjects(w io.Writer, log *slog.Logger) error {
 	if err := h.Populate(log); err != nil {
-		panic(fmt.Sprintf("Failed to populate object graph: %s", err))
+		err := ErrPopulate{err}
+		fmt.Fprintf(w, "ERROR: %s\n", err.Pretty())
+		return err
 	}
 
 	fmt.Fprintf(w, "Cells:\n\n")
@@ -405,16 +425,16 @@ func (h *Hive) PrintObjects(w io.Writer, log *slog.Logger) {
 		fmt.Fprintln(w)
 	}
 	h.lifecycle.PrintHooks(w)
+	return nil
 }
 
-func (h *Hive) PrintDotGraph() {
+func (h *Hive) PrintDotGraph() error {
 	if err := h.Populate(slog.Default()); err != nil {
-		panic(fmt.Sprintf("Failed to populate object graph: %s", err))
+		err := ErrPopulate{err}
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err.Pretty())
+		return err
 	}
-
-	if err := dig.Visualize(h.container, os.Stdout); err != nil {
-		panic(fmt.Sprintf("Failed to dig.Visualize(): %s", err))
-	}
+	return dig.Visualize(h.container, os.Stdout)
 }
 
 // getEnvName returns the environment variable to be used for the given option name.
@@ -434,10 +454,10 @@ func (h *Hive) ScriptCommands(log *slog.Logger) (map[string]script.Cmd, error) {
 	m["hive/stop"] = hiveStopCmd(h, log)
 
 	// Gather the commands from the hive.
-	h.container.Invoke(func(sc ScriptCmds) {
+	err := h.container.Invoke(func(sc ScriptCmds) {
 		for name, cmd := range sc.Map() {
 			m[name] = cmd
 		}
 	})
-	return m, nil
+	return m, err
 }

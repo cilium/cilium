@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -21,10 +21,8 @@ import (
 //
 // It is a shortcut for Decoder.Decode() with the default options.
 func Unmarshal(data []byte, v interface{}) error {
-	p := unstable.Parser{}
-	p.Reset(data)
-	d := decoder{p: &p}
-
+	d := decoder{}
+	d.p.Reset(data)
 	return d.FromParser(v)
 }
 
@@ -117,27 +115,25 @@ func (d *Decoder) EnableUnmarshalerInterface() *Decoder {
 //	Inline Table     -> same as Table
 //	Array of Tables  -> same as Array and Table
 func (d *Decoder) Decode(v interface{}) error {
-	b, err := ioutil.ReadAll(d.r)
+	b, err := io.ReadAll(d.r)
 	if err != nil {
 		return fmt.Errorf("toml: %w", err)
 	}
 
-	p := unstable.Parser{}
-	p.Reset(b)
 	dec := decoder{
-		p: &p,
 		strict: strict{
 			Enabled: d.strict,
 		},
 		unmarshalerInterface: d.unmarshalerInterface,
 	}
+	dec.p.Reset(b)
 
 	return dec.FromParser(v)
 }
 
 type decoder struct {
 	// Which parser instance in use for this decoding session.
-	p *unstable.Parser
+	p unstable.Parser
 
 	// Flag indicating that the current expression is stashed.
 	// If set to true, calling nextExpr will not actually pull a new expression
@@ -1078,12 +1074,39 @@ func (d *decoder) keyFromData(keyType reflect.Type, data []byte) (reflect.Value,
 		}
 		return mk, nil
 
-	case reflect.PtrTo(keyType).Implements(textUnmarshalerType):
+	case reflect.PointerTo(keyType).Implements(textUnmarshalerType):
 		mk := reflect.New(keyType)
 		if err := mk.Interface().(encoding.TextUnmarshaler).UnmarshalText(data); err != nil {
 			return reflect.Value{}, fmt.Errorf("toml: error unmarshalling key type %s from text: %w", stringType, err)
 		}
 		return mk.Elem(), nil
+
+	case keyType.Kind() == reflect.Int || keyType.Kind() == reflect.Int8 || keyType.Kind() == reflect.Int16 || keyType.Kind() == reflect.Int32 || keyType.Kind() == reflect.Int64:
+		key, err := strconv.ParseInt(string(data), 10, 64)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("toml: error parsing key of type %s from integer: %w", stringType, err)
+		}
+		return reflect.ValueOf(key).Convert(keyType), nil
+	case keyType.Kind() == reflect.Uint || keyType.Kind() == reflect.Uint8 || keyType.Kind() == reflect.Uint16 || keyType.Kind() == reflect.Uint32 || keyType.Kind() == reflect.Uint64:
+		key, err := strconv.ParseUint(string(data), 10, 64)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("toml: error parsing key of type %s from unsigned integer: %w", stringType, err)
+		}
+		return reflect.ValueOf(key).Convert(keyType), nil
+
+	case keyType.Kind() == reflect.Float32:
+		key, err := strconv.ParseFloat(string(data), 32)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("toml: error parsing key of type %s from float: %w", stringType, err)
+		}
+		return reflect.ValueOf(float32(key)), nil
+
+	case keyType.Kind() == reflect.Float64:
+		key, err := strconv.ParseFloat(string(data), 64)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("toml: error parsing key of type %s from float: %w", stringType, err)
+		}
+		return reflect.ValueOf(float64(key)), nil
 	}
 	return reflect.Value{}, fmt.Errorf("toml: cannot convert map key of type %s to expected type %s", stringType, keyType)
 }

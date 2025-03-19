@@ -150,6 +150,7 @@ type CreateLaunchTemplateVersionNetworkInterface struct {
 	SecurityGroupIds            *[]string `name:"SecurityGroupIds" type:"Repeated"`
 	InstanceType                string    `name:"InstanceType"`
 	NetworkInterfaceTrafficMode string    `name:"NetworkInterfaceTrafficMode"`
+	DeleteOnRelease             string    `name:"DeleteOnRelease"`
 }
 
 // CreateLaunchTemplateVersionDataDisk is a repeated param struct in CreateLaunchTemplateVersionRequest

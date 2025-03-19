@@ -17,7 +17,8 @@ package ecs
 
 // AdvancedOptions is a nested struct in ecs response
 type AdvancedOptions struct {
-	RetainCloudAssistant bool `json:"RetainCloudAssistant" xml:"RetainCloudAssistant"`
-	SkipBuildImage       bool `json:"SkipBuildImage" xml:"SkipBuildImage"`
-	SkipCheckImage       bool `json:"SkipCheckImage" xml:"SkipCheckImage"`
+	RetainCloudAssistant bool   `json:"RetainCloudAssistant" xml:"RetainCloudAssistant"`
+	SkipBuildImage       bool   `json:"SkipBuildImage" xml:"SkipBuildImage"`
+	SkipCheckImage       bool   `json:"SkipCheckImage" xml:"SkipCheckImage"`
+	ImageNameSuffix      string `json:"ImageNameSuffix" xml:"ImageNameSuffix"`
 }

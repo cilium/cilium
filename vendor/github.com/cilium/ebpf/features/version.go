@@ -1,3 +1,5 @@
+//go:build linux
+
 package features
 
 import "github.com/cilium/ebpf/internal/linux"

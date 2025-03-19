@@ -169,7 +169,7 @@ func (ps *ProgramSpec) Tag() (string, error) {
 // ProgramSpec.AttachTo, if any. Returns an empty string if the symbol is not
 // present or not part of a kernel module.
 func (ps *ProgramSpec) kernelModule() (string, error) {
-	if ps.AttachTo == "" && ps.targetsKernelModule() {
+	if ps.targetsKernelModule() {
 		return kallsyms.Module(ps.AttachTo)
 	}
 
