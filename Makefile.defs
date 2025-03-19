@@ -156,7 +156,7 @@ GO_BUILD_FLAGS += -mod=vendor
 GO_TEST_FLAGS += -mod=vendor -vet=all
 GO_CLEAN_FLAGS += -mod=vendor
 
-GO_BUILD = CGO_ENABLED=0 $(GO) build
+CGO_ENABLED ?= 0
 
 # Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
@@ -169,15 +169,16 @@ ifeq ($(CROSS_ARCH),arm64)
 else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
-GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
+
+GO_BUILD = CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
 
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
     GOTEST_COVER_OPTS += -covermode=atomic
 
-    # GO_BUILD becomes GO_BUILD_WITH_CGO as `-race` requires CGO
-    GO_BUILD = $(GO_BUILD_WITH_CGO)
+    # `-race` requires CGO
+    CGO_ENABLED = 1
     ifeq ($(LOCKDEBUG),)
         LOCKDEBUG=1
     endif
@@ -197,7 +198,6 @@ ifeq ($(NOOPT),1)
 endif
 
 GO_BUILD += $(GO_BUILD_FLAGS)
-GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
 
 GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
 GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
