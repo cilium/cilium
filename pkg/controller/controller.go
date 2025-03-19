@@ -105,6 +105,9 @@ type ControllerParams struct {
 	NoErrorRetry bool
 
 	Context context.Context
+
+	// The interval for which this update needs to be delayed
+	UpdateJitter time.Duration
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
@@ -241,11 +244,33 @@ func (c *controller) GetLastErrorTimestamp() time.Time {
 
 func (c *controller) runController(params ControllerParams) {
 	errorRetries := 1
+	interval := time.Duration(math.MaxInt64)
 
 	for {
 		var err error
 
-		interval := params.RunInterval
+		select {
+		case <-c.stop:
+			goto shutdown
+
+		case params = <-c.update:
+			// update channel is never closed
+		case <-stdtime.After(interval):
+			// timer channel is not yet closed
+		case <-c.trigger:
+			// trigger channel is never closed
+		}
+
+		// If we receive a signal on multiple channels golang will pick one randomly.
+		// This select will make sure we don't execute the controller
+		// while we are shutting down.
+		select {
+		case <-c.stop:
+			goto shutdown
+		default:
+		}
+
+		interval = params.RunInterval
 
 		start := time.Now()
 		err = params.DoFunc(params.Context)
@@ -315,27 +340,6 @@ func (c *controller) runController(params ControllerParams) {
 		}
 
 		c.mutex.Unlock()
-
-		select {
-		case <-c.stop:
-			goto shutdown
-
-		case params = <-c.update:
-			// update channel is never closed
-		case <-stdtime.After(interval):
-			// timer channel is not yet closed
-		case <-c.trigger:
-			// trigger channel is never closed
-		}
-
-		// If we receive a signal on multiple channels golang will pick one randomly.
-		// This select will make sure we don't execute the controller
-		// while we are shutting down.
-		select {
-		case <-c.stop:
-			goto shutdown
-		default:
-		}
 	}
 
 shutdown:

@@ -1912,6 +1912,14 @@ func (e *Endpoint) RunRestoredMetadataResolver(bwm dptypes.BandwidthManager, res
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labels.Labels) error {
+	return e.modifyIdentityLabelsWithJitter(source, addLabels, delLabels, 0)
+}
+
+func (e *Endpoint) ModifyIdentityLabelsWithJitter(source string, addLabels, delLabels labels.Labels, UpdateJitter time.Duration) error {
+	return e.modifyIdentityLabelsWithJitter(source, addLabels, delLabels, UpdateJitter)
+}
+
+func (e *Endpoint) modifyIdentityLabelsWithJitter(source string, addLabels, delLabels labels.Labels, UpdateJitter time.Duration) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1944,7 +1952,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	e.unlock()
 
 	if changed {
-		e.runIdentityResolver(context.Background(), false)
+		e.runIdentityResolverWithJitter(context.Background(), false, UpdateJitter)
 	}
 	return nil
 }
@@ -2098,6 +2106,14 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 //
 // Must be called with e.mutex NOT held.
 func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (regenTriggered bool) {
+	return e.realRunIdentityResolverWithJitter(ctx, blocking, 0)
+}
+
+func (e *Endpoint) runIdentityResolverWithJitter(ctx context.Context, blocking bool, UpdateJitter time.Duration) (regenTriggered bool) {
+	return e.realRunIdentityResolverWithJitter(ctx, blocking, UpdateJitter)
+}
+
+func (e *Endpoint) realRunIdentityResolverWithJitter(ctx context.Context, blocking bool, UpdateJitter time.Duration) (regenTriggered bool) {
 	err := e.rlockAlive()
 	if err != nil {
 		// If a labels update and an endpoint delete API request arrive
@@ -2140,8 +2156,9 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (rege
 				}
 				return err
 			},
-			RunInterval: 5 * time.Minute,
-			Context:     e.aliveCtx,
+			RunInterval:  5 * time.Minute,
+			Context:      e.aliveCtx,
+			UpdateJitter: UpdateJitter,
 		},
 	)
 
