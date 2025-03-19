@@ -211,7 +211,7 @@ skip_fib:
 		trace->monitor = monitor;
 
 		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
-				    ipfrag_has_l4_header(fraginfo));
+				    ipfrag_has_l4_header(fraginfo), CT_EGRESS);
 		if (IS_ERR(ret))
 			return ret;
 
