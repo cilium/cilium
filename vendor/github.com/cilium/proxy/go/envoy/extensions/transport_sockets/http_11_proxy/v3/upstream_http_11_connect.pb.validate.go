@@ -57,17 +57,6 @@ func (m *Http11ProxyUpstreamTransport) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetTransportSocket() == nil {
-		err := Http11ProxyUpstreamTransportValidationError{
-			field:  "TransportSocket",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetTransportSocket()).(type) {
 		case interface{ ValidateAll() error }:

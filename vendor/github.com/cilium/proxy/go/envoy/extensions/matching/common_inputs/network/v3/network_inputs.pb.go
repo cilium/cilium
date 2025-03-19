@@ -478,6 +478,159 @@ func (x *FilterStateInput) GetKey() string {
 	return ""
 }
 
+// Input that matches dynamic metadata by key.
+// DynamicMetadataInput provides a general interface using “filter“ and “path“ to retrieve value from
+// :ref:`Metadata <envoy_v3_api_msg_config.core.v3.Metadata>`.
+//
+// For example, for the following Metadata:
+//
+// .. code-block:: yaml
+//
+//	filter_metadata:
+//	  envoy.xxx:
+//	    prop:
+//	      foo: bar
+//	      xyz:
+//	        hello: envoy
+//
+// The following DynamicMetadataInput will retrieve a string value "bar" from the Metadata.
+//
+// .. code-block:: yaml
+//
+//	filter: envoy.xxx
+//	path:
+//	- key: prop
+//	- key: foo
+//
+// [#extension: envoy.matching.inputs.dynamic_metadata]
+type DynamicMetadataInput struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The filter name to retrieve the Struct from the Metadata.
+	Filter string `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	// The path to retrieve the Value from the Struct.
+	Path []*DynamicMetadataInput_PathSegment `protobuf:"bytes,2,rep,name=path,proto3" json:"path,omitempty"`
+}
+
+func (x *DynamicMetadataInput) Reset() {
+	*x = DynamicMetadataInput{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DynamicMetadataInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DynamicMetadataInput) ProtoMessage() {}
+
+func (x *DynamicMetadataInput) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DynamicMetadataInput.ProtoReflect.Descriptor instead.
+func (*DynamicMetadataInput) Descriptor() ([]byte, []int) {
+	return file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DynamicMetadataInput) GetFilter() string {
+	if x != nil {
+		return x.Filter
+	}
+	return ""
+}
+
+func (x *DynamicMetadataInput) GetPath() []*DynamicMetadataInput_PathSegment {
+	if x != nil {
+		return x.Path
+	}
+	return nil
+}
+
+// Specifies the segment in a path to retrieve value from Metadata.
+// Note: Currently it's not supported to retrieve a value from a list in Metadata. This means that
+// if the segment key refers to a list, it has to be the last segment in a path.
+type DynamicMetadataInput_PathSegment struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Segment:
+	//
+	//	*DynamicMetadataInput_PathSegment_Key
+	Segment isDynamicMetadataInput_PathSegment_Segment `protobuf_oneof:"segment"`
+}
+
+func (x *DynamicMetadataInput_PathSegment) Reset() {
+	*x = DynamicMetadataInput_PathSegment{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DynamicMetadataInput_PathSegment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DynamicMetadataInput_PathSegment) ProtoMessage() {}
+
+func (x *DynamicMetadataInput_PathSegment) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DynamicMetadataInput_PathSegment.ProtoReflect.Descriptor instead.
+func (*DynamicMetadataInput_PathSegment) Descriptor() ([]byte, []int) {
+	return file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDescGZIP(), []int{10, 0}
+}
+
+func (m *DynamicMetadataInput_PathSegment) GetSegment() isDynamicMetadataInput_PathSegment_Segment {
+	if m != nil {
+		return m.Segment
+	}
+	return nil
+}
+
+func (x *DynamicMetadataInput_PathSegment) GetKey() string {
+	if x, ok := x.GetSegment().(*DynamicMetadataInput_PathSegment_Key); ok {
+		return x.Key
+	}
+	return ""
+}
+
+type isDynamicMetadataInput_PathSegment_Segment interface {
+	isDynamicMetadataInput_PathSegment_Segment()
+}
+
+type DynamicMetadataInput_PathSegment_Key struct {
+	// If specified, use the key to retrieve the value in a Struct.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3,oneof"`
+}
+
+func (*DynamicMetadataInput_PathSegment_Key) isDynamicMetadataInput_PathSegment_Segment() {}
+
 var File_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto protoreflect.FileDescriptor
 
 var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDesc = []byte{
@@ -507,20 +660,35 @@ var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto
 	0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x22, 0x2d, 0x0a, 0x10, 0x46, 0x69,
 	0x6c, 0x74, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x12, 0x19,
 	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x07, 0xfa, 0x42, 0x04,
-	0x72, 0x02, 0x10, 0x01, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x42, 0xc5, 0x01, 0x0a, 0x40, 0x69, 0x6f,
-	0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2e, 0x65, 0x6e, 0x76, 0x6f,
-	0x79, 0x2e, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x6d, 0x61, 0x74,
-	0x63, 0x68, 0x69, 0x6e, 0x67, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70,
-	0x75, 0x74, 0x73, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2e, 0x76, 0x33, 0x42, 0x12,
-	0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x50, 0x72, 0x6f,
-	0x74, 0x6f, 0x50, 0x01, 0x5a, 0x63, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2f, 0x67, 0x6f, 0x2d, 0x63,
-	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2d, 0x70, 0x6c, 0x61, 0x6e, 0x65, 0x2f, 0x65, 0x6e, 0x76,
-	0x6f, 0x79, 0x2f, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x6d, 0x61,
-	0x74, 0x63, 0x68, 0x69, 0x6e, 0x67, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e,
-	0x70, 0x75, 0x74, 0x73, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2f, 0x76, 0x33, 0x3b,
-	0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x76, 0x33, 0xba, 0x80, 0xc8, 0xd1, 0x06, 0x02, 0x10,
-	0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x72, 0x02, 0x10, 0x01, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0xe7, 0x01, 0x0a, 0x14, 0x44, 0x79,
+	0x6e, 0x61, 0x6d, 0x69, 0x63, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x49, 0x6e, 0x70,
+	0x75, 0x74, 0x12, 0x1f, 0x0a, 0x06, 0x66, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x72, 0x02, 0x10, 0x01, 0x52, 0x06, 0x66, 0x69, 0x6c,
+	0x74, 0x65, 0x72, 0x12, 0x72, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x54, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73,
+	0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67, 0x2e, 0x63, 0x6f,
+	0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x6e, 0x65, 0x74, 0x77,
+	0x6f, 0x72, 0x6b, 0x2e, 0x76, 0x33, 0x2e, 0x44, 0x79, 0x6e, 0x61, 0x6d, 0x69, 0x63, 0x4d, 0x65,
+	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x2e, 0x50, 0x61, 0x74, 0x68,
+	0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x92, 0x01, 0x02, 0x08,
+	0x01, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x1a, 0x3a, 0x0a, 0x0b, 0x50, 0x61, 0x74, 0x68, 0x53,
+	0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x1b, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x72, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x03,
+	0x6b, 0x65, 0x79, 0x42, 0x0e, 0x0a, 0x07, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x03,
+	0xf8, 0x42, 0x01, 0x42, 0xc5, 0x01, 0x0a, 0x40, 0x69, 0x6f, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79,
+	0x70, 0x72, 0x6f, 0x78, 0x79, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x65, 0x78, 0x74, 0x65,
+	0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67, 0x2e,
+	0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x6e, 0x65,
+	0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2e, 0x76, 0x33, 0x42, 0x12, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72,
+	0x6b, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x63,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79,
+	0x70, 0x72, 0x6f, 0x78, 0x79, 0x2f, 0x67, 0x6f, 0x2d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
+	0x2d, 0x70, 0x6c, 0x61, 0x6e, 0x65, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2f, 0x65, 0x78, 0x74,
+	0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67,
+	0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2f, 0x6e,
+	0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2f, 0x76, 0x33, 0x3b, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72,
+	0x6b, 0x76, 0x33, 0xba, 0x80, 0xc8, 0xd1, 0x06, 0x02, 0x10, 0x02, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -535,25 +703,28 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 	return file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDescData
 }
 
-var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_goTypes = []interface{}{
-	(*DestinationIPInput)(nil),       // 0: envoy.extensions.matching.common_inputs.network.v3.DestinationIPInput
-	(*DestinationPortInput)(nil),     // 1: envoy.extensions.matching.common_inputs.network.v3.DestinationPortInput
-	(*SourceIPInput)(nil),            // 2: envoy.extensions.matching.common_inputs.network.v3.SourceIPInput
-	(*SourcePortInput)(nil),          // 3: envoy.extensions.matching.common_inputs.network.v3.SourcePortInput
-	(*DirectSourceIPInput)(nil),      // 4: envoy.extensions.matching.common_inputs.network.v3.DirectSourceIPInput
-	(*SourceTypeInput)(nil),          // 5: envoy.extensions.matching.common_inputs.network.v3.SourceTypeInput
-	(*ServerNameInput)(nil),          // 6: envoy.extensions.matching.common_inputs.network.v3.ServerNameInput
-	(*TransportProtocolInput)(nil),   // 7: envoy.extensions.matching.common_inputs.network.v3.TransportProtocolInput
-	(*ApplicationProtocolInput)(nil), // 8: envoy.extensions.matching.common_inputs.network.v3.ApplicationProtocolInput
-	(*FilterStateInput)(nil),         // 9: envoy.extensions.matching.common_inputs.network.v3.FilterStateInput
+	(*DestinationIPInput)(nil),               // 0: envoy.extensions.matching.common_inputs.network.v3.DestinationIPInput
+	(*DestinationPortInput)(nil),             // 1: envoy.extensions.matching.common_inputs.network.v3.DestinationPortInput
+	(*SourceIPInput)(nil),                    // 2: envoy.extensions.matching.common_inputs.network.v3.SourceIPInput
+	(*SourcePortInput)(nil),                  // 3: envoy.extensions.matching.common_inputs.network.v3.SourcePortInput
+	(*DirectSourceIPInput)(nil),              // 4: envoy.extensions.matching.common_inputs.network.v3.DirectSourceIPInput
+	(*SourceTypeInput)(nil),                  // 5: envoy.extensions.matching.common_inputs.network.v3.SourceTypeInput
+	(*ServerNameInput)(nil),                  // 6: envoy.extensions.matching.common_inputs.network.v3.ServerNameInput
+	(*TransportProtocolInput)(nil),           // 7: envoy.extensions.matching.common_inputs.network.v3.TransportProtocolInput
+	(*ApplicationProtocolInput)(nil),         // 8: envoy.extensions.matching.common_inputs.network.v3.ApplicationProtocolInput
+	(*FilterStateInput)(nil),                 // 9: envoy.extensions.matching.common_inputs.network.v3.FilterStateInput
+	(*DynamicMetadataInput)(nil),             // 10: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput
+	(*DynamicMetadataInput_PathSegment)(nil), // 11: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
 }
 var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	11, // 0: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.path:type_name -> envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
+	1,  // [1:1] is the sub-list for method output_type
+	1,  // [1:1] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_init() }
@@ -682,6 +853,33 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 				return nil
 			}
 		}
+		file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DynamicMetadataInput); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DynamicMetadataInput_PathSegment); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
+	file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11].OneofWrappers = []interface{}{
+		(*DynamicMetadataInput_PathSegment_Key)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -689,7 +887,7 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
