@@ -66,7 +66,6 @@
 
 /* Deprecated, use CONFIG instead. */
 #define fetch_ipv6(x) CONFIG(x ## _1), CONFIG(x ## _2)
-#define fetch_mac(x) { { CONFIG(x ## _1), (__u16)CONFIG(x ## _2) } }
 
 /* DEFINE_IPV6 is used to assign values to global constants from
  * C headers generated at runtime before the datapath is compiled.
