@@ -63,6 +63,13 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			// TODO: Reenable the test once the kernel with the bugfix is released:
+			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
+			// and when IPv6 external connectivity starts working in the CI.
+			if ipFam == features.IPFamilyV6 {
+				return
+			}
+
 			// With http, over port 80.
 			httpOpts := s.rc.CurlOptions(http, ipFam, client, ct.Params())
 			t.NewAction(s, fmt.Sprintf("http-to-%s-%s-%d", extTarget, ipFam, i), &client, http, ipFam).Run(func(a *check.Action) {
@@ -120,6 +127,13 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			// TODO: Reenable the test once the kernel with the bugfix is released:
+			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
+			// and when IPv6 external connectivity starts working in the CI.
+			if ipFam == features.IPFamilyV6 {
+				return
+			}
+
 			// With https, over port 443.
 			t.NewAction(s, fmt.Sprintf("https-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, a.CurlCommand(https))
