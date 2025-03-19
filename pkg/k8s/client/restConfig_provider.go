@@ -140,9 +140,9 @@ func restConfigManagerInit(cfg Config, name string, log *slog.Logger, jobs job.G
 	if manager.canRotateAPIServerURL() {
 		// Pick an API server at random.
 		manager.rotateAPIServerURL()
-		if err := manager.startK8sAPIServerFileWatcher(); err != nil {
-			return nil, fmt.Errorf("agent may not able to fail over to an active kube-apiserver: %w", err)
-		}
+	}
+	if err := manager.startK8sAPIServerFileWatcher(); err != nil {
+		return nil, fmt.Errorf("agent may not able to fail over to an active kube-apiserver: %w", err)
 	}
 
 	return &manager, err
@@ -443,6 +443,9 @@ func (r *restConfigManager) checkConnToService(host string) error {
 				logfields.Error, err,
 			)
 			return err
+		}
+		if config.Host == hostURL {
+			return nil
 		}
 		config.Host = hostURL
 	}

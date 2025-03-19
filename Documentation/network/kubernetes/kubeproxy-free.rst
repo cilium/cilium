@@ -103,8 +103,7 @@ Therefore, the Cilium agent needs to be made aware of this information with the 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 .. note::
 
@@ -502,8 +501,7 @@ Maglev hashing for services load balancing can be enabled by setting ``loadBalan
         --namespace kube-system \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.algorithm=maglev \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 Note that Maglev hashing is applied only to external (N-S) traffic. For
 in-cluster service connections (E-W), sockets are assigned to service backends
@@ -570,8 +568,7 @@ given service (with the property of at most 1% difference on backend reassignmen
         --set loadBalancer.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 
 Note that enabling Maglev will have a higher memory consumption on each Cilium-managed Node compared
@@ -645,8 +642,7 @@ enabled would look as follows:
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=opt \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 .. _DSR mode with Geneve:
 
@@ -677,8 +673,7 @@ Geneve dispatch enabled would look as follows:
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 DSR with Geneve is compatible with the Geneve encapsulation mode (:ref:`arch_overlay`).
 It works with either the direct routing mode or the Geneve tunneling mode. Unfortunately,
@@ -694,8 +689,7 @@ The example configuration in DSR with Geneve dispatch and tunneling mode is as f
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 .. _Hybrid mode:
 
@@ -723,8 +717,7 @@ hybrid mode would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=hybrid \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 Annotation-based DSR and SNAT Mode
 **********************************
@@ -771,8 +764,7 @@ annotation mode with SNAT default would look as follows:
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=snat \\
         --set bpf.lbModeAnnotation=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 Annotation-based Load Balancing Algorithm Selection
 ***************************************************
@@ -905,8 +897,7 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
         --set kubeProxyReplacement=true \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=hybrid \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
@@ -1045,8 +1036,7 @@ Finally, the deployment can be upgraded and later rolled-out with the
         --set kubeProxyReplacement=true \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=snat \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 
 NodePort XDP on Azure
@@ -1108,8 +1098,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set kubeProxyReplacement=true \\
      --set loadBalancer.acceleration=native \\
      --set loadBalancer.mode=snat \\
-     --set k8sServiceHost=${API_SERVER_IP} \\
-     --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 
 When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
@@ -1242,8 +1231,7 @@ as in the earlier getting started deployment:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
@@ -1408,8 +1396,7 @@ This section elaborates on the ``kubeProxyReplacement`` options:
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true \\
         --set hostPort.enabled=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        --set k8s.apiServerURLs=${API_SERVER_IP}:${API_SERVER_PORT}
 
 
   The following Helm setup below would be equivalent to the default Cilium service
