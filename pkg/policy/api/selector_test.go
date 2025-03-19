@@ -201,7 +201,7 @@ func TestEndpointSelectorMarshalJSON(t *testing.T) {
 					},
 				},
 			},
-			expectedJSON: `{"matchLabels":{"app":"frontend"}, "matchExpressions":[{"key":"env","operator":"In","values":["staging"]}]}`,
+			expectedJSON: `{"matchLabels":{"app":"frontend"},"matchExpressions":[{"key":"env","operator":"In","values":["staging"]}]}`,
 			wantErr:      assert.NoError,
 		},
 	}

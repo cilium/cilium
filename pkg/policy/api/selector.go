@@ -76,6 +76,24 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.LabelSelector)
 }
 
+func (n *EndpointSelector) ReplaceByExtendedKey() {
+	if n.MatchLabels != nil {
+		ml := map[string]string{}
+		for k, v := range n.MatchLabels {
+			ml[labels.GetExtendedKeyFrom(k)] = v
+		}
+		n.MatchLabels = ml
+	}
+	if n.MatchExpressions != nil {
+		newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+		for i, v := range n.MatchExpressions {
+			v.Key = labels.GetExtendedKeyFrom(v.Key)
+			newMatchExpr[i] = v
+		}
+		n.MatchExpressions = newMatchExpr
+	}
+}
+
 // HasKeyPrefix checks if the endpoint selector contains the given key prefix in
 // its MatchLabels map and MatchExpressions slice.
 func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
