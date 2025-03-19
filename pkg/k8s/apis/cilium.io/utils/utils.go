@@ -113,7 +113,7 @@ func parseToCiliumIngressCommonRule(namespace string, es api.EndpointSelector, i
 	if ing.FromNodes != nil {
 		retRule.FromNodes = make([]api.EndpointSelector, len(ing.FromNodes))
 		for j, node := range ing.FromNodes {
-			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
 			retRule.FromNodes[j] = es
 		}
@@ -234,7 +234,7 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	if egr.ToNodes != nil {
 		retRule.ToNodes = make([]api.EndpointSelector, len(egr.ToNodes))
 		for j, node := range egr.ToNodes {
-			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
 			retRule.ToNodes[j] = es
 		}
@@ -322,7 +322,7 @@ func namespacesAreValid(namespace string, userNamespaces []string) bool {
 func ParseToCiliumRule(logger *slog.Logger, namespace, name string, uid types.UID, r *api.Rule) *api.Rule {
 	retRule := &api.Rule{}
 	if r.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
+		retRule.EndpointSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map. Additionally, Policy repository relies
@@ -346,7 +346,7 @@ func ParseToCiliumRule(logger *slog.Logger, namespace, name string, uid types.UI
 			retRule.EndpointSelector.AddMatch(podPrefixLbl, namespace)
 		}
 	} else if r.NodeSelector.LabelSelector != nil {
-		retRule.NodeSelector = api.NewESFromK8sLabelSelector("", r.NodeSelector.LabelSelector)
+		retRule.NodeSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, r.NodeSelector.LabelSelector)
 	}
 
 	retRule.Ingress = parseToCiliumIngressRule(namespace, r.EndpointSelector, r.Ingress)
