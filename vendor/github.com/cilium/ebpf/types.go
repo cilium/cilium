@@ -236,7 +236,6 @@ const (
 	AttachSkReuseportSelectOrMigrate = AttachType(sys.BPF_SK_REUSEPORT_SELECT_OR_MIGRATE)
 	AttachPerfEvent                  = AttachType(sys.BPF_PERF_EVENT)
 	AttachTraceKprobeMulti           = AttachType(sys.BPF_TRACE_KPROBE_MULTI)
-	AttachTraceKprobeSession         = AttachType(sys.BPF_TRACE_KPROBE_SESSION)
 	AttachLSMCgroup                  = AttachType(sys.BPF_LSM_CGROUP)
 	AttachStructOps                  = AttachType(sys.BPF_STRUCT_OPS)
 	AttachNetfilter                  = AttachType(sys.BPF_NETFILTER)
