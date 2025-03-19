@@ -824,9 +824,6 @@ data:
 {{- if hasKey .Values.maglev "hashSeed" }}
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
 {{- end }}
-{{- if .Values.sessionAffinity }}
-  enable-session-affinity: {{ .Values.sessionAffinity | quote }}
-{{- end }}
 {{- if .Values.svcSourceRangeCheck }}
   enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
 {{- end }}
