@@ -106,7 +106,6 @@ import (
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/oauth2/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/on_demand/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/original_src/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/proto_message_logging/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/rate_limit_quota/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3"

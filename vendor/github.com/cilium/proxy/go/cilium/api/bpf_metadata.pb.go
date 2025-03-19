@@ -66,6 +66,7 @@ type BpfMetadata struct {
 	ProxyId uint32 `protobuf:"varint,8,opt,name=proxy_id,json=proxyId,proto3" json:"proxy_id,omitempty"`
 	// policy_update_warning_limit is the time in milliseconds after which a warning is logged if
 	// network policy update took longer
+	// Deprecated, has no effect.
 	PolicyUpdateWarningLimit *durationpb.Duration `protobuf:"bytes,9,opt,name=policy_update_warning_limit,json=policyUpdateWarningLimit,proto3" json:"policy_update_warning_limit,omitempty"`
 }
 
