@@ -574,11 +574,44 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
+      - name: Record "No node ID found" drops
+        id: no_nodeid_drops_prev
+        run: |
+          set -x
+          total_drops=0
+          for cilium_pod in $(kubectl -n kube-system --context ${{ env.contextName1 }} get po -l k8s-app=cilium -o jsonpath='{.items[*].metadata.name}'); do
+            drops=$(kubectl -n kube-system --context ${{ env.contextName1 }} exec $cilium_pod -- cilium metrics list -o json | jq '.[] | select((.name == "cilium_drop_count_total") and (.labels.reason == "No node ID found")) | .value')
+            total_drops=$((total_drops + drops))
+          done
+
+          echo "No node ID found drops: $total_drops"
+          echo "total_drops=$total_drops" >> $GITHUB_OUTPUT
+
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})" \
+          --expected-drop-reasons='+No node ID found'
+
+      - name: Assert no "No node ID found" drops
+        run: |
+          set -x
+          total_drops=0
+          for cilium_pod in $(kubectl -n kube-system --context ${{ env.contextName1 }} get po -l k8s-app=cilium -o jsonpath='{.items[*].metadata.name}'); do
+            drops=$(kubectl -n kube-system --context ${{ env.contextName1 }} exec $cilium_pod -- cilium metrics list -o json | jq '.[] | select((.name == "cilium_drop_count_total") and (.labels.reason == "No node ID found")) | .value')
+            total_drops=$((total_drops + drops))
+          done
+
+          echo "prev_drops: ${{ steps.no_nodeid_drops_prev.outputs.total_drops }}"
+          echo "current_drops: $total_drops"
+          if [[ "$total_drops" != ${{ steps.no_nodeid_drops_prev.outputs.total_drops }} ]]; then
+            # run no-unexpected-packet-drops connectivity to collect sysdumps
+            cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})" \
+            --test 'no-unexpected-packet-drops'
+          fi
 
       - name: Features tested on cluster 1
         uses: ./.github/actions/feature-status
