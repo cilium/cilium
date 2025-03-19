@@ -2,6 +2,7 @@ package sys
 
 import (
 	"runtime"
+	"syscall"
 	"unsafe"
 
 	"github.com/cilium/ebpf/internal/unix"
@@ -10,7 +11,7 @@ import (
 // ENOTSUPP is a Linux internal error code that has leaked into UAPI.
 //
 // It is not the same as ENOTSUP or EOPNOTSUPP.
-const ENOTSUPP = unix.Errno(524)
+const ENOTSUPP = syscall.Errno(524)
 
 // BPF wraps SYS_BPF.
 //
@@ -178,12 +179,12 @@ const (
 const BPF_TAG_SIZE = 8
 const BPF_OBJ_NAME_LEN = 16
 
-// wrappedErrno wraps [unix.Errno] to prevent direct comparisons with
+// wrappedErrno wraps syscall.Errno to prevent direct comparisons with
 // syscall.E* or unix.E* constants.
 //
 // You should never export an error of this type.
 type wrappedErrno struct {
-	unix.Errno
+	syscall.Errno
 }
 
 func (we wrappedErrno) Unwrap() error {
@@ -199,10 +200,10 @@ func (we wrappedErrno) Error() string {
 
 type syscallError struct {
 	error
-	errno unix.Errno
+	errno syscall.Errno
 }
 
-func Error(err error, errno unix.Errno) error {
+func Error(err error, errno syscall.Errno) error {
 	return &syscallError{err, errno}
 }
 
