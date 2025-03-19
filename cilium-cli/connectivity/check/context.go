@@ -1291,5 +1291,6 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {
 		ct.params.IncludeConnDisruptTestEgressGateway &&
 		ct.Features[features.EgressGateway].Enabled &&
 		ct.Features[features.NodeWithoutCilium].Enabled &&
-		!ct.Features[features.KPRNodePortAcceleration].Enabled
+		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
+		ct.params.MultiCluster == ""
 }
