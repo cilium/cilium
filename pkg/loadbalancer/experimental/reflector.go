@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -87,6 +88,7 @@ type reflectorParams struct {
 	ExtConfig              ExternalConfig
 	HaveNetNSCookieSupport HaveNetNSCookieSupport
 	TestConfig             *TestConfig `optional:"true"`
+	LocalNodeStore         *node.LocalNodeStore
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -202,7 +204,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.ExtConfig, p.Log, obj)
+			svc, fes := convertService(p.ExtConfig, p.Log, p.LocalNodeStore, obj)
 			if svc == nil {
 				return
 			}
@@ -374,7 +376,57 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg ExternalConfig, log *slog.Logger, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+// checkServiceNodeExposure returns true if the service should be installed onto the
+// local node, and false if the node should ignore and not install the service.
+// func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, error) {
+// 	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+// 		ln, err := k.localNodeStore.Get(context.Background())
+// 		if err != nil {
+// 			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+// 		}
+
+// 		selector, err := labels.Parse(serviceAnnotationValue)
+// 		if err != nil {
+// 			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
+// 		}
+
+// 		if selector.Matches(labels.Set(ln.Labels)) {
+// 			return true, nil
+// 		}
+
+// 		// prioritize any existing node-selector annotation - and return in any case
+// 		return false, nil
+// 	}
+
+// 	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
+// 		ln, err := k.localNodeStore.Get(context.Background())
+// 		if err != nil {
+// 			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+// 		}
+
+// 		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+// 		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
+// 			return false, nil
+// 		}
+// 	}
+
+// 	return true, nil
+// }
+
+func convertService(
+	cfg ExternalConfig, log *slog.Logger, localNodeStore *node.LocalNodeStore,
+	svc *slim_corev1.Service,
+) (s *Service, fes []FrontendParams) {
+
+	if expose, err := k8s.CheckServiceNodeExposure(localNodeStore, svc.GetAnnotations()); err != nil {
+		log.Warn("Failed to check service node exposure",
+			logfields.Error, err,
+			logfields.Service, svc.GetName(),
+		)
+	} else if !expose {
+		return nil, nil
+	}
+
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &Service{
 		Name:                name,

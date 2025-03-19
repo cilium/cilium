@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -83,6 +84,7 @@ func TestScript(t *testing.T) {
 					TestFaultProbability: 0.1,
 				}),
 				maglev.Cell,
+				node.LocalNodeStoreCell,
 				cell.Provide(
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
