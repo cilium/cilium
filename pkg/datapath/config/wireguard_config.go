@@ -14,12 +14,8 @@ type BPFWireguard struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
-	// First 32 bits of the MAC address of the interface the bpf program is
-	// attached to.
-	InterfaceMAC1 uint32 `config:"interface_mac_1"`
-	// Latter 16 bits of the MAC address of the interface the bpf program is
-	// attached to.
-	InterfaceMAC2 uint16 `config:"interface_mac_2"`
+	// MAC address of the interface the bpf program is attached to.
+	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
@@ -29,7 +25,7 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, 0x0, 0x0, 0x0, 0x0,
+	return &BPFWireguard{0x5dc, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		node}
 }

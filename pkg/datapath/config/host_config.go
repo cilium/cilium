@@ -19,12 +19,8 @@ type BPFHost struct {
 	HostSecctxFromIPCache uint32 `config:"host_secctx_from_ipcache"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
-	// First 32 bits of the MAC address of the interface the bpf program is
-	// attached to.
-	InterfaceMAC1 uint32 `config:"interface_mac_1"`
-	// Latter 16 bits of the MAC address of the interface the bpf program is
-	// attached to.
-	InterfaceMAC2 uint16 `config:"interface_mac_2"`
+	// MAC address of the interface the bpf program is attached to.
+	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
@@ -36,7 +32,8 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, 0xe, 0x0, 0x0, 0x0, 0x0, 0x0,
+	return &BPFHost{0x5dc, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, node}
 }
