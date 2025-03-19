@@ -182,7 +182,7 @@
         "quay.io/lvh-images/kind",
       ],
       "paths": [
-        ".github/actions/ginkgo/main-k8s-versions.yaml",
+        ".github/workflows/conformance-runtime.yaml",
       ],
       "enabled": false
     },
