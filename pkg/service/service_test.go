@@ -143,7 +143,6 @@ type ManagerTestSuite struct {
 	svc                         *Service
 	lbmap                       *mockmaps.LBMockMap // for accessing public fields
 	svcHealth                   *healthserver.MockHealthHTTPServerFactory
-	prevOptionSessionAffinity   bool
 	prevOptionLBSourceRanges    bool
 	prevOptionNPAlgo            string
 	prevOptionDPMode            string
@@ -174,9 +173,6 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
-
-	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
-	option.Config.EnableSessionAffinity = true
 
 	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
 	option.Config.EnableSVCSourceRangeCheck = true
@@ -214,7 +210,6 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	tb.Cleanup(func() {
 		serviceIDAlloc.resetLocalID()
 		backendIDAlloc.resetLocalID()
-		option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
 		option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 		option.Config.NodePortAlg = m.prevOptionNPAlgo
 		option.Config.DatapathMode = m.prevOptionDPMode

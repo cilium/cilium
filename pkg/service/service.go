@@ -1424,10 +1424,8 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 	}
 
 	// Remove no longer existing affinity matches
-	if option.Config.EnableSessionAffinity {
-		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
-			return stale, err
-		}
+	if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
+		return stale, err
 	}
 
 	// Remove obsolete backends and release their IDs
@@ -1613,7 +1611,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	//
 	// If L7 LB is configured for this service then BPF level session affinity is not used so
 	// that the L7 proxy port may be passed in a shared union in the service entry.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if !svc.isL7LBService() {
 		if prevSessionAffinity && !svc.sessionAffinity {
 			// Remove backends from the affinity match because the svc's sessionAffinity
 			// has been disabled
@@ -1732,7 +1730,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	}
 
 	// If L7 LB is configured for this service then BPF level session affinity is not used.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if !svc.isL7LBService() {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 
@@ -1979,7 +1977,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	// Delete affinity matches
-	if option.Config.EnableSessionAffinity && svc.sessionAffinity {
+	if svc.sessionAffinity {
 		backendIDs := make([]lb.BackendID, 0, len(svc.backends))
 		for _, b := range svc.backends {
 			backendIDs = append(backendIDs, b.ID)

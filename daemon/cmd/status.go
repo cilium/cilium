@@ -329,9 +329,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.SocketLB.Enabled = true
 		features.SocketLBTracing.Enabled = true
 	}
-	if option.Config.EnableSessionAffinity {
-		features.SessionAffinity.Enabled = true
-	}
+
+	features.SessionAffinity.Enabled = true
+
 	if option.Config.EnableK8sTerminatingEndpoint {
 		features.GracefulTermination.Enabled = true
 	}

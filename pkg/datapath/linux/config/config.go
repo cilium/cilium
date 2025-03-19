@@ -214,9 +214,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat6MapEntries)
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
 
-	if option.Config.EnableSessionAffinity {
-		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
-	}
+	// TODO(brb) remove define
+	cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
 
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.DeviceMTU)

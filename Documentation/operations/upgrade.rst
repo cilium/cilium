@@ -306,6 +306,7 @@ Removed Options
   EC2API to update the EC2 instance limit.
 * The ``aws-instance-limit-mapping`` CLI flag for the operator has been removed since the operator will only and always use the
   EC2API to update the EC2 instance limit.
+* The previously deprecated flag ``--enable-session-affinity`` has been removed. The session affinity is unconditionally enabled.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
