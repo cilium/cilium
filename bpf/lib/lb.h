@@ -54,7 +54,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb6_affinity_key);
@@ -62,7 +61,6 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 } cilium_lb6_affinity __section_maps_btf;
-#endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
 struct {
@@ -141,7 +139,6 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct lb4_affinity_key);
@@ -149,7 +146,6 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 } cilium_lb4_affinity __section_maps_btf;
-#endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
 struct {
@@ -191,7 +187,6 @@ struct {
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_SESSION_AFFINITY
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lb_affinity_match);
@@ -200,7 +195,6 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
-#endif
 
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
@@ -834,7 +828,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 			   backend->port);
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
 static __always_inline __u32 lb6_affinity_timeout(const struct lb6_service *svc)
 {
 	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
@@ -916,17 +909,12 @@ lb6_update_affinity_by_addr(const struct lb6_service *svc,
 {
 	__lb6_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
 lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb6_affinity_backend_id(svc, true, id);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline void
@@ -934,9 +922,7 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     union lb6_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	__lb6_update_affinity(svc, true, id, backend_id);
-#endif
 }
 
 static __always_inline int
@@ -989,11 +975,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
 	union lb6_affinity_client_id client_id;
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
-#endif
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1008,7 +992,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
-#ifdef ENABLE_SESSION_AFFINITY
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1017,7 +1000,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 					backend_id = 0;
 			}
 		}
-#endif
 		if (backend_id == 0) {
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
@@ -1084,10 +1066,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-#ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
-#endif
 
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
 	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
@@ -1584,7 +1564,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 			       CTX_ACT_OK;
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
 static __always_inline __u32 lb4_affinity_timeout(const struct lb4_service *svc)
 {
 	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
@@ -1664,17 +1643,12 @@ lb4_update_affinity_by_addr(const struct lb4_service *svc,
 {
 	__lb4_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
 lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb4_affinity_backend_id(svc, true, id);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline void
@@ -1682,9 +1656,7 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     union lb4_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
-#endif
 }
 
 static __always_inline int
@@ -1759,11 +1731,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	__u32 backend_id = 0;
 	__be32 new_saddr = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
 	};
-#endif
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1777,7 +1747,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
-#ifdef ENABLE_SESSION_AFFINITY
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1786,7 +1755,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 					backend_id = 0;
 			}
 		}
-#endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
@@ -1858,10 +1826,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-#ifdef ENABLE_SESSION_AFFINITY
+
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
-#endif
 
 #if !defined(DISABLE_LOOPBACK_LB) || \
 	(defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE))
