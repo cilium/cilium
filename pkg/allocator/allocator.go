@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/crc64"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -479,8 +480,8 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 // selectAvailableID selects an available ID.
 // Returns a triple of the selected ID ORed with prefixMask, the ID string and
 // the originally selected ID.
-func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
-	if id := a.idPool.LeaseAvailableID(); id != idpool.NoID {
+func (a *Allocator) selectAvailableID(hint uint64) (idpool.ID, string, idpool.ID) {
+	if id := a.idPool.LeaseRandomID(hint); id != idpool.NoID {
 		unmaskedID := id
 		id |= a.prefixMask
 		return id, id.String(), unmaskedID
@@ -524,7 +525,7 @@ type AllocatorKey interface {
 //  3. whether this is the first owner that holds a reference to the key in
 //     localkeys store
 //  4. error in case of failure
-func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, bool, error) {
+func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey, lastAttempt bool) (idpool.ID, bool, bool, error) {
 	var firstUse bool
 
 	kvstore.Trace(a.logger, "Allocating key in kvstore", fieldKey, key)
@@ -590,7 +591,15 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	a.logger.Debug("Allocating new master ID", logfields.Key, k)
-	id, strID, unmaskedID := a.selectAvailableID()
+
+	// Hash the key. This is used as a hint so that agents
+	// tend to allocate the same numeric identity for the same labels.
+	// However, if this is the last attempt, then fall back to unseeded randomness
+	seed := crc64.Checksum([]byte(key.GetKey()), crc64.MakeTable(crc64.ECMA))
+	if lastAttempt {
+		seed = 0
+	}
+	id, strID, unmaskedID := a.selectAvailableID(seed)
 	if id == 0 {
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
 	}
@@ -699,7 +708,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 	// make a copy of the template and customize it
 	boff := a.backoffTemplate
-	boff.Name = key.String()
+	boff.Name = key.GetKey()
 
 	// Wait an initial (jittered) time to try and prevent multiple
 	// agents colliding on same ID when lots of pods are started
@@ -724,7 +733,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		}
 
 		// FIXME: Add non-locking variant
-		value, isNew, firstUse, err = a.lockedAllocate(ctx, key)
+		value, isNew, firstUse, err = a.lockedAllocate(ctx, key, attempt == a.maxAllocAttempts-1)
 		if err == nil {
 			a.mainCache.insert(key, value)
 			a.logger.Debug("Allocated key",
