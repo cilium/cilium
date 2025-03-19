@@ -8,7 +8,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250428.152446'
+  kernel: '5.10-20250428.152446'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
