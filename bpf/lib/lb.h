@@ -495,13 +495,38 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 }
 
 #ifdef ENABLE_IPV6
+static __always_inline int
+ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
+		    union v6addr *new_addr, struct csum_offset *csum_off,
+		    enum ct_dir dir)
+{
+	int flag = 0;
+	__be32 sum;
+
+	sum = csum_diff(old_addr->addr, 16, new_addr->addr, 16, 0);
+
+	/* We need this to workaround a bug in bpf_l4_csum_replace's usage of
+	 * inet_proto_csum_replace_by_diff. In short, for IPv6 we don't want to
+	 * update skb->csum when CHECKSUM_COMPLETE (for the reason explained above
+	 * inet_proto_csum_replace16). Unfortunately,
+	 * inet_proto_csum_replace_by_diff does update skb->csum in that case. So
+	 * we don't set BPF_F_PSEUDO_HDR to work around that.
+	 * On egress, however, we might be in CHECKSUM_PARTIAL state, in which
+	 * case we need to set BPF_F_PSEUDO_HDR or the L4 checksum won't be
+	 * updated.
+	 */
+	if (dir == CT_EGRESS)
+		flag = BPF_F_PSEUDO_HDR;
+
+	return csum_l4_replace(ctx, l4_off, csum_off, 0, sum, flag);
+}
+
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
 					 struct lb6_reverse_nat *nat,
-					 bool has_l4_header)
+					 bool has_l4_header, enum ct_dir dir)
 {
 	union v6addr old_saddr __align_stack_8;
-	__be32 sum;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
@@ -525,9 +550,9 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 				return ret;
 		}
 
-		sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
 		if (csum_off.offset &&
-		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		    ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
+					&csum_off, dir) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -549,7 +574,8 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg tuple		tuple
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
-				       struct ipv6_ct_tuple *tuple, bool has_l4_header)
+				       struct ipv6_ct_tuple *tuple, bool has_l4_header,
+				       enum ct_dir dir)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -557,7 +583,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir);
 }
 
 static __always_inline void
