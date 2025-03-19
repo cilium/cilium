@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -61,6 +62,7 @@ func TestScript(t *testing.T) {
 	t.Cleanup(func() { goleak.VerifyNone(t, leakOpts) })
 
 	version.Force(testutils.DefaultVersion)
+	option.Config.EnableK8sTerminatingEndpoint = true
 
 	var opts []hivetest.LogOption
 	if *debug {
@@ -87,7 +89,7 @@ func TestScript(t *testing.T) {
 			daemonk8s.TablesCell,
 			experimental.Cell,
 			maglev.Cell,
-
+			node.LocalNodeStoreCell,
 			cni.Cell,
 			ipset.Cell,
 			dial.ServiceResolverCell,
