@@ -52,10 +52,11 @@ func (sm *expServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 	}
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
-	sm.writer.DeleteBackendsOfService(
+	sm.writer.DeleteBackendsOfServiceFromCluster(
 		txn,
 		name,
 		source.ClusterMesh,
+		service.ClusterID,
 	)
 }
 
@@ -69,27 +70,18 @@ func (sm *expServiceMerger) MergeExternalServiceUpdate(service *serviceStore.Clu
 	txn := sm.writer.WriteTxn()
 	defer txn.Commit()
 
-	if !service.Shared {
-		// The service potentially became unshared with other clusters, remove any potential
-		// prior backends.
-		sm.writer.DeleteBackendsOfService(txn, name, source.ClusterMesh)
-		return
-	}
-
-	sm.writer.SetBackends(
+	sm.writer.SetBackendsOfCluster(
 		txn,
 		name,
 		source.ClusterMesh,
+		service.ClusterID,
 		ClusterServiceToBackendParams(service)...,
 	)
 }
 
 func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []experimental.BackendParams) {
 	for ipString, portConfig := range service.Backends {
-		addrCluster, err := cmtypes.ParseAddrCluster(ipString)
-		if err != nil {
-			continue
-		}
+		addrCluster := cmtypes.MustParseAddrCluster(ipString)
 		for name, l4 := range portConfig {
 			portNames := []string(nil)
 			if name != "" {
@@ -103,6 +95,7 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 				PortNames: portNames,
 				Weight:    loadbalancer.DefaultBackendWeight,
 				NodeName:  "",
+				ClusterID: service.ClusterID,
 				State:     loadbalancer.BackendStateActive,
 			}
 			beps = append(beps, bep)
