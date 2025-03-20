@@ -113,6 +113,10 @@ func sanitizeTracefsPath(path ...string) (string, error) {
 // but may be also be available at /sys/kernel/debug/tracing if debugfs is mounted.
 // The available tracefs paths will depends on distribution choices.
 var getTracefsPath = sync.OnceValues(func() (string, error) {
+	if !internal.OnLinux {
+		return "", fmt.Errorf("tracefs: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	for _, p := range []struct {
 		path   string
 		fsType int64

@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/cilium/ebpf/internal"
 )
 
 var errAmbiguousKsym = errors.New("multiple kernel symbols with the same name")
@@ -47,6 +49,10 @@ func Module(name string) (string, error) {
 // Any symbols missing in the kernel are ignored. Returns an error if multiple
 // symbols with a given name were found.
 func AssignModules(symbols map[string]string) error {
+	if !internal.OnLinux {
+		return fmt.Errorf("read /proc/kallsyms: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	if len(symbols) == 0 {
 		return nil
 	}
@@ -71,6 +77,7 @@ func AssignModules(symbols map[string]string) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	if err := assignModules(f, request); err != nil {
 		return fmt.Errorf("assigning symbol modules: %w", err)
@@ -161,6 +168,10 @@ func Address(symbol string) (uint64, error) {
 // Any symbols missing in the kernel are ignored. Returns an error if multiple
 // addresses were found for a symbol.
 func AssignAddresses(symbols map[string]uint64) error {
+	if !internal.OnLinux {
+		return fmt.Errorf("read /proc/kallsyms: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	if len(symbols) == 0 {
 		return nil
 	}
@@ -185,6 +196,7 @@ func AssignAddresses(symbols map[string]uint64) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	if err := assignAddresses(f, request); err != nil {
 		return fmt.Errorf("loading symbol addresses: %w", err)
