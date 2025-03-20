@@ -16,6 +16,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -264,7 +265,7 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 
 			prefix := netip.PrefixFrom(addr, addr.BitLen())
 			ipcacheUpdates = append(ipcacheUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   source.Restored,
 				Resource: restorationIPCacheResource,
 				Metadata: []ipcache.IPMetadata{

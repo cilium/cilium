@@ -506,7 +506,7 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 
 // MU is a batched metadata update, the short name is to cut down on visual clutter.
 type MU struct {
-	Prefix   netip.Prefix
+	Prefix   cmtypes.PrefixCluster
 	Source   source.Source
 	Resource ipcacheTypes.ResourceID
 	Metadata []IPMetadata
@@ -517,7 +517,7 @@ type MU struct {
 // to pass into this function. This will trigger asynchronous calculation of
 // any datapath updates necessary to implement the logic associated with the
 // specified metadata.
-func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+func (ipc *IPCache) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
 	ipc.UpsertMetadataBatch(MU{Prefix: prefix, Source: src, Resource: resource, Metadata: aux})
 }
 
@@ -526,7 +526,7 @@ func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resou
 //
 // Returns a revision number that can be passed to WaitForRevision().
 func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
-	prefixes := make([]netip.Prefix, 0, len(updates))
+	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
@@ -548,14 +548,14 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 // This removes all labels from the given resource:
 //
 //	RemoveMetadata(pfx, resource, Labels{})
-func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+func (ipc *IPCache) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
 	ipc.RemoveMetadataBatch(MU{Prefix: prefix, Resource: resource, Metadata: aux})
 }
 
 // RemoveMetadataBatch is a batched version of RemoveMetadata.
 // Returns a revision number that can be passed to WaitForRevision().
 func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
-	prefixes := make([]netip.Prefix, 0, len(updates))
+	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
@@ -587,11 +587,11 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 // the same netip prefixes. Using this API may cause feature incompatibilities
 // with users of other APIs such as UpsertMetadata() and other variations on
 // inserting metadata into the IPCache.
-func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+func (ipc *IPCache) OverrideIdentity(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
 }
 
-func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
+func (ipc *IPCache) RemoveIdentityOverride(cidr cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
 	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
 }
 
