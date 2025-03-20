@@ -83,8 +83,7 @@ func TestManager(t *testing.T) {
 
 							var commands [][]string
 							if arg[0] == "restore" {
-								lines := strings.Split(stdin, "\n")
-								for _, line := range lines {
+								for line := range strings.SplitSeq(stdin, "\n") {
 									if len(line) > 0 {
 										commands = append(commands, strings.Split(line, " "))
 									}

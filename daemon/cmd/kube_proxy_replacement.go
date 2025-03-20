@@ -518,7 +518,7 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 	if err != nil {
 		return fmt.Errorf("Unable to read net.ipv4.ip_local_reserved_ports: %w", err)
 	}
-	for _, portRange := range strings.Split(reservedPortsStr, ",") {
+	for portRange := range strings.SplitSeq(reservedPortsStr, ",") {
 		if portRange == "" {
 			break
 		}

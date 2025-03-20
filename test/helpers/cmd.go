@@ -402,7 +402,7 @@ func (res *CmdRes) KVOutput() map[string]string {
 func (res *CmdRes) OutputPrettyPrint() string {
 	format := func(message string) string {
 		result := []string{}
-		for _, line := range strings.Split(message, "\n") {
+		for line := range strings.SplitSeq(message, "\n") {
 			result = append(result, fmt.Sprintf("\t %s", line))
 		}
 		return strings.Join(result, "\n")

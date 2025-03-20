@@ -1148,7 +1148,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 						return
 					}
 
-					for _, conflictingConfig := range strings.Split(string(match[1]), " ") {
+					for conflictingConfig := range strings.SplitSeq(string(match[1]), " ") {
 						relation := [2]string{config.Name, conflictingConfig}
 						conflictingRelations = append(conflictingRelations, relation)
 					}
