@@ -1,0 +1,179 @@
+#! --test-peering-ips=10.0.1.102,10.0.1.103
+# NOTE: Each test should use unique peering IPs, as the tests are executed in parallel.
+
+# HINT: Put "break" anywhere in the test to observe the state with "bgp" and "gobgp" commands. For example:
+# - "bgp/peers" shows peers on the Cilium side
+# - "gobgp/peers" shows peers on the test GoBGP server side
+
+# Start the hive
+hive start
+
+# Wait for k8s watchers to be initialized
+k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumbgpnodeconfigs cilium.io.v2.ciliumbgppeerconfigs cilium.io.v2.ciliumbgpadvertisements
+
+# Configure gobgp server
+gobgp/add-server 65000 10.0.1.102 1790
+gobgp/add-peer 10.0.1.103 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.0.1.103 ESTABLISHED
+
+# Validate no routes are advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Add a LoadBalancer service
+k8s/add service-lb.yaml
+
+# Validate LoadBalancer service routes
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-lb.expected routes.actual
+
+# Add a ClusterIP service
+k8s/add service-cluster.yaml
+
+# Validate all service routes
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Remove the LoadBalancer service
+k8s/delete service-lb.yaml
+
+# Validate ClusterIP service routes
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-cluster.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.0.1.103
+    type: InternalIP
+  - ip: 10.0.1.103
+    type: CiliumInternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65000
+      peerAddress: 10.0.1.102
+      localAddress: 10.0.1.103
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 10
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - ClusterIP
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service-lb.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-cluster.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo2
+  namespace: test
+spec:
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs
+-- gobgp-routes-lb.expected --
+Prefix            NextHop      Attrs
+10.96.50.104/32   10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
+172.16.1.1/32     10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
+-- gobgp-routes-all.expected --
+Prefix            NextHop      Attrs
+10.96.50.104/32   10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
+10.96.50.105/32   10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
+172.16.1.1/32     10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
+-- gobgp-routes-cluster.expected --
+Prefix            NextHop      Attrs
+10.96.50.105/32   10.0.1.103   [{Origin: i} {AsPath: 65001} {Nexthop: 10.0.1.103}]
