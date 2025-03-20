@@ -13,6 +13,7 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpnodeconfig",path="ciliumbgpnodeconfigs",scope="Cluster",shortName={cbgpnode}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:deprecatedversion
 
 // CiliumBGPNodeConfig is node local configuration for BGP agent. Name of the object should be node name.
 // This resource will be created by Cilium operator and is read-only for the users.

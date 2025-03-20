@@ -1,5 +1,3 @@
-//go:build linux
-
 package perf
 
 import (
