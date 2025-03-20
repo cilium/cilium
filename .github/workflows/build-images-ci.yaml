@@ -18,7 +18,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
