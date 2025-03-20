@@ -6,6 +6,9 @@
 #include <linux/ipv6.h>
 
 #include "dbg.h"
+#include "l4.h"
+#include "metrics.h"
+#include "ipfrag.h"
 
 /* Number of extension headers that can be skipped */
 #define IPV6_MAX_HEADERS 4
@@ -27,8 +30,33 @@
 
 #define NEXTHDR_MAX             255
 
+#define IPV6_FRAGLEN            8
+
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
+
+struct ipv6_frag_id {
+	union v6addr daddr;
+	union v6addr saddr;
+	__be32 id;		/* L4 datagram identifier */
+	__u8 proto;
+	__u8 pad[3];
+} __packed;
+
+struct ipv6_frag_l4ports {
+	__be16 sport;
+	__be16 dport;
+} __packed;
+
+#ifdef ENABLE_IPV6_FRAGMENTS
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv6_frag_id);
+	__type(value, struct ipv6_frag_l4ports);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES);
+} cilium_ipv6_frag_datagrams __section_maps_btf;
+#endif
 
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
@@ -40,40 +68,66 @@ static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 	return (opthdr->hdrlen + 2) << 2;
 }
 
+static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthdr, int off)
+{
+	struct ipv6_opt_hdr opthdr __align_stack_8;
+	__u8 nh = *nexthdr;
+
+	switch (nh) {
+	case NEXTHDR_NONE:
+		return DROP_INVALID_EXTHDR;
+
+	case NEXTHDR_FRAGMENT:
+	case NEXTHDR_AUTH:
+	case NEXTHDR_HOP:
+	case NEXTHDR_ROUTING:
+	case NEXTHDR_DEST:
+		if (ctx_load_bytes(ctx, off, &opthdr, sizeof(opthdr)) < 0)
+			return DROP_INVALID;
+
+		*nexthdr = opthdr.nexthdr;
+		break;
+
+	default: /* L4 protocol */
+		return 0;
+	}
+
+	switch (nh) {
+	case NEXTHDR_FRAGMENT:
+		return IPV6_FRAGLEN;
+
+	case NEXTHDR_AUTH:
+		return ipv6_authlen(&opthdr);
+
+	case NEXTHDR_HOP:
+	case NEXTHDR_ROUTING:
+	case NEXTHDR_DEST:
+		return ipv6_optlen(&opthdr);
+
+	default:
+		/* Returned in the switch above. */
+		__builtin_unreachable();
+	}
+}
+
 static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *nexthdr, int l3_off)
 {
 	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr __align_stack_8;
 	__u8 nh = *nexthdr;
 
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		switch (nh) {
-		case NEXTHDR_NONE:
-			return DROP_INVALID_EXTHDR;
+		int hdrlen = ipv6_skip_exthdr(ctx, &nh, l3_off + len);
 
-		case NEXTHDR_FRAGMENT:
-			return DROP_FRAG_NOSUPPORT;
+		if (hdrlen < 0)
+			return hdrlen;
 
-		case NEXTHDR_HOP:
-		case NEXTHDR_ROUTING:
-		case NEXTHDR_AUTH:
-		case NEXTHDR_DEST:
-			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
-				return DROP_INVALID;
-
-			if (nh == NEXTHDR_AUTH)
-				len += ipv6_authlen(&opthdr);
-			else
-				len += ipv6_optlen(&opthdr);
-
-			nh = opthdr.nexthdr;
-			break;
-
-		default:
+		if (!hdrlen) {
 			*nexthdr = nh;
 			return len;
 		}
+
+		len += hdrlen;
 	}
 
 	/* Reached limit of supported extension headers */
@@ -231,4 +285,110 @@ static __always_inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 static __always_inline int ipv6_addr_is_mapped(const union v6addr *addr)
 {
 	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
+}
+
+/* As opposed to ipfrag_encode_ipv6, this function can return errors. */
+static __always_inline __s64 ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+{
+	int l3_off = (int)((void *)ip6 - ctx_data(ctx));
+	int i, len = sizeof(struct ipv6hdr);
+	__u8 nh = ip6->nexthdr;
+
+#pragma unroll
+	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
+		__u8 newnh = nh;
+		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, l3_off + len);
+
+		if (hdrlen < 0)
+			return hdrlen;
+
+		if (!hdrlen) {
+			/* No fragment header. 0 is a valid fraginfo that encodes:
+			 * - is_fragment = false
+			 * - has_l4_header = true
+			 * - protocol = 0 (unused when !is_fragment)
+			 */
+			return 0;
+		}
+
+		if (nh == NEXTHDR_FRAGMENT) {
+			struct ipv6_frag_hdr frag;
+
+			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
+				return DROP_INVALID;
+
+			return ipfrag_encode_ipv6(&frag);
+		}
+
+		len += hdrlen;
+		nh = newnh;
+	}
+
+	/* Reached limit of supported extension headers */
+	return DROP_INVALID_EXTHDR;
+}
+
+#ifdef ENABLE_IPV6_FRAGMENTS
+static __always_inline int
+ipv6_frag_get_l4ports(const struct ipv6_frag_id *frag_id,
+		      struct ipv6_frag_l4ports *ports)
+{
+	struct ipv6_frag_l4ports *tmp;
+
+	tmp = map_lookup_elem(&cilium_ipv6_frag_datagrams, frag_id);
+	if (!tmp)
+		return DROP_FRAG_NOT_FOUND;
+
+	memcpy(ports, tmp, sizeof(*ports));
+	return 0;
+}
+
+static __always_inline int
+ipv6_handle_fragmentation(struct __ctx_buff *ctx,
+			  const struct ipv6hdr *ip6 __maybe_unused,
+			  __s64 fraginfo,
+			  int l4_off,
+			  enum ct_dir ct_dir __maybe_unused,
+			  struct ipv6_frag_l4ports *ports)
+{
+	struct ipv6_frag_id frag_id __align_stack_8 = {
+		.id = ipfrag_get_id(fraginfo),
+		.proto = ipfrag_get_protocol(fraginfo),
+	};
+	ipv6_addr_copy(&frag_id.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&frag_id.saddr, (union v6addr *)&ip6->saddr);
+
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return ipv6_frag_get_l4ports(&frag_id, ports);
+
+	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
+		return DROP_CT_INVALID_HDR;
+
+	if (unlikely(ipfrag_is_fragment(fraginfo))) {
+		return ipv6_frag_get_l4ports(&frag_id, ports);
+		if (map_update_elem(&cilium_ipv6_frag_datagrams, &frag_id, ports, BPF_ANY))
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+				       REASON_FRAG_PACKET_UPDATE);
+	}
+
+	return 0;
+}
+#endif
+
+static __always_inline int
+ipv6_load_l4_ports(struct __ctx_buff *ctx, struct ipv6hdr *ip6 __maybe_unused,
+		   __s64 fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
+		   __be16 *ports)
+{
+#ifdef ENABLE_IPV6_FRAGMENTS
+	return ipv6_handle_fragmentation(ctx, ip6, fraginfo, l4_off, dir,
+					 (struct ipv6_frag_l4ports *)ports);
+#else
+	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
+		return DROP_FRAG_NOSUPPORT;
+	if (l4_load_ports(ctx, l4_off, ports) < 0)
+		return DROP_CT_INVALID_HDR;
+#endif
+
+	return 0;
 }

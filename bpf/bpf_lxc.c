@@ -76,7 +76,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state_new = {};
-	bool has_l4_header;
+	__s64 fraginfo;
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	__u16 proxy_port = 0;
@@ -84,7 +84,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	int l4_off;
 	int ret = 0;
 
-	has_l4_header = ipv4_has_l4_header(ip4);
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
@@ -113,9 +113,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		if (unlikely(lb4_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb4_local(get_ct_map4(&tuple), ctx, ipv4_is_fragment(ip4),
-				ETH_HLEN, l4_off, &key, &tuple, svc, &ct_state_new,
-				has_l4_header, false, &cluster_id, ext_err, ENDPOINT_NETNS_COOKIE);
+		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
+				l4_off, &key, &tuple, svc, &ct_state_new,
+				false, &cluster_id, ext_err, ENDPOINT_NETNS_COOKIE);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE)
@@ -139,11 +139,16 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 {
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
+	__s64 fraginfo;
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
 	int ret = 0;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
@@ -175,9 +180,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		if (unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&key, &tuple, svc, &ct_state_new, false, ext_err,
-				ENDPOINT_NETNS_COOKIE);
+		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
+				l4_off, &key, &tuple, svc, &ct_state_new,
+				false, ext_err, ENDPOINT_NETNS_COOKIE);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE)
@@ -375,7 +380,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
+	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,		\
 				   ct_buffer.l4_off, DIR, scope,		\
 				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
@@ -843,9 +848,19 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__s64 fraginfo __maybe_unused;
+	int ret __maybe_unused;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+	if (ipfrag_is_fragment(fraginfo))
+		return DROP_FRAG_NOSUPPORT;
+#endif
 
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
 	 * are subjected to forwarding into the container.
@@ -1396,6 +1411,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
+	__s64 fraginfo __maybe_unused;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1405,7 +1421,8 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
  * then drop the packet.
  */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
@@ -1562,6 +1579,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv6_ct_tuple *tuple;
+	bool is_untracked_fragment = false;
+	__s64 fraginfo;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
@@ -1570,7 +1589,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
+
+#ifndef ENABLE_IPV6_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#endif
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
@@ -1609,7 +1639,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple);
+					   ct_state->rev_nat_index, tuple,
+					   ipfrag_has_l4_header(fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}
@@ -1623,9 +1654,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off, src_label,
-					      SECLABEL_IPV6, &policy_match_type, &audited,
-					      ext_err, proxy_port);
+		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
+					      is_untracked_fragment, src_label, SECLABEL_IPV6,
+					      &policy_match_type, &audited, ext_err, proxy_port);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
@@ -1873,6 +1904,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = THIS_INTERFACE_IFINDEX;
 	struct ipv4_ct_tuple *tuple;
+	__s64 fraginfo;
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
@@ -1883,13 +1915,15 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	__u8 auth_type = 0;
 	__u32 zero = 0;
 
+	fraginfo = ipfrag_encode_ipv4(ip4);
+
 	orig_sip = ip4->saddr;
 
 #ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = ipv4_is_fragment(ip4);
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
 #endif
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
@@ -1926,15 +1960,12 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		/* Reverse NAT applies to return traffic only. */
 		if (unlikely(ct_state->rev_nat_index)) {
-			bool has_l4_header = false;
 			int ret2;
-
-			has_l4_header = ipv4_has_l4_header(ip4);
 
 			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					   ct_state->rev_nat_index,
 					   ct_state->loopback,
-					   tuple, has_l4_header);
+					   tuple, ipfrag_has_l4_header(fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}

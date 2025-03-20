@@ -28,11 +28,11 @@ type bpfFragmentEntry struct {
 var bpfFragListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
-	Short:   "List IPv4 datagram fragments",
+	Short:   "List IPv4 datagram fragments", // TODO: List IPv6 as well.
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf frag list")
 
-		fragMap, err := fragmap.OpenMap()
+		fragMap, err := fragmap.OpenMap4()
 		if err != nil {
 			Fatalf("failed to open map: %s\n", err)
 		}
@@ -40,8 +40,8 @@ var bpfFragListCmd = &cobra.Command{
 
 		var entries []bpfFragmentEntry
 		if err := fragMap.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
-			key := k.(*fragmap.FragmentKey)
-			value := v.(*fragmap.FragmentValue)
+			key := k.(*fragmap.FragmentKey4)
+			value := v.(*fragmap.FragmentValue4)
 			entries = append(entries, bpfFragmentEntry{
 				ID:            key.ID,
 				Proto:         u8proto.U8proto(key.Proto),

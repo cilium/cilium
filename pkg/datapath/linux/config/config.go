@@ -143,6 +143,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+
+		if option.Config.EnableIPv6FragmentsTracking {
+			cDefinesMap["ENABLE_IPV6_FRAGMENTS"] = "1"
+			cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
+		}
 	}
 
 	if option.Config.EnableIPv4 {
