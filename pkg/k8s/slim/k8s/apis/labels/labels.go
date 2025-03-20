@@ -138,8 +138,7 @@ func ConvertSelectorToLabelsMap(selector string, opts ...field.PathOption) (Set,
 		return labelsMap, nil
 	}
 
-	labels := strings.Split(selector, ",")
-	for _, label := range labels {
+	for label := range strings.SplitSeq(selector, ",") {
 		l := strings.Split(label, "=")
 		if len(l) != 2 {
 			return labelsMap, fmt.Errorf("invalid selector: %s", l)

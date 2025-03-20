@@ -31,7 +31,7 @@ var Compat = compatFromEnv()
 func compatFromEnv() CompatOptions {
 	c := CompatOptions{}
 
-	for _, opt := range strings.Split(os.Getenv(compatEnvKey), ",") {
+	for opt := range strings.SplitSeq(os.Getenv(compatEnvKey), ",") {
 		switch strings.ToLower(opt) {
 		case compatLegacyJSONOutput:
 			c.LegacyJSONOutput = true

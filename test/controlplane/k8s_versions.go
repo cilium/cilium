@@ -15,9 +15,7 @@ var (
 )
 
 func K8sVersions() (k8sVersions []string) {
-	words := bytes.Split(k8sVersionsData, []byte{'\n'})
-
-	for _, w := range words {
+	for w := range bytes.SplitSeq(k8sVersionsData, []byte{'\n'}) {
 		if len(w) != 0 {
 			version := regexp.MustCompile(`\d\.\d{2}`).Find(w)
 			k8sVersions = append(k8sVersions, string(version))

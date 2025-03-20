@@ -54,7 +54,7 @@ func parsePoolSpec(poolString string) (cilium_v2alpha1.IPPoolSpec, error) {
 		}
 		switch key {
 		case poolKeyIPv4CIDRs:
-			for _, cidr := range strings.Split(value, ",") {
+			for cidr := range strings.SplitSeq(value, ",") {
 				_, err := netip.ParsePrefix(cidr)
 				if err != nil {
 					return cilium_v2alpha1.IPPoolSpec{}, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4CIDRs, err)
@@ -68,7 +68,7 @@ func parsePoolSpec(poolString string) (cilium_v2alpha1.IPPoolSpec, error) {
 			}
 			ipv4MaskSize = uint8(mask)
 		case poolKeyIPv6CIDRs:
-			for _, cidr := range strings.Split(value, ",") {
+			for cidr := range strings.SplitSeq(value, ",") {
 				_, err := netip.ParsePrefix(cidr)
 				if err != nil {
 					return cilium_v2alpha1.IPPoolSpec{}, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6CIDRs, err)

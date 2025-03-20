@@ -274,7 +274,7 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 
 func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
 	uniqueFailures := make(map[string]int)
-	for _, chunk := range bytes.Split(logs, []byte("\n")) {
+	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
 			if strings.Contains(msg, fail) {

@@ -22,8 +22,7 @@ func C2GoArray(str string) []byte {
 		return ret
 	}
 
-	hexStr := strings.Split(str, ", ")
-	for _, hexDigit := range hexStr {
+	for hexDigit := range strings.SplitSeq(str, ", ") {
 		strDigit := strings.TrimPrefix(hexDigit, "0x")
 		digitUint64, err := strconv.ParseUint(strDigit, 16, 8)
 		if err != nil {
