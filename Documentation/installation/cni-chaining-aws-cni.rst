@@ -70,8 +70,7 @@ Deploy Cilium via Helm:
      --set cni.chainingMode=aws-cni \\
      --set cni.exclusive=false \\
      --set enableIPv4Masquerade=false \\
-     --set routingMode=native \\
-     --set endpointRoutes.enabled=true
+     --set routingMode=native
 
 This will enable chaining with the AWS VPC CNI plugin. It will also disable
 tunneling, as it's not required since ENI IP addresses can be directly routed
