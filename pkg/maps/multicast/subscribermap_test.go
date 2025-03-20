@@ -24,7 +24,7 @@ func TestSubscriberMap(t *testing.T) {
 	bpf.CheckOrMountFS("")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
-	groupMapEBPF := NewGroupV4OuterMap(TestGroupV4OuterMapName)
+	groupMapEBPF := NewGroupV4OuterMap(nil, TestGroupV4OuterMapName)
 	err := groupMapEBPF.OpenOrCreate()
 	groupMapEBPF.Unpin()
 	assert.NoError(t, err)

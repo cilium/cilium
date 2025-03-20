@@ -321,7 +321,7 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 			desc.spec.Pinning = ebpf.PinNone
 		}
 		desc.spec.MaxEntries = uint32(desc.maxEntries)
-		m := ebpf.NewMap(desc.spec)
+		m := ebpf.NewMap(r.Log, desc.spec)
 		*desc.target = m
 
 		if err := m.OpenOrCreate(); err != nil {
@@ -336,7 +336,7 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 
 	for _, desc := range mapsToDelete {
 		mapPath := bpf.MapPath(desc.spec.Name)
-		m, err := ebpf.LoadPinnedMap(mapPath)
+		m, err := ebpf.LoadPinnedMap(r.Log, mapPath)
 		if err != nil {
 			// Map not found, nothing to do.
 			continue
@@ -586,7 +586,7 @@ func (r *BPFLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.Sou
 
 // UpdateMaglev implements lbmaps.
 func (r *BPFLBMaps) UpdateMaglev(key lbmap.MaglevOuterKey, backendIDs []loadbalancer.BackendID, ipv6 bool) error {
-	inner := ebpf.NewMap(r.maglevInnerMapSpec)
+	inner := ebpf.NewMap(r.Log, r.maglevInnerMapSpec)
 	if err := inner.OpenOrCreate(); err != nil {
 		return err
 	}
@@ -629,7 +629,7 @@ func (r *BPFLBMaps) DumpMaglev(cb func(lbmap.MaglevOuterKey, lbmap.MaglevOuterVa
 			RevNatID: byteorder.NetworkToHost16(key.(*lbmap.MaglevOuterKey).RevNatID),
 		}
 		maglevValue := value.(*lbmap.MaglevOuterVal)
-		inner, err := lbmap.MaglevInnerMapFromID(maglevValue.FD)
+		inner, err := lbmap.MaglevInnerMapFromID(r.Log, maglevValue.FD)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("cannot open inner map with fd %d: %w", maglevValue.FD, err))
 			return

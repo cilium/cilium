@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"log/slog"
 	"math"
 	"os"
 	"path"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,7 +74,8 @@ type cacheEntry struct {
 }
 
 type Map struct {
-	m *ebpf.Map
+	Logger *slog.Logger
+	m      *ebpf.Map
 	// spec will be nil after the map has been created
 	spec *ebpf.MapSpec
 
@@ -188,10 +191,16 @@ func (m *Map) updateMetrics() {
 func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32) *Map {
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
 	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, name,
+			logfields.BPFMapName, name,
+		),
 		spec: &ebpf.MapSpec{
 			Type:       mapType,
 			Name:       path.Base(name),
@@ -211,10 +220,16 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
 	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, name,
+			logfields.BPFMapName, name,
+		),
 		spec: &ebpf.MapSpec{
 			Type:       mapType,
 			Name:       path.Base(name),
@@ -417,12 +432,20 @@ func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 		return nil, err
 	}
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
+
+	logger := defaultSlogLogger.With(
+		logfields.BPFMapPath, pinPath,
+		logfields.BPFMapName, path.Base(pinPath),
+	)
 	m := &Map{
-		m:     em,
-		name:  path.Base(pinPath),
-		path:  pinPath,
-		key:   key,
-		value: value,
+		Logger: logger,
+		m:      em,
+		name:   path.Base(pinPath),
+		path:   pinPath,
+		key:    key,
+		value:  value,
 	}
 
 	m.updateMetrics()

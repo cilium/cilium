@@ -9,6 +9,7 @@ import (
 
 	ciliumebpf "github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -26,7 +27,8 @@ func setupNodeMapV2TestSuite(tb testing.TB) {
 
 func TestNodeMapV2(t *testing.T) {
 	setupNodeMapV2TestSuite(t)
-	nodeMap := newMapV2("test_cilium_node_map_v2", "test_cilium_node_map", Config{
+	logger := hivetest.Logger(t)
+	nodeMap := newMapV2(logger, "test_cilium_node_map_v2", "test_cilium_node_map", Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMap.init()
@@ -99,13 +101,14 @@ func TestNodeMapMigration(t *testing.T) {
 	var ID1 uint16 = 10
 	var ID2 uint16 = 20
 
-	nodeMapV1 := newMap(name1, Config{
+	logger := hivetest.Logger(t)
+	nodeMapV1 := newMap(logger, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMapV1.init()
 	require.NoError(t, err)
 
-	nodeMapV2 := newMapV2(name2, name1, Config{
+	nodeMapV2 := newMapV2(logger, name2, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err = nodeMapV2.init()
