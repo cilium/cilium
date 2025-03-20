@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -165,7 +166,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 		if resource == ResourceIDAnonymous {
 			for _, prefix := range newPrefixes {
 				ipcUpdates = append(ipcUpdates, ipcache.MU{
-					Prefix:   prefix,
+					Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 					Source:   prefixSource[resource],
 					Resource: resource,
 					Metadata: []ipcache.IPMetadata{labels.GetCIDRLabels(prefix)},
@@ -197,7 +198,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 			}
 
 			ipcUpdates = append(ipcUpdates, ipcache.MU{
-				Prefix:   prefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   prefixSource[resource],
 				Resource: resource,
 				Metadata: []ipcache.IPMetadata{labels.GetCIDRLabels(prefix)},
@@ -241,7 +242,7 @@ func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID
 		// Prune all stale prefixes
 		for _, oldPrefix := range oldPrefixes {
 			ipcUpdates = append(ipcUpdates, ipcache.MU{
-				Prefix:   oldPrefix,
+				Prefix:   cmtypes.NewLocalPrefixCluster(oldPrefix),
 				Resource: resource,
 				Metadata: []ipcache.IPMetadata{labels.Labels{}},
 			})
