@@ -159,8 +159,12 @@ jobs:
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
 
+          # Skip HTTPRouteServiceTypes service type tests in 1.16
+          # Relates: https://github.com/cilium/cilium/issues/33279
+          SKIPPED_TESTS="HTTPRouteServiceTypes"
+
           if [ ${{ matrix.conformance-profile }} == "true" ]; then
-            SKIPPED_TESTS+="GatewayStaticAddresses,MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS+=",GatewayStaticAddresses,MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
