@@ -12,15 +12,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-nat")
 )
 
 const (
@@ -263,7 +258,10 @@ func doFlush4(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			m.Logger.Error("Unable to delete NAT entry",
+				logfields.Error, err,
+				logfields.Key, key,
+			)
 		} else {
 			stats.deleted++
 		}
@@ -277,7 +275,10 @@ func doFlush6(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			m.Logger.Error("Unable to delete NAT entry",
+				logfields.Error, err,
+				logfields.Key, key,
+			)
 		} else {
 			stats.deleted++
 		}

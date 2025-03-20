@@ -281,12 +281,12 @@ func (d *Daemon) initMaps() error {
 	if !d.lbConfig.EnableExperimentalLB &&
 		(d.lbConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev ||
 			d.lbConfig.AlgorithmAnnotation) {
-		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.TableSize)); err != nil {
+		if err := lbmap.InitMaglevMaps(logging.DefaultSlogLogger, option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.TableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}
 	}
 
-	skiplbmap, err := lbmap.NewSkipLBMap()
+	skiplbmap, err := lbmap.NewSkipLBMap(logging.DefaultSlogLogger)
 	if err == nil {
 		err = skiplbmap.OpenOrCreate()
 	}
@@ -317,7 +317,7 @@ func setupVTEPMapping() error {
 			logfields.IPAddr: ep,
 		}).Debug("Updating vtep map entry for VTEP")
 
-		err := vtep.UpdateVTEPMapping(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
+		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}

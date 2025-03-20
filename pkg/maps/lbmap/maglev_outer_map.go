@@ -6,6 +6,7 @@ package lbmap
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -15,6 +16,7 @@ import (
 
 // MaglevOuterMap represents a Maglev outer map.
 type MaglevOuterMap struct {
+	logger *slog.Logger
 	*ebpf.Map
 }
 
@@ -54,8 +56,8 @@ func (v *MaglevOuterVal) New() bpf.MapValue { return &MaglevOuterVal{} }
 func (k *MaglevOuterVal) String() string    { return fmt.Sprintf("%d", k.FD) }
 
 // NewMaglevOuterMap returns a new object representing a maglev outer map.
-func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec) (*MaglevOuterMap, error) {
-	m := ebpf.NewMap(&ebpf.MapSpec{
+func NewMaglevOuterMap(logger *slog.Logger, name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec) (*MaglevOuterMap, error) {
+	m := ebpf.NewMap(logger, &ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.HashOfMaps,
 		KeySize:    uint32(unsafe.Sizeof(MaglevOuterKey{})),
@@ -69,18 +71,18 @@ func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *
 		return nil, err
 	}
 
-	return &MaglevOuterMap{m}, nil
+	return &MaglevOuterMap{logger, m}, nil
 }
 
 // OpenMaglevOuterMap opens an existing pinned maglev outer map and returns an
 // object representing it.
-func OpenMaglevOuterMap(name string) (*MaglevOuterMap, error) {
-	m, err := ebpf.LoadRegisterMap(name)
+func OpenMaglevOuterMap(logger *slog.Logger, name string) (*MaglevOuterMap, error) {
+	m, err := ebpf.LoadRegisterMap(logger, name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MaglevOuterMap{m}, nil
+	return &MaglevOuterMap{logger, m}, nil
 }
 
 // TableSize tries to determine the table size of the Maglev map.
@@ -99,7 +101,7 @@ func (m *MaglevOuterMap) TableSize() (uint32, error) {
 		return 0, fmt.Errorf("getting first value: %w", err)
 	}
 
-	inner, err := MaglevInnerMapFromID(firstVal.FD)
+	inner, err := MaglevInnerMapFromID(m.logger, firstVal.FD)
 	if err != nil {
 		// The outer map exists but we can't access the inner map
 		// associated with the first entry.
@@ -123,7 +125,7 @@ func (m *MaglevOuterMap) GetService(id uint16) (*MaglevInnerMap, error) {
 		return nil, err
 	}
 
-	inner, err := MaglevInnerMapFromID(val.FD)
+	inner, err := MaglevInnerMapFromID(m.logger, val.FD)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
 	}
@@ -145,7 +147,7 @@ func (m *MaglevOuterMap) DumpBackends(ipv6 bool) (map[string][]string, error) {
 	}
 	iter := m.Iterate()
 	for iter.Next(&key, &val) {
-		inner, err := MaglevInnerMapFromID(val.FD)
+		inner, err := MaglevInnerMapFromID(m.logger, val.FD)
 		if err != nil {
 			return nil, fmt.Errorf("cannot open inner map with id %d: %w", val.FD, err)
 		}

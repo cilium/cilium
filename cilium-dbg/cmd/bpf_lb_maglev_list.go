@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
@@ -62,7 +63,7 @@ func dumpMaglevTables() (map[string][]string, error) {
 // dumps the backend tables of all services. Returns an empty initialized
 // map if the given eBPF map does not exist.
 func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
-	m, err := lbmap.OpenMaglevOuterMap(name)
+	m, err := lbmap.OpenMaglevOuterMap(logging.DefaultSlogLogger, name)
 	if errors.Is(err, os.ErrNotExist) {
 		// Map not existing is not an error.
 		// Skip dumping it and return an empty allocated map.

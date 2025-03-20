@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
@@ -44,7 +45,7 @@ var bpfVtepUpdateCmd = &cobra.Command{
 			Fatalf("Unable to parse vtep mac '%s'", args[2])
 		}
 
-		if err := vtep.UpdateVTEPMapping(vcidr, vip, vmac); err != nil {
+		if err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, vcidr, vip, vmac); err != nil {
 			fmt.Fprintf(os.Stderr, "error updating contents of map: %s\n", err)
 			os.Exit(1)
 		}

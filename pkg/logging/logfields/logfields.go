@@ -1540,6 +1540,10 @@ const (
 
 	Candidates = "candidates"
 
+	Skipped = "skipped"
+
+	AliveEntries = "aliveEntries"
+
 	DNSRulesV2 = "dnsRulesV2"
 
 	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"

@@ -5,23 +5,19 @@ package vtep
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-vtep")
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the
@@ -106,7 +102,7 @@ func VtepMap() *Map {
 }
 
 // Function to update vtep map with VTEP CIDR
-func UpdateVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
+func UpdateVTEPMapping(logger *slog.Logger, newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
 	key := NewKey(newCIDR.IP)
 
 	mac, err := vtepMAC.Uint64()
@@ -121,11 +117,12 @@ func UpdateVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac
 	ip4 := newTunnelEndpoint.To4()
 	copy(value.TunnelEndpoint[:], ip4)
 
-	log.WithFields(logrus.Fields{
-		logfields.V4Prefix: newCIDR.IP,
-		logfields.MACAddr:  vtepMAC,
-		logfields.Endpoint: newTunnelEndpoint,
-	}).Debug("Updating vtep map entry")
+	logger.Debug(
+		"Updating vtep map entry",
+		logfields.V4Prefix, newCIDR.IP,
+		logfields.MACAddr, vtepMAC,
+		logfields.Endpoint, newTunnelEndpoint,
+	)
 
 	return VtepMap().Update(&key, &value)
 }

@@ -9,32 +9,31 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"strconv"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/index"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "nat-stats")
 
 // Stats provides a implementation of performing nat map stats
 // counting.
 type Stats struct {
+	logger *slog.Logger
+
 	metrics natMetrics
 
 	db    *statedb.DB
@@ -114,6 +113,8 @@ func (s NatMapStats) TableRow() []string {
 type params struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle cell.Lifecycle
 	DB        *statedb.DB
 	Table     statedb.RWTable[NatMapStats]
@@ -129,10 +130,10 @@ type params struct {
 func newStats(params params) (*Stats, error) {
 	if err := probes.HaveBatchAPI(); err != nil {
 		if errors.Is(err, probes.ErrNotSupported) {
-			log.WithError(err).Info("nat-stats is not supported")
+			params.Logger.Info("nat-stats is not supported", logfields.Error, err)
 			return nil, nil
 		}
-		log.WithError(err).Error("could not probe for nat-stats feature")
+		params.Logger.Error("could not probe for nat-stats feature", logfields.Error, err)
 	}
 
 	if params.Config.NATMapStatInterval == 0 {
@@ -149,6 +150,7 @@ func newStats(params params) (*Stats, error) {
 	// used by node-ports.
 	maxAvailPorts := config.NodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
 	m := &Stats{
+		logger:   params.Logger,
 		metrics:  params.Metrics,
 		config:   params.Config,
 		maxPorts: int(maxAvailPorts),
@@ -263,9 +265,10 @@ func (m *Stats) countNat(ctx context.Context) error {
 		})
 
 		if err != nil {
-			log.WithError(err).
-				Error("failed to count ipv4 nat map entries, " +
-					"this may result in out of date nat-stats data and nat_endpoint_ metrics")
+			m.logger.Error("failed to count ipv4 nat map entries, "+
+				"this may result in out of date nat-stats data and nat_endpoint_ metrics",
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, err)
 		} else {
 			m.next4(toIter(tupleToPortCount))
@@ -292,9 +295,10 @@ func (m *Stats) countNat(ctx context.Context) error {
 		})
 
 		if err != nil {
-			log.WithError(err).
-				Error("failed to count ipv6 nat map entries, " +
-					"this may result in out of date nat-stats data and nat_endpoint_ metrics")
+			m.logger.Error("failed to count ipv6 nat map entries, "+
+				"this may result in out of date nat-stats data and nat_endpoint_ metrics",
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, err)
 		} else {
 			m.next6(toIter(tupleToPortCount))

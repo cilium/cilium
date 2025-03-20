@@ -5,6 +5,7 @@ package policymap
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -499,14 +500,14 @@ func newPolicyMap(id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error
 
 // OpenPolicyMap opens the policymap at the specified path.
 // This is only used from the 'cilium-dbg bpf policy' tool.
-func OpenPolicyMap(path string) (*PolicyMap, error) {
+func OpenPolicyMap(logger *slog.Logger, path string) (*PolicyMap, error) {
 	// Extract endpoint ID from the given path
 	id, err := parseEndpointID(path)
 	if err != nil {
 		return nil, err
 	}
 
-	stats, err := OpenStatsMap()
+	stats, err := OpenStatsMap(logger)
 	if err != nil {
 		return nil, err
 	}

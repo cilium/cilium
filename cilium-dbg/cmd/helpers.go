@@ -27,6 +27,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -323,7 +324,7 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 	// The map needs not to be transparently initialized here even if
 	// it's not present for some reason. Triggering map recreation with
 	// OpenOrCreate when some map attribute had changed would be much worse.
-	policyMap, err := policymap.OpenPolicyMap(pa.path)
+	policyMap, err := policymap.OpenPolicyMap(logging.DefaultSlogLogger, pa.path)
 	if err != nil {
 		Fatalf("Cannot open policymap %q : %s", pa.path, err)
 	}

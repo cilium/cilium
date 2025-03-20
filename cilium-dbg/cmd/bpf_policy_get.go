@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/identity"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -72,7 +74,7 @@ func listAllMaps() {
 		maps = append(maps, policyMap{
 			EndpointID: endpoint,
 			Path:       file,
-			Content:    mapContent(file),
+			Content:    mapContent(logging.DefaultSlogLogger, file),
 		})
 	}
 
@@ -106,7 +108,7 @@ func listMap(args []string) {
 		Fatalf("Failed to parse endpointID %q", lbl)
 	}
 
-	contentDump := mapContent(mapPath)
+	contentDump := mapContent(logging.DefaultSlogLogger, mapPath)
 	if command.OutputOption() {
 		if err := command.PrintOutput(contentDump); err != nil {
 			os.Exit(1)
@@ -116,8 +118,8 @@ func listMap(args []string) {
 	}
 }
 
-func mapContent(file string) policymap.PolicyEntriesDump {
-	m, err := policymap.OpenPolicyMap(file)
+func mapContent(logger *slog.Logger, file string) policymap.PolicyEntriesDump {
+	m, err := policymap.OpenPolicyMap(logger, file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
 	}

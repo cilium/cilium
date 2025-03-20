@@ -9,6 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -17,12 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_topk(t *testing.T) {

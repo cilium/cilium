@@ -5,6 +5,7 @@ package nodemap
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"unsafe"
 
@@ -43,10 +44,10 @@ type nodeMap struct {
 	bpfMap *ebpf.Map
 }
 
-func newMap(mapName string, conf Config) *nodeMap {
+func newMap(logger *slog.Logger, mapName string, conf Config) *nodeMap {
 	return &nodeMap{
 		conf: conf,
-		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
+		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
@@ -125,8 +126,8 @@ func (m *nodeMap) IterateWithCallback(cb NodeIterateCallback) error {
 // LoadNodeMap loads the pre-initialized node map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
-func LoadNodeMap() (Map, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(MapName)
+func LoadNodeMap(logger *slog.Logger) (Map, error) {
+	bpfMap, err := ebpf.LoadRegisterMap(logger, MapName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bpf map: %w", err)
 	}

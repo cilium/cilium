@@ -6,10 +6,10 @@ package nodemap
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"unsafe"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -47,23 +47,25 @@ type MapV2 interface {
 // nodeMapV2 is an iteration on nodeMap which associates an IPSec SPI with each
 // node in the map.
 type nodeMapV2 struct {
+	logger *slog.Logger
 	conf   Config
 	bpfMap *ebpf.Map
 	v1Map  *nodeMap
 }
 
-func newMapV2(mapName string, v1MapName string, conf Config) *nodeMapV2 {
-	v1Map := newMap(v1MapName, conf)
+func newMapV2(logger *slog.Logger, mapName string, v1MapName string, conf Config) *nodeMapV2 {
+	v1Map := newMap(logger, v1MapName, conf)
 
 	if err := v1Map.init(); err != nil {
-		log.WithError(err).Error("failed to init v1 node map")
+		logger.Error("failed to init v1 node map", logfields.Error, err)
 		return nil
 	}
 
 	return &nodeMapV2{
-		conf:  conf,
-		v1Map: v1Map,
-		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
+		logger: logger,
+		conf:   conf,
+		v1Map:  v1Map,
+		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
@@ -124,12 +126,18 @@ func (m *nodeMapV2) IterateWithCallback(cb NodeIterateCallbackV2) error {
 		func(k, v any) {
 			key, ok := k.(*NodeKey)
 			if !ok {
-				log.WithField("key", k).Error("failed to cast key to NodeKey")
+				m.logger.Error(
+					"failed to cast key to NodeKey",
+					logfields.Key, k,
+				)
 				return
 			}
 			value, ok := v.(*NodeValueV2)
 			if !ok {
-				log.WithField("value", v).Error("failed to cast value to NodeValueV2")
+				m.logger.Error(
+					"failed to cast value to NodeValueV2",
+					logfields.Value, k,
+				)
 				return
 			}
 
@@ -140,8 +148,8 @@ func (m *nodeMapV2) IterateWithCallback(cb NodeIterateCallbackV2) error {
 // LoadNodeMap loads the pre-initialized node map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
-func LoadNodeMapV2() (MapV2, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(MapNameV2)
+func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
+	bpfMap, err := ebpf.LoadRegisterMap(logger, MapNameV2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bpf map: %w", err)
 	}
@@ -161,13 +169,13 @@ func LoadNodeMapV2() (MapV2, error) {
 // When Cilium reaches v1.17 the v1 NodeMap will no longer be required and we
 // can unpin the map after migration.
 func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
-	log.Debug("Detecting V1 to V2 migration")
+	m.logger.Debug("Detecting V1 to V2 migration")
 
 	// load v1 node map
 	nodeMapPath := bpf.MapPath(NodeMapName)
-	v1, err := ebpf.LoadPinnedMap(nodeMapPath)
+	v1, err := ebpf.LoadPinnedMap(m.logger, nodeMapPath)
 	if errors.Is(err, unix.ENOENT) {
-		log.Debug("No v1 node map found, skipping migration")
+		m.logger.Debug("No v1 node map found, skipping migration")
 		return nil
 	}
 	if err != nil {
@@ -179,9 +187,9 @@ func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
 
 	// load encrypt map to get current SPI
 	encryptMapPath := bpf.MapPath(EncryptMapName)
-	en, err := ebpf.LoadPinnedMap(encryptMapPath)
+	en, err := ebpf.LoadPinnedMap(m.logger, encryptMapPath)
 	if errors.Is(err, unix.ENOENT) {
-		log.Debug("No encrypt map found, skipping migration")
+		m.logger.Debug("No encrypt map found, skipping migration")
 		return nil
 	}
 	if err != nil {
@@ -206,9 +214,11 @@ func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
 		m.bpfMap.Put(k, &v2)
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.SPI: SPI,
-	}).Debugf("Migrated %v V1 node map entries to V2", count)
+	m.logger.Debug(
+		"Migrated V1 node map entries to V2",
+		logfields.SPI, SPI,
+		logfields.Entries, count,
+	)
 
 	err = nodeMap.IterateWithCallback(parse)
 	if err != nil {

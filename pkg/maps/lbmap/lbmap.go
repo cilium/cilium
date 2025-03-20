@@ -6,9 +6,9 @@ package lbmap
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -17,7 +17,6 @@ import (
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
@@ -25,8 +24,6 @@ import (
 )
 
 const DefaultMaxEntries = 65536
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
 var (
 	// MaxEntries contains the maximum number of entries that are allowed
@@ -41,12 +38,13 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
+	logger   *slog.Logger
 	lbConfig loadbalancer.Config
 	maglev   *maglev.Maglev
 }
 
-func New(lbConfig loadbalancer.Config, maglev *maglev.Maglev) *LBBPFMap {
-	return &LBBPFMap{lbConfig, maglev}
+func New(logger *slog.Logger, lbConfig loadbalancer.Config, maglev *maglev.Maglev) *LBBPFMap {
+	return &LBBPFMap{logger, lbConfig, maglev}
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
@@ -98,7 +96,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 				})
 				svcVal.SetFlags(flag.UInt16())
 			}
-			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
+			if err := updateServiceEndpoint(lbmap.logger, svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
 					return fmt.Errorf("Unable to update service entry %+v => %+v: "+
 						"Unable to update element for LB bpf map: "+
@@ -121,7 +119,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(lbmap.lbConfig, svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
+	if err := updateMasterService(lbmap.logger, lbmap.lbConfig, svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
 		p.SourceRangesPolicy, p.CheckSourceRange, p.ProxyDelegation, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
@@ -132,10 +130,12 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		for i := slot; i <= p.PrevBackendsCount; i++ {
 			svcKey.SetBackendSlot(i)
 			if err := deleteServiceLocked(svcKey); err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.ServiceKey:  svcKey,
-					logfields.BackendSlot: svcKey.GetBackendSlot(),
-				}).WithError(err).Warn("Unable to delete service entry from BPF map")
+				lbmap.logger.Warn(
+					"Unable to delete service entry from BPF map",
+					logfields.Error, err,
+					logfields.ServiceKey, svcKey,
+					logfields.BackendSlot, svcKey.GetBackendSlot(),
+				)
 			}
 		}
 	}
@@ -189,13 +189,13 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 				}
 			}
 		})
-	if err := updateMaglevTable(ipv6, svcID, table); err != nil {
+	if err := updateMaglevTable(lbmap.logger, ipv6, svcID, table); err != nil {
 		return err
 	}
 	return nil
 }
 
-func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev, ipv6 bool) error {
+func deleteServiceProto(logger *slog.Logger, svc loadbalancer.L3n4AddrID, backendCount int, useMaglev, ipv6 bool) error {
 	var (
 		svcKey    ServiceKey
 		revNATKey RevNatKey
@@ -217,10 +217,12 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
 		if err := deleteServiceLocked(svcKey); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceKey:  svcKey,
-				logfields.BackendSlot: svcKey.GetBackendSlot(),
-			}).WithError(err).Warn("Unable to delete service entry from BPF map")
+			logger.Warn(
+				"Unable to delete service entry from BPF map",
+				logfields.Error, err,
+				logfields.ServiceKey, svcKey,
+				logfields.BackendSlot, svcKey.GetBackendSlot(),
+			)
 		}
 	}
 
@@ -236,17 +238,17 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 }
 
 // DeleteService removes given service from a BPF map.
-func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool,
+func (lbmap *LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool,
 	natPolicy loadbalancer.SVCNatPolicy) error {
 	if svc.ID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
-	if err := deleteServiceProto(svc, backendCount, useMaglev,
+	if err := deleteServiceProto(lbmap.logger, svc, backendCount, useMaglev,
 		svc.IsIPv6() || natPolicy == loadbalancer.SVCNatPolicyNat46); err != nil {
 		return err
 	}
 	if natPolicy == loadbalancer.SVCNatPolicyNat46 {
-		if err := deleteServiceProto(svc, 0, false, false); err != nil {
+		if err := deleteServiceProto(lbmap.logger, svc, 0, false, false); err != nil {
 			return err
 		}
 	}
@@ -438,7 +440,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 }
 
 // DumpServiceMaps dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error) {
+func (lbmap *LBBPFMap) DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error) {
 	newSVCMap := svcMap{}
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
@@ -533,11 +535,16 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.LegacySVC, []error) {
 	}
 
 	for _, svcKey := range inconsistentServiceKeys {
-		log.WithField(logfields.ServiceKey, svcKey).
-			Warn("Deleting service with inconsistent revNat")
+		lbmap.logger.Warn(
+			"Deleting service with inconsistent revNat",
+			logfields.ServiceKey, svcKey,
+		)
 		if err := deleteServiceLocked(svcKey); err != nil {
-			log.WithField(logfields.ServiceKey, svcKey).
-				WithError(err).Warn("Unable to delete service entry from BPF map")
+			lbmap.logger.Warn(
+				"Unable to delete service entry from BPF map",
+				logfields.Error, err,
+				logfields.ServiceKey, svcKey,
+			)
 		}
 	}
 
@@ -605,7 +612,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
+func updateMasterService(logger *slog.Logger, lbConfig loadbalancer.Config, fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int,
 	revNATID int, svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy,
@@ -615,11 +622,11 @@ func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceV
 	isRoutable := !fe.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || lbConfig.ExternalClusterIP)
 	if sessionAffinity && l7lbProxyPort != 0 {
-		log.Warn("Failure in updating master service entry: Service session affinity incompatible with L7 proxy feature")
+		logger.Warn("Failure in updating master service entry: Service session affinity incompatible with L7 proxy feature")
 		return fmt.Errorf("invalid feature combination")
 	}
 	if loopbackHostport && svcProxyDelegation != loadbalancer.SVCProxyDelegationNone {
-		log.Warn("Failure in updating master service entry: Both HostPort (loopback) and proxy delegation features are incompatible")
+		logger.Warn("Failure in updating master service entry: Both HostPort (loopback) and proxy delegation features are incompatible")
 		return fmt.Errorf("invalid feature combination")
 	}
 
@@ -644,7 +651,7 @@ func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceV
 	v.SetFlags(flag.UInt16())
 	if sessionAffinity {
 		if err := v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec); err != nil {
-			log.Warn("Failure in updateMasterService due to error from SetSessionAffinityTimeoutSec", logfields.Error, err)
+			logger.Warn("Failure in updateMasterService due to error from SetSessionAffinityTimeoutSec", logfields.Error, err)
 			return err
 		}
 	}
@@ -652,7 +659,7 @@ func updateMasterService(lbConfig loadbalancer.Config, fe ServiceKey, v ServiceV
 		v.SetL7LBProxyPort(l7lbProxyPort)
 	}
 
-	return updateServiceEndpoint(fe, v)
+	return updateServiceEndpoint(logger, fe, v)
 }
 
 func deleteServiceLocked(key ServiceKey) error {
@@ -704,7 +711,7 @@ func deleteBackendLocked(key BackendKey) error {
 	return err
 }
 
-func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
+func updateServiceEndpoint(logger *slog.Logger, key ServiceKey, value ServiceValue) error {
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
@@ -716,13 +723,12 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceKey:   key,
-			logfields.ServiceValue: value,
-			logfields.BackendSlot:  key.GetBackendSlot(),
-		}).Debug("Upserted service entry")
-	}
+	logger.Debug(
+		"Upserted service entry",
+		logfields.ServiceKey, key,
+		logfields.ServiceValue, value,
+		logfields.BackendSlot, key.GetBackendSlot(),
+	)
 
 	return nil
 }

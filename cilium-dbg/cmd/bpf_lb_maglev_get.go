@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
@@ -80,7 +81,7 @@ func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
 // dumpMaglevServiceBackends looks up the given service ID in the Maglev map
 // with the given name.
 func dumpMaglevServiceBackends(mapName string, svcID uint16) (string, error) {
-	m, err := lbmap.OpenMaglevOuterMap(mapName)
+	m, err := lbmap.OpenMaglevOuterMap(logging.DefaultSlogLogger, mapName)
 	if err != nil {
 		return "", err
 	}

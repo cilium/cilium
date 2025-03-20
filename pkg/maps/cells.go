@@ -4,8 +4,9 @@
 package maps
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/maps/act"
@@ -80,7 +81,7 @@ type mapApiHandlerOut struct {
 	GetMapNameEventsHandler daemonapi.GetMapNameEventsHandler
 }
 
-func newMapApiHandler(logger logrus.FieldLogger) mapApiHandlerOut {
+func newMapApiHandler(logger *slog.Logger) mapApiHandlerOut {
 	return mapApiHandlerOut{
 		GetMapHandler:           &getMapHandler{},
 		GetMapNameHandler:       &getMapNameHandler{},
