@@ -753,6 +753,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
+	// sync policy map for fake endpoints, bpf compilation will be skipped for them.
+	if e.isProperty(PropertyFakeEndpoint) {
+		err = e.policyMapSync(nil, stats)
+		if err != nil {
+			return fmt.Errorf("fake ep policymap synchronization failed: %w", err)
+		}
+	}
+
 	if e.isProperty(PropertySkipBPFRegeneration) {
 		return nil
 	}
