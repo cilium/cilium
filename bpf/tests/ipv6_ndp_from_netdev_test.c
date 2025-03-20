@@ -159,10 +159,7 @@ int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 	if (!l4)
 		return TEST_ERROR;
 
-	union v6addr node_ip;
-
-	BPF_V6(node_ip, NODE_IPV6);
-	data = pktgen__push_data(&builder, (__u8 *)&node_ip, 16);
+	data = pktgen__push_data(&builder, (__u8 *)v6_node_one, 16);
 	if (!data)
 		return TEST_ERROR;
 
@@ -177,10 +174,7 @@ int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_ipv6_from_netdev_ns_for_node_ip")
 int ipv6_from_netdev_ns_for_node_ip_setup(struct __ctx_buff *ctx)
 {
-	union v6addr node_ip;
-
-	BPF_V6(node_ip, NODE_IPV6);
-	endpoint_v6_add_entry((union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST, 0,
+	endpoint_v6_add_entry((union v6addr *)v6_node_one, 0, 0, ENDPOINT_F_HOST, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;
@@ -244,10 +238,7 @@ int ipv6_from_netdev_ns_for_node_ip_check(const struct __ctx_buff *ctx)
 	if ((void *)payload + 24 > data_end)
 		test_fatal("payload out of bounds");
 
-	union v6addr node_ip;
-
-	BPF_V6(node_ip, NODE_IPV6);
-	if (memcmp(payload, (__u8 *)&node_ip, 16) != 0)
+	if (memcmp(payload, (__u8 *)v6_node_one, 16) != 0)
 		test_fatal("icmp6 payload target was changed");
 
 	test_finish();
