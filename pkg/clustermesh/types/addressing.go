@@ -286,6 +286,18 @@ type PrefixCluster struct {
 	clusterID uint32
 }
 
+// NewPrefixCluster builds an instance of a PrefixCluster with the input
+// prefix and clusterID.
+func NewPrefixCluster(prefix netip.Prefix, clusterID uint32) PrefixCluster {
+	return PrefixCluster{prefix, clusterID}
+}
+
+// NewLocalPrefixCluster builds an instance of a PrefixCluster with the input
+// prefix and clusterID set to 0.
+func NewLocalPrefixCluster(prefix netip.Prefix) PrefixCluster {
+	return NewPrefixCluster(prefix, 0)
+}
+
 // ParsePrefixCluster parses s as an Prefix + ClusterID and returns PrefixCluster.
 // The string s can be a bare IP prefix string (any prefix format allowed in
 // netip.ParsePrefix()) or prefix string + @ + ClusterID with decimal. Bare prefix
