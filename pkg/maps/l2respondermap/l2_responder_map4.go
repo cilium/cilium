@@ -5,6 +5,7 @@ package l2respondermap
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"unsafe"
@@ -30,15 +31,15 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle) Map {
-	return newMap(lifecycle, DefaultMaxEntries)
+func NewMap(lifecycle cell.Lifecycle, logger *slog.Logger) Map {
+	return newMap(lifecycle, DefaultMaxEntries, logger)
 }
 
 type l2ResponderMap struct {
 	*ebpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
+func newMap(lifecycle cell.Lifecycle, maxEntries int, logger *slog.Logger) *l2ResponderMap {
 	outerMap := &l2ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
@@ -48,8 +49,8 @@ func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
 				err error
 			)
 
-			if m, err = ebpf.LoadRegisterMap(MapName); err != nil {
-				m = ebpf.NewMap(&ebpf.MapSpec{
+			if m, err = ebpf.LoadRegisterMap(logger, MapName); err != nil {
+				m = ebpf.NewMap(logger, &ebpf.MapSpec{
 					Name:       MapName,
 					Type:       ebpf.Hash,
 					KeySize:    uint32(unsafe.Sizeof(L2ResponderKey{})),

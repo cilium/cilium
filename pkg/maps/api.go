@@ -7,17 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -66,7 +67,7 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 }
 
 type getMapNameEventsHandler struct {
-	logger    logrus.FieldLogger
+	logger    *slog.Logger
 	mapGetter mapRefGetter
 }
 
@@ -83,7 +84,7 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		flusher, err := getFlusher(w)
 		if err != nil {
-			h.logger.WithError(err).Error("BUG: could not get flusher from ResponseWriter")
+			h.logger.Error("BUG: could not get flusher from ResponseWriter", logfields.Error, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -111,7 +112,7 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 
 		handle, err := m.DumpAndSubscribe(writeEventFn, follow)
 		if err != nil {
-			h.logger.WithError(err).Error("api handler failed to subscribe to map events")
+			h.logger.Error("api handler failed to subscribe to map events", logfields.Error, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

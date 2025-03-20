@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -21,7 +22,7 @@ func registerMap(m *Map) {
 	mapRegister[m.path] = m
 	mutex.Unlock()
 
-	log.WithField("path", m.path).Debug("Registered BPF map")
+	m.logger.Debug("Registered BPF map", logfields.Path, m.path)
 }
 
 // GetMap returns the registered map with the given name or absolute path
