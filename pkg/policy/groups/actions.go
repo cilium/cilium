@@ -30,16 +30,14 @@ var (
 
 // AddDerivativeCNPIfNeeded will create a new CNP if the given CNP has any rules
 // that need to create a new derivative policy.
-// It returns a boolean, true in case that all actions are correct, false if
-// something fails.
-func AddDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) bool {
+func AddDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) {
 	if !cnp.RequiresDerivative() {
 		logger.Debug(
 			"CNP does not have derivative policies, skipped",
 			logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
 			logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
 		)
-		return true
+		return
 	}
 	controllerManager.UpdateController(
 		"add-derivative-cnp-"+cnp.ObjectMeta.Name,
@@ -49,20 +47,17 @@ func AddDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, c
 				return addDerivativePolicy(ctx, logger, clientset, cnp, false)
 			},
 		})
-	return true
 }
 
 // AddDerivativeCCNPIfNeeded will create a new CCNP if the given NetworkPolicy has any rules
 // that need to create a new derivative policy.
-// It returns a boolean, true in case that all actions are correct, false if
-// something fails.
-func AddDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) bool {
+func AddDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) {
 	if !cnp.RequiresDerivative() {
 		logger.Debug(
 			"CCNP does not have derivative policies, skipped",
 			logfields.CiliumClusterwideNetworkPolicyName, cnp.ObjectMeta.Name,
 		)
-		return true
+		return
 	}
 	controllerManager.UpdateController(
 		"add-derivative-ccnp-"+cnp.ObjectMeta.Name,
@@ -72,7 +67,6 @@ func AddDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, 
 				return addDerivativePolicy(ctx, logger, clientset, cnp, true)
 			},
 		})
-	return true
 }
 
 // UpdateDerivativeCNPIfNeeded updates or creates a CNP if the given CNP has
