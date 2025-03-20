@@ -135,6 +135,9 @@ func interactiveShell() {
 	}
 
 	console := term.NewTerminal(stdReadWriter, hostName+"> ")
+	if width, height, err := term.GetSize(0); err == nil {
+		console.SetSize(width, height)
+	}
 	printShellGreeting(console)
 
 	for {
