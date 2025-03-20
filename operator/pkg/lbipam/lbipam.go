@@ -685,7 +685,7 @@ func getSVCRequestedIPs(log *slog.Logger, svc *slim_core_v1.Service) []netip.Add
 	}
 
 	if value, _ := annotation.Get(svc, annotation.LBIPAMIPsKey, annotation.LBIPAMIPKeyAlias); value != "" {
-		for _, ipStr := range strings.Split(value, ",") {
+		for ipStr := range strings.SplitSeq(value, ",") {
 			ip, err := netip.ParseAddr(strings.TrimSpace(ipStr))
 			if err == nil {
 				ips = append(ips, ip)

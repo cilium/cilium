@@ -46,11 +46,9 @@ func (p *ProxyPorts) GetOpenLocalPorts() map[uint16]struct{} {
 			continue
 		}
 
-		lines := bytes.Split(b, []byte("\n"))
-
 		// Extract the local port number from the "local_address" column.
 		// The header line won't match and will be ignored.
-		for _, line := range lines {
+		for line := range bytes.SplitSeq(b, []byte("\n")) {
 			groups := procNetFileRegexp.FindSubmatch(line)
 			if len(groups) != 2 { // no match
 				continue

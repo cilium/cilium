@@ -412,7 +412,7 @@ func countWrappedLines(text string) int {
 		width = 80 // default width if we can't get the terminal size
 	}
 	lines := 1
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		lines += (utf8.RuneCountInString(line) + width - 1) / width
 	}
 	return lines

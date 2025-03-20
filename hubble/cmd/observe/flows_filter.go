@@ -273,8 +273,7 @@ func (t *filterTracker) checkNamespaceConflicts(ff *flowpb.FlowFilter) error {
 
 func parseTCPFlags(val string) (*flowpb.TCPFlags, error) {
 	flags := &flowpb.TCPFlags{}
-	s := strings.Split(val, ",")
-	for _, f := range s {
+	for f := range strings.SplitSeq(val, ",") {
 		switch strings.ToUpper(f) {
 		case "SYN":
 			flags.SYN = true

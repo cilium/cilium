@@ -71,7 +71,7 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan, sampling
 
 	// Write out the labels, also centered, but leave some margins.
 	if labels != "" {
-		for _, line := range strings.Split(wordwrap.WrapString(labels, uint(plotWidth-4)), "\n") {
+		for line := range strings.SplitSeq(wordwrap.WrapString(labels, uint(plotWidth-4)), "\n") {
 			fmt.Fprintf(w, "%s%s[ %s ]\n",
 				indentPlotOriginX,
 				strings.Repeat(" ", plotWidth/2-(len(line)+4)/2),
