@@ -338,6 +338,7 @@ Helm Options
   ``k8sClientExponentialBackoff.backoffMaxDurationSeconds``. Users who were already setting these
   using ``extraEnv`` should either remove them from ``extraEnv`` or set ``k8sClientExponentialBackoff.enabled=false``.
 * The deprecated Helm option ``hubble.relay.dialTimeout`` has been removed.
+* The new Helm option ``underlayProtocol`` allows selecting the underlay protocol for tunneling. It defaults to IPv4.
 * ``k8s.apiServerURLs`` has been introduced to specify multiple Kubernetes API servers so that the agent can fail over
   to an active instance.
 * ``eni.updateEC2AdapterLimitViaAPI`` is removed since the operator will only and always use the EC2API to update the EC2 instance limit.
@@ -347,8 +348,9 @@ Helm Options
 Agent Options
 ~~~~~~~~~~~~~
 
-``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes API server instances to support high availability
-for the servers. The agent will fail over to an active instance in case of connectivity failures at runtime.
+* The new agent flag ``underlay-protocol`` allows selecting the underlay protocol for tunneling. It defaults to IPv4.
+* ``k8s-api-server-urls``: This option specifies a list of URLs for Kubernetes API server instances to support high availability
+  for the servers. The agent will fail over to an active instance in case of connectivity failures at runtime.
 
 Bugtool Options
 ~~~~~~~~~~~~~~~

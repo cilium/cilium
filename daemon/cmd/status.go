@@ -199,7 +199,7 @@ func (d *Daemon) getRoutingStatus() *models.Routing {
 	s := &models.Routing{
 		IntraHostRoutingMode: models.RoutingIntraHostRoutingModeBPF,
 		InterHostRoutingMode: models.RoutingInterHostRoutingModeTunnel,
-		TunnelProtocol:       d.tunnelConfig.Protocol().String(),
+		TunnelProtocol:       d.tunnelConfig.EncapProtocol().String(),
 	}
 	if option.Config.EnableHostLegacyRouting {
 		s.IntraHostRoutingMode = models.RoutingIntraHostRoutingModeLegacy

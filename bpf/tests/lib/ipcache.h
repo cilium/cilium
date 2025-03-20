@@ -14,11 +14,13 @@ __ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 	struct remote_endpoint_info value = {};
 
 	value.sec_identity = sec_identity;
-	value.tunnel_endpoint = tunnel_ep;
+	value.tunnel_endpoint.ip4 = tunnel_ep;
 	value.key = spi;
 	value.flag_skip_tunnel = flag_skip_tunnel;
+	if (tunnel_ep)
+		value.flag_has_tunnel_ep = true;
 
-	map_update_elem(&cilium_ipcache, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_ipcache_v2, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
@@ -62,13 +64,15 @@ __ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_iden
 	struct remote_endpoint_info value = {};
 
 	value.sec_identity = sec_identity;
-	value.tunnel_endpoint = tunnel_ep;
+	value.tunnel_endpoint.ip4 = tunnel_ep;
 	value.key = spi;
 	value.flag_skip_tunnel = flag_skip_tunnel;
+	if (tunnel_ep)
+		value.flag_has_tunnel_ep = true;
 
 	memcpy(&key.ip6, addr, sizeof(*addr));
 
-	map_update_elem(&cilium_ipcache, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_ipcache_v2, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
