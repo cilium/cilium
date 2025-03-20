@@ -22,14 +22,14 @@ type BPFXDP struct {
 	InterfaceMAC2 uint16 `config:"interface_mac_2"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
-	// First half of the masquerade address for IPv6 traffic.
-	NATIPv6Masquerade1 uint64 `config:"nat_ipv6_masquerade_1"`
-	// Second half of the masquerade address for IPv6 traffic.
-	NATIPv6Masquerade2 uint64 `config:"nat_ipv6_masquerade_2"`
+	// Masquerade address for IPv6 traffic.
+	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 
 	Node
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x5dc, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+	return &BPFXDP{0x5dc, 0x0, 0x0, 0x0, 0x0,
+		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		node}
 }
