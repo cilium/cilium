@@ -19,6 +19,7 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/icmpv6.h>
+#include <linux/icmp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -71,6 +72,22 @@ static volatile const __section(".rodata") __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0
 static volatile const __section(".rodata") __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 2};
 static volatile const __section(".rodata") __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
+
+/* IPv6 addresses for external hosts */
+static volatile const __section(".rodata") __u8 v6_ext_one[] = {0xfd, 0x01, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __section(".rodata") __u8 v6_ext_two[] = {0xfd, 0x02, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __section(".rodata") __u8 v6_ext_three[] = {0xfd, 0x03, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
+
+/* IPv6 addresses for services in the cluster */
+static volatile const __section(".rodata") __u8 v6_svc_one[] = {0xfd, 0x08, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __section(".rodata") __u8 v6_svc_two[] = {0xfd, 0x08, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __section(".rodata") __u8 v6_svc_three[] = {0xfd, 0x08, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
 /* IPv6 addresses for nodes in the cluster */
@@ -622,6 +639,34 @@ pktgen__push_ipv4_packet(struct pktgen *builder,
 	l3->daddr = daddr;
 
 	return l3;
+}
+
+static __always_inline struct icmphdr *
+pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
+					__u8 *smac, __u8 *dmac,
+					__be32 saddr, __be32 daddr,
+					__u8 type, __u8 code)
+{
+	struct icmphdr *icmp;
+	struct iphdr *l3;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l3->protocol = IPPROTO_ICMP;
+
+	icmp = pktgen__push_rawhdr(builder, sizeof(struct icmphdr), PKT_LAYER_ICMP);
+	if (!icmp)
+		return NULL;
+
+	icmp->type = type;
+	icmp->code = code;
+	icmp->checksum = 0;
+	icmp->un.echo.id = 0;
+	icmp->un.echo.sequence = 0;
+
+	return icmp;
 }
 
 static __always_inline struct tcphdr *
