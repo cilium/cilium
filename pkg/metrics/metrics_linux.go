@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !windows
-
 package metrics
 
 import "github.com/cilium/cilium/pkg/datapath/linux/probes"
