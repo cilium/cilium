@@ -25,8 +25,8 @@
   key-two: 'gcm(aes)'
   kvstore: 'true'
 - name: '4'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'bpf-next-20250317.013137'
+  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+  kernel: 'bpf-next-20250110.013326'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -62,8 +62,8 @@
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
 - name: '8'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'bpf-next-20250317.013137'
+  # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+  kernel: 'bpf-next-20250110.013326'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'vxlan'
