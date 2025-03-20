@@ -48,6 +48,24 @@ struct dnshdr {
   u16 arcount;
 }
 
+// Monitor and log plain text pod-to-pod packets passing through the bridge if:
+// 1. packet traced by proxy and at least one IP is in PodCIDR, or
+// 2. both IPs are in PodCIDR and not CiliumInternalIPs.
+// In addition, skip TCP RST packets, as they might be kernel-level packet due
+// to proxy timeout sockets (https://github.com/cilium/cilium/issues/35485).
+//
+// Shift header references to inner packet in case of encapsulation:
+// - EinV (< v1.18):  outer packet is plaintext overlay, checks must be against inner packet.
+// - VinE (>=v1.18):  outer packet is encrypted (encap bit not set).
+//                    in case of plaintext encap'd packet, shift headers and check:
+//                    * if ESP, then might be a legit EinV upgrade/downgrade scenario
+//                    * otherwise, report leakage if not pod-to-pod.
+// - WG pod-to-pod:   outer packet is encrypted (encap bit not set), similarly as VinE.
+// - WG node-to-node: currently unsupported, only pod-to-pod leak detection checks.
+//
+// Note: br_forward is not exclusive of Kind. We run this script in CI where we
+// expect only br-kind-cilium (and br-kind-cilium-secondary). To run this script
+// on a local setup, ensure that no other bridges interfere.
 kprobe:br_forward
 {
   $skb = ((struct sk_buff *) arg1);
@@ -73,40 +91,6 @@ kprobe:br_forward
     $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
-
-    if ($proto == PROTO_IPV4) {
-      $pod_to_pod_via_proxy =
-        !($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ?
-          @trace_ip4[$ip4h->saddr, 0, 0] :
-          (@trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
-            @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol]);
-
-      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR,
-      // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$pod_to_pod_via_proxy &&
-           ($ip4h->saddr == (uint32)pton(str($1)) || $ip4h->daddr == (uint32)pton(str($1)) ||
-            $ip4h->saddr == (uint32)pton(str($3)) || $ip4h->daddr == (uint32)pton(str($3)) ||
-            $ip4h->saddr == (uint32)pton(str($5)) || $ip4h->daddr == (uint32)pton(str($5)))) {
-        return;
-      }
-    }
-
-    if ($proto == PROTO_IPV6) {
-      $pod_to_pod_via_proxy =
-          !($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ?
-          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, 0, 0] :
-          (@trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
-            @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr]);
-
-      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR
-      // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$pod_to_pod_via_proxy &&
-           ($ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
-            $ip6h->saddr.in6_u.u6_addr8 == pton(str($6)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($6)))) {
-        return;
-      }
-    }
   }
 
   if ($proto == PROTO_IPV4) {
@@ -119,13 +103,26 @@ kprobe:br_forward
       $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
       $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
 
+      $src_is_internal =
+        $ip4h->saddr == (uint32)pton(str($1)) ||
+        $ip4h->saddr == (uint32)pton(str($3)) ||
+        $ip4h->saddr == (uint32)pton(str($5));
+
+      $dst_is_internal =
+        $ip4h->daddr == (uint32)pton(str($1)) ||
+        $ip4h->daddr == (uint32)pton(str($3)) ||
+        $ip4h->daddr == (uint32)pton(str($5));
+
       $pod_to_pod_via_proxy =
           !($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ?
           @trace_ip4[$ip4h->saddr, 0, 0] :
           (@trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
             @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol]);
 
-      if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
+      if (
+          (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
+          ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
+        ) {
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
@@ -167,13 +164,26 @@ kprobe:br_forward
       $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
       $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
 
+      $src_is_internal =
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($6));
+
+      $dst_is_internal =
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($6));
+
       $pod_to_pod_via_proxy =
           !($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ?
           @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, 0, 0] :
           (@trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
             @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr]);
 
-      if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
+      if (
+          (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
+          ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
+        ) {
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
             strftime("%H:%M:%S:%f", nsecs),
