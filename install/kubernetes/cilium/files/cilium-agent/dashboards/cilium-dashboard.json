@@ -6908,14 +6908,10 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "bps"
+          "unit": "pps"
         },
         "overrides": []
       },
@@ -6945,14 +6941,15 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(rate(cilium_drop_bytes_total{direction=\"INGRESS\", k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (reason) * 8",
+          "expr": "sum(rate(cilium_drop_count_total{k8s_app=\"cilium\", pod=~\"$pod\", reason=\"Policy denied\"}[1m])) by (direction)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{reason}}",
+          "legendFormat": "{{direction}}",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Dropped Ingress Traffic",
+      "title": "Policy Denies: L3/L4",
       "type": "timeseries"
     },
     {
@@ -7006,10 +7003,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -7043,14 +7036,15 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(rate(cilium_drop_count_total{direction=\"INGRESS\", k8s_app=\"cilium\", pod=~\"$pod\"}[5m])) by (reason)",
+          "expr": "sum(rate(cilium_policy_l7_total{rule=\"denied\", k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (proxy_type)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{reason}}",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Cilium drops Ingress",
+      "title": "Policy Denies: L7",
       "type": "timeseries"
     },
     {
