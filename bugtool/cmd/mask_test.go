@@ -4,9 +4,18 @@
 package cmd
 
 import (
+	_ "embed"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	//go:embed testdata/envoy-config-input.json
+	envoyConfigInput string
+
+	//go:embed testdata/envoy-config-output.json
+	envoyConfigOutput string
 )
 
 func Test_jsonFieldMaskPostProcess(t *testing.T) {
@@ -189,4 +198,18 @@ func Test_jsonFieldMaskPostProcess(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test_jsonFieldMaskPostProcessFile is to make sure that the json field masking
+// is working correctly with the actual sample envoy config file
+func Test_jsonFieldMaskPostProcessFile(t *testing.T) {
+	res, err := jsonFieldMaskPostProcess([]string{
+		"api_key",
+		"trusted_ca",
+		"certificate_chain",
+		"private_key",
+	})([]byte(envoyConfigInput))
+
+	require.NoError(t, err)
+	require.JSONEq(t, envoyConfigOutput, string(res))
 }
