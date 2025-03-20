@@ -26,9 +26,7 @@
 DECLARE_CONFIG(__u32, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 #define IPV4_MASQUERADE CONFIG(nat_ipv4_masquerade)
 
-DECLARE_CONFIG(__u64, nat_ipv6_masquerade_1, "First half of the masquerade address for IPv6 traffic")
-DECLARE_CONFIG(__u64, nat_ipv6_masquerade_2, "Second half of the masquerade address for IPv6 traffic")
-#define IPV6_MASQUERADE nat_ipv6_masquerade
+DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -1586,13 +1584,12 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
-	union v6addr masq_addr __maybe_unused;
+	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep __maybe_unused;
 
 	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
-	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		target->needs_ct = true;

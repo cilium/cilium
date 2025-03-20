@@ -30,10 +30,8 @@ type BPFLXC struct {
 	InterfaceMAC2 uint16 `config:"interface_mac_2"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
-	// First half of the masquerade address for IPv6 traffic.
-	NATIPv6Masquerade1 uint64 `config:"nat_ipv6_masquerade_1"`
-	// Second half of the masquerade address for IPv6 traffic.
-	NATIPv6Masquerade2 uint64 `config:"nat_ipv6_masquerade_2"`
+	// Masquerade address for IPv6 traffic.
+	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
 	// The endpoint's security label.
@@ -45,5 +43,7 @@ type BPFLXC struct {
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{0x5dc, 0x0, 0x0,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, 0x0, 0x0, 0x0, 0x0,
+		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, node}
 }

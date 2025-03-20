@@ -35,6 +35,8 @@
  */
 #include "bpf_host.c"
 
+ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
+
 /*
  * Include test helpers
  */
@@ -207,9 +209,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
 		struct ipv6hdr *l3;
-		union v6addr masq_addr;
-
-		BPF_V6(masq_addr, IPV6_MASQUERADE);
+		union v6addr masq_addr = CONFIG(nat_ipv6_masquerade);
 
 		l3 = (void *)l2 + sizeof(struct ethhdr);
 
