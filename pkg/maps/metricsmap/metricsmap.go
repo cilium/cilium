@@ -4,6 +4,8 @@
 package metricsmap
 
 import (
+	"log/slog"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -39,16 +40,9 @@ type metricsMap struct {
 }
 
 var (
+	initMetricsMapOnce sync.Once
 	// Metrics is the bpf metrics map
-	Metrics = metricsMap{ebpf.NewMap(&ebpf.MapSpec{
-		Name:       MapName,
-		Type:       ebpf.PerCPUHash,
-		KeySize:    uint32(unsafe.Sizeof(Key{})),
-		ValueSize:  uint32(unsafe.Sizeof(Value{})),
-		MaxEntries: MaxEntries,
-		Pinning:    ebpf.PinByName,
-	})}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
+	Metrics metricsMap
 )
 
 const (
@@ -161,6 +155,8 @@ func (vs Values) Bytes() uint64 {
 
 // metricsMapCollector implements Prometheus Collector interface
 type metricsmapCollector struct {
+	logger *slog.Logger
+
 	mutex lock.Mutex
 
 	droppedCountDesc *prometheus.Desc
@@ -169,8 +165,9 @@ type metricsmapCollector struct {
 	forwardByteDesc  *prometheus.Desc
 }
 
-func newMetricsMapCollector() prometheus.Collector {
+func newMetricsMapCollector(logger *slog.Logger) prometheus.Collector {
 	return &metricsmapCollector{
+		logger: logger,
 		droppedByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
@@ -278,7 +275,7 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		fwd.sum(labelSet, values)
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to read metrics from BPF map")
+		mc.logger.Warn("Failed to read metrics from BPF map", logfields.Error, err)
 		// Do not update partial metrics
 		return
 	}
@@ -309,9 +306,26 @@ func (mc *metricsmapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- mc.droppedByteDesc
 }
 
-func RegisterCollector() {
-	if err := metrics.Register(newMetricsMapCollector()); err != nil {
-		log.WithError(err).Error("Failed to register metrics map collector to Prometheus registry. " +
-			"cilium_datapath_drop/forward metrics will not be collected")
+func InitMap(logger *slog.Logger) {
+	initMetricsMapOnce.Do(func() {
+		Metrics = metricsMap{ebpf.NewMap(logger, &ebpf.MapSpec{
+			Name:       MapName,
+			Type:       ebpf.PerCPUHash,
+			KeySize:    uint32(unsafe.Sizeof(Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(Value{})),
+			MaxEntries: MaxEntries,
+			Pinning:    ebpf.PinByName,
+		})}
+	})
+}
+
+func RegisterCollector(logger *slog.Logger) {
+	InitMap(logger)
+	if err := metrics.Register(newMetricsMapCollector(logger)); err != nil {
+		logger.Error(
+			"Failed to register metrics map collector to Prometheus registry. "+
+				"cilium_datapath_drop/forward metrics will not be collected",
+			logfields.Error, err,
+		)
 	}
 }

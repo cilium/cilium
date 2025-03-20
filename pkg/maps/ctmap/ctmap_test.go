@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -37,21 +38,22 @@ func TestCalculateInterval(t *testing.T) {
 
 func TestGetInterval(t *testing.T) {
 	cachedGCInterval = time.Minute
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
+	logger := hivetest.Logger(t)
+	require.Equal(t, time.Minute, GetInterval(logger, cachedGCInterval, 0.1))
 
 	// Setting ConntrackGCInterval overrides the calculation
 	oldInterval := option.Config.ConntrackGCInterval
 	option.Config.ConntrackGCInterval = 10 * time.Second
-	require.Equal(t, 10*time.Second, GetInterval(cachedGCInterval, 0.1))
+	require.Equal(t, 10*time.Second, GetInterval(logger, cachedGCInterval, 0.1))
 	option.Config.ConntrackGCInterval = oldInterval
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
+	require.Equal(t, time.Minute, GetInterval(logger, cachedGCInterval, 0.1))
 
 	// Setting ConntrackGCMaxInterval limits the maximum interval
 	oldMaxInterval := option.Config.ConntrackGCMaxInterval
 	option.Config.ConntrackGCMaxInterval = 20 * time.Second
-	require.Equal(t, 20*time.Second, GetInterval(cachedGCInterval, 0.1))
+	require.Equal(t, 20*time.Second, GetInterval(logger, cachedGCInterval, 0.1))
 	option.Config.ConntrackGCMaxInterval = oldMaxInterval
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
+	require.Equal(t, time.Minute, GetInterval(logger, cachedGCInterval, 0.1))
 
 	cachedGCInterval = time.Duration(0)
 }

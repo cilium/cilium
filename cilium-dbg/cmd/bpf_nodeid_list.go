@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
 
@@ -49,7 +50,7 @@ var bpfNodeIDListCmd = &cobra.Command{
 			})
 		}
 
-		nodeMap, err := nodemap.LoadNodeMapV2()
+		nodeMap, err := nodemap.LoadNodeMapV2(logging.DefaultSlogLogger)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find node bpf map")
