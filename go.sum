@@ -138,8 +138,8 @@ github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 h1:MOWY9eqnrr
 github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62/go.mod h1:9EU8oWNwEP6f98xJz/YjWw7yOLHK7p90MKmaPu1wBcE=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a h1:PRGN7B+72mj3OtLL2DM3F/9jp+ItgqgNS7mecgCmwsQ=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a/go.mod h1:/7LC2GOgyXJ7maupZlaVIumYQiGPIgllSf6mA9sg6RU=
-github.com/cilium/ebpf v0.17.1 h1:G8mzU81R2JA1nE5/8SRubzqvBMmAmri2VL8BIZPWvV0=
-github.com/cilium/ebpf v0.17.1/go.mod h1:vay2FaYSmIlv3r8dNACd4mW/OCaZLJKJOo+IHBvCIO8=
+github.com/cilium/ebpf v0.17.3 h1:FnP4r16PWYSE4ux6zN+//jMcW4nMVRvuTLVTvCjyyjg=
+github.com/cilium/ebpf v0.17.3/go.mod h1:G5EDHij8yiLzaqn0WjyfJHvRa+3aDlReIaLVRMvOyJk=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba h1:Ddc5e+pz0/nY0XiAEW/UcIlvnaHACSuF77ePyMNX510=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba/go.mod h1:9MPoeojWVEBLFnioKXTvRoqGWTs9Dt252r1ACFsi8K8=
 github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b h1:JxoccA9UQVXoQlJaMI7dtCXhg5R1ZPLPW+py376p1SA=
