@@ -2207,6 +2207,9 @@
                     "anyOf": [
                       {
                         "properties": {
+                          "action": {
+                            "type": "string"
+                          },
                           "replacement": {
                             "type": "string"
                           },
@@ -2781,6 +2784,9 @@
                     "anyOf": [
                       {
                         "properties": {
+                          "action": {
+                            "type": "string"
+                          },
                           "replacement": {
                             "type": "string"
                           },
@@ -5046,6 +5052,9 @@
                 "anyOf": [
                   {
                     "properties": {
+                      "action": {
+                        "type": "string"
+                      },
                       "replacement": {
                         "type": "string"
                       },

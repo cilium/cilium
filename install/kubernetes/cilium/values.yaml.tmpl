@@ -69,7 +69,7 @@ k8sServiceHostRef:
   # -- (string) name of the ConfigMap containing the Kubernetes service endpoint
   name:
   # @schema
-  # type: [string, null] 
+  # type: [string, null]
   # @schema
   # -- (string) Key in the ConfigMap containing the Kubernetes service endpoint
   key:
@@ -1303,6 +1303,7 @@ hubble:
         - sourceLabels:
             - __meta_kubernetes_pod_node_name
           targetLabel: node
+          action: replace
           replacement: ${1}
       # @schema
       # type: [null, array]
@@ -2324,6 +2325,7 @@ prometheus:
       - sourceLabels:
           - __meta_kubernetes_pod_node_name
         targetLabel: node
+        action: replace
         replacement: ${1}
     # @schema
     # type: [null, array]
@@ -2646,6 +2648,7 @@ envoy:
         - sourceLabels:
             - __meta_kubernetes_pod_node_name
           targetLabel: node
+          action: replace
           replacement: ${1}
       # @schema
       # type: [null, array]
