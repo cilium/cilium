@@ -5,20 +5,7 @@
 
 package metrics
 
-import (
-	"golang.org/x/sys/unix"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-)
-
-// Errno2Outcome converts a unix.Errno to LabelOutcome
-func Errno2Outcome(errno unix.Errno) string {
-	if errno != 0 {
-		return LabelValueOutcomeFail
-	}
-
-	return LabelValueOutcomeSuccess
-}
+import "github.com/cilium/cilium/pkg/datapath/linux/probes"
 
 func enableIfIndexMetric() bool {
 	// On kernels which do not provide ifindex via the FIB, Cilium needs
