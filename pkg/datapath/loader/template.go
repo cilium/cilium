@@ -145,21 +145,3 @@ func sliceToU32(input []byte) uint32 {
 func sliceToBe32(input []byte) uint32 {
 	return byteorder.HostToNetwork32(sliceToU32(input))
 }
-
-// sliceToU64 converts the input slice of eight bytes to a uint64.
-func sliceToU64(input []byte) uint64 {
-	result := uint64(input[0]) << 56
-	result |= uint64(input[1]) << 48
-	result |= uint64(input[2]) << 40
-	result |= uint64(input[3]) << 32
-	result |= uint64(input[4]) << 24
-	result |= uint64(input[5]) << 16
-	result |= uint64(input[6]) << 8
-	result |= uint64(input[7])
-	return result
-}
-
-// sliceToBe64 converts the input slice of eight bytes to a big-endian uint64.
-func sliceToBe64(input []byte) uint64 {
-	return byteorder.HostToNetwork64(sliceToU64(input))
-}
