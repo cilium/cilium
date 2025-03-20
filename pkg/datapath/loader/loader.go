@@ -206,9 +206,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 			cfg.NATIPv4Masquerade = byteorder.NetIPv4ToHost32(ipv4.AsSlice())
 		}
 		if option.Config.EnableIPv6Masquerade && ipv6.IsValid() {
-			ipv6Bytes := ipv6.AsSlice()
-			cfg.NATIPv6Masquerade1 = sliceToBe64(ipv6Bytes[0:8])
-			cfg.NATIPv6Masquerade2 = sliceToBe64(ipv6Bytes[8:16])
+			cfg.NATIPv6Masquerade = ipv6.As16()
 		}
 	}
 
