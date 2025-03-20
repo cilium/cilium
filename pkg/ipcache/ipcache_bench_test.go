@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -42,10 +43,10 @@ func BenchmarkInjectLabels(b *testing.B) {
 	lbls := labels.NewLabelsFromSortedList(labels.LabelSourceCIDRGroup + ":foo=bar")
 	b.ResetTimer()
 
-	prefixes := make([]netip.Prefix, 0, b.N)
+	prefixes := make([]cmtypes.PrefixCluster, 0, b.N)
 
 	for i := 0; i < b.N; i++ {
-		pfx := netip.PrefixFrom(addr, 30)
+		pfx := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(addr, 30))
 		for j := 0; j < 4; j++ {
 			addr = addr.Next()
 		}

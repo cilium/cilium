@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -91,21 +92,21 @@ func (i *ipcacheMock) Delete(ip string, source source.Source) bool {
 	return false
 }
 
-func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source {
+func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source {
 	return source.Unspec
 }
-func (i *ipcacheMock) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
+func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
 	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{})
 }
-func (i *ipcacheMock) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+func (i *ipcacheMock) OverrideIdentity(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	i.UpsertMetadata(prefix, src, resource)
 }
 
-func (i *ipcacheMock) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
+func (i *ipcacheMock) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
 	i.Delete(prefix.String(), source.CustomResource)
 }
 
-func (i *ipcacheMock) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
+func (i *ipcacheMock) RemoveIdentityOverride(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
 	i.Delete(prefix.String(), source.CustomResource)
 }
 
