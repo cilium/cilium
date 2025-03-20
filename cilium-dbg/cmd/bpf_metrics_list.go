@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -53,6 +54,7 @@ var bpfMetricsListCmd = &cobra.Command{
 	Short: "List BPF datapath traffic metrics",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics list")
+		metricsmap.InitMap(logging.DefaultSlogLogger)
 		listMetrics(&metricsmap.Metrics)
 	},
 }

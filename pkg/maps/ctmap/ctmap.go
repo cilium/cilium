@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/netip"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
@@ -35,8 +34,6 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ct")
-
 	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
 		metrics.LabelDatapathArea:   "conntrack",
@@ -337,7 +334,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		// per-cluster map handling
 		natm, err := nat.GetClusterNATMap(m.clusterID, family)
 		if err != nil {
-			log.WithError(err).Error("Unable to get per-cluster NAT map")
+			m.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
 		} else {
 			natMap = natm
 		}
@@ -462,12 +459,17 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log := log.WithField(logfields.Key, ctKey.ToHost().String())
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					log.Debug("key is missing, likely due to lru eviction - skipping")
+					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
+						logfields.Error, err,
+						logfields.Key, ctKey.ToHost(),
+					)
 					stats.skipped++
 				} else {
-					log.WithError(err).Error("Unable to delete CT entry")
+					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
+						logfields.Error, err,
+						logfields.Key, ctKey.ToHost(),
+					)
 				}
 			} else {
 				stats.deleted++
@@ -601,7 +603,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	}
 
 	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
-		log.WithError(err).Error("NATmap dump failed during GC")
+		natMap.Logger.Error("NATmap dump failed during GC", logfields.Error, err)
 	} else {
 		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
 	}
@@ -642,22 +644,24 @@ func DeleteIfUpgradeNeeded() {
 	for _, newMap := range maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
-			log.WithError(err).Warning("Failed to get path for CT map")
+			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
 			continue
 		}
-		scopedLog := log.WithField(logfields.Path, path)
 
 		// Pass nil key and value types since we're not intending on accessing the
 		// map's contents.
 		oldMap, err := bpf.OpenMap(path, nil, nil)
 		if err != nil {
-			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
+			newMap.Logger.Debug("Couldn't open CT map for upgrade",
+				logfields.Error, err,
+				logfields.Path, path,
+			)
 			continue
 		}
 		defer oldMap.Close()
 
 		if oldMap.CheckAndUpgrade(&newMap.Map) {
-			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
+			newMap.Logger.Warn("CT Map upgraded, expect brief disruption of ongoing connections", logfields.Path, path)
 		}
 	}
 }
@@ -723,7 +727,7 @@ var cachedGCInterval time.Duration
 
 // GetInterval returns the interval adjusted based on the deletion ratio of the
 // last run
-func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
+func GetInterval(logger *slog.Logger, actualPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
@@ -742,13 +746,14 @@ func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.
 	}
 
 	if newInterval != expectedPrevInterval {
-		log.WithFields(logrus.Fields{
-			"expectedPrevInterval": expectedPrevInterval,
-			"actualPrevInterval":   actualPrevInterval,
-			"newInterval":          newInterval,
-			"deleteRatio":          maxDeleteRatio,
-			"adjustedDeleteRatio":  adjustedDeleteRatio,
-		}).Info("Conntrack garbage collector interval recalculated")
+		logger.Info(
+			"Conntrack garbage collector interval recalculated",
+			logfields.ExpectedPrevInterval, expectedPrevInterval,
+			logfields.ActualPrevInterval, actualPrevInterval,
+			logfields.NewInterval, newInterval,
+			logfields.DeleteRatio, maxDeleteRatio,
+			logfields.AdjustedDeleteRatio, adjustedDeleteRatio,
+		)
 	}
 
 	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
@@ -799,12 +804,17 @@ func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
 			for _, m := range allMaps {
 				path, err := OpenCTMap(m)
 				if err != nil {
-					msg := "Skipping CT map pressure calculation"
-					scopedLog := log.WithError(err).WithField(logfields.Path, path)
+					const msg = "Skipping CT map pressure calculation"
 					if os.IsNotExist(err) {
-						scopedLog.Debug(msg)
+						m.Logger.Debug(msg,
+							logfields.Error, err,
+							logfields.Path, path,
+						)
 					} else {
-						scopedLog.Warn(msg)
+						m.Logger.Warn(msg,
+							logfields.Error, err,
+							logfields.Path, path,
+						)
 					}
 					continue
 				}
