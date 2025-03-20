@@ -1071,6 +1071,11 @@ Headers
   Headers is a list of HTTP headers which must be present in the request. If
   omitted or empty, requests are allowed regardless of headers present.
 
+  It's also possible to do some more advanced header matching against header
+  values. ``HeaderMatches`` is a list of HTTP headers which must be present and
+  match against the given values. Mismatch field can be used to specify what
+  to do when there is no match.
+
 Allow GET /public
 ~~~~~~~~~~~~~~~~~
 
