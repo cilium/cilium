@@ -5,6 +5,7 @@ package lbmap
 
 import (
 	"fmt"
+	"log/slog"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -60,10 +61,10 @@ func newMaglevInnerMapSpec(tableSize uint32) *ebpf.MapSpec {
 
 // createMaglevInnerMap creates a new Maglev inner map in the kernel
 // using the given table size.
-func createMaglevInnerMap(tableSize uint32) (*MaglevInnerMap, error) {
+func createMaglevInnerMap(logger *slog.Logger, tableSize uint32) (*MaglevInnerMap, error) {
 	spec := newMaglevInnerMapSpec(tableSize)
 
-	m := ebpf.NewMap(spec)
+	m := ebpf.NewMap(logger, spec)
 	if err := m.OpenOrCreate(); err != nil {
 		return nil, err
 	}
@@ -73,8 +74,8 @@ func createMaglevInnerMap(tableSize uint32) (*MaglevInnerMap, error) {
 
 // MaglevInnerMapFromID returns a new object representing the maglev inner map
 // identified by an ID.
-func MaglevInnerMapFromID(id uint32) (*MaglevInnerMap, error) {
-	m, err := ebpf.MapFromID(int(id))
+func MaglevInnerMapFromID(logger *slog.Logger, id uint32) (*MaglevInnerMap, error) {
+	m, err := ebpf.MapFromID(logger, int(id))
 	if err != nil {
 		return nil, err
 	}

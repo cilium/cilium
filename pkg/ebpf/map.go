@@ -6,6 +6,7 @@ package ebpf
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -46,7 +48,8 @@ type IterateCallback func(key, value any)
 
 // Map represents an eBPF map.
 type Map struct {
-	lock lock.RWMutex
+	logger *slog.Logger
+	lock   lock.RWMutex
 	*ciliumebpf.Map
 
 	spec *MapSpec
@@ -54,18 +57,19 @@ type Map struct {
 }
 
 // NewMap creates a new Map object.
-func NewMap(spec *MapSpec) *Map {
+func NewMap(logger *slog.Logger, spec *MapSpec) *Map {
 	return &Map{
-		spec: spec,
+		logger: logger,
+		spec:   spec,
 	}
 }
 
 // LoadRegisterMap loads the specified map from a bpffs pin path and registers
 // its handle in the package-global map register.
-func LoadRegisterMap(mapName string) (*Map, error) {
+func LoadRegisterMap(logger *slog.Logger, mapName string) (*Map, error) {
 	path := bpf.MapPath(mapName)
 
-	m, err := LoadPinnedMap(path)
+	m, err := LoadPinnedMap(logger, path)
 	if err != nil {
 		return nil, err
 	}
@@ -76,26 +80,28 @@ func LoadRegisterMap(mapName string) (*Map, error) {
 }
 
 // LoadPinnedMap wraps cilium/ebpf's LoadPinnedMap.
-func LoadPinnedMap(fileName string) (*Map, error) {
+func LoadPinnedMap(logger *slog.Logger, fileName string) (*Map, error) {
 	m, err := ciliumebpf.LoadPinnedMap(fileName, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Map{
-		Map:  m,
-		path: fileName,
+		logger: logger,
+		Map:    m,
+		path:   fileName,
 	}, nil
 }
 
-func MapFromID(id int) (*Map, error) {
+func MapFromID(logger *slog.Logger, id int) (*Map, error) {
 	newMap, err := ciliumebpf.NewMapFromID(ciliumebpf.MapID(id))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Map{
-		Map: newMap,
+		logger: logger,
+		Map:    newMap,
 	}, nil
 }
 
@@ -145,8 +151,11 @@ func (m *Map) OpenOrCreate() error {
 		// configuration (e.g different type, k/v size or flags).
 		// Try to delete and recreate it.
 
-		log.WithField("map", m.spec.Name).
-			WithError(err).Warn("Removing map to allow for property upgrade (expect map data loss)")
+		m.logger.Warn(
+			"Removing map to allow for property upgrade (expect map data loss)",
+			logfields.Error, err,
+			logfields.BPFMapName, m.spec.Name,
+		)
 
 		oldMap, err := ciliumebpf.LoadPinnedMap(path, &opts.LoadPinOptions)
 		if err != nil {
@@ -154,7 +163,11 @@ func (m *Map) OpenOrCreate() error {
 		}
 		defer func() {
 			if err := oldMap.Close(); err != nil {
-				log.WithField("map", m.spec.Name).Warnf("Cannot close map: %v", err)
+				m.logger.Warn(
+					"Cannot close map",
+					logfields.Error, err,
+					logfields.BPFMapName, m.spec.Name,
+				)
 			}
 		}()
 

@@ -44,7 +44,7 @@ func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
 
 	// Must return a valid map even if returning an error
 	return &StatsMap{
-		Map: ebpf.NewMap(&ebpf.MapSpec{
+		Map: ebpf.NewMap(log, &ebpf.MapSpec{
 			Name:       StatsMapName,
 			Type:       ebpf.LRUCPUHash,
 			KeySize:    uint32(unsafe.Sizeof(StatsKey{})),
@@ -59,14 +59,14 @@ func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
 
 // OpenStatsMap opens the existing global policy stats map.
 // Should only be called from cilium-dbg
-func OpenStatsMap() (*StatsMap, error) {
-	m, err := ebpf.LoadRegisterMap(StatsMapName)
+func OpenStatsMap(logger *slog.Logger) (*StatsMap, error) {
+	m, err := ebpf.LoadRegisterMap(logger, StatsMapName)
 	if err != nil {
 		return nil, err
 	}
 	return &StatsMap{
 		Map: m,
-		log: slog.Default(),
+		log: logger,
 	}, nil
 }
 
