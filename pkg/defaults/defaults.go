@@ -582,7 +582,7 @@ const (
 	BGPRouterIDAllocationMode = "default"
 
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
-	WireguardTrackAllIPsFallback = false
+	WireguardTrackAllIPsFallback = true
 
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
