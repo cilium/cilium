@@ -45,6 +45,10 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
         - name: ng-arm64
           instanceTypes:
            - t4g.medium
@@ -53,6 +57,10 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
         EOF
 
         eksctl create nodegroup -f ./eks-nodegroups.yaml
