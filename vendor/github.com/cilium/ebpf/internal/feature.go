@@ -93,7 +93,7 @@ func NewFeatureTest(name string, fn FeatureTestFn, versions ...string) func() er
 			break
 		}
 
-		if runtime.GOOS == "linux" && !strings.ContainsRune(version, ':') {
+		if OnLinux && !strings.ContainsRune(version, ':') {
 			// Allow version numbers without a GOOS prefix on Linux.
 			ft.Version = version
 			break
