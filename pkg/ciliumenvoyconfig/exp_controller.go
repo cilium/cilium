@@ -286,8 +286,9 @@ func (c *cecController) specToAssignmentsAndRedirects(
 		if !found {
 			continue
 		}
-		bes, watchBes := c.Backends.ListWatch(txn, experimental.BackendByServiceName(svc.Name))
+		bes, watchBes := c.Writer.BackendsForService(txn, svc.Name)
 		ws.Add(watchBes)
+		bes = c.Writer.SelectBackends(bes, svc, nil)
 
 		computeLoadAssignments(
 			assignments,
@@ -303,18 +304,14 @@ func computeLoadAssignments(
 	serviceName loadbalancer.ServiceName,
 	ports sets.Set[string],
 	portNames map[string]uint16,
-	backends iter.Seq2[*experimental.Backend, statedb.Revision],
+	backends iter.Seq2[experimental.BackendParams, statedb.Revision],
 ) {
 	// Partition backends by port name.
-	backendMap := map[string]map[string]*experimental.Backend{}
+	backendMap := map[string]map[string]experimental.BackendParams{}
 
 	for be := range backends {
-		inst := be.GetInstance(serviceName)
-		if inst.State != loadbalancer.BackendStateActive {
-			// FIXME: should use the control-plane logic for picking the backends,
-			// e.g. if all terminating then all active and so on. Since we must support
-			// headless services we can't go via [Frontend.Backends] and must produce
-			// that list of backends separately.
+		if be.State != loadbalancer.BackendStateActive || be.Unhealthy {
+			// Skip non-active or unhealthy backends.
 			continue
 		}
 
@@ -323,7 +320,7 @@ func computeLoadAssignments(
 		// If ports are specified only pick the backends that match the service port name or number.
 		if ports.Len() > 0 {
 			bePortNames = bePortNames[:0]
-			if len(inst.PortNames) == 0 {
+			if len(be.PortNames) == 0 {
 				// Backend without a port name will match with the
 				// nameless port in the service.
 				for name, number := range portNames {
@@ -339,7 +336,7 @@ func computeLoadAssignments(
 				// Backend has port name(s), try to match them up
 				// against the filter ports. We try to match both
 				// by name and by port number.
-				for _, portName := range inst.PortNames {
+				for _, portName := range be.PortNames {
 					if ports.Has(portName) {
 						bePortNames = append(bePortNames, portName)
 						continue
@@ -363,7 +360,7 @@ func computeLoadAssignments(
 		for _, portName := range bePortNames {
 			backends := backendMap[portName]
 			if backends == nil {
-				backends = map[string]*experimental.Backend{}
+				backends = map[string]experimental.BackendParams{}
 				backendMap[portName] = backends
 			}
 			backends[be.Address.String()] = be
