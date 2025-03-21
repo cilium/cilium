@@ -86,7 +86,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip a",
 		"ip -4 r",
 		"ip -6 r",
-		"ip -d -s l",
+		"ip -d -s -s l",
 		"ip -4 n",
 		"ip -6 n",
 		"ss -t -p -a -i -s -n -e",
