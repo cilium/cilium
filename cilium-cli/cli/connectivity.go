@@ -242,7 +242,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 		Use:   "perf",
 		Short: "Test network performance",
 		Long:  ``,
-		PreRun: func(_ *cobra.Command, _ []string) {
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			// This is a bit of hack that allows us to override default values
 			// of these parameters that are not visible in perf subcommand options
 			// as we can't have different defaults specified in test and perf subcommands
@@ -250,6 +250,14 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 			params.Perf = true
 			params.ForceDeploy = true
 			params.Hubble = false
+
+			if reportDir := params.PerfParameters.ReportDir; reportDir != "" {
+				if err := os.MkdirAll(reportDir, 0755); err != nil {
+					return fmt.Errorf("could not create report dir %q: %w", reportDir, err)
+				}
+			}
+
+			return nil
 		},
 		RunE: RunE(hooks),
 	}
