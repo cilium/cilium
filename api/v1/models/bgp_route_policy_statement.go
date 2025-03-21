@@ -39,6 +39,9 @@ type BgpRoutePolicyStatement struct {
 	// Matches any of the provided prefixes. If empty matches all prefixes.
 	MatchPrefixes []*BgpRoutePolicyPrefixMatch `json:"match-prefixes"`
 
+	// BGP nexthop action
+	Nexthop *BgpRoutePolicyNexthopAction `json:"nexthop,omitempty"`
+
 	// RIB processing action taken on the matched route
 	// Enum: ["none","accept","reject"]
 	RouteAction string `json:"route-action,omitempty"`
@@ -56,6 +59,10 @@ func (m *BgpRoutePolicyStatement) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateMatchPrefixes(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNexthop(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -121,6 +128,25 @@ func (m *BgpRoutePolicyStatement) validateMatchPrefixes(formats strfmt.Registry)
 	return nil
 }
 
+func (m *BgpRoutePolicyStatement) validateNexthop(formats strfmt.Registry) error {
+	if swag.IsZero(m.Nexthop) { // not required
+		return nil
+	}
+
+	if m.Nexthop != nil {
+		if err := m.Nexthop.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nexthop")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nexthop")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 var bgpRoutePolicyStatementTypeRouteActionPropEnum []interface{}
 
 func init() {
@@ -178,6 +204,10 @@ func (m *BgpRoutePolicyStatement) ContextValidate(ctx context.Context, formats s
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateNexthop(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -229,6 +259,27 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Conte
 			}
 		}
 
+	}
+
+	return nil
+}
+
+func (m *BgpRoutePolicyStatement) contextValidateNexthop(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Nexthop != nil {
+
+		if swag.IsZero(m.Nexthop) { // not required
+			return nil
+		}
+
+		if err := m.Nexthop.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nexthop")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nexthop")
+			}
+			return err
+		}
 	}
 
 	return nil
