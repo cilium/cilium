@@ -27,10 +27,6 @@ const (
 	// table which is between 253-255. See ip-route(8).
 	RouteTableInterfacesOffset = 10
 
-	// MarkProxyToWorld is the default mark to use to indicate that a packet
-	// from proxy needs to be sent to the world.
-	MarkProxyToWorld = 0x800
-
 	// RouteMarkDecrypt is the default route mark to use to indicate datapath
 	// needs to decrypt a packet.
 	RouteMarkDecrypt = MagicMarkDecrypt
