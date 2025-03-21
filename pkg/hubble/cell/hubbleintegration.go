@@ -461,6 +461,8 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		)
 	}
 
+	parserOpts = append(parserOpts, parserOptions.WithNetworkPolicyCorrelation(h.log, h.config.EnableNetworkPolicyCorrelation))
+
 	payloadParser, err := parser.New(h.log, h, h, h, h.ipcache, h, link.NewLinkCache(), h.cgroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create parser: %w", err)
