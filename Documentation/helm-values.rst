@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:29c2339e8727db1f58366f70f63063154c8230beb9ce1833380b71fa92bd0b89","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:37f7b378a29ceb4c551b1b5582e27747b855bbfaa73fa11914fe0df028dc581f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1343,7 +1343,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:22523dbbac6abc3fde0c6d7935d993e75b3c578c2b28848a072996d4dcafd922","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.0-1742406225-d064f7ad7ef9f0f8ff58120b5f0ba627ddc36f93","useDigest":true}``
+     - ``{"digest":"sha256:0dac9758f8d66c0c3a3c5c81fece7de233276ac11ebcbc9e1e56379779d2f418","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.0-1742456894-0de0009734b0b9e9481369813a047e69d6d7915b","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
