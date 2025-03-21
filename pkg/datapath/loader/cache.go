@@ -8,11 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
@@ -25,6 +25,8 @@ import (
 
 // objectCache amortises the cost of BPF compilation for endpoints.
 type objectCache struct {
+	logger *slog.Logger
+
 	lock.Mutex
 	datapath.ConfigWriter
 
@@ -45,8 +47,9 @@ type cachedSpec struct {
 	spec *ebpf.CollectionSpec
 }
 
-func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
+func newObjectCache(logger *slog.Logger, c datapath.ConfigWriter, workingDir string) *objectCache {
 	return &objectCache{
+		logger:           logger,
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedSpec),
@@ -138,16 +141,17 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 	}
 
 	stats.BpfCompilation.Start()
-	err = compileDatapath(ctx, dir, isHost, log)
+	err = compileDatapath(ctx, o.logger, dir, isHost)
 	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to compile template program: %w", err)
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.Path:               objectPath,
-		logfields.BPFCompilationTime: stats.BpfCompilation.Total(),
-	}).Info("Compiled new BPF template")
+	o.logger.Info(
+		"Compiled new BPF template",
+		logfields.Path, objectPath,
+		logfields.BPFCompilationTime, stats.BpfCompilation.Total(),
+	)
 
 	return objectPath, nil
 }
@@ -176,8 +180,6 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		}()
 	}
 
-	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
-
 	// Only allow a single concurrent compilation per hash.
 	obj := o.serialize(hash)
 	defer obj.Unlock()
@@ -203,7 +205,11 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	path, err := o.build(ctx, nodeCfg, cfg, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			scopedLog.WithError(err).Error("BPF template object creation failed")
+			o.logger.Error(
+				"BPF template object creation failed",
+				logfields.Error, err,
+				logfields.BPFHeaderfileHash, hash,
+			)
 		}
 		return nil, "", err
 	}

@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func parentToAttachType(parent uint32) ebpf.AttachType {
@@ -31,8 +33,8 @@ func parentToAttachType(parent uint32) ebpf.AttachType {
 
 // upsertTCXProgram updates or creates a new tcx attachment for prog to device.
 // Returns [link.ErrNotSupported] if tcx is not supported on the node.
-func upsertTCXProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
-	err := updateTCX(prog, progName, bpffsDir)
+func upsertTCXProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
+	err := updateTCX(logger, prog, progName, bpffsDir)
 	if err == nil {
 		// Link was updated, nothing left to do.
 		return nil
@@ -42,14 +44,14 @@ func upsertTCXProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 		return fmt.Errorf("updating tcx program: %w", err)
 	}
 
-	return attachTCX(device, prog, progName, bpffsDir, parentToAttachType(parent))
+	return attachTCX(logger, device, prog, progName, bpffsDir, parentToAttachType(parent))
 }
 
 // attachTCX creates a new tcx attachment for prog to device at the given attach
 // type. It pins the resulting link object to progName in bpffsDir.
 //
 // progName is typically the Program's key in CollectionSpec.Programs.
-func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
+func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
 	if err := bpf.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for tcx attachment to device %s: %w", device.Attrs().Name, err)
 	}
@@ -68,7 +70,9 @@ func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir strin
 		// The program was successfully attached using tcx. Closing a link does not
 		// detach the program if the link is pinned.
 		if err := l.Close(); err != nil {
-			log.Warnf("Failed to close tcx link for program %s", progName)
+			logger.Warn("Failed to close tcx link for program",
+				logfields.ProgName, progName,
+			)
 		}
 	}()
 
@@ -77,7 +81,10 @@ func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir strin
 		return fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
 	}
 
-	log.Infof("Program %s attached to device %s using tcx", progName, device.Attrs().Name)
+	logger.Info("Program attached to device using tcx",
+		logfields.ProgName, progName,
+		logfields.Device, device.Attrs().Name,
+	)
 
 	return nil
 }
@@ -87,7 +94,7 @@ func attachTCX(device netlink.Link, prog *ebpf.Program, progName, bpffsDir strin
 //
 // Returns nil if the update was successful. Returns an error wrapping
 // [os.ErrNotExist] if the link is defunct or missing.
-func updateTCX(prog *ebpf.Program, progName, bpffsDir string) error {
+func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir string) error {
 	// Attempt to open and update an existing link.
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UpdateLink(pin, prog)
@@ -100,21 +107,30 @@ func updateTCX(prog *ebpf.Program, progName, bpffsDir string) error {
 			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
-		log.Infof("Unpinned defunct link %s for program %s", pin, progName)
+		logger.Info("Unpinned defunct link for program",
+			logfields.Link, pin,
+			logfields.ProgName, progName,
+		)
 
 		// Wrap in os.ErrNotExist so the caller needs to look for one error.
 		return fmt.Errorf("unpinned defunct link: %w", os.ErrNotExist)
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
-		log.Debugf("No existing link found at %s for program %s", pin, progName)
+		logger.Debug("No existing link found for program",
+			logfields.Link, pin,
+			logfields.ProgName, progName,
+		)
 		return err
 
 	case err != nil:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
-	log.Infof("Updated link %s for program %s", pin, progName)
+	logger.Info("Updated link for program",
+		logfields.Link, pin,
+		logfields.ProgName, progName,
+	)
 	return nil
 }
 

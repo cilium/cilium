@@ -6,6 +6,7 @@ package proxy
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"syscall"
 
@@ -53,7 +54,7 @@ var (
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy.
-func ReinstallRoutingRules(mtu int) error {
+func ReinstallRoutingRules(logger *slog.Logger, mtu int) error {
 	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
 
 	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
@@ -62,12 +63,12 @@ func ReinstallRoutingRules(mtu int) error {
 	}
 
 	if option.Config.EnableIPv4 {
-		if err := installToProxyRoutesIPv4(); err != nil {
+		if err := installToProxyRoutesIPv4(logger); err != nil {
 			return err
 		}
 
 		if fromIngressProxy || fromEgressProxy {
-			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if err := installFromProxyRoutesIPv4(logger, node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
@@ -85,7 +86,7 @@ func ReinstallRoutingRules(mtu int) error {
 	}
 
 	if option.Config.EnableIPv6 {
-		if err := installToProxyRoutesIPv6(); err != nil {
+		if err := installToProxyRoutesIPv6(logger); err != nil {
 			return err
 		}
 
@@ -94,7 +95,7 @@ func ReinstallRoutingRules(mtu int) error {
 			if err != nil {
 				return err
 			}
-			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if err := installFromProxyRoutesIPv6(logger, ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
@@ -137,8 +138,8 @@ func getCiliumNetIPv6() (net.IP, error) {
 
 // installToProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets to the proxy.
-func installToProxyRoutesIPv4() error {
-	if err := route.Upsert(route4); err != nil {
+func installToProxyRoutesIPv4(logger *slog.Logger) error {
+	if err := route.Upsert(logger, route4); err != nil {
 		return fmt.Errorf("inserting ipv4 proxy route %v: %w", route4, err)
 	}
 	if err := route.ReplaceRule(toProxyRule); err != nil {
@@ -162,8 +163,8 @@ func removeToProxyRoutesIPv4() error {
 
 // installToProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets to the proxy.
-func installToProxyRoutesIPv6() error {
-	if err := route.Upsert(route6); err != nil {
+func installToProxyRoutesIPv6(logger *slog.Logger) error {
+	if err := route.Upsert(logger, route6); err != nil {
 		return fmt.Errorf("inserting ipv6 proxy route %v: %w", route6, err)
 	}
 	if err := route.ReplaceRuleIPv6(toProxyRule); err != nil {
@@ -209,7 +210,7 @@ var (
 
 // installFromProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
+func installFromProxyRoutesIPv4(logger *slog.Logger, ipv4 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
 	fromProxyToCiliumHostRoute4 := route.Route{
 		Table: linux_defaults.RouteTableFromProxy,
 		Prefix: net.IPNet{
@@ -238,10 +239,10 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fr
 			return fmt.Errorf("inserting ipv4 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(fromProxyToCiliumHostRoute4); err != nil {
+	if err := route.Upsert(logger, fromProxyToCiliumHostRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute4, err)
 	}
-	if err := route.Upsert(fromProxyDefaultRoute4); err != nil {
+	if err := route.Upsert(logger, fromProxyDefaultRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy default route %v: %w", fromProxyDefaultRoute4, err)
 	}
 
@@ -265,7 +266,7 @@ func removeFromProxyRoutesIPv4() error {
 
 // installFromProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
+func installFromProxyRoutesIPv6(logger *slog.Logger, ipv6 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
 	fromProxyToCiliumHostRoute6 := route.Route{
 		Table: linux_defaults.RouteTableFromProxy,
 		Prefix: net.IPNet{
@@ -294,10 +295,10 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fr
 			return fmt.Errorf("inserting ipv6 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(fromProxyToCiliumHostRoute6); err != nil {
+	if err := route.Upsert(logger, fromProxyToCiliumHostRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute6, err)
 	}
-	if err := route.Upsert(fromProxyDefaultRoute6); err != nil {
+	if err := route.Upsert(logger, fromProxyDefaultRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy default route %v: %w", fromProxyDefaultRoute6, err)
 	}
 

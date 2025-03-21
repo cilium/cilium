@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -104,7 +105,7 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 // TestCompileOrLoadDefaultEndpoint checks that the datapath can be compiled
 // and loaded.
 func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	initEndpoint(t, &ep)
 	testReloadDatapath(t, &ep)
 }
@@ -112,7 +113,7 @@ func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
 // TestCompileOrLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
 func TestCompileOrLoadHostEndpoint(t *testing.T) {
-	hostEp := testutils.NewTestHostEndpoint()
+	hostEp := testutils.NewTestHostEndpoint(t)
 	initEndpoint(t, &hostEp)
 
 	testReloadDatapath(t, &hostEp)
@@ -123,11 +124,12 @@ func TestReload(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	initEndpoint(t, &ep)
 
 	dirInfo := getEpDirs(&ep)
-	err := compileDatapath(ctx, dirInfo, false, log)
+	logger := hivetest.Logger(t)
+	err := compileDatapath(ctx, logger, dirInfo, false)
 	require.NoError(t, err)
 
 	l, err := netlink.LinkByName(ep.InterfaceName())
@@ -145,9 +147,9 @@ func TestReload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
+		require.NoError(t, attachSKBProgram(logger, l, coll.Programs[symbolFromEndpoint],
 			symbolFromEndpoint, tmp, netlink.HANDLE_MIN_INGRESS, true))
-		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
+		require.NoError(t, attachSKBProgram(logger, l, coll.Programs[symbolToEndpoint],
 			symbolToEndpoint, tmp, netlink.HANDLE_MIN_EGRESS, true))
 
 		require.NoError(t, commit())
@@ -184,7 +186,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 // TestCompileFailureDefaultEndpoint attempts to compile then cancels the
 // context and ensures that the failure paths may be hit.
 func TestCompileFailureDefaultEndpoint(t *testing.T) {
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	initEndpoint(t, &ep)
 	testCompileFailure(t, &ep)
 }
@@ -192,7 +194,7 @@ func TestCompileFailureDefaultEndpoint(t *testing.T) {
 // TestCompileFailureHostEndpoint is the same as
 // TestCompileFailureDefaultEndpoint, but for the host endpoint.
 func TestCompileFailureHostEndpoint(t *testing.T) {
-	hostEp := testutils.NewTestHostEndpoint()
+	hostEp := testutils.NewTestHostEndpoint(t)
 	initEndpoint(t, &hostEp)
 	testCompileFailure(t, &hostEp)
 }
@@ -255,9 +257,10 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 	dirInfo := getDirs(b)
 	option.Config.Debug = true
+	logger := hivetest.Logger(b)
 
 	for b.Loop() {
-		if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
+		if err := compileDatapath(ctx, logger, dirInfo, false); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -271,12 +274,13 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 
 	tmp := testutils.TempBPFFS(b)
 
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(b)
 	initEndpoint(b, &ep)
 
 	dirInfo := getEpDirs(&ep)
 
-	if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
+	logger := hivetest.Logger(b)
+	if err := compileDatapath(ctx, logger, dirInfo, false); err != nil {
 		b.Fatal(err)
 	}
 

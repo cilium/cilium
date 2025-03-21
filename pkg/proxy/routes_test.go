@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -44,10 +45,11 @@ func TestRoutes(t *testing.T) {
 	t.Run("IPv4", func(t *testing.T) {
 		t.Run("toProxy", func(t *testing.T) {
 			ns := netns.NewNetNS(t)
+			logger := hivetest.Logger(t)
 
 			ns.Do(func() error {
 				// Install routes and rules the first time.
-				assert.NoError(t, installToProxyRoutesIPv4())
+				assert.NoError(t, installToProxyRoutesIPv4(logger))
 
 				rules, err := route.ListRules(netlink.FAMILY_V4, &toProxyRule)
 				assert.NoError(t, err)
@@ -60,7 +62,7 @@ func TestRoutes(t *testing.T) {
 				assert.Len(t, rt, 1)
 
 				// Ensure idempotence.
-				assert.NoError(t, installToProxyRoutesIPv4())
+				assert.NoError(t, installToProxyRoutesIPv4(logger))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeToProxyRoutesIPv4())
@@ -82,6 +84,7 @@ func TestRoutes(t *testing.T) {
 		t.Run("fromProxy", func(t *testing.T) {
 			testIPv4 := net.ParseIP("1.2.3.4")
 			ns := netns.NewNetNS(t)
+			logger := hivetest.Logger(t)
 			ns.Do(func() error {
 				// create test device
 				ifName := "dummy"
@@ -94,7 +97,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(logger, testIPv4, ifName, true, true, defaultMTU))
 
 				rules, err := route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -111,14 +114,14 @@ func TestRoutes(t *testing.T) {
 				assert.Equal(t, defaultMTU, defaultRoute.MTU)
 
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(logger, testIPv4, ifName, true, true, defaultMTU))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRoutesIPv4())
 
 				// Install routes and rules with non-default MTU -- this would happen with
 				// IPSec enabled and both ingress and egress policies in-place.
-				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, withOverheadMTU))
+				assert.NoError(t, installFromProxyRoutesIPv4(logger, testIPv4, ifName, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
@@ -151,10 +154,11 @@ func TestRoutes(t *testing.T) {
 	t.Run("IPv6", func(t *testing.T) {
 		t.Run("toProxy", func(t *testing.T) {
 			ns := netns.NewNetNS(t)
+			logger := hivetest.Logger(t)
 
 			ns.Do(func() error {
 				// Install routes and rules the first time.
-				assert.NoError(t, installToProxyRoutesIPv6())
+				assert.NoError(t, installToProxyRoutesIPv6(logger))
 
 				rules, err := route.ListRules(netlink.FAMILY_V6, &toProxyRule)
 				assert.NoError(t, err)
@@ -167,7 +171,7 @@ func TestRoutes(t *testing.T) {
 				assert.Len(t, rt, 1)
 
 				// Ensure idempotence.
-				assert.NoError(t, installToProxyRoutesIPv6())
+				assert.NoError(t, installToProxyRoutesIPv6(logger))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeToProxyRoutesIPv6())
@@ -189,6 +193,7 @@ func TestRoutes(t *testing.T) {
 		t.Run("fromProxy", func(t *testing.T) {
 			testIPv6 := net.ParseIP("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 			ns := netns.NewNetNS(t)
+			logger := hivetest.Logger(t)
 
 			ns.Do(func() error {
 				// create test device
@@ -202,7 +207,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(logger, testIPv6, ifName, true, true, defaultMTU))
 
 				rules, err := route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -219,14 +224,14 @@ func TestRoutes(t *testing.T) {
 				assert.Equal(t, defaultMTU, defaultRoute.MTU)
 
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, defaultMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(logger, testIPv6, ifName, true, true, defaultMTU))
 
 				// Remove routes installed before.
 				assert.NoError(t, removeFromProxyRoutesIPv6())
 
 				// Install routes and rules with non-default MTU -- this would happen with
 				// IPSec enabled and both ingress and egress policies in-place.
-				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, withOverheadMTU))
+				assert.NoError(t, installFromProxyRoutesIPv6(logger, testIPv6, ifName, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,

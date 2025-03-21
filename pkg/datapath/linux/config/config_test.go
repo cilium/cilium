@@ -47,13 +47,15 @@ var (
 		NodeAddresses:      []tables.NodeAddress{},
 		HostEndpointID:     1,
 	}
-	dummyDevCfg   = testutils.NewTestEndpoint()
+	dummyDevCfg   testutils.TestEndpoint
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
 	ipv6DummyAddr = netip.MustParseAddr("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 )
 
 func setupConfigSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
+
+	dummyDevCfg = testutils.NewTestEndpoint(tb)
 
 	tb.Helper()
 
@@ -120,6 +122,7 @@ func TestWriteNodeConfig(t *testing.T) {
 }
 
 func TestWriteNetdevConfig(t *testing.T) {
+	setupConfigSuite(t)
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})

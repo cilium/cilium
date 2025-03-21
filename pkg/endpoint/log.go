@@ -4,6 +4,7 @@
 package endpoint
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -58,6 +59,20 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 	}
 
 	return e.getLogger().WithField(logfields.LogSubsys, subsystem)
+}
+
+// SLogger returns a slog object with EndpointID, containerID and the Endpoint
+// revision fields. The caller must specify their subsystem.
+func (e *Endpoint) SLogger(subsystem string) *slog.Logger {
+	if e == nil {
+		return logging.DefaultSlogLogger.With(logfields.LogSubsys, subsystem)
+	}
+	logger := e.getLogger().WithField(logfields.LogSubsys, subsystem)
+	var logAttrs []any
+	for k, v := range logger.Data {
+		logAttrs = append(logAttrs, k, v)
+	}
+	return logging.DefaultSlogLogger.With(logAttrs...)
 }
 
 // UpdateLogger creates a logger instance specific to this endpoint. It will

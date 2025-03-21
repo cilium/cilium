@@ -6,24 +6,25 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // attachSKBProgram attaches prog to device using tcx if available and enabled,
 // or legacy tc as a fallback.
-func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
 	if prog == nil {
 		return fmt.Errorf("program %s is nil", progName)
 	}
@@ -33,7 +34,7 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 		// supported, therefore use netkit instead of tcx. For all others like
 		// host devices, rely on tcx.
 		if device.Type() == "netkit" {
-			if err := upsertNetkitProgram(device, prog, progName, bpffsDir, parent); err != nil {
+			if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
 				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
 			}
 			return nil
@@ -41,11 +42,15 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 
 		// Attach using tcx if available. This is seamless on interfaces with
 		// existing tc programs since attaching tcx disables legacy tc evaluation.
-		err := upsertTCXProgram(device, prog, progName, bpffsDir, parent)
+		err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent)
 		if err == nil {
 			// Created tcx link, clean up any leftover legacy tc attachments.
 			if err := removeTCFilters(device, parent); err != nil {
-				log.WithError(err).Warnf("Cleaning up legacy tc after attaching tcx program %s", progName)
+				logger.Warn(
+					"Cleaning up legacy tc after attaching tcx program",
+					logfields.Error, err,
+					logfields.ProgName, progName,
+				)
 			}
 			// Don't fall back to legacy tc.
 			return nil
@@ -57,25 +62,28 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 	}
 
 	// tcx not available or disabled, fall back to legacy tc.
-	if err := upsertTCProgram(device, prog, progName, parent, option.Config.TCFilterPriority); err != nil {
+	if err := upsertTCProgram(logger, device, prog, progName, parent, option.Config.TCFilterPriority); err != nil {
 		return fmt.Errorf("attaching legacy tc program %s: %w", progName, err)
 	}
 
 	// Legacy tc attached, make sure tcx is detached in case of downgrade.
 	// netkit can only be used in combination with tcx, but never legacy tc,
 	// hence for netkit detaching here would be irrelevant.
-	if err := detachGeneric(bpffsDir, progName, "tcx"); err != nil {
+	if err := detachGeneric(logger, bpffsDir, progName, "tcx"); err != nil {
 		return fmt.Errorf("tcx cleanup after attaching legacy tc program %s: %w", progName, err)
 	}
 
 	return nil
 }
 
-func detachGeneric(bpffsDir, progName, what string) error {
+func detachGeneric(logger *slog.Logger, bpffsDir, progName, what string) error {
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UnpinLink(pin)
 	if err == nil {
-		log.Infof("Removed %s link at %s", what, pin)
+		logger.Info("Removed link",
+			logfields.Link, what,
+			logfields.Pin, pin,
+		)
 		return nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
@@ -88,14 +96,14 @@ func detachGeneric(bpffsDir, progName, what string) error {
 
 // detachSKBProgram attempts to remove an existing tcx, netkit and legacy tc link
 // with the given properties. Always attempts to remove all three attachments.
-func detachSKBProgram(device netlink.Link, progName, bpffsDir string, parent uint32) error {
+func detachSKBProgram(logger *slog.Logger, device netlink.Link, progName, bpffsDir string, parent uint32) error {
 	what := "tcx"
 	if device.Type() == "netkit" {
 		what = "netkit"
 	}
 	// Both tcx and netkit have pinned links which only need to be removed.
 	// Approach is exactly the same.
-	if err := detachGeneric(bpffsDir, progName, what); err != nil {
+	if err := detachGeneric(logger, bpffsDir, progName, what); err != nil {
 		return err
 	}
 
@@ -105,7 +113,7 @@ func detachSKBProgram(device netlink.Link, progName, bpffsDir string, parent uin
 // upsertTCProgram attaches prog to device using a legacy tc bpf filter.
 // Existing programs with the same name but different priority are detached
 // after attaching the new program.
-func upsertTCProgram(device netlink.Link, prog *ebpf.Program, progName string, parent uint32, prio uint16) error {
+func upsertTCProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName string, parent uint32, prio uint16) error {
 	if err := replaceQdisc(device); err != nil {
 		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", device.Attrs().Name, err)
 	}
@@ -135,9 +143,14 @@ func upsertTCProgram(device netlink.Link, prog *ebpf.Program, progName string, p
 		return fmt.Errorf("replacing tc filter for interface %s: %w", device.Attrs().Name, err)
 	}
 
-	log.Infof("Program %s with priority %d attached to device %s using legacy tc", progName, filter.Attrs().Priority, device.Attrs().Name)
+	logger.Info(
+		"Program attached to device using legacy tc",
+		logfields.ProgName, progName,
+		logfields.Priority, filter.Attrs().Priority,
+		logfields.Device, device.Attrs().Name,
+	)
 
-	if err := removeStaleTCFilters(device, parent, prio); err != nil {
+	if err := removeStaleTCFilters(logger, device, parent, prio); err != nil {
 		return fmt.Errorf("removing stale tc filter %s for interface %s: %w", filter.Name, device.Attrs().Name, err)
 	}
 
@@ -146,7 +159,7 @@ func upsertTCProgram(device netlink.Link, prog *ebpf.Program, progName string, p
 
 // removeStaleTCFilters removes all Cilium tc bpf filters from the given
 // device with a different priority than the given new priority.
-func removeStaleTCFilters(device netlink.Link, parent uint32, newPrio uint16) error {
+func removeStaleTCFilters(logger *slog.Logger, device netlink.Link, parent uint32, newPrio uint16) error {
 	filters, err := safenetlink.FilterList(device, parent)
 	if err != nil {
 		return err
@@ -172,7 +185,12 @@ func removeStaleTCFilters(device netlink.Link, parent uint32, newPrio uint16) er
 			return err
 		}
 
-		log.Infof("Deleted stale tc bpf filter %s with priority %d on device %s", old.Name, old.Priority, device.Attrs().Name)
+		logger.Info(
+			"Deleted stale tc bpf filter",
+			logfields.ProgName, old.Name,
+			logfields.Priority, old.Priority,
+			logfields.Device, device.Attrs().Name,
+		)
 	}
 
 	return nil

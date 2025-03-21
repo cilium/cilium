@@ -431,6 +431,7 @@ func setupLogging(n *types.NetConf) error {
 	}
 	logOptions := logging.LogOptions{
 		logging.FormatOpt: f,
+		logging.WriterOpt: logging.StdErrOpt,
 	}
 	err := logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
 	if err != nil {
@@ -604,7 +605,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
+			veth, peer, tmpIfName, err := connector.SetupVeth(logging.DefaultSlogLogger, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
 			if err != nil {
@@ -634,7 +635,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
+			netkit, peer, tmpIfName, err := connector.SetupNetkit(logging.DefaultSlogLogger, cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
 				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
 			if err != nil {

@@ -296,7 +296,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {
-		if err := probes.HaveManagedNeighbors(); err == nil {
+		if err := probes.HaveManagedNeighbors(params.Logger); err == nil {
 			log.Info("Using Managed Neighbor Kernel support")
 			option.Config.ARPPingKernelManaged = true
 		}

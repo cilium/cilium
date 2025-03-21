@@ -1444,4 +1444,88 @@ const (
 	GlobalConfiguration = "globalConfiguration"
 
 	Annotation = "annotation"
+
+	LPM = "LPM"
+
+	IngressDeleted = "ingressDeleted"
+
+	EgressDeleted = "egressDeleted"
+
+	IngressAlive = "ingressAlive"
+
+	EgressAlive = "egressAlive"
+
+	CTMapIPVersion = "ctMapIPVersion"
+
+	ExpectedPrevInterval = "expectedPrevInterval"
+
+	ActualPrevInterval = "actualPrevInterval"
+
+	NewInterval = "newInterval"
+
+	DeleteRatio = "deleteRatio"
+
+	AdjustedDeleteRatio = "adjustedDeleteRatio"
+
+	Interrupted = "interrupted"
+
+	Errors = "errors"
+
+	IPSet = "ipset"
+
+	Cmd = "cmd"
+
+	Prog = "prog"
+
+	Table = "table"
+
+	OptionalParameter = "optionalParameter"
+
+	Param = "param"
+
+	Module = "module"
+
+	NeedFor = "needFor"
+
+	ProgType = "progType"
+
+	Helper = "helper"
+
+	Routes = "routes"
+
+	RevertError = "revertError"
+
+	BootTime = "bootTime"
+
+	Socket = "socket"
+
+	Filter = "filter"
+
+	Success = "success"
+
+	Failed = "failed"
+
+	BPFFSEndpointLinksDir = "bpffsEndpointLinksDir"
+
+	BPFFSEndpointDir = "bpffsEndpointDir"
+
+	CompilerPID = "compilerPID"
+
+	Output = "output"
+
+	RssBytes = "rssBytes"
+
+	BPFSPath = "bpffsPath"
+
+	ProgName = "progName"
+
+	Range = "range"
+
+	Pin = "pin"
+
+	Priority = "priority"
+
+	Args = "args"
+
+	Candidates = "candidates"
 )

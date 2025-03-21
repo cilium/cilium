@@ -729,7 +729,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.createNodeIPSecOutRoute(ip)); err != nil {
+	if err := route.Upsert(n.log, n.createNodeIPSecOutRoute(ip)); err != nil {
 		n.log.Error("Unable to replace the IPSec route OUT the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,
@@ -763,7 +763,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.createNodeIPSecInRoute(ip)); err != nil {
+	if err := route.Upsert(n.log, n.createNodeIPSecInRoute(ip)); err != nil {
 		n.log.Error("Unable to replace the IPSec route IN the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,

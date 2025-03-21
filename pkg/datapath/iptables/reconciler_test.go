@@ -351,7 +351,7 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc, updateProxyFunc, installNoTrackFunc, removeNoTrackFunc)
+		errs <- reconciliationLoop(ctx, tlog, health, true, params, updateFunc, updateProxyFunc, installNoTrackFunc, removeNoTrackFunc)
 	}()
 
 	// wait for reconciler to react to the initial state
