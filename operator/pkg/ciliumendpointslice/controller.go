@@ -31,11 +31,16 @@ type params struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	NewClient           k8sClient.ClientBuilderFunc
-	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	NewClient k8sClient.ClientBuilderFunc
+	//CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	Pods                resource.Resource[*slim_corev1.Pod]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
+	CiliumIdentity      resource.Resource[*v2.CiliumIdentity]
+	//CiliumClientset     ciliumV2.CiliumV2Client
+
+	//IPCache *ipcache.IPCache
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -51,11 +56,17 @@ type Controller struct {
 	contextCancel context.CancelFunc
 
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
-	clientset           k8sClient.Clientset
-	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	clientset k8sClient.Clientset
+	//ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	pods                resource.Resource[*slim_corev1.Pod]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	ciliumNodes         resource.Resource[*v2.CiliumNode]
 	namespace           resource.Resource[*slim_corev1.Namespace]
+	ciliumIdentity      resource.Resource[*v2.CiliumIdentity]
+	//ciliumNodeClient    ciliumV2.CiliumNodeInterface
+
+	// TODO
+	// IPCache *ipcache.IPCache
 	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
 
@@ -114,12 +125,14 @@ func registerController(p params) error {
 	checkDeprecatedOpts(p.Cfg, p.Logger)
 
 	cesController := &Controller{
-		logger:              p.Logger,
-		clientset:           clientset,
-		ciliumEndpoint:      p.CiliumEndpoint,
+		logger:    p.Logger,
+		clientset: clientset,
+		//ciliumEndpoint:      p.CiliumEndpoint,
+		pods:                p.Pods,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
 		ciliumNodes:         p.CiliumNodes,
 		namespace:           p.Namespace,
+		ciliumIdentity:      p.CiliumIdentity,
 		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
 		rateLimit:           rateLimitConfig,
 		enqueuedAt:          make(map[CESKey]time.Time),
