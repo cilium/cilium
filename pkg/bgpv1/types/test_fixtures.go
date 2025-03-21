@@ -72,6 +72,9 @@ var (
 							AddCommunities:      []string{"65000:100"},
 							AddLargeCommunities: []string{"4294967295:0:100"},
 							SetLocalPreference:  ptr.To[int64](150),
+							NextHop: &RoutePolicyActionNextHop{
+								Self: true,
+							},
 						},
 					},
 				},
@@ -110,6 +113,9 @@ var (
 							RouteAction:        RoutePolicyActionNone,
 							AddCommunities:     []string{"65000:100", "65000:101"},
 							SetLocalPreference: ptr.To[int64](150),
+							NextHop: &RoutePolicyActionNextHop{
+								Unchanged: true,
+							},
 						},
 					},
 					{
