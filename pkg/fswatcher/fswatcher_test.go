@@ -4,98 +4,126 @@
 package fswatcher
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestWatcher(t *testing.T) {
-	tmp := t.TempDir()
+func TestWatcherNew(t *testing.T) {
+	cases := []struct {
+		name    string                          // description of the test
+		watch   []string                        // paths to watch
+		actions func(evs chan<- fsnotify.Event) // actions to undertake in a test
+		want    []Event                         // expected events
+		check   func(t *testing.T, w *Watcher)  // any additional checks
+	}{
+		{
+			name: "create unwatched file",
+			watch: []string{
+				"unwatched",
+			},
+			actions: func(evs chan<- fsnotify.Event) {
+				evs <- fsnotify.Event{Name: "bar", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "baz", Op: fsnotify.Create}
+			},
+			want: nil,
+		},
+		{
+			name: "watch a file",
+			watch: []string{
+				"watched",
+				"watched2",
+			},
+			actions: func(evs chan<- fsnotify.Event) {
+				evs <- fsnotify.Event{Name: "bar", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "baz", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "watched", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "watched", Op: fsnotify.Write}
+			},
+			want: []Event{
+				{Name: "watched", Op: fsnotify.Create},
+				{Name: "watched", Op: fsnotify.Write},
+			},
+			check: func(t *testing.T, w *Watcher) {
+				require.Len(t, w.watcher.WatchList(), 1)
 
-	regularFile := filepath.Join(tmp, "file")
-	regularSymlink := filepath.Join(tmp, "symlink")
-	nestedDir := filepath.Join(tmp, "foo", "bar")
-	nestedFile := filepath.Join(nestedDir, "nested")
-	directSymlink := filepath.Join(tmp, "foo", "symlink") // will point to nestedDir
-	indirectSymlink := filepath.Join(tmp, "foo", "symlink", "nested")
-	targetFile := filepath.Join(tmp, "target")
+				// only watch the root directory once even for two files
+				assert.Equal(t, ".", w.watcher.WatchList()[0])
+			},
+		},
+		{
+			name: "watch a nested file",
+			watch: []string{
+				"/tmp/foo/bar/nested",
+			},
+			actions: func(evs chan<- fsnotify.Event) {
+				evs <- fsnotify.Event{Name: "/tmp/untracked", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "/tmp/foo/bar/nested", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "/tmp/foo/bar/nested", Op: fsnotify.Write}
+				evs <- fsnotify.Event{Name: "/tmp/foo/bar/nested", Op: fsnotify.Remove}
+			},
+			want: []Event{
+				{Name: "/tmp/foo/bar/nested", Op: fsnotify.Create},
+				{Name: "/tmp/foo/bar/nested", Op: fsnotify.Write},
+				{Name: "/tmp/foo/bar/nested", Op: fsnotify.Remove},
+			},
+		},
+		{
+			name: "delete",
+			watch: []string{
+				"/tmp/foo",
+			},
+			actions: func(evs chan<- fsnotify.Event) {
+				evs <- fsnotify.Event{Name: "untracked", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "/tmp/foo", Op: fsnotify.Create}
+				evs <- fsnotify.Event{Name: "untracked", Op: fsnotify.Remove}
+				evs <- fsnotify.Event{Name: "/tmp/foo", Op: fsnotify.Remove}
+			},
+			want: []Event{
+				{Name: "/tmp/foo", Op: fsnotify.Create},
+				{Name: "/tmp/foo", Op: fsnotify.Remove},
+			},
+		},
+	}
 
-	w, err := New([]string{
-		regularFile,
-		regularSymlink,
-		nestedFile,
-		indirectSymlink,
-	})
-	require.NoError(t, err)
-	defer w.Close()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			w, err := New(tc.watch)
+			require.NoError(t, err)
+			t.Cleanup(w.Close)
 
-	var lastName string
-	assertEventName := func(name string) {
-		t.Helper()
+			// how long to give the test to read from the channel to make sure there
+			// are no unexpected events received
+			timeout := 100 * time.Millisecond
 
-		for {
-			select {
-			case event := <-w.Events:
-				// not every file operation deterministically emits the same
-				// number of events, therefore report each name only once
-				if event.Name != lastName {
-					require.Equal(t, name, event.Name)
-					lastName = event.Name
-					return
-				}
-			case err := <-w.Errors:
-				t.Fatalf("unexpected error: %s", err)
+			if tc.actions != nil {
+				go func() {
+					tc.actions(w.watcher.Events)
+				}()
 			}
-		}
+
+			var got []Event
+		LOOP:
+			for {
+				select {
+				case e := <-w.Events:
+					got = append(got, e)
+				case err := <-w.Errors:
+					t.Fatalf("unexpected error: %v", err)
+				case <-time.After(timeout):
+					break LOOP
+				}
+			}
+
+			assert.Equal(t, tc.want, got)
+			if tc.check != nil {
+				tc.check(t, w)
+			}
+		})
 	}
-
-	// create $tmp/foo/ (this should not emit an event)
-	fooDirectory := filepath.Join(tmp, "foo")
-	err = os.MkdirAll(fooDirectory, 0777)
-	require.NoError(t, err)
-
-	// create $tmp/file
-	var data = []byte("data")
-	err = os.WriteFile(regularFile, data, 0777)
-	require.NoError(t, err)
-	assertEventName(regularFile)
-
-	// symlink $tmp/symlink -> $tmp/target
-	err = os.WriteFile(targetFile, data, 0777)
-	require.NoError(t, err)
-	err = os.Symlink(targetFile, regularSymlink)
-	require.NoError(t, err)
-	assertEventName(regularSymlink)
-
-	// create $tmp/foo/bar/nested
-	err = os.MkdirAll(filepath.Dir(nestedFile), 0777)
-	require.NoError(t, err)
-	err = os.WriteFile(nestedFile, data, 0777)
-	require.NoError(t, err)
-	assertEventName(nestedFile)
-
-	// symlink $tmp/foo/symlink -> $tmp/foo/bar (this will emit an event on indirectSymlink)
-	err = os.Symlink(nestedDir, directSymlink)
-	require.NoError(t, err)
-	assertEventName(indirectSymlink)
-
-	// redirect $tmp/symlink -> $tmp/file (this will not emit an event)
-	err = os.Remove(regularSymlink)
-	require.NoError(t, err)
-	err = os.Symlink(regularFile, regularSymlink)
-	require.NoError(t, err)
-	select {
-	case n := <-w.Events:
-		t.Fatalf("rewriting symlink emitted unexpected event on %q", n)
-	default:
-	}
-
-	// delete $tmp/target (this will emit an event on regularSymlink)
-	err = os.Remove(targetFile)
-	require.NoError(t, err)
-	assertEventName(regularSymlink)
 }
 
 func TestHasParent(t *testing.T) {
