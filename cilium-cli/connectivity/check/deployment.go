@@ -37,13 +37,19 @@ const (
 	PerfOtherNode                         = "-other-node"
 	PerfLowPriority                       = "-low-priority"
 	PerfHighPriority                      = "-high-priority"
+	perfEgress                            = "-egress"
+	perfIngress                           = "-ingress"
 	perfClientDeploymentName              = "perf-client"
 	perfClientHostNetDeploymentName       = perfClientDeploymentName + PerfHostName
 	perfClientAcrossDeploymentName        = perfClientDeploymentName + PerfOtherNode
 	perClientLowPriorityDeploymentName    = perfClientDeploymentName + PerfLowPriority
 	perClientHighPriorityDeploymentName   = perfClientDeploymentName + PerfHighPriority
+	perClientEgressDeploymentName         = perfClientDeploymentName + perfEgress
+	perClientIngressDeploymentName        = perfClientDeploymentName + perfIngress
 	perfClientHostNetAcrossDeploymentName = perfClientAcrossDeploymentName + PerfHostName
 	perfServerDeploymentName              = "perf-server"
+	perServerEgressDeploymentName         = perfServerDeploymentName + perfEgress
+	perServerIngressDeploymentName        = perfServerDeploymentName + perfIngress
 	perfServerHostNetDeploymentName       = perfServerDeploymentName + PerfHostName
 
 	clientDeploymentName  = "client"
@@ -84,6 +90,9 @@ const (
 	KindTestConnDisruptNSTraffic                 = "test-conn-disrupt-ns-traffic"
 
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
+
+	egressBandwidth  = "kubernetes.io/egress-bandwidth"
+	ingressBandwidth = "kubernetes.io/ingress-bandwidth"
 )
 
 var (
@@ -1470,7 +1479,7 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.Warn("Selected nodes have different zones, tweak nodeSelector if that's not what you intended")
 	}
 
-	if ct.params.PerfParameters.NetQos {
+	if ct.params.PerfParameters.NetQos && !ct.params.PerfParameters.Bandwidth {
 		// Disable host net deploys
 		ct.params.PerfParameters.HostNet = false
 
@@ -1495,6 +1504,32 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		}
 
 		return nil
+	}
+
+	if ct.params.PerfParameters.NetQos && ct.params.PerfParameters.Bandwidth {
+		ct.params.PerfParameters.PodNet = false
+		ct.params.PerfParameters.HostNet = false
+		ct.params.PerfParameters.SameNode = false
+		ct.params.PerfParameters.OtherNode = false
+
+		var egressBandwidthAnnotations = annotations{egressBandwidth: "10M"}
+		var ingressBandwidthAnnotations = annotations{ingressBandwidth: "10M"}
+		ct.params.DeploymentAnnotations.Set(`{
+				"` + perClientEgressDeploymentName + `": ` + egressBandwidthAnnotations.String() + `,
+			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
+			}`)
+		if err = ct.createServerPerfDeployment(ctx, perServerEgressDeploymentName, serverNode.Name, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		if err = ct.createServerPerfDeployment(ctx, perServerIngressDeploymentName, serverNode.Name, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		if err = ct.createClientPerfDeployment(ctx, perClientEgressDeploymentName, clientNode.Name, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		if err = ct.createClientPerfDeployment(ctx, perClientIngressDeploymentName, clientNode.Name, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
@@ -1546,6 +1581,13 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
 		if ct.params.PerfParameters.NetQos {
+			if ct.params.PerfParameters.Bandwidth {
+				srcList = append(srcList, perClientEgressDeploymentName)
+				srcList = append(srcList, perClientIngressDeploymentName)
+				srcList = append(srcList, perServerEgressDeploymentName)
+				srcList = append(srcList, perServerIngressDeploymentName)
+				return
+			}
 			srcList = append(srcList, perClientLowPriorityDeploymentName)
 			srcList = append(srcList, perClientHighPriorityDeploymentName)
 			srcList = append(srcList, perfServerDeploymentName)
