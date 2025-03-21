@@ -31,19 +31,19 @@ Agent
   manages the eBPF programs which the Linux kernel uses to control all network
   access in / out of those containers.
 
-Client (CLI)
-  The Cilium CLI client (``cilium``) is a command-line tool that is installed
-  along with the Cilium agent. It interacts with the REST API of the Cilium
-  agent running on the same node. The CLI allows inspecting the state and
-  status of the local agent. It also provides tooling to directly access the
-  eBPF maps to validate their state.
+Debug Client (CLI)
+  The Cilium debug CLI client (``cilium-dbg``) is a command-line tool that is
+  installed along with the Cilium agent. It interacts with the REST API of the
+  Cilium agent running on the same node. The debug CLI allows inspecting the
+  state and status of the local agent. It also provides tooling to directly
+  access the eBPF maps to validate their state.
 
   .. note::
 
-     The in-agent Cilium CLI client described here should not be confused with
-     the `command line tool for quick-installing, managing and troubleshooting
-     Cilium on Kubernetes clusters <https://github.com/cilium/cilium-cli>`_,
-     which also has the name ``cilium``. That tool is typically installed
+     The in-agent Cilium debug CLI client described here should not be confused
+     with the ```cilium`` command line tool for quick-installing, managing and
+     troubleshooting Cilium on Kubernetes clusters
+     <https://github.com/cilium/cilium-cli>`_. That tool is typically installed
      remote from the cluster, and uses ``kubeconfig`` information to access
      Cilium running on the cluster via the Kubernetes API.
 
