@@ -2522,13 +2522,13 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// expected, then the rules will be left as-is because there was
 		// likely manual intervention.
 		if e.IPv4.IsValid() {
-			if err := linuxrouting.Delete(e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+			if err := linuxrouting.Delete(logging.DefaultSlogLogger, e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 			}
 		}
 
 		if e.IPv6.IsValid() {
-			if err := linuxrouting.Delete(e.IPv6, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+			if err := linuxrouting.Delete(logging.DefaultSlogLogger, e.IPv6, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 			}
 		}

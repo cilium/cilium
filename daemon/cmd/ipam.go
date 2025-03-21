@@ -20,6 +20,7 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -212,7 +213,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+		routingInfo, err = linuxrouting.NewRoutingInfo(logging.DefaultSlogLogger, result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
 			masq)
 		if err != nil {
@@ -596,6 +597,7 @@ func (d *Daemon) startIPAM() {
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
 	if result.IP.To4() != nil {
 		return linuxrouting.NewRoutingInfo(
+			logging.DefaultSlogLogger,
 			result.GatewayIP,
 			result.CIDRs,
 			result.PrimaryMAC,
@@ -605,6 +607,7 @@ func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo,
 		)
 	} else {
 		return linuxrouting.NewRoutingInfo(
+			logging.DefaultSlogLogger,
 			result.GatewayIP,
 			result.CIDRs,
 			result.PrimaryMAC,

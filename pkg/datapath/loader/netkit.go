@@ -6,6 +6,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func parentToNetkitType(parent uint32) ebpf.AttachType {
@@ -37,8 +39,8 @@ func parentToNetkitType(parent uint32) ebpf.AttachType {
 
 // upsertNetkitProgram updates or creates a new netkit attachment for prog to
 // device. Returns [link.ErrNotSupported] if netkit is not supported on the node.
-func upsertNetkitProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
-	err := updateNetkit(prog, progName, bpffsDir)
+func upsertNetkitProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
+	err := updateNetkit(logger, prog, progName, bpffsDir)
 	if err == nil {
 		// Link was updated, nothing left to do.
 		return nil
@@ -48,7 +50,7 @@ func upsertNetkitProgram(device netlink.Link, prog *ebpf.Program, progName, bpff
 		return fmt.Errorf("updating netkit program: %w", err)
 	}
 
-	return attachNetkit(device, prog, progName, bpffsDir, parentToNetkitType(parent))
+	return attachNetkit(logger, device, prog, progName, bpffsDir, parentToNetkitType(parent))
 }
 
 // attachNetkit attaches the tc BPF prog to the netkit device. It pins the
@@ -58,7 +60,7 @@ func upsertNetkitProgram(device netlink.Link, prog *ebpf.Program, progName, bpff
 //
 // attach is either ebpf.AttachNetkitPrimary or ebpf.AttachNetkitPeer and
 // will attach the program to the xmit of either the primary or peer device.
-func attachNetkit(device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
+func attachNetkit(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
 	if err := bpf.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for netkit attachment to device %s: %w", device.Attrs().Name, err)
 	}
@@ -77,7 +79,10 @@ func attachNetkit(device netlink.Link, prog *ebpf.Program, progName, bpffsDir st
 		// The program was successfully attached using netkit. Closing
 		// a link does not detach the program if the link is pinned.
 		if err := l.Close(); err != nil {
-			log.Warnf("Failed to close netkit link for program %s", progName)
+			logger.Warn(
+				"Failed to close netkit link for program",
+				logfields.ProgName, progName,
+			)
 		}
 	}()
 
@@ -86,7 +91,11 @@ func attachNetkit(device netlink.Link, prog *ebpf.Program, progName, bpffsDir st
 		return fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
 	}
 
-	log.Infof("Program %s attached to device %s using netkit", progName, device.Attrs().Name)
+	logger.Info(
+		"Program attached to device using netkit",
+		logfields.ProgName, progName,
+		logfields.Device, device.Attrs().Name,
+	)
 
 	return nil
 }
@@ -96,7 +105,7 @@ func attachNetkit(device netlink.Link, prog *ebpf.Program, progName, bpffsDir st
 //
 // Returns nil if the update was successful. Returns an error wrapping
 // [os.ErrNotExist] if the link is defunct or missing.
-func updateNetkit(prog *ebpf.Program, progName, bpffsDir string) error {
+func updateNetkit(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir string) error {
 	// Attempt to open and update an existing link.
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UpdateLink(pin, prog)
@@ -109,21 +118,33 @@ func updateNetkit(prog *ebpf.Program, progName, bpffsDir string) error {
 			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
-		log.Infof("Unpinned defunct link %s for program %s", pin, progName)
+		logger.Info(
+			"Unpinned defunct link for program",
+			logfields.Link, pin,
+			logfields.ProgName, progName,
+		)
 
 		// Wrap in os.ErrNotExist so the caller needs to look for one error.
 		return fmt.Errorf("unpinned defunct link: %w", os.ErrNotExist)
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
-		log.Debugf("No existing link found at %s for program %s", pin, progName)
+		logger.Debug(
+			"No existing link found for program",
+			logfields.Link, pin,
+			logfields.ProgName, progName,
+		)
 		return err
 
 	case err != nil:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
-	log.Infof("Updated link %s for program %s", pin, progName)
+	logger.Info(
+		"Updated link for program",
+		logfields.Link, pin,
+		logfields.ProgName, progName,
+	)
 	return nil
 }
 

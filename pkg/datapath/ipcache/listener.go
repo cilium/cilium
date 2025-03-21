@@ -4,23 +4,16 @@
 package ipcache
 
 import (
+	"log/slog"
 	"net"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
 )
 
 // monitorNotify is an interface to notify the monitor about ipcache changes.
@@ -36,6 +29,7 @@ type Map interface {
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
 type BPFListener struct {
+	logger *slog.Logger
 	// bpfMap is the BPF map that this listener will update when events are
 	// received from the IPCache.
 	bpfMap Map
@@ -45,8 +39,9 @@ type BPFListener struct {
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(m Map, mn monitorNotify) *BPFListener {
+func NewListener(m Map, mn monitorNotify, logger *slog.Logger) *BPFListener {
 	return &BPFListener{
+		logger:        logger,
 		bpfMap:        m,
 		monitorNotify: mn,
 	}
@@ -100,14 +95,11 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
 	cidr := cidrCluster.AsIPNet()
 
-	scopedLog := log
-	if option.Config.Debug {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.IPAddr:       cidr,
-			logfields.Identity:     newID,
-			logfields.Modification: modType,
-		})
-	}
+	scopedLog := l.logger.With(
+		logfields.IPAddr, cidr,
+		logfields.Identity, newID,
+		logfields.Modification, modType,
+	)
 
 	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
 
@@ -141,25 +133,22 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		}
 		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"key":                  key.String(),
-				"value":                value.String(),
-				logfields.IPAddr:       cidr,
-				logfields.Identity:     newID,
-				logfields.Modification: modType,
-			}).Warning("unable to update bpf map")
+			scopedLog.Warn(
+				"unable to update bpf map",
+				logfields.Error, err,
+				logfields.Key, key,
+				logfields.Value, value,
+			)
 		}
 	case ipcache.Delete:
 		err := l.bpfMap.Delete(&key)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"key":                  key.String(),
-				logfields.IPAddr:       cidr,
-				logfields.Identity:     newID,
-				logfields.Modification: modType,
-			}).Warning("unable to delete from bpf map")
+			scopedLog.Warn(
+				"unable to delete from bpf map",
+				logfields.Key, key,
+			)
 		}
 	default:
-		scopedLog.Warning("cache modification type not supported")
+		scopedLog.Warn("cache modification type not supported")
 	}
 }

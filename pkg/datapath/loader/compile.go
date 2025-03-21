@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -133,7 +133,7 @@ var (
 )
 
 // getBPFCPU returns the BPF CPU for this host.
-func getBPFCPU() string {
+func getBPFCPU(logger *slog.Logger) string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
 			// We can probe the availability of BPF instructions indirectly
@@ -141,15 +141,15 @@ func getBPFCPU() string {
 			// added in the same release.
 			// We want to enable v3 only on kernels 5.10+ where we have
 			// tested it and need it to work around complexity issues.
-			if probes.HaveV3ISA() == nil {
-				if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
+			if probes.HaveV3ISA(logger) == nil {
+				if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
 					nameBPFCPU = "v3"
 					return
 				}
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
-			if probes.HaveV2ISA() == nil {
+			if probes.HaveV2ISA(logger) == nil {
 				nameBPFCPU = "v2"
 			}
 		}
@@ -168,7 +168,7 @@ func pidFromProcess(proc *os.Process) string {
 // compile and optionally link a program.
 //
 // May output assembly or source code after prepocessing.
-func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, error) {
+func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *directoryInfo) (string, error) {
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
@@ -184,17 +184,18 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	}
 
 	compileArgs = append(compileArgs, standardCFlags...)
-	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU())
+	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU(logger))
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
 		"-c", path.Join(dir.Library, prog.Source),
 		"-o", "-", // Always output to stdout
 	)
 
-	log.WithFields(logrus.Fields{
-		"target": compiler,
-		"args":   compileArgs,
-	}).Debug("Launching compiler")
+	logger.Debug(
+		"Launching compiler",
+		logfields.Target, compiler,
+		logfields.Args, compileArgs,
+	)
 
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
 	defer cancelCompile()
@@ -225,14 +226,15 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 		}
 
 		if !errors.Is(err, context.Canceled) {
-			log.WithFields(logrus.Fields{
-				"compiler-pid": pidFromProcess(compileCmd.Process),
-			}).Error(err)
+			logger.Error(
+				err.Error(),
+				logfields.CompilerPID, pidFromProcess(compileCmd.Process),
+			)
 		}
 
 		scanner := bufio.NewScanner(io.LimitReader(&compilerStderr, 1_000_000))
 		for scanner.Scan() {
-			log.Warn(scanner.Text())
+			logger.Warn(scanner.Text())
 		}
 
 		return "", err
@@ -242,10 +244,12 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	// Cmd.Start() fails, which will leave Cmd.ProcessState nil. Only log peak
 	// RSS if the compilation succeeded, which will be the majority of cases.
 	if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
-		log.WithFields(logrus.Fields{
-			"compiler-pid": compileCmd.Process.Pid,
-			"output":       output.Name(),
-		}).Debugf("Compilation had peak RSS of %d bytes", usage.Maxrss)
+		logger.Debug(
+			"Compilation had peak RSS",
+			logfields.CompilerPID, compileCmd.Process.Pid,
+			logfields.Output, output.Name(),
+			logfields.RssBytes, usage.Maxrss,
+		)
 	}
 
 	return output.Name(), nil
@@ -258,17 +262,18 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 // * Preprocessed C
 // * Assembly
 // * Object compiled with debug symbols
-func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logger *logrus.Entry) error {
-	scopedLog := logger.WithField(logfields.Debug, true)
+func compileDatapath(ctx context.Context, logger *slog.Logger, dirs *directoryInfo, isHost bool) error {
+	scopedLog := logger.With(logfields.Debug, true)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
 	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
-	scopedLog.WithFields(logrus.Fields{
-		compiler: string(compilerVersion),
-	}).Debug("Compiling datapath")
+	scopedLog.Debug(
+		"Compiling datapath",
+		compiler, string(compilerVersion),
+	)
 
 	prog := epProg
 	if isHost {
@@ -281,21 +286,29 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		debugProg.Output = debugProg.Source
 		debugProg.OutputType = outputSource
 
-		if _, err := compile(ctx, &debugProg, dirs); err != nil {
+		if _, err := compile(ctx, logger, &debugProg, dirs); err != nil {
 			// Only log an error here if the context was not canceled. This log message
 			// should only represent failures with respect to compiling the program.
 			if !errors.Is(err, context.Canceled) {
-				scopedLog.WithField(logfields.Params, logfields.Repr(debugProg)).WithError(err).Debug("JoinEP: Failed to compile")
+				scopedLog.Debug(
+					"JoinEP: Failed to compile",
+					logfields.Error, err,
+					logfields.Params, debugProg,
+				)
 			}
 			return err
 		}
 	}
 
-	if _, err := compile(ctx, prog, dirs); err != nil {
+	if _, err := compile(ctx, logger, prog, dirs); err != nil {
 		// Only log an error here if the context was not canceled. This log message
 		// should only represent failures with respect to compiling the program.
 		if !errors.Is(err, context.Canceled) {
-			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).WithError(err).Warn("JoinEP: Failed to compile")
+			scopedLog.Warn(
+				"JoinEP: Failed to compile",
+				logfields.Error, err,
+				logfields.Params, prog,
+			)
 		}
 		return err
 	}
@@ -305,7 +318,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 
 // compileWithOptions compiles a BPF program generating an object file,
 // using a set of provided compiler options.
-func compileWithOptions(ctx context.Context, src string, out string, opts []string) error {
+func compileWithOptions(ctx context.Context, logger *slog.Logger, src string, out string, opts []string) error {
 	prog := progInfo{
 		Source:     src,
 		Options:    opts,
@@ -318,61 +331,66 @@ func compileWithOptions(ctx context.Context, src string, out string, opts []stri
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	_, err := compile(ctx, &prog, &dirs)
+	_, err := compile(ctx, logger, &prog, &dirs)
 	return err
 }
 
 // compileDefault compiles a BPF program generating an object file with default options.
-func compileDefault(ctx context.Context, src string, out string) error {
-	return compileWithOptions(ctx, src, out, nil)
+func compileDefault(ctx context.Context, logger *slog.Logger, src string, out string) error {
+	return compileWithOptions(ctx, logger, src, out, nil)
 }
 
 // compileNetwork compiles a BPF program attached to network
-func compileNetwork(ctx context.Context) error {
+func compileNetwork(ctx context.Context, logger *slog.Logger) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	scopedLog := log.WithField(logfields.Debug, true)
+	scopedLog := logger.With(logfields.Debug, true)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
 	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
-	scopedLog.WithFields(logrus.Fields{
-		compiler: string(compilerVersion),
-	}).Debug("Compiling network programs")
+	scopedLog.Debug(
+		"Compiling network programs",
+		compiler, string(compilerVersion),
+	)
 
 	// Write out assembly and preprocessing files for debugging purposes
-	if _, err := compile(ctx, networkTcProg, &dirs); err != nil {
-		scopedLog.WithField(logfields.Params, logfields.Repr(networkTcProg)).
-			WithError(err).Warn("Failed to compile")
+	if _, err := compile(ctx, logger, networkTcProg, &dirs); err != nil {
+		scopedLog.Warn(
+			"Failed to compile",
+			logfields.Error, err,
+			logfields.Params, networkTcProg,
+		)
 		return err
 	}
 	return nil
 }
 
 // compileOverlay compiles BPF programs in bpf_overlay.c.
-func compileOverlay(ctx context.Context, opts []string) error {
+func compileOverlay(ctx context.Context, logger *slog.Logger, opts []string) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	scopedLog := log.WithField(logfields.Debug, true)
+	scopedLog := logger.With(logfields.Debug, true)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
 	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
-	scopedLog.WithFields(logrus.Fields{
-		compiler: string(compilerVersion),
-	}).Debug("Compiling overlay programs")
+	scopedLog.Debug(
+		"Compiling overlay programs",
+		compiler, string(compilerVersion),
+	)
 
 	prog := &progInfo{
 		Source:     overlayProg,
@@ -381,41 +399,47 @@ func compileOverlay(ctx context.Context, opts []string) error {
 		Options:    opts,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
-	if _, err := compile(ctx, prog, dirs); err != nil {
-		scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
-			WithError(err).Warn("Failed to compile")
+	if _, err := compile(ctx, logger, prog, dirs); err != nil {
+		scopedLog.Warn(
+			"Failed to compile",
+			logfields.Error, err,
+			logfields.Params, prog,
+		)
 		return err
 	}
 	return nil
 }
 
-func compileWireguard(ctx context.Context) (err error) {
+func compileWireguard(ctx context.Context, logger *slog.Logger) (err error) {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	scopedLog := log.WithField(logfields.Debug, true)
+	scopedLog := logger.With(logfields.Debug, true)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
 	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
-	scopedLog.WithFields(logrus.Fields{
-		compiler: string(compilerVersion),
-	}).Debug("Compiling wireguard programs")
-
+	scopedLog.Debug(
+		"Compiling wireguard programs",
+		compiler, string(compilerVersion),
+	)
 	prog := &progInfo{
 		Source:     wireguardProg,
 		Output:     wireguardObj,
 		OutputType: outputObject,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
-	if _, err := compile(ctx, prog, dirs); err != nil {
-		scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
-			WithError(err).Warn("Failed to compile")
+	if _, err := compile(ctx, logger, prog, dirs); err != nil {
+		scopedLog.Warn(
+			"Failed to compile",
+			logfields.Error, err,
+			logfields.Params, prog,
+		)
 		return err
 	}
 	return nil

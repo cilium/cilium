@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
@@ -214,7 +215,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 // the running kernel.
 func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 	if option.Config.EnableNodePort {
-		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
+		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
 
@@ -223,13 +224,13 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.EnableRecorder {
-			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
 				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
 		}
 
 		if option.Config.EnableHealthDatapath {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
 				option.Config.EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
@@ -246,8 +247,8 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		probes.HaveIPv6Support()
 
 		if option.Config.EnableMKE {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
-				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
@@ -278,15 +279,15 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.EnableSocketLBTracing {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
 				option.Config.EnableSocketLBTracing = false
 				log.Info("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 			}
 		}
 
 		if option.Config.EnableSessionAffinity {
-			if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
-				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
 					"to work properly when accessed from inside cluster: the same service endpoint " +
 					"will be selected from all network namespaces on the host.")
@@ -294,7 +295,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 
 		if option.Config.BPFSocketLBHostnsOnly {
-			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				option.Config.BPFSocketLBHostnsOnly = false
 				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
 					"cannot distinguish root and non-root namespace, skipping socket-level " +
@@ -351,8 +352,8 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		default:
-			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
-				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 				msg = "BPF host routing requires kernel 5.10 or newer."
 			}
 		}

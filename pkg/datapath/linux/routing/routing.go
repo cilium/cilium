@@ -6,10 +6,10 @@ package linuxrouting
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
@@ -22,15 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
 )
 
 // Configure sets up the rules and routes needed when running in ENI or
@@ -47,9 +42,10 @@ var (
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
 func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) error {
 	if ip == nil || (ip.To4() == nil && ip.To16() == nil) {
-		log.WithFields(logrus.Fields{
-			"endpointIP": ip,
-		}).Warning("Unable to configure rules and routes because IP is not a valid address")
+		info.logger.Warn(
+			"Unable to configure rules and routes because IP is not a valid IP address",
+			logfields.IPAddr, ip,
+		)
 		return errors.New("IP not compatible")
 	}
 
@@ -254,26 +250,23 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 // main routing table. Due to multiple routing CIDRs, there might be more than
 // one egress rule. Deletion of any rule only proceeds if the rule matches
 // the IP & priority. If more than one rule matches, then deletion is skipped.
-func Delete(ip netip.Addr, compat bool) error {
+func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 	if !ip.Is4() && !ip.Is6() && !ip.IsValid() {
-		log.WithFields(logrus.Fields{
-			"endpointIP": ip,
-		}).Warning("Unable to delete rules because IP is not a valid address")
+		logger.Warn(
+			"Unable to delete rules because IP is not a valid IP address",
+			logfields.IPAddr, ip,
+		)
 		return errors.New("IP not compatible")
 	}
 
 	ipWithMask := netipx.AddrIPNet(ip)
-	var deleteRuleFn func(route.Rule) error
+	var deleteRuleFn func(*slog.Logger, route.Rule) error
 
 	if ip.Is4() {
 		deleteRuleFn = deleteRuleIPv4
 	} else {
 		deleteRuleFn = deleteRuleIPv6
 	}
-
-	scopedLog := log.WithFields(logrus.Fields{
-		"ip": ipWithMask.String(),
-	})
 
 	// Ingress rules
 	ingress := route.Rule{
@@ -282,10 +275,13 @@ func Delete(ip netip.Addr, compat bool) error {
 		Table:    route.MainTable,
 	}
 
-	if err := deleteRuleFn(ingress); err != nil {
+	if err := deleteRuleFn(logger, ingress); err != nil {
 		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
-	scopedLog.WithField("rule", ingress).Debug("Deleted ingress rule")
+	logger.Debug("Deleted ingress rule",
+		logfields.Rule, ingress,
+		logfields.IPAddr, ipWithMask,
+	)
 
 	priority := linux_defaults.RulePriorityEgressv2
 	if compat {
@@ -311,10 +307,13 @@ func Delete(ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRuleIPv4(egress); err != nil {
+			if err := deleteRuleIPv4(logger, egress); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
-			scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+			logger.Debug("Deleted egress rule",
+				logfields.Rule, egress,
+				logfields.IPAddr, ipWithMask,
+			)
 		}
 		for _, cidr := range ipv6RoutingCIDRs {
 			egress := route.Rule{
@@ -322,20 +321,26 @@ func Delete(ip netip.Addr, compat bool) error {
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRuleIPv6(egress); err != nil {
+			if err := deleteRuleIPv6(logger, egress); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
-			scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+			logger.Debug("Deleted egress rule",
+				logfields.Rule, egress,
+				logfields.IPAddr, ipWithMask,
+			)
 		}
 	} else {
 		egress := route.Rule{
 			Priority: priority,
 			From:     ipWithMask,
 		}
-		if err := deleteRuleFn(egress); err != nil {
+		if err := deleteRuleFn(logger, egress); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 		}
-		scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+		logger.Debug("Deleted egress rule",
+			logfields.Rule, egress,
+			logfields.IPAddr, ipWithMask,
+		)
 	}
 
 	if option.Config.EnableUnreachableRoutes {
@@ -358,15 +363,15 @@ func Delete(ip netip.Addr, compat bool) error {
 	return nil
 }
 
-func deleteRuleIPv4(r route.Rule) error {
-	return deleteRule(r, netlink.FAMILY_V4)
+func deleteRuleIPv4(logger *slog.Logger, r route.Rule) error {
+	return deleteRule(logger, r, netlink.FAMILY_V4)
 }
 
-func deleteRuleIPv6(r route.Rule) error {
-	return deleteRule(r, netlink.FAMILY_V6)
+func deleteRuleIPv6(logger *slog.Logger, r route.Rule) error {
+	return deleteRule(logger, r, netlink.FAMILY_V6)
 }
 
-func deleteRule(r route.Rule, family int) error {
+func deleteRule(logger *slog.Logger, r route.Rule, family int) error {
 	rules, err := route.ListRules(family, &r)
 	if err != nil {
 		return err
@@ -375,18 +380,20 @@ func deleteRule(r route.Rule, family int) error {
 	length := len(rules)
 	switch {
 	case length > 1:
-		log.WithFields(logrus.Fields{
-			"candidates": rules,
-			"rule":       r,
-		}).Warning("Found too many rules matching, skipping deletion")
+		logger.Warn(
+			"Found too many rules matching, skipping deletion",
+			logfields.Candidates, rules,
+			logfields.Rule, r,
+		)
 		return errors.New("unexpected number of rules found to delete")
 	case length == 1:
 		return route.DeleteRule(family, r)
 	}
 
-	log.WithFields(logrus.Fields{
-		"rule": r,
-	}).Warning("No rule matching found")
+	logger.Warn(
+		"No rule matching found",
+		logfields.Rule, r,
+	)
 
 	return errors.New("no rule found to delete")
 }
