@@ -255,6 +255,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 				if err := os.MkdirAll(reportDir, 0755); err != nil {
 					return fmt.Errorf("could not create report dir %q: %w", reportDir, err)
 				}
+			} else if params.PerfParameters.KernelProfiles {
+				fmt.Println("⚠️  Requested kernel profiles, but report-dir is unset, skipping")
+				params.PerfParameters.KernelProfiles = false
 			}
 
 			return nil
@@ -279,6 +282,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.SameNode, "same-node", true, "Run tests in which the client and the server are hosted on the same node")
 	cmd.Flags().BoolVar(&params.PerfParameters.OtherNode, "other-node", true, "Run tests in which the client and the server are hosted on difference nodes")
 	cmd.Flags().BoolVar(&params.PerfParameters.NetQos, "net-qos", false, "Test pod network Quality of Service")
+
+	cmd.Flags().BoolVar(&params.PerfParameters.KernelProfiles, "unsafe-capture-kernel-profiles", false,
+		"Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration")
 
 	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-server", &params.PerfParameters.NodeSelectorServer, nil),
 		"node-selector-server", "Node selector for the server pod (and client same-node)")
