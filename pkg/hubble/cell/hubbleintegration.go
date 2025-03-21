@@ -450,7 +450,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	if h.config.EnableRedact {
 		parserOpts = append(
 			parserOpts,
-			parserOptions.Redact(
+			parserOptions.WithRedact(
 				h.log,
 				h.config.RedactHttpURLQuery,
 				h.config.RedactHttpUserInfo,
