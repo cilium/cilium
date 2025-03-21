@@ -2,10 +2,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-echo -e "\ttest___builtin_$1_single(8, 1);"
-((j = 16))
-while [[ $j -le $2 ]]
-do
-	echo -e "\ttest___builtin_$1_single(8, $((j / 8)));"
-	((j += 16))
+echo -e "\ttest___builtin_$1_single(1);"
+for (( j = 2; j <= "$2"; j += 2 )); do
+	echo -e "\ttest___builtin_$1_single($j);"
 done
