@@ -74,6 +74,7 @@ type ConnectivityTest struct {
 	clientCPPods         map[string]Pod
 	perfClientPods       []Pod
 	perfServerPod        []Pod
+	perfProfilingPods    map[string]Pod
 	PerfResults          []common.PerfSummary
 	echoServices         map[string]Service
 	echoExternalServices map[string]Service
@@ -227,6 +228,7 @@ func NewConnectivityTest(
 		clientCPPods:             make(map[string]Pod),
 		lrpClientPods:            make(map[string]Pod),
 		lrpBackendPods:           make(map[string]Pod),
+		perfProfilingPods:        make(map[string]Pod),
 		socatServerPods:          []Pod{},
 		socatClientPods:          []Pod{},
 		perfClientPods:           []Pod{},
@@ -1116,6 +1118,10 @@ func (ct *ConnectivityTest) PerfServerPod() []Pod {
 
 func (ct *ConnectivityTest) PerfClientPods() []Pod {
 	return ct.perfClientPods
+}
+
+func (ct *ConnectivityTest) PerfProfilingPods() map[string]Pod {
+	return ct.perfProfilingPods
 }
 
 func (ct *ConnectivityTest) SocatServerPods() []Pod {

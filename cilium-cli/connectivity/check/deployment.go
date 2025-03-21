@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -35,18 +36,21 @@ import (
 )
 
 const (
-	PerfHostName                          = "-host-net"
-	PerfOtherNode                         = "-other-node"
-	PerfLowPriority                       = "-low-priority"
-	PerfHighPriority                      = "-high-priority"
-	perfClientDeploymentName              = "perf-client"
-	perfClientHostNetDeploymentName       = perfClientDeploymentName + PerfHostName
-	perfClientAcrossDeploymentName        = perfClientDeploymentName + PerfOtherNode
-	perClientLowPriorityDeploymentName    = perfClientDeploymentName + PerfLowPriority
-	perClientHighPriorityDeploymentName   = perfClientDeploymentName + PerfHighPriority
-	perfClientHostNetAcrossDeploymentName = perfClientAcrossDeploymentName + PerfHostName
-	perfServerDeploymentName              = "perf-server"
-	perfServerHostNetDeploymentName       = perfServerDeploymentName + PerfHostName
+	PerfHostName                            = "-host-net"
+	PerfOtherNode                           = "-other-node"
+	PerfLowPriority                         = "-low-priority"
+	PerfHighPriority                        = "-high-priority"
+	PerfProfiling                           = "-profiling"
+	perfClientDeploymentName                = "perf-client"
+	perfClientHostNetDeploymentName         = perfClientDeploymentName + PerfHostName
+	perfClientAcrossDeploymentName          = perfClientDeploymentName + PerfOtherNode
+	perClientLowPriorityDeploymentName      = perfClientDeploymentName + PerfLowPriority
+	perClientHighPriorityDeploymentName     = perfClientDeploymentName + PerfHighPriority
+	perfClientHostNetAcrossDeploymentName   = perfClientAcrossDeploymentName + PerfHostName
+	perfServerDeploymentName                = "perf-server"
+	perfServerHostNetDeploymentName         = perfServerDeploymentName + PerfHostName
+	PerfServerProfilingDeploymentName       = perfServerDeploymentName + PerfProfiling
+	PerfClientProfilingAcrossDeploymentName = perfClientAcrossDeploymentName + PerfProfiling
 
 	clientDeploymentName  = "client"
 	client2DeploymentName = "client2"
@@ -101,9 +105,10 @@ const (
 type perfPodRole string
 
 const (
-	perfPodRoleKey    = "role"
-	perfPodRoleServer = perfPodRole("server")
-	perfPodRoleClient = perfPodRole("client")
+	perfPodRoleKey       = "role"
+	perfPodRoleServer    = perfPodRole("server")
+	perfPodRoleClient    = perfPodRole("client")
+	perfPodRoleProfiling = perfPodRole("profiling")
 )
 
 var (
@@ -1681,6 +1686,68 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 	return nil
 }
 
+func (ct *ConnectivityTest) createProfilingPerfDeployment(ctx context.Context, name, nodeName string) error {
+	ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), name)
+
+	labels := map[string]string{
+		"name":         name,
+		"kind":         kindPerfName,
+		perfPodRoleKey: string(perfPodRoleProfiling),
+	}
+
+	_, err := ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{{
+						Name:            "init",
+						Image:           ct.params.PerfParameters.Image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"nsenter", "--target=1", "--mount", "--", "bash", "-e", "-c", "$(SCRIPT)"},
+						Env: []corev1.EnvVar{{
+							Name: "SCRIPT",
+							Value: `
+							if command -v perf 2>&1 >/dev/null; then
+								echo "Nice, perf appears to be already installed"
+							elif command -v apt 2>&1 >/dev/null; then
+								echo "Attempting to install perf with apt"
+								apt update && apt install -y linux-perf
+							elif command -v yum 2>&1 >/dev/null; then
+								echo "Attempting to install perf with dnf"
+								dnf install -y perf
+							else
+								echo "Could not install perf using attempted package managers."
+								exit 1
+							fi
+							`,
+						}},
+						SecurityContext: &corev1.SecurityContext{Privileged: ptr.To(true)},
+					}},
+					Containers: []corev1.Container{{
+						Name:            "profiler",
+						Image:           ct.params.PerfParameters.Image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"/bin/sleep", "infinity"},
+						SecurityContext: &corev1.SecurityContext{Privileged: ptr.To(true)},
+					}},
+					HostNetwork: true,
+					HostPID:     true,
+					NodeName:    nodeName,
+					Tolerations: ct.params.PerfParameters.GetTolerations(),
+				},
+			},
+			Replicas: ptr.To[int32](1),
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create deployment %s: %w", name, err)
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	if err := ct.deployNamespace(ctx); err != nil {
 		return err
@@ -1787,6 +1854,18 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		}
 	}
 
+	if ct.params.PerfParameters.KernelProfiles {
+		if err = ct.createProfilingPerfDeployment(ctx, PerfServerProfilingDeploymentName, serverNode.Name); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+
+		if ct.params.PerfParameters.OtherNode {
+			if err = ct.createProfilingPerfDeployment(ctx, PerfClientProfilingAcrossDeploymentName, clientNode.Name); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1821,6 +1900,13 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 	}
 	if ct.params.PerfParameters.HostNet || ct.params.PerfParameters.PodToHost {
 		srcList = append(srcList, perfServerHostNetDeploymentName)
+	}
+
+	if ct.params.PerfParameters.KernelProfiles {
+		srcList = append(srcList, PerfServerProfilingDeploymentName)
+		if ct.params.PerfParameters.OtherNode {
+			srcList = append(srcList, PerfClientProfilingAcrossDeploymentName)
+		}
 	}
 
 	return
@@ -1983,6 +2069,12 @@ func (ct *ConnectivityTest) validateDeploymentPerf(ctx context.Context) error {
 				K8sClient: ct.client,
 				Pod:       perfPod.DeepCopy(),
 			})
+		case perfPodRoleProfiling:
+			name := perfPod.GetLabels()["name"]
+			ct.perfProfilingPods[name] = Pod{
+				K8sClient: ct.client,
+				Pod:       perfPod.DeepCopy(),
+			}
 		default:
 			ct.Warnf("Found perf pod %q with unknown a role %q", perfPod.GetName(), role)
 		}
