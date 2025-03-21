@@ -170,7 +170,7 @@ func ParseStaticMetricsConfig(enabledMetrics []string) (metricConfigs *Config) {
 func parseOptionConfigs(s string) (options []*ContextOptionConfig) {
 	options = []*ContextOptionConfig{}
 
-	for _, option := range strings.Split(s, ";") {
+	for option := range strings.SplitSeq(s, ";") {
 		if option == "" {
 			continue
 		}
@@ -194,7 +194,7 @@ func parseOptionValues(s string) (values ContextValues) {
 	values = ContextValues{}
 
 	if strings.Contains(s, "|") {
-		for _, option := range strings.Split(s, "|") {
+		for option := range strings.SplitSeq(s, "|") {
 			if option == "" {
 				continue
 			}
@@ -202,7 +202,7 @@ func parseOptionValues(s string) (values ContextValues) {
 		}
 	} else {
 		// temporarily handling comma separated values for labels context
-		for _, option := range strings.Split(s, ",") {
+		for option := range strings.SplitSeq(s, ",") {
 			if option == "" {
 				continue
 			}

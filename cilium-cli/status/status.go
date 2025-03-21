@@ -437,7 +437,7 @@ func (s *Status) Format() string {
 
 	header = "Configuration:"
 	for _, msg := range s.ConfigErrors {
-		for _, line := range strings.Split(msg, "\n") {
+		for line := range strings.SplitSeq(msg, "\n") {
 			fmt.Fprintf(w, "%s\t \t%s\n", header, line)
 			header = ""
 		}

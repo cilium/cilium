@@ -180,7 +180,7 @@ func reportChecks(output string) (string, string) {
 	var stdout string
 	var dest = "stdout"
 
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if line == "<Checks>" {
 			dest = "checks"
 			continue

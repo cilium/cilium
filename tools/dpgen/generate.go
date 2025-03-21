@@ -187,8 +187,7 @@ func getValue[T comparable](v *ebpf.VariableSpec) (out T, err error) {
 // acronyms defined in 'stylized'.
 func camelCase(s string) string {
 	var b strings.Builder
-	words := strings.Split(s, "_")
-	for _, w := range words {
+	for w := range strings.SplitSeq(s, "_") {
 		w = stylize(strings.ToLower(w))
 		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
 	}
@@ -230,8 +229,7 @@ func tagsToComment(tags []string) (string, error) {
 func wrapString(in, prefix string) string {
 	var b strings.Builder
 	width := uint(80 - len(prefix))
-	lines := strings.Split(wordwrap.WrapString(in, width), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(wordwrap.WrapString(in, width), "\n") {
 		b.WriteString(prefix)
 		b.WriteString(line)
 		b.WriteString("\n")

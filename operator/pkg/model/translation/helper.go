@@ -22,7 +22,7 @@ func ParseNodeLabelSelector(nodeLabelSelectorString string) *slim_metav1.LabelSe
 	}
 
 	labels := map[string]string{}
-	for _, v := range strings.Split(nodeLabelSelectorString, ",") {
+	for v := range strings.SplitSeq(nodeLabelSelectorString, ",") {
 		s := strings.Split(v, "=")
 		if len(s) != 2 || len(s[0]) == 0 {
 			continue

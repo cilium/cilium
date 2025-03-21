@@ -461,7 +461,7 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 // does not contain ignore messages (map value).
 func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) {
 	uniqueFailures := make(map[string]int)
-	for _, msg := range strings.Split(logs, "\n") {
+	for msg := range strings.SplitSeq(logs, "\n") {
 		for fail, ignoreMessages := range blacklist {
 			if strings.Contains(msg, fail) {
 				ok := false
