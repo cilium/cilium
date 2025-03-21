@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -76,14 +75,6 @@ type Configuration struct {
 	FeatureMetrics ClusterMeshMetrics
 
 	Logger *slog.Logger
-}
-
-// ServiceMerger is the interface to be implemented by the owner of local
-// services. The functions have to merge service updates and deletions with
-// local services to provide a shared view.
-type ServiceMerger interface {
-	MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
-	MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
