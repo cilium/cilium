@@ -57,10 +57,10 @@ static void __fill_cnt(void *buff, __u32 len)
 		dest[i] = cnt++;
 }
 
-#define test___builtin_memzero_single(op, len)					\
+#define test___builtin_memzero_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
 		__bpf_memset_builtin(__y, 0, sizeof(__y));			\
 		__fill_rnd(__x, sizeof(__x));					\
 		barrier_data(__x);						\
@@ -72,15 +72,15 @@ static void __fill_cnt(void *buff, __u32 len)
 
 static void test___builtin_memzero(void)
 {
-	/* ./builtin_gen memzero 768 > builtin_memzero.h */
+	/* ./builtin_gen memzero 96 > builtin_memzero.h */
 	#include "builtin_memzero.h"
 }
 
-#define test___builtin_memcpy_single(op, len)					\
+#define test___builtin_memcpy_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
-		__u##op __z[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
+		__u8 __z[len] __align_stack_8;					\
 		__bpf_memset_builtin(__x, 0, sizeof(__x));			\
 		__fill_rnd(__y, sizeof(__y));					\
 		__bpf_memcpy_builtin(__z, __y, sizeof(__z));			\
@@ -94,15 +94,15 @@ static void test___builtin_memzero(void)
 
 static void test___builtin_memcpy(void)
 {
-	/* ./builtin_gen memcpy 768 > builtin_memcpy.h */
+	/* ./builtin_gen memcpy 96 > builtin_memcpy.h */
 	#include "builtin_memcpy.h"
 }
 
-#define test___builtin_memcmp_single(op, len)					\
+#define test___builtin_memcmp_single(len)					\
 	do {									\
 		bool res, cor;							\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
 		__fill_rnd(__x, sizeof(__x));					\
 		__cpy_mem(__y, __x, sizeof(__x));				\
 		cor = __corrupt_mem(__y, sizeof(__x));				\
@@ -117,17 +117,17 @@ static void test___builtin_memcmp(void)
 	int i;
 
 	for (i = 0; i < 100; i++) {
-		/* ./builtin_gen memcmp 256 > builtin_memcmp.h */
+		/* ./builtin_gen memcmp 32 > builtin_memcmp.h */
 		#include "builtin_memcmp.h"
 	}
 }
 
 /* Same as test___builtin_memcpy_single(). */
-#define test___builtin_memmove1_single(op, len)					\
+#define test___builtin_memmove1_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
-		__u##op __z[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
+		__u8 __z[len] __align_stack_8;					\
 		__bpf_memset_builtin(__x, 0, sizeof(__x));			\
 		__fill_rnd(__y, sizeof(__y));					\
 		__bpf_memcpy_builtin(__z, __y, sizeof(__z));			\
@@ -140,10 +140,10 @@ static void test___builtin_memcmp(void)
 	} while (0)
 
 /* Overlapping with src == dst. */
-#define test___builtin_memmove2_single(op, len)					\
+#define test___builtin_memmove2_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
 		__u8 *__p_y = (__u8 *)__y;					\
 		const __u32 off = 0;						\
@@ -158,10 +158,10 @@ static void test___builtin_memcmp(void)
 	} while (0)
 
 /* Overlapping with src < dst. */
-#define test___builtin_memmove3_single(op, len)					\
+#define test___builtin_memmove3_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
 		__u8 *__p_y = (__u8 *)__y;					\
 		const __u32 off = (sizeof(__x[0]) * len / 2) & ~1U;		\
@@ -176,10 +176,10 @@ static void test___builtin_memcmp(void)
 	} while (0)
 
 /* Overlapping with src > dst. */
-#define test___builtin_memmove4_single(op, len)					\
+#define test___builtin_memmove4_single(len)					\
 	do {									\
-		__u##op __x[len] __align_stack_8;				\
-		__u##op __y[len] __align_stack_8;				\
+		__u8 __x[len] __align_stack_8;					\
+		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
 		const __u32 off = (sizeof(__x[0]) * len / 2) & ~1U;		\
 		__fill_cnt(__x, sizeof(__x));					\
@@ -194,9 +194,9 @@ static void test___builtin_memcmp(void)
 
 static void test___builtin_memmove(void)
 {
-	/* ./builtin_gen memmove1 768  > builtin_memmove.h */
-	/* ./builtin_gen memmove2 768 >> builtin_memmove.h */
-	/* ./builtin_gen memmove3 768 >> builtin_memmove.h */
-	/* ./builtin_gen memmove4 768 >> builtin_memmove.h */
+	/* ./builtin_gen memmove1 96  > builtin_memmove.h */
+	/* ./builtin_gen memmove2 96 >> builtin_memmove.h */
+	/* ./builtin_gen memmove3 96 >> builtin_memmove.h */
+	/* ./builtin_gen memmove4 96 >> builtin_memmove.h */
 	#include "builtin_memmove.h"
 }
