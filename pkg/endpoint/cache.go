@@ -4,10 +4,9 @@
 package endpoint
 
 import (
+	"log/slog"
 	"net/netip"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -137,8 +136,8 @@ func (ep *epInfoCache) GetEndpointNetNsCookie() uint64 {
 }
 
 // Logger returns the logger for the endpoint that is being cached.
-func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
-	return ep.endpoint.Logger(subsystem)
+func (ep *epInfoCache) Logger(subsystem string) *slog.Logger {
+	return ep.endpoint.SLogger(subsystem)
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.

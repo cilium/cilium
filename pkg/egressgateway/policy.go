@@ -5,9 +5,9 @@ package egressgateway
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -131,14 +131,15 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		gwc.gatewayIP = addr
 
 		if node.IsLocal() {
-			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
+			err := gwc.deriveFromPolicyGatewayConfig(manager.logger, policyGwc)
 			if err != nil {
-				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressGatewayPolicyName: config.id,
-					logfields.Interface:                     policyGwc.iface,
-					logfields.EgressIP:                      policyGwc.egressIP,
-				})
-				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				manager.logger.Error(
+					"Failed to derive policy gateway configuration",
+					logfields.Error, err,
+					logfields.CiliumEgressGatewayPolicyName, config.id,
+					logfields.Interface, policyGwc.iface,
+					logfields.EgressIP, policyGwc.egressIP,
+				)
 			}
 		}
 
@@ -150,7 +151,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 // deriveFromPolicyGatewayConfig retrieves all the missing gateway configuration
 // data (such as egress IP or interface) given a policy egress gateway config
-func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig) error {
+func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc *policyGatewayConfig) error {
 	var err error
 
 	gwc.localNodeConfiguredAsGateway = false
@@ -176,7 +177,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	default:
 		// If the gateway config doesn't specify any egress IP or interface, use the
 		// interface with the IPv4 default route
-		iface, err := route.NodeDeviceWithDefaultRoute(true, false)
+		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
 		if err != nil {
 			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with default route: %w", err)

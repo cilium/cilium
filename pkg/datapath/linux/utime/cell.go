@@ -6,6 +6,7 @@ package utime
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
@@ -29,12 +30,12 @@ var Cell = cell.Module(
 	cell.Invoke(initUtimeSync),
 )
 
-func initUtimeSync(lifecycle cell.Lifecycle, configMap configmap.Map) {
+func initUtimeSync(lifecycle cell.Lifecycle, configMap configmap.Map, logger *slog.Logger) {
 	controllerManager := controller.NewManager()
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
-			ctrl := &utimeController{configMap: configMap}
+			ctrl := &utimeController{logger: logger, configMap: configMap}
 
 			// Add controller for keeping clock in sync for NTP time jumps and any difference
 			// between monotonic and boottime clocks.

@@ -47,7 +47,7 @@ func slogLevel(l logrus.Level) slog.Level {
 
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
-func initializeSlog(logOpts LogOptions, useStdout bool) {
+func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = slogLevel(logOpts.GetLogLevel())
 
@@ -60,8 +60,12 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 	}
 
 	writer := os.Stderr
-	if useStdout {
-		writer = os.Stdout
+	switch logOpts[WriterOpt] {
+	case StdErrOpt:
+	default:
+		if len(loggers) == 0 {
+			writer = os.Stdout
+		}
 	}
 
 	switch logFormat {

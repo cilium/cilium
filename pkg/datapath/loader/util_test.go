@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -49,11 +50,13 @@ func setupCompilationDirectories(tb testing.TB) {
 
 func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
+	logger := hivetest.Logger(tb)
 
 	l := newLoader(Params{
+		Logger: logger,
 		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	cw := configWriterForTest(tb)
-	l.templateCache = newObjectCache(cw, tb.TempDir())
+	l.templateCache = newObjectCache(logger, cw, tb.TempDir())
 	return l
 }
