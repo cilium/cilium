@@ -17,32 +17,32 @@ import (
 )
 
 const (
-	bandwidthToolName = "bandwidth"
+	netQosToolName = "netQos"
 )
 
-// NetBandwidth : Test Network QoS Enforcement
-func NetBandwidth(n string) check.Scenario {
-	return &bandwidth{
+// NetQos : Test Network QoS Enforcement
+func NetQos(n string) check.Scenario {
+	return &netQos{
 		name:         n,
 		ScenarioBase: check.NewScenarioBase(),
 	}
 }
 
-type bandwidth struct {
+type netQos struct {
 	check.ScenarioBase
 
 	lock.Mutex
 	name string
 }
 
-func (s *bandwidth) Name() string {
+func (s *netQos) Name() string {
 	if s.name == "" {
-		return bandwidthToolName
+		return netQosToolName
 	}
-	return fmt.Sprintf("%s:%s", bandwidthToolName, s.name)
+	return fmt.Sprintf("%s:%s", netQosToolName, s.name)
 }
 
-func (s *bandwidth) Run(ctx context.Context, t *check.Test) {
+func (s *netQos) Run(ctx context.Context, t *check.Test) {
 	perfParameters := t.Context().Params().PerfParameters
 	tests := []string{"TCP_STREAM"}
 	tputSum := map[string]uint64{}
@@ -52,12 +52,10 @@ func (s *bandwidth) Run(ctx context.Context, t *check.Test) {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
 
-			client := getTestSet(c.Name())
-			for _, server := range t.Context().PerfServerPod() {
-				if getTestSet(server.Name()) != client {
-					continue
-				}
+			t.Infof("%s %#v\n", c.Name(), c)
+			t.Context().Log("%s %#v\n", c.Name(), c)
 
+			for _, server := range t.Context().PerfServerPod() {
 				scenarioName := "pod-to-pod"
 
 				sameNode := false
@@ -88,21 +86,25 @@ func (s *bandwidth) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 	wg.Wait()
+	var lowPrio, highPrio uint64
 	t.Context().Log("\n")
 	for k, v := range tputSum {
 		t.Context().Infof("%s : %v", k, uint64(v))
-		if v > 11 {
-			t.Failf("Bandwidth limit failed to enforced")
+		if strings.Contains(k, "low") {
+			lowPrio = uint64(v)
+		}
+		if strings.Contains(k, "high") {
+			highPrio = uint64(v)
 		}
 	}
-}
-
-func getTestSet(name string) string {
-	if strings.Contains(name, "ingress") {
-		return "ingress"
+	if lowPrio == 0 || highPrio == 0 {
+		t.Failf("QoS ratio not enforced between high and low priority traffic; High : %v, Low: %v",
+			highPrio, lowPrio)
+		return
 	}
-	if strings.Contains(name, "egress") {
-		return "egress"
+	ratio := highPrio / lowPrio
+	if !(ratio >= 8 && ratio <= 9) {
+		t.Failf("QoS ratio not enforced between high and low priority traffic; High : %v, Low: %v, ratio: %v",
+			highPrio, lowPrio, ratio)
 	}
-	return ""
 }

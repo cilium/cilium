@@ -272,6 +272,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.SameNode, "same-node", true, "Run tests in which the client and the server are hosted on the same node")
 	cmd.Flags().BoolVar(&params.PerfParameters.OtherNode, "other-node", true, "Run tests in which the client and the server are hosted on difference nodes")
 	cmd.Flags().BoolVar(&params.PerfParameters.NetQos, "net-qos", false, "Test pod network Quality of Service")
+	cmd.Flags().BoolVar(&params.PerfParameters.Bandwidth, "bandwidth", false, "Test pod network bandwidth manage")
 
 	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-server", &params.PerfParameters.NodeSelectorServer, nil),
 		"node-selector-server", "Node selector for the server pod (and client same-node)")
