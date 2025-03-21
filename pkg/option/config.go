@@ -311,9 +311,6 @@ const (
 	// features in BPF datapath
 	KubeProxyReplacement = "kube-proxy-replacement"
 
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity = "enable-session-affinity"
-
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
@@ -1958,9 +1955,6 @@ type DaemonConfig struct {
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax int
 
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity bool
-
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
@@ -2899,7 +2893,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
 	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
@@ -3777,8 +3770,7 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&
 		c.EnableExternalIPs &&
-		c.EnableSocketLB &&
-		c.EnableSessionAffinity
+		c.EnableSocketLB
 }
 
 var backupFileNames []string = []string{

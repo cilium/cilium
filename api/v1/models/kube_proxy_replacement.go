@@ -311,9 +311,6 @@ type KubeProxyReplacementFeatures struct {
 	// node port
 	NodePort *KubeProxyReplacementFeaturesNodePort `json:"nodePort,omitempty"`
 
-	// session affinity
-	SessionAffinity *KubeProxyReplacementFeaturesSessionAffinity `json:"sessionAffinity,omitempty"`
-
 	// socket l b
 	SocketLB *KubeProxyReplacementFeaturesSocketLB `json:"socketLB,omitempty"`
 
@@ -346,10 +343,6 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateNodePort(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateSessionAffinity(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -481,25 +474,6 @@ func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry)
 	return nil
 }
 
-func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Registry) error {
-	if swag.IsZero(m.SessionAffinity) { // not required
-		return nil
-	}
-
-	if m.SessionAffinity != nil {
-		if err := m.SessionAffinity.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("features" + "." + "sessionAffinity")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("features" + "." + "sessionAffinity")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry) error {
 	if swag.IsZero(m.SocketLB) { // not required
 		return nil
@@ -563,10 +537,6 @@ func (m *KubeProxyReplacementFeatures) ContextValidate(ctx context.Context, form
 	}
 
 	if err := m.contextValidateNodePort(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.contextValidateSessionAffinity(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -702,27 +672,6 @@ func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Conte
 				return ve.ValidateName("features" + "." + "nodePort")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("features" + "." + "nodePort")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.SessionAffinity != nil {
-
-		if swag.IsZero(m.SessionAffinity) { // not required
-			return nil
-		}
-
-		if err := m.SessionAffinity.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("features" + "." + "sessionAffinity")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("features" + "." + "sessionAffinity")
 			}
 			return err
 		}
@@ -1430,43 +1379,6 @@ func (m *KubeProxyReplacementFeaturesNodePort) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNodePort) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNodePort
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
-	return nil
-}
-
-// KubeProxyReplacementFeaturesSessionAffinity kube proxy replacement features session affinity
-//
-// swagger:model KubeProxyReplacementFeaturesSessionAffinity
-type KubeProxyReplacementFeaturesSessionAffinity struct {
-
-	// enabled
-	Enabled bool `json:"enabled,omitempty"`
-}
-
-// Validate validates this kube proxy replacement features session affinity
-func (m *KubeProxyReplacementFeaturesSessionAffinity) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// ContextValidate validates this kube proxy replacement features session affinity based on context it is used
-func (m *KubeProxyReplacementFeaturesSessionAffinity) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (m *KubeProxyReplacementFeaturesSessionAffinity) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *KubeProxyReplacementFeaturesSessionAffinity) UnmarshalBinary(b []byte) error {
-	var res KubeProxyReplacementFeaturesSessionAffinity
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

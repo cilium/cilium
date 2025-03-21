@@ -45,16 +45,15 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
-		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
+		log.Infof("Auto-enabling %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
-			option.EnableSessionAffinity)
+		)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableSocketLB = true
-		option.Config.EnableSessionAffinity = true
 	}
 
 	if option.Config.EnableNodePort {
@@ -280,13 +279,11 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 			}
 		}
 
-		if option.Config.EnableSessionAffinity {
-			if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
-				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
-					"to work properly when accessed from inside cluster: the same service endpoint " +
-					"will be selected from all network namespaces on the host.")
-			}
+		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
+				"to work properly when accessed from inside cluster: the same service endpoint " +
+				"will be selected from all network namespaces on the host.")
 		}
 
 		if option.Config.BPFSocketLBHostnsOnly {

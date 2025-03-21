@@ -8,7 +8,6 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
-#define ENABLE_SESSION_AFFINITY
 
 /* Make sure we always pick backend slot 1 if we end up in backend selection. */
 #define LB_SELECTION LB_SELECTION_FIRST

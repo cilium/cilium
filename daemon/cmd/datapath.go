@@ -259,19 +259,17 @@ func (d *Daemon) initMaps() error {
 		lxcmap.LXCMap().DeleteAll()
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing affinity match map: %w", err)
+	if err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
+		return fmt.Errorf("initializing affinity match map: %w", err)
+	}
+	if option.Config.EnableIPv4 {
+		if err := lbmap.Affinity4Map.OpenOrCreate(); err != nil {
+			return fmt.Errorf("initializing affinity v4 map: %w", err)
 		}
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Affinity4Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v4 map: %w", err)
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Affinity6Map.OpenOrCreate(); err != nil {
-				return fmt.Errorf("initializing affinity v6 map: %w", err)
-			}
+	}
+	if option.Config.EnableIPv6 {
+		if err := lbmap.Affinity6Map.OpenOrCreate(); err != nil {
+			return fmt.Errorf("initializing affinity v6 map: %w", err)
 		}
 	}
 

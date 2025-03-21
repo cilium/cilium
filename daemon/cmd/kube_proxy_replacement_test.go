@@ -50,7 +50,6 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableNodePort = cfg.enableNodePort
 	option.Config.EnableHostPort = cfg.enableHostPort
 	option.Config.EnableExternalIPs = cfg.enableExternalIPs
-	option.Config.EnableSessionAffinity = cfg.enableSessionAffinity
 	option.Config.EnableIPSec = cfg.enableIPSec
 	option.Config.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
@@ -92,7 +91,6 @@ func (cfg *kprConfig) verify(t *testing.T, tc tunnel.Config) {
 	require.Equal(t, cfg.enableNodePort, option.Config.EnableNodePort)
 	require.Equal(t, cfg.enableHostPort, option.Config.EnableHostPort)
 	require.Equal(t, cfg.enableExternalIPs, option.Config.EnableExternalIPs)
-	require.Equal(t, cfg.enableSessionAffinity, option.Config.EnableSessionAffinity)
 	require.Equal(t, cfg.enableIPSec, option.Config.EnableIPSec)
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)

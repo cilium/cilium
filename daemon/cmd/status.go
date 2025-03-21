@@ -283,7 +283,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
 		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
-		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 		BpfSocketLBHostnsOnly: option.Config.BPFSocketLBHostnsOnly,
@@ -329,9 +328,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.SocketLB.Enabled = true
 		features.SocketLBTracing.Enabled = true
 	}
-	if option.Config.EnableSessionAffinity {
-		features.SessionAffinity.Enabled = true
-	}
+
 	if option.Config.EnableK8sTerminatingEndpoint {
 		features.GracefulTermination.Enabled = true
 	}

@@ -687,11 +687,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			lb = "Enabled"
 		}
 
-		affinity := "Disabled"
-		if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
-			affinity = "Enabled"
-		}
-
 		hPort := "Disabled"
 		if sr.KubeProxyReplacement.Features.HostPort.Enabled {
 			hPort = "Enabled"
@@ -755,7 +750,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		if selection != "" {
 			fmt.Fprintf(tab, "  Backend Selection:\t%s\n", selection)
 		}
-		fmt.Fprintf(tab, "  Session Affinity:\t%s\n", affinity)
 		fmt.Fprintf(tab, "  Graceful Termination:\t%s\n", gracefulTerm)
 		if nat46X64 == "Disabled" {
 			fmt.Fprintf(tab, "  NAT46/64 Support:\t%s\n", nat46X64)
