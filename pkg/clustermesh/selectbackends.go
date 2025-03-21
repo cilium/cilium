@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -27,46 +28,55 @@ type ClusterMeshSelectBackends struct {
 	w *experimental.Writer
 }
 
-func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, tbl statedb.Table[*experimental.Backend], fe *experimental.Frontend) iter.Seq2[experimental.BackendParams, statedb.Revision] {
-	svc := fe.Service()
-	includeExternal := svc.GetIncludeExternalAnnotation()
-	defaultBackends := sb.w.DefaultSelectBackends(txn, tbl, fe)
+func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[experimental.BackendParams, statedb.Revision], svc *experimental.Service, optionalFrontend *experimental.Frontend) iter.Seq2[experimental.BackendParams, statedb.Revision] {
+	defaultBackends := sb.w.DefaultSelectBackends(bes, svc, optionalFrontend)
+	affinity := svc.GetServiceAffinityAnnotation()
 
-	getCounts := func() (int, int) {
-		countLocal, countRemote := 0, 0
+	useLocal := true
+	useRemote := false
+
+	switch {
+	case !svc.GetIncludeExternalAnnotation():
+		useRemote = false
+	case affinity == experimental.ServiceAffinityNone:
+		useRemote = true
+	default:
+		localBackends, remoteBackends := 0, 0
 		for be := range defaultBackends {
+			// Don't count unhealthy backends. We include terminating backends in the count as
+			// we don't want those removed.
+			healthy := be.State == loadbalancer.BackendStateActive || be.State == loadbalancer.BackendStateTerminating
+			healthy = healthy && !be.Unhealthy
+			if !healthy {
+				continue
+			}
 			if be.Source == source.ClusterMesh {
-				countRemote++
+				localBackends++
 			} else {
-				countLocal++
+				remoteBackends++
 			}
 		}
-		return countLocal, countRemote
-	}
-
-	// Figure out whether to use local cluster backends or remote, or both.
-	var useRemote bool
-
-	if !includeExternal {
-		useRemote = false
-	} else {
-		switch svc.GetServiceAffinityAnnotation() {
-		case experimental.ServiceAffinityNone:
-			useRemote = true
+		switch affinity {
 		case experimental.ServiceAffinityLocal:
-			countLocal, _ := getCounts()
-			useRemote = countLocal == 0
+			useRemote = localBackends == 0
 		case experimental.ServiceAffinityRemote:
-			countLocal, countRemote := getCounts()
-			useRemote = countRemote > 0 || countLocal == 0
+			useRemote = true
+
+			// Only use local backends if there are no remote ones.
+			useLocal = remoteBackends == 0
 		}
 	}
 
 	return func(yield func(experimental.BackendParams, statedb.Revision) bool) {
 		for be, rev := range defaultBackends {
-			if be.Source == source.ClusterMesh && !useRemote {
+			if be.Source == source.ClusterMesh {
+				if !useRemote {
+					continue
+				}
+			} else if !useLocal {
 				continue
 			}
+
 			if !yield(be, rev) {
 				break
 			}
