@@ -42,6 +42,8 @@ const (
 	PerfLowPriority                         = "-low-priority"
 	PerfHighPriority                        = "-high-priority"
 	PerfProfiling                           = "-profiling"
+	perfEgress                              = "-egress"
+	perfIngress                             = "-ingress"
 	perfClientDeploymentName                = "perf-client"
 	perfClientHostNetDeploymentName         = perfClientDeploymentName + PerfHostName
 	perfClientAcrossDeploymentName          = perfClientDeploymentName + PerfOtherNode
@@ -52,6 +54,10 @@ const (
 	perfServerHostNetDeploymentName         = perfServerDeploymentName + PerfHostName
 	PerfServerProfilingDeploymentName       = perfServerDeploymentName + PerfProfiling
 	PerfClientProfilingAcrossDeploymentName = perfClientAcrossDeploymentName + PerfProfiling
+	perClientEgressDeploymentName           = perfClientDeploymentName + perfEgress
+	perClientIngressDeploymentName          = perfClientDeploymentName + perfIngress
+	perServerEgressDeploymentName           = perfServerDeploymentName + perfEgress
+	perServerIngressDeploymentName          = perfServerDeploymentName + perfIngress
 
 	clientDeploymentName  = "client"
 	client2DeploymentName = "client2"
@@ -101,6 +107,9 @@ const (
 	KindTestConnDisruptEgressGateway                                 = "test-conn-disrupt-egw"
 
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
+
+	egressBandwidth  = "kubernetes.io/egress-bandwidth"
+	ingressBandwidth = "kubernetes.io/ingress-bandwidth"
 )
 
 type perfPodRole string
@@ -1847,6 +1856,32 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		return nil
 	}
 
+	if ct.params.PerfParameters.Bandwidth {
+		ct.params.PerfParameters.PodNet = false
+		ct.params.PerfParameters.HostNet = false
+		ct.params.PerfParameters.SameNode = false
+		ct.params.PerfParameters.OtherNode = false
+
+		var egressBandwidthAnnotations = annotations{egressBandwidth: "10M"}
+		var ingressBandwidthAnnotations = annotations{ingressBandwidth: "10M"}
+		ct.params.DeploymentAnnotations.Set(`{
+				"` + perClientEgressDeploymentName + `": ` + egressBandwidthAnnotations.String() + `,
+			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
+			}`)
+		if err = ct.createServerPerfDeployment(ctx, perServerEgressDeploymentName, serverNode.Name, false); err != nil {
+			ct.Warnf("unable to create server deployment %s (egress): %w", perServerEgressDeploymentName, err)
+		}
+		if err = ct.createServerPerfDeployment(ctx, perServerIngressDeploymentName, serverNode.Name, false); err != nil {
+			ct.Warnf("unable to create server deployment %s (ingress): %w", perServerIngressDeploymentName, err)
+		}
+		if err = ct.createClientPerfDeployment(ctx, perClientEgressDeploymentName, clientNode.Name, false); err != nil {
+			ct.Warnf("unable to create client deployment %s (egress): %w", perClientEgressDeploymentName, err)
+		}
+		if err = ct.createClientPerfDeployment(ctx, perClientIngressDeploymentName, clientNode.Name, false); err != nil {
+			ct.Warnf("unable to create client deployment %s (ingress): %w", perClientIngressDeploymentName, err)
+		}
+	}
+
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
 		if ct.params.PerfParameters.SameNode {
 			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, serverNode.Name, false); err != nil {
@@ -1910,6 +1945,14 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		srcList = append(srcList, perClientLowPriorityDeploymentName)
 		srcList = append(srcList, perClientHighPriorityDeploymentName)
 		srcList = append(srcList, perfServerDeploymentName)
+		return
+	}
+
+	if ct.params.PerfParameters.Bandwidth {
+		srcList = append(srcList, perClientEgressDeploymentName)
+		srcList = append(srcList, perClientIngressDeploymentName)
+		srcList = append(srcList, perServerEgressDeploymentName)
+		srcList = append(srcList, perServerIngressDeploymentName)
 		return
 	}
 
