@@ -88,6 +88,7 @@ runs:
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --helm-set=bpf.hostLegacyRouting=${{ ! inputs.kpr }} \
             --set='${{ inputs.misc }}'"
 
           if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
