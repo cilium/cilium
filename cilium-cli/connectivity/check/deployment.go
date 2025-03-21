@@ -1968,7 +1968,6 @@ func (ct *ConnectivityTest) validateDeploymentPerf(ctx context.Context) error {
 			ct.perfServerPod = append(ct.perfServerPod, Pod{
 				K8sClient: ct.client,
 				Pod:       perfPod.DeepCopy(),
-				port:      5201,
 			})
 		} else {
 			ct.perfClientPods = append(ct.perfClientPods, Pod{
