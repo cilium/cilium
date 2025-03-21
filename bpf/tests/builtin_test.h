@@ -34,28 +34,47 @@ static void __fill_rnd(void *buff, __u32 len)
 	__u32 i;
 
 	for (i = 0; i < len; i++)
-		dest[i] = random();
+		dest[i] = (__u8)get_prandom_u32();
 }
 
 static __always_inline bool __corrupt_mem(void *d, __u32 len)
 {
-	bool corrupted = random() % 2 == 1;
-	__u32 pos = random() % len;
+	bool corrupted = get_prandom_u32() & 1;
+	__u32 pos = get_prandom_u32() % len;
+	__u32 roundup_len;
 	__u8 *d8 = d;
 
+	/* When len is not a power of two, the verifier doesn't see boundaries
+	 * of pos after the modulo operation. Apply an additional bitmask that
+	 * doesn't change the value, but restricts len to the closest power of
+	 * two.
+	 */
+	roundup_len = 1 << (32 - __builtin_clz(len - 1));
+	asm volatile("%0 &= %1" : "+r"(pos) : "r"(roundup_len - 1));
+
+	/* Compute d8 += pos in asm, because Clang optimizes it to a bitwise OR
+	 * when it knows that d is aligned and len is 2, and the verifier
+	 * forbids bitwise OR on pointers.
+	 */
+	asm volatile("%0 += %1" : "+r"(d8) : "r"(pos));
+
 	if (corrupted)
-		d8[pos]++;
+		++*d8;
 	return corrupted;
 }
 
 static void __fill_cnt(void *buff, __u32 len)
 {
 	__u8 *dest = buff;
-	__u32 i, cnt = 0;
+	__u32 i;
+	__u8 cnt = 0;
 
 	for (i = 0; i < len; i++)
 		dest[i] = cnt++;
 }
+
+#define ROUNDUP8(val) (((val) + 7) & ~7U)
+#define ALIGN8_OFFSET(val) ((8 - (val) & 7) & 7)
 
 #define test___builtin_memzero_single(len)					\
 	do {									\
@@ -69,12 +88,6 @@ static void __fill_cnt(void *buff, __u32 len)
 		barrier_data(__y);						\
 		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
-
-static void test___builtin_memzero(void)
-{
-	/* ./builtin_gen memzero 96 > builtin_memzero.h */
-	#include "builtin_memzero.h"
-}
 
 #define test___builtin_memcpy_single(len)					\
 	do {									\
@@ -92,12 +105,6 @@ static void test___builtin_memzero(void)
 		assert(!__cmp_mem(__x, __z, len));				\
 	} while (0)
 
-static void test___builtin_memcpy(void)
-{
-	/* ./builtin_gen memcpy 96 > builtin_memcpy.h */
-	#include "builtin_memcpy.h"
-}
-
 #define test___builtin_memcmp_single(len)					\
 	do {									\
 		bool res, cor;							\
@@ -112,16 +119,6 @@ static void test___builtin_memcpy(void)
 		assert(cor == res);						\
 	} while (0)
 
-static void test___builtin_memcmp(void)
-{
-	int i;
-
-	for (i = 0; i < 100; i++) {
-		/* ./builtin_gen memcmp 32 > builtin_memcmp.h */
-		#include "builtin_memcmp.h"
-	}
-}
-
 /* Same as test___builtin_memcpy_single(). */
 #define test___builtin_memmove1_single(len)					\
 	do {									\
@@ -133,7 +130,7 @@ static void test___builtin_memcmp(void)
 		__bpf_memcpy_builtin(__z, __y, len);				\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		__bpf_memmove(__x, __y, len);					\
+		__bpf_memmove_bwd(__x, __y, len);				\
 		barrier_data(__x);						\
 		barrier_data(__z);						\
 		assert(!__cmp_mem(__x, __z, len));				\
@@ -164,7 +161,11 @@ static void test___builtin_memcmp(void)
 		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
 		__u8 *__p_y = (__u8 *)__y;					\
-		const __u32 off = (len / 2) & ~1U;				\
+		__u32 off = (len / 2) & ~1U;					\
+		if (len >= 8)							\
+			off &= ~7U;						\
+		else if (len >= 4)						\
+			off &= ~3U;						\
 		__fill_cnt(__x, len);						\
 		__bpf_memcpy_builtin(__y, __x, len);				\
 		__bpf_memcpy_builtin(__p_y + off, __x, len - off);		\
@@ -178,10 +179,12 @@ static void test___builtin_memcmp(void)
 /* Overlapping with src > dst. */
 #define test___builtin_memmove4_single(len)					\
 	do {									\
-		__u8 __x[len] __align_stack_8;					\
-		__u8 __y[len] __align_stack_8;					\
+		__u8 __xbuf[ROUNDUP8(len)] __align_stack_8;			\
+		__u8 __ybuf[ROUNDUP8(len)] __align_stack_8;			\
+		__u8 *__x = __xbuf + ALIGN8_OFFSET(len);			\
+		__u8 *__y = __ybuf + ALIGN8_OFFSET(len);			\
 		__u8 *__p_x = (__u8 *)__x;					\
-		const __u32 off = (len / 2) & ~1U;				\
+		const __u32 off = (len / 2) & ~7U;				\
 		__fill_cnt(__x, len);						\
 		__bpf_memcpy_builtin(__y, __x, len);				\
 		__bpf_memcpy_builtin(__y, __p_x + off, len - off);		\
@@ -192,11 +195,22 @@ static void test___builtin_memcmp(void)
 		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
 
-static void test___builtin_memmove(void)
-{
-	/* ./builtin_gen memmove1 96  > builtin_memmove.h */
-	/* ./builtin_gen memmove2 96 >> builtin_memmove.h */
-	/* ./builtin_gen memmove3 96 >> builtin_memmove.h */
-	/* ./builtin_gen memmove4 96 >> builtin_memmove.h */
-	#include "builtin_memmove.h"
-}
+/* Same as test___builtin_memmove1_single(), but fwd. */
+#define test___builtin_memmove5_single(len)					\
+	do {									\
+		__u8 __xbuf[ROUNDUP8(len)] __align_stack_8;			\
+		__u8 __ybuf[ROUNDUP8(len)] __align_stack_8;			\
+		__u8 __zbuf[ROUNDUP8(len)] __align_stack_8;			\
+		__u8 *__x = __xbuf + ALIGN8_OFFSET(len);			\
+		__u8 *__y = __ybuf + ALIGN8_OFFSET(len);			\
+		__u8 *__z = __zbuf + ALIGN8_OFFSET(len);			\
+		__bpf_memset_builtin(__x, 0, len);				\
+		__fill_rnd(__y, len);						\
+		__bpf_memcpy_builtin(__z, __y, len);				\
+		barrier_data(__x);						\
+		barrier_data(__y);						\
+		__bpf_memmove_fwd(__x, __y, len);				\
+		barrier_data(__x);						\
+		barrier_data(__z);						\
+		assert(!__cmp_mem(__x, __z, len));				\
+	} while (0)
