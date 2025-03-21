@@ -42,6 +42,7 @@ type PerfParameters struct {
 	Image           string
 	NetQos          bool
 	KernelProfiles  bool
+	Bandwidth       bool
 
 	NodeSelectorServer map[string]string
 	NodeSelectorClient map[string]string
