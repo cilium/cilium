@@ -113,6 +113,8 @@ type config struct {
 	K8sDropEventsInterval time.Duration `mapstructure:"hubble-drop-events-interval"`
 	// K8sDropEventsReasons controls which drop reasons to emit events for.
 	K8sDropEventsReasons []string `mapstructure:"hubble-drop-events-reasons"`
+	// EnableNetworkPolicyCorrelation controls whether to enable network policy correlation of Hubble flows
+	EnableNetworkPolicyCorrelation bool `mapstructure:"hubble-network-policy-correlation-enabled"`
 }
 
 var defaultConfig = config{
@@ -154,9 +156,10 @@ var defaultConfig = config{
 	RedactHttpHeadersDeny:  []string{},
 	RedactKafkaAPIKey:      false,
 	// Hubble k8s v1.Events integration configuration.
-	EnableK8sDropEvents:   false,
-	K8sDropEventsInterval: 2 * time.Minute,
-	K8sDropEventsReasons:  []string{"auth_required", "policy_denied"},
+	EnableK8sDropEvents:            false,
+	K8sDropEventsInterval:          2 * time.Minute,
+	K8sDropEventsReasons:           []string{"auth_required", "policy_denied"},
+	EnableNetworkPolicyCorrelation: true,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -205,6 +208,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
 	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
 	flags.StringSlice("hubble-drop-events-reasons", def.K8sDropEventsReasons, "Drop reasons to emit events for")
+	flags.Bool("hubble-network-policy-correlation-enabled", def.EnableNetworkPolicyCorrelation, "Enable network policy correlation of Hubble flows")
 }
 
 func (cfg *config) normalize() {

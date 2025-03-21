@@ -1832,6 +1832,10 @@
      - Name of the ConfigMap containing the CA to validate client certificates against. If mTLS is enabled and this is unspecified, it will default to the same CA used for Hubble metrics server certificates.
      - string
      - ``nil``
+   * - :spelling:ignore:`hubble.networkPolicyCorrelation`
+     - Enables network policy correlation of Hubble flows, i.e. populating ``egress_allowed_by``\ , ``ingress_denied_by`` fields with policy information.
+     - object
+     - ``{"enabled":true}``
    * - :spelling:ignore:`hubble.peerService.clusterDomain`
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string

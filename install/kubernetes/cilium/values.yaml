@@ -1331,6 +1331,10 @@ hubble:
             excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
+  # -- Enables network policy correlation of Hubble flows, i.e. populating `egress_allowed_by`, `ingress_denied_by` fields with policy information.
+  networkPolicyCorrelation:
+    # @default -- `true`
+    enabled: true
   # -- Enables redacting sensitive information present in Layer 7 flows.
   redact:
     enabled: false
