@@ -59,20 +59,6 @@ func NewInformer(
 	return clientState, NewInformerWithStore(lw, objType, resyncPeriod, h, transformer, clientState)
 }
 
-// NewIndexerInformer is a copy of k8s.io/client-go/tools/cache/NewIndexerInformer but includes the
-// default cache MutationDetector.
-func NewIndexerInformer(
-	lw cache.ListerWatcher,
-	objType k8sRuntime.Object,
-	resyncPeriod time.Duration,
-	h cache.ResourceEventHandler,
-	transformer cache.TransformFunc,
-	indexers cache.Indexers,
-) (cache.Indexer, cache.Controller) {
-	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
-	return clientState, NewInformerWithStore(lw, objType, resyncPeriod, h, transformer, clientState)
-}
-
 // NewInformerWithStore uses the same arguments as NewInformer for which a caller can also set a
 // cache.Store and includes the default cache MutationDetector.
 func NewInformerWithStore(
