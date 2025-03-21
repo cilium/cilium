@@ -5,13 +5,13 @@ package ipset
 
 import (
 	"context"
+	"log/slog"
 	"os/exec"
 	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -40,7 +40,7 @@ var Cell = cell.Module(
 		newOps,
 		newReconciler,
 
-		func(logger logrus.FieldLogger) *ipset {
+		func(logger *slog.Logger) *ipset {
 			return &ipset{
 				executable: funcExecutable(func(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error) {
 					cmd := exec.CommandContext(ctx, name, arg...)

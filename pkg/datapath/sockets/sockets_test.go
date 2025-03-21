@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
+
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -237,6 +239,7 @@ func setupAndRunTest(t *testing.T, n int, proto netlink.Proto, testFn func(t *te
 func TestDestroy(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	n := 3
+	log := hivetest.Logger(t)
 	setupAndRunTest(t, n, unix.IPPROTO_UDP, func(t *testing.T, conns []net.Conn) {
 		var cc net.Conn
 		for _, cc = range conns {
@@ -249,7 +252,7 @@ func TestDestroy(t *testing.T) {
 		assert.NoError(t, err)
 		daddr := net.ParseIP(toks[0])
 		matches := 0
-		assert.NoError(t, Destroy(SocketFilter{
+		assert.NoError(t, Destroy(log, SocketFilter{
 			DestIp:   daddr,
 			DestPort: uint16(dport),
 			Family:   unix.AF_INET,
@@ -271,6 +274,7 @@ func TestDestroy(t *testing.T) {
 
 func TestIterateAndDestroy(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
 	setupAndRunTest(t, 1, unix.IPPROTO_TCP, func(t *testing.T, clientConns []net.Conn) {
 		var conn net.Conn
 		for _, conn = range clientConns {
@@ -283,7 +287,7 @@ func TestIterateAndDestroy(t *testing.T) {
 			}
 			if conn.RemoteAddr().String() == fmt.Sprintf("%s:%d", s.ID.Destination.String(), s.ID.DestinationPort) {
 				destroyed = true
-				assert.NoError(t, DestroySocket(*s, unix.IPPROTO_TCP, 0xffff))
+				assert.NoError(t, DestroySocket(log, *s, unix.IPPROTO_TCP, 0xffff))
 			}
 
 			return nil
@@ -308,7 +312,7 @@ func TestIterateAndDestroy(t *testing.T) {
 			}
 			if conn.RemoteAddr().String() == fmt.Sprintf("%s:%d", s.ID.Destination.String(), s.ID.DestinationPort) {
 				destroyed = true
-				assert.NoError(t, DestroySocket(*s, unix.IPPROTO_UDP, 0xffff))
+				assert.NoError(t, DestroySocket(log, *s, unix.IPPROTO_UDP, 0xffff))
 			}
 
 			return nil

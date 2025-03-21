@@ -111,6 +111,8 @@ type EgressGatewayTestSuite struct {
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
 
+	logger := hivetest.Logger(t)
+
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	require.NoError(t, err)
@@ -127,6 +129,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	policyMap := egressmap.CreatePrivatePolicyMap(lc, egressmap.DefaultPolicyConfig)
 
 	k.manager, err = newEgressGatewayManager(Params{
+		Logger:            logger,
 		Lifecycle:         lc,
 		Config:            Config{1 * time.Millisecond},
 		DaemonConfig:      &option.DaemonConfig{},

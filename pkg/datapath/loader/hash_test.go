@@ -42,7 +42,7 @@ func TestHashDatapath(t *testing.T) {
 
 func TestHashEndpoint(t *testing.T) {
 	var base datapathHash
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
 
 	// Error from ConfigWriter is forwarded.
@@ -63,7 +63,7 @@ func TestHashEndpoint(t *testing.T) {
 
 func TestHashTemplate(t *testing.T) {
 	var base datapathHash
-	ep := testutils.NewTestEndpoint()
+	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
 
 	// Error from ConfigWriter is forwarded.

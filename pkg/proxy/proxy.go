@@ -86,7 +86,7 @@ func (p *Proxy) ReleaseProxyPort(name string) error {
 }
 
 func (p *Proxy) ReinstallRoutingRules(mtu int) error {
-	return ReinstallRoutingRules(mtu)
+	return ReinstallRoutingRules(p.logger, mtu)
 }
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.

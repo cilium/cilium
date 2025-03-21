@@ -8,15 +8,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -28,7 +27,6 @@ const (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-sockets")
 	native       = binary.NativeEndian
 	networkOrder = binary.BigEndian
 )
@@ -44,8 +42,8 @@ func Iterate(proto uint8, family uint8, stateFilter uint32, fn func(*netlink.Soc
 // This is implemented using primitives in vishvananda library, however the default SocketDestroy()
 // function is insufficient for our purposes as it identifies socket only on src/dst address
 // whereas this allows destroying socket precisely via the netlink.Socket object.
-func DestroySocket(sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
-	return destroySocket(sock.ID, sock.Family, uint8(proto), stateFilter, true)
+func DestroySocket(logger *slog.Logger, sock netlink.Socket, proto netlink.Proto, stateFilter uint32) error {
+	return destroySocket(logger, sock.ID, sock.Family, uint8(proto), stateFilter, true)
 }
 
 func iterate(proto uint8, family uint8, stateFilter uint32, fn func(*Socket, error) error) error {
@@ -77,7 +75,7 @@ type DestroySocketCB func(id netlink.SocketID) bool
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP
-func Destroy(filter SocketFilter) error {
+func Destroy(logger *slog.Logger, filter SocketFilter) error {
 	family := filter.Family
 	protocol := filter.Protocol
 
@@ -98,13 +96,13 @@ func Destroy(filter SocketFilter) error {
 				return
 			}
 			if filter.MatchSocket(sock) {
-				log.Infof("socket %v", sock)
-				if err := destroySocket(sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
+				logger.Info("", logfields.Socket, sock)
+				if err := destroySocket(logger, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
 				}
-				log.Debugf("Destroyed socket: %v", sock)
+				logger.Debug("Destroyed socket", logfields.Socket, sock)
 				success++
 			}
 		})
@@ -116,12 +114,13 @@ func Destroy(filter SocketFilter) error {
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", protocol)
 	}
 	if success > 0 || failed > 0 || errs != nil {
-		log.WithFields(logrus.Fields{
-			"filter":  filter,
-			"success": success,
-			"failed":  failed,
-			"errors":  errs,
-		}).Info("Forcefully terminated sockets")
+		logger.Info(
+			"Forcefully terminated sockets",
+			logfields.Filter, filter,
+			logfields.Success, success,
+			logfields.Failed, failed,
+			logfields.Errors, errs,
+		)
 	}
 
 	return nil
@@ -238,7 +237,7 @@ func (s *Socket) Deserialize(b []byte) error {
 	return nil
 }
 
-func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8, stateFilter uint32, waitForAck bool) error {
+func destroySocket(logger *slog.Logger, sockId netlink.SocketID, family uint8, protocol uint8, stateFilter uint32, waitForAck bool) error {
 	s, err := openSubscribeHandle()
 	if err != nil {
 		return err
@@ -278,8 +277,9 @@ func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8, stateF
 			}
 			return nil
 		default:
-			log.WithField("nlMsgType", m.Header.Type).
-				Info("netlink socket delete received was followed by an unexpected response header type.")
+			logger.Info("netlink socket delete received was followed by an unexpected response header type.",
+				logfields.Type, m.Header.Type,
+			)
 		}
 	}
 

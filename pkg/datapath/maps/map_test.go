@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -180,7 +181,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager()
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(testEPManager, bwManager)
+			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager)
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
