@@ -47,6 +47,7 @@ const (
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgppeeringpolicy",path="ciliumbgppeeringpolicies",scope="Cluster",shortName={bgpp}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion:warning="cilium.io/v2alpha1 CiliumBGPPeeringPolicy is deprecated; use cilium.io/v2 CRDs (CiliumBGPClusterConfig, CiliumBGPPeerConfig, CiliumBGPAdvertisement, CiliumBGPNodeConfigOverride) to configure BGP."
 
 // CiliumBGPPeeringPolicy is a Kubernetes third-party resource for instructing
 // Cilium's BGP control plane to create virtual BGP routers.
