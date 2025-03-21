@@ -981,6 +981,9 @@ data:
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 
+{{- if hasKey .Values.hubble.networkPolicyCorrelation "enabled" }}
+  hubble-network-policy-correlation-enabled: {{ .Values.hubble.networkPolicyCorrelation.enabled | quote }}
+{{- end }}
 {{- if .Values.hubble.redact }}
 {{- if eq .Values.hubble.redact.enabled true }}
   # Enables hubble redact capabilities

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -602,6 +603,122 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, flowpb.DropReason(151), f.GetDropReasonDesc())
 	assert.Equal(t, flowpb.Verdict_DROPPED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetSource().GetLabels())
+}
+
+func TestNetworkPolicyCorrelationDisabled(t *testing.T) {
+	localIP := "1.2.3.4"
+	localID := uint64(12)
+	localIdentity := identity.NumericIdentity(1234)
+	remoteIP := "5.6.7.8"
+	remoteIdentity := identity.NumericIdentity(5678)
+	dstPort := uint32(443)
+
+	identityGetter := &testutils.FakeIdentityGetter{
+		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+			if identity.NumericIdentity(securityIdentity) == remoteIdentity {
+				return &identity.Identity{ID: remoteIdentity, Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			}
+			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+		},
+	}
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	policyKey := policy.EgressKey().WithIdentity(remoteIdentity).WithTCPPort(uint16(dstPort))
+	ep := &testutils.FakeEndpointInfo{
+		ID:           localID,
+		Identity:     localIdentity,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policyTypes.Key]string{
+			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr(localIP) {
+				return ep, true
+			}
+			return nil, false
+		},
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	opts := []options.Option{options.WithNetworkPolicyCorrelation(hivetest.Logger(t), false)}
+	parser, err := New(hivetest.Logger(t), endpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter, opts...)
+	require.NoError(t, err)
+
+	// PolicyVerdictNotify for forwarded egress flow
+	var flags uint8
+	flags |= monitorAPI.PolicyEgress
+	flags |= monitorAPI.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	pvn := monitor.PolicyVerdictNotify{
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+		SubType:     0,
+		Flags:       flags,
+		RemoteLabel: remoteIdentity,
+		Verdict:     0, // CTX_ACT_OK
+		Source:      uint16(localID),
+	}
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP(localIP),
+		DstIP:    net.ParseIP(remoteIP),
+		Protocol: layers.IPProtocolTCP,
+	}
+	tcp := layers.TCP{
+		DstPort: layers.TCPPort(dstPort),
+	}
+	data, err := testutils.CreateL3L4Payload(pvn, &eth, &ip, &tcp)
+
+	require.NoError(t, err)
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(monitorAPI.MessageTypePolicyVerdict), f.GetEventType().GetType())
+	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(monitorAPI.PolicyMatchL3L4), f.GetPolicyMatchType())
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []*flowpb.Policy([]*flowpb.Policy(nil)), f.GetEgressAllowedBy())
+
+	// PolicyVerdictNotify for forwarded ingress flow
+	flags = monitorAPI.PolicyIngress
+	flags |= monitorAPI.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	pvn = monitor.PolicyVerdictNotify{
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+		SubType:     0,
+		Flags:       flags,
+		RemoteLabel: remoteIdentity,
+		Verdict:     0,
+	}
+
+	data, err = testutils.CreateL3L4Payload(pvn)
+	require.NoError(t, err)
+
+	f.Reset()
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(monitorAPI.MessageTypePolicyVerdict), f.GetEventType().GetType())
+	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(monitorAPI.PolicyMatchL3L4), f.GetPolicyMatchType())
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
+	assert.Equal(t, []string{"k8s:dst=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []*flowpb.Policy([]*flowpb.Policy(nil)), f.GetIngressAllowedBy())
 }
 
 func TestDecodeDropReason(t *testing.T) {

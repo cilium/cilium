@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -35,7 +36,8 @@ type Parser struct {
 	serviceGetter  getters.ServiceGetter
 	linkGetter     getters.LinkGetter
 
-	epResolver *common.EndpointResolver
+	epResolver          *common.EndpointResolver
+	correlateL3L4Policy bool
 
 	// TODO: consider using a pool of these
 	packet *packet
@@ -71,6 +73,7 @@ func New(
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
+	opts ...options.Option,
 ) (*Parser, error) {
 	packet := &packet{}
 	decoders := []gopacket.DecodingLayer{
@@ -89,16 +92,25 @@ func New(
 	packet.decLayerL3Dev.IPv4.IgnoreUnsupported = true
 	packet.decLayerL3Dev.IPv6.IgnoreUnsupported = true
 
+	args := &options.Options{
+		EnableNetworkPolicyCorrelation: true,
+	}
+
+	for _, opt := range opts {
+		opt(args)
+	}
+
 	return &Parser{
-		log:            log,
-		dnsGetter:      dnsGetter,
-		endpointGetter: endpointGetter,
-		identityGetter: identityGetter,
-		ipGetter:       ipGetter,
-		serviceGetter:  serviceGetter,
-		linkGetter:     linkGetter,
-		epResolver:     common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		packet:         packet,
+		log:                 log,
+		dnsGetter:           dnsGetter,
+		endpointGetter:      endpointGetter,
+		identityGetter:      identityGetter,
+		ipGetter:            ipGetter,
+		serviceGetter:       serviceGetter,
+		linkGetter:          linkGetter,
+		epResolver:          common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		packet:              packet,
+		correlateL3L4Policy: args.EnableNetworkPolicyCorrelation,
 	}, nil
 }
 
@@ -260,7 +272,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
 
-	if p.endpointGetter != nil {
+	if p.correlateL3L4Policy && p.endpointGetter != nil {
 		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
 	}
 
