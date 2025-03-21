@@ -77,12 +77,13 @@ const (
 )
 
 type ipSecKey struct {
-	Spi   uint8
-	ESN   bool
-	ReqID int
-	Auth  *netlink.XfrmStateAlgo
-	Crypt *netlink.XfrmStateAlgo
-	Aead  *netlink.XfrmStateAlgo
+	Spi    uint8
+	KeyLen int
+	ESN    bool
+	ReqID  int
+	Auth   *netlink.XfrmStateAlgo
+	Crypt  *netlink.XfrmStateAlgo
+	Aead   *netlink.XfrmStateAlgo
 }
 
 type oldXfrmStateKey struct {
@@ -1164,17 +1165,26 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 
 		ipSecKey.Spi = spi
 		ipSecKey.ESN = esn
+		ipSecKey.KeyLen = keyLen
 
 		if len(s) == offsetBase+offsetIP+1 {
 			// The IPsec secret has the optional IP address field at the end.
 			log.Warning("IPsec secrets with an IP address as the last argument are deprecated and will be unsupported in v1.13.")
-			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
-				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
+			oldKey := ipSecKeysGlobal[s[offsetBase+offsetIP]]
+			if oldKey != nil {
+				if oldKey.KeyLen != keyLen {
+					return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
+				}
+				oldSpi = oldKey.Spi
 			}
 			ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
 		} else {
-			if ipSecKeysGlobal[""] != nil {
-				oldSpi = ipSecKeysGlobal[""].Spi
+			oldKey := ipSecKeysGlobal[""]
+			if oldKey != nil {
+				if oldKey.KeyLen != keyLen {
+					return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
+				}
+				oldSpi = oldKey.Spi
 			}
 			ipSecKeysGlobal[""] = ipSecKey
 		}
@@ -1438,4 +1448,12 @@ func staleKeyReclaimer(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// UnsetTestIPSecKey reinitialize the IPSec key-related variables.
+// This function is for testing purpose only and **must not** be used elsewhere.
+func UnsetTestIPSecKey() {
+	ipSecCurrentKeySPI = 0
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+	ipSecKeysRemovalTime = make(map[uint8]time.Time)
 }

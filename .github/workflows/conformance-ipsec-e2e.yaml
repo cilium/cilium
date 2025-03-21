@@ -110,7 +110,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             key-one: 'gcm(aes)'
-            key-two: 'cbc(aes)'
+            key-two: 'gcm(aes)'
             key-type-one: '+'
             key-type-two: '+'
 
@@ -152,7 +152,7 @@ jobs:
             encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
-            key-two: 'gcm(aes)'
+            key-two: 'cbc(aes)'
             key-type-one: ''
             key-type-two: ''
             kvstore: 'true'
@@ -384,18 +384,12 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          TEST=""
-          if [ "${{ matrix.key-one }}" = "gcm(aes)" ] && [ "${{ matrix.key-two }}" = "cbc(aes)" ]; then
-            # Until https://github.com/cilium/cilium/issues/29480 is resolved
-            TEST='--test "!pod-to-pod-no-frag"'
-          fi
-
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct $TEST
+            --flush-ct
 
       - name: Features tested
         uses: ./.github/actions/feature-status
