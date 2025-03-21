@@ -2831,6 +2831,7 @@ definitions:
           - SCTP
           - ICMP
           - ICMPV6
+          - VRRP
           - ANY
       port:
         description: Layer 4 port number
@@ -3162,6 +3163,7 @@ definitions:
         - TCP
         - UDP
         - SCTP
+        - VRRP
         - ANY
   RecorderSpec:
     description: Configuration of a recorder

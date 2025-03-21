@@ -73,7 +73,7 @@ spec:
                       protocol:
                         description: |-
                           Layer 4 protocol
-                          Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]
+                          Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","VRRP","ANY"]
                         type: string
                     type: object
                   type: array

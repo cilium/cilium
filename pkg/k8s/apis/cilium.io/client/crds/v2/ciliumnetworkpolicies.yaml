@@ -697,7 +697,7 @@ spec:
                                 protocol:
                                   description: |-
                                     Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -1648,7 +1648,7 @@ spec:
                                 protocol:
                                   description: |-
                                     Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -2533,7 +2533,7 @@ spec:
                                 protocol:
                                   description: |-
                                     Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -3396,7 +3396,7 @@ spec:
                                 protocol:
                                   description: |-
                                     Protocol is the L4 protocol. If omitted or empty, any protocol
-                                    matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                    matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                     Matching on ICMP is not supported.
 
@@ -4156,7 +4156,7 @@ spec:
                                   protocol:
                                     description: |-
                                       Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -5108,7 +5108,7 @@ spec:
                                   protocol:
                                     description: |-
                                       Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -5994,7 +5994,7 @@ spec:
                                   protocol:
                                     description: |-
                                       Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                       Matching on ICMP is not supported.
 
@@ -6858,7 +6858,7 @@ spec:
                                   protocol:
                                     description: |-
                                       Protocol is the L4 protocol. If omitted or empty, any protocol
-                                      matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                                      matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 
                                       Matching on ICMP is not supported.
 

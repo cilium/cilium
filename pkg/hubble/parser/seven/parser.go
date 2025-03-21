@@ -319,6 +319,15 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 				},
 			},
 		}, uint16(source.Port), uint16(destination.Port)
+	case u8proto.VRRP:
+		return &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_VRRP{
+				VRRP: &flowpb.VRRP{
+					Version: l4.GetVRRP().Version,
+					Vrid:    l4.GetVRRP().GetVrid(),
+				},
+			},
+		}, uint16(source.Port), uint16(destination.Port)
 	default:
 		return nil, 0, 0
 	}

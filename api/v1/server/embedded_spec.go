@@ -4382,6 +4382,7 @@ func init() {
             "SCTP",
             "ICMP",
             "ICMPV6",
+            "VRRP",
             "ANY"
           ]
         }
@@ -4539,6 +4540,7 @@ func init() {
             "TCP",
             "UDP",
             "SCTP",
+            "VRRP",
             "ANY"
           ]
         },
@@ -10539,6 +10541,7 @@ func init() {
             "SCTP",
             "ICMP",
             "ICMPV6",
+            "VRRP",
             "ANY"
           ]
         }
@@ -10696,6 +10699,7 @@ func init() {
             "TCP",
             "UDP",
             "SCTP",
+            "VRRP",
             "ANY"
           ]
         },

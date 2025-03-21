@@ -227,6 +227,7 @@ message Layer4 {
         ICMPv4 ICMPv4 = 3;
         ICMPv6 ICMPv6 = 4;
         SCTP SCTP = 5;
+        VRRP VRRP = 6;
     }
 }
 
@@ -326,6 +327,11 @@ message UDP {
 message SCTP {
     uint32 source_port = 1;
     uint32 destination_port = 2;
+}
+
+message VRRP {
+    uint32 version = 1;
+    uint32 vrid = 2;
 }
 
 message ICMPv4 {

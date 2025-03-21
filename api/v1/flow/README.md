@@ -42,6 +42,7 @@
     - [TraceContext](#flow-TraceContext)
     - [TraceParent](#flow-TraceParent)
     - [UDP](#flow-UDP)
+    - [VRRP](#flow-VRRP)
     - [Workload](#flow-Workload)
   
     - [AgentEventType](#flow-AgentEventType)
@@ -540,6 +541,7 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRec
 | ICMPv4 | [ICMPv4](#flow-ICMPv4) |  | ICMP is technically not L4, but mutually exclusive with the above |
 | ICMPv6 | [ICMPv6](#flow-ICMPv6) |  |  |
 | SCTP | [SCTP](#flow-SCTP) |  |  |
+| VRRP | [VRRP](#flow-VRRP) |  |  |
 
 
 
@@ -818,6 +820,22 @@ TraceParent identifies the incoming request in a tracing system.
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="flow-VRRP"></a>
+
+### VRRP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| version | [uint32](#uint32) |  |  |
+| vrid | [uint32](#uint32) |  |  |
 
 
 

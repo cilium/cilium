@@ -30,7 +30,7 @@ type RecorderFilter struct {
 	DstPrefix string `json:"dst-prefix,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: ["TCP","UDP","SCTP","ANY"]
+	// Enum: ["TCP","UDP","SCTP","VRRP","ANY"]
 	Protocol string `json:"protocol,omitempty"`
 
 	// Layer 4 source port, zero (or in future range)
@@ -58,7 +58,7 @@ var recorderFilterTypeProtocolPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ANY"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","VRRP","ANY"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -76,6 +76,9 @@ const (
 
 	// RecorderFilterProtocolSCTP captures enum value "SCTP"
 	RecorderFilterProtocolSCTP string = "SCTP"
+
+	// RecorderFilterProtocolVRRP captures enum value "VRRP"
+	RecorderFilterProtocolVRRP string = "VRRP"
 
 	// RecorderFilterProtocolANY captures enum value "ANY"
 	RecorderFilterProtocolANY string = "ANY"

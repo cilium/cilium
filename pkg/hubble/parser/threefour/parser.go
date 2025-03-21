@@ -54,6 +54,7 @@ type packet struct {
 	layers.TCP
 	layers.UDP
 	layers.SCTP
+	layers.VRRPv2
 }
 
 // New returns a new L3/L4 parser
@@ -71,7 +72,7 @@ func New(
 		layers.LayerTypeEthernet, &packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
-		&packet.TCP, &packet.UDP, &packet.SCTP)
+		&packet.TCP, &packet.UDP, &packet.SCTP, &packet.VRRPv2)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
@@ -269,6 +270,9 @@ func decodeLayers(packet *packet) (
 			l4, sourcePort, destinationPort = decodeUDP(&packet.UDP)
 		case layers.LayerTypeSCTP:
 			l4, sourcePort, destinationPort = decodeSCTP(&packet.SCTP)
+		case layers.LayerTypeVRRP:
+			l4, sourcePort, destinationPort = decodeVRRP(&packet.VRRPv2)
+			summary = fmt.Sprintf("VRRP version %d, vrid %d", packet.VRRPv2.Version, packet.VRRPv2.VirtualRtrID)
 		case layers.LayerTypeICMPv4:
 			l4 = decodeICMPv4(&packet.ICMPv4)
 			summary = "ICMPv4 " + packet.ICMPv4.TypeCode.String()
@@ -388,6 +392,17 @@ func decodeSCTP(sctp *layers.SCTP) (l4 *pb.Layer4, src, dst uint16) {
 			},
 		},
 	}, uint16(sctp.SrcPort), uint16(sctp.DstPort)
+}
+
+func decodeVRRP(vrrp *layers.VRRPv2) (l4 *pb.Layer4, src, dst uint16) {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_VRRP{
+			VRRP: &pb.VRRP{
+				Version: uint32(vrrp.Version),
+				Vrid:    uint32(vrrp.VirtualRtrID),
+			},
+		},
+	}, uint16(0), uint16(0)
 }
 
 func decodeUDP(udp *layers.UDP) (l4 *pb.Layer4, src, dst uint16) {
