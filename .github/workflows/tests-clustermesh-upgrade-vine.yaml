@@ -391,6 +391,26 @@ jobs:
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
 
+      - name: Setup conn-disrupt-test before upgrading
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} --hubble=false \
+            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
+            --conn-disrupt-dispatch-interval 0ms
+
+      - name: Setup tcpdump (before upgrade)
+        run: |
+          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
+            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
+          done
+          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.vine.pcap -ni eth0 -Q out 'esp' &
+            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
+          done
+
       - name: Upgrade Cluster1[VinE]
         env:
           KVSTORE_ID: 1
@@ -407,6 +427,117 @@ jobs:
           cilium --context ${{ env.contextName2 }} status --wait --wait-duration=10m
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Check conn-disrupt-test after upgrading
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} --hubble=false \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
+            --test 'no-interrupted-connections'
+
+      - name: Check tcpdump output (after upgrade)
+        run: |
+          #set -x
+          for context in kind-cluster1 kind-cluster2; do
+            for hostpod in $(kubectl --context $context -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+              kubectl --context $context -n cilium-test-1 exec $hostpod -- pkill tcpdump
+              kubectl --context $context -n cilium-test-1 exec $hostpod -- ls -lh /tmp/
+            done
+          done
+
+          # During upgrade there will be mixed types of traffic
+          #
+          #for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+          #  if [ $(kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.einv.pcap 2>/dev/null | wc -l) -gt 0 ]; then
+          #    echo "EinV found in cluster1(1.18)" >&2
+          #    kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.einv.pcap
+          #    exit 1
+          #  fi
+          #done
+
+          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            if [ $(kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.einv.pcap 2>/dev/null | wc -l) -gt 0 ]; then
+              echo "VinE found in cluster2(1.17)" >&2
+              tcpdump -nn -r /tmp/$hostpod.vine.pcap
+              exit 1
+            fi
+          done
+
+          # ========================
+
+          internal_ips=""
+          for context in kind-cluster1 kind-cluster2; do
+            for node in $(kubectl --context $context get ciliumnodes.cilium.io --no-headers -o custom-columns=":metadata.name"); do
+              for ip in $(kubectl --context $context get ciliumnodes.cilium.io "$node" -o jsonpath='{range .spec.addresses[?(@.type=="CiliumInternalIP")]}{.ip}{"\n"}{end}'); do
+                if [ -z "$internal_ips" ]; then
+                  internal_ips="$ip"
+                else
+                  internal_ips="${internal_ips}|$ip"
+                fi
+              done
+            done
+          done
+
+          echo "Collected internal_ips: $internal_ips"
+          export internal_ips=$internal_ips
+
+          # ========================
+
+          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            if [ -n "$(kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net 10.242.0.0/16 or dst net 10.244.0.0/16' 2>/dev/null | grep -Pv $internal_ips)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv4) found in kind-cluster1($hostpod)" >&2
+              kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net 10.242.0.0/16 or dst net 10.244.0.0/16' 2>/dev/null | grep -Pv $internal_ips
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x0800 and ((udp[42:4] & 0xffff0000 == 0x0af20000) or (udp[46:4] & 0xffff0000 == 0x0af40000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv4 in VxLAN) found in kind-cluster1($hostpod)" >&2
+              kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x0800 and ((udp[42:4] & 0xffff0000 == 0x0af20000) or (udp[46:4] & 0xffff0000 == 0x0af40000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net fd00:10:242::/48 or dst net fd00:10:244::/48' 2>/dev/null | grep -Pv $internal_ips)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv6) found in kind-cluster1($hostpod)" >&2
+              kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net fd00:10:242::/48 or dst net fd00:10:244::/48' 2>/dev/null | grep -Pv $internal_ips
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x86dd and ((udp[38:4] == 0xfd000010 and (udp[42:4] & 0xffff0000) == 0x02420000) or (udp[54:4] == 0xfd000010 and (udp[58:4] & 0xffff0000) == 0x02440000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv6 in VxLAN) found in kind-cluster1($hostpod)" >&2
+              kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x86dd and ((udp[38:4] == 0xfd000010 and (udp[42:4] & 0xffff0000) == 0x02420000) or (udp[54:4] == 0xfd000010 and (udp[58:4] & 0xffff0000) == 0x02440000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay
+              exit 1
+            fi
+          done
+
+          # ========================
+
+          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            if [ -n "$(kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net 10.244.0.0/16 or dst net 10.242.0.0/16' 2>/dev/null | grep -Pv $internal_ips)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv4) found in kind-cluster2($hostpod)" >&2
+              kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net 10.244.0.0/16 or dst net 10.242.0.0/16' 2>/dev/null | grep -Pv $internal_ips
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x0800 and ((udp[42:4] & 0xffff0000 == 0x0af40000) or (udp[46:4] & 0xffff0000 == 0x0af20000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv4 in VxLAN) found in kind-cluster2($hostpod)" >&2
+              kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x0800 and ((udp[42:4] & 0xffff0000 == 0x0af40000) or (udp[46:4] & 0xffff0000 == 0x0af20000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net fd00:10:244::/48 or dst net fd00:10:242::/48' 2>/dev/null | grep -Pv $internal_ips)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv6) found in kind-cluster2($hostpod)" >&2
+              kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'src net fd00:10:244::/48 or dst net fd00:10:242::/48' 2>/dev/null | grep -Pv $internal_ips
+              exit 1
+            fi
+
+            if [ -n "$(kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x86dd and ((udp[38:4] == 0xfd000010 and (udp[42:4] & 0xffff0000) == 0x02440000) or (udp[54:4] == 0xfd000010 and (udp[58:4] & 0xffff0000) == 0x02420000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay)" ]; then
+              echo "Plain-text traffic with Pod IP (IPv6 in VxLAN) found in kind-cluster2($hostpod)" >&2
+              kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -nn -r /tmp/$hostpod.plain.pcap 'udp and port 8472 and udp[28:2] == 0x86dd and ((udp[38:4] == 0xfd000010 and (udp[42:4] & 0xffff0000) == 0x02440000) or (udp[54:4] == 0xfd000010 and (udp[58:4] & 0xffff0000) == 0x02420000))' 2>/dev/null | grep -Pv $internal_ips | grep -v overlay
+              exit 1
+            fi
+          done
 
       #
       # Cluster 1 is now VinE and Cluster 2 is now the downgraded cluster
