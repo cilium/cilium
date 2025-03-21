@@ -30,7 +30,6 @@ const (
 	BGPCiliumPodIPPoolAdvert BGPAdvertisementType = "CiliumPodIPPool"
 
 	// BGPServiceAdvert when configured, Cilium will advertise service related routes to BGP peers.
-	//
 	BGPServiceAdvert BGPAdvertisementType = "Service"
 )
 
@@ -101,6 +100,8 @@ type CiliumBGPAdvertisementSpec struct {
 
 // BGPAdvertisement defines which routes Cilium should advertise to BGP peers. Optionally, additional attributes can be
 // set to the advertised routes.
+//
+// +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Service' || has(self.service)", message="service field is required for the 'Service' advertisementType"
 type BGPAdvertisement struct {
 	// AdvertisementType defines type of advertisement which has to be advertised.
 	//
@@ -127,21 +128,25 @@ type BGPAdvertisement struct {
 
 // BGPServiceOptions defines the configuration for Service advertisement type.
 type BGPServiceOptions struct {
-	// IPv4 mask to aggregate BGP route advertisements of service
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=31
-	// +kubebuilder:validation:Optional
-	AggregationLengthIPv4 *int16 `json:"aggregationLengthIPv4,omitempty"`
-	// IPv6 mask to aggregate BGP route advertisements of service
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=127
-	// +kubebuilder:validation:Optional
-	AggregationLengthIPv6 *int16 `json:"aggregationLengthIPv6,omitempty"`
 	// Addresses is a list of service address types which needs to be advertised via BGP.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Addresses []BGPServiceAddressType `json:"addresses,omitempty"`
+
+	// IPv4 mask to aggregate BGP route advertisements of service
+	//
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=31
+	// +kubebuilder:validation:Optional
+	AggregationLengthIPv4 *int16 `json:"aggregationLengthIPv4,omitempty"`
+
+	// IPv6 mask to aggregate BGP route advertisements of service
+	//
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=127
+	// +kubebuilder:validation:Optional
+	AggregationLengthIPv6 *int16 `json:"aggregationLengthIPv6,omitempty"`
 }
 
 // BGPAttributes defines additional attributes to set to the advertised NLRIs.

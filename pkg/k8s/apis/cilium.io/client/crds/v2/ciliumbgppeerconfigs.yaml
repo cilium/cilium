@@ -236,6 +236,9 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: keepAliveTimeSeconds can not be larger than holdTimeSeconds
+                  rule: self.keepAliveTimeSeconds <= self.holdTimeSeconds
               transport:
                 description: |-
                   Transport defines the BGP transport parameters for the peer.
@@ -544,6 +547,9 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: keepAliveTimeSeconds can not be larger than holdTimeSeconds
+                  rule: self.keepAliveTimeSeconds <= self.holdTimeSeconds
               transport:
                 description: |-
                   Transport defines the BGP transport parameters for the peer.
