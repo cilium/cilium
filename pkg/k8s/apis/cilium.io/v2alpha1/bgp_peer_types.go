@@ -185,6 +185,9 @@ func (t *CiliumBGPTransport) SetDefaults() {
 	}
 }
 
+// CiliumBGPTimers defines timers configuration for a BGP peer.
+//
+// +kubebuilder:validation:XValidation:rule="self.keepAliveTimeSeconds <= self.holdTimeSeconds", message="keepAliveTimeSeconds can not be larger than holdTimeSeconds"
 type CiliumBGPTimers struct {
 	// ConnectRetryTimeSeconds defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	//

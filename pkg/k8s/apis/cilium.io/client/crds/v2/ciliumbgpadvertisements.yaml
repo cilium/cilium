@@ -239,6 +239,9 @@ spec:
                   required:
                   - advertisementType
                   type: object
+                  x-kubernetes-validations:
+                  - message: service field is required for the 'Service' advertisementType
+                    rule: self.advertisementType != 'Service' || has(self.service)
                 type: array
             required:
             - advertisements
@@ -471,6 +474,9 @@ spec:
                   required:
                   - advertisementType
                   type: object
+                  x-kubernetes-validations:
+                  - message: service field is required for the 'Service' advertisementType
+                    rule: self.advertisementType != 'Service' || has(self.service)
                 type: array
             required:
             - advertisements
