@@ -355,7 +355,7 @@ func setupRouteToVtepCidr() error {
 	}
 
 	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)
-	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverhead
+	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverheadIPv4
 
 	if option.Config.EnableL7Proxy {
 		for _, prefix := range addedVtepRoutes {

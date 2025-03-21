@@ -495,7 +495,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 {
 	struct csum_offset csum_off = {};
 	union v6addr old_saddr __align_stack_8;
-	__be32 sum;
+	//__be32 sum;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
@@ -512,14 +512,15 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	ipv6_addr_copy(&old_saddr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &nat->address);
 
-	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
+	ret = ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, saddr),
+			      nat->address.addr, 16, BPF_F_INVALIDATE_HASH);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
+	/*sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
 	if (csum_off.offset &&
 	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+		return DROP_CSUM_L4;*/
 
 	return 0;
 }

@@ -500,8 +500,9 @@ jobs:
             kpr: 'false'
             ipv6: 'true'
             ipv4: 'false'
-            tunnel: 'disabled'
+            tunnel: 'vxlan'
             skip-upgrade: 'true'
+            underlay: 'ipv6'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
@@ -579,6 +580,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -605,6 +607,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}

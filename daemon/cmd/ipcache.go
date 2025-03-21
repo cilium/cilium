@@ -197,6 +197,37 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 	if err != nil {
 		// ignore non-existent cache
 		if errors.Is(err, fs.ErrNotExist) {
+			// We might be in the upgrade case, with the ipcache v1 from v1.18
+			// still around.
+			return d.dumpOldIPCacheV1()
+		}
+	}
+	log.Debugf("dumping ipache found %d local identities", len(localPrefixes))
+	return localPrefixes, err
+}
+
+// dumpOldIPCacheV1 does the same as dumpOldIPCache but for the v1 of the ipcache map.
+func (d *Daemon) dumpOldIPCacheV1() (map[netip.Prefix]identity.NumericIdentity, error) {
+	localPrefixes := map[netip.Prefix]identity.NumericIdentity{}
+
+	// Dump the bpf ipcache, recording any prefixes with local or ingress
+	// numeric identities.
+	err := ipcachemap.IPCacheMapV1().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(*ipcachemap.Key)
+		v := value.(*ipcachemap.RemoteEndpointInfoV1)
+		nid := identity.NumericIdentity(v.SecurityIdentity)
+
+		if nid.Scope() == identity.IdentityScopeLocal || (nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero()) {
+			localPrefixes[k.Prefix()] = nid
+		}
+	})
+	// dumpwithcallback() leaves the ipcache map open, must close before opened for
+	// parallel mode in daemon.initmaps()
+	ipcachemap.IPCacheMapV1().Close()
+
+	if err != nil {
+		// ignore non-existent cache
+		if errors.Is(err, fs.ErrNotExist) {
 			err = nil
 		}
 	}

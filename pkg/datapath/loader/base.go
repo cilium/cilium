@@ -249,9 +249,9 @@ func (l *loader) reinitializeIPSec() error {
 }
 
 func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
-	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
+	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
-	if tunnelConfig.Protocol() == tunnel.Disabled {
+	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
 		return nil
 	}
 
@@ -393,9 +393,9 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(),
+	if err := setupTunnelDevice(l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
 		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), cfg.DeviceMTU); err != nil {
-		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
+		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.EncapProtocol(), err)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
