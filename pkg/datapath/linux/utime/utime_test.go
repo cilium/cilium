@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func TestUTime(t *testing.T) {
@@ -32,8 +35,11 @@ func TestUTime(t *testing.T) {
 
 func TestGetBoottime(t *testing.T) {
 	boottime, err := getBoottime()
-	log.Infof("Adjusted boot time: %s", boottime)
 	require.NoError(t, err)
+	logger := hivetest.Logger(t)
+	logger.Info("Adjusted boot time",
+		logfields.BootTime, boottime.String(),
+	)
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

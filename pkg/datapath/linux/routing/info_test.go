@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -139,7 +140,12 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
+			logger := hivetest.Logger(t)
+			rInfo, err := NewRoutingInfo(logger, tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, ipamOption.IPAMENI, tt.masq)
+			if err == nil {
+				// Do not compare loggers
+				rInfo.logger = nil
+			}
 			require.EqualValues(t, tt.wantRInfo, rInfo)
 			require.Equal(t, tt.wantErr, err != nil)
 		})

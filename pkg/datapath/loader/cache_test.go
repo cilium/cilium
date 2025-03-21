@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,8 +28,8 @@ func TestObjectCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(configWriterForTest(t), tmpDir)
-	realEP := testutils.NewTestEndpoint()
+	cache := newObjectCache(hivetest.Logger(t), configWriterForTest(t), tmpDir)
+	realEP := testutils.NewTestEndpoint(t)
 
 	dir := getDirs(t)
 
@@ -66,8 +67,8 @@ func TestObjectCacheParallel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(configWriterForTest(t), tmpDir)
-	ep := testutils.NewTestEndpoint()
+	cache := newObjectCache(hivetest.Logger(t), configWriterForTest(t), tmpDir)
+	ep := testutils.NewTestEndpoint(t)
 
 	var wg sync.WaitGroup
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {

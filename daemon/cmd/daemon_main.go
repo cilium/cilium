@@ -1203,7 +1203,7 @@ func initEnv(vp *viper.Viper) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
 	}
 
-	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
+	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes(logging.DefaultSlogLogger)); err != nil {
 		log.WithError(err).Fatal("failed to create header files with feature macros")
 	}
 
@@ -1320,7 +1320,7 @@ func initEnv(vp *viper.Viper) {
 		// bpf_host onto physical devices as chosen by configuration.
 		!option.Config.AreDevicesRequired() &&
 		option.Config.IPAM != ipamOption.IPAMENI {
-		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(logging.DefaultSlogLogger)
 		if err != nil {
 			log.WithError(err).Fatal("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.")
 		}
@@ -1352,7 +1352,7 @@ func initEnv(vp *viper.Viper) {
 	}
 
 	if option.Config.EnableBPFTProxy {
-		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign) != nil {
+		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnSkAssign) != nil {
 			option.Config.EnableBPFTProxy = false
 			log.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
 		}
@@ -1768,7 +1768,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 		params.DNSProxy.CompleteBootstrap()
 
-		ms := maps.NewMapSweeper(&EndpointMapManager{
+		ms := maps.NewMapSweeper(params.Logger, &EndpointMapManager{
 			EndpointManager: d.endpointManager,
 		}, d.bwManager)
 		ms.CollectStaleMapGarbage()
@@ -1786,7 +1786,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// reasons as the API being served. We want to ensure that this migration
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
-		migrated, failed := linuxrouting.NewMigrator(
+		migrated, failed := linuxrouting.NewMigrator(params.Logger,
 			&eni.InterfaceDB{Clientset: params.Clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
@@ -1907,7 +1907,7 @@ func initClockSourceOption() {
 	}
 
 	if option.Config.EnableBPFClockProbe {
-		if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
+		if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.XDP, asm.FnJiffies64) == nil {
 			t, err := probes.Jiffies()
 			if err == nil && t > 0 {
 				option.Config.ClockSource = option.ClockSourceJiffies

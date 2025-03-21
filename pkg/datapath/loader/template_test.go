@@ -18,7 +18,7 @@ func TestWrap(t *testing.T) {
 		templateBuffer bytes.Buffer
 	)
 
-	realEP := testutils.NewTestEndpoint()
+	realEP := testutils.NewTestEndpoint(t)
 	template := wrap(&realEP)
 	cfg := configWriterForTest(t)
 

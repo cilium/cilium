@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
@@ -38,6 +37,8 @@ func newFixture(t testing.TB) *fixture {
 		jg  job.Group
 	)
 
+	logger := hivetest.Logger(t)
+
 	hive.New(
 		cell.Provide(
 			tables.NewL2AnnounceTable,
@@ -56,14 +57,14 @@ func newFixture(t testing.TB) *fixture {
 					jg = j
 				}),
 		),
-	).Populate(hivetest.Logger(t))
+	).Populate(logger)
 
 	nl := &mockNeighborNetlink{}
 	m := l2respondermap.NewFakeMap()
 	return &fixture{
 		reconciler: NewL2ResponderReconciler(params{
 			Lifecycle:           &cell.DefaultLifecycle{},
-			Logger:              logrus.New(),
+			Logger:              logger,
 			L2AnnouncementTable: tbl,
 			StateDB:             db,
 			L2ResponderMap:      m,

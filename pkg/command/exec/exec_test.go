@@ -8,18 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
 	timeout = 250 * time.Millisecond
-)
-
-var (
-	fooLog = logging.DefaultLogger.WithField("foo", "bar")
 )
 
 func TestWithTimeout(t *testing.T) {
@@ -40,46 +34,28 @@ func TestWithCancel(t *testing.T) {
 }
 
 func TestCanceled(t *testing.T) {
+	logger := hivetest.Logger(t)
 	cmd, cancel := WithCancel(context.Background(), "sleep", "inf")
 	require.NotNil(t, cancel)
 	cancel()
-	_, err := cmd.CombinedOutput(fooLog, true)
+	_, err := cmd.CombinedOutput(logger, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "context canceled")
 }
 
 func TestCombinedOutput(t *testing.T) {
+	logger := hivetest.Logger(t)
 	cmd := CommandContext(context.Background(), "echo", "foo")
-	out, err := cmd.CombinedOutput(fooLog, true)
+	out, err := cmd.CombinedOutput(logger, true)
 	require.NoError(t, err)
 	require.Equal(t, "foo\n", string(out))
 }
 
 func TestCombinedOutputFailedTimeout(t *testing.T) {
+	logger := hivetest.Logger(t)
 	cmd := WithTimeout(timeout, "sleep", "inf")
 	time.Sleep(timeout)
-	_, err := cmd.CombinedOutput(fooLog, true)
+	_, err := cmd.CombinedOutput(logger, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "context deadline exceeded")
-}
-
-// LoggingHook is a simple hook which saves Warn messages to a slice of strings.
-type LoggingHook struct {
-	Lines []string
-}
-
-func (h *LoggingHook) Levels() []logrus.Level {
-	// CombinedOutput logs stdout and stderr on WarnLevel.
-	return []logrus.Level{
-		logrus.WarnLevel,
-	}
-}
-
-func (h *LoggingHook) Fire(entry *logrus.Entry) error {
-	serializedEntry, err := entry.String()
-	if err != nil {
-		return err
-	}
-	h.Lines = append(h.Lines, serializedEntry)
-	return nil
 }

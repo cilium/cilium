@@ -4,12 +4,15 @@
 package testutils
 
 import (
+	"log/slog"
 	"net/netip"
+	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -20,6 +23,7 @@ var (
 )
 
 type TestEndpoint struct {
+	logger      *slog.Logger
 	Id          uint64
 	Identity    *identity.Identity
 	Opts        *option.IntOptions
@@ -31,10 +35,11 @@ type TestEndpoint struct {
 	NetNsCookie uint64
 }
 
-func NewTestEndpoint() TestEndpoint {
+func NewTestEndpoint(t testing.TB) TestEndpoint {
 	opts := option.NewIntOptions(&option.OptionLibrary{})
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
+		logger:      hivetest.Logger(t),
 		Id:          42,
 		Identity:    defaultIdentity,
 		MAC:         mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D}),
@@ -44,10 +49,11 @@ func NewTestEndpoint() TestEndpoint {
 	}
 }
 
-func NewTestHostEndpoint() TestEndpoint {
+func NewTestHostEndpoint(t testing.TB) TestEndpoint {
 	opts := option.NewIntOptions(&option.OptionLibrary{})
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
+		logger:   hivetest.Logger(t),
 		Id:       65535,
 		Identity: hostIdentity,
 		MAC:      mac.MAC([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
@@ -99,8 +105,8 @@ func (e *TestEndpoint) InterfaceName() string {
 	return "cilium_test"
 }
 
-func (e *TestEndpoint) Logger(subsystem string) *logrus.Entry {
-	return log
+func (e *TestEndpoint) Logger(subsystem string) *slog.Logger {
+	return e.logger.With(logfields.LogSubsys, subsystem)
 }
 
 func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {

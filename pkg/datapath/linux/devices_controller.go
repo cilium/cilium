@@ -163,7 +163,7 @@ func (dc *devicesController) Start(startCtx cell.HookContext) error {
 		}
 
 		// Only probe for L3 device support when netlink isn't mocked by tests.
-		dc.l3DevSupported = probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
+		dc.l3DevSupported = probes.HaveProgramHelper(dc.log, ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
 	}
 
 	var ctx context.Context
