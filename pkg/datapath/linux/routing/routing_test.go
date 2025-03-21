@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -80,7 +81,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ipv6 := netip.MustParseAddr("fd00::2")
-	err := Delete(ipv6, false)
+	err := Delete(hivetest.Logger(t), ipv6, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -160,7 +161,7 @@ func TestDelete(t *testing.T) {
 			defer ifaceCleanup()
 
 			ip := tt.preRun()
-			err := Delete(ip, false)
+			err := Delete(hivetest.Logger(t), ip, false)
 			require.Equal(t, tt.wantErr, (err != nil))
 			return nil
 		})
@@ -195,7 +196,7 @@ func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
-	err := Delete(ip, false)
+	err := Delete(hivetest.Logger(t), ip, false)
 	require.NoError(t, err)
 }
 
@@ -258,6 +259,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
 	require.NoError(t, err)
 	require.NotNil(t, fakeMAC)
+	logger := hivetest.Logger(t)
 
 	var fakeRoutingInfo *RoutingInfo
 	if withCIDR {
@@ -266,6 +268,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 			cidrs = []string{"0.0.0.0/0"}
 		}
 		fakeRoutingInfo, err = parse(
+			logger,
 			fakeGateway.String(),
 			cidrs,
 			fakeMAC.String(),
@@ -275,6 +278,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 		)
 	} else {
 		fakeRoutingInfo, err = parse(
+			logger,
 			fakeGateway.String(),
 			nil,
 			fakeMAC.String(),

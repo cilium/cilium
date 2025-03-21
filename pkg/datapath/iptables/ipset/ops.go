@@ -8,19 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
+func newOps(logger *slog.Logger, ipset *ipset, cfg config) *ops {
 	return &ops{
 		enabled: cfg.NodeIPSetNeeded,
 		ipset:   ipset,

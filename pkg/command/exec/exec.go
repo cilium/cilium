@@ -9,15 +9,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 
-	"github.com/sirupsen/logrus"
-
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func warnToLog(cmd *exec.Cmd, out []byte, scopedLog *logrus.Entry, err error) {
-	scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+func warnToLog(cmd *exec.Cmd, out []byte, scopedLog *slog.Logger, err error) {
+	scopedLog.Error("Command execution failed",
+		logfields.Error, err,
+		logfields.Cmd, cmd.Args)
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		scopedLog.Warn(scanner.Text())
@@ -26,11 +28,13 @@ func warnToLog(cmd *exec.Cmd, out []byte, scopedLog *logrus.Entry, err error) {
 
 // combinedOutput is the core implementation of catching deadline exceeded
 // options and logging errors.
-func combinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+func combinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *slog.Logger, verbose bool) ([]byte, error) {
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+			scopedLog.Error("Command execution failed",
+				logfields.Error, err,
+				logfields.Cmd, cmd.Args)
 		}
 		return nil, fmt.Errorf("Command execution failed for %s: %w", cmd.Args, ctx.Err())
 	}
@@ -41,11 +45,13 @@ func combinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry,
 }
 
 // output is the equivalent to combinedOutput with only capturing stdout
-func output(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+func output(ctx context.Context, cmd *exec.Cmd, scopedLog *slog.Logger, verbose bool) ([]byte, error) {
 	out, err := cmd.Output()
 	if ctx.Err() != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+			scopedLog.Error("Command execution failed",
+				logfields.Error, err,
+				logfields.Cmd, cmd.Args)
 		}
 		return nil, fmt.Errorf("Command execution failed for %s: %w", cmd.Args, ctx.Err())
 	}
@@ -102,7 +108,7 @@ func WithCancel(ctx context.Context, prog string, args ...string) (*Cmd, context
 // will return an error indicating so.
 //
 // Logs any errors that occur to the specified logger.
-func (c *Cmd) CombinedOutput(scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+func (c *Cmd) CombinedOutput(scopedLog *slog.Logger, verbose bool) ([]byte, error) {
 	out, err := combinedOutput(c.ctx, c.Cmd, scopedLog, verbose)
 	if c.cancelFn != nil {
 		c.cancelFn()
@@ -115,7 +121,7 @@ func (c *Cmd) CombinedOutput(scopedLog *logrus.Entry, verbose bool) ([]byte, err
 // it will return an error indicating so.
 //
 // Logs any errors that occur to the specified logger.
-func (c *Cmd) Output(scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+func (c *Cmd) Output(scopedLog *slog.Logger, verbose bool) ([]byte, error) {
 	out, err := output(c.ctx, c.Cmd, scopedLog, verbose)
 	if c.cancelFn != nil {
 		c.cancelFn()

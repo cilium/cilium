@@ -38,9 +38,9 @@ func CheckRequirements(log *slog.Logger) error {
 
 	// bpftool checks
 	if !option.Config.DryMode {
-		probeManager := probes.NewProbeManager()
+		probeManager := probes.NewProbeManager(log)
 
-		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
 		}
 
@@ -52,11 +52,11 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for TCP EDT and writeable skb->queue_mapping (Linux 5.1 or newer)")
 		}
 
-		if probes.HaveLargeInstructionLimit() != nil {
+		if probes.HaveLargeInstructionLimit(log) != nil {
 			return errors.New("Require support for large programs (Linux 5.2.0 or newer)")
 		}
 
-		if probes.HaveSKBAdjustRoomL2RoomMACSupport() != nil {
+		if probes.HaveSKBAdjustRoomL2RoomMACSupport(log) != nil {
 			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
 		}
 
