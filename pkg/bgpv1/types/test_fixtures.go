@@ -72,6 +72,12 @@ var (
 							AddCommunities:      []string{"65000:100"},
 							AddLargeCommunities: []string{"4294967295:0:100"},
 							SetLocalPreference:  ptr.To[int64](150),
+							NextHop: &RoutePolicyActionNextHop{
+								// Setting Self and Unchanged together is invalid,
+								// but just for testing conversion.
+								Self:      true,
+								Unchanged: true,
+							},
 						},
 					},
 				},

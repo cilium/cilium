@@ -268,6 +268,14 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			Value: uint32(*apiStatement.Actions.SetLocalPreference),
 		}
 	}
+
+	if apiStatement.Actions.NextHop != nil {
+		s.Actions.Nexthop = &gobgp.NexthopAction{
+			Self:      apiStatement.Actions.NextHop.Self,
+			Unchanged: apiStatement.Actions.NextHop.Unchanged,
+		}
+	}
+
 	return s, definedSets
 }
 
@@ -305,6 +313,12 @@ func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.De
 		if s.Actions.LocalPref != nil {
 			localPref := int64(s.Actions.LocalPref.Value)
 			stmt.Actions.SetLocalPreference = &localPref
+		}
+		if s.Actions.Nexthop != nil {
+			stmt.Actions.NextHop = &types.RoutePolicyActionNextHop{
+				Self:      s.Actions.Nexthop.Self,
+				Unchanged: s.Actions.Nexthop.Unchanged,
+			}
 		}
 	}
 	return stmt
