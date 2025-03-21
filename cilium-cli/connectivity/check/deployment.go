@@ -98,6 +98,14 @@ const (
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
 )
 
+type perfPodRole string
+
+const (
+	perfPodRoleKey    = "role"
+	perfPodRoleServer = perfPodRole("server")
+	perfPodRoleClient = perfPodRole("client")
+)
+
 var (
 	appLabels = map[string]string{
 		"app.kubernetes.io/name": "cilium-cli",
@@ -1622,7 +1630,7 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 		Kind:  kindPerfName,
 		Image: ct.params.PerfParameters.Image,
 		Labels: map[string]string{
-			"client": "role",
+			perfPodRoleKey: string(perfPodRoleClient),
 		},
 		Annotations:                   ct.params.DeploymentAnnotations.Match(name),
 		Command:                       []string{"/bin/bash", "-c", "sleep 10000000"},
@@ -1649,7 +1657,7 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 		Name: name,
 		Kind: kindPerfName,
 		Labels: map[string]string{
-			"server": "role",
+			perfPodRoleKey: string(perfPodRoleServer),
 		},
 		Annotations:                   ct.params.DeploymentAnnotations.Match(name),
 		Port:                          12865,
@@ -1963,17 +1971,20 @@ func (ct *ConnectivityTest) validateDeploymentPerf(ctx context.Context) error {
 	}
 
 	for _, perfPod := range perfPods.Items {
-		_, hasLabel := perfPod.GetLabels()["server"]
-		if hasLabel {
+		role := perfPodRole(perfPod.GetLabels()[perfPodRoleKey])
+		switch role {
+		case perfPodRoleServer:
 			ct.perfServerPod = append(ct.perfServerPod, Pod{
 				K8sClient: ct.client,
 				Pod:       perfPod.DeepCopy(),
 			})
-		} else {
+		case perfPodRoleClient:
 			ct.perfClientPods = append(ct.perfClientPods, Pod{
 				K8sClient: ct.client,
 				Pod:       perfPod.DeepCopy(),
 			})
+		default:
+			ct.Warnf("Found perf pod %q with unknown a role %q", perfPod.GetName(), role)
 		}
 	}
 
