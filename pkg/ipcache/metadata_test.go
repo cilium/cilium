@@ -1457,17 +1457,71 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 	for _, v := range cidrs {
 		cidrLabels[v] = labels.GetCIDRLabels(v.AsPrefix())
 	}
+	half := len(cidrs) / 2
+	removeHalf := cidrs[:half]
+	insertHalf := cidrs[half:]
 
+	revsLen := 1024
+	revs := make([]uint64, 0, revsLen)
 	var i int
+
 	b.ResetTimer()
 	b.ReportAllocs()
 	for b.Loop() {
+		mu := make([]MU, 0, len(cidrLabels))
 		for cidr, lbls := range cidrLabels {
-			resource := types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy")
-			IPIdentityCache.metadata.upsertLocked(cidr, source.Generated, resource, lbls)
-			_, _, _ = IPIdentityCache.doInjectLabels(context.TODO(), []cmtypes.PrefixCluster{cidr})
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{lbls},
+			})
 		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
 		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+	i = 1
+
+	for b.Loop() {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range removeHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{labels.Labels{}},
+			})
+		}
+		revs = append(revs, IPIdentityCache.RemoveMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+	i = 1
+
+	for b.Loop() {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range insertHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{cidrLabels[cidr]},
+			})
+		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
 	}
 }
 
