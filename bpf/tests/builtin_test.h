@@ -61,13 +61,13 @@ static void __fill_cnt(void *buff, __u32 len)
 	do {									\
 		__u8 __x[len] __align_stack_8;					\
 		__u8 __y[len] __align_stack_8;					\
-		__bpf_memset_builtin(__y, 0, sizeof(__y));			\
-		__fill_rnd(__x, sizeof(__x));					\
+		__bpf_memset_builtin(__y, 0, len);				\
+		__fill_rnd(__x, len);						\
 		barrier_data(__x);						\
-		__bpf_memzero(__x, sizeof(__x));				\
+		__bpf_memzero(__x, len);					\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		assert(!__cmp_mem(__x, __y, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
 
 static void test___builtin_memzero(void)
@@ -81,15 +81,15 @@ static void test___builtin_memzero(void)
 		__u8 __x[len] __align_stack_8;					\
 		__u8 __y[len] __align_stack_8;					\
 		__u8 __z[len] __align_stack_8;					\
-		__bpf_memset_builtin(__x, 0, sizeof(__x));			\
-		__fill_rnd(__y, sizeof(__y));					\
-		__bpf_memcpy_builtin(__z, __y, sizeof(__z));			\
+		__bpf_memset_builtin(__x, 0, len);				\
+		__fill_rnd(__y, len);						\
+		__bpf_memcpy_builtin(__z, __y, len);				\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		__bpf_memcpy(__x, __y, sizeof(__x));				\
+		__bpf_memcpy(__x, __y, len);					\
 		barrier_data(__x);						\
 		barrier_data(__z);						\
-		assert(!__cmp_mem(__x, __z, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __z, len));				\
 	} while (0)
 
 static void test___builtin_memcpy(void)
@@ -103,12 +103,12 @@ static void test___builtin_memcpy(void)
 		bool res, cor;							\
 		__u8 __x[len] __align_stack_8;					\
 		__u8 __y[len] __align_stack_8;					\
-		__fill_rnd(__x, sizeof(__x));					\
-		__cpy_mem(__y, __x, sizeof(__x));				\
-		cor = __corrupt_mem(__y, sizeof(__x));				\
+		__fill_rnd(__x, len);						\
+		__cpy_mem(__y, __x, len);					\
+		cor = __corrupt_mem(__y, len);					\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		res = __bpf_memcmp(__x, __y, sizeof(__x));			\
+		res = __bpf_memcmp(__x, __y, len);				\
 		assert(cor == res);						\
 	} while (0)
 
@@ -128,15 +128,15 @@ static void test___builtin_memcmp(void)
 		__u8 __x[len] __align_stack_8;					\
 		__u8 __y[len] __align_stack_8;					\
 		__u8 __z[len] __align_stack_8;					\
-		__bpf_memset_builtin(__x, 0, sizeof(__x));			\
-		__fill_rnd(__y, sizeof(__y));					\
-		__bpf_memcpy_builtin(__z, __y, sizeof(__z));			\
+		__bpf_memset_builtin(__x, 0, len);				\
+		__fill_rnd(__y, len);						\
+		__bpf_memcpy_builtin(__z, __y, len);				\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		__bpf_memmove(__x, __y, sizeof(__x));				\
+		__bpf_memmove(__x, __y, len);					\
 		barrier_data(__x);						\
 		barrier_data(__z);						\
-		assert(!__cmp_mem(__x, __z, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __z, len));				\
 	} while (0)
 
 /* Overlapping with src == dst. */
@@ -147,14 +147,14 @@ static void test___builtin_memcmp(void)
 		__u8 *__p_x = (__u8 *)__x;					\
 		__u8 *__p_y = (__u8 *)__y;					\
 		const __u32 off = 0;						\
-		__fill_cnt(__x, sizeof(__x));					\
-		__bpf_memcpy_builtin(__y, __x, sizeof(__x));			\
-		__bpf_memcpy_builtin(__p_y + off, __x, sizeof(__x) - off);	\
+		__fill_cnt(__x, len);						\
+		__bpf_memcpy_builtin(__y, __x, len);				\
+		__bpf_memcpy_builtin(__p_y + off, __x, len - off);		\
 		barrier_data(__x);						\
-		__bpf_memmove(__p_x + off, __x, sizeof(__x) - off);		\
+		__bpf_memmove(__p_x + off, __x, len - off);			\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		assert(!__cmp_mem(__x, __y, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
 
 /* Overlapping with src < dst. */
@@ -164,15 +164,15 @@ static void test___builtin_memcmp(void)
 		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
 		__u8 *__p_y = (__u8 *)__y;					\
-		const __u32 off = (sizeof(__x[0]) * len / 2) & ~1U;		\
-		__fill_cnt(__x, sizeof(__x));					\
-		__bpf_memcpy_builtin(__y, __x, sizeof(__x));			\
-		__bpf_memcpy_builtin(__p_y + off, __x, sizeof(__x) - off);	\
+		const __u32 off = (len / 2) & ~1U;				\
+		__fill_cnt(__x, len);						\
+		__bpf_memcpy_builtin(__y, __x, len);				\
+		__bpf_memcpy_builtin(__p_y + off, __x, len - off);		\
 		barrier_data(__x);						\
-		__bpf_memmove(__p_x + off, __x, sizeof(__x) - off);		\
+		__bpf_memmove(__p_x + off, __x, len - off);			\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		assert(!__cmp_mem(__x, __y, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
 
 /* Overlapping with src > dst. */
@@ -181,15 +181,15 @@ static void test___builtin_memcmp(void)
 		__u8 __x[len] __align_stack_8;					\
 		__u8 __y[len] __align_stack_8;					\
 		__u8 *__p_x = (__u8 *)__x;					\
-		const __u32 off = (sizeof(__x[0]) * len / 2) & ~1U;		\
-		__fill_cnt(__x, sizeof(__x));					\
-		__bpf_memcpy_builtin(__y, __x, sizeof(__x));			\
-		__bpf_memcpy_builtin(__y, __p_x + off, sizeof(__x) - off);	\
+		const __u32 off = (len / 2) & ~1U;				\
+		__fill_cnt(__x, len);						\
+		__bpf_memcpy_builtin(__y, __x, len);				\
+		__bpf_memcpy_builtin(__y, __p_x + off, len - off);		\
 		barrier_data(__x);						\
-		__bpf_memmove(__x, __p_x + off, sizeof(__x) - off);		\
+		__bpf_memmove(__x, __p_x + off, len - off);			\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		assert(!__cmp_mem(__x, __y, sizeof(__x)));			\
+		assert(!__cmp_mem(__x, __y, len));				\
 	} while (0)
 
 static void test___builtin_memmove(void)
