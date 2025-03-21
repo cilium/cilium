@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/perf/benchmarks/profiler"
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
@@ -43,6 +44,10 @@ func (s *netPerf) Name() string {
 
 func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 	perfParameters := t.Context().Params().PerfParameters
+
+	profilingPods := t.Context().PerfProfilingPods()
+	serverProfiler := profiler.New(profilingPods[check.PerfServerProfilingDeploymentName], perfParameters)
+	clientProfiler := profiler.New(profilingPods[check.PerfClientProfilingAcrossDeploymentName], perfParameters)
 
 	tests := []string{}
 
@@ -111,13 +116,13 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 					scenarioName += "pod"
 				}
 
-				sameNode := true
+				sameNode, nodeType := true, "same-node"
 				if strings.Contains(c.Pod.Name, check.PerfOtherNode) {
-					sameNode = false
+					sameNode, nodeType = false, "other-node"
 				}
 
 				for _, test := range tests {
-					testName := netperfToolName + "_" + test + "_" + scenarioName
+					testName := netperfToolName + "_" + test + "_" + scenarioName + "_" + nodeType
 					action := t.NewAction(s, testName, &c, server, features.IPFamilyV4)
 
 					action.CollectFlows = false
@@ -133,8 +138,25 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							MsgSize:  perfParameters.MessageSize,
 							NetQos:   false,
 						}
+
+						var clientProfile *profiler.Profile
+						serverProfile := serverProfiler.Run(ctx, a)
+						if !sameNode {
+							clientProfile = clientProfiler.Run(ctx, a)
+						}
+
 						perfResult := NetperfCmd(ctx, server.Pod.Status.PodIP, k, a)
 						t.Context().PerfResults = append(t.Context().PerfResults, common.PerfSummary{PerfTest: k, Result: perfResult})
+
+						if err := serverProfile.Save(testName+"_server.perf", a); err != nil {
+							a.Fatalf("Failed capturing kernel profile on server node: %v", err)
+						}
+
+						if !sameNode {
+							if err := clientProfile.Save(testName+"_client.perf", a); err != nil {
+								a.Fatalf("Failed capturing kernel profile on client node: %v", err)
+							}
+						}
 					})
 				}
 			}
