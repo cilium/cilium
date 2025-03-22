@@ -2014,9 +2014,8 @@ drop_err:
 }
 
 static __always_inline int
-nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-			  struct iphdr *ip4, bool has_l4_header, int l4_off,
-			  __be32 addr, __be16 port, __s8 *ext_err)
+nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fraginfo,
+			  int l4_off, __be32 addr, __be16 port, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
 	__u32 monitor = 0;
@@ -2025,8 +2024,8 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	/* lookup with SCOPE_FORWARD: */
 	__ipv4_ct_tuple_reverse(tuple);
 
-	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, ipv4_is_fragment(ip4),
-			      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
+	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, fraginfo,
+			      l4_off, CT_EGRESS, SCOPE_FORWARD,
 			      CT_ENTRY_DSR, NULL, &monitor);
 	if (ret < 0)
 		return ret;
@@ -2129,14 +2128,14 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	bool allow_neigh_map = true;
-	bool has_l4_header;
+	fraginfo_t fraginfo;
 	__u32 *vrf_id __maybe_unused = NULL;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	has_l4_header = ipv4_has_l4_header(ip4);
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
@@ -2165,14 +2164,14 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	else if (ret == CTX_ACT_REDIRECT)
 		goto redirect;
 
-	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, ipv4_is_fragment(ip4),
-			      l4_off, has_l4_header, CT_INGRESS, SCOPE_REVERSE,
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo,
+			      l4_off, CT_INGRESS, SCOPE_REVERSE,
 			      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, has_l4_header);
+				  &tuple, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2416,8 +2415,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	};
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
-	bool has_l4_header;
 	struct iphdr *ip4;
+	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 #ifdef TUNNEL_MODE
@@ -2432,7 +2431,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	has_l4_header = ipv4_has_l4_header(ip4);
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
@@ -2466,8 +2465,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v4_nat(ctx, &tuple, ip4, has_l4_header, l4_off,
-			    true, &target, TCP_SPORT_OFF, &trace, &ext_err);
+	ret = __snat_v4_nat(ctx, &tuple, fraginfo, l4_off, true,
+			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2531,13 +2530,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    struct lb4_key *key,
 					    struct iphdr *ip4,
 					    int l3_off,
-					    bool has_l4_header,
+					    fraginfo_t fraginfo,
 					    int l4_off,
 					    __u32 src_sec_identity,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
-	bool is_fragment = ipv4_is_fragment(ip4);
 	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
 	bool backend_local;
@@ -2584,8 +2582,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		if (!ret)
 			return NAT_46X64_RECIRC;
 	} else {
-		ret = lb4_local(get_ct_map4(tuple), ctx, is_fragment, l3_off, l4_off,
-				key, tuple, svc, &ct_state_svc, has_l4_header,
+		ret = lb4_local(get_ct_map4(tuple), ctx, l3_off, fraginfo, l4_off,
+				key, tuple, svc, &ct_state_svc,
 				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
 	}
 	if (IS_ERR(ret)) {
@@ -2636,8 +2634,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ct_state.rev_nat_index = ct_state_svc.rev_nat_index;
 
 		/* Cache is_fragment in advance, lb4_local may invalidate ip4. */
-		ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, is_fragment,
-				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
+		ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, fraginfo,
+				      l4_off, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
@@ -2709,7 +2707,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
-	bool has_l4_header = ipv4_has_l4_header(ip4);
+	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
 	struct lb4_service *svc;
@@ -2717,6 +2715,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	int ret, l4_off;
 
 	cilium_capture_in(ctx);
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
@@ -2736,8 +2736,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
-					has_l4_header, l4_off,
-					src_sec_identity, punt_to_stack, ext_err);
+					fraginfo, l4_off, src_sec_identity,
+					punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -2764,8 +2764,7 @@ skip_service_lookup:
 				return ret;
 			if (*dsr)
 				/* Packet continues on its way to local backend: */
-				return nodeport_dsr_ingress_ipv4(ctx, &tuple, ip4,
-								 has_l4_header, l4_off,
+				return nodeport_dsr_ingress_ipv4(ctx, &tuple, fraginfo, l4_off,
 								 key.address, key.dport,
 								 ext_err);
 		}
