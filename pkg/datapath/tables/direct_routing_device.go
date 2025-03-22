@@ -5,10 +5,10 @@ package tables
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/node"
@@ -40,7 +40,7 @@ type DirectRoutingDeviceConfig struct {
 type DirectRoutingDeviceParams struct {
 	cell.In
 
-	Log     logrus.FieldLogger
+	Log     *slog.Logger
 	Config  DirectRoutingDeviceConfig
 	Node    *node.LocalNodeStore `optional:"true"`
 	DB      *statedb.DB

@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/defaults"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
@@ -133,5 +134,5 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 type backendConnectionHandler struct{}
 
 func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(filter)
+	return sockets.Destroy(logging.DefaultSlogLogger, filter)
 }

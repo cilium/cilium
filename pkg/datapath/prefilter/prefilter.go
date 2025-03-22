@@ -6,6 +6,7 @@ package prefilter
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/hive/cell"
@@ -38,6 +39,7 @@ type preFilterMaps [mapCount]*cidrmap.CIDRMap
 
 // PreFilter holds global info on related CIDR maps participating in prefilter
 type PreFilter struct {
+	logger   *slog.Logger
 	maps     preFilterMaps
 	revision int64
 	mutex    lock.RWMutex
@@ -236,8 +238,9 @@ func (p *PreFilter) init() error {
 }
 
 // newPreFilter returns prefilter handle
-func newPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
+func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
 	p := &PreFilter{
+		logger:   logger,
 		revision: 1,
 		enabled:  config.EnableXDPPrefilter,
 	}

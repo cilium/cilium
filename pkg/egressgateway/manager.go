@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strings"
@@ -93,6 +94,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
 type Manager struct {
+	logger *slog.Logger
+
 	lock.Mutex
 
 	// allCachesSynced is true when all k8s objects we depend on have had
@@ -150,6 +153,8 @@ type Manager struct {
 type Params struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
 	IdentityAllocator identityCache.IdentityAllocator
@@ -203,6 +208,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
+		logger:                        p.Logger,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 
@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -69,11 +68,11 @@ const (
 	secctxFromIpcacheEnabled
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
-
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
+	logger *slog.Logger
+
 	// templateCache is the cache of pre-compiled datapaths. Only set after
 	// a call to Reinitialize.
 	templateCache *objectCache
@@ -93,6 +92,7 @@ type loader struct {
 type Params struct {
 	cell.In
 
+	Logger          *slog.Logger
 	Sysctl          sysctl.Sysctl
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
@@ -107,7 +107,8 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	return &loader{
-		templateCache:     newObjectCache(p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
+		logger:            p.Logger,
+		templateCache:     newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
 		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
 		prefilter:         p.Prefilter,
@@ -125,7 +126,7 @@ func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 		Proto:  linux_defaults.RTProto,
 	}
 
-	return route.Upsert(endpointRoute)
+	return route.Upsert(nil, endpointRoute)
 }
 
 func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
@@ -244,7 +245,7 @@ func isObsoleteDev(dev string, devices []string) bool {
 // before 1.13, most filters were named e.g. bpf_host.o:[to-host], to be changed to
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
-func removeObsoleteNetdevPrograms(devices []string) error {
+func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
@@ -262,7 +263,10 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 		// per-endpoint maps.
 		bpffsPath := bpffsDeviceDir(bpf.CiliumPath(), l)
 		if err := bpf.Remove(bpffsPath); err != nil {
-			log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsPath)
+			logger.Error("Failed to remove bpffs entry",
+				logfields.Error, err,
+				logfields.BPFSPath, bpffsPath,
+			)
 		}
 
 		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
@@ -293,14 +297,22 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 	for _, dev := range ingressDevs {
 		err = removeTCFilters(dev, directionToParent(dirIngress))
 		if err != nil {
-			log.WithError(err).Errorf("couldn't remove ingress tc filters from %s", dev.Attrs().Name)
+			logger.Error(
+				"couldn't remove ingress tc filters",
+				logfields.Error, err,
+				logfields.Device, dev.Attrs().Name,
+			)
 		}
 	}
 
 	for _, dev := range egressDevs {
 		err = removeTCFilters(dev, directionToParent(dirEgress))
 		if err != nil {
-			log.WithError(err).Errorf("couldn't remove egress tc filters from %s", dev.Attrs().Name)
+			logger.Error(
+				"couldn't remove egress tc filters",
+				logfields.Error, err,
+				logfields.Device, dev.Attrs().Name,
+			)
 		}
 	}
 
@@ -309,17 +321,17 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
-func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func reloadHostEndpoint(logger *slog.Logger, cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
-	if err := attachCiliumHost(ep, spec); err != nil {
+	if err := attachCiliumHost(logger, ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachCiliumNet(ep, spec); err != nil {
+	if err := attachCiliumNet(logger, ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachNetworkDevices(cfg, ep, spec); err != nil {
+	if err := attachNetworkDevices(logger, cfg, ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -355,7 +367,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
-func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
@@ -382,13 +394,11 @@ func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	}
 
 	// Attach cil_to_host to cilium_host ingress.
-	if err := attachSKBProgram(host, hostObj.ToHost, symbolToHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, host, hostObj.ToHost, symbolToHostEp, bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", ep.InterfaceName(), err)
 	}
 	// Attach cil_from_host to cilium_host egress.
-	if err := attachSKBProgram(host, hostObj.FromHost, symbolFromHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, host, hostObj.FromHost, symbolFromHostEp, bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", ep.InterfaceName(), err)
 	}
 
@@ -432,7 +442,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*c
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
@@ -454,8 +464,7 @@ func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	defer netObj.Close()
 
 	// Attach cil_to_host to cilium_net.
-	if err := attachSKBProgram(net, netObj.ToHost, symbolToHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, net, netObj.ToHost, symbolToHostEp, bpffsDeviceLinksDir(bpf.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", defaults.SecondHostDevice, err)
 	}
 
@@ -469,7 +478,7 @@ func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
 // devices and the wireguard device. Attaches cil_from_netdev to ingress and
 // optionally cil_to_netdev to egress if enabled features require it.
-func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachNetworkDevices(logger *slog.Logger, cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_wg0.
@@ -495,7 +504,11 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 	for _, device := range devices {
 		iface, err := safenetlink.LinkByName(device)
 		if err != nil {
-			log.WithError(err).WithField("device", device).Warn("Link does not exist")
+			logger.Warn(
+				"Link does not exist",
+				logfields.Error, err,
+				logfields.Device, device,
+			)
 			continue
 		}
 
@@ -517,8 +530,7 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		defer netdevObj.Close()
 
 		// Attach cil_from_netdev to ingress.
-		if err := attachSKBProgram(iface, netdevObj.FromNetdev, symbolFromHostNetdevEp,
-			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		if err := attachSKBProgram(logger, iface, netdevObj.FromNetdev, symbolFromHostNetdevEp, linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
@@ -528,16 +540,19 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			// the rev-NAT xlations.
 			if device != wgTypes.IfaceName {
 				// Attach cil_to_netdev to egress.
-				if err := attachSKBProgram(iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
-					linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+				if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp, linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 					return fmt.Errorf("interface %s egress: %w", device, err)
 				}
 			}
 		} else {
 			// Remove any previously attached device from egress path if BPF
 			// NodePort and host firewall are disabled.
-			if err := detachSKBProgram(iface, symbolToHostNetdevEp, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-				log.WithField("device", device).Error(err)
+			if err := detachSKBProgram(logger, iface, symbolToHostNetdevEp, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
+				logger.Error(
+					"",
+					logfields.Error, err,
+					logfields.Device, device,
+				)
 			}
 		}
 
@@ -548,8 +563,8 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 
 	// Call immediately after attaching programs to make it obvious that a
 	// program was wrongfully detached due to a bug or misconfiguration.
-	if err := removeObsoleteNetdevPrograms(devices); err != nil {
-		log.WithError(err).Error("Failed to remove obsolete netdev programs")
+	if err := removeObsoleteNetdevPrograms(logger, devices); err != nil {
+		logger.Error("Failed to remove obsolete netdev programs", logfields.Error, err)
 	}
 
 	return nil
@@ -602,7 +617,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	co, renames := endpointRewrites(ep)
@@ -640,19 +655,21 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	}
 
 	linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
-	if err := attachSKBProgram(iface, obj.FromContainer, symbolFromEndpoint,
-		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, iface, obj.FromContainer, symbolFromEndpoint, linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
 
 	if ep.RequireEgressProg() {
-		if err := attachSKBProgram(iface, obj.ToContainer, symbolToEndpoint,
-			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+		if err := attachSKBProgram(logger, iface, obj.ToContainer, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
 		}
 	} else {
-		if err := detachSKBProgram(iface, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-			log.WithField("device", device).Error(err)
+		if err := detachSKBProgram(logger, iface, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
+			logger.Error(
+				"",
+				logfields.Error, err,
+				logfields.Device, device,
+			)
 		}
 	}
 
@@ -661,17 +678,21 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	}
 
 	if ep.RequireEndpointRoute() {
-		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
-			logfields.Interface: device,
-		})
+		scopedLog := ep.Logger(subsystem).With(
+			logfields.Interface, device,
+		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
+				scopedLog.Warn("Failed to upsert route",
+					logfields.Error, err,
+				)
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
 			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
+				scopedLog.Warn("Failed to upsert route",
+					logfields.Error, err,
+				)
 			}
 		}
 	}
@@ -679,8 +700,8 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.Link) error {
-	if err := compileOverlay(ctx, cArgs); err != nil {
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, cArgs []string, device netlink.Link) error {
+	if err := compileOverlay(ctx, logger, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
@@ -708,12 +729,10 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(device, obj.FromOverlay, symbolFromOverlay,
-		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, device, obj.FromOverlay, symbolFromOverlay, linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
-	if err := attachSKBProgram(device, obj.ToOverlay, symbolToOverlay,
-		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+	if err := attachSKBProgram(logger, device, obj.ToOverlay, symbolToOverlay, linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", device, err)
 	}
 
@@ -724,8 +743,8 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err error) {
-	if err := compileWireguard(ctx); err != nil {
+func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, device netlink.Link) (err error) {
+	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
@@ -755,21 +774,26 @@ func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err err
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
 	// Attach/detach cil_to_wireguard to/from egress.
 	if option.Config.NeedEgressOnWireGuardDevice() {
-		if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
-			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard, linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
 		}
 	} else {
-		if err := detachSKBProgram(device, symbolToWireguard,
+		if err := detachSKBProgram(logger, device, symbolToWireguard,
 			linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-			log.WithField("device", device).Error(err)
+			logger.Error("",
+				logfields.Error, err,
+				logfields.Device, device,
+			)
 		}
 	}
 	// Selectively detach cil_from_netdev from ingress.
 	if !option.Config.NeedBPFHostOnWireGuardDevice() {
-		if err := detachSKBProgram(device, symbolFromHostNetdevEp,
+		if err := detachSKBProgram(logger, device, symbolFromHostNetdevEp,
 			linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithField("device", wgTypes.IfaceName).Error(err)
+			logger.Error("",
+				logfields.Error, err,
+				logfields.Device, wgTypes.IfaceName,
+			)
 		}
 	}
 	if err := commit(); err != nil {
@@ -807,11 +831,11 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(cfg, ep, spec)
+		err = reloadHostEndpoint(l.logger, cfg, ep, spec)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
-			log.Debug("Initialized host datapath")
+			l.logger.Debug("Initialized host datapath")
 			close(l.hostDpInitialized)
 		})
 
@@ -820,7 +844,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(ep, spec)
+	err = reloadEndpoint(l.logger, ep, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -837,16 +861,24 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 		}
 	}
 
-	log := log.WithField(logfields.EndpointID, ep.StringID())
+	log := l.logger.With(logfields.EndpointID, ep.StringID())
 
 	// Remove legacy tc attachments.
 	link, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err == nil {
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_INGRESS); err != nil {
-			log.WithError(err).Errorf("Removing ingress filter from interface %s", ep.InterfaceName())
+			log.Error(
+				"Failed to remove ingress filter from interface",
+				logfields.Error, err,
+				logfields.Interface, ep.InterfaceName(),
+			)
 		}
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_EGRESS); err != nil {
-			log.WithError(err).Errorf("Removing egress filter from interface %s", ep.InterfaceName())
+			log.Error(
+				"Failed to remove egress filter from interface",
+				logfields.Error, err,
+				logfields.Interface, ep.InterfaceName(),
+			)
 		}
 	}
 
@@ -858,11 +890,17 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 	// Remove the links directory first to avoid removing program arrays before
 	// the entrypoints are detached.
 	if err := bpf.Remove(bpffsEndpointLinksDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsEndpointLinksDir(bpf.CiliumPath(), ep))
+		log.Error("Failed to remove bpffs entry",
+			logfields.Error, err,
+			logfields.BPFFSEndpointLinksDir, bpffsEndpointLinksDir(bpf.CiliumPath(), ep),
+		)
 	}
 	// Finally, remove the endpoint's top-level directory.
 	if err := bpf.Remove(bpffsEndpointDir(bpf.CiliumPath(), ep)); err != nil {
-		log.WithError(err).Errorf("Failed to remove bpffs entry at: %s", bpffsEndpointDir(bpf.CiliumPath(), ep))
+		log.Error("Failed to remove bpffs entry",
+			logfields.Error, err,
+			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpf.CiliumPath(), ep),
+		)
 	}
 }
 

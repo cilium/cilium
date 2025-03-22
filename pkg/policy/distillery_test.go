@@ -35,9 +35,13 @@ const (
 	AuthTypeDisabled   = types.AuthTypeDisabled
 )
 
+func setupTest(tb testing.TB) {
+	ep1 = testutils.NewTestEndpoint(tb)
+	ep2 = testutils.NewTestEndpoint(tb)
+}
+
 var (
-	ep1 = testutils.NewTestEndpoint()
-	ep2 = testutils.NewTestEndpoint()
+	ep1, ep2 testutils.TestEndpoint
 )
 
 func localIdentity(n uint32) identity.NumericIdentity {
@@ -45,6 +49,7 @@ func localIdentity(n uint32) identity.NumericIdentity {
 }
 
 func TestCacheManagement(t *testing.T) {
+	setupTest(t)
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
@@ -73,7 +78,7 @@ func TestCacheManagement(t *testing.T) {
 
 	// Insert two distinct identities, then delete one. Other should still
 	// be there.
-	ep3 := testutils.NewTestEndpoint()
+	ep3 := testutils.NewTestEndpoint(t)
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
@@ -113,7 +118,7 @@ func TestCachePopulation(t *testing.T) {
 	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
-	ep3 := testutils.NewTestEndpoint()
+	ep3 := testutils.NewTestEndpoint(t)
 	ep3.SetIdentity(1234, true)
 	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
 	require.NoError(t, err)
