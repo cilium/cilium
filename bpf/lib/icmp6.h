@@ -50,14 +50,13 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 {
 	union macaddr smac, dmac = THIS_INTERFACE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-	union v6addr sip, dip, router_ip;
+	union v6addr sip, dip, router_ip = CONFIG(router_ipv6);
 	__be32 sum;
 
 	if (ipv6_load_saddr(ctx, nh_off, &sip) < 0 ||
 	    ipv6_load_daddr(ctx, nh_off, &dip) < 0)
 		return DROP_INVALID;
 
-	BPF_V6(router_ip, ROUTER_IP);
 	/* ctx->saddr = ctx->daddr */
 	if (ipv6_store_saddr(ctx, router_ip.addr, nh_off) < 0)
 		return DROP_WRITE_ERROR;
@@ -291,7 +290,7 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 
 static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
-	union v6addr target, router;
+	union v6addr target, router = CONFIG(router_ipv6);
 	struct endpoint_info *ep;
 	union macaddr router_mac = THIS_INTERFACE_MAC;
 
@@ -301,10 +300,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 
 	cilium_dbg(ctx, DBG_ICMP6_NS, target.p3, target.p4);
 
-	BPF_V6(router, ROUTER_IP);
-
 	if (ipv6_addr_equals(&target, &router)) {
-
 		return send_icmp6_ndisc_adv(ctx, nh_off, &router_mac, true);
 	}
 

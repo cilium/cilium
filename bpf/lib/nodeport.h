@@ -1147,7 +1147,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
 
-		BPF_V6(target.addr, ROUTER_IP);
+		target.addr = CONFIG(router_ipv6);
 	}
 #endif
 

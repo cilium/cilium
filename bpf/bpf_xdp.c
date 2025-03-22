@@ -4,8 +4,8 @@
 #include <bpf/ctx/xdp.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
 #include <bpf/config/global.h>
+#include <bpf/config/node.h>
 #include <netdev_config.h>
 #include <filter_config.h>
 

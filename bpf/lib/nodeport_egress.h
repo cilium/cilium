@@ -23,9 +23,7 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 			       struct ipv6_nat_target *target __maybe_unused)
 {
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	union v6addr router_ip;
-
-	BPF_V6(router_ip, ROUTER_IP);
+	union v6addr router_ip = CONFIG(router_ipv6);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
 		ipv6_addr_copy(&target->addr, &router_ip);
 		target->needs_ct = true;
