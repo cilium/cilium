@@ -520,6 +520,12 @@ data:
   routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" .Values.gke.enabled) | quote }}
   tunnel-protocol: {{ .Values.tunnelProtocol | default "vxlan" | quote }}
 
+{{- if eq .Values.routingMode "native" }}
+  {{- if and (not .Values.ipv4NativeRoutingCIDR) (not .Values.ipv6NativeRoutingCIDR) }}
+    {{- fail "ipv4NativeRoutingCIDR or ipv6NativeRoutingCIDR must be set when routingMode is native" }}
+  {{- end }}
+{{- end }}
+
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
 {{- end }}
