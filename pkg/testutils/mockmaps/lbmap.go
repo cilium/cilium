@@ -273,3 +273,23 @@ func (m *LBMockMap) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bo
 
 	return false
 }
+
+// AddSockRevNat inserts a socket reverse nat entry. This simulates a socket
+// being tracked via the svc lb rev socket map.
+func (m *LBMockMap) AddSockRevNat(cookie uint64, addr net.IP, port uint16) {
+	if addr.To4() != nil {
+		key := lbmap.NewSockRevNat4Key(cookie, addr, port)
+		m.SockRevNat4[*key] = lbmap.SockRevNat4Value{
+			Address:     key.Address,
+			Port:        int16(port),
+			RevNatIndex: 0,
+		}
+	} else {
+		key := lbmap.NewSockRevNat6Key(cookie, addr, port)
+		m.SockRevNat6[*key] = lbmap.SockRevNat6Value{
+			Address:     key.Address,
+			Port:        int16(port),
+			RevNatIndex: 0,
+		}
+	}
+}
