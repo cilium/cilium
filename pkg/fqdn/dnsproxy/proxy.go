@@ -318,13 +318,17 @@ func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16)
 				for _, ip := range nidIPs {
 					rip, err := restore.ParseRuleIPOrCIDR(ip)
 					if err != nil {
+						if errors.Is(err, restore.ErrRemoteClusterAddr) {
+							// ignore non-local IPs or CIDRs
+							continue
+						}
 						log.WithFields(logrus.Fields{
 							logfields.EndpointID:            endpointID,
 							logfields.Port:                  pp.Port(),
 							logfields.Protocol:              pp.Protocol(),
 							logfields.EndpointLabelSelector: selRegex.cs,
 							logfields.IPAddr:                ip,
-						}).Warning("Could not parse IP for a DNS rule (?!), skipping")
+						}).WithError(err).Warning("Could not parse IP for a DNS rule (?!), skipping")
 						continue
 					}
 					if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {

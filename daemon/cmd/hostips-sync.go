@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/statedb"
 	"go4.org/netipx"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -194,13 +195,11 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 
 		lbls := ipIDLblsPair.Labels
 		if ipIDLblsPair.ID.IsWorld() {
-			p := netip.PrefixFrom(netipx.MustFromStdIP(ipIDLblsPair.IP), 0)
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(netipx.MustFromStdIP(ipIDLblsPair.IP), 0))
 			s.params.IPCache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
-			s.params.IPCache.UpsertLabels(ippkg.IPToNetPrefix(ipIDLblsPair.IP),
-				lbls,
-				source.Local, daemonResourceID,
-			)
+			p := cmtypes.NewLocalPrefixCluster(ippkg.IPToNetPrefix(ipIDLblsPair.IP))
+			s.params.IPCache.UpsertMetadata(p, source.Local, daemonResourceID, lbls)
 		}
 	}
 
@@ -213,7 +212,8 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			} else {
 				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
 			}
-			s.params.IPCache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
+			p := cmtypes.NewLocalPrefixCluster(ippkg.IPToNetPrefix(ip))
+			s.params.IPCache.RemoveMetadata(p, daemonResourceID, labels.LabelHost)
 		}
 	}
 

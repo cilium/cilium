@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
@@ -113,8 +114,8 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	nameManager.RegisterFQDNSelector(ciliumIOSel)
 
 	// Simulate lookup for single selector
-	prefix := netip.MustParsePrefix("1.1.1.1/32")
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.Addr()}})
+	prefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.AsPrefix().Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}))
 
 	// Add match pattern
@@ -127,15 +128,15 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
 
 	// Same IP matched by two selectors
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.Addr()}})
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{prefix.AsPrefix().Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 
 	// Additional unique IPs for each selector
-	githubPrefix := netip.MustParsePrefix("10.0.0.2/32")
-	awesomePrefix := netip.MustParsePrefix("10.0.0.3/32")
+	githubPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.2/32"))
+	awesomePrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.0.0.3/32"))
 	n := time.Now()
-	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{githubPrefix.Addr()}})
-	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("awesomecilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{awesomePrefix.Addr()}})
+	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{githubPrefix.AsPrefix().Addr()}})
+	nameManager.UpdateGenerateDNS(context.TODO(), n, dns.FQDN("awesomecilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{awesomePrefix.AsPrefix().Addr()}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
 	require.Equal(t, ipc.labelsForPrefix(awesomePrefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
@@ -203,16 +204,16 @@ func makeIPs(count uint32) []netip.Addr {
 }
 
 type mockIPCache struct {
-	metadata map[netip.Prefix]map[ipcacheTypes.ResourceID]labels.Labels
+	metadata map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels
 }
 
 func newMockIPCache() *mockIPCache {
 	return &mockIPCache{
-		metadata: make(map[netip.Prefix]map[ipcacheTypes.ResourceID]labels.Labels),
+		metadata: make(map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels),
 	}
 }
 
-func (m *mockIPCache) labelsForPrefix(prefix netip.Prefix) labels.Labels {
+func (m *mockIPCache) labelsForPrefix(prefix cmtypes.PrefixCluster) labels.Labels {
 	lbls := labels.Labels{}
 	for _, l := range m.metadata[prefix] {
 		lbls.MergeLabels(l)
