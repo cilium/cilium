@@ -796,6 +796,14 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 		}
 		break;
 
+	case IPPROTO_IGMP:
+	case IPPROTO_VRRP:
+		if (1) {
+			tuple->sport = 0;
+			tuple->dport = 0;
+		}
+		break;
+
 	/* TCP, UDP, and SCTP all have the ports at the same location */
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
