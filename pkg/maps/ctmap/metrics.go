@@ -5,13 +5,17 @@ package ctmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type gcStats struct {
+	logger *slog.Logger
+
 	*bpf.DumpStats
 
 	// aliveEntries is the number of scanned entries that are still alive.
@@ -68,6 +72,7 @@ func (g gcProtocol) String() string {
 
 func statStartGc(m *Map) gcStats {
 	result := gcStats{
+		logger:    m.Logger,
 		DumpStats: bpf.NewDumpStats(&m.Map),
 	}
 	if m.mapType.isIPv6() {
@@ -101,11 +106,18 @@ func (s *gcStats) finish() {
 		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		scopedLog := log.WithField("interrupted", s.Interrupted)
+		scopedLog := s.logger.With(
+			logfields.Interrupted, s.Interrupted,
+		)
 		if s.dumpError != nil {
-			scopedLog = scopedLog.WithError(s.dumpError)
+			scopedLog = scopedLog.With(
+				logfields.Error, s.dumpError,
+			)
 		}
-		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
+		scopedLog.Warn("Garbage collection CT map failed to finish",
+			logfields.Family, family,
+			logfields.Protocol, proto,
+		)
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
