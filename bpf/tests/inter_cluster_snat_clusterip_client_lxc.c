@@ -263,11 +263,7 @@ SETUP("tc", "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
-	ctx_store_meta(ctx, CB_SRC_LABEL, BACKEND_IDENTITY);
-	ctx_store_meta(ctx, CB_DELIVERY_REDIRECT, 1);
-	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 2);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
+	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, true, 2);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
