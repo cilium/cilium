@@ -282,7 +282,7 @@ func (ipc *IPCache) getEndpointFlagsRLocked(ip string) uint8 {
 // When deleting ipcache entries that were previously inserted via this
 // function, ensure that the corresponding delete occurs via Delete().
 //
-// Deprecated: Prefer UpsertLabels() instead.
+// Deprecated: Prefer UpsertMetadata() instead.
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -506,7 +506,7 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 
 // MU is a batched metadata update, the short name is to cut down on visual clutter.
 type MU struct {
-	Prefix   netip.Prefix
+	Prefix   cmtypes.PrefixCluster
 	Source   source.Source
 	Resource ipcacheTypes.ResourceID
 	Metadata []IPMetadata
@@ -517,7 +517,7 @@ type MU struct {
 // to pass into this function. This will trigger asynchronous calculation of
 // any datapath updates necessary to implement the logic associated with the
 // specified metadata.
-func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+func (ipc *IPCache) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
 	ipc.UpsertMetadataBatch(MU{Prefix: prefix, Source: src, Resource: resource, Metadata: aux})
 }
 
@@ -526,7 +526,7 @@ func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resou
 //
 // Returns a revision number that can be passed to WaitForRevision().
 func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
-	prefixes := make([]netip.Prefix, 0, len(updates))
+	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
@@ -548,14 +548,14 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 // This removes all labels from the given resource:
 //
 //	RemoveMetadata(pfx, resource, Labels{})
-func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+func (ipc *IPCache) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
 	ipc.RemoveMetadataBatch(MU{Prefix: prefix, Resource: resource, Metadata: aux})
 }
 
 // RemoveMetadataBatch is a batched version of RemoveMetadata.
 // Returns a revision number that can be passed to WaitForRevision().
 func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
-	prefixes := make([]netip.Prefix, 0, len(updates))
+	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
@@ -564,63 +564,6 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
 	return
-}
-
-// UpsertPrefixes inserts the prefixes into the IPCache and associates CIDR
-// labels with these prefixes, thereby making these prefixes selectable in
-// policy via local ("CIDR") identities.
-//
-// This will trigger asynchronous calculation of any datapath updates necessary
-// to implement the logic associated with the new CIDR labels.
-//
-// Returns a revision number that can be passed to WaitForRevision().
-func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) (revision uint64) {
-	ipc.metadata.Lock()
-	affectedPrefixed := make([]netip.Prefix, 0, len(prefixes))
-	for _, p := range prefixes {
-		affectedPrefixed = append(affectedPrefixed, ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))...)
-	}
-	ipc.metadata.Unlock()
-	revision = ipc.metadata.enqueuePrefixUpdates(affectedPrefixed...)
-	ipc.TriggerLabelInjection()
-	return
-}
-
-// RemovePrefixes removes the association between the prefixes and the CIDR
-// labels corresponding to those prefixes.
-//
-// This is the reverse operation of UpsertPrefixes(). If multiple callers call
-// UpsertPrefixes() with different resources, then RemovePrefixes() will only
-// remove the association for the target resource. That is, *all* callers must
-// call RemovePrefixes() before this the these prefixes become disassociated
-// from the "CIDR" labels.
-//
-// This will trigger asynchronous calculation of any datapath updates necessary
-// to implement the logic associated with the removed CIDR labels.
-func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.metadata.Lock()
-	affectedPrefixes := make([]netip.Prefix, 0, len(prefixes))
-	for _, p := range prefixes {
-		affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))...)
-	}
-	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
-	ipc.TriggerLabelInjection()
-}
-
-// UpsertLabels upserts a given IP and its corresponding labels associated
-// with it into the ipcache metadata map. The given labels are not modified nor
-// is its reference saved, as they're copied when inserting into the map.
-// This will trigger asynchronous calculation of any local identity changes
-// that must occur to associate the specified labels with the prefix, and push
-// any datapath updates necessary to implement the logic associated with the
-// metadata currently associated with the 'prefix'.
-func (ipc *IPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
-	ipc.UpsertMetadata(prefix, src, resource, lbls)
-}
-
-func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource ipcacheTypes.ResourceID) {
-	ipc.RemoveMetadata(cidr, resource, lbls)
 }
 
 // OverrideIdentity overrides the identity for a given prefix in the IPCache metadata
@@ -637,18 +580,18 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 // Callers must arrange for RemoveIdentityOverride() to eventually be called
 // to reverse this operation if the underlying resource is removed.
 //
-// Use with caution: For most use cases, UpsertLabels() is a better API to
+// Use with caution: For most use cases, UpsertMetadata() is a better API to
 // allow metadata to be associated with the prefix. This will delegate identity
 // resolution to the IPCache internally, which provides better compatibility
 // between various features that may use the IPCache to associate metadata with
 // the same netip prefixes. Using this API may cause feature incompatibilities
-// with users of other APIs such as UpsertLabels(), UpsertMetadata() and other
-// variations on inserting metadata into the IPCache.
-func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+// with users of other APIs such as UpsertMetadata() and other variations on
+// inserting metadata into the IPCache.
+func (ipc *IPCache) OverrideIdentity(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
 }
 
-func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
+func (ipc *IPCache) RemoveIdentityOverride(cidr cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
 	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
 }
 

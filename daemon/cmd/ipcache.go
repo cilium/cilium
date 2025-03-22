@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net"
-	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -176,8 +175,8 @@ func (d *Daemon) restoreLocalIdentities() error {
 
 // dumpOldIPCache reads the soon-to-be-overwritten ipcache BPF map, noting any prefixes
 // with a locally-scoped or ingress identity.
-func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, error) {
-	localPrefixes := map[netip.Prefix]identity.NumericIdentity{}
+func (d *Daemon) dumpOldIPCache() (map[cmtypes.PrefixCluster]identity.NumericIdentity, error) {
+	localPrefixes := map[cmtypes.PrefixCluster]identity.NumericIdentity{}
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
@@ -186,8 +185,12 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
 
-		if nid.Scope() == identity.IdentityScopeLocal || (nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero()) {
-			localPrefixes[k.Prefix()] = nid
+		if !v.TunnelEndpoint.IsZero() {
+			return
+		}
+
+		if nid.Scope() == identity.IdentityScopeLocal || nid == identity.ReservedIdentityIngress {
+			localPrefixes[cmtypes.NewPrefixCluster(k.Prefix(), uint32(k.ClusterID))] = nid
 		}
 	})
 	// dumpwithcallback() leaves the ipcache map open, must close before opened for
@@ -216,13 +219,13 @@ func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, er
 //
 // For ingress IPs, it will add those to the ipcache and configure the local node
 // accordingly.
-func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericIdentity, restoredIdentities map[identity.NumericIdentity]*identity.Identity) {
+func (d *Daemon) restoreIPCache(localPrefixes map[cmtypes.PrefixCluster]identity.NumericIdentity, restoredIdentities map[identity.NumericIdentity]*identity.Identity) {
 	if len(localPrefixes) == 0 {
 		return
 	}
 
 	metaUpdates := make([]ipcache.MU, 0, len(localPrefixes))
-	d.restoredCIDRs = make(map[netip.Prefix]identity.NumericIdentity, len(localPrefixes))
+	d.restoredCIDRs = make(map[cmtypes.PrefixCluster]identity.NumericIdentity, len(localPrefixes))
 	nidsToWithhold := []identity.NumericIdentity{}
 
 	// Determine which numeric identities are not shared.
@@ -255,7 +258,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 
 			// Set any restored ingress IPs back on the LocalNode object
 			d.nodeLocalStore.Update(func(n *node.LocalNode) {
-				addr := prefix.Addr()
+				addr := prefix.AsPrefix().Addr()
 				if addr.Is4() {
 					n.IPv4IngressIP = addr.AsSlice()
 				} else {
@@ -278,7 +281,7 @@ func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericI
 			// If this numeric ID is not shared by any other prefixes, add CIDR labels
 			// as well.
 			if _, unique := uniqueIDs[nid]; unique {
-				metadata = append(metadata, labels.GetCIDRLabels(prefix))
+				metadata = append(metadata, labels.GetCIDRLabels(prefix.AsPrefix()))
 			}
 
 			// Commit to ipcache.

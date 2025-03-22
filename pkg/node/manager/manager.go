@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -86,11 +88,13 @@ type nodeEntry struct {
 
 // IPCache is the set of interactions the node manager performs with the ipcache
 type IPCache interface {
-	GetMetadataSourceByPrefix(prefix netip.Prefix) source.Source
-	UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
-	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
-	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
-	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
+	GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source
+	UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
+	OverrideIdentity(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
+	RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
+	RemoveIdentityOverride(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
+	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
 
 // IPSetFilterFn is a function allowing to optionally filter out the insertion
@@ -174,6 +178,8 @@ type manager struct {
 	db *statedb.DB
 	// The devices table
 	devices statedb.Table[*tables.Device]
+
+	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 }
 
 type nodeQueueEntry struct {
@@ -311,20 +317,21 @@ func New(
 	}
 
 	m := &manager{
-		nodes:             map[nodeTypes.Identity]*nodeEntry{},
-		restoredNodes:     map[nodeTypes.Identity]*nodeTypes.Node{},
-		conf:              c,
-		controllerManager: controller.NewManager(),
-		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
-		ipcache:           ipCache,
-		ipsetMgr:          ipsetMgr,
-		ipsetInitializer:  ipsetMgr.NewInitializer(),
-		ipsetFilter:       ipsetFilter,
-		metrics:           nodeMetrics,
-		health:            health,
-		jobGroup:          jobGroup,
-		db:                db,
-		devices:           devices,
+		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
+		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
+		conf:                   c,
+		controllerManager:      controller.NewManager(),
+		nodeHandlers:           map[datapath.NodeHandler]struct{}{},
+		ipcache:                ipCache,
+		ipsetMgr:               ipsetMgr,
+		ipsetInitializer:       ipsetMgr.NewInitializer(),
+		ipsetFilter:            ipsetFilter,
+		metrics:                nodeMetrics,
+		health:                 health,
+		jobGroup:               jobGroup,
+		db:                     db,
+		devices:                devices,
+		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 	}
 
 	return m, nil
@@ -771,6 +778,15 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 	return nodeLabels, hasOverride
 }
 
+// worldLabelForPrefix returns the labels which will resolve to
+// reserved:world identity given the provided prefix and the
+// current cluster configuration in terms of dual-stack.
+func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
+	lbls := make(labels.Labels, 1)
+	lbls.AddWorldLabel(prefix.Addr())
+	return lbls
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -802,10 +818,16 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
 	var ipsetEntries []netip.Prefix
-	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix
+	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
+		var prefixCluster cmtypes.PrefixCluster
+		if address.Type == addressing.NodeCiliumInternalIP {
+			prefixCluster = cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+		} else {
+			prefixCluster = cmtypes.NewPrefixCluster(prefix, 0)
+		}
 
 		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
 			ipsetEntries = append(ipsetEntries, prefix)
@@ -837,7 +859,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// * CiliumInternal IP addresses that match configured local router IP.
 		//   In that case, we still want to inform subscribers about a new node
 		//   even when IP addresses may seem repeated across the nodes.
-		existing := m.ipcache.GetMetadataSourceByPrefix(prefix)
+		existing := m.ipcache.GetMetadataSourceByPrefix(prefixCluster)
 		overwrite := source.AllowOverwrite(existing, n.Source)
 		if !overwrite && existing != source.KubeAPIServer &&
 			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
@@ -848,20 +870,20 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
 		if m.conf.PolicyCIDRMatchesNodes() {
 			lbls = labels.NewFrom(nodeLabels)
-			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
+			lbls.MergeLabels(labels.GetCIDRLabels(prefixCluster.AsPrefix()))
 		}
 
 		// Always associate the prefix with metadata, even though this may not
 		// end up in an ipcache entry.
-		m.ipcache.UpsertMetadata(prefix, n.Source, resource,
+		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			lbls,
 			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
 			ipcacheTypes.EncryptKey(key),
 			endpointFlags)
 		if nodeIdentityOverride {
-			m.ipcache.OverrideIdentity(prefix, nodeLabels, n.Source, resource)
+			m.ipcache.OverrideIdentity(prefixCluster, nodeLabels, n.Source, resource)
 		}
-		nodeIPsAdded = append(nodeIPsAdded, prefix)
+		nodeIPsAdded = append(nodeIPsAdded, prefixCluster.AsPrefix())
 	}
 
 	var v4Addrs, v6Addrs []netip.Addr
@@ -876,36 +898,61 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
+	// Add the remote node's Pod CIDRs as fallback entries into IPCache with
+	// the nodeIP as the tunnel endpoint (no tunnel endpoint fallback is needed
+	// for the local node).
+	if !n.IsLocal() {
+		ipv4PodCIDRs := n.GetIPv4AllocCIDRs()
+		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
+
+		mu := make([]ipcache.MU, 0, len(ipv4PodCIDRs)+len(ipv6PodCIDRs))
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(&n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
+			mu = append(mu, entry)
+			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
+		}
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(&n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
+			mu = append(mu, entry)
+			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
+		}
+		m.ipcache.UpsertMetadataBatch(mu...)
+	}
+
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
-		if !healthIP.IsValid() {
+		prefix := ip.IPToNetPrefix(address)
+		if !prefix.IsValid() {
 			continue
 		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(healthIP), n.Source) {
+
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+
+		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
 		}
 
-		m.ipcache.UpsertMetadata(healthIP, n.Source, resource,
+		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
 			m.endpointEncryptionKey(&n))
-		healthIPsAdded = append(healthIPsAdded, healthIP)
+		healthIPsAdded = append(healthIPsAdded, prefixCluster.AsPrefix())
 	}
 
 	for _, address := range []net.IP{n.IPv4IngressIP, n.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
-		if !ingressIP.IsValid() {
+		prefix := ip.IPToNetPrefix(address)
+		if !prefix.IsValid() {
 			continue
 		}
-		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(ingressIP), n.Source) {
+
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+
+		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
 		}
 
-		m.ipcache.UpsertMetadata(ingressIP, n.Source, resource,
+		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
 			m.endpointEncryptionKey(&n))
-		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
+		ingressIPsAdded = append(ingressIPsAdded, prefixCluster.AsPrefix())
 	}
 
 	m.mutex.Lock()
@@ -947,7 +994,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			}
 		}
 
-		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded)
 
 		entry.mutex.Unlock()
 	} else {
@@ -986,13 +1033,52 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 }
 
+func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, cidrs ...*cidr.CIDR) iter.Seq[cmtypes.PrefixCluster] {
+	return func(yield func(cmtypes.PrefixCluster) bool) {
+		for _, cidr := range cidrs {
+			if !yield(cmtypes.PrefixClusterFromCIDR(cidr, m.prefixClusterMutatorFn(n)...)) {
+				return
+			}
+		}
+	}
+}
+
+func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.ResourceID, prefixes iter.Seq[cmtypes.PrefixCluster], tunnelIP netip.Addr, encryptKey uint8) iter.Seq[ipcache.MU] {
+	return func(yield func(ipcache.MU) bool) {
+		for prefix := range prefixes {
+			if !prefix.IsValid() {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				worldLabelForPrefix(prefix.AsPrefix()),
+				ipcacheTypes.TunnelPeer{Addr: tunnelIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(encryptKey))
+			}
+
+			if !yield(ipcache.MU{
+				Prefix:   prefix,
+				Source:   source,
+				Resource: resource,
+				Metadata: metadata,
+			}) {
+				return
+			}
+		}
+	}
+}
+
 // removeNodeFromIPCache removes all addresses associated with oldNode from the IPCache,
 // unless they are present in the nodeIPsAdded, healthIPsAdded, ingressIPsAdded lists.
+// Removes all pod CIDRs associated with the oldNode from IPCache, unless they are present
+// in podCIDRsAdded.
 // Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix,
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
@@ -1004,12 +1090,14 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	// Delete the old node IP addresses if they have changed in this node.
 	var v4Addrs, v6Addrs []netip.Addr
 	for _, address := range oldNode.IPAddresses {
-		oldPrefix := ip.IPToNetPrefix(address.IP)
-		if slices.Contains(nodeIPsAdded, oldPrefix) {
+		prefix := ip.IPToNetPrefix(address.IP)
+		if slices.Contains(nodeIPsAdded, prefix) {
 			continue
 		}
 
-		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefix) {
+		oldPrefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+
+		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefixCluster.AsPrefix()) {
 			addr, ok := netipx.FromStdIP(address.IP)
 			if !ok {
 				log.WithField(logfields.IPAddr, address.IP).Error("unable to convert to netip.Addr")
@@ -1034,27 +1122,50 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			oldKey = oldNode.EncryptionKey
 		}
 
-		m.ipcache.RemoveMetadata(oldPrefix, resource,
+		m.ipcache.RemoveMetadata(oldPrefixCluster, resource,
 			oldNodeLabels,
 			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
 			ipcacheTypes.EncryptKey(oldKey),
 			oldEndpointFlags)
 		if oldNodeIdentityOverride {
-			m.ipcache.RemoveIdentityOverride(oldPrefix, oldNodeLabels, resource)
+			m.ipcache.RemoveIdentityOverride(oldPrefixCluster, oldNodeLabels, resource)
 		}
 	}
 
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
 
+	// Remove old pod CIDR fallback entries from IPCache
+	if !oldNode.IsLocal() {
+		oldIPv4PodCIDRs := oldNode.GetIPv4AllocCIDRs()
+		oldIPv6PodCIDRs := oldNode.GetIPv6AllocCIDRs()
+
+		mu := make([]ipcache.MU, 0, len(oldIPv4PodCIDRs)+len(oldIPv6PodCIDRs))
+		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(&oldNode, oldIPv4PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
+			if slices.Contains(podCIDRsAdded, entry.Prefix.AsPrefix()) {
+				continue
+			}
+			mu = append(mu, entry)
+		}
+		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(&oldNode, oldIPv6PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
+			if slices.Contains(podCIDRsAdded, entry.Prefix.AsPrefix()) {
+				continue
+			}
+			mu = append(mu, entry)
+		}
+		m.ipcache.RemoveMetadataBatch(mu...)
+	}
+
 	// Delete the old health IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
-		if !healthIP.IsValid() || slices.Contains(healthIPsAdded, healthIP) {
+		prefix := ip.IPToNetPrefix(address)
+		if !prefix.IsValid() || slices.Contains(healthIPsAdded, prefix) {
 			continue
 		}
 
-		m.ipcache.RemoveMetadata(healthIP, resource,
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+
+		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
 			m.endpointEncryptionKey(&oldNode))
@@ -1062,12 +1173,14 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 	// Delete the old ingress IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
-		if !ingressIP.IsValid() || slices.Contains(ingressIPsAdded, ingressIP) {
+		prefix := ip.IPToNetPrefix(address)
+		if !prefix.IsValid() || slices.Contains(ingressIPsAdded, prefix) {
 			continue
 		}
 
-		m.ipcache.RemoveMetadata(ingressIP, resource,
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+
+		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
 			m.endpointEncryptionKey(&oldNode))
@@ -1129,7 +1242,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 	if n.Source != source.Restored {
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
 	}
 
 	m.metrics.NumNodes.Dec()
@@ -1326,4 +1439,8 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 			RunInterval: m.conf.ARPPingRefreshPeriod,
 		},
 	)
+}
+
+func (m *manager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
+	m.prefixClusterMutatorFn = mutator
 }
