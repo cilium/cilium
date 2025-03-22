@@ -320,7 +320,7 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+            if [[ "${{ matrix.kernel-type }}" == latest ]]; then
               ./contrib/scripts/kind.sh "" 2 "" "${{ matrix.kube-image }}" "none" "${{ matrix.ip-family }}"
               kubectl label node kind-worker2 cilium.io/ci-node=kind-worker2
               # Avoid re-labeling this node by setting "node-role.kubernetes.io/controlplane"
@@ -390,13 +390,13 @@ jobs:
             kubectl get pods -A -o wide
             export K8S_NODES=2
             export NETNEXT=0
-            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+            if [[ "${{ matrix.kernel-type }}" == latest ]]; then
                export KERNEL=net-next
                export NETNEXT=1
                export KUBEPROXY=0
                export K8S_NODES=3
                export NO_CILIUM_ON_NODES=kind-worker2
-            elif [[ "${{ matrix.kernel }}" == 5.4-* ]]; then
+            elif [[ "${{ matrix.kernel-type }}" == stable ]]; then
                export KERNEL=54
             fi
             export K8S_VERSION=${{ matrix.k8s-version }}
