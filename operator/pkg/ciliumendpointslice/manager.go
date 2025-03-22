@@ -8,6 +8,7 @@ import (
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -22,6 +23,8 @@ type operations interface {
 	// External APIs to Insert/Remove CEP in local dataStore
 	UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey
 	RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey
+	UpdatePodMapping(pod *slim_corev1.Pod, ns string) []CESKey
+	RemovePodMapping(pod *slim_corev1.Pod, ns string) CESKey
 
 	initializeMappingForCES(ces *cilium_v2.CiliumEndpointSlice) CESName
 	initializeMappingCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, ces CESName)
@@ -105,8 +108,60 @@ func (c *cesManager) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns stri
 	return []CESKey{NewCESKey(cesName.string(), ns)}
 }
 
+// TODO
+// UpdateCEPMapping is used to insert CEP in local cache, this may result in creating a new
+// CES object or updating an existing CES object.
+func (c *cesManager) UpdatePodMapping(pod *slim_corev1.Pod, ns string) []CESKey {
+	cepName := GetCEPNameFromPod(pod, ns)
+	c.logger.Debug("Insert CEP in local cache",
+		logfields.CEPName, cepName.string(),
+	)
+	// check the given cep is already exists in any of the CES.
+	// if yes, Update a ces with the given cep object.
+	cesName, exists := c.mapping.getCESName(cepName)
+	if exists {
+		c.logger.Debug("CEP already mapped to CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
+		return []CESKey{NewCESKey(cesName.string(), ns)}
+	}
+
+	// Get the largest available CES.
+	// This ensures the minimum number of CES updates, as the CESs will be
+	// consistently filled up in order.
+	cesName = c.getLargestAvailableCESForNamespace(ns)
+	if cesName == "" {
+		cesName = c.createCES("", ns)
+	}
+	c.mapping.insertCEP(cepName, cesName)
+	c.logger.Debug("CEP mapped to CES",
+		logfields.CEPName, cepName.string(),
+		logfields.CESName, cesName.string(),
+	)
+	return []CESKey{NewCESKey(cesName.string(), ns)}
+}
+
 func (c *cesManager) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
+	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
+	cesName, exists := c.mapping.getCESName(cepName)
+	if exists {
+		c.logger.Debug("Removing CEP from CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
+		c.mapping.deleteCEP(cepName)
+		if c.mapping.countCEPsInCES(cesName) == 0 {
+			c.mapping.deleteCES(cesName)
+		}
+		return NewCESKey(cesName.string(), ns)
+	}
+	return CESKey(resource.Key{})
+}
+
+func (c *cesManager) RemovePodMapping(pod *slim_corev1.Pod, ns string) CESKey {
+	cepName := GetCEPNameFromPod(pod, ns)
 	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {

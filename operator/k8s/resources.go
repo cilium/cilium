@@ -4,6 +4,8 @@
 package k8s
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -18,6 +20,7 @@ import (
 const (
 	CiliumEndpointIndexIdentity = "identity"
 	PodNodeNameIndex            = "pod-node"
+	CiliumNodeIPIndex           = "node-ip"
 )
 
 var (
@@ -90,4 +93,20 @@ func PodNodeNameIndexFunc(obj interface{}) ([]string, error) {
 		return []string{pod.Spec.NodeName}, nil
 	}
 	return []string{}, nil
+}
+
+// Return nil or []string{}?
+func CiliumNodeIPIndexFunc(obj interface{}) ([]string, error) {
+	node, ok := obj.(*cilium_api_v2.CiliumNode)
+	if !ok {
+		return nil, fmt.Errorf("expected *cilium_v2.CiliumNode, got %T", obj)
+	}
+	if node.Spec.Addresses == nil {
+		return nil, nil
+	}
+	indices := []string{}
+	for _, addr := range node.Spec.Addresses {
+		indices = append(indices, addr.IP)
+	}
+	return indices, nil
 }
