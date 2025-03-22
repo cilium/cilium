@@ -508,6 +508,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.metrics.tls.server.mtls | object | `{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}` | Configure mTLS for the Hubble metrics server. |
 | hubble.metrics.tls.server.mtls.key | string | `"ca.crt"` | Entry of the ConfigMap containing the CA. |
 | hubble.metrics.tls.server.mtls.name | string | `nil` | Name of the ConfigMap containing the CA to validate client certificates against. If mTLS is enabled and this is unspecified, it will default to the same CA used for Hubble metrics server certificates. |
+| hubble.networkPolicyCorrelation | object | `{"enabled":true}` | Enables network policy correlation of Hubble flows, i.e. populating `egress_allowed_by`, `ingress_denied_by` fields with policy information. |
 | hubble.peerService.clusterDomain | string | `"cluster.local"` | The cluster domain to use to query the Hubble Peer service. It should be the local cluster. |
 | hubble.peerService.targetPort | int | `4244` | Target Port for the Peer service, must match the hubble.listenAddress' port. |
 | hubble.preferIpv6 | bool | `false` | Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available. |
