@@ -242,7 +242,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 		Use:   "perf",
 		Short: "Test network performance",
 		Long:  ``,
-		PreRun: func(_ *cobra.Command, _ []string) {
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			// This is a bit of hack that allows us to override default values
 			// of these parameters that are not visible in perf subcommand options
 			// as we can't have different defaults specified in test and perf subcommands
@@ -250,6 +250,17 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 			params.Perf = true
 			params.ForceDeploy = true
 			params.Hubble = false
+
+			if reportDir := params.PerfParameters.ReportDir; reportDir != "" {
+				if err := os.MkdirAll(reportDir, 0755); err != nil {
+					return fmt.Errorf("could not create report dir %q: %w", reportDir, err)
+				}
+			} else if params.PerfParameters.KernelProfiles {
+				fmt.Println("⚠️  Requested kernel profiles, but report-dir is unset, skipping")
+				params.PerfParameters.KernelProfiles = false
+			}
+
+			return nil
 		},
 		RunE: RunE(hooks),
 	}
@@ -271,6 +282,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.SameNode, "same-node", true, "Run tests in which the client and the server are hosted on the same node")
 	cmd.Flags().BoolVar(&params.PerfParameters.OtherNode, "other-node", true, "Run tests in which the client and the server are hosted on difference nodes")
 	cmd.Flags().BoolVar(&params.PerfParameters.NetQos, "net-qos", false, "Test pod network Quality of Service")
+
+	cmd.Flags().BoolVar(&params.PerfParameters.KernelProfiles, "unsafe-capture-kernel-profiles", false,
+		"Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration")
 
 	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-server", &params.PerfParameters.NodeSelectorServer, nil),
 		"node-selector-server", "Node selector for the server pod (and client same-node)")

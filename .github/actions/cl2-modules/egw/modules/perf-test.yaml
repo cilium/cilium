@@ -34,6 +34,7 @@ steps:
       - --tolerations=node.kubernetes.io/not-ready,cilium.io/no-schedule
       - --node-selector-server=cilium.io/no-schedule=true
       - --node-selector-client=role.scaffolding/egw-client=true
+      - --unsafe-capture-kernel-profiles
 
 - name: Sleep to allow scraping
   measurements:
