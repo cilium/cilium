@@ -63,6 +63,8 @@ static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 #define v4_pod_one	IPV4(192, 168, 0, 1)
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
+#define v4_pod_cidr	IPV4(192, 168, 0, 0)
+#define v4_pod_cidr_len	24
 
 #define v4_all	IPV4(0, 0, 0, 0)
 
@@ -692,6 +694,22 @@ pktgen__push_ipv4_vxlan_packet(struct pktgen *builder,
 		return NULL;
 
 	return pktgen__push_default_vxlanhdr(builder);
+}
+
+static __always_inline struct genevehdr *
+pktgen__push_ipv4_geneve_packet(struct pktgen *builder,
+			       __u8 *smac, __u8 *dmac,
+			       __be32 saddr, __be32 daddr,
+			       __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+
+	l4 = pktgen__push_ipv4_udp_packet(builder, smac, dmac, saddr, daddr,
+					  sport, dport);
+	if (!l4)
+		return NULL;
+
+	return pktgen__push_default_genevehdr(builder);
 }
 
 static __always_inline struct icmphdr *
