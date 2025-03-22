@@ -714,6 +714,7 @@ selftests
 serverinfo
 serviceAccount
 serviceMonitor
+serviceaccount
 setrlimit
 sfc
 sg
