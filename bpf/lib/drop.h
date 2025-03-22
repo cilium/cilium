@@ -20,6 +20,7 @@
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "trace_helpers.h"
 
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
