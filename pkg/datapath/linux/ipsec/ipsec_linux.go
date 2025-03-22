@@ -83,11 +83,12 @@ const (
 )
 
 type ipSecKey struct {
-	Spi   uint8
-	ReqID int
-	Auth  *netlink.XfrmStateAlgo
-	Crypt *netlink.XfrmStateAlgo
-	Aead  *netlink.XfrmStateAlgo
+	Spi    uint8
+	KeyLen int
+	ReqID  int
+	Auth   *netlink.XfrmStateAlgo
+	Crypt  *netlink.XfrmStateAlgo
+	Aead   *netlink.XfrmStateAlgo
 }
 
 type oldXfrmStateKey struct {
@@ -1092,10 +1093,14 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		}
 
 		ipSecKey.Spi = spi
+		ipSecKey.KeyLen = keyLen
 
 		if oldKey, ok := ipSecKeysGlobal[""]; ok {
 			if oldKey.Spi == spi {
 				return 0, 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
+			}
+			if oldKey.KeyLen != keyLen {
+				return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
 			}
 			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
 		}
