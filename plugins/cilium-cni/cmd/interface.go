@@ -15,19 +15,16 @@ import (
 )
 
 func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
+	if ipam == nil {
+		return fmt.Errorf("missing IPAM configuration")
+	}
 	// If the gateway IP is not available, it is already set up
 	if ipam.Gateway == "" {
 		return nil
 	}
 
-	var masq bool
-	if ipConfig.Address.IP.To4() != nil {
-		masq = conf.MasqueradeProtocols.IPV4
-	} else {
-		masq = conf.MasqueradeProtocols.IPV6
-	}
+	var allCIDRs []*net.IPNet
 
-	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))
 	for _, cidrString := range ipam.Cidrs {
 		_, cidr, err := net.ParseCIDR(cidrString)
 		if err != nil {
@@ -35,18 +32,38 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		}
 		allCIDRs = append(allCIDRs, cidr)
 	}
+
 	// Coalesce CIDRs into minimum set needed for route rules
 	// The routes set up here will be cleaned up by linuxrouting.Delete.
 	// Therefor the code here should be kept in sync with the deletion code.
-	ipv4CIDRs, _ := ip.CoalesceCIDRs(allCIDRs)
-	cidrs := make([]string, 0, len(ipv4CIDRs))
-	for _, cidr := range ipv4CIDRs {
-		cidrs = append(cidrs, cidr.String())
+	ipv4CIDRs, ipv6CIDRs := ip.CoalesceCIDRs(allCIDRs)
+	coalescedCIDRs := make([]string, 0, len(allCIDRs))
+	var masq bool
+
+	if ipConfig.Address.IP.To4() != nil {
+		for _, cidr := range ipv4CIDRs {
+			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
+		}
+
+		masq = conf.MasqueradeProtocols.IPV4
+	} else {
+		for _, cidr := range ipv6CIDRs {
+			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
+		}
+
+		masq = conf.MasqueradeProtocols.IPV6
+	}
+	var ipamGateway string
+
+	if ipam != nil {
+		ipamGateway = ipam.Gateway
+	} else {
+		ipamGateway = ""
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
-		ipam.Gateway,
-		cidrs,
+		ipamGateway,
+		coalescedCIDRs,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,
 		conf.IpamMode,
@@ -56,8 +73,15 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		return fmt.Errorf("unable to parse routing info: %w", err)
 	}
 
+	var ipConfigAddressIP net.IP
+	if ipConfig != nil {
+		ipConfigAddressIP = ipConfig.Address.IP.To4()
+	} else {
+		ipConfigAddressIP = nil
+	}
+
 	if err := routingInfo.Configure(
-		ipConfig.Address.IP,
+		ipConfigAddressIP,
 		int(conf.DeviceMTU),
 		conf.EgressMultiHomeIPRuleCompat,
 		false,
