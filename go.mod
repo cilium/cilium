@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.2
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.2.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.63.99
+	github.com/aliyun/alibaba-cloud-sdk-go v1.63.100
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.9
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30
@@ -16,13 +16,13 @@ require (
 	github.com/aws/smithy-go v1.22.3
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250315135936-15c20a953df6
+	github.com/cilium/charts v0.0.0-20250321182823-dd713bc54e89
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.17.3
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v0.0.0-20250311080423-b13b66490d76
+	github.com/cilium/hive v0.0.0-20250320174412-0728507f8502
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250318065604-173988fc0adb
 	github.com/cilium/statedb v0.3.7
@@ -32,7 +32,7 @@ require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v28.0.1+incompatible
+	github.com/docker/docker v28.0.2+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.18.0
@@ -90,15 +90,15 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.0
 	github.com/spiffe/go-spiffe/v2 v2.5.0
-	github.com/spiffe/spire-api-sdk v1.11.2
+	github.com/spiffe/spire-api-sdk v1.12.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.1-0.20250303224720-0e7078ed04c8
 	github.com/vishvananda/netns v0.0.5
-	go.etcd.io/etcd/api/v3 v3.5.19
-	go.etcd.io/etcd/client/pkg/v3 v3.5.19
-	go.etcd.io/etcd/client/v3 v3.5.19
+	go.etcd.io/etcd/api/v3 v3.5.20
+	go.etcd.io/etcd/client/pkg/v3 v3.5.20
+	go.etcd.io/etcd/client/v3 v3.5.20
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
 	go.uber.org/goleak v1.3.0
@@ -130,7 +130,7 @@ require (
 	k8s.io/endpointslice v0.32.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.32.3
-	k8s.io/utils v0.0.0-20241210054802-24370beab758
+	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.3
 	sigs.k8s.io/gateway-api v1.2.1-0.20250319040149-e8b8afabf889
 	sigs.k8s.io/mcs-api v0.1.1-0.20250224121229-6c631f4730d0
