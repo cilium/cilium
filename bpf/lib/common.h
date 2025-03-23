@@ -775,14 +775,6 @@ struct encrypt_config {
 	__u8 encrypt_key;
 } __packed;
 
-/**
- * or_encrypt_key - mask and shift key into encryption format
- */
-static __always_inline __u32 or_encrypt_key(__u8 key)
-{
-	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
-}
-
 /*
  * ctx->tc_index uses
  *

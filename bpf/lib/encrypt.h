@@ -95,6 +95,20 @@ lookup_ip6_node_id(const union v6addr *ip6)
 }
 # endif /* ENABLE_IPV6 */
 
+/**
+ * or_encrypt_key - mask and shift key into encryption format
+ */
+static __always_inline __u32 or_encrypt_key(__u8 key)
+{
+	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
+}
+
+static __always_inline __u32
+ipsec_encode_encryption_mark(__u8 key, __u32 node_id)
+{
+	return or_encrypt_key(key) | node_id << 16;
+}
+
 static __always_inline void
 set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 {
@@ -116,6 +130,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 
 	struct node_key node_ip = {};
 	struct node_value *node_value = NULL;
+	__u32 mark;
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = tunnel_endpoint;
@@ -126,10 +141,12 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 	if (use_spi_from_map)
 		spi = get_min_encrypt_key(node_value->spi);
 
+	mark = ipsec_encode_encryption_mark(spi, node_value->id);
+
 	set_identity_meta(ctx, seclabel);
 	if (use_meta)
-		set_encrypt_key_meta(ctx, spi, node_value->id);
-	set_encrypt_key_mark(ctx, spi, node_value->id);
+		ctx->cb[CB_ENCRYPT_MAGIC] = mark;
+	ctx->mark = mark;
 
 	return CTX_ACT_OK;
 }
