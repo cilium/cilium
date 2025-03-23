@@ -124,8 +124,13 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 		io.Reader
 		io.Writer
 	}{in, out}
-	term := term.NewTerminal(inout, prompt)
-	log := slog.New(slog.NewTextHandler(term, nil))
+	terminal := term.NewTerminal(inout, prompt)
+	log := slog.New(slog.NewTextHandler(terminal, nil))
+	if width, height, err := term.GetSize(int(in.Fd())); err == nil {
+		if err := terminal.SetSize(width, height); err != nil {
+			log.Error("Failed to set terminal size", "error", err)
+		}
+	}
 
 	cmds, err := h.ScriptCommands(log)
 	if err != nil {
@@ -168,7 +173,7 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 	s := newState()
 
 	for {
-		line, err := term.ReadLine()
+		line, err := terminal.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
@@ -177,16 +182,16 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 			}
 		}
 
-		err = e.ExecuteLine(s, line, term)
+		err = e.ExecuteLine(s, line, terminal)
 		if err != nil {
-			fmt.Fprintln(term, err.Error())
+			fmt.Fprintln(terminal, err.Error())
 		}
 
 		if s.Context().Err() != nil {
 			// Context was cancelled due to interrupt. Re-create the state
 			// to run more commands.
 			s = newState()
-			fmt.Fprintln(term, "^C (interrupted)")
+			fmt.Fprintln(terminal, "^C (interrupted)")
 		}
 	}
 }

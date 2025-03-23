@@ -243,4 +243,7 @@ message EntryRevision {
 
     // The entry revision number.
     int64 revision_number = 2;
+
+    // When the entry was created (seconds since Unix epoch).
+    int64 created_at = 3;
 }

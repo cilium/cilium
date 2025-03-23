@@ -1205,25 +1205,28 @@ func Break() Cmd {
 			defer term.Restore(int(tty.Fd()), prev)
 
 			// Switch the log output to the terminal until we continue
-			term := term.NewTerminal(tty, "debug> ")
+			terminal := term.NewTerminal(tty, "debug> ")
+			if width, height, err := term.GetSize(int(tty.Fd())); err == nil {
+				terminal.SetSize(width, height)
+			}
 			origLogOut := s.logOut
 			defer func() {
 				s.logOut = origLogOut
 
 			}()
-			s.logOut = term
+			s.logOut = terminal
 
-			fmt.Fprintf(term, "\nBreak! Control-d to continue.\n")
+			fmt.Fprintf(terminal, "\nBreak! Control-d to continue.\n")
 
 			engine := s.engine
 			for {
-				line, err := term.ReadLine()
+				line, err := terminal.ReadLine()
 				if err != nil {
 					return nil, nil
 				}
-				err = engine.ExecuteLine(s, line, term)
+				err = engine.ExecuteLine(s, line, terminal)
 				if err != nil {
-					fmt.Fprintln(term, err.Error())
+					fmt.Fprintln(terminal, err.Error())
 				}
 			}
 		},
