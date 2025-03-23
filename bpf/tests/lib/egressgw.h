@@ -4,6 +4,7 @@
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_NODE_IP		v4_node_one
+#define CLIENT_IDENTITY		123456
 
 #define GATEWAY_NODE_IP		v4_node_two
 
