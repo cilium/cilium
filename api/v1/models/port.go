@@ -32,7 +32,7 @@ type Port struct {
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]
+	// Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","VRRP","ANY"]
 	Protocol string `json:"protocol,omitempty"`
 }
 
@@ -54,7 +54,7 @@ var portTypeProtocolPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ICMP","ICMPV6","VRRP","ANY"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -78,6 +78,9 @@ const (
 
 	// PortProtocolICMPV6 captures enum value "ICMPV6"
 	PortProtocolICMPV6 string = "ICMPV6"
+
+	// PortProtocolVRRP captures enum value "VRRP"
+	PortProtocolVRRP string = "VRRP"
 
 	// PortProtocolANY captures enum value "ANY"
 	PortProtocolANY string = "ANY"

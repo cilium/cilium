@@ -18,6 +18,7 @@ const (
 	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
+	ProtoVRRP   L4Proto = "VRRP"
 	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
@@ -31,7 +32,7 @@ func (l4 L4Proto) IsAny() bool {
 // SupportedProtocols returns the currently supported protocols in the policy
 // engine, excluding "ANY".
 func SupportedProtocols() []L4Proto {
-	return []L4Proto{ProtoTCP, ProtoUDP, ProtoSCTP}
+	return []L4Proto{ProtoTCP, ProtoUDP, ProtoSCTP, ProtoVRRP}
 }
 
 // PortProtocol specifies an L4 port with an optional transport protocol
@@ -50,7 +51,7 @@ type PortProtocol struct {
 	EndPort int32 `json:"endPort,omitempty"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+	// matches. Accepted values: "TCP", "UDP", "SCTP", "VRRP", "ANY"
 	//
 	// Matching on ICMP is not supported.
 	//

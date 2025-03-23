@@ -101,6 +101,8 @@ const (
 	DbgSkLookup6
 	DbgSkAssign
 	DbgL7LB
+	DbgSkipPolicy
+	DbgVRRP
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
