@@ -253,12 +253,6 @@ static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
-static __always_inline void ctx_egw_done_set(struct __sk_buff *ctx)
-{
-	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
-	ctx->mark |= MARK_MAGIC_EGW_DONE;
-}
-
 static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_EGW_DONE;
