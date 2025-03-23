@@ -181,7 +181,7 @@ int tc_host_encrypted_overlay_01_check(const struct __ctx_buff *ctx)
 	if (tunnel_vni_to_sec_identity(vxlan->vx_vni) != POD1_SEC_IDENTITY)
 		test_fatal("VNI has not been updated");
 
-	assert(ctx->mark == (or_encrypt_key(NODE1_SPI) | (NODE2_ID << 16)));
+	assert(ctx->mark == ipsec_encode_encryption_mark(NODE1_SPI, NODE2_ID));
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == POD1_SEC_IDENTITY);
 
 	test_finish();
