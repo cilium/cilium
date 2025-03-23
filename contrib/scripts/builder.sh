@@ -6,6 +6,11 @@ cd "$(dirname "$0")/../.."
 
 CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
 
+GO=""
+if which go > /dev/null; then
+    GO="$(which go)"
+fi
+
 USER_OPTION=""
 USER_PATH="/root"
 
@@ -18,13 +23,19 @@ if [ -z "${RUN_AS_ROOT:-}" ]; then
     USER_PATH="$HOME"
 fi
 
-MOUNT_GOCACHE_DIR="-v $(go env GOCACHE):$(go env GOCACHE)"
+MOUNT_GOCACHE_DIR=""
+if [ -n "${GO}" ]; then
+    MOUNT_GOCACHE_DIR="-v $(go env GOCACHE):$(go env GOCACHE)"
+fi
 
 if [ -n "${BUILDER_GOCACHE_DIR:-}" ]; then
     MOUNT_GOCACHE_DIR="-v ${BUILDER_GOCACHE_DIR}:${USER_PATH}/.cache/go-build"
 fi
 
-MOUNT_GOMODCACHE_DIR="-v $(go env GOMODCACHE):$(go env GOMODCACHE)"
+MOUNT_GOMODCACHE_DIR=""
+if [ -n "${GO}" ]; then
+    MOUNT_GOMODCACHE_DIR="-v $(go env GOMODCACHE):$(go env GOMODCACHE)"
+fi
 
 if [ -n "${BUILDER_GOMODCACHE_DIR:-}" ]; then
     MOUNT_GOMODCACHE_DIR="-v ${BUILDER_GOMODCACHE_DIR}:/go/pkg/mod"
