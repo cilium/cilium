@@ -95,7 +95,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -158,7 +158,7 @@ SETUP("tc", "tc_egressgw_snat2")
 int egressgw_snat2_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -197,7 +197,7 @@ int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -232,7 +232,7 @@ int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP3);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -309,7 +309,7 @@ int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -389,7 +389,7 @@ int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 				  GATEWAY_NODE_IP, EGRESS_IP2);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -432,7 +432,7 @@ int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
 				     &egress_ip);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -497,7 +497,7 @@ SETUP("tc", "tc_v6_egressgw_snat2")
 int egressgw_snat2_setup_v6(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -543,7 +543,7 @@ int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
 				     &egress_ip);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -585,7 +585,7 @@ int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
 				     &egress_ip);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -671,7 +671,7 @@ int egressgw_skip_excluded_cidr_snat_setup_v6(struct __ctx_buff *ctx)
 				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -755,7 +755,7 @@ int egressgw_fib_redirect_setup_v6(struct __ctx_buff *ctx)
 				     &egress_ip);
 
 	/* Jump into the entrypoint */
-	ctx_egw_done_set(ctx);
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
