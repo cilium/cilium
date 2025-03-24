@@ -171,7 +171,7 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 
 	if port != e.noTrackPort {
 		log.Debug("Updating NOTRACK rules")
-		if e.IPv4.IsValid() {
+		if option.Config.EnableIPv4 && e.IPv4.IsValid() {
 			if port > 0 {
 				e.owner.IPTablesManager().InstallNoTrackRules(e.IPv4, port)
 			}
@@ -179,7 +179,7 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 				e.owner.IPTablesManager().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
 			}
 		}
-		if e.IPv6.IsValid() {
+		if option.Config.EnableIPv6 && e.IPv6.IsValid() {
 			if port > 0 {
 				e.owner.IPTablesManager().InstallNoTrackRules(e.IPv6, port)
 			}
