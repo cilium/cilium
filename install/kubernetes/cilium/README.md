@@ -718,6 +718,7 @@ contributors across the globe, there is almost always someone available to help.
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
+| livenessProbe.requireK8sConnectivity | bool | `false` | whether to require k8s connectivity as part of the check. |
 | loadBalancer | object | `{"acceleration":"disabled","experimental":false,"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}` | Configure service load balancing |
 | loadBalancer.acceleration | string | `"disabled"` | acceleration is the option to accelerate service handling via XDP Applicable values can be: disabled (do not use XDP), native (XDP BPF program is run directly out of the networking driver's early receive path), or best-effort (use native mode XDP acceleration on devices that support it). |
 | loadBalancer.experimental | bool | `false` | experimental enables support for the experimental load-balancing control-plane. |
