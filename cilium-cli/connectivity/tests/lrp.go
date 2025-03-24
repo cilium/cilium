@@ -215,10 +215,11 @@ func (s lrpWithNodeDNS) Run(ctx context.Context, t *check.Test) {
 	for _, client := range ct.ClientPods() {
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
-
-			actionName := fmt.Sprintf("lrp-node-dns-http-to-%s-%d", externalEcho.NameWithoutNamespace(), i)
-			t.NewAction(s, actionName, &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
+			t.ForEachIPFamily(func(family features.IPFamily) {
+				actionName := fmt.Sprintf("lrp-node-dns-http-to-%s-%s-%d", externalEcho.NameWithoutNamespace(), family, i)
+				t.NewAction(s, actionName, &client, externalEcho, family).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
+				})
 			})
 			i++
 		}
