@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/fake"
@@ -27,6 +28,17 @@ func (bwc *bytesWriteCloser) Close() error { return nil }
 type ioWriteCloser struct{ io.Writer }
 
 func (wc *ioWriteCloser) Close() error { return nil }
+
+func TestNewExporterLogOptionsJSON(t *testing.T) {
+	// when slog encounters a marshalling error, it stores it in the field with
+	// the prefix '!ERROR'. Example:
+	//   {..., "options":"!ERROR:json: unsupported type: exporter.NewWriterFunc"}
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	_, err := NewExporter(log)
+	assert.NoError(t, err)
+	assert.NotContains(t, buf.String(), "!ERROR")
+}
 
 func TestExporter(t *testing.T) {
 	// override node name for unit test.
@@ -51,7 +63,7 @@ func TestExporter(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -122,7 +134,7 @@ func TestExporterWithFilters(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -172,7 +184,7 @@ func TestEventToExportEvent(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -254,7 +266,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
@@ -318,7 +330,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
@@ -438,7 +450,7 @@ func BenchmarkExporter(b *testing.B) {
 	log := hivetest.Logger(b)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
