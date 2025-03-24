@@ -142,6 +142,8 @@ linters:
       # Skip goheader check in the example files as these are included in the documentation
       - linters:
           - goheader
+          - goimports
+          - sloglint
         path: contrib/examples/.+\.go
       # Skip goheader check on files imported and modified from upstream k8s
       - linters:
