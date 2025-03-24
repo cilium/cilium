@@ -622,8 +622,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(vp, option.NodePortBindProtection)
 
-	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
+	flags.Bool(option.EnableSessionAffinity, true, "Enable support for service session affinity")
 	option.BindEnv(vp, option.EnableSessionAffinity)
+	flags.MarkDeprecated(option.EnableSessionAffinity, "The flag to control Session Affinity has been deprecated, and it will be removed in v1.19. The feature will be unconditionally enabled.")
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
