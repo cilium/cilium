@@ -1871,6 +1871,8 @@ livenessProbe:
   failureThreshold: 10
   # -- interval between checks of the liveness probe
   periodSeconds: 30
+  # -- whether to require k8s connectivity as part of the check.
+  requireK8sConnectivity: false
 readinessProbe:
   # -- failure threshold of readiness probe
   failureThreshold: 3

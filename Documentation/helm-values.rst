@@ -2436,6 +2436,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`livenessProbe.requireK8sConnectivity`
+     - whether to require k8s connectivity as part of the check.
+     - bool
+     - ``false``
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
