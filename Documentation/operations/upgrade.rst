@@ -324,6 +324,9 @@ Deprecated Options
   and will be removed in Cilium 1.19.
 * ``--l2-pod-announcements-interface`` has been deprecated in favor of 
   ``--l2-pod-announcements-interface-pattern`` and will be removed in Cilium 1.19.
+* The flag ``--enable-session-affinity`` has been deprecated and will be removed in Cilium 1.19.
+  The Session Affinity feature will be unconditionally enabled. Also, in Cilium 1.18, the
+  feature is enabled by default.
 
 Helm Options
 ~~~~~~~~~~~~
