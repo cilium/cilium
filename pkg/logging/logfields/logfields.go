@@ -1433,8 +1433,6 @@ const (
 
 	LenBackends = "lenBackends"
 
-	EnableK8sTerminatingEndpoint = "enableK8sTerminatingEndpoint"
-
 	CRDs = "CRDs"
 
 	PodCIDRs = "podCIDRs"

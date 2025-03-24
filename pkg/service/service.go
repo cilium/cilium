@@ -2242,7 +2242,7 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 }
 
 // segregateBackends returns the list of active, preferred and nonActive backends to be
-// added to the lbmaps. If EnableK8sTerminatingEndpoint and there are no active backends,
+// added to the lbmaps. If there are no active backends,
 // segregateBackends will return all terminating backends as active.
 func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb.Backend,
 	activeBackends map[string]*lb.Backend, nonActiveBackends []lb.BackendID,
@@ -2271,7 +2271,7 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb
 	// In case that there are no Active backends, use the Backends in TerminatingState to answer new requests
 	// and avoid traffic disruption until new active backends are created.
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
-	if option.Config.EnableK8sTerminatingEndpoint && len(activeBackends) == 0 {
+	if len(activeBackends) == 0 {
 		nonActiveBackends = []lb.BackendID{}
 		for _, b := range backends {
 			if b.State == lb.BackendStateTerminating {
