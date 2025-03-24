@@ -62,7 +62,6 @@ func TestScript(t *testing.T) {
 	t.Cleanup(func() { goleak.VerifyNone(t, leakOpts) })
 
 	version.Force(testutils.DefaultVersion)
-	option.Config.EnableK8sTerminatingEndpoint = true
 
 	var opts []hivetest.LogOption
 	if *debug {

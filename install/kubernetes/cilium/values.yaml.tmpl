@@ -3712,9 +3712,6 @@ cgroup:
 sysctlfix:
   # -- Enable the sysctl override. When enabled, the init container will mount the /proc of the host so that the `sysctlfix` utility can execute.
   enabled: true
-# -- Configure whether to enable auto detect of terminating state for endpoints
-# in order to support graceful termination.
-enableK8sTerminatingEndpoint: true
 # -- Configure whether to unload DNS policy rules on graceful shutdown
 # dnsPolicyUnloadOnShutdown: false
 

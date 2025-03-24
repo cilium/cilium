@@ -1049,10 +1049,6 @@ const (
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
 
-	// EnableK8sTerminatingEndpoint enables the option to auto detect terminating
-	// state for endpoints in order to support graceful termination.
-	EnableK8sTerminatingEndpoint = "enable-k8s-terminating-endpoint"
-
 	// EnableVTEP enables cilium VXLAN VTEP integration
 	EnableVTEP = "enable-vtep"
 
@@ -2146,10 +2142,6 @@ type DaemonConfig struct {
 	// within IPAM upon endpoint restore and allows the use of the restored IP
 	// regardless of whether it's available in the pool.
 	BypassIPAvailabilityUponRestore bool
-
-	// EnableK8sTerminatingEndpoint enables auto-detect of terminating state for
-	// Kubernetes service endpoints.
-	EnableK8sTerminatingEndpoint bool
 
 	// EnableVTEP enable Cilium VXLAN VTEP integration
 	EnableVTEP bool
@@ -3312,7 +3304,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
-	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)

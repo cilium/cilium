@@ -1128,10 +1128,6 @@
      - Enable Internal Traffic Policy
      - bool
      - ``true``
-   * - :spelling:ignore:`enableK8sTerminatingEndpoint`
-     - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
-     - bool
-     - ``true``
    * - :spelling:ignore:`enableLBIPAM`
      - Enable LoadBalancer IP Address Management
      - bool
