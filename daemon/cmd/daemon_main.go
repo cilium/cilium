@@ -970,9 +970,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
-	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
-	option.BindEnv(vp, option.EnableK8sTerminatingEndpoint)
-
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
 	option.BindEnv(vp, option.EnableVTEP)
 

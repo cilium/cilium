@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -231,15 +230,13 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
 		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
 			skipEndpoint = true
-			if option.Config.EnableK8sTerminatingEndpoint {
-				// Terminating indicates that the endpoint is getting terminated. A
-				// nil values indicates an unknown state. Ready is never true when
-				// an endpoint is terminating. Propagate the terminating endpoint
-				// state so that we can gracefully remove those endpoints.
-				// More details : vendor/k8s.io/api/discovery/v1/types.go
-				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-					skipEndpoint = false
-				}
+			// Terminating indicates that the endpoint is getting terminated. A
+			// nil values indicates an unknown state. Ready is never true when
+			// an endpoint is terminating. Propagate the terminating endpoint
+			// state so that we can gracefully remove those endpoints.
+			// More details : vendor/k8s.io/api/discovery/v1/types.go
+			if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+				skipEndpoint = false
 			}
 		}
 		if skipEndpoint {
@@ -261,11 +258,9 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 				if sub.Hostname != nil {
 					backend.Hostname = *sub.Hostname
 				}
-				if option.Config.EnableK8sTerminatingEndpoint {
-					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-						backend.Terminating = true
-						metrics.TerminatingEndpointsEvents.Inc()
-					}
+				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
+					backend.Terminating = true
+					metrics.TerminatingEndpointsEvents.Inc()
 				}
 				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
 					backend.Zone = zoneName
@@ -348,23 +343,14 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		// More info: vendor/k8s.io/api/discovery/v1/types.go
 		isTerminating := sub.Conditions.Terminating != nil && *sub.Conditions.Terminating
 
-		// if is not Ready and EnableK8sTerminatingEndpoint is set
-		// allow endpoints that are Serving and Terminating
+		// if is not Ready allow endpoints that are Serving and Terminating
 		if !isReady {
-			if !option.Config.EnableK8sTerminatingEndpoint {
-				logger.Debug(
-					"discarding Endpoint on EndpointSlice: not Ready",
-					logfields.Name, ep.Name,
-					logfields.EnableK8sTerminatingEndpoint, option.Config.EnableK8sTerminatingEndpoint,
-				)
-				continue
-			}
+
 			// filter not Serving endpoints since those can not receive traffic
 			if !isServing {
 				logger.Debug(
 					"discarding Endpoint on EndpointSlice: not Serving",
 					logfields.Name, ep.Name,
-					logfields.EnableK8sTerminatingEndpoint, option.Config.EnableK8sTerminatingEndpoint,
 				)
 				continue
 			}
@@ -402,7 +388,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 					backend.Zone = zoneName
 				}
 				// If is not ready check if is serving and terminating
-				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&
+				if !isReady &&
 					isServing && isTerminating {
 					logger.Debug(
 						"Endpoint address on EndpointSlice is Terminating",
