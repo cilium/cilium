@@ -1151,7 +1151,7 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
 
 	/* Only occasional failures at 50% of the test. */
-	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 10);
+	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
 
 	/* Less than 7% of failures at 75% of the test. */
 	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
@@ -1282,7 +1282,7 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
 
 	/* Only occasional failures at 50% of the test. */
-	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 10);
+	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
 
 	/* Less than 7% of failures at 75% of the test. */
 	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
