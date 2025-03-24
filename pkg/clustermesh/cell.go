@@ -52,4 +52,5 @@ var Cell = cell.Module(
 	}),
 	cell.Invoke(ipsetNotifier),
 	cell.Invoke(nodeManagerNotifier),
+	cell.Invoke(injectSelectBackends),
 )
