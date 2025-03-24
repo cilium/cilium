@@ -108,14 +108,14 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.1
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -125,7 +125,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -194,14 +194,14 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.1
 
       - name: Load hubble-cli Golang cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: hubble-cache
         with:
           path: /tmp/.cache/hubble-cli
@@ -211,7 +211,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -288,14 +288,14 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.1
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -305,7 +305,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -381,7 +381,7 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
