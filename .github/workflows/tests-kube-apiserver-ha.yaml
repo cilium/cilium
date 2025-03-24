@@ -22,6 +22,8 @@ on:
     branches:
       - main
       - ft/main/**
+      # only for testing
+      - pr/aditighag/test
     paths-ignore:
       - 'Documentation/**'
 
