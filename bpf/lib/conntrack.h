@@ -399,10 +399,16 @@ ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
 /* The function determines whether an egress flow identified by the given
  * tuple is a reply.
  *
- * The datapath creates a CT entry in a reverse order. E.g., if a pod sends a
- * request to outside, the CT entry stored in the BPF map will be TUPLE_F_IN:
- * pod => outside. So, we can leverage this fact to determine whether the given
- * flow is a reply.
+ * The datapath creates a CT entry with addresses in a reverse order. If a
+ * connection to a pod is initiated from outside the cluster, the CT entry is:
+ *     TUPLE_F_IN: pod_addr:world_port -> world_addr:pod_port
+ * The tuple in the egress context in datapath is created with addresses in the
+ * correct order, but with ports reversed:
+ *     TUPLE_F_OUT: pod_addr:world_port -> world_addr:pod_port
+ *
+ * The only difference between these tuples is flags. Therefore, in the egress
+ * context, this function may be used to check whether the packet corresponds to
+ * an existing world->cluster connection.
  */
 #define DEFINE_FUNC_CT_IS_REPLY(FAMILY)						\
 static __always_inline bool							\
