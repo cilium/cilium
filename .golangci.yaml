@@ -4,6 +4,7 @@ run:
   modules-download-mode: readonly
   issues-exit-code: 1
   tests: true
+  timeout: 20m
 linters:
   default: none
   enable:
