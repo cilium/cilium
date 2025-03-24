@@ -114,3 +114,9 @@ bpf/.cache
 # Files used for direnv
 .direnv
 .envrc
+
+# Ignore chart dependency tarballs
+install/kubernetes/cilium/charts/*.tgz
+
+# Ignore copied CRD YAMLs
+install/kubernetes/cilium/crds-yaml/*.yaml

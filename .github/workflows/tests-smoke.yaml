@@ -81,6 +81,9 @@ jobs:
     if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-24.04
     name: Installation and Conformance Test
+    strategy:
+      matrix:
+        install-crds: [ "helm", "operator" ]
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -164,6 +167,11 @@ jobs:
           echo operator_prometheus_tls_secret_name=${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} >> $GITHUB_OUTPUT
           echo server_name=${SERVER_NAME} >> $GITHUB_OUTPUT
 
+      - name: Update Helm Chart with CRDs
+        if: matrix.install-crds == 'helm'
+        run: |
+          make -C install/kubernetes
+
       - name: Set up install variables
         id: vars
         run: |
@@ -173,6 +181,7 @@ jobs:
              --helm-set ipam.mode=kubernetes \
              --helm-set hubble.relay.enabled=true \
              --helm-set prometheus.enabled=true \
+             --helm-set crds.installMethod=${{ matrix.install-crds }} \
              --helm-set operator.prometheus.enabled=true \
              --helm-set operator.prometheus.tls.enabled=true \
              --helm-set operator.prometheus.tls.server.existingSecret=${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
@@ -273,6 +282,6 @@ jobs:
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }}"
+          artifacts_suffix: "${{ env.job_name }}-${{ matrix.install-crds }}"
           job_status: "${{ job.status }}"
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}

@@ -41,9 +41,9 @@ echo -e "# This file is based on $(RELATIVE_DIR)/cilium/$(VALUES_TMPL_FILE_NAME)
 $(YQ) ea '. as $$item ireduce ({}; . * $$item )' $(1) | envsubst >> $(2)
 endef
 
-COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml
+COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml --exclude crds.yaml
 
-all: update-versions check-values-yaml docs lint
+all: update-versions check-values-yaml docs lint copy-crds-yaml
 
 # Add the ability to override variables and add more targets.
 -include Makefile.override
@@ -99,4 +99,13 @@ docs:
 check-docker-images: # Check whether docker images are available for the current version.
 	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
 
-.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.schema.json cilium/values.yaml.tmpl clean docs lint update-chart update-versions
+CRDS_ROOT_DIR := ../../pkg/k8s/apis/
+CRDS_TO_COPY := cilium.io
+
+copy-crds-yaml:
+	$(QUIET)mkdir -p $(CILIUM_CHARTS)/crds-yaml/;
+	for dir in $(CRDS_TO_COPY); do \
+		find "$(CRDS_ROOT_DIR)$$dir" -name '*.yaml' -exec cp {} "$(CILIUM_CHARTS)/crds-yaml/" \; ; \
+	done
+
+.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.schema.json cilium/values.yaml.tmpl clean docs lint update-chart update-versions copy-crds-yaml

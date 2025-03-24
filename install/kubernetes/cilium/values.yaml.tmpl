@@ -18,6 +18,12 @@ commonLabels: {}
 # This flag is not required for new installations.
 # For example: '1.7', '1.8', '1.9'
 upgradeCompatibility: null
+crds:
+  # -- Method for installing CRDs. Supported values are: "operator", "helm" and "none".
+  # The "operator" method allows for fine-grained control over which CRDs are installed and by
+  # default doesn't perform CRD downgrades. These can be configured in operator section.
+  # The "helm" method always installs all CRDs for the chart version.
+  installMethod: "operator"
 debug:
   # -- Enable debug logging
   enabled: false
