@@ -1249,7 +1249,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	 * ignore the return value from do_decrypt.
 	 */
 	do_decrypt(ctx, proto);
-	if (ctx->mark == MARK_MAGIC_DECRYPT)
+	if (ctx->mark & MARK_MAGIC_DECRYPT)
 		return CTX_ACT_OK;
 #endif
 
