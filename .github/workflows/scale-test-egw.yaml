@@ -68,16 +68,16 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.1
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.205.0
+  eksctl_version: v0.206.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.32.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 514.0.0
+  gcloud_version: 515.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: a6130ed6d45d1b697075885427bab1ceb33f4b71
+  egw_utils_ref: 486fe491af8acb1cce9f51af51ccdf0ebcff0cc8
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -277,7 +277,7 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -589,7 +589,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
           path: cilium-sysdump-final.zip
@@ -597,7 +597,7 @@ jobs:
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.test_type }}
           path: features-*.json
