@@ -253,7 +253,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/oauth2 v0.20.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
