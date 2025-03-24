@@ -34,7 +34,8 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 		return nil
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPool {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool ||
+		option.Config.IPAM == ipamOption.IPAMMultiPool {
 		for event := range localCiliumNodeResource.Events(ctx) {
 			if event.Kind == resource.Upsert {
 				no := nodeTypes.ParseCiliumNode(event.Object)
