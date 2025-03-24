@@ -1683,6 +1683,14 @@
     "crdWaitTimeout": {
       "type": "string"
     },
+    "crds": {
+      "properties": {
+        "installMethod": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "daemon": {
       "properties": {
         "allowedConfigOverrides": {
