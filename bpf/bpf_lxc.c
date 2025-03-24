@@ -741,7 +741,7 @@ ct_recreate6:
 		}
 	}
 #endif
-	if (is_defined(ENABLE_HOST_ROUTING)) {
+	if (is_defined(ENABLE_HOST_ROUTING) && !is_defined(ENABLE_IPSEC)) {
 		int oif = 0;
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
@@ -1295,7 +1295,7 @@ skip_vtep:
 	}
 #endif /* TUNNEL_MODE */
 
-	if (is_defined(ENABLE_HOST_ROUTING)) {
+	if (is_defined(ENABLE_HOST_ROUTING) && !is_defined(ENABLE_IPSEC)) {
 		int oif = 0;
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
