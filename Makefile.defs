@@ -180,6 +180,9 @@ GO_CLEAN_FLAGS += -mod=vendor
 
 CGO_ENABLED ?= 0
 
+# See https://pkg.go.dev/internal/goexperiment
+GOEXPERIMENT ?=
+
 # Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
 CROSS_ARCH =
@@ -192,7 +195,11 @@ else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
 
-GO_BUILD = CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
+ifneq ($(GOEXPERIMENT),)
+    GO_BUILD = GOEXPERIMENT=$(GOEXPERIMENT) CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
+else
+    GO_BUILD = CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
+endif
 
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
@@ -210,6 +217,11 @@ endif
 
 ifneq ($(LOCKDEBUG),)
     GO_TAGS_FLAGS += lockdebug
+endif
+
+ifneq ($(findstring boringcrypto,$(GOEXPERIMENT)),)
+    CGO_ENABLED = 1
+    GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
 endif
 
 GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' -tags=$(call join-with-comma,$(GO_TAGS_FLAGS)) $(EXTRA_GO_BUILD_FLAGS)
