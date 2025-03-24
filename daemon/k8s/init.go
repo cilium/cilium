@@ -36,7 +36,8 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 		return nil
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPool {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool ||
+		option.Config.IPAM == ipamOption.IPAMMultiPool {
 		for event := range localCiliumNodeResource.Events(ctx) {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for CiliumNode resource: API server connection issue")
