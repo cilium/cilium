@@ -159,6 +159,8 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+            - name: "require-k8s-connectivity"
+              value: {{ .Values.livenessProbe.requireK8sConnectivity | quote }}
           {{- end }}
           periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           successThreshold: 1

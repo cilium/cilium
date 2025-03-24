@@ -299,7 +299,8 @@ communicating via the proxy must reconnect to re-establish connections.
   ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
 * The ``CiliumBGPPeeringPolicy`` CRD is deprecated and will be removed in a future release. Please migrate to ``cilium.io/v2``
   BGP CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) to configure BGP.
-
+* The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe. This can be turned back on
+  by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
 
 Removed Options
 ~~~~~~~~~~~~~~~
