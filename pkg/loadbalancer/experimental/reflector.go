@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"maps"
 	"net"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -131,7 +133,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 
 	rh := newReflectorHealth(health, p.Log)
 
-	processBuffer := func(txn WriteTxn, buf map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod]) {
+	processBuffer := func(txn WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
 			podName := obj.Namespace + "/" + obj.Name
@@ -172,12 +174,12 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			reflectorBufferSize,
 			p.waitTime(),
 
-			func(buf map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod], change statedb.Change[daemonK8s.LocalPod]) map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod] {
+			func(buf *container.InsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]], change statedb.Change[daemonK8s.LocalPod]) *container.InsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]] {
 				if buf == nil {
-					buf = map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod]{}
+					buf = container.NewInsertOrderedMap[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]()
 				}
 				pod := change.Object
-				buf[types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}] = change
+				buf.Insert(types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, change)
 				return buf
 			},
 		),
@@ -185,7 +187,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 
 	for buf := range podChanges {
 		txn := p.Writer.WriteTxn()
-		processBuffer(txn, buf)
+		processBuffer(txn, buf.All())
 		txn.Commit()
 		rh.report()
 	}
@@ -268,13 +270,21 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	}
 
 	// Combine services and endpoint events into a single buffer.
+	// Use InsertOrderedMap to retain relative ordering of events with different keys.
 	// This highly increases the probability that related services and endpoints are committed
 	// in the same transaction, thus reducing overall processing costs.
 	type bufferKey struct {
 		key   resource.Key
 		isSvc bool
 	}
-	type buffer = map[bufferKey]resource.Event[runtime.Object]
+	type buffer = *container.InsertOrderedMap[bufferKey, resource.Event[runtime.Object]]
+
+	// Use a pool for the buffers to avoid reallocs.
+	bufferPool := sync.Pool{
+		New: func() any {
+			return container.NewInsertOrderedMap[bufferKey, resource.Event[runtime.Object]]()
+		},
+	}
 
 	events := stream.ToChannel(ctx,
 		stream.Buffer(
@@ -286,11 +296,11 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			p.waitTime(),
 			func(buf buffer, ev resource.Event[runtime.Object]) buffer {
 				if buf == nil {
-					buf = map[bufferKey]resource.Event[runtime.Object]{}
+					buf = bufferPool.Get().(buffer)
 				}
 				ev.Done(nil)
 				_, isSvc := ev.Object.(*slim_corev1.Service)
-				buf[bufferKey{key: ev.Key, isSvc: isSvc}] = ev
+				buf.Insert(bufferKey{key: ev.Key, isSvc: isSvc}, ev)
 				return buf
 			},
 		),
@@ -299,7 +309,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	processBuffer := func(buf buffer) {
 		txn := p.Writer.WriteTxn()
 		defer txn.Commit()
-		for _, ev := range buf {
+		for _, ev := range buf.All() {
 			switch obj := ev.Object.(type) {
 			case *slim_corev1.Service:
 				processServiceEvent(txn, ev.Kind, obj)
@@ -313,6 +323,8 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 
 	for buf := range events {
 		processBuffer(buf)
+		buf.Clear()
+		bufferPool.Put(buf)
 		rh.report()
 	}
 	return nil
