@@ -28,6 +28,19 @@ type ioWriteCloser struct{ io.Writer }
 
 func (wc *ioWriteCloser) Close() error { return nil }
 
+func TestNewExporterLogOptionsJSON(t *testing.T) {
+	// when logrus encounters a marshalling error, it aborts logging and outputs
+	// the error to stderr. Example:
+	//   Failed to obtain reader, failed to marshal fields to JSON, json: unsupported type: exporter.NewWriterFunc
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	log.SetFormatter(&logrus.JSONFormatter{})
+	_, err := NewExporter(log)
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "Configuring Hubble event exporter")
+}
+
 func TestExporter(t *testing.T) {
 	// override node name for unit test.
 	nodeName := nodeTypes.GetName()
@@ -52,7 +65,7 @@ func TestExporter(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -124,7 +137,7 @@ func TestExporterWithFilters(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -175,7 +188,7 @@ func TestEventToExportEvent(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
@@ -258,7 +271,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
@@ -323,7 +336,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
@@ -444,7 +457,7 @@ func BenchmarkExporter(b *testing.B) {
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
-	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+	opts.newWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 	for _, opt := range []Option{
