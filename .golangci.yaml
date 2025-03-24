@@ -3,6 +3,7 @@ run:
   modules-download-mode: readonly
   issues-exit-code: 1
   tests: true
+  timeout: 20m
 linters:
   default: none
   enable:
@@ -108,7 +109,7 @@ linters:
         - ST1019
     testifylint:
       enable-all: true
-      disable:
+      disable: # TODO: remove each disabled rule and fix it
         - float-compare
         - go-require
         - require-error
@@ -132,9 +133,11 @@ linters:
       - linters:
           - err113
         text: do not define dynamic errors, use wrapped static errors instead
+      # Skip goheader check in the example files as these are included in the documentation
       - linters:
           - goheader
         path: contrib/examples/.+\.go
+      # Skip goheader check on files imported and modified from upstream k8s
       - linters:
           - goheader
         path: pkg/ipam/(cidrset|service)/.+\.go
