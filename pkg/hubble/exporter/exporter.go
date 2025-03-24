@@ -60,11 +60,11 @@ func NewExporter(logger logrus.FieldLogger, options ...Option) (*exporter, error
 
 // newExporter let's you supply your own WriteCloser for tests.
 func newExporter(logger logrus.FieldLogger, opts Options) (*exporter, error) {
-	writer, err := opts.NewWriterFunc()
+	writer, err := opts.NewWriterFunc()()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create writer: %w", err)
 	}
-	encoder, err := opts.NewEncoderFunc(writer)
+	encoder, err := opts.NewEncoderFunc()(writer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encoder: %w", err)
 	}
