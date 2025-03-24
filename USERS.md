@@ -821,6 +821,12 @@ Users (Alphabetically)
       U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics
       Q: @edude03
 
+    * N: Stream Security
+      D: Stream Security uses Tetragon for Network, Process, and File observability and protection in Kubernetes clusters
+      U: Tetragon Network Policies, Process Policies, File Policies
+      L: https://www.stream.security/
+      Q: @vitali-streamsec
+
     * N: SuperOrbital
       D: As a Kubernetes-focused consulting firm, we have implemented Cilium on customer engagements
       U: CNI, CiliumNetworkPolicy at L7, Hubble
