@@ -22,6 +22,8 @@ on:
     branches:
       - main
       - ft/main/**
+      # only for testing
+      - pr/aditighag/e2e-test-kube-apiserver-ha
     paths-ignore:
       - 'Documentation/**'
 
