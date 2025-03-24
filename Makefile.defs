@@ -109,8 +109,8 @@ endif
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v1.64.8
-GOLANGCILINT_IMAGE_SHA = sha256:2987913e27f4eca9c8a39129d2c7bc1e74fbcf77f181e01cea607be437aa5cb8
+GOLANGCILINT_WANT_VERSION = v2.0.0
+GOLANGCILINT_IMAGE_SHA = sha256:6513c569224cd49ba365401f583cf34eaf44b0862aeb6f9a402cff05a7b53d75
 GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
