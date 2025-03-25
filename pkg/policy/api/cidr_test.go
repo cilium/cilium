@@ -148,7 +148,7 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 		option.Config.EnableIPv4 = test.enableIPv4
 		result := test.cidrs.GetAsEndpointSelectors()
 		require.Equal(t, test.matchesWorld, result.Matches(world))
-		require.EqualValues(t, test.expectedSelectors, result)
+		require.Equal(t, test.expectedSelectors, result)
 	}
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true

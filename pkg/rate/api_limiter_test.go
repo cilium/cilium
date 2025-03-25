@@ -521,7 +521,7 @@ func TestAPILimiterMergeUserConfig(t *testing.T) {
 	o := APILimiterParameters{}
 	n, err := o.MergeUserConfig("")
 	require.NoError(t, err)
-	require.EqualValues(t, o, n, "Expected no changes when merging empty configs")
+	require.Equal(t, o, n, "Expected no changes when merging empty configs")
 
 	// Overwrite defaults with user configuration, check updated values
 	o = APILimiterParameters{

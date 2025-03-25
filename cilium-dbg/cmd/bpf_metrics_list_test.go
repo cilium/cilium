@@ -107,5 +107,5 @@ func TestDumpMetrics(t *testing.T) {
 	sort.Slice(got, func(i, j int) bool {
 		return got[i].Packets <= got[j].Packets
 	})
-	require.EqualValues(t, want, got)
+	require.Equal(t, want, got)
 }

@@ -337,7 +337,7 @@ func Test_ParseNodeAddressType(t *testing.T) {
 				ciliumNodeType: gotNodeAddress,
 				errExists:      gotErr != nil,
 			}
-			require.EqualValues(t, tt.want, res)
+			require.Equal(t, tt.want, res)
 		})
 	}
 }
@@ -407,8 +407,8 @@ func TestParseNodeWithService(t *testing.T) {
 	}
 
 	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
-	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
-	require.EqualValues(t, &Service{
+	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
+	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},

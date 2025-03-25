@@ -346,13 +346,13 @@ func Test_getNodesHandle(t *testing.T) {
 			clients:     args.clients,
 		}
 		responder := h.Handle(args.params)
-		require.EqualValues(t, len(want.clients), len(h.clients))
+		require.Equal(t, len(want.clients), len(h.clients))
 		for k, v := range h.clients {
 			wantClient, ok := want.clients[k]
 			require.True(t, ok)
-			require.EqualValues(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
+			require.Equal(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
 		}
-		require.EqualValues(t, middleware.Responder(want.responder), responder)
+		require.Equal(t, middleware.Responder(want.responder), responder)
 	}
 }
 
@@ -403,6 +403,6 @@ func Test_cleanupClients(t *testing.T) {
 			clients:     args.clients,
 		}
 		h.cleanupClients()
-		require.EqualValues(t, want.clients, h.clients)
+		require.Equal(t, want.clients, h.clients)
 	}
 }

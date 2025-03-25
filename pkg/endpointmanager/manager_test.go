@@ -400,7 +400,7 @@ func TestLookup(t *testing.T) {
 			got, err := mgr.Lookup(args.id)
 			want.errCheck(t, want.err, err, "Test Name: %s", tt.name)
 			if want.ep {
-				require.EqualValuesf(t, ep, got, "Test Name: %s", tt.name)
+				require.Equalf(t, ep, got, "Test Name: %s", tt.name)
 			} else {
 				require.Nilf(t, got, "Test Name: %s", tt.name)
 			}
@@ -471,7 +471,7 @@ func TestLookupCiliumID(t *testing.T) {
 		want := tt.setupWant()
 		got := mgr.LookupCiliumID(args.id)
 		exists := mgr.EndpointExists(args.id)
-		require.EqualValuesf(t, want.ep, got, "Test Name: %s", tt.name)
+		require.Equalf(t, want.ep, got, "Test Name: %s", tt.name)
 		require.Equal(t, want.ep != nil, exists, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
@@ -489,7 +489,7 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 	require.NoError(t, mgr.expose(ep))
 
 	good := mgr.LookupCNIAttachmentID("foo:bar")
-	require.EqualValues(t, ep, good)
+	require.Equal(t, ep, good)
 
 	bad := mgr.LookupCNIAttachmentID("foo")
 	require.Nil(t, bad)
@@ -560,7 +560,7 @@ func TestLookupIPv4(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := mgr.LookupIPv4(args.ip)
-		require.EqualValuesf(t, want.ep, got, "Test Name: %s", tt.name)
+		require.Equalf(t, want.ep, got, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }
@@ -655,7 +655,7 @@ func TestLookupCEPName(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWant(ep)
 		got := mgr.LookupCEPName(args.podName)
-		require.EqualValues(t, want.ep, got, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, got, "Test Name: %s", tt.name)
 		tt.postTestRun(ep)
 	}
 }
@@ -702,23 +702,23 @@ func TestUpdateReferences(t *testing.T) {
 		mgr.updateReferencesLocked(ep, ep.Identifiers())
 
 		ep = mgr.LookupCNIAttachmentID(want.ep.GetCNIAttachmentID())
-		require.EqualValues(t, want.ep, ep, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.lookupDockerEndpoint(want.ep.GetDockerEndpointID())
-		require.EqualValues(t, want.ep, ep, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.LookupIPv4(want.ep.IPv4.String())
-		require.EqualValues(t, want.ep, ep, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.lookupDockerContainerName(want.ep.GetContainerName())
-		require.EqualValues(t, want.ep, ep, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.LookupCEPName(want.ep.GetK8sNamespaceAndCEPName())
-		require.EqualValues(t, want.ep, ep, "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		eps := mgr.GetEndpointsByPodName(want.ep.GetK8sNamespaceAndPodName())
 		require.Len(t, eps, 1)
-		require.EqualValues(t, want.ep, eps[0], "Test Name: %s", tt.name)
+		require.Equal(t, want.ep, eps[0], "Test Name: %s", tt.name)
 	}
 }
 
@@ -819,7 +819,7 @@ func TestHasGlobalCT(t *testing.T) {
 		tt.preTestRun()
 		want := tt.setupWant()
 		got := mgr.HasGlobalCT()
-		require.EqualValues(t, want.result, got, "Test Name: %s", tt.name)
+		require.Equal(t, want.result, got, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }
@@ -961,7 +961,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	hostEP, ok := mgr.endpoints[hostEPID]
 	require.True(t, ok)
 	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
-	require.EqualValues(t, map[string]string{"k2": "v2"}, got)
+	require.Equal(t, map[string]string{"k2": "v2"}, got)
 }
 
 func TestUpdateHostEndpointLabels(t *testing.T) {

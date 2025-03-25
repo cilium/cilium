@@ -75,7 +75,7 @@ func TestAllocateID(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ids.Items, 1)
 	require.Equal(t, identityID.String(), ids.Items[0].Name)
-	require.EqualValues(t,
+	require.Equal(t,
 		k.GetAsMap(),
 		ids.Items[0].SecurityLabels,
 	)

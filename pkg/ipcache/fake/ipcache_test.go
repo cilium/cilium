@@ -20,7 +20,7 @@ func TestFakeIPCache(t *testing.T) {
 	ipcacheMock.Upsert("1.1.1.1", net.ParseIP("2.2.2.2"), 0, nil, ipcache.Identity{ID: 1, Source: source.Local})
 	select {
 	case event := <-ipcacheMock.Events:
-		require.EqualValues(t, NodeEvent{EventUpsert, net.ParseIP("1.1.1.1")}, event)
+		require.Equal(t, NodeEvent{EventUpsert, net.ParseIP("1.1.1.1")}, event)
 	case <-time.After(5 * time.Second):
 		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
 	}
@@ -29,7 +29,7 @@ func TestFakeIPCache(t *testing.T) {
 
 	select {
 	case event := <-ipcacheMock.Events:
-		require.EqualValues(t, NodeEvent{EventDelete, net.ParseIP("1.1.1.1")}, event)
+		require.Equal(t, NodeEvent{EventDelete, net.ParseIP("1.1.1.1")}, event)
 	case <-time.After(5 * time.Second):
 		t.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
 	}

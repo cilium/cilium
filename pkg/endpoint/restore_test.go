@@ -144,7 +144,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		restoredEP.status = nil
 		wanted := epsWanted[i]
 		wanted.status = nil
-		require.EqualValues(t, wanted.String(), restoredEP.String())
+		require.Equal(t, wanted.String(), restoredEP.String())
 	}
 }
 
@@ -191,7 +191,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
-	require.EqualValues(t, ep.String(), restoredEP.String())
+	require.Equal(t, ep.String(), restoredEP.String())
 
 	// Check that the directory for failed restore was removed.
 	fileExists := func(fileName string) bool {
@@ -266,6 +266,6 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 	slices.Sort(completeWanted)
 	slices.Sort(incomplete)
 	slices.Sort(incompleteWanted)
-	require.EqualValues(t, completeWanted, complete)
-	require.EqualValues(t, incompleteWanted, incomplete)
+	require.Equal(t, completeWanted, complete)
+	require.Equal(t, incompleteWanted, incomplete)
 }

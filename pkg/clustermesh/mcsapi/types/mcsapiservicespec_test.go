@@ -36,7 +36,7 @@ func TestMCSAPIServiceSpec(t *testing.T) {
 	unmarshal := MCSAPIServiceSpec{}
 	err = unmarshal.Unmarshal("", b)
 	require.NoError(t, err)
-	require.EqualValues(t, unmarshal, mcsAPISvcSpec)
+	require.Equal(t, unmarshal, mcsAPISvcSpec)
 }
 
 func TestMCSAPIServiceSpecValidate(t *testing.T) {

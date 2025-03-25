@@ -747,12 +747,12 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1.Sort(nil)
-	require.EqualValues(t, expected1, restored1)
+	require.Equal(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
 	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
 	restored2.Sort(nil)
-	require.EqualValues(t, expected2, restored2)
+	require.Equal(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
@@ -766,7 +766,7 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
 	restored3.Sort(nil)
-	require.EqualValues(t, expected3, restored3)
+	require.Equal(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
 	oldUsed := s.proxy.usedServers
@@ -786,7 +786,7 @@ func TestFullPathDependence(t *testing.T) {
 	}
 	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1b.Sort(nil)
-	require.EqualValues(t, expected1b, restored1b)
+	require.Equal(t, expected1b, restored1b)
 
 	// unlimited again
 	s.proxy.usedServers = oldUsed
@@ -967,7 +967,7 @@ func TestFullPathDependence(t *testing.T) {
 	err = json.Unmarshal(jsn, &rules)
 	rules = rules.Sort(nil)
 	require.NoError(t, err, "Could not unmarshal restored rules from json")
-	require.EqualValues(t, expected1, rules)
+	require.Equal(t, expected1, rules)
 
 	// Marshal again & compare
 	// Marshal restored rules to JSON

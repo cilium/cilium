@@ -73,7 +73,7 @@ func testGetSet(t *testing.T) {
 
 		val, err = Client().Get(context.TODO(), testKey(prefix, i))
 		require.NoError(t, err)
-		require.EqualValues(t, testValue(i), string(val))
+		require.Equal(t, testValue(i), string(val))
 	}
 
 	pairs, err = Client().ListPrefix(context.Background(), prefix)
@@ -149,14 +149,14 @@ func testUpdate(t *testing.T) {
 
 	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 
 	// update
 	require.NoError(t, Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
 
 	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 }
 
 func TestCreateOnly(t *testing.T) {
@@ -177,7 +177,7 @@ func testCreateOnly(t *testing.T) {
 
 	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 
 	success, err = Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
 	require.NoError(t, err)
@@ -185,7 +185,7 @@ func testCreateOnly(t *testing.T) {
 
 	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
-	require.EqualValues(t, testValue(0), string(val))
+	require.Equal(t, testValue(0), string(val))
 }
 
 func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val string) {
@@ -194,7 +194,7 @@ func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val 
 		require.Equal(t, typ, event.Typ)
 
 		if event.Typ != EventTypeListDone {
-			require.EqualValues(t, key, event.Key)
+			require.Equal(t, key, event.Key)
 			// etcd does not provide the value of deleted keys so we can't check it.
 		}
 	case <-time.After(10 * time.Second):

@@ -384,7 +384,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	iter, watch = table.AllWatch(db.ReadTxn())
 	objs = statedb.Collect(iter)
 	require.Len(t, objs, 1)
-	require.EqualValues(t, obj2Name, objs[0].Name)
+	require.Equal(t, obj2Name, objs[0].Name)
 
 	lw.Delete(node2)
 

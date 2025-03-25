@@ -39,7 +39,7 @@ func TestMoveNewFilesTo(t *testing.T) {
 		for _, file := range files {
 			filesNames = append(filesNames, file.Name())
 		}
-		require.EqualValues(t, wantedFiles, filesNames)
+		require.Equal(t, wantedFiles, filesNames)
 	}
 
 	type args struct {

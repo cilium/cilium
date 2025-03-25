@@ -418,7 +418,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				assert.ErrorContains(t, err, tc.errMsg)
 			} else {
 				assert.NoError(t, err)
-				require.EqualValues(t, tc.flow, flow)
+				require.Equal(t, tc.flow, flow)
 			}
 		})
 	}

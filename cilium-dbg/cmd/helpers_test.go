@@ -21,22 +21,22 @@ func TestExpandNestedJSON(t *testing.T) {
 	buf := bytes.NewBufferString("not json at all")
 	res, err := expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, "not json at all", res.String())
+	require.Equal(t, "not json at all", res.String())
 
 	buf = bytes.NewBufferString(`{\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `{\n\"notEscapedJson\": \"foo\"}`, res.String())
+	require.Equal(t, `{\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`nonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `nonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
+	require.Equal(t, `nonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
+	require.Equal(t, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`, res.String())
 
 	buf = bytes.NewBufferString(`{"foo": ["{\n  \"port\": 8080,\n  \"protocol\": \"TCP\"\n}"]}`)
 	res, err = expandNestedJSON(*buf)
@@ -51,7 +51,7 @@ func TestExpandNestedJSON(t *testing.T) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `"foo": [
+	require.Equal(t, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4
@@ -65,7 +65,7 @@ func TestExpandNestedJSON(t *testing.T) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `"foo": [
+	require.Equal(t, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4

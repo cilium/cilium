@@ -80,7 +80,7 @@ func TestMock(t *testing.T) {
 
 	sgMap, err := api.GetSecurityGroups(context.TODO())
 	require.NoError(t, err)
-	require.EqualValues(t, types.SecurityGroupMap{"sg1": sg1, "sg2": sg2}, sgMap)
+	require.Equal(t, types.SecurityGroupMap{"sg1": sg1, "sg2": sg2}, sgMap)
 }
 
 func TestSetMockError(t *testing.T) {

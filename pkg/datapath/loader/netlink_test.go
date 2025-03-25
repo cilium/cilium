@@ -124,7 +124,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			geneve, ok := link.(*netlink.Geneve)
 			require.True(t, ok)
 			require.True(t, geneve.FlowBased)
-			require.EqualValues(t, defaults.TunnelPortGeneve, geneve.Dport)
+			require.Equal(t, defaults.TunnelPortGeneve, geneve.Dport)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.EqualValues(t, 12345, vxlan.Port)
+			require.Equal(t, 12345, vxlan.Port)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -279,7 +279,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.EqualValues(t, 4567, vxlan.Port)
+			require.Equal(t, 4567, vxlan.Port)
 			require.EqualValues(t, srcMin, vxlan.PortLow)
 			require.EqualValues(t, srcMax, vxlan.PortHigh)
 
@@ -305,8 +305,8 @@ func TestSetupTunnelDevice(t *testing.T) {
 
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
-			require.EqualValues(t, 0, vxlan.PortLow)
-			require.EqualValues(t, 0, vxlan.PortHigh)
+			require.Equal(t, 0, vxlan.PortLow)
+			require.Equal(t, 0, vxlan.PortHigh)
 
 			err = setupTunnelDevice(sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, srcMin, srcMax, mtu)
 			require.NoError(t, err)
@@ -317,8 +317,8 @@ func TestSetupTunnelDevice(t *testing.T) {
 			// On existing device the port range should not change.
 			vxlan, ok = link.(*netlink.Vxlan)
 			require.True(t, ok)
-			require.EqualValues(t, 0, vxlan.PortLow)
-			require.EqualValues(t, 0, vxlan.PortHigh)
+			require.Equal(t, 0, vxlan.PortLow)
+			require.Equal(t, 0, vxlan.PortHigh)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)

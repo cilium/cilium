@@ -221,7 +221,7 @@ func TestGetRoutes(t *testing.T) {
 			for _, r := range routes {
 				retrievedPrefixes = append(retrievedPrefixes, netip.MustParsePrefix(r.Prefix))
 			}
-			require.EqualValues(t, tt.expectedPrefixes, retrievedPrefixes)
+			require.Equal(t, tt.expectedPrefixes, retrievedPrefixes)
 		})
 	}
 }

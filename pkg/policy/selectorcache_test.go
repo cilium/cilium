@@ -323,7 +323,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	shouldSelect := func(sel api.EndpointSelector, wantIDs ...identity.NumericIdentity) {
 		csel := user1.AddIdentitySelector(sel)
 		selections := csel.GetSelections(versioned.Latest())
-		require.EqualValues(t, identity.NumericIdentitySlice(wantIDs), selections)
+		require.Equal(t, identity.NumericIdentitySlice(wantIDs), selections)
 		user1.RemoveSelector(csel)
 	}
 
@@ -458,7 +458,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, identity.NumericIdentity(345), selections[1])
 	require.Equal(t, identity.NumericIdentity(1234), selections[2])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
+	require.Equal(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.Reset()
 	user2.Reset()
@@ -483,7 +483,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, identity.NumericIdentity(345), selections[0])
 	require.Equal(t, identity.NumericIdentity(1234), selections[1])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
+	require.Equal(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.RemoveSelector(cached)
 	user2.RemoveSelector(cached2)

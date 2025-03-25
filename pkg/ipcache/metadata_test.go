@@ -703,7 +703,7 @@ func TestRequestIdentity(t *testing.T) {
 	hasIdentity := func(prefix cmtypes.PrefixCluster, nid identity.NumericIdentity) {
 		t.Helper()
 		id, _ := IPIdentityCache.LookupByPrefix(prefix.String())
-		assert.EqualValues(t, nid, id.ID)
+		assert.Equal(t, nid, id.ID)
 	}
 
 	// Add 2 prefixes in to the ipcache, one requesting the first local identity

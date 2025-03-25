@@ -121,7 +121,7 @@ func TestGetInterface(t *testing.T) {
 	intf, ok := m.GetInterface("i-1", "intf0")
 	require.True(t, ok)
 
-	require.EqualValues(t, rev, intf)
+	require.Equal(t, rev, intf)
 }
 
 func TestInstanceMapNumInstances(t *testing.T) {

@@ -763,9 +763,9 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
-		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
-		require.EqualValuesf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
-		require.EqualValuesf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
+		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
+		require.Equalf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
+		require.Equalf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(changes)
@@ -1158,8 +1158,8 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		}
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
-		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
-		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
+		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
+		require.Equal(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
 }
 
@@ -1642,8 +1642,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		}
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
-		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
-		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
+		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
+		require.Equal(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
 }
 

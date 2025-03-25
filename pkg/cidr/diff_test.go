@@ -33,7 +33,7 @@ func TestDiffIPNetLists(t *testing.T) {
 
 	for i, tt := range expectations {
 		add, remove := DiffCIDRLists(tt.old, tt.new)
-		require.EqualValuesf(t, tt.add, add, "test index: %d", i)
-		require.EqualValuesf(t, tt.remove, remove, "test index: %d", i)
+		require.Equalf(t, tt.add, add, "test index: %d", i)
+		require.Equalf(t, tt.remove, remove, "test index: %d", i)
 	}
 }

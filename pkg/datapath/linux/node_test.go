@@ -90,18 +90,18 @@ func TestCreateNodeRoute(t *testing.T) {
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
-	require.EqualValues(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
-	require.EqualValues(t, fakeNodeAddressing.IPv4().Router(), *generatedRoute.Nexthop)
-	require.EqualValues(t, fakeNodeAddressing.IPv4().Router(), generatedRoute.Local)
+	require.Equal(t, fakeNodeAddressing.IPv4().Router(), *generatedRoute.Nexthop)
+	require.Equal(t, fakeNodeAddressing.IPv4().Router(), generatedRoute.Local)
 
 	c1 = cidr.MustParseCIDR("beef:beef::/48")
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
-	require.EqualValues(t, *c1.IPNet, generatedRoute.Prefix)
+	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
-	require.EqualValues(t, fakeNodeAddressing.IPv6().Router(), generatedRoute.Local)
+	require.Equal(t, fakeNodeAddressing.IPv6().Router(), generatedRoute.Local)
 }
 
 func TestCreateNodeRouteSpecMtu(t *testing.T) {
@@ -124,7 +124,7 @@ func TestStoreLoadNeighLinks(t *testing.T) {
 
 	devsActual, err := loadNeighLink(tmpDir)
 	require.NoError(t, err)
-	require.EqualValues(t, devExpected, devsActual)
+	require.Equal(t, devExpected, devsActual)
 }
 
 func TestLocalRule(t *testing.T) {

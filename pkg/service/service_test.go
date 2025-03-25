@@ -603,10 +603,10 @@ func TestRestoreServices(t *testing.T) {
 
 	// Services have been restored too
 	require.Len(t, m.svc.svcByID, 2)
-	require.EqualValues(t, lbmap.ServiceByID[uint16(id1)].Frontend, m.svc.svcByID[id1].frontend)
-	require.EqualValues(t, lbmap.ServiceByID[uint16(id1)].Backends, m.svc.svcByID[id1].backends)
-	require.EqualValues(t, lbmap.ServiceByID[uint16(id2)].Frontend, m.svc.svcByID[id2].frontend)
-	require.EqualValues(t, lbmap.ServiceByID[uint16(id2)].Backends, m.svc.svcByID[id2].backends)
+	require.Equal(t, lbmap.ServiceByID[uint16(id1)].Frontend, m.svc.svcByID[id1].frontend)
+	require.Equal(t, lbmap.ServiceByID[uint16(id1)].Backends, m.svc.svcByID[id1].backends)
+	require.Equal(t, lbmap.ServiceByID[uint16(id2)].Frontend, m.svc.svcByID[id2].frontend)
+	require.Equal(t, lbmap.ServiceByID[uint16(id2)].Backends, m.svc.svcByID[id2].backends)
 
 	// Session affinity too
 	require.False(t, m.svc.svcByID[id1].sessionAffinity)

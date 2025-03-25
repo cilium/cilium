@@ -22,7 +22,7 @@ func TestDeepCopy(t *testing.T) {
 	require.NotNil(t, c1)
 
 	c2 := c1.DeepCopy()
-	require.EqualValues(t, c2, c1)
+	require.Equal(t, c2, c1)
 }
 
 func TestNewCIDRNil(t *testing.T) {
