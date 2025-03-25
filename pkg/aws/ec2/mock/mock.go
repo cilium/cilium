@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -268,7 +269,7 @@ func (e *API) rateLimit() {
 // CreateNetworkInterface mocks the interface creation. As with the upstream
 // EC2 API, the number of IP addresses in toAllocate are the number of
 // secondary IPs, a primary IP is always allocated.
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnet ipamTypes.Subnet, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
 
@@ -279,14 +280,14 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		return "", nil, err
 	}
 
-	subnet, ok := e.subnets[subnetID]
+	_, ok := e.subnets[subnet.ID]
 	if !ok {
-		return "", nil, fmt.Errorf("subnet %s not found", subnetID)
+		return "", nil, fmt.Errorf("subnet %s not found", subnet.ID)
 	}
 
 	numAddresses := int(toAllocate) + 1 // include primary IP
 	if numAddresses > subnet.AvailableAddresses {
-		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
+		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnet.ID)
 	}
 
 	eniID := uuid.New().String()
@@ -294,7 +295,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		ID:          eniID,
 		Description: desc,
 		Subnet: eniTypes.AwsSubnet{
-			ID: subnetID,
+			ID: subnet.ID,
 		},
 		SecurityGroups: groups,
 	}
@@ -326,7 +327,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	return eniID, eni.DeepCopy(), nil
 }
 
-func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
+func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string, addresses []string) error {
 	e.rateLimit()
 	e.delaySim.Delay(DeleteNetworkInterface)
 
@@ -409,11 +410,13 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 	return nil
 }
 
-func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
-	result := make([]string, 0, int(maxResults))
+func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]ec2_types.NetworkInterface, error) {
+	result := make([]ec2_types.NetworkInterface, 0, int(maxResults))
 	for _, eni := range e.unattached {
 		if ipamTypes.Tags(eni.Tags).Match(tags) {
-			result = append(result, eni.ID)
+			result = append(result, ec2_types.NetworkInterface{
+				NetworkInterfaceId: aws.String(eni.ID),
+			})
 		}
 
 		if len(result) >= int(maxResults) {
@@ -423,7 +426,7 @@ func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.T
 	return result, nil
 }
 
-func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error) {
+func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addressesCount int32, subnet netip.Prefix) ([]string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -441,18 +444,18 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 				return nil, fmt.Errorf("subnet %s not found", eni.Subnet.ID)
 			}
 
-			if int(addresses) > subnet.AvailableAddresses {
+			if int(addressesCount) > subnet.AvailableAddresses {
 				return nil, fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
 			}
 
-			for i := int32(0); i < addresses; i++ {
+			for i := int32(0); i < addressesCount; i++ {
 				ip, err := e.allocator.AllocateNext()
 				if err != nil {
 					panic("Unable to allocate IP from allocator")
 				}
 				eni.Addresses = append(eni.Addresses, ip.String())
 			}
-			subnet.AvailableAddresses -= int(addresses)
+			subnet.AvailableAddresses -= int(addressesCount)
 			return eni.Addresses, nil
 		}
 	}

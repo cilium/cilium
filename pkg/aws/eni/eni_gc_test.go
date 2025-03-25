@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
@@ -52,13 +53,13 @@ func TestStartENIGarbageCollector(t *testing.T) {
 
 	untaggedENIs := map[string]bool{}
 	for range 8 {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "subnet-1", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, *subnet1, "desc", []string{"sg-1", "sg-2"}, false)
 		require.NoError(t, err)
 		untaggedENIs[eniID] = true
 	}
 
 	createTaggedENI := func() string {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "subnet-2", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, *subnet2, "desc", []string{"sg-1", "sg-2"}, false)
 		require.NoError(t, err)
 		err = ec2api.TagENI(context.TODO(), eniID, tags)
 		require.NoError(t, err)
@@ -101,8 +102,9 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, enis, 9)
 	for _, eni := range enis {
-		if eni != newENI && !untaggedENIs[eni] {
-			t.Errorf("ENI not garbage collected: %s", eni)
+		eniID := aws.ToString(eni.NetworkInterfaceId)
+		if eniID != newENI && !untaggedENIs[eniID] {
+			t.Errorf("ENI not garbage collected: %s", eniID)
 		}
 	}
 
@@ -118,8 +120,9 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, enis, 8)
 	for _, eni := range enis {
-		if !untaggedENIs[eni] {
-			t.Errorf("ENI not garbage collected: %s", eni)
+		eniID := aws.ToString(eni.NetworkInterfaceId)
+		if !untaggedENIs[eniID] {
+			t.Errorf("ENI not garbage collected: %s", eniID)
 		}
 	}
 
