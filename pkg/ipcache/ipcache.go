@@ -503,6 +503,7 @@ type MU struct {
 	Source   source.Source
 	Resource ipcacheTypes.ResourceID
 	Metadata []IPMetadata
+	IsCIDR   bool
 }
 
 // UpsertMetadata upserts a given IP and some corresponding information into
@@ -522,7 +523,9 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Add(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -551,7 +554,9 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Delete(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
