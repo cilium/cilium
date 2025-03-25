@@ -149,6 +149,7 @@ func (dsl *desiredSkipLB) TableRow() []string {
 			skipRedirects = append(skipRedirects, addr.StringWithProtocol())
 		}
 	}
+	sort.Strings(skipRedirects)
 
 	return []string{
 		dsl.PodNamespacedName,
