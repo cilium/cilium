@@ -113,6 +113,35 @@ func (m *IPTagging) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetIpTagHeader()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, IPTaggingValidationError{
+					field:  "IpTagHeader",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, IPTaggingValidationError{
+					field:  "IpTagHeader",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIpTagHeader()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IPTaggingValidationError{
+				field:  "IpTagHeader",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return IPTaggingMultiError(errors)
 	}
@@ -325,3 +354,131 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = IPTagging_IPTagValidationError{}
+
+// Validate checks the field values on IPTagging_IpTagHeader with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *IPTagging_IpTagHeader) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on IPTagging_IpTagHeader with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// IPTagging_IpTagHeaderMultiError, or nil if none found.
+func (m *IPTagging_IpTagHeader) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *IPTagging_IpTagHeader) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetHeader()) < 1 {
+		err := IPTagging_IpTagHeaderValidationError{
+			field:  "Header",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if !_IPTagging_IpTagHeader_Header_Pattern.MatchString(m.GetHeader()) {
+		err := IPTagging_IpTagHeaderValidationError{
+			field:  "Header",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for Action
+
+	if len(errors) > 0 {
+		return IPTagging_IpTagHeaderMultiError(errors)
+	}
+
+	return nil
+}
+
+// IPTagging_IpTagHeaderMultiError is an error wrapping multiple validation
+// errors returned by IPTagging_IpTagHeader.ValidateAll() if the designated
+// constraints aren't met.
+type IPTagging_IpTagHeaderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m IPTagging_IpTagHeaderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m IPTagging_IpTagHeaderMultiError) AllErrors() []error { return m }
+
+// IPTagging_IpTagHeaderValidationError is the validation error returned by
+// IPTagging_IpTagHeader.Validate if the designated constraints aren't met.
+type IPTagging_IpTagHeaderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e IPTagging_IpTagHeaderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e IPTagging_IpTagHeaderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e IPTagging_IpTagHeaderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e IPTagging_IpTagHeaderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e IPTagging_IpTagHeaderValidationError) ErrorName() string {
+	return "IPTagging_IpTagHeaderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e IPTagging_IpTagHeaderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sIPTagging_IpTagHeader.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = IPTagging_IpTagHeaderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = IPTagging_IpTagHeaderValidationError{}
+
+var _IPTagging_IpTagHeader_Header_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
