@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -79,6 +80,11 @@ type NodeManager interface {
 	// StartNodeNeighborLinkUpdater spawns a controller that watches a queue
 	// for node neighbor link updates.
 	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
+
+	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
+	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom,
+	// cmtypes.PrefixClusterFromCIDR and the like.
+	SetPrefixClusterMutatorFn(mutator func(*types.Node) []cmtypes.PrefixClusterOpts)
 }
 
 func newAllNodeManager(in struct {
