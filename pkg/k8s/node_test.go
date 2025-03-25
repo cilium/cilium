@@ -386,7 +386,7 @@ func TestParseNodeWithService(t *testing.T) {
 	require.Equal(t, "node2", n2.Name)
 	require.NotNil(t, n2.IPv4AllocCIDR)
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
-	require.Equal(t, "", n2.Labels[annotation.ServiceNodeExposure])
+	require.Empty(t, n2.Labels[annotation.ServiceNodeExposure])
 
 	objMeta := slim_metav1.ObjectMeta{
 		Name:      "foo",

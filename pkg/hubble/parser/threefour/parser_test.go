@@ -204,7 +204,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
-	assert.Equal(t, "", f.GetIP().GetSourceXlated())
+	assert.Empty(t, f.GetIP().GetSourceXlated())
 	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
 	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
@@ -280,15 +280,15 @@ func TestL34Decode(t *testing.T) {
 	// second packet is ICMPv6 and the flags should be totally wiped out
 	assert.Equal(t, []string(nil), f.GetSourceNames())
 	assert.Equal(t, "ff02::1:ff00:b3e5", f.GetIP().GetSource())
-	assert.Equal(t, "", f.GetIP().GetSourceXlated())
+	assert.Empty(t, f.GetIP().GetSourceXlated())
 	assert.Equal(t, &flowpb.ICMPv6{Type: 135}, f.L4.GetICMPv6())
-	assert.Equal(t, "", f.GetSource().GetPodName())
-	assert.Equal(t, "", f.GetSource().GetNamespace())
+	assert.Empty(t, f.GetSource().GetPodName())
+	assert.Empty(t, f.GetSource().GetNamespace())
 
 	assert.Equal(t, []string{"host-f00d::a10:0:0:9195"}, f.GetDestinationNames())
 	assert.Equal(t, "f00d::a10:0:0:9195", f.GetIP().GetDestination())
-	assert.Equal(t, "", f.GetDestination().GetPodName())
-	assert.Equal(t, "", f.GetDestination().GetNamespace())
+	assert.Empty(t, f.GetDestination().GetPodName())
+	assert.Empty(t, f.GetDestination().GetNamespace())
 
 	assert.Equal(t, int32(monitorAPI.MessageTypeTrace), f.GetEventType().GetType())
 	assert.Equal(t, int32(monitorAPI.TraceFromLxc), f.GetEventType().GetSubType())
