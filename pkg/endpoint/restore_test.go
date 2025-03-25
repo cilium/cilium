@@ -126,7 +126,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		}
 	}
 	eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epsNames)
-	require.Equal(t, len(epsWanted), len(eps))
+	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
 	restoredEPs := make([]*Endpoint, 0, len(eps))
@@ -135,7 +135,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	}
 	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
 
-	require.Equal(t, len(epsWanted), len(restoredEPs))
+	require.Len(t, restoredEPs, len(epsWanted))
 	for i, restoredEP := range restoredEPs {
 		// We probably shouldn't modify these, but the status will
 		// naturally differ between the wanted endpoint and the version
@@ -243,7 +243,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epsNames)
-		require.Equal(b, len(epsWanted), len(eps))
+		require.Len(b, eps, len(epsWanted))
 	}
 }
 

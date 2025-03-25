@@ -756,7 +756,7 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	require.True(t, added)
 	require.NoError(t, err)
-	require.Equal(t, len(expectedbes4), len(configAddrType.frontendMappings[0].podBackends))
+	require.Len(t, configAddrType.frontendMappings[0].podBackends, len(expectedbes4))
 	for i := range configAddrType.frontendMappings[0].podBackends {
 		require.Equal(t, expectedbes4[i], configAddrType.frontendMappings[0].podBackends[i])
 	}
@@ -773,7 +773,7 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	require.True(t, added)
 	require.NoError(t, err)
-	require.Equal(t, len(expectedbes6), len(configAddrType.frontendMappings[0].podBackends))
+	require.Len(t, configAddrType.frontendMappings[0].podBackends, len(expectedbes6))
 
 	for i := range configAddrType.frontendMappings[0].podBackends {
 		require.Equal(t, expectedbes6[i], configAddrType.frontendMappings[0].podBackends[i])

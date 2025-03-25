@@ -450,7 +450,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prefix := tt.pair.PrefixString()
-			assert.Equal(t, len(tt.expected), len(prefix))
+			assert.Len(t, prefix, len(tt.expected))
 			assert.Equal(t, tt.expected, prefix)
 		})
 	}

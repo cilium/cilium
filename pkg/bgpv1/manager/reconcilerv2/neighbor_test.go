@@ -329,7 +329,7 @@ func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2.C
 }
 
 func validatePeers(req *require.Assertions, expected, running []PeerData, checks checks) {
-	req.Equal(len(expected), len(running))
+	req.Len(running, len(expected))
 
 	for _, expPeer := range expected {
 		found := false

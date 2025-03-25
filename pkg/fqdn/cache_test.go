@@ -301,7 +301,7 @@ func TestCountIPs(t *testing.T) {
 	// Dump() returns the deduplicated (or consolidated) list of entries with
 	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
 	// IPs.
-	require.Equal(t, len(names), len(cache.Dump()))
+	require.Len(t, cache.Dump(), len(names))
 	require.Equal(t, len(names), int(fqdns))
 	require.Equal(t, len(names)*2, int(ips))
 }

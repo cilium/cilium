@@ -52,7 +52,7 @@ func TestPathConversions(t *testing.T) {
 				require.NoError(t, err)
 				require.NotZero(t, paths)
 				require.Equal(t, tt.Path.NLRI, paths[0].NLRI)
-				require.Equal(t, len(tt.Path.PathAttributes), len(paths[0].PathAttributes))
+				require.Len(t, paths[0].PathAttributes, len(tt.Path.PathAttributes))
 				for i := range tt.Path.PathAttributes {
 					// byte-compare encoded path attributes
 					data1, err := tt.Path.PathAttributes[i].Serialize()

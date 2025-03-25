@@ -181,7 +181,7 @@ func TestParseNode(t *testing.T) {
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.Equal(t, len(expected), len(n.IPAddresses))
+	require.Len(t, n.IPAddresses, len(expected))
 	addrsFound := 0
 	for _, addr := range n.IPAddresses {
 		for _, expect := range expected {
