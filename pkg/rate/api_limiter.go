@@ -435,14 +435,13 @@ func (l *APILimiter) delayedAdjustment(current, min, max float64) (n float64) {
 }
 
 func (l *APILimiter) calculateAdjustmentFactor() float64 {
-	f := l.params.EstimatedProcessingDuration.Seconds() / l.meanProcessingDuration
-	if f > l.params.MaxAdjustmentFactor {
-		f = l.params.MaxAdjustmentFactor
-	}
-	if f < 1.0/l.params.MaxAdjustmentFactor {
-		f = 1.0 / l.params.MaxAdjustmentFactor
-	}
-	return f
+	return max(
+		min(
+			l.params.EstimatedProcessingDuration.Seconds()/l.meanProcessingDuration,
+			l.params.MaxAdjustmentFactor,
+		),
+		1.0/l.params.MaxAdjustmentFactor,
+	)
 }
 
 func (l *APILimiter) adjustmentLimit(newValue, initialValue float64) float64 {

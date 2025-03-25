@@ -274,10 +274,7 @@ func (ls LabelArray) Equals(b LabelArray) bool {
 func (ls LabelArray) Less(b LabelArray) bool {
 	lsLen, bLen := len(ls), len(b)
 
-	minLen := lsLen
-	if bLen < minLen {
-		minLen = bLen
-	}
+	minLen := min(bLen, lsLen)
 
 	for i := range minLen {
 		switch {
