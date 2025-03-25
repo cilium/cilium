@@ -17,14 +17,14 @@ func TestIPv6(t *testing.T) {
 	var expectedAddress net.IP = []byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}
 	result := testIPv6Address.IP()
 
-	require.EqualValues(t, expectedAddress, result)
+	require.Equal(t, expectedAddress, result)
 }
 
 func TestAddrV6(t *testing.T) {
 	expectedAddress := netip.AddrFrom16(testIPv6Address)
 	result := testIPv6Address.Addr()
 
-	require.EqualValues(t, expectedAddress, result)
+	require.Equal(t, expectedAddress, result)
 }
 
 func TestStringV6(t *testing.T) {

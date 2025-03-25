@@ -175,10 +175,10 @@ func Test_getFields(t *testing.T) {
 		t.Log(tt.name)
 
 		got, err := getFields(tt.structure)
-		require.EqualValues(t, err, tt.err)
+		require.Equal(t, err, tt.err)
 
 		slices.Sort(tt.expected) // Must sort to check slice equality
 		slices.Sort(got)
-		require.EqualValues(t, tt.expected, got)
+		require.Equal(t, tt.expected, got)
 	}
 }

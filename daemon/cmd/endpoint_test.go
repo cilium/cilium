@@ -124,7 +124,7 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	require.NoError(t, err)
 	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	require.NoError(t, err)
-	require.EqualValues(t, expectedLabels, ep.OpLabels.IdentityLabels())
+	require.Equal(t, expectedLabels, ep.OpLabels.IdentityLabels())
 
 	secID := ep.WaitForIdentity(3 * time.Second)
 	require.NotNil(t, secID)
@@ -285,7 +285,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 				if tt.retries > 0 && epUID != "" {
 					retries = tt.retries
 				}
-				assert.EqualValues(t, retries, fetcher.runs, "Incorrect number of retries")
+				assert.Equal(t, retries, fetcher.runs, "Incorrect number of retries")
 			})
 		}
 	}

@@ -523,7 +523,7 @@ func Test_parseK8sEPv1(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := ParseEndpoints(args.eps)
-		require.EqualValuesf(t, want, got, "Test name: %q", tt.name)
+		require.Equalf(t, want, got, "Test name: %q", tt.name)
 	}
 }
 
@@ -1036,7 +1036,7 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			args.overrideConfig()
 		}
 		got := ParseEndpointSliceV1Beta1(args.eps)
-		require.EqualValuesf(t, want, got, "Test name: %q", tt.name)
+		require.Equalf(t, want, got, "Test name: %q", tt.name)
 	}
 }
 
@@ -1805,7 +1805,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			args.overrideConfig()
 		}
 		got := ParseEndpointSliceV1(hivetest.Logger(t), args.eps)
-		require.EqualValues(t, want, got, "Test name: %q", tt.name)
+		require.Equal(t, want, got, "Test name: %q", tt.name)
 	}
 }
 

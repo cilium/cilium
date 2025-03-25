@@ -74,11 +74,11 @@ func TestGetSetClusterConfig(t *testing.T) {
 
 	got, err := GetClusterConfig(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
-	require.EqualValues(t, got, cfg1, "retrieved configuration does not match expected one")
+	require.Equal(t, got, cfg1, "retrieved configuration does not match expected one")
 
 	got, err = GetClusterConfig(ctx, "bar", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
-	require.EqualValues(t, got, cfg3, "retrieved configuration does not match expected one")
+	require.Equal(t, got, cfg3, "retrieved configuration does not match expected one")
 
 	_, err = GetClusterConfig(ctx, "not-existing", &mb)
 	require.ErrorIs(t, err, ErrClusterConfigNotFound, "incorrect error for not found configuration")
@@ -122,17 +122,17 @@ func TestEnforceClusterConfig(t *testing.T) {
 
 	got, err := GetClusterConfig(ctx, "foo", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
-	require.EqualValues(t, got, cfg1, "retrieved configuration does not match expected one")
+	require.Equal(t, got, cfg1, "retrieved configuration does not match expected one")
 
 	got, err = GetClusterConfig(ctx, "bar", &mb)
 	require.NoError(t, err, "failed to read cluster configuration")
-	require.EqualValues(t, got, cfg2, "retrieved configuration does not match expected one")
+	require.Equal(t, got, cfg2, "retrieved configuration does not match expected one")
 
 	// Externally mutate the cluster configuration, and assert that it gets eventually reconciled.
 	require.NoError(t, SetClusterConfig(ctx, "bar", cfg1, &mb), "failed to override cluster configuration")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		got, err = GetClusterConfig(ctx, "bar", &mb)
 		assert.NoError(c, err, "failed to read cluster configuration")
-		assert.EqualValues(c, got, cfg2, "retrieved configuration does not match expected one")
+		assert.Equal(c, got, cfg2, "retrieved configuration does not match expected one")
 	}, timeout, tick)
 }

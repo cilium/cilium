@@ -30,7 +30,7 @@ func TestGlobalServiceExportCache(t *testing.T) {
 		Namespace: "default",
 	})
 	require.EqualValues(t, 1, globalServiceExports.Size())
-	require.EqualValues(t, []string{"reset"}, globalServiceExports.GetServiceExportsName("default"))
+	require.Equal(t, []string{"reset"}, globalServiceExports.GetServiceExportsName("default"))
 	require.Len(t, globalServiceExports.GetServiceExportByCluster(types.NamespacedName{
 		Namespace: "default",
 		Name:      "reset",

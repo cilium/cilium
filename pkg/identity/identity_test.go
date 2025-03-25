@@ -139,8 +139,8 @@ func TestNewIdentityFromLabelArray(t *testing.T) {
 		"b": labels.ParseLabel("b"),
 	}
 	require.Equal(t, NumericIdentity(1001), id.ID)
-	require.EqualValues(t, lbls, id.Labels)
-	require.EqualValues(t, lbls.LabelArray(), id.LabelArray)
+	require.Equal(t, lbls, id.Labels)
+	require.Equal(t, lbls.LabelArray(), id.LabelArray)
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {
