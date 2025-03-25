@@ -1475,6 +1475,7 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 				Source:   source.Generated,
 				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
 				Metadata: []IPMetadata{lbls},
+				IsCIDR:   true,
 			})
 		}
 		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
@@ -1495,6 +1496,7 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 				Source:   source.Generated,
 				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
 				Metadata: []IPMetadata{labels.Labels{}},
+				IsCIDR:   true,
 			})
 		}
 		revs = append(revs, IPIdentityCache.RemoveMetadataBatch(mu...))
@@ -1515,6 +1517,7 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 				Source:   source.Generated,
 				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
 				Metadata: []IPMetadata{cidrLabels[cidr]},
+				IsCIDR:   true,
 			})
 		}
 		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
