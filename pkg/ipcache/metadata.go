@@ -755,22 +755,22 @@ func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
 
 	// In-cluster entities must not have reserved:world.
 	if isInCluster {
-		out = out.Remove(labels.LabelWorld)
-		out = out.Remove(labels.LabelWorldIPv4)
-		out = out.Remove(labels.LabelWorldIPv6)
+		out.Remove(labels.LabelWorld)
+		out.Remove(labels.LabelWorldIPv4)
+		out.Remove(labels.LabelWorldIPv6)
 	}
 
 	// In-cluster entities must not have cidr or fqdn labels.
 	// Exception: nodes may, when PolicyCIDRMatchesNodes() is enabled.
 	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
-		out = out.RemoveFromSource(labels.LabelSourceCIDR)
-		out = out.RemoveFromSource(labels.LabelSourceFQDN)
-		out = out.RemoveFromSource(labels.LabelSourceCIDRGroup)
+		out.RemoveFromSource(labels.LabelSourceCIDR)
+		out.RemoveFromSource(labels.LabelSourceFQDN)
+		out.RemoveFromSource(labels.LabelSourceCIDRGroup)
 	}
 
 	// Remove all labels with source `node:`, unless this is a node *and* node labels are enabled.
 	if !(isNode && option.Config.PerNodeLabelsEnabled()) {
-		out = out.RemoveFromSource(labels.LabelSourceNode)
+		out.RemoveFromSource(labels.LabelSourceNode)
 	}
 
 	// No empty labels allowed.
