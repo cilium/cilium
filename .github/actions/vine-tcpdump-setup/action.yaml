@@ -1,0 +1,27 @@
+name: VinE tcpdump setup
+description: Setup tcpdump for ci-clustermesh-upgrade-vine
+
+inputs:
+  cluster1-context:
+    required: true
+    type: string
+  cluster2-context:
+    required: true
+    type: string
+  cilium-test-namespace:
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Setup tcpdump
+      shell: bash
+      run: |
+        for context in ${{ inputs.cluster1-context }} ${{ inputs.cluster2-context }}; do
+          for hostpod in $(kubectl --context $context -n ${{ inputs.cilium-test-namespace }} get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
+            kubectl --context $context -n ${{ inputs.cilium-test-namespace }} exec $hostpod -- tcpdump -w /tmp/$hostpod.vine.pcap -ni eth0 -Q out 'esp' &
+            kubectl --context $context -n ${{ inputs.cilium-test-namespace }} exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
+            kubectl --context $context -n ${{ inputs.cilium-test-namespace }} exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
+          done
+        done

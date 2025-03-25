@@ -400,16 +400,12 @@ jobs:
             --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
             --conn-disrupt-dispatch-interval 0ms
 
-      - name: Setup tcpdump (before upgrade)
-        run: |
-          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
-          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.vine.pcap -ni eth0 -Q out 'esp' &
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
+      - name: Setup tcpdump (before upgrade cluster1)
+        uses: ./.github/actions/vine-tcpdump-setup
+        with:
+          cluster1-context: ${{ env.contextName1 }}
+          cluster2-context: ${{ env.contextName2 }}
+          cilium-test-namespace: cilium-test-1
 
       - name: Upgrade Cluster1[VinE]
         env:
@@ -554,22 +550,12 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             --test 'skipall'
 
-      - name: Setup tcpdump
-        run: |
-          #set -x
-          # on cluster1, we capture EinV traffic and plain-text traffic; on cluster2, we capture VinE traffic and plain-text traffic.
-          # The expectations are:
-          # 1. EinV on cluster1: no output
-          # 2. VinE on cluster2: no output
-          # 3. plain-text on both: mustn't have pod IP (outer and inner) in the packet
-          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
-          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.vine.pcap -ni eth0 -Q out 'esp' &
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
+      - name: Setup tcpdump (after upgrade cluster1)
+        uses: ./.github/actions/vine-tcpdump-setup
+        with:
+          cluster1-context: ${{ env.contextName1 }}
+          cluster2-context: ${{ env.contextName2 }}
+          cilium-test-namespace: cilium-test-1
 
       - name: Run connectivity test - Cluster1[VinE]<->Cluster2[Downgrade] (${{ join(matrix.*, ', ') }})
         run: |
@@ -713,16 +699,12 @@ jobs:
             --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
             --conn-disrupt-dispatch-interval 0ms
 
-      - name: Setup tcpdump (before upgrade Cluster2)
-        run: |
-          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
-          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.vine.pcap -ni eth0 -Q out 'esp' &
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
+      - name: Setup tcpdump (before upgrade cluster2)
+        uses: ./.github/actions/vine-tcpdump-setup
+        with:
+          cluster1-context: ${{ env.contextName1 }}
+          cluster2-context: ${{ env.contextName2 }}
+          cilium-test-namespace: cilium-test-1
 
       #
       # Cluster1[VinE]<->Cluster2[Downgrade] tests passed...
@@ -864,16 +846,12 @@ jobs:
             --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
             --conn-disrupt-dispatch-interval 0ms
 
-      - name: Setup tcpdump (before 118<>118 connectivity test)
-        run: |
-          for hostpod in $(kubectl --context kind-cluster1 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
-            kubectl --context kind-cluster1 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
-          for hostpod in $(kubectl --context kind-cluster2 -n cilium-test-1 get po -l kind=host-netns -o jsonpath='{.items[*].metadata.name}'); do
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.einv.pcap -ni eth0 -Q out 'udp[8+8+14+9] == 50' &
-            kubectl --context kind-cluster2 -n cilium-test-1 exec $hostpod -- tcpdump -w /tmp/$hostpod.plain.pcap -ni eth0 -Q out 'udp[8+8+14+9] != 50 and !esp' &
-          done
+      - name: Setup tcpdump (after upgrade cluster2)
+        uses: ./.github/actions/vine-tcpdump-setup
+        with:
+          cluster1-context: ${{ env.contextName1 }}
+          cluster2-context: ${{ env.contextName2 }}
+          cilium-test-namespace: cilium-test-1
 
       - name: Run connectivity test - Cluster1[VinE]<->Cluster2[VinE] (${{ join(matrix.*, ', ') }})
         run: |
