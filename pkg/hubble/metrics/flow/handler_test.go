@@ -146,7 +146,7 @@ func TestFlowHandler(t *testing.T) {
 		assert.Equal(t, "UDP", *metric.Label[1].Value)
 
 		assert.Equal(t, "subtype", *metric.Label[3].Name)
-		assert.Equal(t, "", *metric.Label[3].Value)
+		assert.Empty(t, *metric.Label[3].Value)
 
 		assert.Equal(t, "type", *metric.Label[4].Name)
 		assert.Equal(t, "PolicyVerdict", *metric.Label[4].Value)

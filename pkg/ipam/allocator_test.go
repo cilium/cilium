@@ -64,7 +64,7 @@ func TestAllocatedIPDump(t *testing.T) {
 	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
-	require.NotEqual(t, "", status)
+	require.NotEmpty(t, status)
 
 	// Test the format of the dumped ip addresses
 	for ip := range allocv4 {
@@ -89,11 +89,11 @@ func TestExpirationTimer(t *testing.T) {
 
 	uuid, err := ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// must fail, already registered
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.Error(t, err)
-	require.Equal(t, "", uuid)
+	require.Empty(t, uuid)
 	// must fail, already in use
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
 	require.Error(t, err)
@@ -105,7 +105,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register new expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// attempt to stop with an invalid uuid, must fail
 	err = ipam.StopExpirationTimer(ip, PoolDefault(), "unknown-uuid")
 	require.Error(t, err)
@@ -127,7 +127,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// release IP, must also stop expiration timer
 	err = ipam.ReleaseIP(ip, PoolDefault())
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestExpirationTimer(t *testing.T) {
 	// register expiration timer must succeed even though stop was never called
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
 	require.NoError(t, err)
-	require.NotEqual(t, "", uuid)
+	require.NotEmpty(t, uuid)
 	// release IP
 	err = ipam.ReleaseIP(ip, PoolDefault())
 	require.NoError(t, err)

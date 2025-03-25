@@ -530,8 +530,8 @@ func TestParseWithNodeSelector(t *testing.T) {
 }
 
 func TestCiliumNodeInstanceID(t *testing.T) {
-	require.Equal(t, "", (*CiliumNode)(nil).InstanceID())
-	require.Equal(t, "", (&CiliumNode{}).InstanceID())
+	require.Empty(t, (*CiliumNode)(nil).InstanceID())
+	require.Empty(t, (&CiliumNode{}).InstanceID())
 	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID())
 	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())
 	require.Equal(t, "bar", (&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())

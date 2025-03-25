@@ -344,5 +344,5 @@ func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
 func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)
-	require.NotEqual(t, "", m)
+	require.NotEmpty(t, m)
 }

@@ -2365,7 +2365,7 @@ func TestMergeListenerReference(t *testing.T) {
 	ps := &PerSelectorPolicy{}
 	err := ps.mergeRedirect(ps)
 	require.NoError(t, err)
-	require.Equal(t, "", ps.Listener)
+	require.Empty(t, ps.Listener)
 	require.Equal(t, ListenerPriority(0), ps.Priority)
 
 	// Listener reference remains when the other has none

@@ -406,7 +406,7 @@ func testServiceCache(t *testing.T,
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
 	require.False(t, serviceReady)
-	require.Equal(t, "", endpoints.String())
+	require.Empty(t, endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
 	updateEndpointsCB(svcCache, swgEps)
@@ -1256,7 +1256,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
 	require.False(t, serviceReady)
-	require.Equal(t, "", endpoints.String())
+	require.Empty(t, endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
@@ -1474,7 +1474,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
 	require.False(t, serviceReady)
-	require.Equal(t, "", endpoints.String())
+	require.Empty(t, endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
