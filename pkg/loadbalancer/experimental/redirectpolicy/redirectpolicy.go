@@ -126,8 +126,7 @@ func (lrp *LocalRedirectPolicy) TableHeader() []string {
 func (lrp *LocalRedirectPolicy) TableRow() []string {
 	mappings := make([]string, 0, len(lrp.FrontendMappings))
 	for _, feM := range lrp.FrontendMappings {
-		addr := feM.feAddr
-		mappings = append(mappings, fmt.Sprintf("%s:%d %s", addr.AddrCluster, addr.Port, addr.Protocol))
+		mappings = append(mappings, feM.feAddr.StringWithProtocol())
 	}
 	return []string{
 		lrp.ID.Namespace + "/" + lrp.ID.Name,
