@@ -206,7 +206,7 @@ jobs:
 
       - name: Install Gateway API CRDs
         run: |
-          gateway_api_version=$(grep "sigs.k8s.io/gateway-api" go.mod |  awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
           # Install Gateway CRDs
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gatewayclasses.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gateways.yaml
