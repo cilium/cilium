@@ -702,6 +702,7 @@ routingMode
 runnable
 runtimes
 sandboxing
+scaffoldings
 scalable
 scripttest
 sctl
@@ -793,6 +794,7 @@ tracepoints
 tracestate
 transpiling
 tsne
+tunables
 tunings
 tunnelProtocol
 txtar
