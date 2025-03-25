@@ -83,8 +83,7 @@ func benchmarkAllocate(b *testing.B) {
 	require.NotNil(b, a)
 	defer a.DeleteAllKeys()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, _, _, err := a.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
 		require.NoError(b, err)
 	}

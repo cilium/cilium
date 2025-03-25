@@ -29,8 +29,8 @@ func BenchmarkRingWrite(b *testing.B) {
 	entry := &v1.Event{}
 	s := NewRing(capacity(b.N))
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		s.Write(entry)
 	}
 }
@@ -40,12 +40,12 @@ func BenchmarkRingRead(b *testing.B) {
 	s := NewRing(capacity(b.N))
 	a := make([]*v1.Event, b.N)
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s.Write(entry)
 	}
-	b.ResetTimer()
+
 	lastWriteIdx := s.LastWriteParallel()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		a[i], _ = s.read(lastWriteIdx)
 		lastWriteIdx--
 	}
@@ -57,7 +57,7 @@ func BenchmarkTimeLibListRead(b *testing.B) {
 	a := make([]*v1.Event, b.N)
 	i := 0
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s.PushFront(entry)
 	}
 	b.ResetTimer()
@@ -72,12 +72,12 @@ func BenchmarkTimeLibRingRead(b *testing.B) {
 	a := make([]*v1.Event, b.N)
 	i := 0
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		s.Value = entry
 		s.Next()
 	}
-	s.Do(func(e interface{}) {
+	s.Do(func(e any) {
 		a[i], _ = e.(*v1.Event)
 		i++
 	})
@@ -140,7 +140,7 @@ func TestNewRing(t *testing.T) {
 			assert.Equal(t, uint64(0), r.Len())
 			assert.Equal(t, uint64(n), r.Cap())
 			// fill half the buffer
-			for j := 0; j < n/2; j++ {
+			for range n / 2 {
 				r.Write(&v1.Event{})
 			}
 			assert.Equal(t, uint64(n/2), r.Len())
@@ -152,7 +152,7 @@ func TestNewRing(t *testing.T) {
 			assert.Equal(t, uint64(n), r.Len())
 			assert.Equal(t, uint64(n), r.Cap())
 			// write more events
-			for j := 0; j < n; j++ {
+			for range n {
 				r.Write(&v1.Event{})
 			}
 			assert.Equal(t, uint64(n), r.Len())

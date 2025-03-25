@@ -107,8 +107,7 @@ func benchmarkGet(b *testing.B) {
 	key := testKey(prefix, 1)
 	require.NoError(b, Client().Update(context.TODO(), key, []byte(testValue(100)), false))
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := Client().Get(context.TODO(), key)
 		require.NoError(b, err)
 	}
@@ -126,8 +125,8 @@ func benchmarkSet(b *testing.B) {
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key, val := testKey(prefix, 1), testValue(100)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		require.NoError(b, Client().Update(context.TODO(), key, []byte(val), false))
 	}
 }

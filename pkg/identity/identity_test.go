@@ -499,7 +499,7 @@ func BenchmarkIPIdentityPair_PrefixString(b *testing.B) {
 	b.ResetTimer()
 	for _, tt := range cases {
 		b.Run(tt.name, func(bb *testing.B) {
-			for i := 0; i < bb.N; i++ {
+			for bb.Loop() {
 				_ = tt.pair.PrefixString()
 			}
 		})

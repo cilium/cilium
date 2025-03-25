@@ -25,7 +25,7 @@ func setup(tb testing.TB) {
 }
 
 func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
-	b.StopTimer()
+
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -37,9 +37,7 @@ func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
 		require.NoError(b, CleanupPerClusterCTMaps(true, true), "Failed to cleanup maps")
 	})
 
-	b.StartTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		require.NoError(b, om.createClusterCTMap(1), "Failed to create map")
 	}
 
@@ -47,7 +45,7 @@ func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
 }
 
 func BenchmarkPerClusterCTMapLookup(b *testing.B) {
-	b.StopTimer()
+
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -61,10 +59,8 @@ func BenchmarkPerClusterCTMapLookup(b *testing.B) {
 
 	require.NoError(b, om.createClusterCTMap(1), "Failed to create map")
 
-	b.StartTimer()
-
 	key := &PerClusterCTMapKey{1}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := om.Lookup(key)
 		require.NoError(b, err, "Failed to lookup element")
 	}

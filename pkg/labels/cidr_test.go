@@ -234,7 +234,7 @@ func BenchmarkIPStringToLabel(b *testing.B) {
 	} {
 		b.Run(ip, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, err := IPStringToLabel(ip)
 				if err != nil {
 					b.Fatal(err)

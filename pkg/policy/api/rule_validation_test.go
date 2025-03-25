@@ -1374,8 +1374,8 @@ func BenchmarkCIDRSanitize(b *testing.B) {
 	cidr6 := CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		err := cidr4.sanitize()
 		if err != nil {
 			b.Fatal(err)

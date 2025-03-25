@@ -23,8 +23,8 @@ var (
 func runFilterBenchmark(b *testing.B, ff *flowpb.FlowFilter, events []*v1.Event) {
 	filterFuncs, err := BuildFilter(context.Background(), ff, DefaultFilters(hivetest.Logger(b)))
 	require.NoError(b, err)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, ev := range events {
 			filterFuncs.MatchOne(ev)
 		}
@@ -33,7 +33,7 @@ func runFilterBenchmark(b *testing.B, ff *flowpb.FlowFilter, events []*v1.Event)
 
 func duplicateEvent(ev *v1.Event, n int) []*v1.Event {
 	evs := make([]*v1.Event, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		evs[i] = matchingEvent
 	}
 	return evs

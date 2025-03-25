@@ -73,8 +73,8 @@ func TestPortRuleDNSSanitize(t *testing.T) {
 // cases, and allows good ones.
 func BenchmarkFQDNSelectorString(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, s := range []FQDNSelector{
 			{MatchName: "cilium.io"},
 			{MatchPattern: "[a-z]*.cilium.io"},

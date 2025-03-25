@@ -208,8 +208,7 @@ func BenchmarkAllocation(b *testing.B) {
 		L4Addr:      loadbalancer.L4Addr{Port: 0, Protocol: "UDP"},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		addr.L4Addr.Port = uint16(b.N)
 		_, err := AcquireID(addr, 0)
 		require.NoError(b, err)

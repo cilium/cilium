@@ -267,7 +267,6 @@ func BenchmarkParseLabel(b *testing.B) {
 	td := newTestData(hivetest.Logger(b))
 	repo := td.repo
 
-	b.ResetTimer()
 	var err error
 	var cntAdd, cntFound int
 
@@ -276,7 +275,7 @@ func BenchmarkParseLabel(b *testing.B) {
 		I := fmt.Sprintf("%d", i)
 		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}
 	}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for j := range 100 {
 			J := fmt.Sprintf("%d", j)
 			_, _, err = repo.mustAdd(api.Rule{

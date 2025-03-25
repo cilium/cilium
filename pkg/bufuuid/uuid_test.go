@@ -54,7 +54,7 @@ func BenchmarkUUIDGenerator(b *testing.B) {
 		b.Run(fmt.Sprintf("%d slots", slots), func(b *testing.B) {
 			var target uuid.UUID
 			uuider := newWith(rand.Reader, slots)
-			for range b.N {
+			for b.Loop() {
 				uuider.NewInto(&target)
 			}
 		})

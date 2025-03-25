@@ -586,8 +586,6 @@ func BenchmarkManager(b *testing.B) {
 	tlog := hivetest.Logger(b)
 	assert.NoError(b, hive.Start(tlog, context.Background()))
 
-	b.ResetTimer()
-
 	numEntries := 1000
 
 	toNetIP := func(i int) netip.Addr {
@@ -596,8 +594,8 @@ func BenchmarkManager(b *testing.B) {
 		return netip.AddrFrom4(addr1)
 	}
 
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < numEntries; i++ {
+	for b.Loop() {
+		for i := range numEntries {
 			ip := toNetIP(i)
 			mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, ip)
 		}

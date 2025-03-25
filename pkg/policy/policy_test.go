@@ -65,8 +65,8 @@ func TestSearchContextString(t *testing.T) {
 
 func BenchmarkSearchContextString(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, sc := range []SearchContext{
 			{
 				Trace: 1,
