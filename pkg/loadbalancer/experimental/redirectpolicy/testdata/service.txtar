@@ -81,55 +81,83 @@ test/lrp-svc:local-redirect   k8s
 -- frontends-before.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
 169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.1.1:7070/UDP                                 Done
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done 
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done
+[1001::1]:7070/UDP         ClusterIP   test/echo     udp                                                            Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp                                                            Done
 
 -- frontends.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
 169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
 169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
-
-
+[1001::1]:7070/UDP         ClusterIP   test/echo     udp        [2001::1]:70/UDP      test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect   Done
 -- frontends-no-tcp-redirect.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
 169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done 
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done
+[1001::1]:7070/UDP         ClusterIP   test/echo     udp        [2001::1]:70/UDP      test/lrp-svc:local-redirect   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp                                                            Done
 
 -- maps-before.expected --
 BE: ID=1 ADDR=10.244.1.1:7070/UDP STATE=active
 BE: ID=2 ADDR=10.244.1.1:8080/TCP STATE=active
 REV: ID=1 ADDR=169.254.169.254:7070
 REV: ID=2 ADDR=169.254.169.254:8080
+REV: ID=3 ADDR=[1001::1]:7070
+REV: ID=4 ADDR=[1001::1]:8080
 SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=[1001::1]:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- maps.expected --
 BE: ID=3 ADDR=10.244.2.1:70/UDP STATE=active
 BE: ID=4 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=5 ADDR=[2001::1]:70/UDP STATE=active
+BE: ID=6 ADDR=[2001::1]:80/TCP STATE=active
 REV: ID=1 ADDR=169.254.169.254:7070
 REV: ID=2 ADDR=169.254.169.254:8080
+REV: ID=3 ADDR=[1001::1]:7070
+REV: ID=4 ADDR=[1001::1]:8080
 SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=1 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=[1001::1]:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=[1001::1]:7070/UDP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=4 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-readded.expected --
-BE: ID=7 ADDR=10.244.2.1:70/UDP STATE=active
-BE: ID=8 ADDR=10.244.2.1:80/TCP STATE=active
-REV: ID=3 ADDR=169.254.169.254:7070
-REV: ID=4 ADDR=169.254.169.254:8080
-SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+BE: ID=10 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=11 ADDR=[2001::1]:70/UDP STATE=active
+BE: ID=12 ADDR=[2001::1]:80/TCP STATE=active
+BE: ID=9 ADDR=10.244.2.1:70/UDP STATE=active
+REV: ID=5 ADDR=169.254.169.254:7070
+REV: ID=6 ADDR=169.254.169.254:8080
+REV: ID=7 ADDR=[1001::1]:7070
+REV: ID=8 ADDR=[1001::1]:8080
+SVC: ID=5 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=5 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=6 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=6 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=10 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=7 ADDR=[1001::1]:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=7 ADDR=[1001::1]:7070/UDP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=8 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=8 ADDR=[1001::1]:8080/TCP SLOT=1 BEID=12 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 -- maps-after.expected --
-BE: ID=11 ADDR=10.244.1.1:7070/UDP STATE=active
-BE: ID=12 ADDR=10.244.1.1:8080/TCP STATE=active
-REV: ID=3 ADDR=169.254.169.254:7070
-REV: ID=4 ADDR=169.254.169.254:8080
-SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=3 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=4 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=12 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+BE: ID=16 ADDR=10.244.1.1:7070/UDP STATE=active
+BE: ID=17 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=5 ADDR=169.254.169.254:7070
+REV: ID=6 ADDR=169.254.169.254:8080
+REV: ID=7 ADDR=[1001::1]:7070
+REV: ID=8 ADDR=[1001::1]:8080
+SVC: ID=5 ADDR=169.254.169.254:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=169.254.169.254:7070/UDP SLOT=1 BEID=16 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=17 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=[1001::1]:7070/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=8 ADDR=[1001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- lrp-svc.yaml --
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy
@@ -180,6 +208,7 @@ status:
   podIP: 10.244.2.1
   podIPs:
   - ip: 10.244.2.1
+  - ip: 2001::1
   qosClass: BestEffort
   startTime: "2024-07-10T16:20:42Z"
   conditions:
@@ -198,11 +227,13 @@ spec:
   clusterIP: 169.254.169.254
   clusterIPs:
   - 169.254.169.254
+  - 1001::1
   externalTrafficPolicy: Cluster
   internalTrafficPolicy: Cluster
   ipFamilies:
   - IPv4
-  ipFamilyPolicy: SingleStack
+  - IPv6
+  ipFamilyPolicy: DualStack
   ports:
   - name: tcp
     port: 8080
@@ -212,7 +243,6 @@ spec:
     port: 7070
     protocol: UDP
     targetPort: 7070
-    
   selector:
     name: echo
   sessionAffinity: None

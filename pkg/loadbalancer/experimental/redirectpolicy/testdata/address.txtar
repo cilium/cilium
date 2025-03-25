@@ -1,48 +1,53 @@
 hive start
 db/initialized
 
-# Add a pod and an address-based redirection
+# Add a pod and an address-based redirection. Add IPv4 first then
+# IPv6 for consistent ordering.
 k8s/add pod.yaml lrp-addr.yaml
 
-# Check tables
+# Wait for the IPv4 frontend
+db/show frontends
+* stdout '169.254.169.254:8080/TCP.*10.244.2.1:80/TCP.*Done'
+
+# Then add IPv6 and check tables
+k8s/add lrp-addr-ipv6.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table
 
-# Maps should have the created frontend: 169.254.169.254 => 10.244.2.1
+# Maps should have the created frontends:
+# 169.254.169.254 => 10.244.2.1
+# 2001::1 => 2002::2
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
 # Deleting the LRP cleans up the tables.
-k8s/delete lrp-addr.yaml
-db/cmp services services-empty.table
-db/cmp frontends frontends-empty.table
+k8s/delete lrp-addr.yaml lrp-addr-ipv6.yaml
 
-# Maps should now be empty.
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
 * lb/maps-empty
 
 -- lrp.table --
-Name           Type     FrontendType      Frontends
-test/lrp-addr  address  addr-single-port  169.254.169.254:8080 TCP
-
--- services-empty.table --
-Name                          Source
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-single-port  169.254.169.254:8080/TCP
+test/lrp-addr-ipv6 address  addr-single-port  [2001::1]:8080/TCP
 
 -- services.table --
-Name                          Source
-test/lrp-addr:local-redirect  k8s   
-
--- frontends-empty.table --
-Address                    Type        ServiceName
+Name                              Source
+test/lrp-addr-ipv6:local-redirect k8s
+test/lrp-addr:local-redirect      k8s   
 
 -- frontends.table --
-Address                    Type          ServiceName                    Backends            RedirectTo  Status
-169.254.169.254:8080/TCP   LocalRedirect test/lrp-addr:local-redirect   10.244.2.1:80/TCP               Done
+Address                    Type          ServiceName                       Backends            RedirectTo  Status
+169.254.169.254:8080/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:80/TCP               Done
+[2001::1]:8080/TCP         LocalRedirect test/lrp-addr-ipv6:local-redirect [2002::2]:80/TCP                Done
 
 -- backends.table --
 Address             Instances
-10.244.2.1:80/TCP   test/lrp-addr:local-redirect (tcp)
+10.244.2.1:80/TCP   test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
+[2002::2]:80/TCP    test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
 
 -- lrp-addr.yaml --
 apiVersion: "cilium.io/v2"
@@ -54,6 +59,27 @@ spec:
   redirectFrontend:
     addressMatcher:
       ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- lrp-addr-ipv6.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-ipv6"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "2001::1"
       toPorts:
         - port: "8080"
           protocol: TCP
@@ -89,6 +115,7 @@ status:
   podIP: 10.244.2.1
   podIPs:
   - ip: 10.244.2.1
+  - ip: 2002::2
   qosClass: BestEffort
   startTime: "2024-07-10T16:20:42Z"
   conditions:
@@ -99,6 +126,10 @@ status:
 
 -- maps.expected --
 BE: ID=1 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=2 ADDR=[2002::2]:80/TCP STATE=active
 REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[2001::1]:8080
 SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
