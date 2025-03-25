@@ -41,6 +41,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 	var wg sync.WaitGroup
 	wg.Add(len(mirrorPods))
 
+  timeVal := time.Now()
 	for _, mirrorPod := range mirrorPods {
 		go func(mirrorPod MirroredBackend) {
 			defer wg.Done()
@@ -50,7 +51,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 
 				tlog.Log(t, "Searching for the mirrored request log")
 				tlog.Logf(t, `Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
-				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset, time.Now())
+				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset, timeVal)
 				if err != nil {
 					tlog.Logf(t, `Couldn't read "%s/%s" logs: %v`, mirrorPod.Namespace, mirrorPod.Name, err)
 					return false
