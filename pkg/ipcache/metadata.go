@@ -18,6 +18,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -84,6 +85,11 @@ type metadata struct {
 	// clusterID, in order to find descendants efficiently.
 	prefixes *bitlpm.CIDRTrieMap[clusterID, struct{}]
 
+	// prefixRefCounter keeps a reference count of all prefixes that come from
+	// policy resources, as an optimization, in order to avoid redundantly
+	// storing all prefixes from policies.
+	prefixRefCounter counter.Counter[cmtypes.PrefixCluster]
+
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
 	// 'queuedPrefixes'. Each time label injection is triggered, it will
@@ -117,10 +123,11 @@ type metadata struct {
 
 func newMetadata() *metadata {
 	return &metadata{
-		m:              make(map[cmtypes.PrefixCluster]prefixInfo),
-		prefixes:       bitlpm.NewCIDRTrieMap[clusterID, struct{}](),
-		queuedPrefixes: make(map[cmtypes.PrefixCluster]struct{}),
-		queuedRevision: 1,
+		m:                make(map[cmtypes.PrefixCluster]prefixInfo),
+		prefixes:         bitlpm.NewCIDRTrieMap[clusterID, struct{}](),
+		prefixRefCounter: make(counter.Counter[cmtypes.PrefixCluster]),
+		queuedPrefixes:   make(map[cmtypes.PrefixCluster]struct{}),
+		queuedRevision:   1,
 
 		injectedRevisionCond: sync.NewCond(&lock.Mutex{}),
 
