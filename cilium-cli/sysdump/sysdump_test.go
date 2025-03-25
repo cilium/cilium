@@ -228,7 +228,7 @@ func TestListCiliumEndpointSlices(t *testing.T) {
 
 	endpointSlices, err := client.ListCiliumEndpointSlices(context.Background(), metav1.ListOptions{})
 	assert.NoError(err)
-	assert.GreaterOrEqual(len(endpointSlices.Items), 0)
+	assert.NotEmpty(endpointSlices.Items)
 }
 
 func TestFilterPods(t *testing.T) {

@@ -113,7 +113,6 @@ linters:
         - float-compare
         - go-require
         - require-error
-        - useless-assert
   exclusions:
     generated: lax
     presets:
