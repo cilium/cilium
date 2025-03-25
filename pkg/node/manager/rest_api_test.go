@@ -346,7 +346,7 @@ func Test_getNodesHandle(t *testing.T) {
 			clients:     args.clients,
 		}
 		responder := h.Handle(args.params)
-		require.Equal(t, len(want.clients), len(h.clients))
+		require.Len(t, h.clients, len(want.clients))
 		for k, v := range h.clients {
 			wantClient, ok := want.clients[k]
 			require.True(t, ok)

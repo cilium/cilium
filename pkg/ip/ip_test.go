@@ -322,7 +322,7 @@ func TestNetsByRange(t *testing.T) {
 		createIPRange("10.0.0.0", "10.255.255.255")}
 	sort.Sort(NetsByRange(ranges))
 	// Ensure that length of ranges isn't modified first.
-	require.Equal(t, len(expectedRanges), len(ranges))
+	require.Len(t, ranges, len(expectedRanges))
 	for k := range ranges {
 		checkRangesEqual(ranges[k], expectedRanges[k], t)
 	}
@@ -333,7 +333,7 @@ func TestNetsByRange(t *testing.T) {
 		createIPRange("10.255.255.254", "10.255.255.255")}
 	sort.Sort(NetsByRange(ranges))
 	// Ensure that length of ranges isn't modified first.
-	require.Equal(t, len(expectedRanges), len(ranges))
+	require.Len(t, ranges, len(expectedRanges))
 	for k := range ranges {
 		checkRangesEqual(ranges[k], expectedRanges[k], t)
 	}
@@ -494,7 +494,7 @@ func TestRangeToCIDRs(t *testing.T) {
 	// Sort both so we can compare easily
 	sort.Sort(NetsByMask(expected))
 	sort.Sort(NetsByMask(ipNets))
-	require.Equal(t, len(expected), len(ipNets))
+	require.Len(t, ipNets, len(expected))
 }
 
 func TestPreviousIP(t *testing.T) {

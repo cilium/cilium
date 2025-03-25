@@ -167,21 +167,21 @@ func TestReadMetricConfigFromCM(t *testing.T) {
 func assertMetricConfig(t *testing.T, expected, actual api.MetricConfig) {
 	assert.Equal(t, expected.Name, actual.Name)
 
-	assert.Equal(t, len(expected.ContextOptionConfigs), len(actual.ContextOptionConfigs))
+	assert.Len(t, actual.ContextOptionConfigs, len(expected.ContextOptionConfigs))
 	for i, c := range expected.ContextOptionConfigs {
-		assert.Equal(t, len(expected.ContextOptionConfigs[i].Values), len(actual.ContextOptionConfigs[i].Values))
+		assert.Len(t, actual.ContextOptionConfigs[i].Values, len(expected.ContextOptionConfigs[i].Values))
 		assert.Equal(t, expected.ContextOptionConfigs[i].Name, actual.ContextOptionConfigs[i].Name)
 		for j, s := range c.Values {
 			assert.Equal(t, expected.ContextOptionConfigs[i].Values[j], s)
 		}
 	}
 
-	assert.Equal(t, len(expected.IncludeFilters), len(actual.IncludeFilters))
+	assert.Len(t, actual.IncludeFilters, len(expected.IncludeFilters))
 	for i := range expected.IncludeFilters {
 		assert.Equal(t, expected.IncludeFilters[i].String(), actual.IncludeFilters[i].String())
 	}
 
-	assert.Equal(t, len(expected.ExcludeFilters), len(actual.ExcludeFilters))
+	assert.Len(t, actual.ExcludeFilters, len(expected.ExcludeFilters))
 	for i := range expected.ExcludeFilters {
 		assert.Equal(t, expected.ExcludeFilters[i].String(), actual.ExcludeFilters[i].String())
 	}
@@ -235,7 +235,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 
 func assertHandlersInDfp(t *testing.T, dfp *DynamicFlowProcessor, cfg *api.Config) {
 	names := cfg.GetMetricNames()
-	assert.Equal(t, len(names), len(dfp.Metrics))
+	assert.Len(t, dfp.Metrics, len(names))
 	for _, m := range dfp.Metrics {
 		_, ok := names[m.Name]
 		assert.True(t, ok)

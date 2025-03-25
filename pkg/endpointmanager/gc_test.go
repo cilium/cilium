@@ -44,18 +44,18 @@ func TestMarkAndSweep(t *testing.T) {
 		err := mgr.expose(ep)
 		require.NoError(t, err)
 	}
-	require.Equal(t, len(allEndpointIDs), len(mgr.GetEndpoints()))
+	require.Len(t, mgr.GetEndpoints(), len(allEndpointIDs))
 
 	// Two-phase mark and sweep: Mark should not yet delete any endpoints.
 	err := mgr.markAndSweep(ctx)
 	require.True(t, mgr.EndpointExists(endpointIDToDelete))
 	require.NoError(t, err)
-	require.Equal(t, len(allEndpointIDs), len(mgr.GetEndpoints()))
+	require.Len(t, mgr.GetEndpoints(), len(allEndpointIDs))
 
 	// Second phase: endpoint should be marked now and we should only sweep
 	// that particular endpoint.
 	err = mgr.markAndSweep(ctx)
 	require.False(t, mgr.EndpointExists(endpointIDToDelete))
 	require.NoError(t, err)
-	require.Equal(t, len(healthyEndpointIDs), len(mgr.GetEndpoints()))
+	require.Len(t, mgr.GetEndpoints(), len(healthyEndpointIDs))
 }
