@@ -327,6 +327,8 @@ Deprecated Options
 * The flag ``--enable-session-affinity`` has been deprecated and will be removed in Cilium 1.19.
   The Session Affinity feature will be unconditionally enabled. Also, in Cilium 1.18, the
   feature is enabled by default.
+* The custom calls feature (``--enable-custom-calls``) has been deprecated, and will
+  be removed in Cilium 1.19.
 
 Helm Options
 ~~~~~~~~~~~~
