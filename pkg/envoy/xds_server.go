@@ -935,13 +935,18 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup) xds.Acki
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, zeroLinger bool) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
+	}
+
+	if zeroLinger {
+		var zero uint32
+		conf.OriginalSourceSoLingerTime = &zero
 	}
 
 	return &envoy_config_listener.ListenerFilter{
@@ -975,7 +980,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port, kind == policy.ParserTypeHTTP),
 		},
 	}
 
