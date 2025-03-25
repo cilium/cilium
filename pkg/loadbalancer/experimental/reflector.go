@@ -364,7 +364,19 @@ func (rh *reflectorHealth) report() {
 var (
 	zeroV4 = cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
+
+	ingressDummyAddress = cmtypes.MustParseAddrCluster("192.192.192.192")
+	ingressDummyPort    = uint16(9999)
 )
+
+func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
+	// The ingress and gateway-api controllers (operator/pkg/model/translation/{gateway-api,ingress}) create
+	// a dummy endpoint to force Cilium to reconcile the service. This is no longer required with this new
+	// control-plane, but due to rolling upgrades we cannot remove it immediately. Hence we have the
+	// special handlind here to just ignore this endpoint to avoid populating the tables with unnecessary
+	// data.
+	return l3n4Addr.AddrCluster.Equal(ingressDummyAddress) && l3n4Addr.Port == ingressDummyPort
+}
 
 func isHeadless(svc *slim_corev1.Service) bool {
 	_, headless := svc.Labels[corev1.IsHeadlessService]
@@ -662,6 +674,9 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 				AddrCluster: addrCluster,
 				L4Addr:      *l4Addr,
 			}
+			if isIngressDummyEndpoint(l3n4Addr) {
+				continue
+			}
 			portNames := entries[l3n4Addr].portNames
 			if portName != "" {
 				portNames = append(portNames, portName)
@@ -673,6 +688,7 @@ func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.
 		}
 	}
 	for l3n4Addr, entry := range entries {
+
 		state := loadbalancer.BackendStateActive
 		if entry.backend.Terminating {
 			state = loadbalancer.BackendStateTerminating
