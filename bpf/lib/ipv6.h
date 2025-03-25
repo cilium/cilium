@@ -35,6 +35,7 @@
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
 
+/* Follows the structure of ipv6hdr, see ipv6_handle_fragmentation. */
 struct ipv6_frag_id {
 	__be32 id;		/* L4 datagram identifier */
 	__u8 proto;
@@ -352,26 +353,41 @@ ipv6_handle_fragmentation(struct __ctx_buff *ctx,
 			  enum ct_dir ct_dir,
 			  struct ipv6_frag_l4ports *ports)
 {
-	struct ipv6_frag_id frag_id __align_stack_8 = {
-		.id = ipfrag_get_id(fraginfo),
-		.proto = ipfrag_get_protocol(fraginfo),
-	};
-	ipv6_addr_copy(&frag_id.daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&frag_id.saddr, (union v6addr *)&ip6->saddr);
+	/* frag_id and ip6 have saddr and daddr at the same offset, which allows
+	 * to spare a bit of stack space and save a copy of 32 bytes.
+	 */
+	union {
+		__u64 diff;
+		struct ipv6_frag_id frag_id;
+		struct ipv6hdr ip6;
+	} *u = (void *)ip6;
+	__u64 backup = u->diff;
+	int ret = 0;
 
-	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
-		return ipv6_frag_get_l4ports(&frag_id, ports);
+	u->diff = 0; /* Clear the padding. */
+	u->frag_id.id = ipfrag_get_id(fraginfo);
+	u->frag_id.proto = ipfrag_get_protocol(fraginfo);
+	/* saddr and daddr are already there. */
 
-	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0)
-		return DROP_CT_INVALID_HDR;
+	if (unlikely(!ipfrag_has_l4_header(fraginfo))) {
+		ret = ipv6_frag_get_l4ports(&u->frag_id, ports);
+		goto out;
+	}
+
+	if (l4_load_ports(ctx, l4_off, (__be16 *)ports) < 0) {
+		ret = DROP_CT_INVALID_HDR;
+		goto out;
+	}
 
 	if (unlikely(ipfrag_is_fragment(fraginfo))) {
-		if (map_update_elem(&cilium_ipv6_frag_datagrams, &frag_id, ports, BPF_ANY))
+		if (map_update_elem(&cilium_ipv6_frag_datagrams, &u->frag_id, ports, BPF_ANY))
 			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
 				       REASON_FRAG_PACKET_UPDATE);
 	}
 
-	return 0;
+out:
+	u->diff = backup;
+	return ret;
 }
 #endif
 
