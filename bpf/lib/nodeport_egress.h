@@ -11,6 +11,10 @@
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
 #elif defined(IS_BPF_WIREGUARD)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_CRYPTO
+/* handle_nat_fwd is always called with revdnat_only = true. Don't compile
+ * tail_handle_snat_fwd_ipv6 which is prone to stack overflows in this config.
+ */
+#define NODEPORT_EGRESS_REVDNAT_ONLY
 #elif defined(IS_BPF_HOST)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_NETWORK
 #else
@@ -123,6 +127,7 @@ out:
 	return ret;
 }
 
+#if !defined(NODEPORT_EGRESS_REVDNAT_ONLY)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -151,6 +156,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif
 
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
@@ -232,6 +238,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 	if (ret != CTX_ACT_OK || revdnat_only)
 		return ret;
 
+#if !defined(NODEPORT_EGRESS_REVDNAT_ONLY)
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
@@ -244,6 +251,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);
+#endif
 
 	return ret;
 }
