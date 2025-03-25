@@ -505,6 +505,7 @@ type MU struct {
 	Source   source.Source
 	Resource ipcacheTypes.ResourceID
 	Metadata []IPMetadata
+	IsCIDR   bool
 }
 
 // UpsertMetadata upserts a given IP and some corresponding information into
@@ -524,7 +525,9 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Add(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -553,7 +556,9 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Delete(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -573,7 +578,12 @@ func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, r
 	ipc.metadata.Lock()
 	affectedPrefixed := make([]netip.Prefix, 0, len(prefixes))
 	for _, p := range prefixes {
-		affectedPrefixed = append(affectedPrefixed, ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))...)
+		if ipc.metadata.prefixRefCounter.Add(p) {
+			// De-dup the resources into a single hardcoded resource
+			// representing each individual prefix, which could appear across
+			// many different policies (aka resources).
+			affectedPrefixed = append(affectedPrefixed, ipc.metadata.upsertLocked(p, src, ipcacheTypes.ResourceID("consolidate-"+p.String()), labels.GetCIDRLabels(p))...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(affectedPrefixed...)
@@ -596,7 +606,9 @@ func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, r
 	ipc.metadata.Lock()
 	affectedPrefixes := make([]netip.Prefix, 0, len(prefixes))
 	for _, p := range prefixes {
-		affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))...)
+		if ipc.metadata.prefixRefCounter.Delete(p) {
+			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(p, ipcacheTypes.ResourceID("consolidate-"+p.String()), labels.GetCIDRLabels(p))...)
+		}
 	}
 	ipc.metadata.Unlock()
 	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)

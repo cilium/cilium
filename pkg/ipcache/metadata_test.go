@@ -7,15 +7,21 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand/v2"
+	"net"
 	"net/netip"
+	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8srand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1364,4 +1370,113 @@ func BenchmarkFindAffectedChildPrefixes(b *testing.B) {
 			}
 		})
 	}
+}
+
+func BenchmarkManyCIDREntries(b *testing.B) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
+
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	PolicyHandler = newMockUpdater()
+	IPIdentityCache = NewIPCache(&Configuration{
+		IdentityAllocator: allocator,
+		PolicyHandler:     PolicyHandler,
+		DatapathHandler:   &mockTriggerer{},
+	})
+	IPIdentityCache.metadata = newMetadata()
+
+	cidrs := generateUniqueCIDRs(1000)
+	cidrLabels := make(map[netip.Prefix]labels.Labels, len(cidrs))
+	for _, v := range cidrs {
+		cidrLabels[v] = labels.GetCIDRLabels(v)
+	}
+	half := len(cidrs) / 2
+	removeHalf := cidrs[:half]
+	insertHalf := cidrs[half:]
+
+	revsLen := 1024
+	revs := make([]uint64, 0, revsLen)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 1; i <= b.N; i++ {
+		mu := make([]MU, 0, len(cidrLabels))
+		for cidr, lbls := range cidrLabels {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{lbls},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+
+	for i := 1; i <= b.N; i++ {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range removeHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{labels.Labels{}},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.RemoveMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+
+	for i := 1; i <= b.N; i++ {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range insertHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{cidrLabels[cidr]},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+}
+
+// generateUniqueCIDRs generates a specified number of unique CIDRs.
+func generateUniqueCIDRs(n int) []netip.Prefix {
+	k8srand.Seed(time.Now().UnixNano())
+
+	unique := sets.New[netip.Prefix]()
+	for unique.Len() < n {
+		// Generate a random IP address
+		ip := net.IPv4(
+			byte(k8srand.Intn(256)),
+			byte(k8srand.Intn(256)),
+			byte(k8srand.Intn(256)),
+			byte(k8srand.Intn(256)),
+		)
+
+		// Generate a random subnet mask (between 16 and 31)
+		cidr := ip.String() + "/" + strconv.Itoa(k8srand.Intn(15)+17)
+		unique = unique.Insert(netip.MustParsePrefix(cidr))
+	}
+
+	return slices.Collect(maps.Keys(unique))
 }
