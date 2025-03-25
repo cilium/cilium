@@ -18,7 +18,7 @@ func TestNewEventQueue(t *testing.T) {
 	require.NotNil(t, q.close)
 	require.NotNil(t, q.events)
 	require.NotNil(t, q.drain)
-	require.Equal(t, "", q.name)
+	require.Empty(t, q.name)
 	require.Equal(t, 1, cap(q.events))
 }
 

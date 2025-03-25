@@ -253,7 +253,7 @@ func TestLabel(t *testing.T) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	require.NoError(t, err)
 	require.Equal(t, LabelSourceUnspec, label.Source)
-	require.Equal(t, "", label.Value)
+	require.Empty(t, label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)

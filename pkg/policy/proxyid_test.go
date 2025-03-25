@@ -19,7 +19,7 @@ func TestProxyID(t *testing.T) {
 	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, "", listener)
+	require.Empty(t, listener)
 	require.NoError(t, err)
 
 	id = ProxyID(321, false, "TCP", uint16(80), "myListener")
