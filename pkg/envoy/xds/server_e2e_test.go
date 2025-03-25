@@ -499,7 +499,7 @@ func TestRequestSomeResources(t *testing.T) {
 	rsrc, err = cache.Lookup(typeURL, resources[2].Name)
 	require.NoError(t, err)
 	require.NotNil(t, rsrc)
-	require.EqualValues(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
+	require.Equal(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 

@@ -18,7 +18,7 @@ func TestMeta_UnMarshalBinary(t *testing.T) {
 	err = meta2.UnmarshalBinary(buf)
 	require.NoError(t, err)
 
-	require.EqualValues(t, meta2, meta1)
+	require.Equal(t, meta2, meta1)
 }
 
 func TestPayload_UnMarshalBinary(t *testing.T) {
@@ -35,5 +35,5 @@ func TestPayload_UnMarshalBinary(t *testing.T) {
 	err = payload2.Decode(buf)
 	require.NoError(t, err)
 
-	require.EqualValues(t, payload2, payload1)
+	require.Equal(t, payload2, payload1)
 }

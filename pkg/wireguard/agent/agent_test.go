@@ -304,8 +304,8 @@ func TestAgent_PeerConfig(t *testing.T) {
 
 			k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 			require.NotNil(t, k8s1)
-			require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
-			require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+			require.Equal(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+			require.Equal(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 			require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 			c.CheckExpectations(assertAllowedIPs) // checks entry 1
 
@@ -371,13 +371,13 @@ func TestAgent_PeerConfig(t *testing.T) {
 			<-ipCacheUpdated
 
 			k8s1 = wgAgent.peerByNodeName[k8s1NodeName]
-			require.EqualValues(t, k8s1NodeIPv4, k8s1.nodeIPv4)
-			require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
+			require.Equal(t, k8s1NodeIPv4, k8s1.nodeIPv4)
+			require.Equal(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 			require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 
 			k8s2 := wgAgent.peerByNodeName[k8s2NodeName]
-			require.EqualValues(t, k8s2NodeIPv4, k8s2.nodeIPv4)
-			require.EqualValues(t, k8s2NodeIPv6, k8s2.nodeIPv6)
+			require.Equal(t, k8s2NodeIPv4, k8s2.nodeIPv4)
+			require.Equal(t, k8s2NodeIPv6, k8s2.nodeIPv6)
 			require.Equal(t, k8s2PubKey, k8s2.pubKey.String())
 			c.CheckExpectations(assertAllowedIPs) // checks entry 2
 

@@ -44,12 +44,12 @@ func TestToIPCommand(t *testing.T) {
 		expRes := fmt.Sprintf("ip %sroute add %s/%d via %s dev %s", v6,
 			r.Prefix.IP.String(), masklen, r.Nexthop.String(), dev)
 		result := strings.Join(r.ToIPCommand(dev), " ")
-		require.EqualValues(t, expRes, result)
+		require.Equal(t, expRes, result)
 
 		r.Nexthop = nil
 		expRes = fmt.Sprintf("ip %sroute add %s/%d dev %s", v6,
 			r.Prefix.IP.String(), masklen, dev)
 		result = strings.Join(r.ToIPCommand(dev), " ")
-		require.EqualValues(t, expRes, result)
+		require.Equal(t, expRes, result)
 	}
 }

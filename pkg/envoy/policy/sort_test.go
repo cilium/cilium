@@ -81,7 +81,7 @@ func TestSortHeaderMatchers(t *testing.T) {
 		HeaderMatcher4,
 	}
 	SortHeaderMatchers(slice)
-	require.EqualValues(t, expected, slice)
+	require.Equal(t, expected, slice)
 }
 
 var HTTPNetworkPolicyRule1 = &cilium.HttpNetworkPolicyRule{}
@@ -114,7 +114,7 @@ func TestSortHttpNetworkPolicyRules(t *testing.T) {
 		HTTPNetworkPolicyRule4,
 	}
 	SortHTTPNetworkPolicyRules(slice)
-	require.EqualValues(t, expected, slice)
+	require.Equal(t, expected, slice)
 }
 
 var PortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
@@ -202,7 +202,7 @@ func TestSortPortNetworkPolicyRules(t *testing.T) {
 		PortNetworkPolicyRule7,
 	}
 	SortPortNetworkPolicyRules(slice)
-	require.EqualValues(t, expected, slice)
+	require.Equal(t, expected, slice)
 }
 
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{
@@ -269,5 +269,5 @@ func TestSortPortNetworkPolicies(t *testing.T) {
 		PortNetworkPolicy6,
 	}
 	SortPortNetworkPolicies(slice)
-	require.EqualValues(t, expected, slice)
+	require.Equal(t, expected, slice)
 }

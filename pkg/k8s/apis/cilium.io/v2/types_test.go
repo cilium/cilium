@@ -316,7 +316,7 @@ func TestParseSpec(t *testing.T) {
 	rules, err := expectedPolicyRule.Parse(logger)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
-	require.EqualValues(t, *expectedSpecRule, *rules[0])
+	require.Equal(t, *expectedSpecRule, *rules[0])
 
 	b, err := json.Marshal(expectedPolicyRule)
 	require.NoError(t, err)
@@ -324,12 +324,12 @@ func TestParseSpec(t *testing.T) {
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
 	expectedPolicyRuleUnmarshalled.Parse(logger)
-	require.EqualValues(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
+	require.Equal(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	require.NoError(t, err)
-	require.EqualValues(t, *expectedPolicyRuleWithLabel, cnpl)
+	require.Equal(t, *expectedPolicyRuleWithLabel, cnpl)
 
 	empty := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -409,7 +409,7 @@ func TestParseRules(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 2)
 	for i, rule := range rules {
-		require.EqualValues(t, expectedSpecRules[i], rule)
+		require.Equal(t, expectedSpecRules[i], rule)
 	}
 
 	b, err := json.Marshal(expectedPolicyRuleList)
@@ -418,12 +418,12 @@ func TestParseRules(t *testing.T) {
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
 	expectedPolicyRuleUnmarshalled.Parse(logger)
-	require.EqualValues(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
+	require.Equal(t, *expectedPolicyRuleList, expectedPolicyRuleUnmarshalled)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	require.NoError(t, err)
-	require.EqualValues(t, *expectedPolicyRuleListWithLabel, cnpl)
+	require.Equal(t, *expectedPolicyRuleListWithLabel, cnpl)
 }
 
 func TestParseWithNodeSelector(t *testing.T) {

@@ -73,7 +73,7 @@ func TestServices(t *testing.T) {
 	require.NoError(t, err)
 	wantL3n4AddrID.ID = loadbalancer.ID(ffsIDu16)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
-	require.EqualValues(t, wantL3n4AddrID, gotL3n4AddrID)
+	require.Equal(t, wantL3n4AddrID, gotL3n4AddrID)
 
 	err = DeleteID(FirstFreeServiceID)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestServices(t *testing.T) {
 	require.NoError(t, err)
 	wantL3n4AddrID.ID = loadbalancer.ID(FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
-	require.EqualValues(t, wantL3n4AddrID, gotL3n4AddrID)
+	require.Equal(t, wantL3n4AddrID, gotL3n4AddrID)
 
 	err = DeleteID(FirstFreeServiceID)
 	require.NoError(t, err)

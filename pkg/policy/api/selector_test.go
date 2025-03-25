@@ -65,7 +65,7 @@ func TestLabelSelectorToRequirements(t *testing.T) {
 	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 
-	require.EqualValues(t, &expRequirements, labelSelectorToRequirements(labelSelector))
+	require.Equal(t, &expRequirements, labelSelectorToRequirements(labelSelector))
 }
 
 func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {
