@@ -6,7 +6,11 @@ package ipcache
 import (
 	"context"
 	"fmt"
+	"maps"
+	"math/rand"
+	"net"
 	"net/netip"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -14,6 +18,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
@@ -1338,4 +1343,116 @@ func BenchmarkManyResources(b *testing.B) {
 		resource := types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy")
 		m.upsertLocked(prefix, source.Generated, resource, lbls)
 	}
+}
+
+func BenchmarkManyCIDREntries(b *testing.B) {
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
+
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	PolicyHandler = newMockUpdater()
+	IPIdentityCache = NewIPCache(&Configuration{
+		IdentityAllocator: allocator,
+		PolicyHandler:     PolicyHandler,
+		DatapathHandler:   &mockTriggerer{},
+	})
+	IPIdentityCache.metadata = newMetadata()
+
+	cidrs := generateUniqueCIDRs(1000)
+	cidrLabels := make(map[netip.Prefix]labels.Labels, len(cidrs))
+	for _, v := range cidrs {
+		cidrLabels[v] = labels.GetCIDRLabels(v)
+	}
+	half := len(cidrs) / 2
+	removeHalf := cidrs[:half]
+	insertHalf := cidrs[half:]
+
+	revsLen := 1024
+	revs := make([]uint64, 0, revsLen)
+	var i int
+
+	b.ReportAllocs()
+	b.StartTimer()
+	for range b.N {
+		mu := make([]MU, 0, len(cidrLabels))
+		for cidr, lbls := range cidrLabels {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{lbls},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+	i = 1
+
+	for range b.N {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range removeHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{labels.Labels{}},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.RemoveMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+	revsLen = len(revs)
+	revs = make([]uint64, 0, revsLen)
+	i = 1
+
+	for range b.N {
+		mu := make([]MU, 0, len(cidrLabels))
+		for _, cidr := range insertHalf {
+			mu = append(mu, MU{
+				Prefix:   cidr,
+				Source:   source.Generated,
+				Resource: types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy"),
+				Metadata: []IPMetadata{cidrLabels[cidr]},
+				IsCIDR:   true,
+			})
+		}
+		revs = append(revs, IPIdentityCache.UpsertMetadataBatch(mu...))
+		i++
+	}
+	for _, rev := range revs {
+		assert.NoError(b, IPIdentityCache.WaitForRevision(context.Background(), rev))
+	}
+}
+
+// generateUniqueCIDRs generates a specified number of unique CIDRs.
+func generateUniqueCIDRs(n int) []netip.Prefix {
+	rand.Seed(time.Now().UnixNano())
+
+	unique := sets.New[netip.Prefix]()
+	for unique.Len() < n {
+		// Generate a random IP address
+		ip := net.IPv4(
+			byte(rand.Intn(256)),
+			byte(rand.Intn(256)),
+			byte(rand.Intn(256)),
+			byte(rand.Intn(256)),
+		)
+
+		// Generate a random subnet mask (between 16 and 31)
+		cidr := ip.String() + "/" + strconv.Itoa(rand.Intn(15)+17)
+		unique = unique.Insert(netip.MustParsePrefix(cidr))
+	}
+
+	return slices.Collect(maps.Keys(unique))
 }

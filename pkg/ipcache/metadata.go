@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -77,6 +78,11 @@ type metadata struct {
 	// prefixes is a trie of prefixes, for finding descendants efficiently
 	prefixes *bitlpm.CIDRTrie[struct{}]
 
+	// prefixRefCounter keeps a reference count of all prefixes that come from
+	// policy resources, as an optimization, in order to avoid redundantly
+	// storing all prefixes from policies.
+	prefixRefCounter counter.Counter[netip.Prefix]
+
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
 	// 'queuedPrefixes'. Each time label injection is triggered, it will
@@ -110,10 +116,11 @@ type metadata struct {
 
 func newMetadata() *metadata {
 	return &metadata{
-		m:              make(map[netip.Prefix]prefixInfo),
-		prefixes:       bitlpm.NewCIDRTrie[struct{}](),
-		queuedPrefixes: make(map[netip.Prefix]struct{}),
-		queuedRevision: 1,
+		m:                make(map[netip.Prefix]prefixInfo),
+		prefixes:         bitlpm.NewCIDRTrie[struct{}](),
+		prefixRefCounter: make(counter.Counter[netip.Prefix]),
+		queuedPrefixes:   make(map[netip.Prefix]struct{}),
+		queuedRevision:   1,
 
 		injectedRevisionCond: sync.NewCond(&lock.Mutex{}),
 
