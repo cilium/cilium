@@ -90,8 +90,8 @@ func TestLabelArrayListEquals(t *testing.T) {
 }
 
 func TestLabelArrayListSort(t *testing.T) {
-	require.EqualValues(t, LabelArrayList(nil), LabelArrayList(nil).Sort())
-	require.EqualValues(t, LabelArrayList{}, LabelArrayList{}.Sort())
+	require.Equal(t, LabelArrayList(nil), LabelArrayList(nil).Sort())
+	require.Equal(t, LabelArrayList{}, LabelArrayList{}.Sort())
 
 	list1 := LabelArrayList{
 		{
@@ -136,7 +136,7 @@ func TestLabelArrayListSort(t *testing.T) {
 		},
 	}
 
-	require.EqualValues(t, expected1, list1.Sort())
+	require.Equal(t, expected1, list1.Sort())
 
 	list2 := LabelArrayList{
 		{
@@ -160,7 +160,7 @@ func TestLabelArrayListSort(t *testing.T) {
 			NewLabel("env", "devel", LabelSourceAny),
 		},
 	}
-	require.EqualValues(t, expected2, list2.Sort())
+	require.Equal(t, expected2, list2.Sort())
 }
 
 func TestModelsFromLabelArrayListString(t *testing.T) {
@@ -196,7 +196,7 @@ func TestModelsFromLabelArrayListString(t *testing.T) {
 
 	i := 0
 	for model := range ModelsFromLabelArrayListString(arrayList.String()) {
-		require.EqualValues(t, expected[i], model)
+		require.Equal(t, expected[i], model)
 		i++
 	}
 }
@@ -286,8 +286,8 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 		a := tc.a.DeepCopy()
 		b := tc.b.DeepCopy()
 		a.Merge(b...)
-		require.EqualValues(t, tc.expected, a, tc.name)
-		require.EqualValues(t, a.Sort(), a, tc.name+" returned unsorted result")
+		require.Equal(t, tc.expected, a, tc.name)
+		require.Equal(t, a.Sort(), a, tc.name+" returned unsorted result")
 
 		a = tc.a.DeepCopy().Sort()
 		b = tc.b.DeepCopy().Sort()
@@ -295,11 +295,11 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 		bs := b.String()
 
 		a.MergeSorted(b)
-		require.EqualValues(t, tc.expected, a, tc.name+" MergeSorted")
-		require.EqualValues(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
+		require.Equal(t, tc.expected, a, tc.name+" MergeSorted")
+		require.Equal(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
 
 		as = MergeSortedLabelArrayListStrings(as, bs)
-		require.EqualValues(t, tc.expected.String(), as, tc.name+" MergeSortedLabelArrayListStrings")
-		require.EqualValues(t, a.Sort().String(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
+		require.Equal(t, tc.expected.String(), as, tc.name+" MergeSortedLabelArrayListStrings")
+		require.Equal(t, a.Sort().String(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
 	}
 }

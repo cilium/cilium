@@ -195,7 +195,7 @@ func TestGeneratePatternTrailingDot(t *testing.T) {
 		return GeneratePattern(l7)
 
 	}
-	require.EqualValues(t, generatePattern(dns.FQDN(dnsPattern), dns.FQDN(dnsName)), generatePattern(dnsPattern, dnsName))
+	require.Equal(t, generatePattern(dns.FQDN(dnsPattern), dns.FQDN(dnsName)), generatePattern(dnsPattern, dnsName))
 
 }
 

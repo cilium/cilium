@@ -33,12 +33,12 @@ func TestMatches(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	require.EqualValues(t, LabelArray{}, ParseLabelArray())
-	require.EqualValues(t, LabelArray{ParseLabel("magic")}, ParseLabelArray("magic"))
+	require.Equal(t, LabelArray{}, ParseLabelArray())
+	require.Equal(t, LabelArray{ParseLabel("magic")}, ParseLabelArray("magic"))
 	// LabelArray is sorted
-	require.EqualValues(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")}, ParseLabelArray("c", "a", "b"))
+	require.Equal(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")}, ParseLabelArray("c", "a", "b"))
 	// NewLabelArrayFromSortedList
-	require.EqualValues(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c=d")}, NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
+	require.Equal(t, LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c=d")}, NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
 }
 
 func TestHas(t *testing.T) {

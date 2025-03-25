@@ -261,8 +261,8 @@ func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule 
 func TestJSONMarshal(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
 	model := &models.L4Policy{}
-	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Egress))
-	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Ingress))
+	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Egress))
+	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Ingress))
 
 	policy := L4Policy{
 		Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{

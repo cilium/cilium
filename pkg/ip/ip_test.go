@@ -29,7 +29,7 @@ func TestCountIPs(t *testing.T) {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		require.NoError(t, err)
 		count := CountIPsInCIDR(ipnet)
-		require.EqualValues(t, nIPs, count)
+		require.Equal(t, nIPs, count)
 	}
 }
 
@@ -529,48 +529,48 @@ func TestNextIP(t *testing.T) {
 	expectedNext := net.ParseIP("10.0.0.0")
 	ip := net.ParseIP("9.255.255.255")
 	nextIP := getNextIP(ip)
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	// Check that overflow does not occur.
 	ip = net.ParseIP("255.255.255.255")
 	nextIP = getNextIP(ip)
 	expectedNext = ip
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 	nextIP = getNextIP(ip)
 	expectedNext = ip
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = []byte{0xa, 0, 0, 0}
 	nextIP = getNextIP(ip)
 	expectedNext = []byte{0xa, 0, 0, 1}
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = []byte{0xff, 0xff, 0xff, 0xff}
 	nextIP = getNextIP(ip)
 	expectedNext = []byte{0xff, 0xff, 0xff, 0xff}
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("10.0.0.0")
 	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("10.0.0.1")
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("0:0:0:0:ffff:ffff:ffff:ffff")
 	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("0:0:0:1:0:0:0:0")
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:fffe:ffff:ffff:ffff:ffff")
 	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:0:0:0:0")
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")
 	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-	require.EqualValues(t, expectedNext, nextIP)
+	require.Equal(t, expectedNext, nextIP)
 }
 
 func TestCreateSpanningCIDR(t *testing.T) {
@@ -860,10 +860,10 @@ func TestIPVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := IsIPv4(tt.args.ip)
-		require.EqualValuesf(t, tt.v4, got, "v4 test Name: %s", tt.name)
+		require.Equalf(t, tt.v4, got, "v4 test Name: %s", tt.name)
 
 		got = IsIPv6(tt.args.ip)
-		require.EqualValuesf(t, tt.v6, got, "v6 test Name: %s", tt.name)
+		require.Equalf(t, tt.v6, got, "v6 test Name: %s", tt.name)
 	}
 }
 
@@ -903,7 +903,7 @@ func TestGetIPFromListByFamily(t *testing.T) {
 
 	for _, tt := range tests {
 		got := GetIPFromListByFamily(tt.ips, tt.needsV4Family)
-		require.EqualValuesf(t, tt.wants.String(), got.String(), "Test Name: %s", tt.name)
+		require.Equalf(t, tt.wants.String(), got.String(), "Test Name: %s", tt.name)
 	}
 }
 
@@ -981,7 +981,7 @@ func TestMustAddrsFromIPs(t *testing.T) {
 		},
 	} {
 		addrs := MustAddrsFromIPs(tt.ips)
-		require.EqualValues(t, tt.addrs, addrs)
+		require.Equal(t, tt.addrs, addrs)
 	}
 
 	nilIPs := []net.IP{nil}
@@ -998,7 +998,7 @@ func TestPrefixToIpsValidIPv4(t *testing.T) {
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func TestPrefixToIpsValidLimitedIPv4(t *testing.T) {
@@ -1006,7 +1006,7 @@ func TestPrefixToIpsValidLimitedIPv4(t *testing.T) {
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 4)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func TestPrefixToIpsValidIPv6(t *testing.T) {
@@ -1014,7 +1014,7 @@ func TestPrefixToIpsValidIPv6(t *testing.T) {
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func TestPrefixToIpsValidLimitedIPv6(t *testing.T) {
@@ -1022,7 +1022,7 @@ func TestPrefixToIpsValidLimitedIPv6(t *testing.T) {
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 4)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func TestPrefixToIPsInvalidPrefix(t *testing.T) {
@@ -1037,7 +1037,7 @@ func TestPrefixToIPv4sEdgeCase(t *testing.T) {
 	expectedIPs := []string{"192.168.1.255"}
 	ips, err := PrefixToIps(prefix, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
@@ -1046,7 +1046,7 @@ func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, maxIPs)
 	require.NoError(t, err)
-	require.EqualValues(t, expectedIPs, ips)
+	require.Equal(t, expectedIPs, ips)
 }
 
 func BenchmarkSortAddrList(b *testing.B) {

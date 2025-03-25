@@ -1324,7 +1324,7 @@ func TestL4RuleLabels(t *testing.T) {
 				require.NotNil(t, out, test.description)
 				require.Len(t, out.RuleOrigin, 1, test.description)
 				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()
-				require.EqualValues(t, test.expectedIngressLabels[portProto], lbls, test.description)
+				require.Equal(t, test.expectedIngressLabels[portProto], lbls, test.description)
 			}
 
 			require.Equal(t, len(test.expectedEgressLabels), finalPolicy.L4Policy.Egress.PortRules.Len(), test.description)
@@ -1334,7 +1334,7 @@ func TestL4RuleLabels(t *testing.T) {
 				require.NotNil(t, out, test.description)
 				require.Len(t, out.RuleOrigin, 1, test.description)
 				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()
-				require.EqualValues(t, test.expectedEgressLabels[portProto], lbls, test.description)
+				require.Equal(t, test.expectedEgressLabels[portProto], lbls, test.description)
 			}
 		})
 	}

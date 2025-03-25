@@ -906,7 +906,7 @@ func Test_ConvertToK8sV1ServicePorts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1ServicePorts(tt.args.ports)
-		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+		require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
@@ -945,7 +945,7 @@ func Test_ConvertToK8sV1SessionAffinityConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1ServiceAffinityConfig(tt.args.cfg)
-		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+		require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
@@ -984,7 +984,7 @@ func Test_ConvertToK8sV1LoadBalancerIngress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1LoadBalancerIngress(tt.args.ings)
-		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+		require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
@@ -1023,7 +1023,7 @@ func Test_ConvertToNetworkV1IngressLoadBalancerIngress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ConvertToNetworkV1IngressLoadBalancerIngress(tt.args.ings)
-		require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+		require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 	}
 }
 
@@ -1109,7 +1109,7 @@ func Test_TransformToCNP(t *testing.T) {
 		got, err := TransformToCNP(tt.args.obj)
 		if tt.expected {
 			require.NoError(t, err)
-			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
@@ -1208,7 +1208,7 @@ func Test_TransformToCCNP(t *testing.T) {
 		got, err := TransformToCCNP(tt.args.obj)
 		if tt.expected {
 			require.NoError(t, err)
-			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
@@ -1417,7 +1417,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 		got, err := TransformToCiliumEndpoint(tt.args.obj)
 		if tt.expected {
 			require.NoError(t, err)
-			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
+			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}

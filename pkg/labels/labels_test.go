@@ -58,7 +58,7 @@ func TestNewFrom(t *testing.T) {
 			// Verify that underlying maps are different
 			assert.NotEqual(t, reflect.ValueOf(tt.lbls).UnsafePointer(), reflect.ValueOf(newLbls).UnsafePointer())
 			// Verify that the map contents are equal
-			assert.EqualValues(t, tt.want, newLbls)
+			assert.Equal(t, tt.want, newLbls)
 		})
 	}
 }
@@ -67,7 +67,7 @@ func TestSortMap(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
 	sortedMap := lbls.SortedList()
-	require.EqualValues(t, []byte(lblsString), sortedMap)
+	require.Equal(t, []byte(lblsString), sortedMap)
 }
 
 func TestLabelArraySorted(t *testing.T) {
@@ -77,7 +77,7 @@ func TestLabelArraySorted(t *testing.T) {
 	for _, l := range lbls.LabelArray() {
 		str += fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
 	}
-	require.EqualValues(t, lblsString, str)
+	require.Equal(t, lblsString, str)
 }
 
 func TestMap2Labels(t *testing.T) {
@@ -90,7 +90,7 @@ func TestMap2Labels(t *testing.T) {
 		`//=/`:     "",
 		`%`:        `%ed`,
 	}, LabelSourceUnspec)
-	require.EqualValues(t, lbls, m)
+	require.Equal(t, lbls, m)
 }
 
 func TestMergeLabels(t *testing.T) {
@@ -107,7 +107,7 @@ func TestMergeLabels(t *testing.T) {
 	}
 	to.MergeLabels(from)
 	from["key1"] = NewLabel("key1", "changed", "source4")
-	require.EqualValues(t, want, to)
+	require.Equal(t, want, to)
 }
 
 func TestRemove(t *testing.T) {
@@ -122,7 +122,7 @@ func TestRemove(t *testing.T) {
 		"key2": NewLabel("key2", "value3", "source4"),
 	}
 	to.Remove(remove)
-	require.EqualValues(t, want, to)
+	require.Equal(t, want, to)
 }
 
 func TestRemoveFromSource(t *testing.T) {
@@ -135,7 +135,7 @@ func TestRemoveFromSource(t *testing.T) {
 		"key2": NewLabel("key2", "value3", "source4"),
 	}
 	to.RemoveFromSource("source1")
-	require.EqualValues(t, want, to)
+	require.Equal(t, want, to)
 }
 
 func TestParseLabel(t *testing.T) {
@@ -165,7 +165,7 @@ func TestParseLabel(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 
@@ -229,7 +229,7 @@ func TestParseSelectLabel(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := ParseSelectLabel(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 
@@ -300,7 +300,7 @@ func TestLabelParseKey(t *testing.T) {
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)
-		require.EqualValues(t, test.out, lbl)
+		require.Equal(t, test.out, lbl)
 	}
 }
 

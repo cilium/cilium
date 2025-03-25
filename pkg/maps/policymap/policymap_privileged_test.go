@@ -71,7 +71,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dump, 1)
 
-	require.EqualValues(t, fooKey, dump[0].Key)
+	require.Equal(t, fooKey, dump[0].Key)
 
 	require.False(t, dump[0].PolicyEntry.AuthRequirement.IsExplicit())
 	require.Equal(t, policyTypes.AuthType(1), dump[0].PolicyEntry.AuthRequirement.AuthType())
@@ -110,8 +110,8 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dump, 1)
 
-	require.EqualValues(t, fooKey, dump[0].Key)
-	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
+	require.Equal(t, fooKey, dump[0].Key)
+	require.Equal(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
 	barKey := NewKey(0, 0, 0, 0, 0)
