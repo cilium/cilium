@@ -650,7 +650,7 @@ const (
 	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
-	// load loggging
+	// load logging
 	LogSystemLoadConfigName = "log-system-load"
 
 	// DisableCiliumEndpointCRDName is the name of the option to disable
@@ -761,7 +761,7 @@ const (
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
-	// EnableIPSecEncrytpedOverlay is the name of the option which enables
+	// EnableIPSecEncryptedOverlay is the name of the option which enables
 	// the EncryptedOverlay feature.
 	//
 	// This feature will encrypt overlay traffic before it leaves the cluster.
@@ -793,7 +793,7 @@ const (
 	// EnableEncryptionStrictMode is the name of the option to enable strict encryption mode.
 	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
 
-	// EncryptionStrictModeCIDR is the CIDR in which the strict ecryption mode should be enforced.
+	// EncryptionStrictModeCIDR is the CIDR in which the strict encryption mode should be enforced.
 	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
 
 	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
@@ -801,7 +801,7 @@ const (
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
 
-	// WireguardPersistentKeepalivee controls Wireguard PersistentKeepalive option. Set 0 to disable.
+	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option. Set 0 to disable.
 	WireguardPersistentKeepalive = "wireguard-persistent-keepalive"
 
 	// NodeEncryptionOptOutLabels is the name of the option for the node-to-node encryption opt-out labels
@@ -1093,7 +1093,7 @@ const (
 	// and the max size and TTL of events in the buffers should be.
 	BPFMapEventBuffers = "bpf-map-event-buffers"
 
-	// IPAMCiliumnodeUpdateRate is the maximum rate at which the CiliumNode custom
+	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate = "ipam-cilium-node-update-rate"
 
@@ -1463,7 +1463,7 @@ type DaemonConfig struct {
 	MonitorAggregationInterval time.Duration
 
 	// MonitorAggregationFlags determines which TCP flags that the monitor
-	// aggregation ensures reports are generated for when monitor-aggragation
+	// aggregation ensures reports are generated for when monitor-aggregation
 	// is enabled. Network byte-order.
 	MonitorAggregationFlags uint16
 
@@ -1848,7 +1848,7 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
-	// Specifies wheather to annotate the kubernetes nodes or not
+	// Specifies whether to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
 	// EnableNodePort enables k8s NodePort service implementation in BPF
@@ -2023,7 +2023,7 @@ type DaemonConfig struct {
 
 	// PolicyAuditMode enables non-drop mode for installed policies. In
 	// audit mode packets affected by policies will not be dropped.
-	// Policy related decisions can be checked via the poicy verdict messages.
+	// Policy related decisions can be checked via the policy verdict messages.
 	PolicyAuditMode bool
 
 	// PolicyAccounting enable policy accounting

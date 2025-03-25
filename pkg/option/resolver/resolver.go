@@ -353,7 +353,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 		}
 	}
 
-	// Within overrides, lexicograpical ordering determines priority.
+	// Within overrides, lexicographical ordering determines priority.
 	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
@@ -448,7 +448,7 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 		}
 	}
 
-	// Within overrides, lexicograpical ordering determines priority.
+	// Within overrides, lexicographical ordering determines priority.
 	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
