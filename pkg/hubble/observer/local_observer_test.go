@@ -351,7 +351,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 				serviceDelete := response.GetAgentEvent().GetServiceDelete()
 				assert.NotNil(t, serviceDelete)
 			default:
-				assert.Fail(t, "unexpected agent event", ev)
+				assert.Fail(t, "unexpected agent event", "event: %v", ev)
 			}
 			agentEventsReceived++
 			return nil

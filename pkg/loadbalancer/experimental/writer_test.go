@@ -542,7 +542,7 @@ func TestWriter_SetBackends(t *testing.T) {
 			}
 			for addr, shouldExist := range tc.existence {
 				_, _, found := p.Writer.Backends().Get(txn, BackendByAddress(addr))
-				require.Equal(t, shouldExist, found, addr)
+				require.Equal(t, shouldExist, found, "address: %s", addr.String())
 			}
 		})
 	}

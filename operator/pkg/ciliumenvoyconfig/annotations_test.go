@@ -44,7 +44,7 @@ func Test_lbModeClusterMutator(t *testing.T) {
 			},
 		})(input)
 		require.NotNil(t, res)
-		require.NotNil(t, res.LbPolicy, envoy_config_cluster.Cluster_ROUND_ROBIN)
+		require.NotNil(t, res.LbPolicy)
 	})
 
 	t.Run("mutate lb policy to least request", func(t *testing.T) {
@@ -56,6 +56,6 @@ func Test_lbModeClusterMutator(t *testing.T) {
 			},
 		})(input)
 		require.NotNil(t, res)
-		require.NotNil(t, res.LbPolicy, envoy_config_cluster.Cluster_LEAST_REQUEST)
+		require.NotNil(t, res.LbPolicy)
 	})
 }

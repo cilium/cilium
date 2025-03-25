@@ -356,6 +356,6 @@ func (r *fakeAuthMap) MaxEntries() uint32 {
 
 func assertErrorString(errString string) assert.ErrorAssertionFunc {
 	return func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
-		return assert.EqualError(t, err, errString, msgAndArgs)
+		return assert.EqualError(t, err, errString, msgAndArgs...)
 	}
 }
