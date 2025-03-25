@@ -115,7 +115,6 @@ linters:
         - float-compare
         - formatter
         - go-require
-        - len
         - require-error
         - suite-method-signature
         - useless-assert

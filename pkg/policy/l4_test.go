@@ -338,7 +338,7 @@ func TestJSONMarshal(t *testing.T) {
 }`}
 	sort.StringSlice(expectedEgress).Sort()
 	sort.Sort(SortablePolicyRules(model.Egress))
-	require.Equal(t, len(model.Egress), len(expectedEgress))
+	require.Len(t, expectedEgress, len(model.Egress))
 	for i := range expectedEgress {
 		expected := new(bytes.Buffer)
 		err := json.Compact(expected, []byte(expectedEgress[i]))
@@ -415,7 +415,7 @@ func TestJSONMarshal(t *testing.T) {
 }`}
 	sort.StringSlice(expectedIngress).Sort()
 	sort.Sort(SortablePolicyRules(model.Ingress))
-	require.Equal(t, len(model.Ingress), len(expectedIngress))
+	require.Len(t, expectedIngress, len(model.Ingress))
 	for i := range expectedIngress {
 		expected := new(bytes.Buffer)
 		err := json.Compact(expected, []byte(expectedIngress[i]))

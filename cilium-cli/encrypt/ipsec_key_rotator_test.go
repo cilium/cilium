@@ -161,8 +161,8 @@ func Test_rotateIPsecKey(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, tt.expected.spi, actual.spi)
 		require.Equal(t, tt.expected.algo, actual.algo)
-		require.Equal(t, len(tt.expected.key), len(actual.key))
-		require.Equal(t, len(tt.expected.cipherKey), len(actual.cipherKey))
+		require.Len(t, actual.key, len(tt.expected.key))
+		require.Len(t, actual.cipherKey, len(tt.expected.cipherKey))
 		require.Equal(t, tt.expected.size, actual.size)
 		require.Equal(t, tt.expected.cipherMode, actual.cipherMode)
 		if tt.expected.cipherMode == "" {

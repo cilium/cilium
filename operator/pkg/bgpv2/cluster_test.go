@@ -644,7 +644,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					return
 				}
 
-				assert.Equal(c, len(step.expectedNodeConfigs), len(nodes.Items))
+				assert.Len(c, nodes.Items, len(step.expectedNodeConfigs))
 
 				for _, expectedNodeConfig := range step.expectedNodeConfigs {
 					nodeConfig, err := f.bgpnClient.Get(ctx, expectedNodeConfig.Name, meta_v1.GetOptions{})
