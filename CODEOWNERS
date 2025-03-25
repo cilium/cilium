@@ -234,7 +234,10 @@
 /.clomonitor.yml @cilium/contributing
 /.devcontainer @cilium/ci-structure
 /.gitattributes @cilium/contributing
-/.github/ @cilium/contributing
+/.github/ @cilium/github-sec @cilium/ci-structure
+/.github/*.md @cilium/contributing
+/.github/assets/ @cilium/contributing
+/.github/ISSUE_TEMPLATE/ @cilium/contributing
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
@@ -256,6 +259,7 @@
 /.github/workflows/conformance-aks.yaml @cilium/azure @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-aws-cni.yaml @cilium/aws @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-eks.yaml @cilium/aws @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/contributing
 /.golangci.yaml @cilium/ci-structure
