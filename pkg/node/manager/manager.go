@@ -825,7 +825,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		prefix := ip.IPToNetPrefix(address.IP)
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			prefixCluster = cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
 		} else {
 			prefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -924,7 +924,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -943,7 +943,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -1096,7 +1096,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 		var oldPrefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			oldPrefixCluster = cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+			oldPrefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
 		} else {
 			oldPrefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -1167,7 +1167,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelHealth,
@@ -1182,7 +1182,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix.Addr(), prefix.Bits(), m.prefixClusterMutatorFn(&oldNode)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelIngress,
