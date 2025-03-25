@@ -1,9 +1,12 @@
-# Experimental load-balancing control-plane
+# Load-balancing control-plane
 
-This package implements a replacement for `ServiceManager` and `ServiceCache`. It aims to simplify
-management of the load-balancing state by implementing it as the [StateDB](https://github.com/cilium/statedb) tables services, frontends
-and backends. The reconciliation of the state towards BPF maps is implemented asynchronously with the
-StateDB reconciler. 
+This package implements the core load-balancing control-plane. Built on top of
+[StateDB](https://github.com/cilium/statedb) around 3 core tables:
+- `Table[*Frontend]` (frontends): Service frontends keyed by address, port and protocol.
+  The frontend references backends associated with it. Frontends are what are reconciled
+  to BPF maps.
+- `Table[*Service]` (services): Service metadata shared by multiple frontends.
+- `Table[*Backend]` (backends): Backends associated with services.
 
 Modifying the state is done via the `Writer` API. It ensures consistency and manages the references between
 services, frontends and backends.
@@ -17,23 +20,25 @@ The basic architecture looks as follows:
                          /    |   \               /
               .---------'     v    '------.      /
          [Services]      [Frontends]    [Backends]
-          /                  | ^              |
-         /                   v |              v
-    [ Observer(s) ]      [Reconciler]    [ Envoy sync ]
+                             | ^              |
+                             v |              v
+                         [Reconciler]    [ L7 proxy (Envoy) ]
                               |
                               v
                           [BPF maps]
 ```
+
 The different data sources insert data using `Writer.UpsertService`, `Writer.UpsertFrontend`, etc. methods.
 
-The BPF reconciler watches the frontend table (service and backend objects are referenced by
-the frontend object) and reconcile updates towards the BPF maps. The reconciliation status is
-written back to frontends.
+The main data source is of course the Kubernetes one which is implemented in `reflector.go`. It batches up
+changes to Services and EndpointSlices and commits them periodically so the system can process changes in
+batches. Kubernetes Services are mapped to a Service object with zero or more Frontends. From EndpointSlices
+a Backend instance is created. Each Backend object contains a set of instances, one per service that references
+it.
 
-There can be any number of observers to these tables. For example components that need access
-to Services can watch the `Table[Service]` instead of e.g. going via `Resource[corev1.Service]`.
-For L7 proxying we can sync the backends towards Envoy asynchronously by watching changes to
-the backends table.
+The BPF reconciler (bpf_reconciler.go) watches the frontend table (service and backend objects
+are referenced by the frontend object) and reconcile updates towards the BPF maps. The reconciliation status is
+written back to frontends (`Status` field).
 
 This architecture enables: 
 - Easy addition of new data sources 
@@ -42,23 +47,35 @@ This architecture enables:
   not bubbled up to data sources (which wouldn't know how to handle it). Readers are not in the
   critical path.
 
-## Running
+## Source code organization
 
-The experimental control-plane can be enabled either via the helm option
-`loadBalancer.experimental` or via the command-line flag `enable-experimental-lb`. The latter
-can be set with cilium-cli: `cilium config set enable-experimental-lb true`.
+The core source files are:
 
-Enabling the experimental control-plane will swap the `LBMap` instance given to `ServiceManager`
-with a fake one. This retains all the agent side functionality except for the updates towards
-BPF maps which are instead done by the experimental control-plane.
+- service.go, frontend.go, backend.go: The struct and table definitions
+- config.go: Configuration structs. `Config` is the main configuration, `ExtConfig` bridges from
+  `option.DaemonConfig` to avoid direct references to it (to be removed eventually) and `TestConfig`
+  allows tests to tweak the behavior.
+- writer.go: API for modifying the tables while maintaining cross-table references
+- bpf_reconciler.go: Reconciliation from frontends to BPF maps
+- reflector.go: Reflects Kubernetes Service, Pod and EndpointSlices to the tables (via Writer)
+- cmds.go: Implementation of lb/* script commands for inspection and testing
+- lbmaps.go: API towards load-balancing BPF maps
 
-Once running the state can be inspected with:
+Additionally:
+- adapters.go: Adaption to the older load-balancing APIs (to be removed)
+- node_addr_reconciler.go: Refreshes NodePort frontends on changes to node addresses
+- healthserver.go: Implements the NodePort health check support
+
+## Inspecting state
+
+State of load-balancing can be inspected via `cilium-dbg shell`:
+
 ```
-  $ cilium-dbg shell 
+  $ kubectl exec -it -n kube-system ds/cilium -- cilium-dbg shell
+  ...
   > db/show frontends
   > db/show backends
   > db/show services
-  > db/prefix health agent.controlplane.loadbalancer-experimental
   > lb/maps-dump
 ```
 
@@ -66,17 +83,39 @@ Once running the state can be inspected with:
 
 The new architecture makes it easier to write integration tests due to the decoupling. An
 integration test for a data source can depend just on the tables & writer and verify that the
-tables are correctly populated without having to mock other features or the BPF operations. An
-example of this sort of test is in `writer_test.go`.
+tables are correctly populated without having to mock other features or the BPF operations.
 
-A more "end-to-end" style test can be found in `script_test.go` that tests going from Kubernetes
-objects specified in YAML to the BPF map contents using script tests in `testdata`.
+An "end-to-end" style test can be found in `script_test.go` that tests going from Kubernetes
+objects specified in YAML to the BPF map contents using script tests in `testdata`. This is
+the main way of testing the control-plane.
+
+Similar tests can be found from components building on top of load-balancing in `redirectpolicy/script_test.go`
+and `pkg/ciliumenvoyconfig/script_test.go`. For more info on script tests see
+https://docs.cilium.io/en/latest/contributing/development/hive/#testing-with-hive-script and
+https://docs.cilium.io/en/latest/contributing/development/statedb/#script-commands.
 
 For quick feedback loop you can use the `watch.sh` script to run a script test when the
 txtar file changes.
 
-To run the privileged tests:
+IMPORTANT: When adding new test cases it's important to stress test to make sure the new
+test is not flaky. Run `stress.sh` to run 500 iterations of all tests.
+
+Tests can be executed normally with "go test":
+```
+  $ go test ./...
+```
+
+To run the privileged tests that use the real BPF maps:
 ```
   $ go test -c
   $ PRIVILEGED_TESTS=1 sudo -E ./experimental.test -test.run . -test.v -test.count 1
 ```
+
+## Benchmarking
+
+The `benchmark/` directory contains a benchmark testing the throughput and memory usage
+when going from Kubernetes objects to BPF map contents. Run with `go run ./benchmark/cmd`.
+Highly encouraged to use this when doing structural changes or adding additional indexing.
+
+The average result that you can expect is around ~50k  per second with ~50 objects allocated
+per service.
