@@ -19,76 +19,68 @@ import (
 var (
 	controllerManager = controller.NewManager()
 
-	addDerivativeCNPControllerGroup    = controller.NewGroup("add-derivative-cilium-network-policy")
-	updateDerivativeCNPControllerGroup = controller.NewGroup("update-derivative-cilium-network-policy")
-	deleteDerivativeCNPControllerGroup = controller.NewGroup("delete-derivative-cilium-network-policy")
-
-	addDerivativeCCNPControllerGroup    = controller.NewGroup("add-derivative-clusterwide-cilium-network-policy")
-	updateDerivativeCCNPControllerGroup = controller.NewGroup("update-derivative-clusterwide-cilium-network-policy")
-	deleteDerivativeCCNPControllerGroup = controller.NewGroup("delete-derivative-clusterwide-cilium-network-policy")
+	addDerivativePolicyControllerGroup    = controller.NewGroup("add-derivative-network-policy")
+	updateDerivativePolicyControllerGroup = controller.NewGroup("update-derivative-network-policy")
+	deleteDerivativePolicyControllerGroup = controller.NewGroup("delete-derivative-network-policy")
 )
 
-// AddDerivativeCNPIfNeeded will create a new CNP if the given CNP has any rules
+// AddDerivativePolicyIfNeeded will create a new CNP if the given CNP has any rules
 // that need to create a new derivative policy.
-func AddDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) {
+func AddDerivativePolicyIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) {
 	if !cnp.RequiresDerivative() {
 		logger.Debug(
-			"CNP does not have derivative policies, skipped",
+			"Policy does not have derivative policies, skipped",
 			logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
 			logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
 		)
 		return
 	}
 	controllerManager.UpdateController(
-		"add-derivative-cnp-"+cnp.ObjectMeta.Name,
+		"add-derivative-policy-"+cnp.ObjectMeta.Name,
 		controller.ControllerParams{
-			Group: addDerivativeCNPControllerGroup,
+			Group: addDerivativePolicyControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				return addDerivativePolicy(ctx, logger, clientset, cnp, false)
+				return addDerivativePolicy(ctx, logger, clientset, cnp, clusterScoped)
 			},
 		})
 }
 
-// AddDerivativeCCNPIfNeeded will create a new CCNP if the given NetworkPolicy has any rules
-// that need to create a new derivative policy.
-func AddDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) {
-	if !cnp.RequiresDerivative() {
-		logger.Debug(
-			"CCNP does not have derivative policies, skipped",
-			logfields.CiliumClusterwideNetworkPolicyName, cnp.ObjectMeta.Name,
-		)
-		return
-	}
-	controllerManager.UpdateController(
-		"add-derivative-ccnp-"+cnp.ObjectMeta.Name,
-		controller.ControllerParams{
-			Group: addDerivativeCCNPControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				return addDerivativePolicy(ctx, logger, clientset, cnp, true)
-			},
-		})
-}
-
-// UpdateDerivativeCNPIfNeeded updates or creates a CNP if the given CNP has
+// UpdateDerivativePolicyIfNeeded updates or creates a CNP if the given CNP has
 // any rule that needs to create a new derivative policy(eg: ToGroups). In case
 // that the new CNP does not have any derivative policy and the old one had
 // one, it will delete the old policy.
 // The function returns true if an update is required for the derivative policy
 // and false otherwise.
-func UpdateDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *cilium_v2.CiliumNetworkPolicy) bool {
+func UpdateDerivativePolicyIfNeeded(logger *slog.Logger, clientset client.Clientset, newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) bool {
 	if !newCNP.RequiresDerivative() && oldCNP.RequiresDerivative() {
 		logger.Info(
-			"New CNP does not have derivative policy, but old had. Deleting old policies",
+			"New policy does not have derivative policy, but old had. Deleting old policies",
 			logfields.CiliumNetworkPolicyName, newCNP.ObjectMeta.Name,
 			logfields.K8sNamespace, newCNP.ObjectMeta.Namespace,
 		)
 
 		controllerManager.UpdateController(
-			"delete-derivative-cnp-"+oldCNP.ObjectMeta.Name,
+			"delete-derivative-policy-"+oldCNP.ObjectMeta.Name,
 			controller.ControllerParams{
-				Group: deleteDerivativeCNPControllerGroup,
+				Group: deleteDerivativePolicyControllerGroup,
 				DoFunc: func(ctx context.Context) error {
-					return DeleteDerivativeCNP(ctx, logger, clientset, oldCNP)
+					if !clusterScoped {
+						if err := clientset.CiliumV2().CiliumNetworkPolicies(oldCNP.ObjectMeta.Namespace).DeleteCollection(
+							ctx,
+							v1.DeleteOptions{},
+							v1.ListOptions{LabelSelector: parentCNP + "=" + string(oldCNP.ObjectMeta.UID)}); err != nil {
+							return err
+						}
+					} else {
+						if err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
+							ctx,
+							v1.DeleteOptions{},
+							v1.ListOptions{LabelSelector: parentCNP + "=" + string(oldCNP.ObjectMeta.UID)}); err != nil {
+							return err
+						}
+					}
+					DeleteDerivativeFromCache(oldCNP)
+					return nil
 				},
 			})
 		return false
@@ -99,50 +91,11 @@ func UpdateDerivativeCNPIfNeeded(logger *slog.Logger, clientset client.Clientset
 	}
 
 	controllerManager.UpdateController(
-		"update-derivative-cnp-"+newCNP.ObjectMeta.Name,
+		"update-derivative-policy-"+newCNP.ObjectMeta.Name,
 		controller.ControllerParams{
-			Group: updateDerivativeCNPControllerGroup,
+			Group: updateDerivativePolicyControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				return addDerivativePolicy(ctx, logger, clientset, newCNP, false)
-			},
-		})
-	return true
-}
-
-// UpdateDerivativeCCNPIfNeeded updates or creates a CCNP if the given CCNP has
-// any rule that needs to create a new derivative policy(eg: ToGroups). In case
-// that the new CCNP does not have any derivative policy and the old one had
-// one, it will delete the old policy.
-// The function returns true if an update is required for the derivative policy
-// and false otherwise.
-func UpdateDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientset, newCCNP *cilium_v2.CiliumNetworkPolicy, oldCCNP *cilium_v2.CiliumNetworkPolicy) bool {
-	if !newCCNP.RequiresDerivative() && oldCCNP.RequiresDerivative() {
-		logger.Info(
-			"New CCNP does not have derivative policy, but old had. Deleting old policies",
-			logfields.CiliumClusterwideNetworkPolicyName, newCCNP.ObjectMeta.Name,
-		)
-
-		controllerManager.UpdateController(
-			"delete-derivative-ccnp-"+oldCCNP.ObjectMeta.Name,
-			controller.ControllerParams{
-				Group: deleteDerivativeCCNPControllerGroup,
-				DoFunc: func(ctx context.Context) error {
-					return DeleteDerivativeCCNP(ctx, logger, clientset, oldCCNP)
-				},
-			})
-		return false
-	}
-
-	if !newCCNP.RequiresDerivative() {
-		return false
-	}
-
-	controllerManager.UpdateController(
-		"update-derivative-ccnp-"+newCCNP.ObjectMeta.Name,
-		controller.ControllerParams{
-			Group: updateDerivativeCCNPControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				return addDerivativePolicy(ctx, logger, clientset, newCCNP, true)
+				return addDerivativePolicy(ctx, logger, clientset, newCNP, clusterScoped)
 			},
 		})
 	return true
@@ -152,54 +105,6 @@ func UpdateDerivativeCCNPIfNeeded(logger *slog.Logger, clientset client.Clientse
 // no continue pooling new data.
 func DeleteDerivativeFromCache(cnp *cilium_v2.CiliumNetworkPolicy) {
 	groupsCNPCache.DeleteCNP(cnp)
-}
-
-// DeleteDerivativeCNP if the given policy has a derivative constraint,the
-// given CNP will be deleted from store and the cache.
-func DeleteDerivativeCNP(ctx context.Context, logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy) error {
-	if !cnp.RequiresDerivative() {
-		logger.Debug(
-			"CNP does not have derivative policies, skipped",
-			logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
-			logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
-		)
-		return nil
-	}
-
-	err := clientset.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
-		ctx,
-		v1.DeleteOptions{},
-		v1.ListOptions{LabelSelector: parentCNP + "=" + string(cnp.ObjectMeta.UID)})
-
-	if err != nil {
-		return err
-	}
-
-	DeleteDerivativeFromCache(cnp)
-	return nil
-}
-
-// DeleteDerivativeCCNP if the given policy has a derivative constraint, the
-// given CCNP will be deleted from store and the cache.
-func DeleteDerivativeCCNP(ctx context.Context, logger *slog.Logger, clientset client.Clientset, ccnp *cilium_v2.CiliumNetworkPolicy) error {
-	if !ccnp.RequiresDerivative() {
-		logger.Debug(
-			"CCNP does not have derivative policies, skipped",
-			logfields.CiliumClusterwideNetworkPolicyName, ccnp.ObjectMeta.Name,
-		)
-		return nil
-	}
-
-	err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
-		ctx,
-		v1.DeleteOptions{},
-		v1.ListOptions{LabelSelector: parentCNP + "=" + string(ccnp.ObjectMeta.UID)})
-	if err != nil {
-		return err
-	}
-
-	DeleteDerivativeFromCache(ccnp)
-	return nil
 }
 
 func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset client.Clientset, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) error {
