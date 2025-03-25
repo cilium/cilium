@@ -162,6 +162,7 @@ enum pkt_layer {
 	PKT_LAYER_IPV6_ROUTING,
 	PKT_LAYER_IPV6_AUTH,
 	PKT_LAYER_IPV6_DEST,
+	PKT_LAYER_IPV6_FRAGMENT,
 
 	/* L4 layers */
 	PKT_LAYER_TCP,
@@ -352,6 +353,11 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	case NEXTHDR_DEST:
 		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_DEST);
 		hdrlen = (length - 8) / 8;
+		break;
+	case NEXTHDR_FRAGMENT:
+		length = 8;
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_FRAGMENT);
+		hdrlen = 0;
 		break;
 	default:
 		break;
@@ -950,6 +956,9 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 	case PKT_LAYER_IPV6_DEST:
 		ipv6_layer->nexthdr = NEXTHDR_DEST;
 		break;
+	case PKT_LAYER_IPV6_FRAGMENT:
+		ipv6_layer->nexthdr = NEXTHDR_FRAGMENT;
+		break;
 	case PKT_LAYER_TCP:
 		ipv6_layer->nexthdr = IPPROTO_TCP;
 		break;
@@ -1004,6 +1013,9 @@ static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder
 		break;
 	case PKT_LAYER_IPV6_DEST:
 		ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
+		break;
+	case PKT_LAYER_IPV6_FRAGMENT:
+		ipv6_opt_layer->nexthdr = NEXTHDR_FRAGMENT;
 		break;
 	case PKT_LAYER_TCP:
 		ipv6_opt_layer->nexthdr = IPPROTO_TCP;
@@ -1234,6 +1246,7 @@ void pktgen__finish(const struct pktgen *builder)
 		case PKT_LAYER_IPV6_ROUTING:
 		case PKT_LAYER_IPV6_AUTH:
 		case PKT_LAYER_IPV6_DEST:
+		case PKT_LAYER_IPV6_FRAGMENT:
 			pktgen__finish_ipv6_opt(builder, i);
 			break;
 

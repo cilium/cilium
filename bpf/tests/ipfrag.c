@@ -7,6 +7,7 @@
 #include <node_config.h>
 
 #include <lib/ipfrag.h>
+#include <lib/ipv6.h>
 
 PKTGEN("tc", "ipfrag_helpers_ipv4")
 int test_ipfrag_helpers_ipv4_pktgen(struct __ctx_buff *ctx)
@@ -90,29 +91,163 @@ int test_ipfrag_helpers_ipv4_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "ipfrag_helpers_ipv6")
-int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
+PKTGEN("tc", "ipfrag_helpers_ipv6_nofrag")
+int test_ipfrag_helpers_ipv6_nofrag_pktgen(struct __ctx_buff *ctx)
 {
+	struct pktgen builder;
+	struct udphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_udp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  (__u8 *)v6_node_one, (__u8 *)v6_node_two,
+					  tcp_src_one, tcp_svc_one);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+CHECK("tc", "ipfrag_helpers_ipv6_nofrag")
+int test_ipfrag_helpers_ipv6_nofrag_check(struct __ctx_buff *ctx __maybe_unused)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
 	fraginfo_t fraginfo;
 
 	test_init();
 
-	/* Stub fraginfo until parsing IPv6 extension headers is implemented. */
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	l2 = data;
+	if ((void *)(l2 + 1) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)(l2 + 1);
+	if ((void *)(l3 + 1) > data_end)
+		test_fatal("l3 out of bounds");
 
 	/* Non-fragmented packet */
-	fraginfo = 0x0000001100000000;
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		test_fatal("ipv6_get_fraginfo failed");
 	assert(!ipfrag_is_fragment(fraginfo));
 	assert(ipfrag_has_l4_header(fraginfo));
 
+	test_finish();
+}
+
+PKTGEN("tc", "ipfrag_helpers_ipv6")
+int test_ipfrag_helpers_ipv6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct ipv6_frag_hdr *fraghdr;
+	struct udphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
+
+	l3 = pktgen__push_default_ipv6hdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	ipv6hdr__set_addrs(l3, (__u8 *)v6_node_one, (__u8 *)v6_node_two);
+
+	fraghdr = (struct ipv6_frag_hdr *)
+		pktgen__append_ipv6_extension_header(&builder, NEXTHDR_FRAGMENT, 0);
+	if (!fraghdr)
+		return TEST_ERROR;
+	if ((void *)(fraghdr + 1) > ctx_data_end(ctx))
+		return TEST_ERROR;
+
+	fraghdr->id = (__be32)(0x12345678);
+	fraghdr->frag_off = bpf_htons(1); /* MF flag */
+
+	l4 = pktgen__push_default_udphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = tcp_src_one;
+	l4->dest = tcp_svc_one;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+CHECK("tc", "ipfrag_helpers_ipv6")
+int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct ipv6_frag_hdr *fraghdr;
+	fraginfo_t fraginfo;
+
+	test_init();
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	l2 = data;
+	if ((void *)(l2 + 1) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)(l2 + 1);
+	if ((void *)(l3 + 1) > data_end)
+		test_fatal("l3 out of bounds");
+
+	fraghdr = (void *)(l3 + 1);
+	if ((void *)(fraghdr + 1) > data_end)
+		test_fatal("fraghdr out of bounds");
+
 	/* First fragment */
-	fraginfo = 0x0000011112345678;
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		test_fatal("ipv6_get_fraginfo failed");
 	assert(ipfrag_is_fragment(fraginfo));
 	assert(ipfrag_has_l4_header(fraginfo));
 	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
 	assert(ipfrag_get_id(fraginfo) == (__be32)(0x12345678));
 
 	/* Non-first fragment */
-	fraginfo = 0x0000031112345678;
+	fraghdr->frag_off = bpf_htons((0x100 << 3) | 1);
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		test_fatal("ipv6_get_fraginfo failed");
+	assert(ipfrag_is_fragment(fraginfo));
+	assert(!ipfrag_has_l4_header(fraginfo));
+	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
+	assert(ipfrag_get_id(fraginfo) == (__be32)(0x12345678));
+
+	/* Last fragment */
+	fraghdr->frag_off = bpf_htons(0x200 << 3);
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		test_fatal("ipv6_get_fraginfo failed");
 	assert(ipfrag_is_fragment(fraginfo));
 	assert(!ipfrag_has_l4_header(fraginfo));
 	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
