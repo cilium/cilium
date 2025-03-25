@@ -116,7 +116,6 @@ linters:
         - formatter
         - go-require
         - require-error
-        - suite-method-signature
         - useless-assert
   exclusions:
     generated: lax
