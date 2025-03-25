@@ -13,17 +13,17 @@ import (
 )
 
 func Test_getChainingMode(t *testing.T) {
-	assert.Equal(t, "", getChainingMode(nil))
+	assert.Empty(t, getChainingMode(nil))
 
 	opts := values.Options{}
 	vals, err := opts.MergeValues(getter.All(cli.New()))
 	assert.NoError(t, err)
-	assert.Equal(t, "", getChainingMode(vals))
+	assert.Empty(t, getChainingMode(vals))
 
 	opts = values.Options{JSONValues: []string{"cni={}"}}
 	vals, err = opts.MergeValues(getter.All(cli.New()))
 	assert.NoError(t, err)
-	assert.Equal(t, "", getChainingMode(vals))
+	assert.Empty(t, getChainingMode(vals))
 
 	opts = values.Options{Values: []string{"cni.chainingMode=aws-cni"}}
 	vals, err = opts.MergeValues(getter.All(cli.New()))

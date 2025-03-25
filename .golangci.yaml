@@ -110,7 +110,6 @@ linters:
     testifylint:
       enable-all: true
       disable: # TODO: remove each disabled rule and fix it
-        - empty
         - expected-actual
         - float-compare
         - go-require

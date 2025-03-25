@@ -1008,7 +1008,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	err := m.svc.upsertNodePortHealthService(svc, mockCollector)
 
 	require.NoError(t, err)
-	require.NotEqual(t, "", svc.healthcheckFrontendHash)
+	require.NotEmpty(t, svc.healthcheckFrontendHash)
 	require.Equal(t, "svc1-healthCheck", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace)
 	require.Equal(t, svc.svcHealthCheckNodePort, m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port)
@@ -1021,7 +1021,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	oldHealthHash := svc.healthcheckFrontendHash
 	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
 	require.NoError(t, err)
-	require.Equal(t, "", svc.healthcheckFrontendHash)
+	require.Empty(t, svc.healthcheckFrontendHash)
 	require.Nil(t, m.svc.svcByHash[oldHealthHash])
 
 	// Restore the original version of svc1
@@ -1029,7 +1029,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	svc.svcHealthCheckNodePort = 32001
 	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
 	require.NoError(t, err)
-	require.NotEqual(t, "", svc.healthcheckFrontendHash)
+	require.NotEmpty(t, svc.healthcheckFrontendHash)
 	require.Equal(t, "svc1-healthCheck", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace)
 	require.Equal(t, svc.svcHealthCheckNodePort, m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port)

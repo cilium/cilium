@@ -687,7 +687,7 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 func Test_removeTopDirectory(t *testing.T) {
 	result, err := removeTopDirectory("/")
 	assert.NoError(t, err)
-	assert.Equal(t, "", result)
+	assert.Empty(t, result)
 
 	result, err = removeTopDirectory("a/b/c")
 	assert.NoError(t, err)
