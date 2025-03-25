@@ -1,0 +1,462 @@
+#! --enable-experimental-lb --lb-test-fault-probability=0.0
+# Test the CiliumEnvoyConfig handling for the ingress service created by the operator.
+# This validates that we process the service even though it has no endpoints associated
+# to it.
+# Based on https://docs.cilium.io/en/stable/network/servicemesh/http/, with files
+# dumped using e.g. "kubectl get svc/details -o yaml".
+
+hive/start
+db/initialized
+
+# Add the objects
+k8s/add svc-ingress.yaml eps-ingress.yaml cec.yaml
+k8s/add svc-details.yaml eps-details.yaml
+k8s/add svc-productpage.yaml eps-productpage.yaml
+
+# Validate tables
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+db/cmp ciliumenvoyconfigs cec.table
+db/cmp envoy-resources envoy.table
+
+# Validate BPF maps. The "basic-ingress" (port 80) frontends should be redirected to proxy.
+# Matching with grep so we don't need to deal with ID allocation ordering issues.
+lb/maps-dump maps.actual
+* grep '0.0.0.0:31988/TCP.*L7Proxy=1000' maps.actual
+* grep '10.96.171.236:80/TCP.*L7Proxy=1000' maps.actual
+
+# The https NodePort and ClusterIP frontends should not be redirected according
+# to 'services.ports' in cec.yaml.
+! grep '10.96.171.236:443/TCP.*L7Proxy=1000' maps.actual
+! grep '0.0.0.0:30979/TCP.*L7Proxy=1000' maps.actual
+
+###
+
+-- services.table --
+Name                                  Source  PortNames           TrafficPolicy  Flags
+default/cilium-ingress-basic-ingress  k8s     http=80, https=443  Cluster        ProxyRedirect=1000 (ports: [80])
+default/details                       k8s     http=9080           Cluster
+default/productpage                   k8s     http=9080           Cluster
+
+-- frontends.table --
+Address               Type      ServiceName                           PortName Status Error Backends
+0.0.0.0:30979/TCP     NodePort  default/cilium-ingress-basic-ingress  https    Done
+0.0.0.0:31988/TCP     NodePort  default/cilium-ingress-basic-ingress  http     Done
+10.96.44.54:9080/TCP  ClusterIP default/productpage                   http     Done         10.244.1.243:9080/TCP
+10.96.171.236:80/TCP  ClusterIP default/cilium-ingress-basic-ingress  http     Done
+10.96.171.236:443/TCP ClusterIP default/cilium-ingress-basic-ingress  https    Done
+10.96.252.74:9080/TCP ClusterIP default/details                       http     Done         10.244.1.197:9080/TCP
+
+-- backends.table --
+Address               Instances                  NodeName
+10.244.1.197:9080/TCP default/details (http)     kind-worker
+10.244.1.243:9080/TCP default/productpage (http) kind-worker
+
+-- envoy.table --
+Name                                          Listeners                                              Endpoints                                                                   Status   Error
+default/cilium-ingress-default-basic-ingress  default/cilium-ingress-default-basic-ingress/listener  default/details:9080: 10.244.1.197, default/productpage:9080: 10.244.1.243  Done
+
+-- cec.table --
+Name                                          Services                              BackendServices
+default/cilium-ingress-default-basic-ingress  default/cilium-ingress-basic-ingress  default/details, default/productpage
+
+-- svc-ingress.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-03-25T10:13:20Z"
+  labels:
+    cilium.io/ingress: "true"
+  name: cilium-ingress-basic-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    controller: true
+    kind: Ingress
+    name: basic-ingress
+    uid: c5523e5b-bfcd-4f62-8349-d6d502ff514a
+  resourceVersion: "126848"
+  uid: 8161084b-2b57-44fd-b5d7-57545a2b27df
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.96.171.236
+  clusterIPs:
+  - 10.96.171.236
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 31988
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30979
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+
+-- eps-ingress.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+kind: EndpointSlice
+metadata:
+  creationTimestamp: "2025-03-25T10:13:20Z"
+  generateName: cilium-ingress-basic-ingress-
+  generation: 1
+  labels:
+    cilium.io/ingress: "true"
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: cilium-ingress-basic-ingress
+  name: cilium-ingress-basic-ingress-gjh2c
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: cilium-ingress-basic-ingress
+    uid: 9465c03a-ea0e-42bf-bd8d-56aabc86fcc2
+  resourceVersion: "126851"
+  uid: d93afa57-70a6-4b66-8906-16e53df84b3f
+ports:
+- name: ""
+  port: 9999
+  protocol: TCP
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  creationTimestamp: "2025-03-25T10:13:20Z"
+  generation: 1
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cilium-ingress-default-basic-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: basic-ingress
+    uid: c5523e5b-bfcd-4f62-8349-d6d502ff514a
+  resourceVersion: "126849"
+  uid: 094b684c-6a6a-4313-b07b-c7c124da8d1f
+spec:
+  backendServices:
+  - name: details
+    namespace: default
+    number:
+    - "9080"
+  - name: productpage
+    namespace: default
+    number:
+    - "9080"
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /details
+        route:
+          cluster: default:details:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: default:productpage:9080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/details:9080
+    name: default:details:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/productpage:9080
+    name: default:productpage:9080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  services:
+  - listener: ""
+    name: cilium-ingress-basic-ingress
+    namespace: default
+    ports:
+    - 80
+
+
+-- svc-details.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"details","service":"details"},"name":"details","namespace":"default"},"spec":{"ports":[{"name":"http","port":9080}],"selector":{"app":"details"}}}
+  creationTimestamp: "2025-03-25T10:13:15Z"
+  labels:
+    app: details
+    service: details
+  name: details
+  namespace: default
+  resourceVersion: "126722"
+  uid: f423f3a9-fcea-4868-9ff7-ed5c55178623
+spec:
+  clusterIP: 10.96.252.74
+  clusterIPs:
+  - 10.96.252.74
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    app: details
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- eps-details.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.1.197
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: kind-worker
+  targetRef:
+    kind: Pod
+    name: details-v1-54ffb59669-fw7tf
+    namespace: default
+    uid: e769e106-415f-4ed5-b8d2-2a3166f1c98c
+kind: EndpointSlice
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-03-25T10:13:28Z"
+  creationTimestamp: "2025-03-25T10:13:15Z"
+  generateName: details-
+  generation: 2
+  labels:
+    app: details
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: details
+    service: details
+  name: details-98969
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: details
+    uid: f423f3a9-fcea-4868-9ff7-ed5c55178623
+  resourceVersion: "126880"
+  uid: 8ad9fd1d-436f-4b6c-9870-d23c4a178471
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- svc-productpage.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"productpage","service":"productpage"},"name":"productpage","namespace":"default"},"spec":{"ports":[{"name":"http","port":9080}],"selector":{"app":"productpage"}}}
+  creationTimestamp: "2025-03-25T10:13:16Z"
+  labels:
+    app: productpage
+    service: productpage
+  name: productpage
+  namespace: default
+  resourceVersion: "126794"
+  uid: 62d76bf9-535c-46f1-9727-e8433ceff54f
+spec:
+  clusterIP: 10.96.44.54
+  clusterIPs:
+  - 10.96.44.54
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    app: productpage
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- eps-productpage.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.1.243
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: kind-worker
+  targetRef:
+    kind: Pod
+    name: productpage-v1-6c58956fd9-knptv
+    namespace: default
+    uid: 876150f5-a5a6-48f9-b75d-acb38e1f08b9
+kind: EndpointSlice
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2025-03-25T10:13:53Z"
+  creationTimestamp: "2025-03-25T10:13:16Z"
+  generateName: productpage-
+  generation: 2
+  labels:
+    app: productpage
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: productpage
+    service: productpage
+  name: productpage-94dlm
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: productpage
+    uid: 62d76bf9-535c-46f1-9727-e8433ceff54f
+  resourceVersion: "126951"
+  uid: 61c6ae8d-e1f3-48d1-babf-e5a9277ac0d3
+ports:
+- name: http
+  port: 9080
+  protocol: TCP
+
+-- maps.expected --
+BE: ADDR=10.244.1.197:9080/TCP STATE=active
+BE: ADDR=10.244.1.243:9080/TCP STATE=active
+REV: ADDR=0.0.0.0:30979
+REV: ADDR=0.0.0.0:31988
+REV: ADDR=10.96.171.236:80
+REV: ADDR=10.96.171.236:443
+REV: ADDR=10.96.252.74:9080
+REV: ADDR=10.96.44.54:9080
+SVC: ADDR=0.0.0.0:30979/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ADDR=0.0.0.0:31988/TCP SLOT=0 L7Proxy=1000 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ADDR=10.96.171.236:80/TCP SLOT=0 L7Proxy=1000 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ADDR=10.96.171.236:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ADDR=10.96.252.74:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ADDR=10.96.252.74:9080/TCP SLOT=1 BECOUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ADDR=10.96.44.54:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ADDR=10.96.44.54:9080/TCP SLOT=1 BECOUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
