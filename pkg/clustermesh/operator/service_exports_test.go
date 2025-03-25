@@ -38,7 +38,7 @@ func TestGlobalServiceExportCache(t *testing.T) {
 	require.Nil(t, globalServiceExports.GetServiceExportByCluster(types.NamespacedName{
 		Namespace: "default",
 		Name:      "unknown",
-	}), 1)
+	}))
 
 	require.True(t, globalServiceExports.OnDelete(&mcsapitypes.MCSAPIServiceSpec{
 		Cluster:   "cluster1",
