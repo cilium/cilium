@@ -2723,7 +2723,7 @@ func serviceMetadataEqual(req *require.Assertions, expectedMetadata, runningMeta
 	req.Truef(PeerAdvertisementsEqual(expectedMetadata.ServiceAdvertisements, runningMetadata.ServiceAdvertisements),
 		"ServiceAdvertisements mismatch, expected: %v, got: %v", expectedMetadata.ServiceAdvertisements, runningMetadata.ServiceAdvertisements)
 
-	req.Equalf(len(expectedMetadata.ServicePaths), len(runningMetadata.ServicePaths),
+	req.Lenf(runningMetadata.ServicePaths, len(expectedMetadata.ServicePaths),
 		"ServicePaths length mismatch, expected: %v, got: %v", expectedMetadata.ServicePaths, runningMetadata.ServicePaths)
 
 	for svc, expectedSvcPaths := range expectedMetadata.ServicePaths {

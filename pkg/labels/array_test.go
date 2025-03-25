@@ -250,7 +250,7 @@ func TestOutputConversions(t *testing.T) {
 	sort.StringSlice(expectMdl).Sort()
 	mdl := lbls.GetModel()
 	sort.StringSlice(mdl).Sort()
-	require.Equal(t, len(expectMdl), len(mdl))
+	require.Len(t, mdl, len(expectMdl))
 	for i := range mdl {
 		require.Equal(t, expectMdl[i], mdl[i])
 	}
@@ -267,7 +267,7 @@ func TestOutputConversions(t *testing.T) {
 		LabelSourceUnspec + ":nosource": "value",
 		"actuallyASource:nosource":      "value"}
 	mp := lbls.StringMap()
-	require.Equal(t, len(expectMap), len(mp))
+	require.Len(t, mp, len(expectMap))
 	for k, v := range mp {
 		require.Equal(t, expectMap[k], v)
 	}
