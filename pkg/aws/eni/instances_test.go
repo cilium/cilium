@@ -17,55 +17,43 @@ import (
 )
 
 var (
-	subnets = []*ipamTypes.Subnet{
-		{
-			ID:                 "subnet-1",
-			AvailableAddresses: 10,
-			VirtualNetworkID:   "vpc-1",
-			AvailabilityZone:   "us-west-1",
-			Tags: map[string]string{
-				"tag1": "tag1",
-			},
+	subnet1 = &ipamTypes.Subnet{
+		ID:                 "subnet-1",
+		AvailableAddresses: 10,
+		VirtualNetworkID:   "vpc-1",
+		AvailabilityZone:   "us-west-1",
+		Tags: map[string]string{
+			"tag1": "tag1",
 		},
-		{
-			ID:                 "subnet-2",
-			AvailableAddresses: 20,
-			VirtualNetworkID:   "vpc-2",
-			AvailabilityZone:   "us-east-1",
-			Tags: map[string]string{
-				"tag1": "tag1",
-			},
+	}
+	subnet2 = &ipamTypes.Subnet{
+		ID:                 "subnet-2",
+		AvailableAddresses: 20,
+		VirtualNetworkID:   "vpc-2",
+		AvailabilityZone:   "us-east-1",
+		Tags: map[string]string{
+			"tag1": "tag1",
+		},
+	}
+	subnet3 = &ipamTypes.Subnet{
+		ID:                 "subnet-3",
+		AvailableAddresses: 0,
+		VirtualNetworkID:   "vpc-1",
+		AvailabilityZone:   "us-west-1",
+		Tags: map[string]string{
+			"tag2": "tag2",
 		},
 	}
 
+	subnets = []*ipamTypes.Subnet{
+		subnet1,
+		subnet2,
+	}
+
 	subnets2 = []*ipamTypes.Subnet{
-		{
-			ID:                 "subnet-1",
-			AvailableAddresses: 10,
-			VirtualNetworkID:   "vpc-1",
-			AvailabilityZone:   "us-west-1",
-			Tags: map[string]string{
-				"tag1": "tag1",
-			},
-		},
-		{
-			ID:                 "subnet-2",
-			AvailableAddresses: 20,
-			VirtualNetworkID:   "vpc-2",
-			AvailabilityZone:   "us-east-1",
-			Tags: map[string]string{
-				"tag1": "tag1",
-			},
-		},
-		{
-			ID:                 "subnet-3",
-			AvailableAddresses: 0,
-			VirtualNetworkID:   "vpc-1",
-			AvailabilityZone:   "us-west-1",
-			Tags: map[string]string{
-				"tag2": "tag2",
-			},
-		},
+		subnet1,
+		subnet2,
+		subnet3,
 	}
 
 	vpcs = []*ipamTypes.VirtualNetwork{
