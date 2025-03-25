@@ -334,7 +334,7 @@ func TestUpdateLocalNode(t *testing.T) {
 	idIs(inClusterPrefix, identity.IdentityScopeLocal) // the first CIDR identity
 	id := PolicyHandler.identities[identity.IdentityScopeLocal]
 	assert.True(t, id.Has("reserved.kube-apiserver"))
-	assert.True(t, id.Has("reserved.world-ipv4"), id)
+	assert.True(t, id.Has("reserved.world-ipv4"), "labels: %s", id.String())
 
 	// verify that id 1 is now just reserved:host
 	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
