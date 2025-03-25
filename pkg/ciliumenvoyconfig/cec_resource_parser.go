@@ -464,8 +464,22 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			if !found {
 				// Get the listener port from the listener's (main) address
 				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
-
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port))
+				// Only use zero linger for HTTP listener
+				useZeroLinger := func() bool {
+					for _, fc := range listener.FilterChains {
+						for _, filter := range fc.Filters {
+							tc := filter.GetTypedConfig()
+							if tc == nil {
+								continue
+							}
+							if tc.GetTypeUrl() == envoy.HttpConnectionManagerTypeURL {
+								return true
+							}
+						}
+					}
+					return false
+				}()
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, useZeroLinger))
 			}
 		}
 
@@ -538,13 +552,18 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16, zeroLinger bool) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
+	}
+
+	if zeroLinger {
+		var zero uint32
+		conf.OriginalSourceSoLingerTime = &zero
 	}
 
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
