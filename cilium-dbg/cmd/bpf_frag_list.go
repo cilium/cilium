@@ -85,7 +85,7 @@ func dumpFragmentsIPv4(fragMap4 *bpf.Map) []bpfFragmentEntry {
 		key := k.(*fragmap.FragmentKey4)
 		value := v.(*fragmap.FragmentValue4)
 		entries = append(entries, bpfFragmentEntry{
-			ID:            uint32(key.ID),
+			ID:            uint32(key.NativeID()),
 			Proto:         u8proto.U8proto(key.Proto),
 			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
 			DestAddress:   fmt.Sprintf("%s:%d", key.DestAddr, value.DestPort),
@@ -104,7 +104,7 @@ func dumpFragmentsIPv6(fragMap6 *bpf.Map) []bpfFragmentEntry {
 		key := k.(*fragmap.FragmentKey6)
 		value := v.(*fragmap.FragmentValue6)
 		entries = append(entries, bpfFragmentEntry{
-			ID:            key.ID,
+			ID:            key.NativeID(),
 			Proto:         u8proto.U8proto(key.Proto),
 			SourceAddress: fmt.Sprintf("%s:%d", key.SourceAddr, value.SourcePort),
 			DestAddress:   fmt.Sprintf("[%s]:%d", key.DestAddr, value.DestPort),
