@@ -91,7 +91,7 @@ func validateHealthStatus(t *check.ConnectivityTest, pod *check.Pod, out bytes.B
 		}
 	)
 
-	var data interface{}
+	var data any
 	err := json.Unmarshal(out.Bytes(), &data)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal cilium-health output: %w", err)

@@ -42,7 +42,7 @@ var (
 // IterateCallback represents the signature of the callback function expected by
 // the IterateWithCallback method, which in turn is used to iterate all the
 // keys/values of a map.
-type IterateCallback func(key, value interface{})
+type IterateCallback func(key, value any)
 
 // Map represents an eBPF map.
 type Map struct {
@@ -178,7 +178,7 @@ func (m *Map) OpenOrCreate() error {
 
 // IterateWithCallback iterates through all the keys/values of a map, passing
 // each key/value pair to the cb callback.
-func (m *Map) IterateWithCallback(key, value interface{}, cb IterateCallback) error {
+func (m *Map) IterateWithCallback(key, value any, cb IterateCallback) error {
 	if m.Map == nil {
 		if err := m.OpenOrCreate(); err != nil {
 			return err
@@ -213,6 +213,6 @@ func (m *Map) GetModel() *models.BPFMap {
 func (m *Map) IsEmpty() bool {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-	var key, value interface{}
+	var key, value any
 	return !m.Iterate().Next(key, value)
 }

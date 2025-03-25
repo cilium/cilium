@@ -136,7 +136,7 @@ func TestValidateRemoteConfig(t *testing.T) {
 		name      string
 		cfg       CiliumClusterConfig
 		mcc       uint32
-		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
+		assertion func(t assert.TestingT, err error, msgAndArgs ...any) bool
 	}{
 		{
 			name:      "Empty config",

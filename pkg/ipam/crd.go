@@ -121,7 +121,7 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				var valid, equal bool
 				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
@@ -136,7 +136,7 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 					)
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
+			UpdateFunc: func(oldObj, newObj any) {
 				var valid, equal bool
 				defer func() { k8sEventReg.K8sEventReceived(apiGroup, "CiliumNode", "update", valid, equal) }()
 				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
@@ -170,7 +170,7 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 					)
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
+			DeleteFunc: func(obj any) {
 				// Given we are watching a single specific
 				// resource using the node name, any delete
 				// notification means that the resource

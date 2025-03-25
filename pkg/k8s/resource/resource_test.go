@@ -635,7 +635,7 @@ func TestResource_WithIndexers(t *testing.T) {
 		fakeClient, cs = k8sClient.NewFakeClientset(hivetest.Logger(t))
 
 		indexName = "node-index-key"
-		indexFunc = func(obj interface{}) ([]string, error) {
+		indexFunc = func(obj any) ([]string, error) {
 			switch t := obj.(type) {
 			case *corev1.Node:
 				return []string{t.Name}, nil

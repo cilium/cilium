@@ -17,7 +17,7 @@ import (
 )
 
 // CreateL3L4Payload assembles a L3/L4 payload for testing purposes
-func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer) ([]byte, error) {
+func CreateL3L4Payload(message any, layers ...gopacket.SerializableLayer) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	switch messageType := message.(type) {
 	case monitor.DebugCapture,
@@ -52,7 +52,7 @@ func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer
 }
 
 // MustCreateL3L4Payload wraps CreateL3L4Payload, but panics on error
-func MustCreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer) []byte {
+func MustCreateL3L4Payload(message any, layers ...gopacket.SerializableLayer) []byte {
 	payload, err := CreateL3L4Payload(message, layers...)
 	if err != nil {
 		panic(err)

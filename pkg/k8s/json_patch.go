@@ -11,7 +11,7 @@ const (
 
 // JSONPatch structure based on the RFC 6902
 type JSONPatch struct {
-	OP    string      `json:"op,omitempty"`
-	Path  string      `json:"path,omitempty"`
-	Value interface{} `json:"value"`
+	OP    string `json:"op,omitempty"`
+	Path  string `json:"path,omitempty"`
+	Value any    `json:"value"`
 }

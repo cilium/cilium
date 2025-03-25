@@ -22,7 +22,7 @@ func jsonFieldMaskPostProcess(fieldNames []string) postProcessFunc {
 }
 
 func maskFields(b []byte, fieldNames []string) ([]byte, error) {
-	var data map[string]interface{}
+	var data map[string]any
 
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func maskFields(b []byte, fieldNames []string) ([]byte, error) {
 	return json.MarshalIndent(data, "", ident)
 }
 
-func mask(data map[string]interface{}, fieldNames []string) {
+func mask(data map[string]any, fieldNames []string) {
 	for k, v := range data {
 		if slices.Contains(fieldNames, k) {
 			data[k] = redacted
@@ -42,11 +42,11 @@ func mask(data map[string]interface{}, fieldNames []string) {
 		}
 
 		switch t := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			mask(t, fieldNames)
-		case []interface{}:
+		case []any:
 			for i, item := range t {
-				if subData, ok := item.(map[string]interface{}); ok {
+				if subData, ok := item.(map[string]any); ok {
 					mask(subData, fieldNames)
 					t[i] = subData
 				}

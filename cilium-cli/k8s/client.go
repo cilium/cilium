@@ -127,7 +127,7 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver, logger); err != nil {
 		return nil, err
 	}
@@ -1077,7 +1077,7 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
 		return "", err
 	}
@@ -1101,7 +1101,7 @@ func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespac
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
 		return "", err
 	}

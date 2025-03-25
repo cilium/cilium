@@ -130,7 +130,7 @@ func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter sl
 	return nil
 }
 
-func ciliumPodHandler(obj interface{}, queue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
+func ciliumPodHandler(obj any, queue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
 	if pod := informer.CastInformerEvent[slim_corev1.Pod](logger, obj); pod != nil {
 		nodeName := pod.Spec.NodeName
 		// Pod might not yet be scheduled to a node
@@ -153,10 +153,10 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, q
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				ciliumPodHandler(obj, queue, logger)
 			},
-			UpdateFunc: func(_, newObj interface{}) {
+			UpdateFunc: func(_, newObj any) {
 				ciliumPodHandler(newObj, queue, logger)
 			},
 		},
@@ -207,7 +207,7 @@ func hasAgentNotReadyTaint(k8sNode *slim_corev1.Node) bool {
 }
 
 // hostNameIndexFunc index pods by node name.
-func hostNameIndexFunc(obj interface{}) ([]string, error) {
+func hostNameIndexFunc(obj any) ([]string, error) {
 	switch t := obj.(type) {
 	case *slim_corev1.Pod:
 		return []string{t.Spec.NodeName}, nil
@@ -215,7 +215,7 @@ func hostNameIndexFunc(obj interface{}) ([]string, error) {
 	return nil, fmt.Errorf("%w - found %T", errNoPod, obj)
 }
 
-func transformToCiliumPod(obj interface{}) (interface{}, error) {
+func transformToCiliumPod(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Pod:
 		p := &slim_corev1.Pod{

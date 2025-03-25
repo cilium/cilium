@@ -32,7 +32,7 @@ var (
 type Status struct {
 	// Data is non-nil when the probe has completed successfully. Data is
 	// set to the value returned by Probe()
-	Data interface{}
+	Data any
 
 	// Err is non-nil if either the probe file or the Failure or Warning
 	// threshold has been reached
@@ -46,7 +46,7 @@ type Status struct {
 type Probe struct {
 	Name string
 
-	Probe func(ctx context.Context) (interface{}, error)
+	Probe func(ctx context.Context) (any, error)
 
 	// OnStatusUpdate is called whenever the status of the probe changes
 	OnStatusUpdate func(status Status)
@@ -189,7 +189,7 @@ func (c *Collector) spawnProbe(p *Probe, firstRunCompleted func()) {
 // or after the collector has been closed.
 func (c *Collector) runProbe(p *Probe) {
 	var (
-		statusData       interface{}
+		statusData       any
 		err              error
 		warningThreshold = time.After(c.config.WarningThreshold)
 		hardTimeout      = false
@@ -258,7 +258,7 @@ func (c *Collector) runProbe(p *Probe) {
 	}
 }
 
-func (c *Collector) updateProbeStatus(p *Probe, data interface{}, stale bool, err error) {
+func (c *Collector) updateProbeStatus(p *Probe, data any, stale bool, err error) {
 	// Update stale status of the probe
 	c.Lock()
 	startTime := c.probeStartTime[p.Name]

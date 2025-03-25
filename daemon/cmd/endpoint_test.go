@@ -44,7 +44,7 @@ func getEPTemplate(t *testing.T, d *Daemon) *models.EndpointChangeRequest {
 			IPV6: ip6.IP.String(),
 			IPV4: ip4.IP.String(),
 		},
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			endpoint.PropertySkipBPFRegeneration: true,
 			endpoint.PropertyFakeEndpoint:        true,
 		},

@@ -73,8 +73,8 @@ func namespaceIndexFunc(obj any) ([]string, error) {
 	return []string{object.GetNamespace()}, nil
 }
 
-func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
-	return func(obj interface{}) ([]string, error) {
+func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj any) ([]string, error) {
+	return func(obj any) ([]string, error) {
 		if identity, ok := obj.(*cilium_api_v2.CiliumIdentity); ok {
 			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
 		}

@@ -156,7 +156,7 @@ func CurrnetScopeCounter() int32 {
 // By allows you to document such flows.  By must be called within a runnable
 // node (It, BeforeEach, Measure, etc...)
 // By will simply log the passed in text to the GinkgoWriter.
-func By(message string, optionalValues ...interface{}) {
+func By(message string, optionalValues ...any) {
 	if len(optionalValues) > 0 {
 		message = fmt.Sprintf(message, optionalValues...)
 	}
@@ -165,7 +165,7 @@ func By(message string, optionalValues ...interface{}) {
 }
 
 // GinkgoPrint send the given message to the test writers to store it.
-func GinkgoPrint(message string, optionalValues ...interface{}) {
+func GinkgoPrint(message string, optionalValues ...any) {
 	if len(optionalValues) > 0 {
 		message = fmt.Sprintf(message, optionalValues...)
 	}
@@ -430,7 +430,7 @@ func BeforeEach(body func(), timeout ...float64) bool {
 	}, timeout...)
 }
 
-func beforeEach(body interface{}, timeout ...float64) bool {
+func beforeEach(body any, timeout ...float64) bool {
 	if currentScope == nil {
 		return ginkgo.BeforeEach(body, timeout...)
 	}
@@ -495,7 +495,7 @@ func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool 
 // wrapItFunc wraps gingko.It to track invocations and correctly
 // execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
 // This function is similar to wrapMeasureFunc.
-func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) func(string, interface{}, ...float64) bool {
+func wrapItFunc(fn func(string, any, ...float64) bool, focused bool) func(string, any, ...float64) bool {
 	if rootScope.isUnset() {
 		rootScope.setSafely(0)
 		BeforeSuite(func() {
@@ -503,7 +503,7 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 			rootScope.setSafely(c)
 		})
 	}
-	return func(text string, body interface{}, timeout ...float64) bool {
+	return func(text string, body any, timeout ...float64) bool {
 		if currentScope == nil {
 			return fn(text, body, timeout...)
 		}
@@ -519,7 +519,7 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 // wrapMeasureFunc wraps gingko.Measure to track invocations and correctly
 // execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
 // This function is similar to wrapItFunc.
-func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, focused bool) func(text string, body interface{}, samples int) bool {
+func wrapMeasureFunc(fn func(text string, body any, samples int) bool, focused bool) func(text string, body any, samples int) bool {
 	if rootScope.isUnset() {
 		rootScope.setSafely(0)
 		BeforeSuite(func() {
@@ -527,7 +527,7 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 			rootScope.setSafely(c)
 		})
 	}
-	return func(text string, body interface{}, samples int) bool {
+	return func(text string, body any, samples int) bool {
 		if currentScope == nil {
 			return fn(text, body, samples)
 		}
@@ -568,7 +568,7 @@ func isTestFocused(text string) bool {
 	return false
 }
 
-func applyAdvice(f interface{}, before, after func()) interface{} {
+func applyAdvice(f any, before, after func()) any {
 	fn := reflect.ValueOf(f)
 	template := func(in []reflect.Value) []reflect.Value {
 		if before != nil {
@@ -583,7 +583,7 @@ func applyAdvice(f interface{}, before, after func()) interface{} {
 	return v.Interface()
 }
 
-func wrapTest(f interface{}) interface{} {
+func wrapTest(f any) any {
 	cs := currentScope
 	after := func() {
 		for cs != nil {
@@ -696,6 +696,6 @@ func SkipItIf(condition func() bool, text string, body func(), timeout ...float6
 }
 
 // Failf calls Fail with a formatted string
-func Failf(msg string, args ...interface{}) {
+func Failf(msg string, args ...any) {
 	Fail(fmt.Sprintf(msg, args...))
 }

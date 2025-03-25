@@ -60,7 +60,7 @@ func TestVariableProbeInterval(t *testing.T) {
 				// Ensure that the regular interval would never retry
 				return time.Minute
 			},
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				// Let 5 runs fail and then succeed
 				if runs.Add(1) < 5 {
 					return nil, fmt.Errorf("still failing")
@@ -93,7 +93,7 @@ func TestCollectorFailureTimeout(t *testing.T) {
 
 	p := []Probe{
 		{
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				time.Sleep(s.Config().FailureThreshold * 2)
 				return nil, nil
 			},
@@ -127,7 +127,7 @@ func TestCollectorSuccess(t *testing.T) {
 
 	p := []Probe{
 		{
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if ok.Load() > 3 {
 					return nil, err
 				}
@@ -163,7 +163,7 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 
 	p := []Probe{
 		{
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if timeout.Load() == 0 {
 					time.Sleep(2 * s.Config().FailureThreshold)
 				}
@@ -194,7 +194,7 @@ func TestWaitForFirstRun(t *testing.T) {
 	s := setUpTest(t)
 
 	unlock := make(chan struct{})
-	probeFn := func(ctx context.Context) (interface{}, error) {
+	probeFn := func(ctx context.Context) (any, error) {
 		<-unlock
 		return nil, nil
 	}

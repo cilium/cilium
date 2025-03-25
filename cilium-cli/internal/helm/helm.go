@@ -38,12 +38,12 @@ import (
 var settings = cli.New()
 
 // Merge maps recursively merges the values of b into a copy of a, preferring the values from b
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
+func mergeMaps(a, b map[string]any) map[string]any {
 	out := maps.Clone(a)
 	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
+		if v, ok := v.(map[string]any); ok {
 			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
+				if bv, ok := bv.(map[string]any); ok {
 					out[k] = mergeMaps(bv, v)
 					continue
 				}
@@ -143,7 +143,7 @@ func ciliumCacheDir() (string, error) {
 func MergeVals(
 	helmFlagOpts values.Options,
 	helmMapOpts map[string]string,
-) (map[string]interface{}, error) {
+) (map[string]any, error) {
 
 	// Create helm values from helmMapOpts
 	var helmOpts []string
@@ -153,7 +153,7 @@ func MergeVals(
 
 	helmOptsStr := strings.Join(helmOpts, ",")
 
-	helmValues := map[string]interface{}{}
+	helmValues := map[string]any{}
 	err := strvals.ParseInto(helmOptsStr, helmValues)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing helm options %q: %w", helmOptsStr, err)
@@ -174,9 +174,9 @@ func MergeVals(
 // ["some.chart.value=val1", "some.other.value=val2"]
 // and returns a deeply nested map of Values of the form
 // expected by Helm actions.
-func ParseVals(helmStrValues []string) (map[string]interface{}, error) {
+func ParseVals(helmStrValues []string) (map[string]any, error) {
 	helmValStr := strings.Join(helmStrValues, ",")
-	helmValues := map[string]interface{}{}
+	helmValues := map[string]any{}
 	err := strvals.ParseInto(helmValStr, helmValues)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing helm options %q: %w", helmValStr, err)
@@ -278,7 +278,7 @@ type UpgradeParameters struct {
 	// Chart is the Helm chart to use for the release
 	Chart *chart.Chart
 	// Helm values to pass during upgrade.
-	Values map[string]interface{}
+	Values map[string]any
 	// --reset-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
 	ResetValues bool
 	// --reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.

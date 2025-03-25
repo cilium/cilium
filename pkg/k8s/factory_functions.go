@@ -122,7 +122,7 @@ func ConvertToNetworkV1IngressLoadBalancerIngress(slimLBIngs []slim_corev1.LoadB
 // in its Obj, obj is returned without any transformations. If the given obj can't be
 // cast into either *cilium_v2.CiliumClusterwideNetworkPolicy nor
 // cache.DeletedFinalStateUnknown, an error is returned.
-func TransformToCCNP(obj interface{}) (interface{}, error) {
+func TransformToCCNP(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
 		return &types.SlimCNP{
@@ -170,7 +170,7 @@ func TransformToCCNP(obj interface{}) (interface{}, error) {
 // *types.SlimCNP in its Obj, obj is returned without any transformations.
 // If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, an error is returned.
-func TransformToCNP(obj interface{}) (interface{}, error) {
+func TransformToCNP(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumNetworkPolicy:
 		return &types.SlimCNP{
@@ -257,7 +257,7 @@ func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
 // a *types.CiliumEndpoint in its Obj, obj is returned without any transformations.
 // If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
 // cache.DeletedFinalStateUnknown, an error is returned.
-func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
+func TransformToCiliumEndpoint(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumEndpoint:
 		return &types.CiliumEndpoint{

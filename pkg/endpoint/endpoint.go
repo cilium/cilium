@@ -423,7 +423,7 @@ type Endpoint struct {
 	ciliumEndpointUID k8sTypes.UID
 
 	// properties is used to store some internal properties about this Endpoint.
-	properties map[string]interface{}
+	properties map[string]any
 
 	// Root scope for all of this endpoints reporters.
 	reporterScope       cell.Health
@@ -600,7 +600,7 @@ func createEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory
 		allocator:        allocator,
 		logLimiter:       logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		noTrackPort:      0,
-		properties:       map[string]interface{}{},
+		properties:       map[string]any{},
 		ctMapGC:          ctMapGC,
 
 		forcePolicyCompute: true,
@@ -835,7 +835,7 @@ func (e *Endpoint) String() string {
 
 // optionChanged is a callback used with pkg/option to apply the options to an
 // endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value option.OptionSetting, data interface{}) {
+func optionChanged(key string, value option.OptionSetting, data any) {
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
@@ -2342,7 +2342,7 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 
 	now := time.Now()
 	e.policyRevision = rev
-	e.UpdateLogger(map[string]interface{}{
+	e.UpdateLogger(map[string]any{
 		logfields.DatapathPolicyRevision: e.policyRevision,
 	})
 	for ps := range e.policyRevisionSignals {
@@ -2635,14 +2635,14 @@ func (e *Endpoint) GetCreatedAt() time.Time {
 }
 
 // GetPropertyValue returns the metadata value for this key.
-func (e *Endpoint) GetPropertyValue(key string) interface{} {
+func (e *Endpoint) GetPropertyValue(key string) any {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
 	return e.properties[key]
 }
 
 // SetPropertyValue sets the metadata value for this key.
-func (e *Endpoint) SetPropertyValue(key string, value interface{}) interface{} {
+func (e *Endpoint) SetPropertyValue(key string, value any) any {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()
 	old := e.properties[key]

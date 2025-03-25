@@ -148,7 +148,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 	}
 
 	type args struct {
-		msg interface{}
+		msg any
 		l   []gopacket.SerializableLayer
 	}
 	tests := []struct {

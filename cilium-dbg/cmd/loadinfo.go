@@ -20,7 +20,7 @@ var LoadInfoCmd = &cobra.Command{
 	},
 }
 
-func printFunc(format string, a ...interface{}) {
+func printFunc(format string, a ...any) {
 	fmt.Printf(format, a...)
 	fmt.Println()
 }

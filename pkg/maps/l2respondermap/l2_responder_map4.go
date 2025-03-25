@@ -103,7 +103,7 @@ type IterateCallback func(*L2ResponderKey, *L2ResponderStats)
 // passing each key/value pair to the cb callback.
 func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 	return m.Map.IterateWithCallback(&L2ResponderKey{}, &L2ResponderStats{},
-		func(k, v interface{}) {
+		func(k, v any) {
 			key := k.(*L2ResponderKey)
 			value := v.(*L2ResponderStats)
 			cb(key, value)

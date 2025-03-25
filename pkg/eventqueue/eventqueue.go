@@ -97,7 +97,7 @@ func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
 // waiting to receive on such a channel will block forever. Returns an error
 // if the Event has been previously enqueued, if the Event is nil, or the queue
 // itself is not initialized properly.
-func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
+func (q *EventQueue) Enqueue(ev *Event) (<-chan any, error) {
 	if q.notSafeToAccess() || ev == nil {
 		return nil, fmt.Errorf("unable to Enqueue event")
 	}
@@ -145,7 +145,7 @@ type Event struct {
 	// eventResults is a channel on which the results of the event are sent.
 	// It is populated by the EventQueue itself, not by the queuer. This channel
 	// is closed if the event is cancelled.
-	eventResults chan interface{}
+	eventResults chan any
 
 	// cancelled signals that the given Event was not ran. This can happen
 	// if the EventQueue processing this Event was closed before the Event was
@@ -181,7 +181,7 @@ type eventStatistics struct {
 func NewEvent(meta EventHandler) *Event {
 	return &Event{
 		Metadata:     meta,
-		eventResults: make(chan interface{}, 1),
+		eventResults: make(chan any, 1),
 		cancelled:    make(chan struct{}),
 		stats:        eventStatistics{},
 	}
@@ -310,5 +310,5 @@ func (q *EventQueue) getLogger() *logrus.Entry {
 // in a generic way. To be processed by the EventQueue, all event types must
 // implement any function specified in this interface.
 type EventHandler interface {
-	Handle(chan interface{})
+	Handle(chan any)
 }

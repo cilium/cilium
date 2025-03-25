@@ -42,7 +42,7 @@ func isCtxDone(ctx context.Context) bool {
 
 type Agent interface {
 	AttachToEventsMap(nPages int) error
-	SendEvent(typ int, event interface{}) error
+	SendEvent(typ int, event any) error
 	RegisterNewListener(newListener listener.MonitorListener)
 	RemoveListener(ml listener.MonitorListener)
 	RegisterNewConsumer(newConsumer consumer.MonitorConsumer)
@@ -130,7 +130,7 @@ func (a *agent) AttachToEventsMap(nPages int) error {
 }
 
 // SendEvent distributes an event to all monitor listeners
-func (a *agent) SendEvent(typ int, event interface{}) error {
+func (a *agent) SendEvent(typ int, event any) error {
 	if a == nil {
 		return fmt.Errorf("monitor agent is not set up")
 	}
@@ -403,7 +403,7 @@ func (a *agent) State() *models.MonitorStatus {
 }
 
 // notifyAgentEvent notifies all consumers about an agent event.
-func (a *agent) notifyAgentEvent(typ int, message interface{}) {
+func (a *agent) notifyAgentEvent(typ int, message any) {
 	a.Lock()
 	defer a.Unlock()
 	for mc := range a.consumers {

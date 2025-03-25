@@ -55,7 +55,7 @@ func UnmanagedPodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 	cache.WaitForCacheSync(ctx.Done(), unmanagedPodInformer.HasSynced)
 }
 
-func TransformToUnmanagedPod(obj interface{}) (interface{}, error) {
+func TransformToUnmanagedPod(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Pod:
 		p := &slim_corev1.Pod{

@@ -57,7 +57,7 @@ func runSet(cmd *cobra.Command, vp *viper.Viper, key, value string) error {
 	}
 
 	var err error
-	var newVal interface{}
+	var newVal any
 	typ := flag.Value.Type()
 	switch typ {
 	case "bool":

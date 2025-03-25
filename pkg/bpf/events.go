@@ -97,7 +97,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 				Group: bpfEventBufferGCControllerGroup,
 				DoFunc: func(_ context.Context) error {
 					m.scopedLogger().Debugf("clearing bpf map events older than %s", b.eventTTL)
-					b.buffer.Compact(func(e interface{}) bool {
+					b.buffer.Compact(func(e any) bool {
 						event, ok := e.(*Event)
 						if !ok {
 							log.WithError(wrongObjTypeErr(e)).Error("Failed to compact the event buffer")
@@ -262,7 +262,7 @@ func wrongObjTypeErr(i any) error {
 	return fmt.Errorf("BUG: wrong object type in event ring buffer: %T", i)
 }
 
-func (eb *eventsBuffer) eventIsValid(e interface{}) bool {
+func (eb *eventsBuffer) eventIsValid(e any) bool {
 	event, ok := e.(*Event)
 	if !ok {
 		log.WithError(wrongObjTypeErr(e)).Error("Could not dump contents of events buffer")
@@ -275,7 +275,7 @@ func (eb *eventsBuffer) eventIsValid(e interface{}) bool {
 type EventCallbackFunc func(*Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
-	eb.buffer.IterateValid(eb.eventIsValid, func(e interface{}) {
+	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
 		event, ok := e.(*Event)
 		if !ok {
 			log.WithError(wrongObjTypeErr(e)).Error("Could not dump contents of events buffer")

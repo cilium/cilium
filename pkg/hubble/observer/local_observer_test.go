@@ -80,7 +80,7 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 func TestGetFlowRate(t *testing.T) {
 	type event struct {
 		offset int
-		event  interface{}
+		event  any
 	}
 
 	tcs := map[string]struct {

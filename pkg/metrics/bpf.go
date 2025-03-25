@@ -113,7 +113,7 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// Avoid querying BPF multiple times concurrently, if it happens, additional callers will wait for the
 	// first one to finish and reuse its resulting values.
-	results, err, _ := s.sfg.Do("collect", func() (interface{}, error) {
+	results, err, _ := s.sfg.Do("collect", func() (any, error) {
 		var (
 			results = bpfUsageResults{}
 			err     error

@@ -55,7 +55,7 @@ type errorer struct {
 	err error
 }
 
-func (e *errorer) Errorf(format string, args ...interface{}) {
+func (e *errorer) Errorf(format string, args ...any) {
 	e.err = errors.Join(e.err, fmt.Errorf(format, args...))
 }
 

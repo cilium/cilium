@@ -1029,12 +1029,12 @@ func Test_ConvertToNetworkV1IngressLoadBalancerIngress(t *testing.T) {
 
 func Test_TransformToCNP(t *testing.T) {
 	type args struct {
-		obj interface{}
+		obj any
 	}
 	tests := []struct {
 		name     string
 		args     args
-		want     interface{}
+		want     any
 		expected bool
 	}{
 		{
@@ -1118,12 +1118,12 @@ func Test_TransformToCNP(t *testing.T) {
 
 func Test_TransformToCCNP(t *testing.T) {
 	type args struct {
-		obj interface{}
+		obj any
 	}
 	tests := []struct {
 		name     string
 		args     args
-		want     interface{}
+		want     any
 		expected bool
 	}{
 		{
@@ -1217,12 +1217,12 @@ func Test_TransformToCCNP(t *testing.T) {
 
 func Test_TransformToCiliumEndpoint(t *testing.T) {
 	type args struct {
-		obj interface{}
+		obj any
 	}
 	tests := []struct {
 		name     string
 		args     args
-		want     interface{}
+		want     any
 		expected bool
 	}{
 		{

@@ -36,7 +36,7 @@ type KVLocker interface {
 	// Comparator returns an object that should be used by the KVStore to make
 	// sure if the lock is still valid for its client or nil if no such
 	// verification exists.
-	Comparator() interface{}
+	Comparator() any
 }
 
 // getLockPath returns the lock path representation of the given path.
@@ -169,6 +169,6 @@ func (l *Lock) Unlock(ctx context.Context) error {
 	return err
 }
 
-func (l *Lock) Comparator() interface{} {
+func (l *Lock) Comparator() any {
 	return l.kvLock.Comparator()
 }

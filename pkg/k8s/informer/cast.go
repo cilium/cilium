@@ -15,7 +15,7 @@ import (
 // CastInformerEvent tries to cast obj to type typ, directly
 // or by DeletedFinalStateUnknown type. It returns nil and logs
 // an error if obj doesn't contain type typ.
-func CastInformerEvent[typ any](logger *slog.Logger, obj interface{}) *typ {
+func CastInformerEvent[typ any](logger *slog.Logger, obj any) *typ {
 	k8sObj, ok := obj.(*typ)
 	if ok {
 		return k8sObj

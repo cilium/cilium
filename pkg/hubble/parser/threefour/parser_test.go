@@ -745,7 +745,7 @@ func TestDecodeDropReason(t *testing.T) {
 func TestDecodeTraceReason(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
-	parseFlow := func(event interface{}, srcIPv4, dstIPv4 string) *flowpb.Flow {
+	parseFlow := func(event any, srcIPv4, dstIPv4 string) *flowpb.Flow {
 		data, err := testutils.CreateL3L4Payload(event,
 			&layers.Ethernet{
 				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
@@ -1090,7 +1090,7 @@ func TestDecodeIsReply(t *testing.T) {
 
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
-	parseFlow := func(event interface{}, srcIPv4, dstIPv4 net.IP) *flowpb.Flow {
+	parseFlow := func(event any, srcIPv4, dstIPv4 net.IP) *flowpb.Flow {
 		data, err := testutils.CreateL3L4Payload(event,
 			&layers.Ethernet{
 				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},

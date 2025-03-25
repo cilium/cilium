@@ -66,7 +66,7 @@ func detectUnknownFields(logger *slog.Logger, policy *unstructured.Unstructured)
 		return err
 	}
 
-	var filtered map[string]interface{}
+	var filtered map[string]any
 	switch kind {
 	case cilium_v2.CNPKindDefinition:
 		cnp := new(cilium_v2.CiliumNetworkPolicy)
@@ -158,7 +158,7 @@ func (e ErrUnknownKind) Error() string {
 	return fmt.Sprintf("unknown kind %q", e.kind)
 }
 
-func getFields(u map[string]interface{}) ([]string, error) {
+func getFields(u map[string]any) ([]string, error) {
 	flat, err := flattenObject(u)
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func getFields(u map[string]interface{}) ([]string, error) {
 //   - specs.0.ingress.0.fromEndpoints.0.matchExpressions.*
 var arbitraryLabelRegex = regexp.MustCompile(`^(.+\.(matchLabels|matchExpressions))\..+$`)
 
-func flattenObject(obj map[string]interface{}) (map[string]interface{}, error) {
+func flattenObject(obj map[string]any) (map[string]any, error) {
 	return flatten.Flatten(obj, "", flatten.DotStyle)
 }
 

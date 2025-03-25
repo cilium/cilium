@@ -152,7 +152,7 @@ func severityOverrideWriter(level logrus.Level, log *logrus.Entry, overrides []l
 func writerScanner(
 	entry *logrus.Entry,
 	reader *io.PipeReader,
-	defaultPrintFunc func(args ...interface{}),
+	defaultPrintFunc func(args ...any),
 	overrides []logLevelOverride) {
 
 	defer reader.Close()
@@ -397,7 +397,7 @@ func getLogDriverConfig(logDriver string, logOpts LogOptions) LogOptions {
 
 // MultiLine breaks a multi line text into individual log entries and calls the
 // logging function to log each entry
-func MultiLine(logFn func(args ...interface{}), output string) {
+func MultiLine(logFn func(args ...any), output string) {
 	scanner := bufio.NewScanner(bytes.NewReader([]byte(output)))
 	for scanner.Scan() {
 		logFn(scanner.Text())

@@ -70,45 +70,45 @@ func TestParseVals(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   []string
-		want    map[string]interface{}
+		want    map[string]any
 		wantErr bool
 	}{
 		{
 			name:    "simple-val",
 			input:   []string{"simple=true"},
-			want:    map[string]interface{}{"simple": true},
+			want:    map[string]any{"simple": true},
 			wantErr: false,
 		},
 		{
 			name:    "two-levels",
 			input:   []string{"two.levels=true"},
-			want:    map[string]interface{}{"two": map[string]interface{}{"levels": true}},
+			want:    map[string]any{"two": map[string]any{"levels": true}},
 			wantErr: false,
 		},
 		{
 			name:    "multiple-keys",
 			input:   []string{"multiple=true", "keys=true"},
-			want:    map[string]interface{}{"multiple": true, "keys": true},
+			want:    map[string]any{"multiple": true, "keys": true},
 			wantErr: false,
 		},
 		{
 			name:    "string-type",
 			input:   []string{"string=testval"},
-			want:    map[string]interface{}{"string": "testval"},
+			want:    map[string]any{"string": "testval"},
 			wantErr: false,
 		},
 		{
 			name:    "mixed-type",
 			input:   []string{"string=testval", "bool=false"},
-			want:    map[string]interface{}{"string": "testval", "bool": false},
+			want:    map[string]any{"string": "testval", "bool": false},
 			wantErr: false,
 		},
 		{
 			name:  "mixed-levels",
 			input: []string{"two.levels=true", "three.levels.deep=true"},
-			want: map[string]interface{}{
-				"two":   map[string]interface{}{"levels": true},
-				"three": map[string]interface{}{"levels": map[string]interface{}{"deep": true}},
+			want: map[string]any{
+				"two":   map[string]any{"levels": true},
+				"three": map[string]any{"levels": map[string]any{"deep": true}},
 			},
 			wantErr: false,
 		},

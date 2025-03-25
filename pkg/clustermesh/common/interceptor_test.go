@@ -34,7 +34,7 @@ func newMockClientStream() mockClientStream {
 	}
 }
 
-func (c mockClientStream) RecvMsg(msg interface{}) error {
+func (c mockClientStream) RecvMsg(msg any) error {
 	return nil
 }
 

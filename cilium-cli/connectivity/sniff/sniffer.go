@@ -38,7 +38,7 @@ type Sniffer struct {
 }
 
 type debugLogger interface {
-	Debugf(string, ...interface{})
+	Debugf(string, ...any)
 }
 
 // Start starts a tcpdump capture on the given pod, listening to the specified

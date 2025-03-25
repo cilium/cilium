@@ -2484,7 +2484,7 @@ func (f *FakeMonitorAgent) RemoveConsumer(mc consumer.MonitorConsumer) {
 func (f *FakeMonitorAgent) RemoveListener(ml listener.MonitorListener) {
 }
 
-func (f *FakeMonitorAgent) SendEvent(typ int, event interface{}) error {
+func (f *FakeMonitorAgent) SendEvent(typ int, event any) error {
 	return nil
 }
 

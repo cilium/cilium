@@ -26,7 +26,7 @@ type EndpointRegenerationEvent struct {
 }
 
 // Handle handles the regeneration event for the endpoint.
-func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
+func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 	e := ev.ep
 	regenContext := ev.regenContext
 
@@ -104,7 +104,7 @@ type EndpointRevisionBumpEvent struct {
 }
 
 // Handle handles the revision bump event for the Endpoint.
-func (ev *EndpointRevisionBumpEvent) Handle(res chan interface{}) {
+func (ev *EndpointRevisionBumpEvent) Handle(res chan any) {
 	// TODO: if the endpoint is not in a 'ready' state that means that
 	// we cannot set the policy revision, as something else has
 	// changed endpoint state which necessitates regeneration,
@@ -139,7 +139,7 @@ type EndpointNoTrackEvent struct {
 }
 
 // Handle handles the NOTRACK rule update.
-func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
+func (ev *EndpointNoTrackEvent) Handle(res chan any) {
 	var port uint16
 
 	e := ev.ep
@@ -206,7 +206,7 @@ type EndpointPolicyBandwidthEvent struct {
 }
 
 // Handle handles the policy bandwidth update.
-func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
+func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 	var bps, ingressBps, prio uint64
 
 	if !ev.bwm.Enabled() {
@@ -347,7 +347,7 @@ func (e *Endpoint) Start(id uint16) {
 	defer e.unlock()
 
 	e.ID = id
-	e.UpdateLogger(map[string]interface{}{
+	e.UpdateLogger(map[string]any{
 		logfields.EndpointID: e.ID,
 	})
 

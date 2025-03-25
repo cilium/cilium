@@ -25,7 +25,7 @@ var (
 	MaxEntries int
 )
 
-type Map interface{}
+type Map any
 
 func newEventsMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	eventsMap := &eventsMap{}

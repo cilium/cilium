@@ -25,7 +25,7 @@ var (
 
 // monitorNotify is an interface to notify the monitor about ipcache changes.
 type monitorNotify interface {
-	SendEvent(typ int, event interface{}) error
+	SendEvent(typ int, event any) error
 }
 
 type Map interface {

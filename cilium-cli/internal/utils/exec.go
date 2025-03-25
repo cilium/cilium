@@ -10,7 +10,7 @@ import (
 )
 
 type Logger interface {
-	Log(format string, args ...interface{})
+	Log(format string, args ...any)
 }
 
 func Exec(l Logger, command string, args ...string) ([]byte, error) {

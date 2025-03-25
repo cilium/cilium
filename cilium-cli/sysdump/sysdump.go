@@ -2193,21 +2193,21 @@ func collectCiliumV2OrV2Alpha1Resource(collector *Collector, resource, title str
 	}
 }
 
-func (c *Collector) log(msg string, args ...interface{}) {
+func (c *Collector) log(msg string, args ...any) {
 	fmt.Fprintf(c.logWriter, msg+"\n", args...)
 }
 
-func (c *Collector) logDebug(msg string, args ...interface{}) {
+func (c *Collector) logDebug(msg string, args ...any) {
 	if c.Options.Debug {
 		c.log("🩺 "+msg, args...)
 	}
 }
 
-func (c *Collector) logTask(msg string, args ...interface{}) {
+func (c *Collector) logTask(msg string, args ...any) {
 	c.log("🔍 "+msg, args...)
 }
 
-func (c *Collector) logWarn(msg string, args ...interface{}) {
+func (c *Collector) logWarn(msg string, args ...any) {
 	c.log("⚠️ "+msg, args...)
 }
 
