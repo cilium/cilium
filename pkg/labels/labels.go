@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"strings"
@@ -293,14 +294,10 @@ func (l Labels) GetFromSource(source string) Labels {
 }
 
 // RemoveFromSource removes all labels that are from the given source
-func (l Labels) RemoveFromSource(source string) Labels {
-	lbls := Labels{}
-	for k, v := range l {
-		if v.Source != source {
-			lbls[k] = v
-		}
-	}
-	return lbls
+func (l Labels) RemoveFromSource(source string) {
+	maps.DeleteFunc(l, func(k string, v Label) bool {
+		return v.Source == source
+	})
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,
@@ -610,16 +607,13 @@ func (l Labels) MergeLabels(from Labels) {
 	}
 }
 
-// Remove is similar to MergeLabels, but returns a new Labels object with the
-// specified Labels removed. The received Labels is not modified.
-func (l Labels) Remove(from Labels) Labels {
-	result := make(Labels, len(l))
-	for k, v := range l {
-		if _, exists := from[k]; !exists {
-			result[k] = v
-		}
-	}
-	return result
+// Remove is similar to MergeLabels, but removes the specified Labels from l.
+// The received Labels is not modified.
+func (l Labels) Remove(from Labels) {
+	maps.DeleteFunc(l, func(k string, v Label) bool {
+		_, exists := from[k]
+		return exists
+	})
 }
 
 // FormatForKVStore returns the label as a formatted string, ending in

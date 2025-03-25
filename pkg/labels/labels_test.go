@@ -110,6 +110,34 @@ func TestMergeLabels(t *testing.T) {
 	require.EqualValues(t, want, to)
 }
 
+func TestRemove(t *testing.T) {
+	to := Labels{
+		"key1": NewLabel("key1", "value1", "source1"),
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	remove := Labels{
+		"key1": NewLabel("key1", "value3", "source4"),
+	}
+	want := Labels{
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	to.Remove(remove)
+	require.EqualValues(t, want, to)
+}
+
+func TestRemoveFromSource(t *testing.T) {
+	to := Labels{
+		"key1": NewLabel("key1", "value1", "source1"),
+		"key2": NewLabel("key2", "value3", "source4"),
+		"key3": NewLabel("key2", "value5", "source1"),
+	}
+	want := Labels{
+		"key2": NewLabel("key2", "value3", "source4"),
+	}
+	to.RemoveFromSource("source1")
+	require.EqualValues(t, want, to)
+}
+
 func TestParseLabel(t *testing.T) {
 	tests := []struct {
 		str string
