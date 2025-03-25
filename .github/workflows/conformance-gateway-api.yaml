@@ -295,7 +295,7 @@ jobs:
             GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
             GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
             go test \
-              -p 4 \
+              -p 2 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
               --all-features \
@@ -317,7 +317,7 @@ jobs:
             GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
             GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
             go test \
-              -p 4 \
+              -p 2 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
               --all-features \
