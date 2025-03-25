@@ -114,7 +114,7 @@ func getBoottime() (t time.Time, err error) {
 	defer runtime.UnlockOSThread()
 	// Keep the minimum difference out of 10 samples to estimate the drift between boottime and
 	// monotonic clocks at the time this call.
-	for i := 0; i < nClockSamples; i++ {
+	for range nClockSamples {
 		var monotonicTimespec unix.Timespec
 		err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &monotonicTimespec)
 		if err != nil {

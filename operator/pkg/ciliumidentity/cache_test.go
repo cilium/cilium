@@ -154,7 +154,7 @@ func TestCIDStateThreadSafety(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	queryStateFunc := func() {
-		for i := 0; i < 500; i++ {
+		for range 500 {
 			state.LookupByID("1000")
 			state.Upsert("1000", k)
 			state.LookupByKey(k)
@@ -166,7 +166,7 @@ func TestCIDStateThreadSafety(t *testing.T) {
 		wg.Done()
 	}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		wg.Add(1)
 		go queryStateFunc()
 	}

@@ -700,7 +700,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	boff := a.backoffTemplate
 	boff.Name = key.String()
 
-	for attempt := 0; attempt < a.maxAllocAttempts; attempt++ {
+	for attempt := range a.maxAllocAttempts {
 		// Check our list of local keys already in use and increment the
 		// refcnt. The returned key must be released afterwards. No kvstore
 		// operation was performed for this allocation.
@@ -778,7 +778,7 @@ func (a *Allocator) GetWithRetry(ctx context.Context, key AllocatorKey) (idpool.
 	var id idpool.ID
 	var err error
 
-	for attempt := 0; attempt < a.maxAllocAttempts; attempt++ {
+	for attempt := range a.maxAllocAttempts {
 		id, err = getID()
 		if err == nil {
 			return id, nil

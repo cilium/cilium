@@ -1176,7 +1176,7 @@ func withExcludeInterfaceTags(tags map[string]string) func(*v2.CiliumNode) {
 
 func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
-	for i := 0; i < used; i++ {
+	for i := range used {
 		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
 	}
 

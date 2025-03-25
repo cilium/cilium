@@ -305,7 +305,7 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames sets.Set[string], re
 			return sortedEntries[i].entry.ExpirationTime.Before(sortedEntries[j].entry.ExpirationTime)
 		})
 
-		for i := 0; i < overlimit; i++ {
+		for i := range overlimit {
 			key := sortedEntries[i]
 			delete(entries, key.ip)
 			c.remove(key.ip, key.entry)

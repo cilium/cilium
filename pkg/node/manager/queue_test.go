@@ -28,7 +28,7 @@ func TestQPush(t *testing.T) {
 			for i := range u.items {
 				q.push(&u.items[i])
 			}
-			for i := 0; i < len(u.items); i++ {
+			for i := range u.items {
 				v, ok := q.pop()
 				assert.True(t, ok)
 				assert.Less(t, i, len(u.e))

@@ -14,7 +14,7 @@ import (
 
 func TestJitter(t *testing.T) {
 	var prev time.Duration
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		current := CalculateDuration(time.Second, time.Minute, 2.0, true, 1)
 		require.NotEqual(t, prev, current)
 		prev = current

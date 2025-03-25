@@ -479,7 +479,7 @@ func TestNodeUpdate(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
-				for i := 0; i < len(tt.want); i++ {
+				for range tt.want {
 					got = append(got, <-h.C)
 				}
 				wg.Done()

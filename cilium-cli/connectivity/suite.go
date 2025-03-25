@@ -83,7 +83,7 @@ func runConnectivityTests(ctx context.Context, connTests []*check.ConnectivityTe
 	if err := me.Wait(); err != nil {
 		return err
 	}
-	for i := 0; i < len(connTests); i++ {
+	for i := range connTests {
 		if !finish[i] {
 			// Exit with a non-zero return code.
 			return errors.New("encountered internal error, exiting")

@@ -630,7 +630,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name+"-init", func(t *testing.T) {
 					err = policyReconciler.Reconcile(context.Background(), params)
 					if tt.expectError {
@@ -660,7 +660,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			}
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name+"-follow-up", func(t *testing.T) {
 					err = policyReconciler.Reconcile(context.Background(), params)
 					require.NoError(t, err)

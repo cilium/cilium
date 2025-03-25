@@ -151,7 +151,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	var standardQueueLen int
 	var fastQueueLen int
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if i == 6 {
 			ns = "FastNamespace"
 		}
@@ -177,7 +177,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		cesController.processNextWorkItem()
 		if i < 4 {
 			standardQueueLen = 6

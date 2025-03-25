@@ -166,8 +166,7 @@ func (s *CidrSet) AllocateNext() (*net.IPNet, error) {
 		return nil, ErrCIDRRangeNoCIDRsRemaining
 	}
 	candidate := s.nextCandidate
-	var i int
-	for i = 0; i < s.maxCIDRs; i++ {
+	for range s.maxCIDRs {
 		if s.used.Bit(candidate) == 0 {
 			break
 		}

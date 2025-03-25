@@ -1573,7 +1573,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	count := 30
 	var wg sync.WaitGroup
 	wg.Add(count)
-	for i := 0; i < count; i++ {
+	for range count {
 		go func() {
 			defer wg.Done()
 			ticker := time.NewTicker(100 * time.Millisecond)
@@ -1587,7 +1587,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			}
 		}()
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mac := rndHWAddr()
 		// Change MAC
 		ns.Do(func() error {
@@ -2599,7 +2599,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	count := 30
 	var wg sync.WaitGroup
 	wg.Add(count)
-	for i := 0; i < count; i++ {
+	for range count {
 		go func() {
 			defer wg.Done()
 			ticker := time.NewTicker(100 * time.Millisecond)
@@ -2613,7 +2613,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 			}
 		}()
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mac := rndHWAddr()
 		// Change MAC
 		ns.Do(func() error {

@@ -1179,7 +1179,7 @@ func TestShuffleEndpoints(t *testing.T) {
 	copy(s2, s1)
 
 	var same int
-	for retry := 0; retry < 10; retry++ {
+	for range 10 {
 		same = 0
 		shuffleEndpoints(s2)
 		for i := range s1 {
@@ -1376,7 +1376,7 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			})
 
 			if tt.populateKVPairs {
-				for i := 0; i < count; i++ {
+				for i := range count {
 					_, err := client.Put(ctx, getKey(i), value)
 					require.NoError(t, err)
 				}
@@ -1398,7 +1398,7 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 
 			start := time.Now()
 			wg := sync.WaitGroup{}
-			for i := 0; i < count; i++ {
+			for i := range count {
 				wg.Add(1)
 				go func(wg *sync.WaitGroup, i int) {
 					defer wg.Done()

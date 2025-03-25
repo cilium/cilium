@@ -78,7 +78,7 @@ func getErrorWarningMsgs(logs string, n int) []string {
 	}
 
 	result := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		result[i] = errs[i].msg
 	}
 	return result

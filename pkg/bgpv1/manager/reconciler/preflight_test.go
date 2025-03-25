@@ -144,7 +144,7 @@ func TestPreflightReconciler(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = preflightReconciler.Reconcile(context.Background(), params)
 					if (tt.err == nil) != (err == nil) {

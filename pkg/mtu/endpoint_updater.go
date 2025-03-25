@@ -351,7 +351,7 @@ func (emu *endpointUpdater) updateHealthEndpoint(routeMTUs []RouteMTU) error {
 		err error
 	)
 
-	for i := 0; i < healthEPRetries; i++ {
+	for range healthEPRetries {
 		pid, err = pidfile.Read(healthPIDPath)
 		if err == nil {
 			break
@@ -370,7 +370,7 @@ func (emu *endpointUpdater) updateHealthEndpoint(routeMTUs []RouteMTU) error {
 
 	file := fmt.Sprintf("/proc/%d/ns/net", pid)
 	var healthNS *netns.NetNS
-	for i := 0; i < healthEPRetries; i++ {
+	for range healthEPRetries {
 		healthNS, err = netns.OpenPinned(file)
 		if err == nil {
 			break

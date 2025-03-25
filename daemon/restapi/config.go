@@ -332,7 +332,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 
 	// Collect config ignoring the mutable options.
 	e := reflect.ValueOf(option.Config).Elem()
-	for i := 0; i < e.NumField(); i++ {
+	for i := range e.NumField() {
 		if e.Field(i).Kind() != reflect.Func {
 			field := e.Type().Field(i)
 			// Only consider exported fields and ignore the mutable options.

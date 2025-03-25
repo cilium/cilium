@@ -23,8 +23,8 @@ func Unique[S ~[]T, T comparable](s S) S {
 
 	if len(s) < 192 {
 	Loop:
-		for i := 0; i < len(s); i++ {
-			for j := 0; j < last; j++ {
+		for i := range len(s) {
+			for j := range last {
 				if s[i] == s[j] {
 					continue Loop
 				}
@@ -34,7 +34,7 @@ func Unique[S ~[]T, T comparable](s S) S {
 		}
 	} else {
 		set := make(map[T]struct{}, len(s))
-		for i := 0; i < len(s); i++ {
+		for i := range len(s) {
 			if _, ok := set[s[i]]; ok {
 				continue
 			}
@@ -59,7 +59,7 @@ func UniqueFunc[S ~[]T, T any, K comparable](s S, key func(i int) K) S {
 	last := 0
 
 	set := make(map[K]struct{}, len(s))
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if _, ok := set[key(i)]; ok {
 			continue
 		}

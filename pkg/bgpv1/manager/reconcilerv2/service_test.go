@@ -976,7 +976,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := svcReconciler.Reconcile(context.Background(), ReconcileParams{
 					BGPInstance:   testBGPInstance,
 					DesiredConfig: testBGPInstanceConfig,
@@ -1312,7 +1312,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := svcReconciler.Reconcile(context.Background(), ReconcileParams{
 					BGPInstance:   testBGPInstance,
 					DesiredConfig: testBGPInstanceConfig,
@@ -1648,7 +1648,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := svcReconciler.Reconcile(context.Background(), ReconcileParams{
 					BGPInstance:   testBGPInstance,
 					DesiredConfig: testBGPInstanceConfig,

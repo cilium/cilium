@@ -50,7 +50,7 @@ func TestMinInterval(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tr)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		tr.Trigger()
 		time.Sleep(time.Millisecond * 20)
 	}
@@ -81,7 +81,7 @@ func TestLongTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tr)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		tr.Trigger()
 		time.Sleep(time.Millisecond * 20)
 	}

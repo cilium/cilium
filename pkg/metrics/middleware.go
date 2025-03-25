@@ -39,7 +39,7 @@ func (rw *ResponderWrapper) WriteHeader(code int) {
 //	"/v1/endpoint/container-id:597.." -> "/v1/endpoint"
 func getShortPath(s string) string {
 	var idxSum int
-	for nThSlash := 0; nThSlash < 3; nThSlash++ {
+	for range 3 {
 		idx := strings.IndexByte(s[idxSum:], '/')
 		if idx == -1 {
 			return s

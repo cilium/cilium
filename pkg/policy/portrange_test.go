@@ -328,7 +328,7 @@ func TestPortRange(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < len(testCases); i++ {
+	for i := range testCases {
 		test := &testCases[i]
 		maskedPorts := PortRangeToMaskedPorts(test.start, test.end)
 		// Sort the returned slice so that PortRangeToMaskedPorts() can return masked ports

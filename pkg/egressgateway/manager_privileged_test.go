@@ -626,7 +626,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) {
 	rpFilterSetting := []string{"net", "ipv4", "conf", iface, "rp_filter"}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err := sysctl.Enable(rpFilterSetting); err != nil {
 			tb.Fatal(err)
 		}
@@ -644,7 +644,7 @@ func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) 
 }
 
 func waitForReconciliationRun(tb testing.TB, egressGatewayManager *Manager, currentRun uint64) uint64 {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		count := egressGatewayManager.reconciliationEventsCount.Load()
 		if count > currentRun {
 			return count

@@ -190,7 +190,7 @@ func (rss randomScanStrategy) AllocateBit(allocated *big.Int, max, count int) (i
 		return 0, false
 	}
 	offset := rand.IntN(max)
-	for i := 0; i < max; i++ {
+	for i := range max {
 		at := (offset + i) % max
 		if allocated.Bit(at) == 0 {
 			return at, true
@@ -208,7 +208,7 @@ func (contiguousScanStrategy) AllocateBit(allocated *big.Int, max, count int) (i
 	if count >= max {
 		return 0, false
 	}
-	for i := 0; i < max; i++ {
+	for i := range max {
 		if allocated.Bit(i) == 0 {
 			return i, true
 		}

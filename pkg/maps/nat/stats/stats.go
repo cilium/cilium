@@ -333,7 +333,7 @@ func (t *topk) Push(key SNATTupleAccessor, count int) {
 }
 
 func (t *topk) popForEach(fn func(key SNATTupleAccessor, count, ith int)) {
-	for i := 0; i < t.size; i++ {
+	for i := range t.size {
 		tuple := heap.Pop(t.mq).(tupleBucket)
 		fn(tuple.key, tuple.count, t.size-i)
 	}

@@ -275,7 +275,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	// exhaust mars ipv4 pool (/27 contains 30 IPs)
 	allocatedMarsIPs := []net.IP{}
 	numMarsIPs := 30
-	for i := 0; i < numMarsIPs; i++ {
+	for i := range numMarsIPs {
 		// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 		ar, err := c.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
 		assert.NoError(t, err)

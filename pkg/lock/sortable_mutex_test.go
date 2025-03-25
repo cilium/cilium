@@ -44,7 +44,7 @@ func TestSortableMutex_Chaos(t *testing.T) {
 
 	monkey := func() {
 		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			// Take a random subset of the sortable mutexes.
 			subSmus := slices.Clone(smus)
 			rand.Shuffle(len(subSmus), func(i, j int) {
@@ -61,7 +61,7 @@ func TestSortableMutex_Chaos(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < nMonkeys; i++ {
+	for range nMonkeys {
 		go monkey()
 	}
 

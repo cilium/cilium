@@ -73,7 +73,7 @@ func (f FieldMask) Copy(dst, src protoreflect.Message) {
 // Alloc creates all nested protoreflect.Message fields to avoid allocation later.
 func (f FieldMask) Alloc(src protoreflect.Message) {
 	fds := src.Descriptor().Fields()
-	for i := 0; i < fds.Len(); i++ {
+	for i := range fds.Len() {
 		fd := fds.Get(i)
 		if next, ok := f[string(fd.Name())]; ok {
 			if len(next) > 0 {

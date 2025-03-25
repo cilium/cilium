@@ -93,7 +93,7 @@ func toBits(bytes []byte) []byte {
 	var bits []byte
 
 	for _, b := range bytes {
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			mask := uint8(128) >> uint8(j)
 
 			if mask&b == 0 {

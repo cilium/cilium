@@ -279,7 +279,7 @@ func handler(wg *sync.WaitGroup, client *dns.Client, conn *dns.Conn, requests ch
 			// it's likely to happen with small number (~200) of concurrent requests
 			// which would result in goroutine leak as we would never close req.ch
 			if _, duplicate := waitingResponses[req.msg.Id]; duplicate {
-				for n := 0; n < 5; n++ {
+				for range 5 {
 					// Try a new ID
 					id := dns.Id()
 					if _, duplicate = waitingResponses[id]; !duplicate {

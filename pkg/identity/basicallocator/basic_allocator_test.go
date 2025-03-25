@@ -41,7 +41,7 @@ func TestBasicIDAllocator_AllocateRandom(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			allocator := NewBasicIDAllocator(idpool.ID(minID), idpool.ID(maxID))
 
-			for i := 0; i < tc.allocations; i++ {
+			for i := range tc.allocations {
 				_, err := allocator.AllocateRandom()
 
 				if i < poolSize && err != nil {

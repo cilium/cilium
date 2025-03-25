@@ -465,7 +465,7 @@ func generatePrefix(b *testing.B, r *rand.Rand) netip.Prefix {
 
 func generateCIDRs(b *testing.B, r *rand.Rand, n int) *CIDRTrie[struct{}] {
 	t := NewCIDRTrie[struct{}]()
-	for i := 0; i < n; i++ {
+	for range n {
 		if !t.Upsert(generatePrefix(b, r), struct{}{}) {
 			n++
 		}

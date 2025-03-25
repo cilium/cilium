@@ -171,7 +171,7 @@ func TestMinParallelRequests(t *testing.T) {
 		Log:                         true,
 	}, nil)
 
-	for i := 0; i < maxParallelReqs; i++ {
+	for range maxParallelReqs {
 		req, err := a.Wait(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, req)
@@ -205,7 +205,7 @@ func TestMaxWaitDurationExceeded(t *testing.T) {
 	var mutex lock.Mutex
 	failedRequests := 0
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			req, err := a.Wait(context.Background())
 			if err != nil {
@@ -262,7 +262,7 @@ func TestLimitWaitDurationExceeded(t *testing.T) {
 	var mutex lock.Mutex
 	failedRequests := 0
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			req, err := a.Wait(context.Background())
 			if err != nil {
@@ -635,7 +635,7 @@ func TestSkipInitial(t *testing.T) {
 		ParallelRequests: 2,
 	}, nil)
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		req, err := a.Wait(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, req)
@@ -736,7 +736,7 @@ func testStressRateLimiter(t *testing.T, nGoRoutines int) {
 	)
 
 	go func() {
-		for i := 0; i < nGoRoutines; i++ {
+		for range nGoRoutines {
 			sem.Acquire(context.Background(), 1)
 			go func() {
 				var (
@@ -787,7 +787,7 @@ func TestReservationCancel(t *testing.T) {
 	// All of these requests must fail due to having to wait too long as
 	// the only parallel request slot is occupied. The rate limiter should
 	// not get occupied with these requests though.
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		go func() {
 			_, err := a.Wait(context.Background())
 			require.Error(t, err)
@@ -801,7 +801,7 @@ func TestReservationCancel(t *testing.T) {
 	req.Done()
 
 	// All of these requests should now succeed
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		req2, err := a.Wait(context.Background())
 		require.NoError(t, err)
 		req2.Done()

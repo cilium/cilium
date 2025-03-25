@@ -42,8 +42,7 @@ var testRedirects = map[string]uint16{
 
 func generateNumIdentities(numIdentities int) identity.IdentityMap {
 	c := make(identity.IdentityMap, numIdentities)
-	for i := 0; i < numIdentities; i++ {
-
+	for i := range numIdentities {
 		identityLabel := labels.NewLabel(fmt.Sprintf("k8s:foo%d", i), "", "")
 		clusterLabel := labels.NewLabel("io.cilium.k8s.policy.cluster=default", "", labels.LabelSourceK8s)
 		serviceAccountLabel := labels.NewLabel("io.cilium.k8s.policy.serviceaccount=default", "", labels.LabelSourceK8s)
