@@ -97,6 +97,10 @@ func (m *UpstreamTlsContext) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for AutoHostSni
+
+	// no validation rules for AutoSniSanValidation
+
 	// no validation rules for AllowRenegotiation
 
 	if all {

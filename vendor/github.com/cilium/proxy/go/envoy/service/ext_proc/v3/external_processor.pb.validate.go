@@ -1517,6 +1517,134 @@ var _ interface {
 	ErrorName() string
 } = HeadersResponseValidationError{}
 
+// Validate checks the field values on BodyResponse with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *BodyResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BodyResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in BodyResponseMultiError, or
+// nil if none found.
+func (m *BodyResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BodyResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetResponse()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BodyResponseValidationError{
+					field:  "Response",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BodyResponseValidationError{
+					field:  "Response",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetResponse()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BodyResponseValidationError{
+				field:  "Response",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return BodyResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// BodyResponseMultiError is an error wrapping multiple validation errors
+// returned by BodyResponse.ValidateAll() if the designated constraints aren't met.
+type BodyResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BodyResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BodyResponseMultiError) AllErrors() []error { return m }
+
+// BodyResponseValidationError is the validation error returned by
+// BodyResponse.Validate if the designated constraints aren't met.
+type BodyResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e BodyResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e BodyResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e BodyResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e BodyResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e BodyResponseValidationError) ErrorName() string { return "BodyResponseValidationError" }
+
+// Error satisfies the builtin error interface
+func (e BodyResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBodyResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = BodyResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = BodyResponseValidationError{}
+
 // Validate checks the field values on TrailersResponse with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -1645,134 +1773,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TrailersResponseValidationError{}
-
-// Validate checks the field values on BodyResponse with the rules defined in
-// the proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *BodyResponse) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on BodyResponse with the rules defined
-// in the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in BodyResponseMultiError, or
-// nil if none found.
-func (m *BodyResponse) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *BodyResponse) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	if all {
-		switch v := interface{}(m.GetResponse()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, BodyResponseValidationError{
-					field:  "Response",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, BodyResponseValidationError{
-					field:  "Response",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetResponse()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BodyResponseValidationError{
-				field:  "Response",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if len(errors) > 0 {
-		return BodyResponseMultiError(errors)
-	}
-
-	return nil
-}
-
-// BodyResponseMultiError is an error wrapping multiple validation errors
-// returned by BodyResponse.ValidateAll() if the designated constraints aren't met.
-type BodyResponseMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m BodyResponseMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m BodyResponseMultiError) AllErrors() []error { return m }
-
-// BodyResponseValidationError is the validation error returned by
-// BodyResponse.Validate if the designated constraints aren't met.
-type BodyResponseValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e BodyResponseValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e BodyResponseValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e BodyResponseValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e BodyResponseValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e BodyResponseValidationError) ErrorName() string { return "BodyResponseValidationError" }
-
-// Error satisfies the builtin error interface
-func (e BodyResponseValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sBodyResponse.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = BodyResponseValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = BodyResponseValidationError{}
 
 // Validate checks the field values on CommonResponse with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -2413,6 +2413,112 @@ var _ interface {
 	ErrorName() string
 } = HeaderMutationValidationError{}
 
+// Validate checks the field values on StreamedBodyResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *StreamedBodyResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StreamedBodyResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StreamedBodyResponseMultiError, or nil if none found.
+func (m *StreamedBodyResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StreamedBodyResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Body
+
+	// no validation rules for EndOfStream
+
+	if len(errors) > 0 {
+		return StreamedBodyResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// StreamedBodyResponseMultiError is an error wrapping multiple validation
+// errors returned by StreamedBodyResponse.ValidateAll() if the designated
+// constraints aren't met.
+type StreamedBodyResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StreamedBodyResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StreamedBodyResponseMultiError) AllErrors() []error { return m }
+
+// StreamedBodyResponseValidationError is the validation error returned by
+// StreamedBodyResponse.Validate if the designated constraints aren't met.
+type StreamedBodyResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StreamedBodyResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StreamedBodyResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StreamedBodyResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StreamedBodyResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StreamedBodyResponseValidationError) ErrorName() string {
+	return "StreamedBodyResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StreamedBodyResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStreamedBodyResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StreamedBodyResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StreamedBodyResponseValidationError{}
+
 // Validate checks the field values on BodyMutation with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -2460,6 +2566,47 @@ func (m *BodyMutation) validate(all bool) error {
 			errors = append(errors, err)
 		}
 		// no validation rules for ClearBody
+	case *BodyMutation_StreamedResponse:
+		if v == nil {
+			err := BodyMutationValidationError{
+				field:  "Mutation",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetStreamedResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BodyMutationValidationError{
+						field:  "StreamedResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BodyMutationValidationError{
+						field:  "StreamedResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStreamedResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return BodyMutationValidationError{
+					field:  "StreamedResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
