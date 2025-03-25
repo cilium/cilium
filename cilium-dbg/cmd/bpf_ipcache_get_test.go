@@ -70,7 +70,7 @@ func TestGetLPMValue(t *testing.T) {
 
 		if exists {
 			identity := v.([]string)
-			require.EqualValues(t, identity, tt.identity, "Wrong number of identities was retrieved for ip %s", tt.ip)
+			require.Equal(t, identity, tt.identity, "Wrong number of identities was retrieved for ip %s", tt.ip)
 		}
 	}
 }

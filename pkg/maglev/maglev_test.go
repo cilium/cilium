@@ -51,7 +51,7 @@ func TestPermutations(t *testing.T) {
 			expectedPerm := getExpectedPermutation(backends, m, ml.seedMurmur)
 			for _, numCPU := range []int{1, 2, 3, 4, 8, 100} {
 				testPerm := ml.getPermutation(backends, numCPU)
-				require.EqualValues(t, expectedPerm, testPerm)
+				require.Equal(t, expectedPerm, testPerm)
 			}
 		}
 	}

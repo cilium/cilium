@@ -140,7 +140,7 @@ func TestLock(t *testing.T) {
 	// Let's allocate the IP first so we can see the tests failing
 	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault())
 	require.NoError(t, err)
-	require.EqualValues(t, net.IP(ipv4.AsSlice()), result.IP)
+	require.Equal(t, net.IP(ipv4.AsSlice()), result.IP)
 }
 
 func TestExcludeIP(t *testing.T) {

@@ -152,25 +152,25 @@ func testStoreOperations(t *testing.T) {
 	// update
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.GreaterOrEqual(c, localKey1.updated(), 1) }, timeout, tick)
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.GreaterOrEqual(c, localKey2.updated(), 1) }, timeout, tick)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 0, localKey3.updated()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 0, localKey3.updated()) }, timeout, tick)
 
 	store.DeleteLocalKey(context.TODO(), &localKey1)
 	// localKey1 will be deleted 2 times, one from local key and other from
 	// the kvstore watcher
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 2, localKey1.deleted()) }, timeout, tick)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 0, localKey2.deleted()) }, timeout, tick)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 0, localKey3.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 2, localKey1.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 0, localKey2.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 0, localKey3.deleted()) }, timeout, tick)
 
 	store.DeleteLocalKey(context.TODO(), &localKey3)
 	// localKey3 won't be deleted because it was never added
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 0, localKey3.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 0, localKey3.deleted()) }, timeout, tick)
 
 	store.DeleteLocalKey(context.TODO(), &localKey2)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 2, localKey1.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 2, localKey1.deleted()) }, timeout, tick)
 	// localKey2 will be deleted 2 times, one from local key and other from
 	// the kvstore watcher
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 2, localKey2.deleted()) }, timeout, tick)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 0, localKey3.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 2, localKey2.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 0, localKey3.deleted()) }, timeout, tick)
 }
 
 func TestStorePeriodicSync(t *testing.T) {
@@ -206,8 +206,8 @@ func testStorePeriodicSync(t *testing.T) {
 	store.DeleteLocalKey(context.TODO(), &localKey1)
 	store.DeleteLocalKey(context.TODO(), &localKey2)
 
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 1, localKey1.deleted()) }, timeout, tick)
-	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.EqualValues(c, 1, localKey2.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 1, localKey1.deleted()) }, timeout, tick)
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.Equal(c, 1, localKey2.deleted()) }, timeout, tick)
 }
 
 func TestStoreLocalKeyProtection(t *testing.T) {

@@ -40,7 +40,7 @@ func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
 		},
 	}
 	newRule, err := ig.CreateDerivative(context.TODO())
-	require.EqualValues(t, newRule, ig)
+	require.Equal(t, newRule, ig)
 	require.NoError(t, err)
 }
 
@@ -289,7 +289,7 @@ func TestIsLabelBasedIngress(t *testing.T) {
 		want := tt.setupWanted()
 		require.NoError(t, args.eg.sanitize(false), "Test name: %q", tt.name)
 		isLabelBased := args.eg.AllowsWildcarding()
-		require.EqualValues(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
+		require.Equal(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
 	}
 }
 
