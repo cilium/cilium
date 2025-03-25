@@ -184,8 +184,8 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 
 	require.NotEqual(t, len(afterDeletionRules), len(beforeDeletionRules))
 	require.NotEqual(t, len(afterDeletionRoutes), len(beforeDeletionRoutes))
-	require.Equal(t, len(beforeCreationRules), len(afterDeletionRules))
-	require.Equal(t, len(beforeCreationRoutes), len(afterDeletionRoutes))
+	require.Len(t, afterDeletionRules, len(beforeCreationRules))
+	require.Len(t, afterDeletionRoutes, len(beforeCreationRoutes))
 }
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {

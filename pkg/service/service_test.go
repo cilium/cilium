@@ -1176,11 +1176,11 @@ func TestLocalRedirectLocalBackendSelection(t *testing.T) {
 	require.Equal(t, "ns1", svc.svcName.Namespace)
 	require.Equal(t, "svc1", svc.svcName.Name)
 	// Only node-local backends are selected
-	require.Equal(t, len(localBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(localBackends))
 
 	svcFromLbMap, ok := m.lbmap.ServiceByID[uint16(id)]
 	require.True(t, ok)
-	require.Equal(t, len(svc.backends), len(svcFromLbMap.Backends))
+	require.Len(t, svcFromLbMap.Backends, len(svc.backends))
 }
 
 // Local redirect service should be able to override a ClusterIP service with same
@@ -1221,7 +1221,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id)
 
 	svc, ok := m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 
 	// Insert the service entry of type Local Redirect.
@@ -1234,7 +1234,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id)
 	svc = m.svc.svcByID[id]
 	// Only node-local backends are selected.
-	require.Equal(t, len(localBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(localBackends))
 
 	// Insert the service entry of type ClusterIP.
 	p1.Type = lb.SVCTypeClusterIP
@@ -1261,7 +1261,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 
 	// Insert the service entry of type Local Redirect.
@@ -1299,7 +1299,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, created)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	p.Backends[0].State = lb.BackendStateTerminating
@@ -1307,7 +1307,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 	_, _, err = m.svc.UpsertService(p)
 
 	require.NoError(t, err)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
 	require.Equal(t, len(backends1), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	// Sorted active backends by ID first followed by non-active
 	require.Equal(t, lb.BackendID(2), m.lbmap.ServiceByID[uint16(id1)].Backends[0].ID)
@@ -1507,7 +1507,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, created)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	p.Backends[0].State = lb.BackendStateTerminating
@@ -1581,7 +1581,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id)
 
 	svc, ok := m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
@@ -1592,7 +1592,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.Error(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
@@ -1602,7 +1602,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1618,7 +1618,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1627,7 +1627,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1636,7 +1636,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 }
@@ -1676,7 +1676,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id)
 
 	svc, ok := m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
@@ -1689,7 +1689,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1698,7 +1698,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
@@ -1707,7 +1707,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
@@ -1737,7 +1737,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NotEqual(t, lb.ID(0), id2)
 
 	svc, ok = m.svc.svcByID[id2]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1747,7 +1747,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id2]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1756,7 +1756,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id2]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(9090), svc.l7LBProxyPort)
 
@@ -1765,12 +1765,12 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 
 	svc, ok = m.svc.svcByID[id2]
-	require.Equal(t, len(allBackends), len(svc.backends))
+	require.Len(t, svc.backends, len(allBackends))
 	require.True(t, ok)
 	require.Equal(t, uint16(0), svc.l7LBProxyPort)
 }
@@ -1890,11 +1890,11 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[1].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id2].backends[0].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id2].backends[1].State)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id2)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id2)].Backends, len(backends))
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id2)])
-	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.Len(t, m.lbmap.BackendByID, len(backends))
 	// Backend states are persisted in the map.
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[1].State)
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[2].State)
@@ -1911,11 +1911,11 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[1].State)
 	require.Equal(t, lb.BackendStateQuarantined, m.svc.svcByID[id2].backends[0].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id2].backends[1].State)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id2)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id2)].Backends, len(backends))
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id2)])
-	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.Len(t, m.lbmap.BackendByID, len(backends))
 	require.ElementsMatch(t, svcs, []lb.L3n4Addr{p1.Frontend.L3n4Addr, p2.Frontend.L3n4Addr})
 	// Updated backend states are persisted in the map.
 	require.Equal(t, lb.BackendStateQuarantined, m.lbmap.BackendByID[1].State)
@@ -1933,11 +1933,11 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[1].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id2].backends[0].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id2].backends[1].State)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id2)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id2)].Backends, len(backends))
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id2)])
-	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.Len(t, m.lbmap.BackendByID, len(backends))
 	require.ElementsMatch(t, svcs, []lb.L3n4Addr{p1.Frontend.L3n4Addr, p2.Frontend.L3n4Addr})
 	// Updated backend states are persisted in the map.
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[1].State)
@@ -1974,8 +1974,8 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, created)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, len(backends), len(m.svc.backendByHash))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
+	require.Len(t, m.svc.backendByHash, len(backends))
 
 	// Update backend states.
 	var updates []*lb.Backend
@@ -1999,7 +1999,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that backends along with their states have been restored
-	require.Equal(t, len(backends), len(m.svc.backendByHash))
+	require.Len(t, m.svc.backendByHash, len(backends))
 	statesMatched := 0
 	for _, b := range backends {
 		be, found := m.svc.backendByHash[b.Hash()]
@@ -2265,11 +2265,11 @@ func TestTrafficPolicy(t *testing.T) {
 
 	svcFromLbMap1, ok := m.lbmap.ServiceByID[uint16(id1)]
 	require.True(t, ok)
-	require.Equal(t, len(localBackends), len(svcFromLbMap1.Backends))
+	require.Len(t, svcFromLbMap1.Backends, len(localBackends))
 
 	svcFromLbMap2, ok := m.lbmap.ServiceByID[uint16(id2)]
 	require.True(t, ok)
-	require.Equal(t, len(allBackends), len(svcFromLbMap2.Backends))
+	require.Len(t, svcFromLbMap2.Backends, len(allBackends))
 
 	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
 	p1.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
@@ -2280,7 +2280,7 @@ func TestTrafficPolicy(t *testing.T) {
 
 	svcFromLbMap3, ok := m.lbmap.ServiceByID[uint16(id1)]
 	require.True(t, ok)
-	require.Equal(t, len(allBackends), len(svcFromLbMap3.Backends))
+	require.Len(t, svcFromLbMap3.Backends, len(allBackends))
 
 	p2.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
 	p2.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
@@ -2291,7 +2291,7 @@ func TestTrafficPolicy(t *testing.T) {
 
 	svcFromLbMap4, ok := m.lbmap.ServiceByID[uint16(id2)]
 	require.True(t, ok)
-	require.Equal(t, len(localBackends), len(svcFromLbMap4.Backends))
+	require.Len(t, svcFromLbMap4.Backends, len(localBackends))
 
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
 	require.NoError(t, err)
@@ -2352,8 +2352,8 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 
 	require.NoError(t, err1)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
+	require.Len(t, m.lbmap.BackendByID, len(backends))
 
 	// Simulate leaked backends with various leaked scenarios.
 	// Backend2 is a duplicate leaked backend with the same L3nL4Addr as backends[0]
@@ -2379,9 +2379,9 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
 	require.NoError(t, err)
-	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, len(backends))
 	// Leaked backends should be deleted.
-	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.Len(t, m.lbmap.BackendByID, len(backends))
 }
 
 // Tests backend connections getting destroyed.
@@ -2521,8 +2521,8 @@ func TestHealthCheckCB(t *testing.T) {
 
 	require.NoError(t, err1)
 	require.Equal(t, id1, lb.ID(1))
-	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
-	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Len(t, backends, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, backends, len(m.lbmap.BackendByID))
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[0].State)
 
 	be := backends[0]
@@ -2534,7 +2534,7 @@ func TestHealthCheckCB(t *testing.T) {
 		})
 
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		assert.Equal(ct, len(m.lbmap.BackendByID), len(backends))
+		assert.Len(ct, backends, len(m.lbmap.BackendByID))
 		assert.Equal(ct, lb.BackendStateQuarantined, m.svc.svcByID[id1].backends[0].State)
 		assert.Equal(ct, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	}, 3*time.Second, 100*time.Millisecond)
@@ -2628,16 +2628,16 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 
 	require.NoError(t, err1)
 	require.Equal(t, id1, lb.ID(1))
-	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
-	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Len(t, backends, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
+	require.Len(t, backends, len(m.lbmap.BackendByID))
 	require.Equal(t, 2, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	_, id2, err2 := m.svc.UpsertService(p2)
 
 	require.NoError(t, err2)
 	require.Equal(t, id2, lb.ID(2))
-	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id2)].Backends), len(backends))
-	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Len(t, backends, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
+	require.Len(t, backends, len(m.lbmap.BackendByID))
 	require.Equal(t, 2, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	go func() {
@@ -2727,7 +2727,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 
 	require.NoError(t, err1)
 	require.Equal(t, id1, lb.ID(3))
-	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
+	require.Len(t, backends, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	// Send a CB service event
