@@ -156,12 +156,12 @@ func TestReadMetricConfigFromCM(t *testing.T) {
 	// Attempt to re-register drop handler with fewer labels should fail.
 	watcher.resetCfgPath("testdata/valid_metric_config_drop_fewer_labels.yaml")
 	_, _, _, err = watcher.readConfig()
-	require.EqualErrorf(t, err, "invalid yaml config file: metric config validation failed - label set cannot be changed without restarting Prometheus. metric: drop", "")
+	require.EqualError(t, err, "invalid yaml config file: metric config validation failed - label set cannot be changed without restarting Prometheus. metric: drop")
 
 	// Attempt to register metric handlers with missing names should fail.
 	watcher.resetCfgPath("testdata/invalid_config_missing_name.yaml")
 	_, _, _, err = watcher.readConfig()
-	require.EqualErrorf(t, err, "invalid yaml config file: metric config validation failed - missing metric name at: 0\nmetric config validation failed - missing metric name at: 1", "")
+	require.EqualError(t, err, "invalid yaml config file: metric config validation failed - missing metric name at: 0\nmetric config validation failed - missing metric name at: 1")
 }
 
 func assertMetricConfig(t *testing.T, expected, actual api.MetricConfig) {
