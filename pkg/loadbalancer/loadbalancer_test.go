@@ -686,6 +686,43 @@ func TestServiceFlags_String(t *testing.T) {
 	}
 }
 
+func TestServiceNameYAML(t *testing.T) {
+	tests := []struct {
+		name ServiceName
+		want string
+	}{
+		{
+			name: ServiceName{},
+			want: "/",
+		},
+		{
+			name: ServiceName{Name: "foo"},
+			want: "/foo",
+		},
+		{
+			name: ServiceName{Name: "foo", Namespace: "bar"},
+			want: "bar/foo",
+		},
+		{
+			name: ServiceName{Name: "foo", Namespace: "bar", Cluster: "quux"},
+			want: "quux/bar/foo",
+		},
+	}
+	for _, test := range tests {
+		out, err := yaml.Marshal(test.name)
+		if assert.NoError(t, err, "Marshal") {
+			s := strings.TrimSpace(string(out))
+			assert.Equal(t, test.want, s)
+
+			var name ServiceName
+			err := yaml.Unmarshal(out, &name)
+			if assert.NoError(t, err, "Unmarshal") {
+				assert.True(t, test.name.Equal(name), "Equal")
+			}
+		}
+	}
+}
+
 func benchmarkHash(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
 	b.ResetTimer()

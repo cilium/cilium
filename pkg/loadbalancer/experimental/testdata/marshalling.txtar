@@ -251,10 +251,7 @@ Address              Instances
   ]
 }
 -- services-expected.yaml --
-name:
-    namespace: test
-    name: echo
-    cluster: ""
+name: test/echo
 source: k8s
 labels: {}
 annotations: {}
@@ -277,10 +274,7 @@ properties: []
 frontendparams:
     address: 10.96.50.104:80/TCP
     type: ClusterIP
-    servicename:
-        namespace: test
-        name: echo
-        cluster: ""
+    servicename: test/echo
     portname: http
     serviceport: 80
 status:
@@ -306,10 +300,7 @@ redirectto: null
 frontendparams:
     address: '[2001::1]:80/TCP'
     type: ClusterIP
-    servicename:
-        namespace: test
-        name: echo
-        cluster: ""
+    servicename: test/echo
     portname: http
     serviceport: 80
 status:
@@ -335,10 +326,7 @@ redirectto: null
 address: 10.244.1.1:8080/TCP
 instances:
     - k:
-        servicename:
-            namespace: test
-            name: echo
-            cluster: ""
+        servicename: test/echo
         sourcepriority: 4
       v:
         address: 10.244.1.1:8080/TCP
@@ -357,10 +345,7 @@ instances:
 address: '[2002::2]:8080/TCP'
 instances:
     - k:
-        servicename:
-            namespace: test
-            name: echo
-            cluster: ""
+        servicename: test/echo
         sourcepriority: 4
       v:
         address: '[2002::2]:8080/TCP'

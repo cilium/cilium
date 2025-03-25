@@ -479,6 +479,29 @@ type ServiceName struct {
 	Cluster   string
 }
 
+func (m ServiceName) MarshalYAML() (any, error) {
+	return m.String(), nil
+}
+
+func (m *ServiceName) UnmarshalYAML(value *yaml.Node) error {
+	parts := strings.Split(value.Value, "/")
+	switch len(parts) {
+	case 0: /* empty name */
+	case 1:
+		m.Name = parts[0]
+	case 2:
+		m.Namespace = parts[0]
+		m.Name = parts[1]
+	case 3:
+		m.Cluster = parts[0]
+		m.Namespace = parts[1]
+		m.Name = parts[2]
+	default:
+		return fmt.Errorf("expected 0, 1 or 2 slashes, got %d", len(parts))
+	}
+	return nil
+}
+
 func (n *ServiceName) Equal(other ServiceName) bool {
 	return n.Namespace == other.Namespace &&
 		n.Name == other.Name &&
