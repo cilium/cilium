@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -40,10 +41,12 @@ type FragmentValue4 struct {
 
 // String converts the key into a human-readable string format.
 func (k *FragmentKey4) String() string {
-	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.ID)
+	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.NativeID())
 }
 
 func (k *FragmentKey4) New() bpf.MapKey { return &FragmentKey4{} }
+
+func (k *FragmentKey4) NativeID() uint16 { return byteorder.NetworkToHost16(k.ID) }
 
 // String converts the value into a human-readable string format.
 func (v *FragmentValue4) String() string {
@@ -86,10 +89,12 @@ type FragmentValue6 struct {
 
 // String converts the key into a human-readable string format.
 func (k *FragmentKey6) String() string {
-	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.ID)
+	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.NativeID())
 }
 
 func (k *FragmentKey6) New() bpf.MapKey { return &FragmentKey6{} }
+
+func (k *FragmentKey6) NativeID() uint32 { return byteorder.NetworkToHost32(k.ID) }
 
 // String converts the value into a human-readable string format.
 func (v *FragmentValue6) String() string {
