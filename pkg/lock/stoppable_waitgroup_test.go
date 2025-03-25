@@ -57,7 +57,7 @@ func TestDone(t *testing.T) {
 		require.False(t, ok)
 	default:
 		// channel should have been closed
-		require.True(t, false)
+		require.Fail(t, "channel should have been closed")
 	}
 
 	l.done()
