@@ -137,9 +137,9 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 		}
 	}
 
-	excludedCIDRs := []v2.IPv4CIDR{}
+	excludedCIDRs := []v2.CIDR{}
 	for _, excludedCIDR := range params.excludedCIDRs {
-		excludedCIDRs = append(excludedCIDRs, v2.IPv4CIDR(excludedCIDR))
+		excludedCIDRs = append(excludedCIDRs, v2.CIDR(excludedCIDR))
 	}
 
 	cegp := &v2.CiliumEgressGatewayPolicy{
@@ -154,8 +154,8 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 					},
 				},
 			},
-			DestinationCIDRs: []v2.IPv4CIDR{
-				v2.IPv4CIDR(params.destinationCIDR),
+			DestinationCIDRs: []v2.CIDR{
+				v2.CIDR(params.destinationCIDR),
 			},
 			ExcludedCIDRs: excludedCIDRs,
 			EgressGateway: &v2.EgressGateway{

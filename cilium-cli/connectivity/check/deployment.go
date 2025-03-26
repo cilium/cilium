@@ -573,8 +573,8 @@ func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
 					},
 				},
 			},
-			DestinationCIDRs: []ciliumv2.IPv4CIDR{"0.0.0.0/0"},
-			ExcludedCIDRs:    []ciliumv2.IPv4CIDR{},
+			DestinationCIDRs: []ciliumv2.CIDR{"0.0.0.0/0"},
+			ExcludedCIDRs:    []ciliumv2.CIDR{},
 			EgressGateway: &ciliumv2.EgressGateway{
 				NodeSelector: &slimmetav1.LabelSelector{
 					MatchLabels: map[string]slimmetav1.MatchLabelsValue{
