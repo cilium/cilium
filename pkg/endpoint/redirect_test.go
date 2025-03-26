@@ -138,11 +138,6 @@ type DummyOwner struct {
 	idmgr identitymanager.IDManager
 }
 
-// GetCIDRPrefixLengths does nothing.
-func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
 	return ""

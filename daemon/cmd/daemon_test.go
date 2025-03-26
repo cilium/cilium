@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 type DaemonSuite struct {
@@ -57,10 +56,6 @@ type DaemonSuite struct {
 	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
-
-	// Owners interface mock
-	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
-	OnGetCIDRPrefixLengths func() ([]int, []int)
 
 	PolicyImporter policycell.PolicyImporter
 }
@@ -166,8 +161,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
-	ds.OnGetCIDRPrefixLengths = nil
-
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
 		string(models.EndpointStateReady),
@@ -235,20 +228,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	return &DaemonEtcdSuite{
 		DaemonSuite: *ds,
 	}
-}
-
-func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
-	if ds.OnGetNamedPorts != nil {
-		return ds.OnGetNamedPorts()
-	}
-	panic("GetNamedPorts should not have been called")
-}
-
-func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
-	if ds.OnGetCIDRPrefixLengths != nil {
-		return ds.OnGetCIDRPrefixLengths()
-	}
-	panic("GetCIDRPrefixLengths should not have been called")
 }
 
 // convenience wrapper that adds a single policy

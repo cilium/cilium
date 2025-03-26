@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -41,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -49,13 +47,6 @@ type EndpointSuite struct {
 	orchestrator datapath.Orchestrator
 	repo         policy.PolicyRepository
 	mgr          *cache.CachingIdentityAllocator
-
-	// Owners interface mock
-	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
-	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
-	OnRemoveFromEndpointQueue func(epID uint64)
-	OnGetCompilationLock      func() datapath.CompilationLock
-	OnSendNotification        func(msg monitorAPI.AgentNotifyMessage) error
 }
 
 func setupEndpointSuite(tb testing.TB) *EndpointSuite {
@@ -90,13 +81,6 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	})
 
 	return s
-}
-
-func (s *EndpointSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
-	if s.OnGetNamedPorts != nil {
-		return s.OnGetNamedPorts()
-	}
-	panic("GetNamedPorts should not have been called")
 }
 
 func TestEndpointStatus(t *testing.T) {

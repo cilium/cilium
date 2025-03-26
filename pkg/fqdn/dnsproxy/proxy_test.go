@@ -162,14 +162,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	return s
 }
 
-func (s *DNSProxyTestSuite) GetProxyPort(string) (uint16, error) {
-	return 0, nil
-}
-
-func (s *DNSProxyTestSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {
 	waitOnListen := make(chan struct{})
 	dnsServer = &dns.Server{Addr: ":0", Net: "tcp", NotifyStartedFunc: func() { close(waitOnListen) }}
