@@ -929,9 +929,11 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
-	reprerr := e.owner.SendNotification(monitorAPI.EndpointRegenMessage(e, err))
-	if reprerr != nil {
-		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+	if !option.Config.DryMode {
+		reprerr := e.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointRegenMessage(e, err))
+		if reprerr != nil {
+			e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+		}
 	}
 }
 

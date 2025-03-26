@@ -62,7 +62,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -859,14 +858,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
-	if option.Config.DryMode {
-		return nil
-	}
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 
 type endpointMetadataFetcher interface {

@@ -89,6 +89,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 						d.bwManager,
 						d.iptablesManager,
 						d.idmgr,
+						d.monitorAgent,
 						d.policyMapFactory,
 						d,
 						d.ipcache,
