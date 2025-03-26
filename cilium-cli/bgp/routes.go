@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/netip"
 	"os"
 	"slices"
@@ -240,11 +241,7 @@ func validateGetRoutesArgs(args []string) error {
 
 func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRoute, printPeer bool) {
 	// sort by node names
-	var nodes []string
-	for node := range routesPerNode {
-		nodes = append(nodes, node)
-	}
-	slices.Sort(nodes)
+	nodes := slices.Sorted(maps.Keys(routesPerNode))
 
 	// sort routes per node
 	for _, routes := range routesPerNode {

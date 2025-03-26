@@ -361,13 +361,7 @@ func (o *IntOptions) GetFmtList() string {
 	txt := ""
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.opts))
-	for k := range o.opts {
-		opts = append(opts, k)
-	}
-	slices.Sort(opts)
-
-	for _, k := range opts {
+	for _, k := range slices.Sorted(maps.Keys(o.opts)) {
 		def := o.getFmtOpt(k)
 		if def != "" {
 			txt += def + "\n"
@@ -384,13 +378,7 @@ func (o *IntOptions) Dump() {
 	}
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.opts))
-	for k := range o.opts {
-		opts = append(opts, k)
-	}
-	slices.Sort(opts)
-
-	for _, k := range opts {
+	for _, k := range slices.Sorted(maps.Keys(o.opts)) {
 		var text string
 		_, option := o.library.Lookup(k)
 		if option == nil || option.Format == nil {

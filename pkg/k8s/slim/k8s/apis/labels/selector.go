@@ -973,14 +973,9 @@ func (s ValidatedSetSelector) Empty() bool {
 }
 
 func (s ValidatedSetSelector) String() string {
-	keys := make([]string, 0, len(s))
-	for k := range s {
-		keys = append(keys, k)
-	}
-	// Ensure deterministic output
-	slices.Sort(keys)
 	b := strings.Builder{}
-	for i, key := range keys {
+	// Ensure deterministic output by sorting
+	for i, key := range slices.Sorted(maps.Keys(s)) {
 		v := s[key]
 		b.Grow(len(key) + 2 + len(v))
 		if i != 0 {

@@ -5,6 +5,7 @@ package seven
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"slices"
 	"strings"
@@ -18,12 +19,7 @@ import (
 
 func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts *options.Options) *flowpb.Layer7_Http {
 	var headers []*flowpb.HTTPHeader
-	keys := make([]string, 0, len(http.Headers))
-	for key := range http.Headers {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(http.Headers)) {
 		for _, value := range http.Headers[key] {
 			filteredValue := filterHeader(key, value, opts.HubbleRedactSettings)
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})

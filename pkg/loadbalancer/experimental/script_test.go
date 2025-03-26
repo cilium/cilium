@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -162,9 +161,7 @@ var httpGetCmd = script.Command(
 
 		fmt.Fprintf(f, "%s\n", resp.Status)
 
-		keys := slices.Collect(maps.Keys(resp.Header))
-		sort.Strings(keys)
-		for _, k := range keys {
+		for _, k := range slices.Sorted(maps.Keys(resp.Header)) {
 			h := resp.Header[k]
 			if k == "Date" {
 				h = []string{"<omitted>"}

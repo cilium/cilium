@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"maps"
 	"slices"
 	"time"
 
@@ -374,14 +375,7 @@ func getService(ing networkingv1.Ingress) *model.Service {
 // appendValuesInKeyOrder ensures that the slice of listeners is stably sorted by
 // appending the values of the map in order of the keys to the appendSlice.
 func appendValuesInKeyOrder[T model.HTTPListener | model.TLSPassthroughListener](listenerMap map[string]T, appendSlice []T) []T {
-	var keys []string
-
-	for key := range listenerMap {
-		keys = append(keys, key)
-	}
-
-	slices.Sort(keys)
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(listenerMap)) {
 		appendSlice = append(appendSlice, listenerMap[key])
 	}
 
