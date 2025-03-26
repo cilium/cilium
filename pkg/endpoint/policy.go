@@ -1023,9 +1023,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	// identity for the endpoint.
 	if newEndpoint {
 		// TODO - GH-9354.
-		e.owner.AddIdentity(identity)
+		e.identityManager.Add(identity)
 	} else {
-		e.owner.RemoveOldAddNewIdentity(e.SecurityIdentity, identity)
+		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	}
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)

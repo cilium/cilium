@@ -59,15 +59,3 @@ func getIdentityEndpointsHandler(d *Daemon, params GetIdentityEndpointsParams) m
 
 	return NewGetIdentityEndpointsOK().WithPayload(identities)
 }
-
-func (d *Daemon) AddIdentity(id *identity.Identity) {
-	d.idmgr.Add(id)
-}
-
-func (d *Daemon) RemoveIdentity(id *identity.Identity) {
-	d.idmgr.Remove(id)
-}
-
-func (d *Daemon) RemoveOldAddNewIdentity(old, new *identity.Identity) {
-	d.idmgr.RemoveOldAddNew(old, new)
-}

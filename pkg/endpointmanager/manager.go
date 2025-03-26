@@ -17,11 +17,13 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -723,6 +725,12 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 func (mgr *endpointManager) AddIngressEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
+	loader datapath.Loader,
+	orchestrator datapath.Orchestrator,
+	compilationLock datapath.CompilationLock,
+	bandwidthManager datapath.BandwidthManager,
+	ipTablesManager datapath.IptablesManager,
+	identityManager identitymanager.IDManager,
 	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -730,7 +738,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateIngressEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -747,6 +755,12 @@ func (mgr *endpointManager) AddIngressEndpoint(
 func (mgr *endpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
+	loader datapath.Loader,
+	orchestrator datapath.Orchestrator,
+	compilationLock datapath.CompilationLock,
+	bandwidthManager datapath.BandwidthManager,
+	ipTablesManager datapath.IptablesManager,
+	identityManager identitymanager.IDManager,
 	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -754,7 +768,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateHostEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}

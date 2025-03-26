@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	dptypes "github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -145,6 +146,13 @@ var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 // purposes is the serializableEndpoint type in this package.
 type Endpoint struct {
 	owner regeneration.Owner
+
+	loader           datapath.Loader
+	orchestrator     datapath.Orchestrator
+	compilationLock  datapath.CompilationLock
+	bandwidthManager datapath.BandwidthManager
+	ipTablesManager  datapath.IptablesManager
+	identityManager  identitymanager.IDManager
 
 	// policyGetter can get the policy.Repository object.
 	policyGetter policyRepoGetter
@@ -561,9 +569,9 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewTestEndpointWithState creates a new endpoint useful for testing purposes
 //
 // Note: This function is intended for testing purposes only and should not be used in production code.
-func NewTestEndpointWithState(owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
+func NewTestEndpointWithState(owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
 	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
-	ep := createEndpoint(owner, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
+	ep := createEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
 	ep.SetPropertyValue(PropertyFakeEndpoint, true)
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(endpointQueueName, option.Config.EndpointQueueSize)
@@ -575,9 +583,15 @@ func NewTestEndpointWithState(owner regeneration.Owner, policyMapFactory policym
 	return ep
 }
 
-func createEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
+func createEndpoint(owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:            owner,
+		loader:           loader,
+		orchestrator:     orchestrator,
+		compilationLock:  compilationLock,
+		bandwidthManager: bandwidthManager,
+		ipTablesManager:  ipTablesManager,
+		identityManager:  identityManager,
 		policyMapFactory: policyMapFactory,
 		policyGetter:     policyGetter,
 		namedPortsGetter: namedPortsGetter,
@@ -639,8 +653,8 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
-	ep := createEndpoint(owner, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, "")
+func CreateIngressEndpoint(owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+	ep := createEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, "")
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
@@ -670,13 +684,13 @@ func CreateIngressEndpoint(owner regeneration.Owner, policyMapFactory policymap.
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+func CreateHostEndpoint(owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(owner, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, defaults.HostDevice)
+	ep := createEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, defaults.HostDevice)
 	ep.isHost = true
 	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
 	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
@@ -928,9 +942,15 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
+func parseEndpoint(owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		owner:            owner,
+		loader:           loader,
+		orchestrator:     orchestrator,
+		compilationLock:  compilationLock,
+		bandwidthManager: bandwidthManager,
+		ipTablesManager:  ipTablesManager,
+		identityManager:  identityManager,
 		policyMapFactory: policyMapFactory,
 		namedPortsGetter: namedPortsGetter,
 		policyGetter:     policyGetter,
@@ -1253,7 +1273,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 		// (init), which is not registered in the identity manager and
 		// therefore doesn't need to be removed.
 		if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
-			e.owner.RemoveIdentity(e.SecurityIdentity)
+			e.identityManager.Remove(e.SecurityIdentity)
 		}
 
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
@@ -1744,7 +1764,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
-	bwm dptypes.BandwidthManager,
+	bwm datapath.BandwidthManager,
 	resolveMetadata MetadataResolverCB,
 ) (regenTriggered bool, err error) {
 	if !e.K8sNamespaceAndPodNameIsSet() {
@@ -1847,7 +1867,7 @@ type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8s
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
+func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
 	var regenTriggeredCh chan bool
 	callerBlocked := false
 	if blocking {
@@ -1906,7 +1926,7 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunRestoredMetadataResolver(bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) {
+func (e *Endpoint) RunRestoredMetadataResolver(bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) {
 	e.RunMetadataResolver(true, false, nil, bwm, resolveMetadata)
 }
 
@@ -2515,10 +2535,10 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}).Debug("Deleting endpoint NOTRACK rules")
 
 		if e.IPv4.IsValid() {
-			e.owner.IPTablesManager().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
+			e.ipTablesManager.RemoveNoTrackRules(e.IPv4, e.noTrackPort)
 		}
 		if e.IPv6.IsValid() {
-			e.owner.IPTablesManager().RemoveNoTrackRules(e.IPv6, e.noTrackPort)
+			e.ipTablesManager.RemoveNoTrackRules(e.IPv6, e.noTrackPort)
 		}
 	}
 
@@ -2531,7 +2551,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}
 
 		// Detach the endpoint program from any tc(x) hooks.
-		e.owner.Orchestrator().Unload(e.createEpInfoCache(""))
+		e.orchestrator.Unload(e.createEpInfoCache(""))
 
 		// Delete the endpoint's entries from the global cilium_(egress)call_policy
 		// maps and remove per-endpoint cilium_calls_ and cilium_policy_v2_ map pins.

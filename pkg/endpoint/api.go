@@ -17,8 +17,10 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
@@ -57,12 +59,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(owner, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
+	ep := createEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
 	ep.containerIfName = base.ContainerInterfaceName
 	ep.parentIfIndex = int(base.ParentInterfaceIndex)
@@ -442,9 +444,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	e.proxyStatisticsMutex.RUnlock()
 	sortProxyStats(proxyStats)
 
-	var (
-		realizedL4Policy *policy.L4Policy
-	)
+	var realizedL4Policy *policy.L4Policy
 	if e.realizedPolicy != nil {
 		realizedL4Policy = &e.realizedPolicy.L4Policy
 	}
@@ -462,9 +462,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyEnabled:            policyEnabled,
 	}
 
-	var (
-		desiredL4Policy *policy.L4Policy
-	)
+	var desiredL4Policy *policy.L4Policy
 	if e.desiredPolicy != nil {
 		desiredL4Policy = &e.desiredPolicy.L4Policy
 	}
