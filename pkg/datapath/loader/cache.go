@@ -214,7 +214,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		return nil, "", err
 	}
 
-	obj.spec, err = bpf.LoadCollectionSpec(path)
+	obj.spec, err = bpf.LoadCollectionSpec(o.logger, path)
 	if err != nil {
 		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}

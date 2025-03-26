@@ -31,10 +31,12 @@ type mapRefGetter interface {
 	GetMap(name string) (eventsDumper, bool)
 }
 
-type mapGetterImpl struct{}
+type mapGetterImpl struct {
+	logger *slog.Logger
+}
 
 func (mg mapGetterImpl) GetMap(name string) (eventsDumper, bool) {
-	m := bpf.GetMap(name)
+	m := bpf.GetMap(mg.logger, name)
 	return m, m != nil
 }
 
@@ -129,10 +131,12 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 	})
 }
 
-type getMapNameHandler struct{}
+type getMapNameHandler struct {
+	logger *slog.Logger
+}
 
 func (h *getMapNameHandler) Handle(params restapi.GetMapNameParams) middleware.Responder {
-	m := bpf.GetMap(params.Name)
+	m := bpf.GetMap(h.logger, params.Name)
 	if m == nil {
 		return restapi.NewGetMapNameNotFound()
 	}

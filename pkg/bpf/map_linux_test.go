@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -55,7 +56,7 @@ func (k *TestValue) NewSlice() any  { return &TestValues{} }
 func setup(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS("")
+	CheckOrMountFS(hivetest.Logger(tb), "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -81,7 +82,7 @@ func setup(tb testing.TB) *Map {
 func setupPerCPU(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
 
-	CheckOrMountFS("")
+	CheckOrMountFS(hivetest.Logger(tb), "")
 
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -142,12 +143,13 @@ func TestOpen(t *testing.T) {
 
 func TestOpenMap(t *testing.T) {
 	testMap := setup(t)
+	logger := hivetest.Logger(t)
 
 	openedMap, err := OpenMap("cilium_test_no_exist", &TestKey{}, &TestValue{})
 	require.Error(t, err)
 	require.Nil(t, openedMap)
 
-	openedMap, err = OpenMap(MapPath("cilium_test"), &TestKey{}, &TestValue{})
+	openedMap, err = OpenMap(MapPath(logger, "cilium_test"), &TestKey{}, &TestValue{})
 	require.NoError(t, err)
 	require.True(t, mapsEqual(openedMap, testMap))
 }
@@ -937,7 +939,8 @@ func BenchmarkMapLookup(b *testing.B) {
 
 func TestErrorResolver(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	CheckOrMountFS("")
+	logger := hivetest.Logger(t)
+	CheckOrMountFS(logger, "")
 	require.NoError(t, rlimit.RemoveMemlock())
 
 	var (

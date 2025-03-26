@@ -4,10 +4,7 @@
 package ebpf
 
 import (
-	"path"
-
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -23,18 +20,6 @@ func registerMap(m *Map) {
 	mutex.Unlock()
 
 	m.logger.Debug("Registered BPF map", logfields.Path, m.path)
-}
-
-// GetMap returns the registered map with the given name or absolute path
-func GetMap(name string) *Map {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	if !path.IsAbs(name) {
-		name = bpf.MapPath(name)
-	}
-
-	return mapRegister[name]
 }
 
 // GetOpenMaps returns a slice of all open BPF maps. This is identical to

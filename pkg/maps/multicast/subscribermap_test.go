@@ -21,9 +21,9 @@ const (
 
 func TestSubscriberMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
-
 	logger := hivetest.Logger(t)
-	bpf.CheckOrMountFS("")
+
+	bpf.CheckOrMountFS(logger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	groupMapEBPF := NewGroupV4OuterMap(logger, TestGroupV4OuterMapName)
