@@ -18,7 +18,6 @@ import (
 	apiv1 "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -72,12 +71,6 @@ func (s *EndpointManagerSuite) GetPolicyRepository() policy.PolicyRepository {
 func (s *EndpointManagerSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return nil, nil
 }
-
-func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *EndpointManagerSuite) RemoveRestoredDNSRules(epID uint16) {}
 
 type DummyRuleCacheOwner struct{}
 
@@ -404,7 +397,7 @@ func TestLookup(t *testing.T) {
 			var err error
 			mgr := New(&dummyEpSyncher{}, nil, nil)
 			if tt.cm != nil {
-				ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), s, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), tt.cm)
+				ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), tt.cm)
 				require.NoErrorf(t, err, "Test Name: %s", tt.name)
 				err = mgr.expose(ep)
 				require.NoErrorf(t, err, "Test Name: %s", tt.name)
@@ -427,7 +420,7 @@ func TestLookupCiliumID(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 2, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 2, endpoint.StateReady)
 	type args struct {
 		id uint16
 	}
@@ -496,7 +489,7 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &apiv1.EndpointChangeRequest{
+	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &apiv1.EndpointChangeRequest{
 		ContainerID:            "foo",
 		ContainerInterfaceName: "bar",
 	})
@@ -517,7 +510,7 @@ func TestLookupIPv4(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 4, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 4, endpoint.StateReady)
 	type args struct {
 		ip string
 	}
@@ -664,7 +657,7 @@ func TestLookupCEPName(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &tt.cm)
+		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &tt.cm)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
 		tt.preTestRun(ep)
 		args := tt.setupArgs()
@@ -707,7 +700,7 @@ func TestUpdateReferences(t *testing.T) {
 	}
 	for _, tt := range tests {
 		var err error
-		ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), s, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &tt.cm)
+		ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), &tt.cm)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
 		mgr := New(&dummyEpSyncher{}, nil, nil)
 
@@ -740,7 +733,7 @@ func TestUpdateReferences(t *testing.T) {
 func TestRemove(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 7, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 7, endpoint.StateReady)
 	type args struct{}
 	type want struct{}
 	tests := []struct {
@@ -780,7 +773,7 @@ func TestHasGlobalCT(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 	type want struct {
 		result bool
 	}
@@ -804,7 +797,7 @@ func TestHasGlobalCT(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -824,7 +817,7 @@ func TestHasGlobalCT(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -842,7 +835,7 @@ func TestHasGlobalCT(t *testing.T) {
 func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 	type args struct {
 		ctx    context.Context
 		rev    uint64
@@ -880,7 +873,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -906,7 +899,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -932,7 +925,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 			},
 		},
 	}
@@ -965,7 +958,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	require.False(t, ok)
 
 	// Create host endpoint and expose it in the endpoint manager.
-	ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 	ep.SetIsHost(true)
 	ep.ID = hostEPID
 	require.NoError(t, mgr.expose(ep))
@@ -1002,7 +995,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Add labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				require.NoError(t, mgr.expose(ep))
@@ -1027,7 +1020,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Update labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
@@ -1054,7 +1047,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Ignore labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}

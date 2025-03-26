@@ -59,7 +59,7 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	}
 	identity.Sanitize()
 
-	ep := NewTestEndpointWithState(s, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, StateReady)
+	ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -125,7 +125,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), s, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epsNames)
 	require.Equal(t, len(epsWanted), len(eps))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -187,7 +187,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), s, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -242,7 +242,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), s, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, s, tmpDir, epsNames)
 		require.Equal(b, len(epsWanted), len(eps))
 	}
 }
