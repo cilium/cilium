@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -149,12 +148,6 @@ func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return nil, nil
 }
 
-func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
-
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
@@ -175,7 +168,7 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
-	ep := NewTestEndpointWithState(s.do, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
+	ep := NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)

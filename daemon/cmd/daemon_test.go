@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -260,12 +259,6 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 	}
 	panic("GetCIDRPrefixLengths should not have been called")
 }
-
-func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {}
 
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
