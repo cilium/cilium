@@ -554,7 +554,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 	pl.Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
 
 	// Set the excluded CIDRs
-	pl.Spec.ExcludedCIDRs = []ciliumv2.IPv4CIDR{}
+	pl.Spec.ExcludedCIDRs = []ciliumv2.CIDR{}
 
 	switch params.ExcludedCIDRsConf {
 	case ExternalNodeExcludedCIDRs:
@@ -563,7 +563,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 				continue
 			}
 
-			cidr := ciliumv2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+			cidr := ciliumv2.CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
 			pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
 		}
 	}

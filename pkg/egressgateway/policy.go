@@ -29,6 +29,7 @@ type policyGatewayConfig struct {
 	nodeSelector api.EndpointSelector
 	iface        string
 	egressIP     netip.Addr
+	v6needed     bool
 }
 
 // gatewayConfig is the gateway configuration derived at runtime from a policy.
@@ -40,8 +41,10 @@ type policyGatewayConfig struct {
 type gatewayConfig struct {
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
-	// egressIP is the IP used to SNAT traffic
-	egressIP netip.Addr
+	// egressIP4 is the IP used to SNAT traffic with IPv4 policies
+	egressIP4 netip.Addr
+	// egressIP6 is the IP used to SNAT traffic with IPv6 policies
+	egressIP6 netip.Addr
 	// gatewayIP is the node internal IP of the gateway
 	gatewayIP netip.Addr
 	// localNodeConfiguredAsGateway tells if the local node is configured to
@@ -113,7 +116,8 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	gwc := gatewayConfig{
-		egressIP:  netip.IPv4Unspecified(),
+		egressIP4: netip.IPv4Unspecified(),
+		egressIP6: netip.IPv6Unspecified(),
 		gatewayIP: GatewayNotFoundIPv4,
 	}
 
@@ -158,36 +162,65 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 
 	switch {
 	case gc.iface != "":
-		// If the gateway config specifies an interface, use the first IPv4 assigned to that
-		// interface as egress IP
+		// If the gateway config specifies an interface, use the first IPv4/v6 assigned to that
+		// interface as egress IPs
 		gwc.ifaceName = gc.iface
-		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
+		gwc.egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
+			gwc.egressIP4 = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+		}
+
+		if gc.v6needed {
+			gwc.egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gc.iface)
+			if err != nil {
+				gwc.egressIP6 = EgressIPNotFoundIPv6
+				return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+			}
 		}
 	case gc.egressIP.IsValid():
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
-		// interface
-		gwc.egressIP = gc.egressIP
+		// interface.
+		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
+		gwc.egressIP4 = gc.egressIP
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
+
 	default:
 		// If the gateway config doesn't specify any egress IP or interface, use the
 		// interface with the IPv4 default route
 		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
-			return fmt.Errorf("failed to find interface with default route: %w", err)
+			gwc.egressIP4 = EgressIPNotFoundIPv4
+			return fmt.Errorf("failed to find interface with IPv4 default route: %w", err)
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
-		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
+		gwc.egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
-			gwc.egressIP = EgressIPNotFoundIPv4
+			gwc.egressIP4 = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+		}
+
+		if gc.v6needed {
+			iface, err := route.NodeDeviceWithDefaultRoute(logger, false, true)
+			if err != nil {
+				gwc.egressIP6 = EgressIPNotFoundIPv6
+				return fmt.Errorf("failed to find interface with IPv6 default route: %w", err)
+			}
+
+			if iface.Attrs().Name != gwc.ifaceName {
+				return fmt.Errorf("IPv6 default route interface doesn't match IPv4 default route interface")
+			}
+
+			gwc.ifaceName = iface.Attrs().Name
+			gwc.egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gwc.ifaceName)
+			if err != nil {
+				gwc.egressIP6 = EgressIPNotFoundIPv6
+				return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
+			}
 		}
 	}
 
@@ -254,12 +287,14 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
 	}
+
 	// EgressIP is not a required field, validate and parse it only if non-empty
 	if egressGateway.EgressIP != "" {
 		addr, err := netip.ParseAddr(egressGateway.EgressIP)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse egress IP %s: %w", egressGateway.EgressIP, err)
 		}
+
 		policyGwc.egressIP = addr
 	}
 
@@ -269,6 +304,9 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 			return nil, fmt.Errorf("failed to parse destination CIDR %s: %w", cidrString, err)
 		}
 		dstCidrList = append(dstCidrList, cidr)
+		if cidr.Addr().Is6() {
+			policyGwc.v6needed = true
+		}
 	}
 
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
