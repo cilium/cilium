@@ -72,18 +72,22 @@ func addPolicy(tb testing.TB, policies fakeResource[*Policy], params *policyPara
 }
 
 type policyParams struct {
-	name            string
-	endpointLabels  map[string]string
-	nodeSelectors   map[string]string
-	destinationCIDR string
-	excludedCIDRs   []string
-	nodeLabels      map[string]string
-	iface           string
-	egressIP        string
+	name             string
+	endpointLabels   map[string]string
+	nodeSelectors    map[string]string
+	destinationCIDRs []string
+	excludedCIDRs    []string
+	nodeLabels       map[string]string
+	iface            string
+	egressIP         string
 }
 
 func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig) {
-	parsedDestinationCIDR, _ := netip.ParsePrefix(params.destinationCIDR)
+	parsedDestinationCIDRs := make([]netip.Prefix, 0, len(params.destinationCIDRs))
+	for _, destCIDR := range params.destinationCIDRs {
+		parsedDestinationCIDR, _ := netip.ParsePrefix(destCIDR)
+		parsedDestinationCIDRs = append(parsedDestinationCIDRs, parsedDestinationCIDR)
+	}
 
 	parsedExcludedCIDRs := make([]netip.Prefix, 0, len(params.excludedCIDRs))
 	for _, excludedCIDR := range params.excludedCIDRs {
@@ -96,7 +100,7 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 		id: types.NamespacedName{
 			Name: params.name,
 		},
-		dstCIDRs:      []netip.Prefix{parsedDestinationCIDR},
+		dstCIDRs:      parsedDestinationCIDRs,
 		excludedCIDRs: parsedExcludedCIDRs,
 		endpointSelectors: []api.EndpointSelector{
 			{
@@ -137,6 +141,13 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 		}
 	}
 
+	// Create destination CIDRs list
+	var destinationCIDRs []v2.CIDR
+	for _, destCIDR := range params.destinationCIDRs {
+		destinationCIDRs = append(destinationCIDRs, v2.CIDR(destCIDR))
+	}
+
+	// Create excluded CIDRs list
 	excludedCIDRs := []v2.CIDR{}
 	for _, excludedCIDR := range params.excludedCIDRs {
 		excludedCIDRs = append(excludedCIDRs, v2.CIDR(excludedCIDR))
@@ -154,10 +165,8 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 					},
 				},
 			},
-			DestinationCIDRs: []v2.CIDR{
-				v2.CIDR(params.destinationCIDR),
-			},
-			ExcludedCIDRs: excludedCIDRs,
+			DestinationCIDRs: destinationCIDRs,
+			ExcludedCIDRs:    excludedCIDRs,
 			EgressGateway: &v2.EgressGateway{
 				NodeSelector: &slimv1.LabelSelector{
 					MatchLabels: params.nodeLabels,
