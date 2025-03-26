@@ -5,6 +5,7 @@ package configmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -85,11 +86,11 @@ func newConfigMap() *configMap {
 // LoadMap loads the pre-initialized config map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
-func LoadMap() (Map, error) {
+func LoadMap(logger *slog.Logger) (Map, error) {
 	var index Index
 	var value Value
 
-	m, err := bpf.OpenMap(bpf.MapPath(MapName), &index, &value)
+	m, err := bpf.OpenMap(bpf.MapPath(logger, MapName), &index, &value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bpf map: %w", err)
 	}

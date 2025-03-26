@@ -18,7 +18,8 @@ import (
 func setupNodeMapSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(tb)
+	bpf.CheckOrMountFS(logger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }

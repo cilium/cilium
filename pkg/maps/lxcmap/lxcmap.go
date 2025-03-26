@@ -5,6 +5,7 @@ package lxcmap
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
@@ -222,11 +223,11 @@ func DeleteEntry(ip net.IP) error {
 
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(f EndpointFrontend) []error {
+func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 	var errors []error
 	for _, k := range GetBPFKeys(f) {
 		if err := LXCMap().Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(MapName), err))
+			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(logger, MapName), err))
 		}
 	}
 

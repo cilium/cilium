@@ -43,6 +43,7 @@ func (v *dummyStateValue) String() string {
 
 func TestStateMapsHive(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	// Dummy maps. Name should be matched to the real one, but other fields
 	// are not important.
@@ -68,16 +69,14 @@ func TestStateMapsHive(t *testing.T) {
 	require.NoError(t, m6.Create())
 
 	// Ensure maps are pinned
-	require.FileExists(t, bpf.MapPath(stateMapName4))
-	require.FileExists(t, bpf.MapPath(stateMapName6))
+	require.FileExists(t, bpf.MapPath(logger, stateMapName4))
+	require.FileExists(t, bpf.MapPath(logger, stateMapName6))
 
 	t.Cleanup(func() {
 		// Ensure they are unpinned even if the test fails
 		m4.Unpin()
 		m6.Unpin()
 	})
-
-	logger := hivetest.Logger(t)
 
 	hive := hive.New(
 		cell.Invoke(cleanupStateMap),
@@ -88,6 +87,6 @@ func TestStateMapsHive(t *testing.T) {
 	})
 
 	// State maps should be deleted after Invoke
-	require.NoFileExists(t, bpf.MapPath(stateMapName4))
-	require.NoFileExists(t, bpf.MapPath(stateMapName6))
+	require.NoFileExists(t, bpf.MapPath(logger, stateMapName4))
+	require.NoFileExists(t, bpf.MapPath(logger, stateMapName6))
 }

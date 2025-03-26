@@ -9,6 +9,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -638,8 +639,9 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
-		args, err := parsePolicyUpdateArgsHelper(tt.args, tt.isDeny)
+		args, err := parsePolicyUpdateArgsHelper(logger, tt.args, tt.isDeny)
 
 		if tt.invalid {
 			require.Error(t, err)

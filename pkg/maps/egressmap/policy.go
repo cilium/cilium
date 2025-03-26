@@ -5,6 +5,7 @@ package egressmap
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"unsafe"
 
@@ -187,8 +188,8 @@ func createPolicyMap6(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType)
 }
 
 // OpenPinnedPolicyMap4 opens an existing pinned IPv4 policy map.
-func OpenPinnedPolicyMap4() (*PolicyMap4, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapName4), &EgressPolicyKey4{}, &EgressPolicyVal4{})
+func OpenPinnedPolicyMap4(logger *slog.Logger) (*PolicyMap4, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName4), &EgressPolicyKey4{}, &EgressPolicyVal4{})
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +198,8 @@ func OpenPinnedPolicyMap4() (*PolicyMap4, error) {
 }
 
 // OpenPinnedPolicyMap6 opens an existing pinned IPv6 policy map.
-func OpenPinnedPolicyMap6() (*PolicyMap6, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapName6), &EgressPolicyKey6{}, &EgressPolicyVal6{})
+func OpenPinnedPolicyMap6(logger *slog.Logger) (*PolicyMap6, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName6), &EgressPolicyKey6{}, &EgressPolicyVal6{})
 	if err != nil {
 		return nil, err
 	}

@@ -58,12 +58,12 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl) error {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, "bpf_sock.o"))
+	spec, err := bpf.LoadCollectionSpec(logger, filepath.Join(option.Config.StateDir, "bpf_sock.o"))
 	if err != nil {
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
 
-	coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

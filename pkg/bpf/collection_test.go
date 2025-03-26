@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +20,7 @@ import (
 // undersized buffer and expect the load to be successful.
 func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	num := 32
 	insns := make(asm.Instructions, 0, num)
@@ -37,7 +39,7 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 		},
 	}
 
-	coll, _, err := LoadCollection(spec, &CollectionOptions{
+	coll, _, err := LoadCollection(logger, spec, &CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
 				// Request instruction-level verifier state to ensure sufficient
@@ -59,6 +61,7 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 }
 
 func TestRemoveUnreachableTailcalls(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Use upstream LoadCollectionSpec to defer the call to
 	// removeUnreachableTailcalls.
 	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
@@ -73,7 +76,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.Contains(t, spec.Programs, "d")
 	assert.Contains(t, spec.Programs, "e")
 
-	if err := removeUnreachableTailcalls(spec); err != nil {
+	if err := removeUnreachableTailcalls(logger, spec); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,6 +90,7 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 
 func TestUpgradeMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
 	temp := testutils.TempBPFFS(t)
 
@@ -101,7 +105,7 @@ func TestUpgradeMap(t *testing.T) {
 	}, ebpf.MapOptions{PinPath: temp})
 	require.NoError(t, err)
 
-	spec, err := LoadCollectionSpec("testdata/upgrade-map.o")
+	spec, err := LoadCollectionSpec(logger, "testdata/upgrade-map.o")
 	require.NoError(t, err)
 
 	// Use LoadAndAssign to make sure commit works through map upgrades. This is a
@@ -111,7 +115,7 @@ func TestUpgradeMap(t *testing.T) {
 	obj := struct {
 		UpgradedMap *ebpf.Map `ebpf:"upgraded_map"`
 	}{}
-	commit, err := LoadAndAssign(&obj, spec, &CollectionOptions{
+	commit, err := LoadAndAssign(logger, &obj, spec, &CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: temp},
 		},

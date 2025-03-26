@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/cilium/ebpf"
@@ -100,8 +101,8 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 }
 
 // OpenSIDMap opens the SIDMap on bpffs
-func OpenSIDMap() (*SIDMap, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(sidMapName), &SIDKey{}, &SIDValue{})
+func OpenSIDMap(logger *slog.Logger) (*SIDMap, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, sidMapName), &SIDKey{}, &SIDValue{})
 	if err != nil {
 		return nil, err
 	}

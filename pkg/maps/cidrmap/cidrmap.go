@@ -168,7 +168,7 @@ func OpenMapElems(logger *slog.Logger, pinPath string, prefixlen int, prefixdyn 
 		return nil, fmt.Errorf("prefixlen must be > 0")
 	}
 	bytes := (prefixlen-1)/8 + 1
-	m, err := bpf.OpenOrCreateMap(&ebpf.MapSpec{
+	m, err := bpf.OpenOrCreateMap(logger, &ebpf.MapSpec{
 		Name:       path.Base(pinPath),
 		Type:       mapType,
 		KeySize:    uint32(unsafe.Sizeof(uint32(0)) + uintptr(bytes)),

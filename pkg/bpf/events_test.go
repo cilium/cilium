@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/container"
@@ -15,7 +16,9 @@ import (
 
 func TestEventsSubscribe(t *testing.T) {
 	assert := assert.New(t)
+	logger := hivetest.Logger(t)
 	eb := &eventsBuffer{
+		logger:   logger,
 		buffer:   container.NewRingBuffer(0),
 		eventTTL: time.Second,
 	}

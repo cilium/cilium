@@ -6,6 +6,7 @@ package prefilter
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 
 	"github.com/cilium/hive/cell"
@@ -39,6 +40,7 @@ type preFilterMaps [mapCount]*cidrmap.CIDRMap
 
 // PreFilter holds global info on related CIDR maps participating in prefilter
 type PreFilter struct {
+	logger   *slog.Logger
 	maps     preFilterMaps
 	revision int64
 	mutex    lock.RWMutex
@@ -202,22 +204,22 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		prefixlen = net.IPv4len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_dyn")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_dyn")
 	case prefixesV4Fix:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_fix")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_fix")
 	case prefixesV6Dyn:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_dyn")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_dyn")
 	case prefixesV6Fix:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_fix")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_fix")
 	}
 
 	p.maps[which], err = cidrmap.OpenMapElems(logging.DefaultSlogLogger, path, prefixlen, prefixdyn, maxelems)
@@ -237,8 +239,9 @@ func (p *PreFilter) init() error {
 }
 
 // newPreFilter returns prefilter handle
-func newPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
+func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
 	p := &PreFilter{
+		logger:   logger,
 		revision: 1,
 		enabled:  config.EnableXDPPrefilter,
 	}

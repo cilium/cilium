@@ -217,13 +217,13 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return nil
 	}
 
-	spec, err := bpf.LoadCollectionSpec(networkObj)
+	spec, err := bpf.LoadCollectionSpec(l.logger, networkObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
 	var obj networkObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

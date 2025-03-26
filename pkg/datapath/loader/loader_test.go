@@ -139,10 +139,10 @@ func TestReload(t *testing.T) {
 	tmp := testutils.TempBPFFS(t)
 
 	for range 2 {
-		spec, err := bpf.LoadCollectionSpec(objPath)
+		spec, err := bpf.LoadCollectionSpec(logger, objPath)
 		require.NoError(t, err)
 
-		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+		coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
 		})
 		require.NoError(t, err)
@@ -287,12 +287,12 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 
 	for b.Loop() {
-		spec, err := bpf.LoadCollectionSpec(objPath)
+		spec, err := bpf.LoadCollectionSpec(logger, objPath)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+		coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
 		})
 		if err != nil {

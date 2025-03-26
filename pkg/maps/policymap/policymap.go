@@ -479,8 +479,8 @@ func parseEndpointID(mapPath string) (uint16, error) {
 	return 0, fmt.Errorf("malformed policy map name %q (missing '_')", mapPath)
 }
 
-func newPolicyMap(id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error) {
-	path := bpf.LocalMapPath(MapName, id)
+func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error) {
+	path := bpf.LocalMapPath(logger, MapName, id)
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetMapMemoryFlags(mapType)
 
