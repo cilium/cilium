@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
@@ -63,7 +62,6 @@ type DaemonSuite struct {
 	// Owners interface mock
 	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
-	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 
 	PolicyImporter policycell.PolicyImporter
@@ -171,7 +169,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
-	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
 	// Reset the most common endpoint states before each test.
@@ -255,13 +252,6 @@ func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 		return ds.OnGetNamedPorts()
 	}
 	panic("GetNamedPorts should not have been called")
-}
-
-func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	if ds.OnSendNotification != nil {
-		return ds.OnSendNotification(msg)
-	}
-	panic("SendNotification should not have been called")
 }
 
 func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {

@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -732,6 +733,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	bandwidthManager datapath.BandwidthManager,
 	ipTablesManager datapath.IptablesManager,
 	identityManager identitymanager.IDManager,
+	monitorAgent monitoragent.Agent,
 	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -739,7 +741,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateIngressEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -763,6 +765,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	bandwidthManager datapath.BandwidthManager,
 	ipTablesManager datapath.IptablesManager,
 	identityManager identitymanager.IDManager,
+	monitorAgent monitoragent.Agent,
 	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -770,7 +773,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateHostEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}

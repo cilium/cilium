@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -109,6 +110,7 @@ type EndpointsModify interface {
 		bandwidthManager datapath.BandwidthManager,
 		ipTablesManager datapath.IptablesManager,
 		identityManager identitymanager.IDManager,
+		monitorAgent monitoragent.Agent,
 		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,
@@ -127,6 +129,7 @@ type EndpointsModify interface {
 		bandwidthManager datapath.BandwidthManager,
 		ipTablesManager datapath.IptablesManager,
 		identityManager identitymanager.IDManager,
+		monitorAgent monitoragent.Agent,
 		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,

@@ -105,10 +105,6 @@ func (s *EndpointSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 	panic("GetNamedPorts should not have been called")
 }
 
-func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
 func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
@@ -220,7 +216,7 @@ func TestEndpointStatus(t *testing.T) {
 func TestEndpointDatapathOptions(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e, err := NewEndpointFromChangeModel(context.TODO(), s, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), &models.EndpointChangeRequest{
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			DisableSipVerification: true,
 		},
