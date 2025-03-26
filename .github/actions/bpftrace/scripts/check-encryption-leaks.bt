@@ -1,4 +1,4 @@
-// Six parameters expected:
+// Eight parameters expected:
 // $1: IPv4 CiliumInternalIP - Node1
 // $2: IPv6 CiliumInternalIP - Node1
 // $3: IPv4 CiliumInternalIP - Node2
@@ -6,11 +6,15 @@
 // $5: IPv4 CiliumInternalIP - Node3
 // $6: IPv6 CiliumInternalIP - Node3
 // $7: Report errors if proxy traffic not found - [true|false]
-// $8: Encryption type: [wireguard|ipsec]
+// $8: Encryption type - [wireguard|ipsec]
+//
+// Notes:
+// - IPv6 addresses ($2, $4, and $6) must be "::1" in IPv4-only clusters.
+// - We assume /8 CIDRs for the provided addresses ($1-$6).
 
-#define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
 #define MASK4 (uint32)0xFF000000
-#define CIDR6 (uint32)0xfd00
+#define CIDR4 (uint32)(pton(str($1))[0]) << 24 // ex. 0x0a000000 (10.0.0.0/8)
+#define CIDR6 (uint32)(pton(str($2))[0]) << 8  // ex. 0xfd00 (fd00::/8)
 
 #define PROTO_IPV4 0x0800
 #define PROTO_IPV6 0x86DD
@@ -277,6 +281,7 @@ kprobe:tcp_connect
   }
 }
 
+// Clear traced TCP connections.
 kprobe:tcp_close
 {
   $sk = ((struct sock *) arg0);
@@ -333,7 +338,8 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
   }
 }
 
-// Clear traced UDP connections.
+// Additionally trace traffic flows in which the source got masquerated.
+// Ignore packets w/o a socket assigned or that are not traced by the proxy.
 kprobe:udp_destroy_sock
 {
   $sk = ((struct sock *) arg0);
@@ -381,6 +387,7 @@ kprobe:__dev_queue_xmit
   delete(@trace_sk[$sk])
 }
 
+// Perform sanity checks.
 END
 {
   if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4]) {
