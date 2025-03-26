@@ -692,7 +692,7 @@ func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func (mgr *endpointManager) AddEndpoint(dnsRulesApi endpoint.DNSRulesAPI, ep *endpoint.Endpoint) (err error) {
+func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
@@ -746,7 +746,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 		return err
 	}
 
-	if err := mgr.AddEndpoint(dnsRulesApi, ep); err != nil {
+	if err := mgr.AddEndpoint(ep); err != nil {
 		return err
 	}
 
@@ -778,7 +778,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 		return err
 	}
 
-	if err := mgr.AddEndpoint(dnsRulesApi, ep); err != nil {
+	if err := mgr.AddEndpoint(ep); err != nil {
 		return err
 	}
 
