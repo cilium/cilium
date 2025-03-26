@@ -93,7 +93,7 @@ type endpointManager struct {
 
 	policyMapPressure *policyMapPressure
 
-	// locaNodeStore allows to retrieve information and observe changes about
+	// localNodeStore allows to retrieve information and observe changes about
 	// the local node.
 	localNodeStore *node.LocalNodeStore
 
@@ -451,7 +451,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 }
 
 // removeEndpoint stops the active handling of events by the specified endpoint,
-// and prevents the endpoint from being globally acccessible via other packages.
+// and prevents the endpoint from being globally accessible via other packages.
 func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	mgr.unexpose(ep)
 	result := ep.Delete(conf)
@@ -466,7 +466,7 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 }
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
-// and prevents the endpoint from being globally acccessible via other packages.
+// and prevents the endpoint from being globally accessible via other packages.
 func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return mgr.deleteEndpoint(ep, conf)
 }
@@ -725,6 +725,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 func (mgr *endpointManager) AddIngressEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
+	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapath.Loader,
 	orchestrator datapath.Orchestrator,
 	compilationLock datapath.CompilationLock,
@@ -738,7 +739,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateIngressEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -755,6 +756,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 func (mgr *endpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
+	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapath.Loader,
 	orchestrator datapath.Orchestrator,
 	compilationLock datapath.CompilationLock,
@@ -768,7 +770,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateHostEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}

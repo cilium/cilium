@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -64,7 +63,6 @@ type DaemonSuite struct {
 	// Owners interface mock
 	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
-	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 
@@ -173,7 +171,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
-	ds.OnQueueEndpointBuild = nil
 	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
@@ -246,11 +243,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	}
 }
 
-func TestMinimumWorkerThreadsIsSet(t *testing.T) {
-	require.GreaterOrEqual(t, numWorkerThreads(), 2)
-	require.GreaterOrEqual(t, numWorkerThreads(), runtime.NumCPU())
-}
-
 func (ds *DaemonSuite) GetPolicyRepository() policy.PolicyRepository {
 	if ds.OnGetPolicyRepository != nil {
 		return ds.OnGetPolicyRepository()
@@ -263,14 +255,6 @@ func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 		return ds.OnGetNamedPorts()
 	}
 	panic("GetNamedPorts should not have been called")
-}
-
-func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	if ds.OnQueueEndpointBuild != nil {
-		return ds.OnQueueEndpointBuild(ctx, epID)
-	}
-
-	return nil, nil
 }
 
 func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
