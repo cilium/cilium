@@ -1054,7 +1054,9 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 			metadata := []ipcache.IPMetadata{
 				worldLabelForPrefix(prefix.AsPrefix()),
 				ipcacheTypes.TunnelPeer{Addr: tunnelIP},
-				ipcacheTypes.EncryptKey(encryptKey),
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(encryptKey))
 			}
 
 			if !yield(ipcache.MU{
