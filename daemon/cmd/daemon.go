@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
+	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -197,7 +198,8 @@ type Daemon struct {
 
 	explbConfig experimental.Config
 
-	dnsProxy defaultdns.Proxy
+	dnsProxy    defaultdns.Proxy
+	dnsRulesAPI fqdnRules.DNSRulesService
 }
 
 func (d *Daemon) init() error {
@@ -409,6 +411,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		dnsNameManager:    params.NameManager,
 		explbConfig:       params.ExpLBConfig,
 		dnsProxy:          params.DNSProxy,
+		dnsRulesAPI:       params.DNSRulesAPI,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
