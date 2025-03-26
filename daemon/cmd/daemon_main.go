@@ -1737,7 +1737,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	} else {
 		log.Info("Creating host endpoint")
 		err := d.endpointManager.AddHostEndpoint(
-			d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
+			d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
 		if err != nil {
 			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
@@ -1753,7 +1753,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			} else {
 				log.Info("Creating ingress endpoint")
 				err := d.endpointManager.AddIngressEndpoint(
-					d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
+					d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC)
 				if err != nil {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}

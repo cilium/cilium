@@ -405,7 +405,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	epTemplate.Labels = nil
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, dnsRulesApi, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, dnsRulesApi, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %w", err))
 	}
@@ -716,7 +716,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
 	if err2 != nil {
 		r.Error(err2, PutEndpointIDInvalidCode)
 		return api.Error(PutEndpointIDInvalidCode, err2)

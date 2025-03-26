@@ -200,11 +200,6 @@ type Daemon struct {
 	dnsProxy defaultdns.Proxy
 }
 
-// GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
-	return d.policy
-}
-
 func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		if option.Config.EnableL7Proxy {
@@ -529,8 +524,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				return nil
 			}
 
-			policyRepo := d.GetPolicyRepository()
-			policyRepo.Iterate(func(rule *policyAPI.Rule) {
+			d.policy.Iterate(func(rule *policyAPI.Rule) {
 				for _, er := range rule.Egress {
 					_ = er.ToPorts.Iterate(removeL7DNSRules)
 				}
@@ -543,7 +537,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 			// Bump revision to trigger policy recalculation
 			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
-			policyRepo.BumpRevision()
+			d.policy.BumpRevision()
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason:            "unloading DNS rules on graceful shutdown",
 				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
