@@ -237,10 +237,15 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
+	fraginfo_t fraginfo;
 	int l4_off, ret;
 
+	fraginfo = ipv6_get_fraginfo(ctx, l3);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
 	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				&l4_off, &tuple);
+				fraginfo, &l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
