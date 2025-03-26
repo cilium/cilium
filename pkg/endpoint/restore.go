@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -47,9 +48,9 @@ var (
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyMapFactory policymap.Factory, policyGetter policyRepoGetter,
-	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
-
+func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, loader dptypes.Loader, orchestrator dptypes.Orchestrator, compilationLock dptypes.CompilationLock, bandwidthManager dptypes.BandwidthManager, ipTablesManager dptypes.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter,
+	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string,
+) map[uint16]*Endpoint {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -80,7 +81,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyMa
 			continue
 		}
 
-		ep, err := parseEndpoint(owner, policyMapFactory, policyGetter, namedPortsGetter, state)
+		ep, err := parseEndpoint(owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, namedPortsGetter, state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -293,7 +294,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// If the endpoint is removed, this controller will cancel the allocator
 		// WaitForInitialGlobalIdentities function.
 		controllerName := fmt.Sprintf("waiting-initial-global-identities-ep (%v)", e.ID)
-		var gotInitialGlobalIdentities = make(chan struct{})
+		gotInitialGlobalIdentities := make(chan struct{})
 		e.UpdateController(controllerName,
 			controller.ControllerParams{
 				Group: initialGlobalIdentitiesControllerGroup,
@@ -408,7 +409,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 // serializableEndpoint, which contains all of the fields that are needed upon
 // restoring an Endpoint after cilium-agent restarts.
 func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
-
 	return &serializableEndpoint{
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
@@ -40,7 +41,7 @@ func TestMarkAndSweep(t *testing.T) {
 	healthyEndpointIDs := []uint16{1, 3, 5, 7}
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
-		ep := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, endpoint.StateReady)
+		ep := endpoint.NewTestEndpointWithState(s, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, endpoint.StateReady)
 		err := mgr.expose(ep)
 		require.NoError(t, err)
 	}

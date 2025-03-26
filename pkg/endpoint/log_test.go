@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -27,7 +28,7 @@ func TestEndpointLogFormat(t *testing.T) {
 
 	// Default log format is text
 	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep := NewTestEndpointWithState(do, nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+	ep := NewTestEndpointWithState(do, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
 	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
 	require.True(t, ok)
@@ -38,7 +39,7 @@ func TestEndpointLogFormat(t *testing.T) {
 		logging.SetLogFormat(logging.LogFormatText)
 	}()
 	do = &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep = NewTestEndpointWithState(do, nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+	ep = NewTestEndpointWithState(do, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
 	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
 	require.True(t, ok)
@@ -48,7 +49,7 @@ func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)
 
 	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep := NewTestEndpointWithState(do, nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+	ep := NewTestEndpointWithState(do, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()
