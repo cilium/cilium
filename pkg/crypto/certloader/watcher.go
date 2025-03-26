@@ -90,7 +90,7 @@ func FutureWatcher(ctx context.Context, log *slog.Logger, caFiles []string, cert
 			res <- w
 			return
 		}
-		log.Debug("Waiting on fsnotify update to be ready")
+		log.Debug("Waiting on fswatcher update to be ready")
 		select {
 		case <-ready:
 			log.Debug("TLS configuration ready")
