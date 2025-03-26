@@ -629,7 +629,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 	identityRevision := e.identityRevision
 	e.unlock()
-	policyRevision := e.policyGetter.GetPolicyRepository().GetRevision()
+	policyRevision := e.policyRepo.GetRevision()
 
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
@@ -1285,7 +1285,7 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	}
 
 	defer func() {
-		e.realizedPolicy = policy.NewEndpointPolicy(logging.DefaultSlogLogger, e.policyGetter.GetPolicyRepository())
+		e.realizedPolicy = policy.NewEndpointPolicy(logging.DefaultSlogLogger, e.policyRepo)
 	}()
 
 	i := 0

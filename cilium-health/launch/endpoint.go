@@ -233,7 +233,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	identityManager identitymanager.IDManager,
 	monitorAgent monitoragent.Agent,
 	policyMapFactory policymap.Factory,
-	policyGetter policyRepoGetter,
+	policyRepository policy.PolicyRepository,
 	ipcache *ipcache.IPCache,
 	mtuConfig mtu.MTU,
 	bigTCPConfig *bigtcp.Configuration,
@@ -330,7 +330,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepository, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
@@ -387,10 +387,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() policy.PolicyRepository
 }
 
 type routingConfigurer interface {
