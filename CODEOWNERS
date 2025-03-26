@@ -561,6 +561,7 @@ Makefile* @cilium/build
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
+/pkg/k8s/client @cilium/sig-k8s @cilium/sig-lb
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
