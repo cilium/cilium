@@ -784,7 +784,10 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
@@ -826,7 +829,10 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --include-unsafe-tests \
             --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --include-conn-disrupt-test-egw \
             --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             ${{ steps.cli-flags.outputs.flags }}
