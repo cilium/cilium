@@ -215,6 +215,13 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			return time.Time{}
 		}
 
+		if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
+			if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
+				log.WithError(err).Warning("Unable to update instance type to adapter limits from EC2 API")
+				return time.Time{}
+			}
+		}
+
 		log.WithFields(logrus.Fields{
 			"numInstances":      instances.NumInstances(),
 			"numVPCs":           len(vpcs),
@@ -247,13 +254,6 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
-
-	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
-			log.WithError(err).Warning("Unable to update instance type to adapter limits from EC2 API")
-			return time.Time{}
-		}
-	}
 
 	return resyncStart
 }
