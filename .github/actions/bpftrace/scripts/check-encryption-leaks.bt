@@ -387,6 +387,27 @@ kprobe:__dev_queue_xmit
   delete(@trace_sk[$sk])
 }
 
+// Check arguments number and values.
+// No need to check IPs ($1-$6) as the script would return
+// a compile error when using pton() with an incorrect address.
+BEGIN
+{
+  if (str($8) == "" || str($9) != "") {
+    printf("Incorrect number of arguments, expected 8.\n");
+    exit();
+  }
+
+  if (str($7) != "false" && str($7) != "true") {
+    printf("Incorrect sanity value, expected [true|false].\n");
+    exit();
+  }
+
+  if (str($8) != "ipsec" && str($8) != "wireguard") {
+    printf("Incorrect encryption type, expected [wireguard|ipsec].\n");
+    exit();
+  }
+}
+
 // Perform sanity checks.
 END
 {
