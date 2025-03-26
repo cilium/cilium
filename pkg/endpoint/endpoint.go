@@ -146,8 +146,7 @@ var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 // The representation of the Endpoint which is serialized to disk for restore
 // purposes is the serializableEndpoint type in this package.
 type Endpoint struct {
-	owner regeneration.Owner
-
+	dnsRulesApi      DNSRulesAPI
 	loader           datapath.Loader
 	orchestrator     datapath.Orchestrator
 	compilationLock  datapath.CompilationLock
@@ -487,6 +486,17 @@ type policyRepoGetter interface {
 	GetPolicyRepository() policy.PolicyRepository
 }
 
+type DNSRulesAPI interface {
+	// GetDNSRules creates a fresh copy of DNS rules that can be used when
+	// endpoint is restored on a restart.
+	// The endpoint lock must not be held while calling this function.
+	GetDNSRules(epID uint16) restore.DNSRules
+
+	// RemoveRestoredDNSRules removes any restored DNS rules for
+	// this endpoint from the DNS proxy.
+	RemoveRestoredDNSRules(epID uint16)
+}
+
 // EndpointSyncControllerName returns the controller name to synchronize
 // endpoint in to kubernetes.
 func EndpointSyncControllerName(epID uint16) string {
@@ -573,14 +583,14 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewTestEndpointWithState creates a new endpoint useful for testing purposes
 //
 // Note: This function is intended for testing purposes only and should not be used in production code.
-func NewTestEndpointWithState(owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
+func NewTestEndpointWithState(dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
 	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
 
 	if epBuildQueue == nil {
 		epBuildQueue = &mockEndpointBuildQueue{}
 	}
 
-	ep := createEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, nil, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
+	ep := createEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, nil, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
 	ep.SetPropertyValue(PropertyFakeEndpoint, true)
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(endpointQueueName, option.Config.EndpointQueueSize)
@@ -600,9 +610,9 @@ func (m *mockEndpointBuildQueue) QueueEndpointBuild(ctx context.Context, epID ui
 	return nil, nil
 }
 
-func createEndpoint(owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
+func createEndpoint(dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
-		owner:            owner,
+		dnsRulesApi:      dnsRulesApi,
 		epBuildQueue:     epBuildQueue,
 		loader:           loader,
 		orchestrator:     orchestrator,
@@ -672,8 +682,8 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
-	ep := createEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, "")
+func CreateIngressEndpoint(dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+	ep := createEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, "")
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
@@ -703,13 +713,13 @@ func CreateIngressEndpoint(owner regeneration.Owner, epBuildQueue EndpointBuildQ
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
+func CreateHostEndpoint(dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner) (*Endpoint, error) {
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, defaults.HostDevice)
+	ep := createEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, 0, defaults.HostDevice)
 	ep.isHost = true
 	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
 	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
@@ -961,9 +971,9 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
+func parseEndpoint(dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
-		owner:            owner,
+		dnsRulesApi:      dnsRulesApi,
 		epBuildQueue:     epBuildQueue,
 		loader:           loader,
 		orchestrator:     orchestrator,
@@ -1281,7 +1291,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	// Remove restored rules of cleaned endpoint
-	e.owner.RemoveRestoredDNSRules(e.ID)
+	e.dnsRulesApi.RemoveRestoredDNSRules(e.ID)
 
 	if e.policyMap != nil {
 		if err := e.policyMap.Close(); err != nil {
@@ -2479,7 +2489,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	// critical section, we must _not_ hold endpoint.mutex while calling
 	// GetDNSRules, to avoid a deadlock between IPCache and the endpoint. It is
 	// okay to hold endpoint.buildMutex, however.
-	rules := e.owner.GetDNSRules(e.ID)
+	rules := e.dnsRulesApi.GetDNSRules(e.ID)
 
 	if err := e.lockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return

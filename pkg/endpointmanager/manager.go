@@ -692,7 +692,7 @@ func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error) {
+func (mgr *endpointManager) AddEndpoint(dnsRulesApi endpoint.DNSRulesAPI, ep *endpoint.Endpoint) (err error) {
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
@@ -725,7 +725,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 
 func (mgr *endpointManager) AddIngressEndpoint(
 	ctx context.Context,
-	owner regeneration.Owner,
+	dnsRulesApi endpoint.DNSRulesAPI,
 	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapath.Loader,
 	orchestrator datapath.Orchestrator,
@@ -741,12 +741,12 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateIngressEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
 
-	if err := mgr.AddEndpoint(owner, ep); err != nil {
+	if err := mgr.AddEndpoint(dnsRulesApi, ep); err != nil {
 		return err
 	}
 
@@ -757,7 +757,7 @@ func (mgr *endpointManager) AddIngressEndpoint(
 
 func (mgr *endpointManager) AddHostEndpoint(
 	ctx context.Context,
-	owner regeneration.Owner,
+	dnsRulesApi endpoint.DNSRulesAPI,
 	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapath.Loader,
 	orchestrator datapath.Orchestrator,
@@ -773,12 +773,12 @@ func (mgr *endpointManager) AddHostEndpoint(
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateHostEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
 
-	if err := mgr.AddEndpoint(owner, ep); err != nil {
+	if err := mgr.AddEndpoint(dnsRulesApi, ep); err != nil {
 		return err
 	}
 

@@ -652,7 +652,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// can get the new DNS rules for restoration now, before we take the endpoint lock below.
 	// NOTE: Endpoint lock must not be held during 'GetDNSRules' as it locks IPCache, which
 	// leads to a deadlock if endpoint lock is held.
-	rules := e.owner.GetDNSRules(e.ID)
+	rules := e.dnsRulesApi.GetDNSRules(e.ID)
 
 	stats.waitingForLock.Start()
 	err = e.lockAlive()
