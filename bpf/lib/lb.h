@@ -577,6 +577,7 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  * @arg ctx		Packet
  * @arg ip6		Pointer to L3 header
  * @arg l3_off		Offset to L3 header
+ * @arg fraginfo	fraginfo, as returned by ipv6_get_fraginfo
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -589,16 +590,9 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  */
 static __always_inline int
 lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
-		  int *l4_off, struct ipv6_ct_tuple *tuple)
+		  fraginfo_t fraginfo, int *l4_off, struct ipv6_ct_tuple *tuple)
 {
-	fraginfo_t fraginfo;
 	int ret;
-
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0) {
-		ret = (int)fraginfo;
-		goto err;
-	}
 
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
@@ -1329,6 +1323,7 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  * @arg ctx		Packet
  * @arg ip4		Pointer to L3 header
  * @arg l3_off		Offset to L3 header
+ * @arg fraginfo	fraginfo, as returned by ipfrag_encode_ipv4
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -1338,13 +1333,9 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
-		  struct ipv4_ct_tuple *tuple)
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
+		  fraginfo_t fraginfo, int *l4_off, struct ipv4_ct_tuple *tuple)
 {
-	fraginfo_t fraginfo;
-
-	fraginfo = ipfrag_encode_ipv4(ip4);
-
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
