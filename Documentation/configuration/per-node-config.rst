@@ -92,7 +92,7 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: true``
               io.cilium.migration/kube-proxy-replacement: "true"
           defaults:
             kube-proxy-replacement: "true"
-            kube-proxy-replacement-healthz-bind-address: "0.0.0.0:10256"
+            kube-proxy-replacement-healthz-bind-address: "'0.0.0.0:10256'"
 
         EOF
 
@@ -129,7 +129,7 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: true``
     .. code-block:: shell-session
 
         cilium config set --restart=false kube-proxy-replacement true
-        cilium config set --restart=false kube-proxy-replacement-healthz-bind-address "0.0.0.0:10256"
+        cilium config set --restart=false kube-proxy-replacement-healthz-bind-address '0.0.0.0:10256'
         kubectl -n kube-system delete ciliumnodeconfig kube-proxy-replacement
 
 #. Cleanup: delete kube-proxy daemonset, unlabel nodes
