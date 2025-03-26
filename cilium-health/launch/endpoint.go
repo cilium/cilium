@@ -213,7 +213,7 @@ func CleanupEndpoint() {
 
 // EndpointAdder is any type which adds an endpoint to be managed by Cilium.
 type EndpointAdder interface {
-	AddEndpoint(dnsRulesApi endpoint.DNSRulesAPI, ep *endpoint.Endpoint) error
+	AddEndpoint(ep *endpoint.Endpoint) error
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
@@ -373,7 +373,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
-	if err := epMgr.AddEndpoint(dnsRulesApi, ep); err != nil {
+	if err := epMgr.AddEndpoint(ep); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %w", err)
 	}
 

@@ -95,7 +95,7 @@ type EndpointsLookup interface {
 
 type EndpointsModify interface {
 	// AddEndpoint takes the prepared endpoint object and starts managing it.
-	AddEndpoint(dnsRulesApi endpoint.DNSRulesAPI, ep *endpoint.Endpoint) (err error)
+	AddEndpoint(ep *endpoint.Endpoint) (err error)
 
 	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
 	// corresponding container necessarily existing. This is needed to be able to ingest and
