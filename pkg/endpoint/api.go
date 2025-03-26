@@ -60,12 +60,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
+	ep := createEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
 	ep.containerIfName = base.ContainerInterfaceName
 	ep.parentIfIndex = int(base.ParentInterfaceIndex)

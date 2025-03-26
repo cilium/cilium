@@ -25,7 +25,6 @@ import (
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -214,7 +213,7 @@ func CleanupEndpoint() {
 
 // EndpointAdder is any type which adds an endpoint to be managed by Cilium.
 type EndpointAdder interface {
-	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) error
+	AddEndpoint(dnsRulesApi endpoint.DNSRulesAPI, ep *endpoint.Endpoint) error
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
@@ -224,7 +223,7 @@ type EndpointAdder interface {
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
-	owner regeneration.Owner,
+	dnsRulesApi endpoint.DNSRulesAPI,
 	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapathTypes.Loader,
 	orchestrator datapathTypes.Orchestrator,
@@ -331,7 +330,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
@@ -374,7 +373,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
-	if err := epMgr.AddEndpoint(owner, ep); err != nil {
+	if err := epMgr.AddEndpoint(dnsRulesApi, ep); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %w", err)
 	}
 

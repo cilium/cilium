@@ -49,7 +49,7 @@ var (
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, epBuildQueue EndpointBuildQueue, loader dptypes.Loader, orchestrator dptypes.Orchestrator, compilationLock dptypes.CompilationLock, bandwidthManager dptypes.BandwidthManager, ipTablesManager dptypes.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter,
+func ReadEPsFromDirNames(ctx context.Context, dnsRulesApi DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader dptypes.Loader, orchestrator dptypes.Orchestrator, compilationLock dptypes.CompilationLock, bandwidthManager dptypes.BandwidthManager, ipTablesManager dptypes.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyGetter policyRepoGetter,
 	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string,
 ) map[uint16]*Endpoint {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
@@ -82,7 +82,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, epBuildQ
 			continue
 		}
 
-		ep, err := parseEndpoint(owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, state)
+		ep, err := parseEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, namedPortsGetter, state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
