@@ -84,7 +84,7 @@ type mapApiHandlerOut struct {
 func newMapApiHandler(logger *slog.Logger) mapApiHandlerOut {
 	return mapApiHandlerOut{
 		GetMapHandler:           &getMapHandler{},
-		GetMapNameHandler:       &getMapNameHandler{},
-		GetMapNameEventsHandler: &getMapNameEventsHandler{logger: logger, mapGetter: &mapGetterImpl{}},
+		GetMapNameHandler:       &getMapNameHandler{logger: logger},
+		GetMapNameEventsHandler: &getMapNameEventsHandler{logger: logger, mapGetter: &mapGetterImpl{logger: logger}},
 	}
 }

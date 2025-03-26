@@ -172,7 +172,7 @@ func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
 	m.logger.Debug("Detecting V1 to V2 migration")
 
 	// load v1 node map
-	nodeMapPath := bpf.MapPath(NodeMapName)
+	nodeMapPath := bpf.MapPath(m.logger, NodeMapName)
 	v1, err := ebpf.LoadPinnedMap(m.logger, nodeMapPath)
 	if errors.Is(err, unix.ENOENT) {
 		m.logger.Debug("No v1 node map found, skipping migration")
@@ -186,7 +186,7 @@ func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
 	}
 
 	// load encrypt map to get current SPI
-	encryptMapPath := bpf.MapPath(EncryptMapName)
+	encryptMapPath := bpf.MapPath(m.logger, EncryptMapName)
 	en, err := ebpf.LoadPinnedMap(m.logger, encryptMapPath)
 	if errors.Is(err, unix.ENOENT) {
 		m.logger.Debug("No encrypt map found, skipping migration")

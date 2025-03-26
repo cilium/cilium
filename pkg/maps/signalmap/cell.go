@@ -5,6 +5,7 @@ package signalmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -35,12 +36,12 @@ type Map interface {
 	MapName() string
 }
 
-func newMap(lifecycle cell.Lifecycle) (bpf.MapOut[Map], error) {
+func newMap(lifecycle cell.Lifecycle, logger *slog.Logger) (bpf.MapOut[Map], error) {
 	possibleCPUs, err := ebpf.PossibleCPU()
 	if err != nil {
 		return bpf.MapOut[Map]{}, fmt.Errorf("failed to get number of possible CPUs: %w", err)
 	}
-	signalmap := initMap(possibleCPUs)
+	signalmap := initMap(logger, possibleCPUs)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {

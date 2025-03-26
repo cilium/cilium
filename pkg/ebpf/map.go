@@ -67,7 +67,7 @@ func NewMap(logger *slog.Logger, spec *MapSpec) *Map {
 // LoadRegisterMap loads the specified map from a bpffs pin path and registers
 // its handle in the package-global map register.
 func LoadRegisterMap(logger *slog.Logger, mapName string) (*Map, error) {
-	path := bpf.MapPath(mapName)
+	path := bpf.MapPath(logger, mapName)
 
 	m, err := LoadPinnedMap(logger, path)
 	if err != nil {
@@ -125,7 +125,7 @@ func (m *Map) OpenOrCreate() error {
 
 	m.spec.Flags |= bpf.GetMapMemoryFlags(m.spec.Type)
 
-	path := bpf.MapPath(m.spec.Name)
+	path := bpf.MapPath(m.logger, m.spec.Name)
 
 	if m.spec.Pinning == ciliumebpf.PinByName {
 		mapDir := filepath.Dir(path)

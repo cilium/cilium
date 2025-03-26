@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strconv"
 	"unsafe"
@@ -189,13 +190,13 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 }
 
 // OpenVRFMaps opens the SRv6 VRF maps on bpffs
-func OpenVRFMaps() (*VRFMap4, *VRFMap6, error) {
-	m4, err := bpf.OpenMap(bpf.MapPath(vrfMapName4), &VRFKey4{}, &VRFValue{})
+func OpenVRFMaps(logger *slog.Logger) (*VRFMap4, *VRFMap6, error) {
+	m4, err := bpf.OpenMap(bpf.MapPath(logger, vrfMapName4), &VRFKey4{}, &VRFValue{})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	m6, err := bpf.OpenMap(bpf.MapPath(vrfMapName6), &VRFKey6{}, &VRFValue{})
+	m6, err := bpf.OpenMap(bpf.MapPath(logger, vrfMapName6), &VRFKey6{}, &VRFValue{})
 	if err != nil {
 		return nil, nil, err
 	}

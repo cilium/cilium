@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strconv"
 	"unsafe"
@@ -185,12 +186,12 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 }
 
 // OpenPolicyMaps opens the SRv6 policy maps on bpffs
-func OpenPolicyMaps() (*PolicyMap4, *PolicyMap6, error) {
-	m4, err := bpf.OpenMap(bpf.MapPath(policyMapName4), &PolicyKey4{}, &PolicyValue{})
+func OpenPolicyMaps(logger *slog.Logger) (*PolicyMap4, *PolicyMap6, error) {
+	m4, err := bpf.OpenMap(bpf.MapPath(logger, policyMapName4), &PolicyKey4{}, &PolicyValue{})
 	if err != nil {
 		return nil, nil, err
 	}
-	m6, err := bpf.OpenMap(bpf.MapPath(policyMapName6), &PolicyKey6{}, &PolicyValue{})
+	m6, err := bpf.OpenMap(bpf.MapPath(logger, policyMapName6), &PolicyKey6{}, &PolicyValue{})
 	if err != nil {
 		return nil, nil, err
 	}
