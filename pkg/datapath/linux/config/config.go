@@ -719,13 +719,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	// to get a consistent written format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
 	// writing the config.
-	keys := make([]string, 0, len(cDefinesMap))
-	for key := range cDefinesMap {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(cDefinesMap)) {
 		fmt.Fprintf(fw, "#define %s %s\n", key, cDefinesMap[key])
 	}
 

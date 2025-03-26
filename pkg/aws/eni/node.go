@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 	"strings"
@@ -146,16 +147,11 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	// Needed for selecting the same ENI to release IPs from
-	// when more than one ENI qualifies for release
-	eniIds := make([]string, 0, len(n.enis))
-	for k := range n.enis {
-		eniIds = append(eniIds, k)
-	}
-	slices.Sort(eniIds)
+	// Needs to be sorted for selecting the same ENI to release IPs from
+	// when more than one ENI qualifies for release.
 	// Iterate over ENIs on this node, select the ENI with the most
 	// addresses available for release
-	for _, eniId := range eniIds {
+	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
 		e := n.enis[eniId]
 
 		// IP release for prefixes is not currently supported. Will skip releasing from this ENI

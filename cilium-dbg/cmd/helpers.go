@@ -357,13 +357,7 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 
 // dumpConfig pretty prints boolean options
 func dumpConfig(Opts map[string]string, indented bool) {
-	opts := []string{}
-	for k := range Opts {
-		opts = append(opts, k)
-	}
-	slices.Sort(opts)
-
-	for _, k := range opts {
+	for _, k := range slices.Sorted(maps.Keys(Opts)) {
 		// XXX: Reuse the format function from *option.Library
 		value = Opts[k]
 		formatStr := "%-34s: %s\n"

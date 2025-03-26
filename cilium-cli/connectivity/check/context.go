@@ -346,13 +346,8 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 	}
 
 	if ct.debug() {
-		fs := make([]features.Feature, 0, len(ct.Features))
-		for f := range ct.Features {
-			fs = append(fs, f)
-		}
-		slices.Sort(fs)
 		ct.Debug("Detected features:")
-		for _, f := range fs {
+		for _, f := range slices.Sorted(maps.Keys(ct.Features)) {
 			ct.Debugf("  %s: %s", f, ct.Features[f])
 		}
 	}
