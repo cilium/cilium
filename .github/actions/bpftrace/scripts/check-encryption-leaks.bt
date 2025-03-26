@@ -41,11 +41,15 @@
 // Character literals don't appear be supported, hence this hack.
 // https://github.com/bpftrace/bpftrace/issues/3278
 #define CH_A 0x41   // 'A'
+#define CH_C 0x43   // 'C'
 #define CH_D 0x44   // 'D'
+#define CH_E 0x45   // 'E'
 #define CH_F 0x46   // 'F'
 #define CH_M 0x4D   // 'M'
+#define CH_P 0x50   // 'P'
 #define CH_R 0x52   // 'R'
 #define CH_S 0x53   // 'S'
+#define CH_U 0x55   // 'U'
 #define CH_DOT 0x2E // '.'
 
 // The value in @trace_ip4/@trace_ip6 maps for a given flow traced by the proxy is:
@@ -147,7 +151,7 @@ kprobe:br_forward
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
             $time, $skb,
             ntop($ip4h->saddr),
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -155,10 +159,6 @@ kprobe:br_forward
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
             bswap($ip4h->tot_len),
             $ip4h->protocol,
-            $ip4h->protocol == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
-            $ip4h->protocol == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
-            $ip4h->protocol == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
-            $ip4h->protocol == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
             $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
@@ -166,6 +166,16 @@ kprobe:br_forward
             $dst_is_pod, $dst_is_internal,
             !!$pod_to_pod_via_proxy,
             $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
+
+          if ($ip4h->protocol == PROTO_TCP) {
+            printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+              $time, $skb,
+              $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
+              $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
+              $tcph->psh ? CH_P : CH_DOT, $tcph->rst ? CH_R : CH_DOT,
+              $tcph->syn ? CH_S : CH_DOT, $tcph->fin ? CH_F : CH_DOT,
+              bswap($tcph->seq), bswap($tcph->ack_seq));
+          }
 
           if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
             $dns = (struct dnshdr*)($udph + 1);
@@ -228,7 +238,7 @@ kprobe:br_forward
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
             $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8),
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -236,10 +246,6 @@ kprobe:br_forward
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
             bswap($ip6h->payload_len),
             $ip6h->nexthdr,
-            $ip6h->nexthdr == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
-            $ip6h->nexthdr == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
-            $ip6h->nexthdr == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
-            $ip6h->nexthdr == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
             $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
@@ -247,6 +253,16 @@ kprobe:br_forward
             $dst_is_pod, $dst_is_internal,
             !!$pod_to_pod_via_proxy,
             $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
+
+          if ($ip6h->nexthdr == PROTO_TCP) {
+            printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+              $time, $skb,
+              $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
+              $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
+              $tcph->psh ? CH_P : CH_DOT, $tcph->rst ? CH_R : CH_DOT,
+              $tcph->syn ? CH_S : CH_DOT, $tcph->fin ? CH_F : CH_DOT,
+              bswap($tcph->seq), bswap($tcph->ack_seq));
+          }
 
           if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
             $dns = (struct dnshdr*)($udph + 1);
