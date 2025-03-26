@@ -14,6 +14,15 @@ import (
 
 // PolicyUpdate is a proposed change to a policy in the PolicyRepository.
 type PolicyUpdate struct {
+	// BumpAll, if set to true, forces a policy regeneration for all endpoints
+	// as if policy had changed, without actually changing the contents of the policy repository.
+	//
+	// This is useful when some dependent resources (i.e. Envoy configs) have changed,
+	// so policy must be recomputed.
+	//
+	// If this is true, Rules must be nil. The repository is unchanged.
+	BumpAll bool
+
 	// The set of rules to be added.
 	// Set to nil to delete for the given resource or labels.
 	Rules policyapi.Rules

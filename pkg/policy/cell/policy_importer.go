@@ -292,9 +292,11 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 	for _, upd := range updates {
 		var regen *set.Set[identity.NumericIdentity]
 
-		// The standard case: we have an owning resource, either a k8s object
-		// or a file on disk.
-		if upd.Resource != "" {
+		if upd.BumpAll {
+			regen, endRevision = i.repo.BumpRevision()
+		} else if upd.Resource != "" {
+			// The standard case: we have an owning resource, either a k8s object
+			// or a file on disk.
 			regen, endRevision, oldRuleCnt = i.repo.ReplaceByResource(upd.Rules, upd.Resource)
 		} else {
 			// otherwise, this is a local API call, and we are replacing by labels.
@@ -325,13 +327,13 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 			regen, endRevision, oldRuleCnt = i.repo.ReplaceByLabels(upd.Rules, replaceLabels)
 		}
 
-		if len(upd.Rules) == 0 {
+		if !upd.BumpAll && len(upd.Rules) == 0 {
 			i.log.Info("Deleted policy from repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
 				logfields.DeletedRules, oldRuleCnt,
 				logfields.Identity, slices.Collect(truncate(regen.Members(), 100)))
-		} else {
+		} else if !upd.BumpAll {
 			i.log.Info("Upserted policy to repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
@@ -354,7 +356,7 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 		}
 
 		// Send a policy update notification
-		if i.monitorAgent != nil {
+		if i.monitorAgent != nil && !upd.BumpAll {
 			var msg monitorapi.AgentNotifyMessage
 			if len(upd.Rules) > 0 {
 				lbls := make([]string, 0, len(upd.Rules))
