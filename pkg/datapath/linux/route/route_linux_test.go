@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -84,7 +85,7 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	err = Upsert(rt)
+	err = Upsert(hivetest.Logger(t), rt)
 	require.NoError(t, err)
 
 	if lookupTest {

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"sync/atomic"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -74,7 +74,7 @@ func TestManager(t *testing.T) {
 				return ops
 			}),
 
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(
 						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
@@ -307,7 +307,7 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
 				return ops
 			}),
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {
 						mu.Lock()
@@ -386,8 +386,7 @@ func withLocked(m *lock.Mutex, f func()) {
 }
 
 func TestOpsPruneEnabled(t *testing.T) {
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	db := statedb.New()
 	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
@@ -469,8 +468,7 @@ func TestIPSetList(t *testing.T) {
 		},
 	}
 
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	tmpl := template.Must(template.New("ipsets").Parse(textTmpl))
 
@@ -481,8 +479,8 @@ func TestIPSetList(t *testing.T) {
 				t.Fatalf("unable to execute ipset list output template: %s", err)
 			}
 			ipset := &ipset{
-				&mockExec{t, bb.Bytes(), nil},
-				fakeLogger,
+				log:        fakeLogger,
+				executable: &mockExec{t, bb.Bytes(), nil},
 			}
 			got, err := ipset.list(context.Background(), "")
 			if err != nil {
@@ -496,13 +494,12 @@ func TestIPSetList(t *testing.T) {
 }
 
 func TestIPSetListInexistentIPSet(t *testing.T) {
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := slog.New(slog.DiscardHandler)
 
 	expectedErr := errors.New("ipset v7.19: The set with the given name does not exist")
 	ipset := &ipset{
-		&mockExec{t, nil, expectedErr},
-		fakeLogger,
+		log:        fakeLogger,
+		executable: &mockExec{t, nil, expectedErr},
 	}
 
 	_, err := ipset.list(context.Background(), "")
@@ -549,7 +546,7 @@ func BenchmarkManager(b *testing.B) {
 				return ops
 			}),
 
-			cell.Provide(func(logger logrus.FieldLogger) *ipset {
+			cell.Provide(func(logger *slog.Logger) *ipset {
 				return &ipset{
 					executable: funcExecutable(
 						func(ctx context.Context, command string, stdin string, arg ...string) ([]byte, error) {

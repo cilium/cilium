@@ -9,6 +9,7 @@ import (
 
 	ciliumebpf "github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -19,14 +20,15 @@ import (
 func setupNodeMapV2TestSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(hivetest.Logger(tb), "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
 
 func TestNodeMapV2(t *testing.T) {
 	setupNodeMapV2TestSuite(t)
-	nodeMap := newMapV2("test_cilium_node_map_v2", "test_cilium_node_map", Config{
+	logger := hivetest.Logger(t)
+	nodeMap := newMapV2(logger, "test_cilium_node_map_v2", "test_cilium_node_map", Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMap.init()
@@ -72,7 +74,7 @@ func TestNodeMapV2(t *testing.T) {
 	require.Len(t, bpfNodeSPI, 1)
 
 	// ensure we see mirrored writes in MapV1
-	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath("test_cilium_node_map"), nil)
+	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath(logger, "test_cilium_node_map"), nil)
 	require.NoError(t, err)
 
 	toMapV1 := func(key *NodeKey, val *NodeValue) {
@@ -99,13 +101,14 @@ func TestNodeMapMigration(t *testing.T) {
 	var ID1 uint16 = 10
 	var ID2 uint16 = 20
 
-	nodeMapV1 := newMap(name1, Config{
+	logger := hivetest.Logger(t)
+	nodeMapV1 := newMap(logger, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err := nodeMapV1.init()
 	require.NoError(t, err)
 
-	nodeMapV2 := newMapV2(name2, name1, Config{
+	nodeMapV2 := newMapV2(logger, name2, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err = nodeMapV2.init()
@@ -151,7 +154,7 @@ func TestNodeMapMigration(t *testing.T) {
 	MapV2(nodeMapV2).IterateWithCallback(parse)
 
 	// confirm that the map is not removed, we need it around to mirror writes
-	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(name1), nil)
+	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(logger, name1), nil)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 }

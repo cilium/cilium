@@ -4,6 +4,7 @@
 package srv6map
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -15,7 +16,7 @@ const (
 )
 
 // We can delete this in v1.18
-func cleanupStateMap() {
-	os.Remove(bpf.MapPath(stateMapName4))
-	os.Remove(bpf.MapPath(stateMapName6))
+func cleanupStateMap(logger *slog.Logger) {
+	os.Remove(bpf.MapPath(logger, stateMapName4))
+	os.Remove(bpf.MapPath(logger, stateMapName6))
 }

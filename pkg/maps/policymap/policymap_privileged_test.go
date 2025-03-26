@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -32,7 +32,8 @@ func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(tb)
+	bpf.CheckOrMountFS(logger, "")
 
 	if err := rlimit.RemoveMemlock(); err != nil {
 		tb.Fatal(err)
@@ -42,11 +43,11 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	require.NoError(tb, err)
 	require.NotNil(tb, stats)
 
-	testMap, err := newPolicyMap(0, testMapSize, stats)
+	testMap, err := newPolicyMap(logger, 0, testMapSize, stats)
 	require.NoError(tb, err)
 	require.NotNil(tb, testMap)
 
-	_ = os.RemoveAll(bpf.LocalMapPath(MapName, 0))
+	_ = os.RemoveAll(bpf.LocalMapPath(logger, MapName, 0))
 	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 
@@ -63,7 +64,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 	entry := newAllowEntry(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
-	//err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	// err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
 	err := testMap.Update(&fooKey, &entry)
 	require.NoError(t, err)
 

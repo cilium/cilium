@@ -5,6 +5,7 @@ package egressmap
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"unsafe"
 
@@ -127,8 +128,8 @@ func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) 
 	return &policyMap{m}
 }
 
-func OpenPinnedPolicyMap() (PolicyMap, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapName), &EgressPolicyKey4{}, &EgressPolicyVal4{})
+func OpenPinnedPolicyMap(logger *slog.Logger) (PolicyMap, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, PolicyMapName), &EgressPolicyKey4{}, &EgressPolicyVal4{})
 	if err != nil {
 		return nil, err
 	}

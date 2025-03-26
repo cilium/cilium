@@ -20,9 +20,15 @@ const logrErrorKey = "err"
 
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
-	Level:       slog.LevelInfo,
+	Level:       slogLeveler,
 	ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
 }
+
+var slogLeveler = func() *slog.LevelVar {
+	var levelVar slog.LevelVar
+	levelVar.Set(slog.LevelInfo)
+	return &levelVar
+}()
 
 // Default slog logger. Will be overwritten once initializeSlog is called.
 var DefaultSlogLogger *slog.Logger = slog.New(slog.NewTextHandler(
@@ -47,7 +53,7 @@ func slogLevel(l logrus.Level) slog.Level {
 
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
-func initializeSlog(logOpts LogOptions, useStdout bool) {
+func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = slogLevel(logOpts.GetLogLevel())
 
@@ -60,8 +66,12 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 	}
 
 	writer := os.Stderr
-	if useStdout {
-		writer = os.Stdout
+	switch logOpts[WriterOpt] {
+	case StdErrOpt:
+	default:
+		if len(loggers) == 0 {
+			writer = os.Stdout
+		}
 	}
 
 	switch logFormat {
@@ -135,4 +145,9 @@ func Fatal(logger FieldLogger, msg string, args ...any) {
 func Panic(logger FieldLogger, msg string, args ...any) {
 	logger.Error(msg, args...)
 	panic(msg)
+}
+
+// SetSlogLevel updates the DefaultSlogLogger with a new logrus.Level
+func SetSlogLevel(logLevel slog.Level) {
+	slogLeveler.Set(logLevel)
 }

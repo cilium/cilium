@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // bpfPolicyDeleteCmd represents the bpf_policy_delete command
@@ -16,7 +17,7 @@ var bpfPolicyDeleteCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy delete")
-		updatePolicyKey(parsePolicyUpdateArgs(cmd, args, isDeny), false)
+		updatePolicyKey(parsePolicyUpdateArgs(logging.DefaultSlogLogger, cmd, args, isDeny), false)
 	},
 }
 

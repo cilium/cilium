@@ -7,6 +7,7 @@ package route
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -235,7 +237,7 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 // EINVAL if the Netlink calls are issued in short order.
 //
 // An error is returned if the route can not be added or updated.
-func Upsert(route Route) error {
+func Upsert(logger *slog.Logger, route Route) error {
 	var nexthopRouteCreated bool
 
 	link, err := safenetlink.LinkByName(route.Device)
@@ -277,8 +279,9 @@ func Upsert(route Route) error {
 		if nexthopRouteCreated {
 			if err2 := deleteNexthopRoute(route, link, routerNet); err2 != nil {
 				// TODO: If this fails, we may want to add some retry logic.
-				log.WithError(err2).
-					Errorf("unable to clean up nexthop route following failure to replace route")
+				logger.Error("unable to clean up nexthop route following failure to replace route",
+					logfields.Error, err2,
+				)
 			}
 		}
 		return err
@@ -504,7 +507,7 @@ func DeleteRule(family int, spec Rule) error {
 	return netlink.RuleDel(rule)
 }
 
-func lookupDefaultRoute(family int) (netlink.Route, error) {
+func lookupDefaultRoute(logger *slog.Logger, family int) (netlink.Route, error) {
 	routes, err := safenetlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
 	if err != nil {
 		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %w", err)
@@ -521,7 +524,7 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 		return netlink.Route{}, fmt.Errorf("Found multiple default routes with the same priority: %v vs %v", routes[0], routes[1])
 	}
 
-	log.Debugf("Found default route on node %v", routes[0])
+	logger.Debug("Found default route on node", logfields.Route, routes[0])
 	return routes[0], nil
 }
 
@@ -545,17 +548,17 @@ func DeleteRouteTable(table, family int) error {
 
 // NodeDeviceWithDefaultRoute returns the node's device which handles the
 // default route in the current namespace
-func NodeDeviceWithDefaultRoute(enableIPv4, enableIPv6 bool) (netlink.Link, error) {
+func NodeDeviceWithDefaultRoute(logger *slog.Logger, enableIPv4, enableIPv6 bool) (netlink.Link, error) {
 	linkIndex := 0
 	if enableIPv4 {
-		route, err := lookupDefaultRoute(netlink.FAMILY_V4)
+		route, err := lookupDefaultRoute(logger, netlink.FAMILY_V4)
 		if err != nil {
 			return nil, err
 		}
 		linkIndex = route.LinkIndex
 	}
 	if enableIPv6 {
-		route, err := lookupDefaultRoute(netlink.FAMILY_V6)
+		route, err := lookupDefaultRoute(logger, netlink.FAMILY_V6)
 		if err != nil {
 			return nil, err
 		}

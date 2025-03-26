@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -17,14 +18,16 @@ import (
 func setupNodeMapSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(tb)
+	bpf.CheckOrMountFS(logger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
 
 func TestNodeMap(t *testing.T) {
 	setupNodeMapSuite(t)
-	nodeMap := newMap("test_cilium_node_map", defaultConfig)
+	logger := hivetest.Logger(t)
+	nodeMap := newMap(logger, "test_cilium_node_map", defaultConfig)
 	err := nodeMap.init()
 	require.NoError(t, err)
 	defer nodeMap.bpfMap.Unpin()

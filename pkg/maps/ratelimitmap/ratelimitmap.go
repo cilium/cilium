@@ -5,6 +5,7 @@ package ratelimitmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -61,7 +61,6 @@ var (
 		MaxEntries,
 		0,
 	)}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map")
 )
 
 const (
@@ -175,14 +174,17 @@ func (rm ratelimitMetricsMap) DumpWithCallback(cb DumpCallback) error {
 
 // ratelimitMetricsMapCollector implements Prometheus Collector interface
 type ratelimitMetricsMapCollector struct {
+	logger *slog.Logger
+
 	mutex lock.Mutex
 
 	droppedDesc *prometheus.Desc
 	droppedMap  map[usageType]float64
 }
 
-func newRatelimitMetricsMapCollector() *ratelimitMetricsMapCollector {
+func newRatelimitMetricsMapCollector(logger *slog.Logger) *ratelimitMetricsMapCollector {
 	return &ratelimitMetricsMapCollector{
+		logger:     logger,
 		droppedMap: make(map[usageType]float64),
 		droppedDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "bpf_ratelimit_dropped_total"),
@@ -200,7 +202,7 @@ func (rc *ratelimitMetricsMapCollector) Collect(ch chan<- prometheus.Metric) {
 		rc.droppedMap[k.Usage] = float64(val.Dropped)
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to read ratelimit metrics from BPF map")
+		rc.logger.Warn("Failed to read ratelimit metrics from BPF map", logfields.Error, err)
 		// Do not update partial metrics
 		return
 	}
@@ -218,10 +220,13 @@ func (rc *ratelimitMetricsMapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- rc.droppedDesc
 }
 
-func RegisterCollector() {
-	if err := metrics.Register(newRatelimitMetricsMapCollector()); err != nil {
-		log.WithError(err).Error("Failed to register ratelimit metrics map collector to Prometheus registry. " +
-			"BPF ratelimit metrics will not be collected")
+func RegisterCollector(logger *slog.Logger) {
+	if err := metrics.Register(newRatelimitMetricsMapCollector(logger)); err != nil {
+		logger.Error(
+			"Failed to register ratelimit metrics map collector to Prometheus registry. "+
+				"BPF ratelimit metrics will not be collected",
+			logfields.Error, err,
+		)
 	}
 }
 

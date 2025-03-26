@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -20,11 +21,12 @@ const (
 
 func TestSubscriberMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
-	groupMapEBPF := NewGroupV4OuterMap(TestGroupV4OuterMapName)
+	groupMapEBPF := NewGroupV4OuterMap(logger, TestGroupV4OuterMapName)
 	err := groupMapEBPF.OpenOrCreate()
 	groupMapEBPF.Unpin()
 	assert.NoError(t, err)

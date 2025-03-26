@@ -11,20 +11,20 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"log/slog"
 	"math"
 	"os"
 	"path"
 	"reflect"
 	"strings"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,7 +72,8 @@ type cacheEntry struct {
 }
 
 type Map struct {
-	m *ebpf.Map
+	Logger *slog.Logger
+	m      *ebpf.Map
 	// spec will be nil after the map has been created
 	spec *ebpf.MapSpec
 
@@ -188,10 +189,16 @@ func (m *Map) updateMetrics() {
 func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32) *Map {
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
 	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, name,
+			logfields.BPFMapName, name,
+		),
 		spec: &ebpf.MapSpec{
 			Type:       mapType,
 			Name:       path.Base(name),
@@ -211,10 +218,16 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
 	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, name,
+			logfields.BPFMapName, name,
+		),
 		spec: &ebpf.MapSpec{
 			Type:       mapType,
 			Name:       path.Base(name),
@@ -297,10 +310,11 @@ func (m *Map) WithEvents(c option.BPFEventBufferConfig) *Map {
 	if !c.Enabled {
 		return m
 	}
-	m.scopedLogger().WithFields(logrus.Fields{
-		"size": c.MaxSize,
-		"ttl":  c.TTL,
-	}).Debug("enabling events buffer")
+	m.Logger.Debug(
+		"enabling events buffer",
+		logfields.Size, c.MaxSize,
+		logfields.TTL, c.TTL,
+	)
 	m.eventsBufferEnabled = true
 	m.initEventsBuffer(c.MaxSize, c.TTL)
 	return m
@@ -417,16 +431,24 @@ func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 		return nil, err
 	}
 
+	// TODO inject the logger in a better way than this.
+	defaultSlogLogger := logging.DefaultSlogLogger
+
+	logger := defaultSlogLogger.With(
+		logfields.BPFMapPath, pinPath,
+		logfields.BPFMapName, path.Base(pinPath),
+	)
 	m := &Map{
-		m:     em,
-		name:  path.Base(pinPath),
-		path:  pinPath,
-		key:   key,
-		value: value,
+		Logger: logger,
+		m:      em,
+		name:   path.Base(pinPath),
+		path:   pinPath,
+		key:    key,
+		value:  value,
 	}
 
 	m.updateMetrics()
-	registerMap(pinPath, m)
+	registerMap(logger, pinPath, m)
 
 	return m, nil
 }
@@ -437,7 +459,7 @@ func (m *Map) setPathIfUnset() error {
 			return fmt.Errorf("either path or name must be set")
 		}
 
-		m.path = MapPath(m.name)
+		m.path = MapPath(m.Logger, m.name)
 	}
 
 	return nil
@@ -460,7 +482,9 @@ func (m *Map) Recreate() error {
 		return fmt.Errorf("removing pinned map %s: %w", m.name, err)
 	}
 
-	m.scopedLogger().Infof("Removed map pin at %s, recreating and re-pinning map %s", m.path, m.name)
+	m.Logger.Info(
+		"Removed map pin, recreating and re-pinning map",
+	)
 
 	return m.openOrCreate(true)
 }
@@ -528,13 +552,13 @@ func (m *Map) openOrCreate(pin bool) error {
 		m.spec.Pinning = ebpf.PinByName
 	}
 
-	em, err := OpenOrCreateMap(m.spec, path.Dir(m.path))
+	em, err := OpenOrCreateMap(m.Logger, m.spec, path.Dir(m.path))
 	if err != nil {
 		return err
 	}
 
 	m.updateMetrics()
-	registerMap(m.path, m)
+	registerMap(m.Logger, m.path, m)
 
 	// Consume the MapSpec.
 	m.spec = nil
@@ -572,7 +596,7 @@ func (m *Map) open() error {
 	}
 
 	m.updateMetrics()
-	registerMap(m.path, m)
+	registerMap(m.Logger, m.path, m)
 
 	m.m = em
 
@@ -592,7 +616,7 @@ func (m *Map) Close() error {
 		m.m = nil
 	}
 
-	unregisterMap(m.path, m)
+	unregisterMap(m.Logger, m.path, m)
 
 	return nil
 }
@@ -1283,11 +1307,6 @@ func (m *Map) Delete(key MapKey) error {
 	return err
 }
 
-// scopedLogger returns a logger scoped for the map. m.lock must be held.
-func (m *Map) scopedLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
-}
-
 // DeleteAll deletes all entries of a map by traversing the map and deleting individual
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
@@ -1295,8 +1314,7 @@ func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	defer m.updatePressureMetric()
-	scopedLog := m.scopedLogger()
-	scopedLog.Debug("deleting all entries in map")
+	m.Logger.Debug("deleting all entries in map")
 
 	if m.withValueCache {
 		// Mark all entries for deletion, upon successful deletion,
@@ -1329,7 +1347,11 @@ func (m *Map) DeleteAll() error {
 
 	err := i.Err()
 	if err != nil {
-		scopedLog.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
+		m.Logger.Warn(
+			"Unable to correlate iteration key with cache entry. Inconsistent cache.",
+			logfields.Error, err,
+			logfields.Key, mk,
+		)
 	}
 
 	return err
@@ -1461,9 +1483,10 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		return err
 	}
 
-	scopedLogger := m.scopedLogger()
-	scopedLogger.WithField("remaining", outstanding).
-		Debug("Starting periodic BPF map error resolver")
+	m.Logger.Debug(
+		"Starting periodic BPF map error resolver",
+		logfields.Remaining, outstanding,
+	)
 
 	resolved := 0
 	scanned := 0
@@ -1517,12 +1540,13 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 
 	m.updatePressureMetric()
 
-	scopedLogger.WithFields(logrus.Fields{
-		"remaining": outstanding,
-		"resolved":  resolved,
-		"scanned":   scanned,
-		"duration":  time.Since(started),
-	}).Debug("BPF map error resolver completed")
+	m.Logger.Debug(
+		"BPF map error resolver completed",
+		logfields.Remaining, outstanding,
+		logfields.Resolved, resolved,
+		logfields.Scanned, scanned,
+		logfields.Duration, time.Since(started),
+	)
 
 	m.outstandingErrors = outstanding > 0
 	if m.outstandingErrors {
@@ -1541,6 +1565,7 @@ func (m *Map) CheckAndUpgrade(desired *Map) bool {
 	flags := desired.Flags() | GetPreAllocateMapFlags(desired.Type())
 
 	return objCheck(
+		m.Logger,
 		m.m,
 		m.path,
 		desired.Type(),

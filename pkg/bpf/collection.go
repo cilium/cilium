@@ -7,13 +7,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
@@ -25,13 +26,13 @@ import (
 // bpf_elf_map definitions (only used for prog_arrays at the time of writing)
 // and assigns tail calls annotated with `__section_tail` macros to their
 // intended maps and slots.
-func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
+func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec, error) {
 	spec, err := ebpf.LoadCollectionSpec(path)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := removeUnreachableTailcalls(spec); err != nil {
+	if err := removeUnreachableTailcalls(logger, spec); err != nil {
 		return nil, err
 	}
 
@@ -46,7 +47,7 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 	return spec, nil
 }
 
-func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
+func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
 	type TailCall struct {
 		referenced bool
 		visited    bool
@@ -115,8 +116,13 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 
 			// Ignore static tail calls made to maps that are not the calls map
 			if ref != "cilium_calls" {
-				log.Debugf("program '%s'/'%s', found tail call at %d, reference '%s', not a calls map, skipping",
-					prog.SectionName, prog.Name, i, ref)
+				logger.Debug(
+					"program found tail call, not a calls map, skipping",
+					logfields.Section, prog.SectionName,
+					logfields.Prog, prog.Name,
+					logfields.Instruction, i,
+					logfields.Reference, ref,
+				)
 				continue
 			}
 
@@ -163,7 +169,12 @@ reset:
 	// Remove all tailcalls that are not referenced.
 	for _, tailcall := range tailcalls {
 		if !tailcall.referenced {
-			log.Debugf("section '%s' / prog '%s', unreferenced, deleting", tailcall.spec.SectionName, tailcall.spec.Name)
+			logger.Debug(
+				"unreferenced tail call, deleting",
+				logfields.Section, tailcall.spec.SectionName,
+				logfields.Prog, tailcall.spec.Name,
+			)
+
 			delete(spec.Programs, tailcall.spec.Name)
 		}
 	}
@@ -233,8 +244,8 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // LoadAndAssign loads spec into the kernel and assigns the requested eBPF
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
-func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
-	coll, commit, err := LoadCollection(spec, opts)
+func LoadAndAssign(logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
+	coll, commit, err := LoadCollection(logger, spec, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -283,7 +294,7 @@ type CollectionOptions struct {
 //
 // Any maps marked as pinned in the spec are automatically loaded from the path
 // given in opts.Maps.PinPath and will be used instead of creating new ones.
-func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
+func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
 	if spec == nil {
 		return nil, nil, errors.New("can't load nil CollectionSpec")
 	}
@@ -292,10 +303,10 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		opts = &CollectionOptions{}
 	}
 
-	log.WithFields(logrus.Fields{
-		"MapRenames": opts.MapRenames,
-		"Constants":  fmt.Sprintf("%#v", opts.Constants)}).
-		Debug("Loading Collection into kernel")
+	logger.Debug("Loading Collection into kernel",
+		logfields.MapRenames, opts.MapRenames,
+		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
+	)
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
@@ -345,7 +356,7 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 	// Load successful, return a function that must be invoked after attaching the
 	// Collection's entrypoint programs to their respective hooks.
 	commit := func() error {
-		return commitMapPins(pins)
+		return commitMapPins(logger, pins)
 	}
 	return coll, commit, nil
 }

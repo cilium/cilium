@@ -21,6 +21,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -112,7 +113,7 @@ type EndpointMapManager struct {
 // packets that arrive on this node from being forwarded to the endpoint that
 // used to exist with the specified ID.
 func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
-	return policymap.RemoveGlobalMapping(uint32(endpointID), option.Config.EnableEnvoyConfig)
+	return policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(endpointID), option.Config.EnableEnvoyConfig)
 }
 
 // RemoveMapPath removes the specified path from the filesystem.
@@ -291,12 +292,12 @@ func (d *Daemon) initMaps() error {
 	if !d.explbConfig.EnableExperimentalLB &&
 		(option.Config.NodePortAlg == option.NodePortAlgMaglev ||
 			option.Config.LoadBalancerAlgorithmAnnotation) {
-		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.MaglevTableSize)); err != nil {
+		if err := lbmap.InitMaglevMaps(logging.DefaultSlogLogger, option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(d.maglevConfig.MaglevTableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}
 	}
 
-	skiplbmap, err := lbmap.NewSkipLBMap()
+	skiplbmap, err := lbmap.NewSkipLBMap(logging.DefaultSlogLogger)
 	if err == nil {
 		err = skiplbmap.OpenOrCreate()
 	}
@@ -327,7 +328,7 @@ func setupVTEPMapping() error {
 			logfields.IPAddr: ep,
 		}).Debug("Updating vtep map entry for VTEP")
 
-		err := vtep.UpdateVTEPMapping(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
+		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}
@@ -370,7 +371,7 @@ func setupRouteToVtepCidr() error {
 				MTU:    vtepMTU,
 				Table:  linux_defaults.RouteTableVtep,
 			}
-			if err := route.Upsert(r); err != nil {
+			if err := route.Upsert(logging.DefaultSlogLogger, r); err != nil {
 				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
 			}
 			log.WithFields(logrus.Fields{

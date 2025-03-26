@@ -364,6 +364,7 @@ type testSkipLBMap lbmap.SkipLBMap
 type skiplbmapParams struct {
 	cell.In
 
+	Logger             *slog.Logger
 	IsEnabled          lrpIsEnabled
 	TestSkipLBMap      testSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
@@ -382,7 +383,7 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmap.SkipLBMap], err error
 	}
 
 	var m lbmap.SkipLBMap
-	m, err = lbmap.NewSkipLBMap()
+	m, err = lbmap.NewSkipLBMap(p.Logger)
 	if err != nil {
 		return
 	}

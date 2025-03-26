@@ -1276,7 +1276,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	if e.ConntrackLocalLocked() {
-		ctmap.CloseLocalMaps(e.ConntrackNameLocked())
+		ctmap.CloseLocalMaps(logging.DefaultSlogLogger, e.ConntrackNameLocked())
 	} else if !e.isProperty(PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
 	}
@@ -2503,7 +2503,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// ingress rule and multiple egress rules. If we find more rules than
 		// expected, then the rules will be left as-is because there was
 		// likely manual intervention.
-		if err := linuxrouting.Delete(e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+		if err := linuxrouting.Delete(logging.DefaultSlogLogger, e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 		}
 	}
