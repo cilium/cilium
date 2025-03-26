@@ -110,10 +110,10 @@ type EgressGatewayTestSuite struct {
 
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
-
 	logger := hivetest.Logger(t)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logger, "")
+
 	err := rlimit.RemoveMemlock()
 	require.NoError(t, err)
 

@@ -376,7 +376,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.Coll
 	co, renames := ciliumHostRewrites(ep)
 
 	var hostObj hostObjects
-	commit, err := bpf.LoadAndAssign(&hostObj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -451,7 +451,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.Colle
 	co, renames := ciliumNetRewrites(ep, net)
 
 	var netObj hostNetObjects
-	commit, err := bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -517,7 +517,7 @@ func attachNetworkDevices(logger *slog.Logger, cfg *datapath.LocalNodeConfigurat
 		co, renames := netdevRewrites(cfg, ep, iface)
 
 		var netdevObj hostNetdevObjects
-		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
+		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
@@ -623,7 +623,7 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, spec *ebpf.Collec
 	co, renames := endpointRewrites(ep)
 
 	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -705,7 +705,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, cArgs []st
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(overlayObj)
+	spec, err := bpf.LoadCollectionSpec(logger, overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
@@ -714,7 +714,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, cArgs []st
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
@@ -748,7 +748,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, device n
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(wireguardObj)
+	spec, err := bpf.LoadCollectionSpec(logger, wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
@@ -757,7 +757,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, device n
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	var obj wireguardObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
@@ -912,13 +912,13 @@ func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapat
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *loader) CallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.MapName, id)
+	return bpf.LocalMapPath(l.logger, callsmap.MapName, id)
 }
 
 // CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
 // specified ID.
 func (l *loader) CustomCallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
+	return bpf.LocalMapPath(l.logger, callsmap.CustomCallsMapName, id)
 }
 
 // HostDatapathInitialized returns a channel which is closed when the

@@ -1276,7 +1276,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	if e.ConntrackLocalLocked() {
-		ctmap.CloseLocalMaps(e.ConntrackNameLocked())
+		ctmap.CloseLocalMaps(logging.DefaultSlogLogger, e.ConntrackNameLocked())
 	} else if !e.isProperty(PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
 	}

@@ -19,7 +19,8 @@ import (
 func TestPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(t)
+	bpf.CheckOrMountFS(logger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	egressPolicyMap := createPolicyMap(hivetest.Lifecycle(t), DefaultPolicyConfig, ebpf.PinNone)

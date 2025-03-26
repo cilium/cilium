@@ -75,7 +75,7 @@ func InitMaglevMaps(logger *slog.Logger, ipv4, ipv6 bool, tableSize uint32) erro
 // the M param (MaglevTableSize) has changed. This is to avoid a verifier
 // error when loading BPF programs which access the map.
 func deleteMapIfMNotMatch(logger *slog.Logger, mapName string, tableSize uint32) (bool, error) {
-	m, err := ebpf.LoadPinnedMap(logger, bpf.MapPath(mapName))
+	m, err := ebpf.LoadPinnedMap(logger, bpf.MapPath(logger, mapName))
 	if errors.Is(err, os.ErrNotExist) {
 		// No existing maglev outer map found.
 		// Return true so the caller will create a new one.

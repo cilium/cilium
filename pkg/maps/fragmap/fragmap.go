@@ -5,6 +5,7 @@ package fragmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 
@@ -61,6 +62,6 @@ func InitMap(mapEntries int) error {
 }
 
 // OpenMap opens the pre-initialized fragments map for access.
-func OpenMap() (*bpf.Map, error) {
-	return bpf.OpenMap(bpf.MapPath(MapName), &FragmentKey{}, &FragmentValue{})
+func OpenMap(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, MapName), &FragmentKey{}, &FragmentValue{})
 }

@@ -335,7 +335,7 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 	}
 
 	for _, desc := range mapsToDelete {
-		mapPath := bpf.MapPath(desc.spec.Name)
+		mapPath := bpf.MapPath(r.Log, desc.spec.Name)
 		m, err := ebpf.LoadPinnedMap(r.Log, mapPath)
 		if err != nil {
 			// Map not found, nothing to do.

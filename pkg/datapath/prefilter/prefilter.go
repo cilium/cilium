@@ -204,22 +204,22 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		prefixlen = net.IPv4len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_dyn")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_dyn")
 	case prefixesV4Fix:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_fix")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v4_fix")
 	case prefixesV6Dyn:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_dyn")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_dyn")
 	case prefixesV6Fix:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_fix")
+		path = bpf.MapPath(p.logger, cidrmap.MapName+"v6_fix")
 	}
 
 	p.maps[which], err = cidrmap.OpenMapElems(logging.DefaultSlogLogger, path, prefixlen, prefixdyn, maxelems)
