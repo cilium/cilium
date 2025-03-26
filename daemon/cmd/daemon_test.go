@@ -23,14 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -67,7 +65,6 @@ type DaemonSuite struct {
 	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
-	OnGetCompilationLock   func() datapath.CompilationLock
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 
@@ -177,7 +174,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil
-	ds.OnGetCompilationLock = ds.d.GetCompilationLock
 	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
@@ -277,13 +273,6 @@ func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fun
 	return nil, nil
 }
 
-func (ds *DaemonSuite) GetCompilationLock() datapath.CompilationLock {
-	if ds.OnGetCompilationLock != nil {
-		return ds.OnGetCompilationLock()
-	}
-	panic("GetCompilationLock should not have been called")
-}
-
 func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	if ds.OnSendNotification != nil {
 		return ds.OnSendNotification(msg)
@@ -298,33 +287,11 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 	panic("GetCIDRPrefixLengths should not have been called")
 }
 
-func (ds *DaemonSuite) Loader() datapath.Loader {
-	return ds.d.loader
-}
-
-func (ds *DaemonSuite) Orchestrator() datapath.Orchestrator {
-	return ds.d.orchestrator
-}
-
-func (ds *DaemonSuite) BandwidthManager() datapath.BandwidthManager {
-	return ds.d.bwManager
-}
-
-func (ds *DaemonSuite) IPTablesManager() datapath.IptablesManager {
-	return ds.d.iptablesManager
-}
-
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {}
-
-func (ds *DaemonSuite) AddIdentity(id *identity.Identity) {}
-
-func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
-
-func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {

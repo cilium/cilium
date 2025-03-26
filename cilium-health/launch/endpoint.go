@@ -22,12 +22,14 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -222,6 +224,12 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
+	loader datapathTypes.Loader,
+	orchestrator datapathTypes.Orchestrator,
+	compilationLock datapathTypes.CompilationLock,
+	bandwidthManager datapathTypes.BandwidthManager,
+	ipTablesManager datapathTypes.IptablesManager,
+	identityManager identitymanager.IDManager,
 	policyMapFactory policymap.Factory,
 	policyGetter policyRepoGetter,
 	ipcache *ipcache.IPCache,
@@ -233,7 +241,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	ctMapGC ctmap.GCRunner,
 	sysctl sysctl.Sysctl,
 ) (*Client, error) {
-
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -321,7 +328,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
@@ -360,7 +367,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			option.Config.EgressMultiHomeIPRuleCompat,
 			false,
 		); err != nil {
-
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
 		}
 	}

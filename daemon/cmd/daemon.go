@@ -208,12 +208,6 @@ func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
 	return d.policy
 }
 
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
-	return d.compilationLock
-}
-
 func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		if option.Config.EnableL7Proxy {

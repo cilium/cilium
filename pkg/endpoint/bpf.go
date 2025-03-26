@@ -83,13 +83,13 @@ func init() {
 
 // callsMapPath returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) callsMapPath() string {
-	return e.owner.Loader().CallsMapPath(e.ID)
+	return e.loader.CallsMapPath(e.ID)
 }
 
 // callsCustomMapPath returns the path to cilium custom tail calls map of an
 // endpoint.
 func (e *Endpoint) customCallsMapPath() string {
-	return e.owner.Loader().CustomCallsMapPath(e.ID)
+	return e.loader.CustomCallsMapPath(e.ID)
 }
 
 // writeInformationalComments writes annotations to the specified writer,
@@ -211,7 +211,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		return err
 	}
 
-	if err = e.owner.Orchestrator().WriteEndpointConfig(f, e); err != nil {
+	if err = e.orchestrator.WriteEndpointConfig(f, e); err != nil {
 		return err
 	}
 
@@ -382,9 +382,9 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
-	e.owner.GetCompilationLock().RLock()
+	e.compilationLock.RLock()
 	stats.waitingForLock.End(true)
-	defer e.owner.GetCompilationLock().RUnlock()
+	defer e.compilationLock.RUnlock()
 
 	if err := e.aliveCtx.Err(); err != nil {
 		return 0, fmt.Errorf("endpoint was closed while waiting for datapath lock: %w", err)
@@ -413,7 +413,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// configuration hasn't changed. Hashing the endpoint configuration requires
 	// getting the security identity, which takes out a read lock on the Endpoint.
 	// Make sure to calculate the endpoint hash outside of a locked context.
-	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Orchestrator().EndpointHash(e)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.orchestrator.EndpointHash(e)
 	if err != nil {
 		return 0, fmt.Errorf("hash endpoint configuration: %w", err)
 	}
@@ -582,7 +582,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		templateHash, err := e.owner.Orchestrator().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
@@ -856,10 +856,10 @@ func (e *Endpoint) deleteMaps() []error {
 
 	// Remove rate limit from bandwidth manager map.
 	if e.bps != 0 {
-		e.owner.BandwidthManager().DeleteBandwidthLimit(e.ID)
+		e.bandwidthManager.DeleteBandwidthLimit(e.ID)
 	}
 	if e.ingressBps != 0 {
-		e.owner.BandwidthManager().DeleteIngressBandwidthLimit(e.ID)
+		e.bandwidthManager.DeleteIngressBandwidthLimit(e.ID)
 	}
 
 	if e.ConntrackLocalLocked() {

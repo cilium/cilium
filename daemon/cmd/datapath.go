@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -420,23 +419,4 @@ func setupRouteToVtepCidr() error {
 	}
 
 	return nil
-}
-
-// Loader returns a reference to the loader implementation.
-func (d *Daemon) Loader() datapath.Loader {
-	return d.loader
-}
-
-// Orchestrator returns a reference to the orchestrator implementation.
-func (d *Daemon) Orchestrator() datapath.Orchestrator {
-	return d.orchestrator
-}
-
-// BandwidthManager returns a reference to the bandwidth manager implementation.
-func (d *Daemon) BandwidthManager() datapath.BandwidthManager {
-	return d.bwManager
-}
-
-func (d *Daemon) IPTablesManager() datapath.IptablesManager {
-	return d.iptablesManager
 }

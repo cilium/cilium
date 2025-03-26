@@ -11,10 +11,12 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/container/set"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -99,6 +101,12 @@ type EndpointsModify interface {
 	AddIngressEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		loader datapath.Loader,
+		orchestrator datapath.Orchestrator,
+		compilationLock datapath.CompilationLock,
+		bandwidthManager datapath.BandwidthManager,
+		ipTablesManager datapath.IptablesManager,
+		identityManager identitymanager.IDManager,
 		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,
@@ -110,6 +118,12 @@ type EndpointsModify interface {
 	AddHostEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		loader datapath.Loader,
+		orchestrator datapath.Orchestrator,
+		compilationLock datapath.CompilationLock,
+		bandwidthManager datapath.BandwidthManager,
+		ipTablesManager datapath.IptablesManager,
+		identityManager identitymanager.IDManager,
 		policyMapFactory policymap.Factory,
 		policyGetter policyRepoGetter,
 		ipcache *ipcache.IPCache,
