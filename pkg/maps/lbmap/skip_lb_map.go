@@ -297,7 +297,7 @@ type SkipLB6Value struct {
 func NewSkipLB6Key(netnsCookie uint64, address net.IP, port uint16) *SkipLB6Key {
 	key := SkipLB6Key{
 		NetnsCookie: netnsCookie,
-		Port:        port,
+		Port:        byteorder.HostToNetwork16(port),
 	}
 	copy(key.Address[:], address.To16())
 
