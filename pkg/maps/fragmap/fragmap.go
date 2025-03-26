@@ -5,6 +5,7 @@ package fragmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 
@@ -68,8 +69,8 @@ func InitMap4(mapEntries int) error {
 }
 
 // OpenMap4 opens the pre-initialized IPv4 fragments map for access.
-func OpenMap4() (*bpf.Map, error) {
-	return bpf.OpenMap(bpf.MapPath(MapNameIPv4), &FragmentKey4{}, &FragmentValue4{})
+func OpenMap4(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, MapNameIPv4), &FragmentKey4{}, &FragmentValue4{})
 }
 
 // FragmentKey6 must match 'struct ipv6_frag_id' in "bpf/lib/ipv6.h".
@@ -116,6 +117,6 @@ func InitMap6(mapEntries int) error {
 }
 
 // OpenMap6 opens the pre-initialized IPv6 fragments map for access.
-func OpenMap6() (*bpf.Map, error) {
-	return bpf.OpenMap(bpf.MapPath(MapNameIPv6), &FragmentKey6{}, &FragmentValue6{})
+func OpenMap6(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, MapNameIPv6), &FragmentKey6{}, &FragmentValue6{})
 }

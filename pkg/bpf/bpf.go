@@ -7,14 +7,9 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
-
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
-
 	preAllocateMapSetting uint32 = BPF_F_NO_PREALLOC
 	noCommonLRUMapSetting uint32 = 0
 )

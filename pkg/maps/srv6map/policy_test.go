@@ -64,8 +64,8 @@ func TestPolicyMapsHive(t *testing.T) {
 	require.NoError(t, hive.Start(logger, context.TODO()))
 
 	// Test map creation
-	require.FileExists(t, bpf.MapPath(policyMapName4))
-	require.FileExists(t, bpf.MapPath(policyMapName6))
+	require.FileExists(t, bpf.MapPath(logger, policyMapName4))
+	require.FileExists(t, bpf.MapPath(logger, policyMapName6))
 
 	// Test map iteration
 	k4 := &PolicyKey4{
@@ -88,7 +88,7 @@ func TestPolicyMapsHive(t *testing.T) {
 		SID: netip.MustParseAddr("fd00:0:0:0:2::").As16(),
 	}
 
-	m4, m6, err := OpenPolicyMaps()
+	m4, m6, err := OpenPolicyMaps(logger)
 	require.NoError(t, err)
 
 	require.NoError(t, m4.Map.Update(k4, v0))
@@ -118,6 +118,6 @@ func TestPolicyMapsHive(t *testing.T) {
 	require.NoError(t, hive.Stop(logger, context.TODO()))
 
 	// Map should be pinned even after stopping the hive
-	require.FileExists(t, bpf.MapPath(policyMapName4))
-	require.FileExists(t, bpf.MapPath(policyMapName6))
+	require.FileExists(t, bpf.MapPath(logger, policyMapName4))
+	require.FileExists(t, bpf.MapPath(logger, policyMapName6))
 }

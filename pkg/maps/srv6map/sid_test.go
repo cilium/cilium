@@ -61,7 +61,7 @@ func TestSIDMapsHive(t *testing.T) {
 	require.NoError(t, hive.Start(logger, context.TODO()))
 
 	// Test map creation
-	require.FileExists(t, bpf.MapPath(sidMapName))
+	require.FileExists(t, bpf.MapPath(logger, sidMapName))
 
 	// Test map iteration
 	k := &SIDKey{
@@ -72,7 +72,7 @@ func TestSIDMapsHive(t *testing.T) {
 		VRFID: 1,
 	}
 
-	m, err := OpenSIDMap()
+	m, err := OpenSIDMap(logger)
 	require.NoError(t, err)
 
 	require.NoError(t, m.Map.Update(k, v))
@@ -92,5 +92,5 @@ func TestSIDMapsHive(t *testing.T) {
 	require.NoError(t, hive.Stop(logger, context.TODO()))
 
 	// Map should be pinned even after stopping the hive
-	require.FileExists(t, bpf.MapPath(sidMapName))
+	require.FileExists(t, bpf.MapPath(logger, sidMapName))
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/egressgateway"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 )
 
@@ -41,7 +42,7 @@ var bpfEgressListCmd = &cobra.Command{
 		bpfEgressList := []egressPolicy{}
 		var ipv4MapExists, ipv6MapExists bool
 
-		policyMap4, err := egressmap.OpenPinnedPolicyMap4()
+		policyMap4, err := egressmap.OpenPinnedPolicyMap4(logging.DefaultSlogLogger)
 		if err == nil {
 			ipv4MapExists = true
 			parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
@@ -60,7 +61,7 @@ var bpfEgressListCmd = &cobra.Command{
 			Fatalf("Cannot open IPv4 egress gateway bpf map: %s", err)
 		}
 
-		policyMap6, err := egressmap.OpenPinnedPolicyMap6()
+		policyMap6, err := egressmap.OpenPinnedPolicyMap6(logging.DefaultSlogLogger)
 		if err == nil {
 			ipv6MapExists = true
 			parse6 := func(key *egressmap.EgressPolicyKey6, val *egressmap.EgressPolicyVal6) {
