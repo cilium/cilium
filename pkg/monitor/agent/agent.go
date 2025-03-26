@@ -112,7 +112,7 @@ func (a *agent) AttachToEventsMap(nPages int) error {
 	}
 
 	// assert that we can actually connect the monitor
-	path := oldBPF.MapPath(eventsmap.MapName)
+	path := oldBPF.MapPath(a.logger, eventsmap.MapName)
 	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return err

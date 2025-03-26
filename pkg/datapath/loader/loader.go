@@ -365,7 +365,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 	co, renames := ciliumHostRewrites(ep, lnc)
 
 	var hostObj hostObjects
-	commit, err := bpf.LoadAndAssign(&hostObj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -440,7 +440,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 	co, renames := ciliumNetRewrites(ep, lnc, net)
 
 	var netObj hostNetObjects
-	commit, err := bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -502,7 +502,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 		co, renames := netdevRewrites(ep, lnc, iface)
 
 		var netdevObj hostNetdevObjects
-		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
+		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
@@ -603,7 +603,7 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Loc
 	co, renames := endpointRewrites(ep, lnc)
 
 	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -687,7 +687,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(overlayObj)
+	spec, err := bpf.LoadCollectionSpec(logger, overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
@@ -696,7 +696,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
@@ -732,7 +732,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(wireguardObj)
+	spec, err := bpf.LoadCollectionSpec(logger, wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
@@ -745,7 +745,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	var obj wireguardObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
@@ -918,13 +918,13 @@ func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapat
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *loader) CallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.MapName, id)
+	return bpf.LocalMapPath(l.logger, callsmap.MapName, id)
 }
 
 // CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
 // specified ID.
 func (l *loader) CustomCallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
+	return bpf.LocalMapPath(l.logger, callsmap.CustomCallsMapName, id)
 }
 
 // HostDatapathInitialized returns a channel which is closed when the

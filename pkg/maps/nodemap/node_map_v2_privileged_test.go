@@ -20,7 +20,7 @@ import (
 func setupNodeMapV2TestSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(hivetest.Logger(tb), "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
@@ -74,7 +74,7 @@ func TestNodeMapV2(t *testing.T) {
 	require.Len(t, bpfNodeSPI, 1)
 
 	// ensure we see mirrored writes in MapV1
-	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath("test_cilium_node_map"), nil)
+	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath(logger, "test_cilium_node_map"), nil)
 	require.NoError(t, err)
 
 	toMapV1 := func(key *NodeKey, val *NodeValue) {
@@ -154,7 +154,7 @@ func TestNodeMapMigration(t *testing.T) {
 	MapV2(nodeMapV2).IterateWithCallback(parse)
 
 	// confirm that the map is not removed, we need it around to mirror writes
-	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(name1), nil)
+	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(logger, name1), nil)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 }

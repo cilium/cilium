@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
@@ -31,7 +32,8 @@ func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(tb)
+	bpf.CheckOrMountFS(logger, "")
 
 	if err := rlimit.RemoveMemlock(); err != nil {
 		tb.Fatal(err)
@@ -41,11 +43,11 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	require.NoError(tb, err)
 	require.NotNil(tb, stats)
 
-	testMap, err := newPolicyMap(0, testMapSize, stats)
+	testMap, err := newPolicyMap(logger, 0, testMapSize, stats)
 	require.NoError(tb, err)
 	require.NotNil(tb, testMap)
 
-	_ = os.RemoveAll(bpf.LocalMapPath(MapName, 0))
+	_ = os.RemoveAll(bpf.LocalMapPath(logger, MapName, 0))
 	err = testMap.CreateUnpinned()
 	require.NoError(tb, err)
 

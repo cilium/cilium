@@ -879,14 +879,14 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the endpoint from cilium_lxc. After this point, ip->epID lookups
 	// will fail, causing packets to/from the Pod to be dropped in many cases,
 	// stopping packet evaluation.
-	if err := lxcmap.DeleteElement(e); err != nil {
+	if err := lxcmap.DeleteElement(logging.DefaultSlogLogger, e); err != nil {
 		errors = append(errors, err...)
 	}
 
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if err := policymap.RemoveGlobalMapping(uint32(e.ID), option.Config.EnableEnvoyConfig); err != nil {
+	if err := policymap.RemoveGlobalMapping(logging.DefaultSlogLogger, uint32(e.ID), option.Config.EnableEnvoyConfig); err != nil {
 		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
 	}
 

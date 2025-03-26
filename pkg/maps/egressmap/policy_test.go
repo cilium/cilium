@@ -20,7 +20,8 @@ import (
 func TestPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	bpf.CheckOrMountFS("")
+	logger := hivetest.Logger(t)
+	bpf.CheckOrMountFS(logger, "")
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	t.Run("IPv4 policies", func(t *testing.T) {

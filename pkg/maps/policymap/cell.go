@@ -58,6 +58,7 @@ type Factory interface {
 }
 
 type factory struct {
+	logger *slog.Logger
 	// policyMapEntries is the upper limit of entries in the per endpoint policy
 	// table ie the maximum number of peer identities that the endpoint could
 	// send/receive traffic to/from.
@@ -66,8 +67,9 @@ type factory struct {
 	stats *StatsMap
 }
 
-func newFactory(stats *StatsMap, policyMapEntries int) *factory {
+func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *factory {
 	return &factory{
+		logger:           logger,
 		policyMapEntries: policyMapEntries,
 		stats:            stats,
 	}
@@ -77,7 +79,7 @@ func newFactory(stats *StatsMap, policyMapEntries int) *factory {
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
 func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
-	m, err := newPolicyMap(id, f.policyMapEntries, f.stats)
+	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +92,7 @@ func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
 
 // CreateEndpoint creates a policy map for the specified endpoint.
 func (f *factory) CreateEndpoint(id uint16) error {
-	m, err := newPolicyMap(id, f.policyMapEntries, f.stats)
+	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
 	if err != nil {
 		return err
 	}
@@ -99,7 +101,7 @@ func (f *factory) CreateEndpoint(id uint16) error {
 
 // CreateEndpoint removes the policy map if the specified endpoint.
 func (f *factory) RemoveEndpoint(id uint16) error {
-	return os.RemoveAll(bpf.LocalMapPath(MapName, id))
+	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
 }
 
 func (f *factory) PolicyMaxEntries() int {
@@ -155,7 +157,7 @@ func createFactory(in struct {
 			logfields.Entries, maxStatsEntries)
 	}
 
-	out.Factory = Factory(newFactory(m, in.BpfPolicyMapMax))
+	out.Factory = Factory(newFactory(in.Log, m, in.BpfPolicyMapMax))
 
 	out.NodeDefines = map[string]string{
 		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),

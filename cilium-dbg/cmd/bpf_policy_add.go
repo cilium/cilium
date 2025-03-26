@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var isDeny bool
@@ -18,7 +19,7 @@ var bpfPolicyAddCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy add")
-		updatePolicyKey(parsePolicyUpdateArgs(cmd, args, isDeny), true)
+		updatePolicyKey(parsePolicyUpdateArgs(logging.DefaultSlogLogger, cmd, args, isDeny), true)
 	},
 }
 
