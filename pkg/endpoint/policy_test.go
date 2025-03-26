@@ -70,7 +70,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	ep := Endpoint{
 		SecurityIdentity: podID,
-		policyGetter:     &mockPolicyGetter{repo},
+		policyRepo:       repo,
 		desiredPolicy:    policy.NewEndpointPolicy(hivetest.Logger(t), repo),
 	}
 	ep.UpdateLogger(nil)
@@ -173,12 +173,4 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 			break
 		}
 	}
-}
-
-type mockPolicyGetter struct {
-	repo policy.PolicyRepository
-}
-
-func (m *mockPolicyGetter) GetPolicyRepository() policy.PolicyRepository {
-	return m.repo
 }

@@ -51,7 +51,6 @@ type EndpointSuite struct {
 	mgr          *cache.CachingIdentityAllocator
 
 	// Owners interface mock
-	OnGetPolicyRepository     func() policy.PolicyRepository
 	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -91,10 +90,6 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	})
 
 	return s
-}
-
-func (s *EndpointSuite) GetPolicyRepository() policy.PolicyRepository {
-	return s.repo
 }
 
 func (s *EndpointSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
@@ -208,7 +203,7 @@ func TestEndpointStatus(t *testing.T) {
 func TestEndpointDatapathOptions(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e, err := NewEndpointFromChangeModel(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), &models.EndpointChangeRequest{
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			DisableSipVerification: true,
 		},
@@ -220,7 +215,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 func TestEndpointUpdateLabels(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -261,7 +256,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 func TestEndpointState(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -652,7 +647,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 		option.Config.EndpointQueueSize = oldQueueSize
 	}()
 
-	ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+	ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
 
 	ep.properties[PropertyFakeEndpoint] = true
 	ep.properties[PropertySkipBPFPolicy] = true
@@ -728,7 +723,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 func BenchmarkEndpointGetModel(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")
@@ -803,7 +798,7 @@ func TestMetadataResolver(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
+				ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
 					testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
 

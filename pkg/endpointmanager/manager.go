@@ -735,13 +735,13 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	identityManager identitymanager.IDManager,
 	monitorAgent monitoragent.Agent,
 	policyMapFactory policymap.Factory,
-	policyGetter policyRepoGetter,
+	policyRepo policy.PolicyRepository,
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateIngressEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -767,13 +767,13 @@ func (mgr *endpointManager) AddHostEndpoint(
 	identityManager identitymanager.IDManager,
 	monitorAgent monitoragent.Agent,
 	policyMapFactory policymap.Factory,
-	policyGetter policyRepoGetter,
+	policyRepo policy.PolicyRepository,
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
 	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyGetter, ipcache, proxy, allocator, ctMapGC)
+	ep, err := endpoint.CreateHostEndpoint(dnsRulesApi, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -787,10 +787,6 @@ func (mgr *endpointManager) AddHostEndpoint(
 	mgr.initHostEndpointLabels(ctx, ep)
 
 	return nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() policy.PolicyRepository
 }
 
 // InitHostEndpointLabels initializes the host endpoint's labels with the

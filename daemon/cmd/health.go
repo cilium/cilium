@@ -91,7 +91,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 						d.idmgr,
 						d.monitorAgent,
 						d.policyMapFactory,
-						d,
+						d.policy,
 						d.ipcache,
 						d.mtuConfig,
 						d.bigTCPConfig,

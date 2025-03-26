@@ -23,7 +23,7 @@ import (
 func TestWriteInformationalComments(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -37,7 +37,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 100, StateWaitingForIdentity)
 	configWriter := &config.HeaderfileWriter{}
 	cfg := datapath.LocalNodeConfiguration{}
 

@@ -59,7 +59,6 @@ type DaemonSuite struct {
 	oldPolicyEnabled string
 
 	// Owners interface mock
-	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 
@@ -167,7 +166,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
-	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnGetCIDRPrefixLengths = nil
 
 	// Reset the most common endpoint states before each test.
@@ -237,13 +235,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	return &DaemonEtcdSuite{
 		DaemonSuite: *ds,
 	}
-}
-
-func (ds *DaemonSuite) GetPolicyRepository() policy.PolicyRepository {
-	if ds.OnGetPolicyRepository != nil {
-		return ds.OnGetPolicyRepository()
-	}
-	panic("GetPolicyRepository should not have been called")
 }
 
 func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
