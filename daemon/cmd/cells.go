@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
+	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	"github.com/cilium/cilium/pkg/gops"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -143,7 +144,7 @@ var (
 		shellCell,
 
 		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
-		// pacakges.
+		// packages.
 		defaultdns.Cell,
 	)
 
@@ -333,6 +334,9 @@ var (
 
 		// The FQDN NameManager stores DNS mappings.
 		namemanager.Cell,
+
+		// FQDN rules cell provides the API for retrieving and deleting FQDN rules.
+		fqdnRules.Cell,
 	)
 )
 

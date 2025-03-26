@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -664,7 +663,7 @@ func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middlewar
 	}
 	defer r.Done()
 
-	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d, epTemplate)
+	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d.dnsRulesAPI, epTemplate)
 	if err != nil {
 		r.Error(err, code)
 		return api.Error(code, err)
@@ -716,7 +715,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d.dnsRulesAPI, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
 	if err2 != nil {
 		r.Error(err2, PutEndpointIDInvalidCode)
 		return api.Error(PutEndpointIDInvalidCode, err2)
@@ -1153,32 +1152,4 @@ func putEndpointIDLabelsHandler(d *Daemon, params PatchEndpointIDLabelsParams) m
 		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
-}
-
-func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
-	dnsProxy := d.dnsProxy.Get()
-	if dnsProxy == nil {
-		return nil
-	}
-
-	// We get the latest consistent view on the DNS rules by getting handle to the latest
-	// coherent state of the selector cache
-	version := d.policy.GetSelectorCache().GetVersionHandle()
-	rules, err := dnsProxy.GetRules(version, epID)
-	version.Close()
-
-	if err != nil {
-		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Could not get DNS rules")
-		return nil
-	}
-	return rules
-}
-
-func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
-	dnsProxy := d.dnsProxy.Get()
-	if dnsProxy == nil {
-		return
-	}
-
-	dnsProxy.RemoveRestoredRules(epID)
 }
