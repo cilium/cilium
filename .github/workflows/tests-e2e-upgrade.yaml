@@ -78,6 +78,35 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/e2e"
+          destination_directory="/tmp/generated/e2e"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+
+      - name: Generate Matrix
+        id: generate-matrix
+        run: |
+          cd /tmp/generated/e2e
+          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          echo "Generated matrix:"
+          cat /tmp/generated/e2e/matrix.json
+          echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
+
   wait-for-images:
     name: Wait for images
     runs-on: ubuntu-24.04
@@ -94,7 +123,7 @@ jobs:
           SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    needs: [wait-for-images]
+    needs: [wait-for-images, generate-matrix]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: 'Setup & Test'
     env:
@@ -103,413 +132,7 @@ jobs:
       fail-fast: false
       max-parallel: 32
       matrix:
-        include:
-          - name: '1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
-
-          - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
-
-          - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-            kvstore: 'true'
-
-          - name: '4'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            ingress-controller: 'true'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            bgp-control-plane: 'true'
-
-          - name: '7'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-
-          - name: '8'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            encryption-strict-mode: 'true'
-            misc: 'socketLB.enabled=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-            kvstore: 'true'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-            misc: 'socketLB.hostNamespaceOnly=true'
-            local-redirect-policy: 'true'
-            node-local-dns: 'true'
-
-          - name: '12'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            encryption-strict-mode: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            misc: 'policyCIDRMatchMode=nodes'
-
-          - name: '14'
-            # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
-            # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
-            # explains why 5.4 might cause north-south-loadbalancing tests to
-            # fail.
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-
-          - name: '15'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-next-20250110.013326'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
-            ciliumendpointslice: 'true'
-
-          - name: '16'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'geneve'
-            lb-mode: 'snat'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            host-fw: 'true'
-            ciliumendpointslice: 'true'
-            ingress-controller: 'true'
-
-          - name: '17'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '18'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '19'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            kvstore: 'true'
-
-          - name: '20'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '21'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '22'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '23'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-20250110.013326'
-            misc: 'bpf.datapathMode=netkit'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-            host-fw: 'true'
-
-          - name: '24'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '25'
-            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
-            kernel: 'bpf-net-20250110.013326'
-            misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            ciliumendpointslice: 'true'
-            endpoint-routes: 'true'
-            ingress-controller: 'true'
-
-          - name: '26'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '27'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '28'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '29'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '30'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '31'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.12-20250319.212144'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '32'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20250319.212144'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            ipv6: 'true'
-            ipv4: 'false'
-            tunnel: 'disabled'
-            skip-upgrade: 'true'
-
-          # Example of a feature that is being introduced, and we want to test
-          # it without performing an upgrade, we use skip-upgrade: 'true'
-          # - name: '23'
-          #   # <insert renovate dependency descriptor here>
-          #   kernel: 'bpf-20241206.013345'
-          #   misc: 'bpf.datapathMode=netkit-l2'
-          #   skip-upgrade: 'true'
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     timeout-minutes: 55
     steps:
