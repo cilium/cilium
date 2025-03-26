@@ -163,7 +163,7 @@ var (
 	// HTTPRouteRequestPercentageMirrorFeature contains metadata for the HTTPRouteRequestMultipleMirrors feature.
 	HTTPRouteRequestPercentageMirrorFeature = Feature{
 		Name:    SupportHTTPRouteRequestPercentageMirror,
-		Channel: FeatureChannelExperimental,
+		Channel: FeatureChannelStandard,
 	}
 	// HTTPRouteRequestTimeoutFeature contains metadata for the HTTPRouteRequestTimeout feature.
 	HTTPRouteRequestTimeoutFeature = Feature{
