@@ -38,6 +38,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
+	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
 )
 
@@ -101,6 +102,7 @@ type EndpointsModify interface {
 	AddIngressEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		epBuildQueue endpoint.EndpointBuildQueue,
 		loader datapath.Loader,
 		orchestrator datapath.Orchestrator,
 		compilationLock datapath.CompilationLock,
@@ -118,6 +120,7 @@ type EndpointsModify interface {
 	AddHostEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
+		epBuildQueue endpoint.EndpointBuildQueue,
 		loader datapath.Loader,
 		orchestrator datapath.Orchestrator,
 		compilationLock datapath.CompilationLock,
@@ -140,7 +143,7 @@ type EndpointsModify interface {
 	UpdateReferences(ep *endpoint.Endpoint) error
 
 	// RemoveEndpoint stops the active handling of events by the specified endpoint,
-	// and prevents the endpoint from being globally acccessible via other packages.
+	// and prevents the endpoint from being globally accessible via other packages.
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
 }
 

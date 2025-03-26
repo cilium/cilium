@@ -111,10 +111,6 @@ func TestEndpointAddNoLabelsEtcd(t *testing.T) {
 func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
-	// For this test case, we want to allow the endpoint controllers to rebuild
-	// the endpoint after getting new labels.
-	ds.OnQueueEndpointBuild = ds.d.QueueEndpointBuild
-
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(t, ds.d)
 	_, _, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
@@ -193,6 +189,7 @@ func assertOnMetric(t *testing.T, state string, expected int64) {
 }
 
 type fetcherFn func(run uint, nsName, podName string) (*slim_corev1.Pod, error)
+
 type fetcher struct {
 	fn   fetcherFn
 	runs uint

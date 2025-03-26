@@ -10,14 +10,12 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"runtime"
 	"sync"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -95,7 +93,7 @@ type Daemon struct {
 	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
-	buildEndpointSem  *semaphore.Weighted
+	epBuildQueue      endpoint.EndpointBuildQueue
 	l7Proxy           *proxy.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
 	envoyXdsServer    envoy.XDSServer
@@ -367,7 +365,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
+		epBuildQueue:      params.EndpointBuildQueue,
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
@@ -861,17 +859,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// numWorkerThreads returns the number of worker threads with a minimum of 2.
-func numWorkerThreads() int {
-	ncpu := runtime.NumCPU()
-	minWorkerThreads := 2
-
-	if ncpu < minWorkerThreads {
-		return minWorkerThreads
-	}
-	return ncpu
 }
 
 // SendNotification sends an agent notification to the monitor

@@ -82,6 +82,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 					client, err = health.LaunchAsEndpoint(
 						ctx,
 						d,
+						d.epBuildQueue,
 						d.loader,
 						d.orchestrator,
 						d.compilationLock,

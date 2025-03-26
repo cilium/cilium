@@ -4,17 +4,12 @@
 package regeneration
 
 import (
-	"context"
-
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
-	// QueueEndpointBuild puts the given endpoint in the processing queue
-	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
-
 	// SendNotification is called to emit an agent notification
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 

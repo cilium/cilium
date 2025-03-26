@@ -64,7 +64,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	// We should only queue the request after we use all the endpoint's
 	// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 	// being deleted at the same time. More info PR-1777.
-	doneFunc, err := e.owner.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
+	doneFunc, err := e.epBuildQueue.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			e.getLogger().WithError(err).Warning("unable to queue endpoint build")
