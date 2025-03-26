@@ -52,6 +52,11 @@ var (
 	// EgressIPNotFoundIPv4 is a special IP value used as egressIP in the BPF policy map
 	// to indicate no egressIP was found for the given policy
 	EgressIPNotFoundIPv4 = netip.IPv4Unspecified()
+
+	// IPv6 special values
+	// EgressIPNotFoundIPv6 is a special IP value used as egressIP in the BPF policy map
+	// to indicate no egressIP was found for the given policy
+	EgressIPNotFoundIPv6 = netip.IPv6Unspecified()
 )
 
 // Cell provides a [Manager] for consumption with hive.
@@ -608,18 +613,18 @@ func (manager *Manager) updateEgressRules() {
 			gatewayIP = ExcludedCIDRIPv4
 		}
 
-		if policyPresent && policyVal.Match(gwc.egressIP, gatewayIP) {
+		if policyPresent && policyVal.Match(gwc.egressIP4, gatewayIP) {
 			return
 		}
 
 		logger := log.WithFields(logrus.Fields{
 			logfields.SourceIP:        endpointIP,
 			logfields.DestinationCIDR: dstCIDR.String(),
-			logfields.EgressIP:        gwc.egressIP,
+			logfields.EgressIP:        gwc.egressIP4,
 			logfields.GatewayIP:       gatewayIP,
 		})
 
-		if err := manager.policyMap.Update(endpointIP, dstCIDR, gwc.egressIP, gatewayIP); err != nil {
+		if err := manager.policyMap.Update(endpointIP, dstCIDR, gwc.egressIP4, gatewayIP); err != nil {
 			logger.WithError(err).Error("Error applying egress gateway policy")
 		} else {
 			logger.Debug("Egress gateway policy applied")
