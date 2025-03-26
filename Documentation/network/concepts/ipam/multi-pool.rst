@@ -104,6 +104,90 @@ described above.
   For a practical tutorial on how to enable this mode in Cilium, see
   :ref:`gsg_ipam_crd_multi_pool`.
 
+Updating existing CiliumPodIPPools
+----------------------------------
+
+Once you configure the ``CiliumPodIPPools``, you cannot update the existing pool. For example, 
+you can't change the default pool to a different CIDR or add an IPv6 CIDR to the default pool. 
+This restriction prevents pods from receiving IPs from a new range while some pods still use 
+the old IP pool on the same nodes. If you need to update the existing CiliumPodIPPools, Please
+use these steps as the references.
+
+Let's assume you have a Kubernetes cluster and are using the ``multi-pool`` as the IPAM mode. 
+You would like to change the existing default pool CIDR to something else and pods will take the IP address from the new CIDR. 
+You hope the change will cause the least disruption to your clusters while updating the default pool to another CIDR.
+
+We will pick some of your nodes where you would like to update the CIDR first and call them Node Group 1. 
+The other nodes, which will update the CIDR later than Node Group 1, will be called Node Group 2.
+
+1. Update your existing pool through ``autoCreateCiliumPodIPPools`` in helm values.
+2. Delete the existing ``CiliumPodIPPools`` from CR and restart the Cilium operator to create new ``CiliumPodIPPools``.
+3. Cordon the Node Group 1 and evict pods to the Node Group 2.
+4. Delete ``CiliumNodes`` for Node Group 1, restart the Cilium agents and uncordon for Node Group 1.
+5. Cordon Node Group 2, and evict pods to Node Group 1 so they can get IPs from the new CIDR from the pool.
+6. Delete ``CiliumNodes`` for Node Group 2, restart the Cilium agents and uncordon for Node Group 2.
+7. (Optional) Reschedule pods to ensure workload is evenly distributed across nodes in cluster.
+
+Per-Node Default Pool
+---------------------
+
+Cilium can allocate specific IP pools to nodes based on their labels. This
+feature is particularly useful in multi-datacenter environments where different
+nodes require IP ranges that align with their respective datacenter's subnets.
+For instance, nodes in DC1 might use the range 10.1.0.0/16, while nodes in DC2
+might use the range 10.2.0.0/16.
+
+In particular, it is possible to set a per-node default pool by setting the
+``ipam-default-ip-pool`` in a ``CiliumNodeConfig`` resource on nodes matching
+certain node labels.
+
+.. code-block:: yaml
+
+    ---
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumPodIPPool
+    metadata:
+      name: dc1-pool
+    spec:
+      ipv4:
+        cidrs:
+          - 10.1.0.0/16
+        maskSize: 24
+    ---
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumPodIPPool
+    metadata:
+      name: dc2-pool
+    spec:
+      ipv4:
+        cidrs:
+          - 10.2.0.0/16
+        maskSize: 24
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNodeConfig
+    metadata:
+      name: ip-pool-dc1
+      namespace: kube-system
+    spec:
+      defaults:
+        ipam-default-ip-pool: dc1-pool
+      nodeSelector:
+        matchLabels:
+          topology.kubernetes.io/zone: dc1
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNodeConfig
+    metadata:
+      name: ip-pool-dc2
+      namespace: kube-system
+    spec:
+      defaults:
+        ipam-default-ip-pool: dc2-pool
+      nodeSelector:
+        matchLabels:
+          topology.kubernetes.io/zone: dc2
+
 Allocation Parameters
 ---------------------
 
