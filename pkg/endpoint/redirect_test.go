@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -148,11 +147,6 @@ func (d *DummyOwner) GetPolicyRepository() policy.PolicyRepository {
 // GetCIDRPrefixLengths does nothing.
 func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return nil, nil
-}
-
-// SendNotification does nothing.
-func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
 }
 
 func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {

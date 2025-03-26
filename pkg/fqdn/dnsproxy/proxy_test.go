@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -173,10 +172,6 @@ func (s *DNSProxyTestSuite) GetProxyPort(string) (uint16, error) {
 
 func (s *DNSProxyTestSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return nil, nil
-}
-
-func (s *DNSProxyTestSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
 }
 
 func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
