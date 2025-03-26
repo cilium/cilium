@@ -19,6 +19,7 @@ rules:
   - ciliumidentities
   - ciliumendpoints
   - ciliumnodes
+  - ciliumendpointslices
   verbs:
   - get
   - list

@@ -25,6 +25,7 @@ clustermesh-apiserver clustermesh hive dot-graph [flags]
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                        Enable debugging mode
+      --enable-cilium-endpoint-slice                 Enables the CiliumEndpointSlice feature
       --enable-gops                                  Enable gops server (default true)
       --enable-k8s                                   Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                     Enable discovery of Kubernetes API groups and resources with the discovery API
