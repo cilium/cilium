@@ -9,6 +9,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -335,22 +336,16 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 }
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
-func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
+func (e *Endpoint) getNamedPortsModel() models.NamedPorts {
 	var k8sPorts types.NamedPortMap
 	if p := e.k8sPorts.Load(); p != nil {
 		k8sPorts = *p
 	}
 
+	np := make(models.NamedPorts, 0, len(k8sPorts))
 	// keep named ports ordered to avoid the unnecessary updates to
 	// kube-apiserver
-	names := make([]string, 0, len(k8sPorts))
-	for name := range k8sPorts {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-
-	np = make(models.NamedPorts, 0, len(k8sPorts))
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(k8sPorts)) {
 		value := k8sPorts[name]
 		np = append(np, &models.Port{
 			Name:     name,

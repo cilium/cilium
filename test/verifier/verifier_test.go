@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path"
@@ -249,12 +250,7 @@ func TestVerifier(t *testing.T) {
 					// Print verifier stats appearing on the last line of the log, e.g.
 					// 'processed 12248 insns (limit 1000000) ...'.
 					// Sort by program names for stable output.
-					names := make([]string, 0, len(coll.Programs))
-					for n := range coll.Programs {
-						names = append(names, n)
-					}
-					slices.Sort(names)
-					for _, n := range names {
+					for _, n := range slices.Sorted(maps.Keys(coll.Programs)) {
 						p := coll.Programs[n]
 						p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
 						// Offset points at the last newline, increment by 1 to skip it.
