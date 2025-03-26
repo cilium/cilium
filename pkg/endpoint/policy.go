@@ -978,9 +978,18 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				}
 
 				ID := e.SecurityIdentity.ID
-				hostIP, ok := netipx.FromStdIP(node.GetIPv4())
-				if !ok {
-					return controller.NewExitReason("Failed to convert node IPv4 address")
+				var hostIP netip.Addr
+				var ok bool
+				if endpointIP.Is4() {
+					hostIP, ok = netipx.FromStdIP(node.GetIPv4())
+					if !ok {
+						return controller.NewExitReason("Failed to convert node IPv4 address")
+					}
+				} else {
+					hostIP, ok = netipx.FromStdIP(node.GetIPv6())
+					if !ok {
+						return controller.NewExitReason("Failed to convert node IPv6 address")
+					}
 				}
 				key := node.GetEndpointEncryptKeyIndex()
 				metadata := e.FormatGlobalEndpointID()
