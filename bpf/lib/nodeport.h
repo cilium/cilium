@@ -331,6 +331,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
 	__u32 dst_sec_identity;
 	__be32 tunnel_endpoint;
+	fraginfo_t fraginfo;
 	__u16 total_len = 0;
 	__be16 src_port;
 	int l4_off, ret;
@@ -345,7 +346,11 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	tunnel_endpoint = info->tunnel_endpoint;
 	dst_sec_identity = info->sec_identity;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -871,7 +876,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (fraginfo < 0)
 		return (int)fraginfo;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (ret < 0) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto out;
@@ -1147,7 +1152,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	}
 #endif
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1389,7 +1394,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (fraginfo < 0)
 		return (int)fraginfo;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
@@ -1632,9 +1637,12 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 		encap_len = 0;
 	} else {
 		struct ipv4_ct_tuple tuple = {};
+		fraginfo_t fraginfo;
 		int l4_off, ret;
 
-		ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
+		fraginfo = ipfrag_encode_ipv4(ip4);
+
+		ret = lb4_extract_tuple(ctx, ip4, l3_off, fraginfo, &l4_off, &tuple);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2139,7 +2147,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
@@ -2449,7 +2457,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	}
 #endif
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2720,7 +2728,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, l3_off, fraginfo, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
