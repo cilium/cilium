@@ -145,7 +145,7 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute,HTTPRouteRequestMirror,HTTPRouteRequestMultipleMirrors,HTTPRouteRequestPercentageMirror"
           if [ "${{ matrix.crd-channel }}" == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
