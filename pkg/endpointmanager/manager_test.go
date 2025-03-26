@@ -64,10 +64,6 @@ func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
 	return s
 }
 
-func (s *EndpointManagerSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
 type DummyRuleCacheOwner struct{}
 
 func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {

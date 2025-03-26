@@ -125,7 +125,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, s, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epsNames)
 	require.Equal(t, len(epsWanted), len(eps))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -187,7 +187,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, s, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -242,7 +242,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, s, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epsNames)
 		require.Equal(b, len(epsWanted), len(eps))
 	}
 }
