@@ -224,6 +224,7 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
+	epBuildQueue endpoint.EndpointBuildQueue,
 	loader datapathTypes.Loader,
 	orchestrator datapathTypes.Orchestrator,
 	compilationLock datapathTypes.CompilationLock,
@@ -328,7 +329,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, policyMapFactory, policyGetter, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
