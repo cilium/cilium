@@ -17,6 +17,9 @@
 #define PROTO_TCP 6
 #define PROTO_UDP 17
 #define PROTO_ESP 50
+#define PROTO_ICMP_IPV4 1
+#define PROTO_ICMP_IPV6 58
+#define PROTO_FRAGMENT_IPV6 44
 
 #define AF_INET	2
 #define AF_INET6 10
@@ -34,7 +37,9 @@
 // Character literals don't appear be supported, hence this hack.
 // https://github.com/bpftrace/bpftrace/issues/3278
 #define CH_A 0x41   // 'A'
+#define CH_D 0x44   // 'D'
 #define CH_F 0x46   // 'F'
+#define CH_M 0x4D   // 'M'
 #define CH_R 0x52   // 'R'
 #define CH_S 0x53   // 'S'
 #define CH_DOT 0x2E // '.'
@@ -75,6 +80,7 @@ kprobe:br_forward
   $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
+  $icmph = ((struct icmphdr*) ($skb->head + $skb->transport_header));
 
   // $skb->encapsulation might be unset when encap headers are manually pushed,
   // despite $skb->inner references being correct.
@@ -91,6 +97,7 @@ kprobe:br_forward
     $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
+    $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
   }
 
   if ($proto == PROTO_IPV4) {
@@ -150,6 +157,19 @@ kprobe:br_forward
               bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
               bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
               str(kptr($query)));
+          }
+
+          if ($ip4h->protocol == PROTO_ICMP_IPV4) {
+            $frag_off = bswap($ip4h->frag_off);
+
+            printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: .%c%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+              $time, $skb,
+              ($frag_off & 0x4000) >> 14 ? CH_D : CH_DOT,
+              ($frag_off & 0x2000) >> 13 ? CH_M : CH_DOT,
+              $icmph->type,
+              $icmph->code,
+              $frag_off & 0x1FFF,
+              bswap($ip4h->id));
           }
         }
       }
@@ -213,6 +233,25 @@ kprobe:br_forward
               bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
               bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
               str(kptr($query)));
+          }
+
+          if ($ip6h->nexthdr == PROTO_ICMP_IPV6 || $ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
+            $frag_id = 0;
+            $frag_off_res_m = 0;
+
+            if ($ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
+              $frag_hdr = (struct frag_hdr *)($ip6h + 1);
+              $frag_id = bswap($frag_hdr->identification);
+              $frag_off_res_m = bswap($frag_hdr->frag_off);
+            }
+
+            printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: ..%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+              $time, $skb,
+              $frag_off_res_m & 0x0001 ? CH_M : CH_DOT,
+              $icmph->type,
+              $icmph->code,
+              $frag_off_res_m >> 3,
+              $frag_id);
           }
         }
       }
