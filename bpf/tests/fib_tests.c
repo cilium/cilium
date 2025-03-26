@@ -6,6 +6,10 @@
 /* assume fib_lookup always returns target oif if available */
 #define HAVE_FIB_IFINDEX 1
 
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
+#define SKIP_ICMPV6_HOPLIMIT_HANDLING 1
+
 #include "common.h"
 #include "bpf/ctx/skb.h"
 #include "linux/bpf.h"
@@ -68,6 +72,26 @@ long mock_redirect_neigh(__maybe_unused int ifindex,
 	return REDIR_NEIGH_ENTERED;
 }
 
+struct fib_lookup_recorder {
+	__u32 flags;
+} fib_lookup_recorder = {0};
+
+void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
+{
+	r->flags = 0;
+}
+
+#define fib_lookup mock_fib_lookup
+
+long mock_fib_lookup(void *ctx __maybe_unused,
+		     struct bpf_fib_lookup *params __maybe_unused,
+		     int plen __maybe_unused,
+		     __u32 flags __maybe_unused)
+{
+	fib_lookup_recorder.flags = flags;
+	return 0;
+}
+
 #include "lib/dbg.h"
 #include "node_config.h"
 #include "lib/fib.h"
@@ -93,20 +117,26 @@ int test1_check(struct __ctx_buff *ctx)
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_SUCCESS,
 				      (int *)&ifindex_bad, &ext_err);
-		if (ret != CTX_REDIRECT_ENTERED)
-			test_fatal("did not enter ctx_redirect");
+		if (ret != REDIR_NEIGH_ENTERED)
+			test_fatal("did not enter ctx_redirect_neigh");
 
-		if (redir_recorder.ifindex != ifindex_good)
+		if (redir_neigh_recorder.ifindex != ifindex_good)
 			test_fatal("expected %x, got %d", ifindex_good,
 				   redir_recorder.ifindex);
 
-		if (redir_recorder.ctx != ctx)
-			test_fatal("ctx pointer mismatch");
+		if (!redir_neigh_recorder.params)
+			test_fatal("redirect_neigh called with nil params");
 
-		if (redir_recorder.flags != 0)
-			test_fatal("unexpected flags: ");
+		if (redir_neigh_recorder.plen != sizeof(struct bpf_redir_neigh))
+			test_fatal("expected plen %d, got %d",
+				   sizeof(struct bpf_redir_neigh),
+				   redir_neigh_recorder.plen);
 
-		reset_redir_recorder(&redir_recorder);
+		if (redir_neigh_recorder.flags != 0)
+			test_fatal("expected flags 0, got %d",
+				   redir_neigh_recorder.flags);
+
+		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
 
 	/* Simulate fib lookup with no neighbor return.
@@ -186,3 +216,63 @@ int test1_check(struct __ctx_buff *ctx)
 	});
 	test_finish();
 }
+
+CHECK("tc", "fib_redirect*_fib_lookup_flags")
+int test2_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	TEST("fib_redirect", {
+		struct bpf_fib_lookup_padded params = {0};
+		int oif  = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect(ctx, false, &params, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d", BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	TEST("fib_redirect_v4", {
+		struct iphdr hdr = {0};
+		int oif  = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect_v4(ctx, 0, &hdr, true, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d", BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	TEST("fib_redirect_v6", {
+		struct ipv6hdr hdr6 = {0};
+		int oif  = 0;
+		__s8 ext_err;
+
+		if (!neigh_resolver_available())
+			test_fatal("expected neigh_resolver_available true");
+
+		fib_redirect_v6(ctx, 0, &hdr6, true, true, &ext_err, &oif);
+
+		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
+			test_fatal("expected flags %x, got %d", BPF_FIB_LOOKUP_SKIP_NEIGH,
+				   fib_lookup_recorder.flags);
+
+		reset_fib_lookup_recorder(&fib_lookup_recorder);
+	});
+
+	test_finish();
+}
+
