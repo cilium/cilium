@@ -18,6 +18,7 @@
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/bpftrace/**",
+    ".github/actions/e2e/**",
     ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
@@ -727,6 +728,7 @@
     {
       "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
+        "^\\.github/actions/e2e/[^/]+\\.ya?ml$",
         "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
         "^\\.github/actions/ipsec/[^/]+\\.ya?ml$"
       ],
