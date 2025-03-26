@@ -211,6 +211,9 @@ spec:
         {{- if .Values.clustermesh.enableMCSAPISupport }}
         - --clustermesh-enable-mcs-api
         {{- end }}
+        {{- if .Values.ciliumEndpointSlice.enabled }}
+        - --enable-cilium-endpoint-slice
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
