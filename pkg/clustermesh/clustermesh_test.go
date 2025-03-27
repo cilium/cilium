@@ -66,7 +66,7 @@ func TestClusterMesh(t *testing.T) {
 		wg.Wait()
 	}()
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
@@ -91,7 +91,7 @@ func TestClusterMesh(t *testing.T) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err := cmutils.SetClusterConfig(ctx, name, config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, name, config, client)
 		require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 	}
 
@@ -127,7 +127,7 @@ func TestClusterMesh(t *testing.T) {
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries
-	nodesWSS := storeFactory.NewSyncStore("cluster2", kvstore.Client(), nodeStore.NodeStorePrefix)
+	nodesWSS := storeFactory.NewSyncStore("cluster2", client, nodeStore.NodeStorePrefix)
 	wg.Add(1)
 	go func() {
 		nodesWSS.Run(ctx)
@@ -157,7 +157,7 @@ func TestClusterMesh(t *testing.T) {
 			MaxConnectedClusters: 255,
 		},
 	}
-	err := cmutils.SetClusterConfig(ctx, "cluster1", config, kvstore.Client())
+	err := cmutils.SetClusterConfig(ctx, "cluster1", config, client)
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
 	// Ugly hack to trigger config update
 	etcdConfigNew := append(etcdConfig, []byte("\n")...)

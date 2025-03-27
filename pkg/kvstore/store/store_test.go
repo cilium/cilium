@@ -90,11 +90,8 @@ func newTestType() Key {
 
 func TestStoreCreation(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
-	testStoreCreation(t)
-}
+	client := kvstore.SetupDummy(t, "etcd")
 
-func testStoreCreation(t *testing.T) {
 	// Missing Prefix must result in error
 	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{})
 	require.ErrorContains(t, err, "prefix must be specified")
@@ -113,7 +110,7 @@ func testStoreCreation(t *testing.T) {
 	store.Close(context.TODO())
 
 	// Test with kvstore client specified
-	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: kvstore.Client()})
+	store, err = JoinSharedStore(hivetest.Logger(t), Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: client})
 	require.NoError(t, err)
 	require.NotNil(t, store)
 	require.Equal(t, option.Config.KVstorePeriodicSync, store.conf.SynchronizationInterval)
@@ -212,11 +209,8 @@ func testStorePeriodicSync(t *testing.T) {
 
 func TestStoreLocalKeyProtection(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
-	testStoreLocalKeyProtection(t)
-}
+	client := kvstore.SetupDummy(t, "etcd")
 
-func testStoreLocalKeyProtection(t *testing.T) {
 	store, err := JoinSharedStore(hivetest.Logger(t), Configuration{
 		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
@@ -234,9 +228,9 @@ func testStoreLocalKeyProtection(t *testing.T) {
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.GreaterOrEqual(c, localKey1.updated(), 1) }, timeout, tick)
 	// delete all keys
-	kvstore.Client().DeletePrefix(context.TODO(), store.conf.Prefix)
+	client.DeletePrefix(context.TODO(), store.conf.Prefix)
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		v, err := kvstore.Client().Get(context.TODO(), store.keyPath(&localKey1))
+		v, err := client.Get(context.TODO(), store.keyPath(&localKey1))
 		assert.NoError(c, err)
 		assert.NotNil(c, v)
 	}, timeout, tick)
