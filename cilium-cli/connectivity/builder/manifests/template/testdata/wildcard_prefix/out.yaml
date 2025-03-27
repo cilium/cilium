@@ -1,0 +1,38 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "client-egress-tls-sni-wildcard"
+specs:
+- description: "TLS SNI policy with wildcard"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "*.one.one.one"
+- description: "TLS SNI policy with wildcard multiple"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "**.one.one"
+- description: "Another TLS SNI policy with wildcard multiple"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "**.one"
