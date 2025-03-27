@@ -3,7 +3,7 @@ name: Hot Fix Image Release Build
 on:
   push:
     branches:
-      - hf/main/**
+      - test-pr/artyop/runtime-action-release-build
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -15,7 +15,6 @@ jobs:
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
-    environment: release-developer-images
     runs-on: ubuntu-24.04
     outputs:
       ref: ${{ steps.tag.outputs.ref }}
@@ -71,12 +70,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
-      - name: Login to quay.io
+      - name: Login to quay.io for CI
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_DEVELOPER_USERNAME }}
-          password: ${{ secrets.QUAY_DEVELOPER_PASSWORD }}
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Getting image tag
         id: tag
@@ -115,7 +114,7 @@ jobs:
           provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
-          push: true
+          push: false
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
@@ -124,76 +123,3 @@ jobs:
           build-args: |
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
-
-      - name: Sign Container Image
-        run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
-        with:
-          artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
-
-      - name: Attach SBOM attestation to container image
-        run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
-
-      - name: Image Release Digest
-        shell: bash
-        run: |
-          mkdir -p image-digest/
-          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
-          echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
-          echo "" >> image-digest/${{ matrix.name }}.txt
-
-      # Upload artifact digests
-      - name: Upload artifact digests
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: image-digest ${{ matrix.name }}
-          path: image-digest
-          retention-days: 1
-
-  image-digests:
-    name: Display Digests
-    runs-on: ubuntu-24.04
-    needs: build-and-push
-    steps:
-      - name: Downloading Image Digests
-        shell: bash
-        run: |
-          mkdir -p image-digest/
-
-      - name: Download digests of all images built
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
-        with:
-          path: image-digest/
-          pattern: "*image-digest *"
-
-      - name: Image Digests Output
-        shell: bash
-        run: |
-          cd image-digest/
-          find -type f | sort | xargs -d '\n' cat
-
-  push-chart:
-    name: Push dev chart
-    needs: build-and-push
-    permissions:
-      contents: read
-      pull-requests: read
-      statuses: write
-    uses: ./.github/workflows/push-chart-ci.yaml
-    with:
-      checkout_ref: ${{ needs.build-and-push.outputs.ref }}
-      image_tag: ${{ needs.build-and-push.outputs.tag }}
-    secrets: inherit
