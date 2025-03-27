@@ -304,7 +304,7 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 		r.logger.Info("CID allocated for pod",
 			logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
 			logfields.CIDName, cidName,
-			logfields.OldIdentity, prevCIDName,
+			logfields.IdentityOld, prevCIDName,
 			logfields.Labels, k8sLabels)
 	}
 

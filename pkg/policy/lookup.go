@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -132,12 +130,8 @@ func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 	return 0
 }
 
-func (ei *EndpointInfo) PolicyDebug(fields logrus.Fields, msg string) {
+func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...any) {
 	if ei.Logger != nil {
-		attrs := make([]any, 0, len(fields)*2)
-		for k, v := range fields {
-			attrs = append(attrs, k, v)
-		}
 		ei.Logger.Debug(msg, attrs...)
 	}
 }

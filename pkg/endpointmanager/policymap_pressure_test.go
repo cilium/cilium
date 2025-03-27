@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -16,7 +17,7 @@ import (
 func TestPolicyMapPressure(t *testing.T) {
 	assert := assert.New(t)
 	policyMapPressureMinInterval = 0
-	p := newPolicyMapPressure()
+	p := newPolicyMapPressure(hivetest.Logger(t))
 	p.gauge = &fakeGauge{}
 	assert.Equal(float64(0), p.gauge.(*fakeGauge).Load())
 	p.Update(endpoint.PolicyMapPressureEvent{

@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -106,10 +106,12 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 			// Don't return on error (and block the endpoint creation) as this
 			// is an unusual case where data could have been malformed. Defer error
 			// logging to individual features depending on the metadata.
-			log.WithError(err).WithFields(logrus.Fields{
-				"netns_cookie": model.NetnsCookie,
-				"ep_id":        model.ID,
-			}).Error("unable to parse netns cookie for ep")
+			ep.getLogger().Error(
+				"unable to parse netns cookie for ep",
+				logfields.Error, err,
+				logfields.NetnsCookie, model.NetnsCookie,
+				logfields.EndpointID, model.ID,
+			)
 		} else {
 			ep.NetNsCookie = uint64(cookie64)
 		}

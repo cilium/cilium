@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -53,10 +53,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	var (
 		endpointID     = e.ID
 		controllerName = endpoint.EndpointSyncControllerName(endpointID)
-		scopedLog      = e.Logger(subsysEndpointSync).WithFields(logrus.Fields{
-			"controller": controllerName,
-			"endpointID": e.ID,
-		})
+		scopedLog      = e.Logger(subsysEndpointSync).With(
+			logfields.Controller, controllerName,
+		)
 	)
 
 	if option.Config.DisableCiliumEndpointCRD {
@@ -106,7 +105,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 			DoFunc: func(ctx context.Context) (err error) {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
-				scopedLog = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
+				scopedLog = e.Logger(subsysEndpointSync).With(logfields.Controller, controllerName)
 
 				if k8sversion.Version().Equals(semver.Version{}) {
 					return fmt.Errorf("Kubernetes apiserver is not available")
@@ -165,7 +164,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
 						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
-							scopedLog.WithError(err).Warn("could not take ownership of existing ciliumendpoint")
+							scopedLog.Warn("could not take ownership of existing ciliumendpoint", logfields.Error, err)
 							return err
 						}
 					case k8serrors.IsNotFound(err):
@@ -196,17 +195,17 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								return nil
 							}
 
-							scopedLog.WithError(err).Error("Cannot create CEP")
+							scopedLog.Error("Cannot create CEP", logfields.Error, err)
 							return err
 						}
 
-						scopedLog.WithField(logfields.CEPUID, localCEP.UID).Debug("storing CEP UID after create")
+						scopedLog.Debug("storing CEP UID after create", logfields.CEPUID, localCEP.UID)
 						e.SetCiliumEndpointUID(localCEP.UID)
 
 						// continue the execution so we update the endpoint
 						// status immediately upon endpoint creation
 					default:
-						scopedLog.WithError(err).Warn("Error getting CEP")
+						scopedLog.Warn("Error getting CEP", logfields.Error, err)
 						return err
 					}
 
@@ -232,7 +231,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
 						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
-							scopedLog.WithError(err).Warn("could not take ownership of existing ciliumendpoint")
+							scopedLog.Warn("could not take ownership of existing ciliumendpoint", logfields.Error, err)
 							return err
 						}
 
@@ -248,13 +247,13 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// iteration to delete and create the CEP. This is an unexpected
 					// situation.
 					case k8serrors.IsInvalid(err):
-						scopedLog.WithError(err).Warn("Invalid CEP during update")
+						scopedLog.Warn("Invalid CEP during update", logfields.Error, err)
 						needInit = true
 						return nil
 
 					// A real error
 					default:
-						scopedLog.WithError(err).Error("Cannot get CEP during update")
+						scopedLog.Error("Cannot get CEP during update", logfields.Error, err)
 						return err
 					}
 				}
@@ -295,7 +294,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// Return no error when we see a conflict. We want to retry without a
 				// backoff and the Update* calls returned the current localCEP
 				case err != nil && k8serrors.IsConflict(err):
-					scopedLog.WithError(err).Warn("Cannot update CEP due to a revision conflict. The next controller execution will try again")
+					scopedLog.Warn("Cannot update CEP due to a revision conflict. The next controller execution will try again", logfields.Error, err)
 					needInit = true
 					return nil
 
@@ -307,7 +306,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					if errors.Is(err, context.Canceled) {
 						return nil
 					}
-					scopedLog.WithError(err).Error("Cannot update CEP")
+					scopedLog.Error("Cannot update CEP", logfields.Error, err)
 
 					needInit = true
 					return err
@@ -337,7 +336,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 // that this is a temporary state where either the local/remote agent managing the CEP
 // is shutting down and will delete the CEP, or the CEP is stale and needs to be cleaned
 // up by the operator.
-func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
+func updateCEPUID(scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
 	// It's possible we already own this CEP, as in the case of a restore after restart.
 	// If the Endpoint already owns the CEP (by holding the matching CEP UID reference) then we don't have to
 	// worry about other ownership checks.
@@ -387,11 +386,12 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 	}
 
 	if cepUID := e.GetCiliumEndpointUID(); cepUID == "" {
-		scopedLog.WithFields(logrus.Fields{
-			logfields.Node:           types.GetName(),
-			"old" + logfields.CEPUID: cepUID,
-			logfields.CEPUID:         localCEP.UID,
-		}).Debug("updating CEP UID and syncing endpoint header file")
+		scopedLog.Debug(
+			"updating CEP UID and syncing endpoint header file",
+			logfields.Node, types.GetName(),
+			logfields.CEPUIDOld, cepUID,
+			logfields.CEPUID, localCEP.UID,
+		)
 		e.SetCiliumEndpointUID(localCEP.UID)
 		e.SyncEndpointHeaderFile()
 	}
@@ -404,7 +404,7 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 	controllerName := endpoint.EndpointSyncControllerName(e.ID)
 
-	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
+	scopedLog := e.Logger(subsysEndpointSync).With(logfields.Controller, controllerName)
 
 	if !epSync.Clientset.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
@@ -430,7 +430,7 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 	)
 }
 
-func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.CiliumV2Interface, e *endpoint.Endpoint) error {
+func deleteCEP(ctx context.Context, scopedLog *slog.Logger, ciliumClient v2.CiliumV2Interface, e *endpoint.Endpoint) error {
 	cepName := e.GetK8sCEPName()
 	if cepName == "" {
 		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s cep name")
@@ -461,14 +461,14 @@ func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.Cil
 		return nil
 	}
 
-	scopedLog.WithField(logfields.CEPUID, cepUID).Debug("deleting CEP with UID")
+	scopedLog.Debug("deleting CEP with UID", logfields.CEPUID, cepUID)
 	if err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Delete(ctx, cepName, meta_v1.DeleteOptions{
 		Preconditions: &meta_v1.Preconditions{
 			UID: &cepUID,
 		},
 	}); err != nil {
 		if !k8serrors.IsNotFound(err) && !k8serrors.IsConflict(err) {
-			scopedLog.WithError(err).Warning("Unable to delete CEP")
+			scopedLog.Warn("Unable to delete CEP", logfields.Error, err)
 		}
 	}
 	return nil
