@@ -26,6 +26,7 @@ import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -116,6 +117,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 
 			ciliumNodeKVStore, err = store.JoinSharedStore(logging.DefaultSlogLogger,
 				store.Configuration{
+					Backend:    kvstore.Client(),
 					Prefix:     nodeStore.NodeStorePrefix,
 					KeyCreator: nodeStore.KeyCreator,
 				})
