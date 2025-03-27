@@ -353,12 +353,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
@@ -880,12 +876,8 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		goto fib_lookup;
 #endif
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
@@ -1164,12 +1156,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
@@ -1416,12 +1404,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	cilium_capture_in(ctx);
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
