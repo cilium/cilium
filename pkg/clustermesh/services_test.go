@@ -81,8 +81,6 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	clusterName1 := s.randomName + "1"
 	clusterName2 := s.randomName + "2"
 
-	require.NoError(tb, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName))
-
 	db := statedb.New()
 
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
