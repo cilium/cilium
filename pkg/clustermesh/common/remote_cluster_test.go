@@ -32,12 +32,12 @@ func (fb *fakeBackend) StatusCheckErrors() <-chan error {
 
 func TestRemoteClusterWatchdog(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)
 	writeFile(t, path, fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
-	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, kvstore.Client()))
+	require.NoError(t, utils.SetClusterConfig(context.Background(), name, types.CiliumClusterConfig{ID: 2}, client))
 
 	wait := func(t *testing.T, ch <-chan struct{}, msg string) {
 		t.Helper()

@@ -45,10 +45,10 @@ func TestHint(t *testing.T) {
 	require.ErrorContains(t, Hint(err), "etcd client timeout exceeded")
 }
 
-func setupEtcdLockedSuite(tb testing.TB) *etcdAPI.Client {
+func setupEtcdLockedSuite(tb testing.TB) (BackendOperations, *etcdAPI.Client) {
 	testutils.IntegrationTest(tb)
 
-	SetupDummyWithConfigOpts(tb, "etcd", etcdOpts)
+	client := SetupDummyWithConfigOpts(tb, "etcd", etcdOpts)
 
 	// setup client
 	cfg := etcdAPI.Config{}
@@ -59,11 +59,11 @@ func setupEtcdLockedSuite(tb testing.TB) *etcdAPI.Client {
 	require.NoError(tb, err)
 	tb.Cleanup(func() { require.NoError(tb, cli.Close()) })
 
-	return cli
+	return client, cli
 }
 
 func TestGetIfLocked(t *testing.T) {
-	cl := setupEtcdLockedSuite(t)
+	client, cl := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -84,7 +84,7 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = cl.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path with no value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = cl.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				err = kvlocker.Unlock(context.TODO())
 				require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestGetIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		value, err := Client().GetIfLocked(context.TODO(), args.key, args.lock)
+		value, err := client.GetIfLocked(context.TODO(), args.key, args.lock)
 		require.Equal(t, want.err, err)
 		require.Equal(t, want.value, value)
 		err = tt.cleanup(args)
@@ -174,7 +174,7 @@ func TestGetIfLocked(t *testing.T) {
 }
 
 func TestDeleteIfLocked(t *testing.T) {
-	e := setupEtcdLockedSuite(t)
+	client, e := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -194,7 +194,7 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -223,7 +223,7 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path with no value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -254,7 +254,7 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -286,7 +286,7 @@ func TestDeleteIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		err := Client().DeleteIfLocked(context.TODO(), args.key, args.lock)
+		err := client.DeleteIfLocked(context.TODO(), args.key, args.lock)
 		require.Equal(t, want.err, err)
 		err = tt.cleanup(args)
 		require.NoError(t, err)
@@ -294,7 +294,7 @@ func TestDeleteIfLocked(t *testing.T) {
 }
 
 func TestUpdateIfLocked(t *testing.T) {
-	e := setupEtcdLockedSuite(t)
+	client, e := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -316,7 +316,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -347,7 +347,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with no value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -379,7 +379,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -442,7 +442,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with no value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -475,7 +475,7 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -508,7 +508,7 @@ func TestUpdateIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		err := Client().UpdateIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		err := client.UpdateIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
 		require.Equal(t, want.err, err)
 		err = tt.cleanup(args)
 		require.NoError(t, err)
@@ -516,7 +516,7 @@ func TestUpdateIfLocked(t *testing.T) {
 }
 
 func TestUpdateIfDifferentIfLocked(t *testing.T) {
-	e := setupEtcdLockedSuite(t)
+	client, e := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -539,7 +539,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -572,7 +572,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path without lease and with same value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -603,7 +603,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with no value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -637,7 +637,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -671,7 +671,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -705,7 +705,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with no value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -742,9 +742,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with lease and with same value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
-				created, err := Client().CreateOnly(context.Background(), key, []byte("bar"), true)
+				created, err := client.CreateOnly(context.Background(), key, []byte("bar"), true)
 				require.NoError(t, err)
 				require.True(t, created)
 
@@ -776,7 +776,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -809,7 +809,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		updated, err := Client().UpdateIfDifferentIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		updated, err := client.UpdateIfDifferentIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
 		require.Equal(t, want.err, err)
 		require.Equal(t, want.updated, updated)
 		err = tt.cleanup(args)
@@ -818,7 +818,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 }
 
 func TestCreateOnlyIfLocked(t *testing.T) {
-	e := setupEtcdLockedSuite(t)
+	client, e := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -841,7 +841,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -874,7 +874,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with an existing value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Put(context.Background(), key, "bar")
@@ -907,7 +907,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -938,7 +938,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -972,7 +972,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with an existing value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Put(context.Background(), key, "bar")
@@ -1006,7 +1006,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -1039,7 +1039,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		created, err := Client().CreateOnlyIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		created, err := client.CreateOnlyIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
 		require.Equal(t, want.err, err)
 		require.Equal(t, want.created, created)
 		err = tt.cleanup(args)
@@ -1048,7 +1048,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 }
 
 func TestListPrefixIfLocked(t *testing.T) {
-	e := setupEtcdLockedSuite(t)
+	client, e := setupEtcdLockedSuite(t)
 
 	randomPath := t.TempDir()
 	type args struct {
@@ -1069,7 +1069,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -1107,7 +1107,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked with no values",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key, etcdAPI.WithPrefix())
 				require.NoError(t, err)
@@ -1130,7 +1130,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -1159,7 +1159,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 		t.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		kvPairs, err := Client().ListPrefixIfLocked(context.TODO(), args.key, args.lock)
+		kvPairs, err := client.ListPrefixIfLocked(context.TODO(), args.key, args.lock)
 		require.Equal(t, want.err, err)
 		for k, v := range kvPairs {
 			// We don't compare revision of the value because we can't predict
@@ -1227,23 +1227,23 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 		Endpoints:   []string{etcdDummyAddress},
 		DialTimeout: 5 * time.Second,
 	}
-	client, err := etcdAPI.New(cfg)
+	etcdClient, err := etcdAPI.New(cfg)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		require.NoError(t, client.Close())
+		require.NoError(t, etcdClient.Close())
 	})
 
 	tests := []struct {
-		fn              func(*testing.T, string, int, KVLocker)
+		fn              func(*testing.T, BackendOperations, string, int, KVLocker)
 		name            string
 		useKVLocker     bool
 		needCondKey     bool
 		populateKVPairs bool
 	}{
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				val, err := Client().GetIfLocked(ctx, getKey(k), locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				val, err := client.GetIfLocked(ctx, getKey(k), locker)
 				require.NoError(t, err)
 				require.Equal(t, []byte(value), val)
 			},
@@ -1252,8 +1252,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				val, err := Client().Get(ctx, getKey(k))
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				val, err := client.Get(ctx, getKey(k))
 				require.NoError(t, err)
 				require.Equal(t, []byte(value), val)
 			},
@@ -1261,8 +1261,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				kvPairs, err := Client().ListPrefix(ctx, getKey(k))
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				kvPairs, err := client.ListPrefix(ctx, getKey(k))
 				require.NoError(t, err)
 				require.Len(t, kvPairs, 1)
 				val, ok := kvPairs[getKey(k)]
@@ -1273,8 +1273,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				kvPairs, err := Client().ListPrefixIfLocked(ctx, getKey(k), locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				kvPairs, err := client.ListPrefixIfLocked(ctx, getKey(k), locker)
 				require.NoError(t, err)
 				require.Len(t, kvPairs, 1)
 				val, ok := kvPairs[getKey(k)]
@@ -1286,8 +1286,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				updated, err := Client().UpdateIfDifferent(ctx, getKey(k), []byte("bar-new"), true)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				updated, err := client.UpdateIfDifferent(ctx, getKey(k), []byte("bar-new"), true)
 				require.NoError(t, err)
 				require.True(t, updated)
 			},
@@ -1295,8 +1295,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				updated, err := Client().UpdateIfDifferentIfLocked(ctx, getKey(k), []byte("bar-new"), true, locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				updated, err := client.UpdateIfDifferentIfLocked(ctx, getKey(k), []byte("bar-new"), true, locker)
 				require.NoError(t, err)
 				require.True(t, updated)
 			},
@@ -1305,31 +1305,31 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().Update(ctx, getKey(k), []byte(value), true)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				err := client.Update(ctx, getKey(k), []byte(value), true)
 				require.NoError(t, err)
 			},
 			name: "Update",
 		},
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				err := Client().UpdateIfLocked(ctx, getKey(k), []byte(value), true, locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				err := client.UpdateIfLocked(ctx, getKey(k), []byte(value), true, locker)
 				require.NoError(t, err)
 			},
 			name:        "UpdateIfLocked",
 			useKVLocker: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				created, err := Client().CreateOnly(ctx, getKey(k), []byte(value), true)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				created, err := client.CreateOnly(ctx, getKey(k), []byte(value), true)
 				require.NoError(t, err)
 				require.True(t, created)
 			},
 			name: "CreateOnly",
 		},
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				created, err := Client().CreateOnlyIfLocked(ctx, getKey(k), []byte(value), true, locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				created, err := client.CreateOnlyIfLocked(ctx, getKey(k), []byte(value), true, locker)
 				require.NoError(t, err)
 				require.True(t, created)
 			},
@@ -1337,16 +1337,16 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			useKVLocker: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().Delete(ctx, getKey(k))
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				err := client.Delete(ctx, getKey(k))
 				require.NoError(t, err)
 			},
 			name:            "Delete",
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				err := Client().DeleteIfLocked(ctx, getKey(k), locker)
+			fn: func(t *testing.T, client BackendOperations, key string, k int, locker KVLocker) {
+				err := client.DeleteIfLocked(ctx, getKey(k), locker)
 				require.NoError(t, err)
 			},
 			name:            "DeleteIfLocked",
@@ -1354,8 +1354,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			populateKVPairs: true,
 		},
 		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().DeletePrefix(ctx, getKey(k))
+			fn: func(t *testing.T, client BackendOperations, key string, k int, _ KVLocker) {
+				err := client.DeletePrefix(ctx, getKey(k))
 				require.NoError(t, err)
 			},
 			name:            "DeletePrefix",
@@ -1371,24 +1371,24 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 				err      error
 			)
 
-			SetupDummyWithConfigOpts(t, "etcd", map[string]string{
+			client := SetupDummyWithConfigOpts(t, "etcd", map[string]string{
 				EtcdRateLimitOption: fmt.Sprintf("%d", qps),
 			})
 
 			if tt.populateKVPairs {
 				for i := range count {
-					_, err := client.Put(ctx, getKey(i), value)
+					_, err := etcdClient.Put(ctx, getKey(i), value)
 					require.NoError(t, err)
 				}
 			}
 
 			if tt.needCondKey {
-				_, err = client.Put(ctx, condKey, value)
+				_, err = etcdClient.Put(ctx, condKey, value)
 				require.NoError(t, err)
 			}
 
 			if tt.useKVLocker {
-				kvlocker, err = Client().LockPath(ctx, "locks/"+prefix+"/.lock")
+				kvlocker, err = client.LockPath(ctx, "locks/"+prefix+"/.lock")
 				require.NoError(t, err)
 
 				t.Cleanup(func() {
@@ -1402,7 +1402,7 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 				wg.Add(1)
 				go func(wg *sync.WaitGroup, i int) {
 					defer wg.Done()
-					tt.fn(t, prefix, i, kvlocker)
+					tt.fn(t, client, prefix, i, kvlocker)
 				}(&wg, i)
 			}
 			wg.Wait()
@@ -1428,13 +1428,13 @@ func (kvw *kvWrapper) Get(ctx context.Context, key string, opts ...etcdAPI.OpOpt
 
 func TestPaginatedList(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	client := SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
 	const prefix = "list/paginated"
 	ctx := context.Background()
 
 	run := func(t *testing.T, batch int, withParallelOps bool) {
-		cl := Client().(*etcdClient)
+		cl := client.(*etcdClient)
 		keys := map[string]struct{}{
 			path.Join(prefix, "immortal-finch"):   {},
 			path.Join(prefix, "rare-goshawk"):     {},

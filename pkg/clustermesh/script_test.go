@@ -13,6 +13,7 @@ import (
 	"path"
 	"testing"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -133,9 +134,13 @@ func TestScript(t *testing.T) {
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
-			cell.Invoke(func(db *statedb.DB) {
+			cell.Provide(func(db *statedb.DB) (kvstore.BackendOperations, uhive.ScriptCmdsOut) {
 				kvstore.SetupInMemory(db)
-				kvstore.SetupDummy(t, "in-memory")
+				client := kvstore.SetupDummy(t, "in-memory")
+				return client, uhive.NewScriptCmds(kvstoreCommands{client}.cmds())
+			}),
+
+			cell.Invoke(func(client kvstore.BackendOperations) {
 				clusterConfig := []byte("endpoints:\n- in-memory\n")
 				config1 := path.Join(configDir, "cluster1")
 				require.NoError(t, os.WriteFile(config1, clusterConfig, 0644), "Failed to write config file for cluster1")
@@ -151,7 +156,7 @@ func TestScript(t *testing.T) {
 							MaxConnectedClusters: 255,
 						},
 					}
-					err := cmutils.SetClusterConfig(context.TODO(), name, config, kvstore.Client())
+					err := cmutils.SetClusterConfig(context.TODO(), name, config, client)
 					require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 				}
 			}),
@@ -172,7 +177,6 @@ func TestScript(t *testing.T) {
 		cmds, err := h.ScriptCommands(log)
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
-		maps.Insert(cmds, maps.All(kvstoreCommands{kvstore.Client()}.cmds()))
 
 		return &script.Engine{
 			Cmds:             cmds,

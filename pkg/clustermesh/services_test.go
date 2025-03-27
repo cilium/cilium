@@ -62,6 +62,7 @@ func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(tb testing.TB, clust
 
 type ClusterMeshServicesTestSuite struct {
 	svcCache   *k8s.ServiceCacheImpl
+	client     kvstore.BackendOperations
 	mesh       *ClusterMesh
 	randomName string
 }
@@ -74,9 +75,9 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kvstore.SetupDummy(tb, "etcd")
+	client := kvstore.SetupDummy(tb, "etcd")
 
-	s := &ClusterMeshServicesTestSuite{}
+	s := &ClusterMeshServicesTestSuite{client: client}
 	s.randomName = rand.String(12)
 	clusterName1 := s.randomName + "1"
 	clusterName2 := s.randomName + "2"
@@ -103,7 +104,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 				MaxConnectedClusters: 255,
 			},
 		}
-		err := cmutils.SetClusterConfig(ctx, cluster, config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, cluster, config, client)
 		require.NoError(tb, err)
 	}
 
@@ -169,9 +170,9 @@ func TestClusterMeshServicesGlobal(t *testing.T) {
 	s := setup(t)
 
 	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 
 	swgSvcs := lock.NewStoppableWaitGroup()
 	k8sSvc := &slim_corev1.Service{
@@ -225,10 +226,10 @@ func TestClusterMeshServicesGlobal(t *testing.T) {
 		assert.NotContains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("30.0.185.196"))
 	})
 
-	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1"))
+	require.NoError(t, s.client.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1"))
 	s.expectEvent(t, k8s.UpdateService, svcID, nil)
 
-	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
+	require.NoError(t, s.client.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
 	s.expectEvent(t, k8s.DeleteService, svcID, nil)
 
 	swgSvcs.Stop()
@@ -242,9 +243,9 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 	s := setup(t)
 
 	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -275,7 +276,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 	})
 
 	k, v = s.prepareServiceUpdate(t, 1, "80.0.185.196", "http", 8080)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
 			assert.Equal(c, loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
@@ -288,7 +289,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 	})
 
 	k, v = s.prepareServiceUpdate(t, 2, "90.0.185.196", "http", 8080)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
 			assert.Equal(c, loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
@@ -300,7 +301,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1"))
+	require.NoError(t, s.client.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1"))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("90.0.185.196")) {
 			assert.Equal(c, loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
@@ -308,7 +309,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
+	require.NoError(t, s.client.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
 	s.expectEvent(t, k8s.DeleteService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		assert.Empty(c, event.Endpoints.Backends)
 	})
@@ -321,9 +322,9 @@ func TestClusterMeshServicesNonGlobal(t *testing.T) {
 	s := setup(t)
 
 	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
-	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
+	require.NoError(t, s.client.Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
