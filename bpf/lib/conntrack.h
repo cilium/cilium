@@ -431,15 +431,11 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
-	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
