@@ -4,8 +4,10 @@
 package tests
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -286,6 +288,28 @@ func (s *podToPodNoFrag) deriveMTU(ctx context.Context, t *check.Test, ipFam fea
 }
 
 func PodToPodMissingIPCache(opts ...Option) check.Scenario {
+	return newPodToPodMissingIPCache(opts...)
+}
+
+func PodToPodMissingIPCacheV2(opts ...Option) check.Scenario {
+	scenario := newPodToPodMissingIPCache(opts...)
+	scenario.removePodCIDREntries = true
+	scenario.useExactMatch = true
+	return scenario
+}
+
+type podToPodMissingIPCache struct {
+	check.ScenarioBase
+
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+	method            string
+
+	removePodCIDREntries bool
+	useExactMatch        bool
+}
+
+func newPodToPodMissingIPCache(opts ...Option) *podToPodMissingIPCache {
 	options := &labelsOption{}
 	for _, opt := range opts {
 		opt(options)
@@ -298,14 +322,6 @@ func PodToPodMissingIPCache(opts ...Option) check.Scenario {
 	}
 }
 
-type podToPodMissingIPCache struct {
-	check.ScenarioBase
-
-	sourceLabels      map[string]string
-	destinationLabels map[string]string
-	method            string
-}
-
 func (s *podToPodMissingIPCache) Name() string {
 	return "pod-to-pod-missing-ipcache"
 }
@@ -315,39 +331,41 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	// Temporarily delete echo pods entries from ipcache
-	ipcacheGetPat := regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([\d\.]+)`)
 	for _, echo := range ct.EchoPods() {
 		echoIP := echo.Address(features.IPFamilyV4)
 		for _, ciliumPod := range ct.CiliumPods() {
-			lookupCmd := []string{"cilium", "bpf", "ipcache", "get", echoIP}
-			output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, lookupCmd)
+			addr, err := netip.ParseAddr(echoIP)
 			if err != nil {
-				ct.Warnf(`failed to lookup IP cache entry: "%s", %v, "%s"`, lookupCmd, err, output.String())
-				continue
-			}
-			matches := ipcacheGetPat.FindStringSubmatch(output.String())
-			if matches == nil {
-				ct.Warnf(`failed to find IP cache entry: "%s"`, output.String())
-				continue
-			}
-			identity := matches[1]
-			encryptkey := matches[2]
-			tunnelendpoint := matches[3]
-
-			deleteCmd := []string{"cilium", "bpf", "ipcache", "delete", echoIP + "/32"}
-			if output, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, deleteCmd); err != nil {
-				ct.Warnf(`failed to delete IP cache entry: "%s", %v, "%s"`, deleteCmd, err, output.String())
+				ct.Warnf("invalid pod IP address: %w", err)
 				continue
 			}
 
-			updateCmd := []string{"cilium", "bpf", "ipcache", "update", echoIP + "/32"}
-			updateCmd = append(updateCmd, "--tunnelendpoint", tunnelendpoint, "--identity", identity, "--encryptkey", encryptkey)
-			defer func(ciliumPod check.Pod, updateCmd []string) {
-				output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, updateCmd)
+			restore, err := ipcacheDeleteAndRestore(ctx, ct, ciliumPod, netip.PrefixFrom(addr, addr.BitLen()), s.useExactMatch)
+			if err != nil {
+				ct.Warnf("ipcache ip entries delete and restore failed: %w", err)
+				continue
+			}
+			defer restore()
+		}
+	}
+
+	// Temporarily delete pod CIDRs entries from ipcache
+	if s.removePodCIDREntries {
+		for _, ciliumPod := range ct.CiliumPods() {
+			prefixes, err := remoteNodesPodCIDRs(ctx, ciliumPod)
+			if err != nil {
+				ct.Warnf("unable to get remote nodes pod CIDRs: %w", err)
+				continue
+			}
+
+			for _, prefix := range prefixes {
+				restore, err := ipcacheDeleteAndRestore(ctx, ct, ciliumPod, prefix, s.useExactMatch)
 				if err != nil {
-					ct.Warnf(`failed to restore IP cache entry: "%s", %v, "%s"`, updateCmd, err, output.String())
+					ct.Warnf("ipcache pod CIDR entries delete and restore failed: %w", err)
+					continue
 				}
-			}(ciliumPod, updateCmd)
+				defer restore()
+			}
 		}
 	}
 
@@ -384,4 +402,100 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 			i++
 		}
 	}
+}
+
+func remoteNodesPodCIDRs(ctx context.Context, ciliumPod check.Pod) ([]netip.Prefix, error) {
+	var prefixes []netip.Prefix
+
+	nodeListCmd := []string{"cilium", "node", "list"}
+	output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, nodeListCmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %q, %w, %q", nodeListCmd, err, output.String())
+	}
+
+	// Parse "cilium node list" output
+	//
+	// Expected format:
+	//
+	// Name                           IPv4 Address   Endpoint CIDR   IPv6 Address   Endpoint CIDR   Source
+	// kind-kind/kind-control-plane   172.18.0.3     10.244.0.0/24   fc00:c111::3                   local
+	// kind-kind/kind-worker          172.18.0.2     10.244.1.0/24   fc00:c111::2                   custom-resource
+	// kind-kind/kind-worker2         172.18.0.4     10.244.3.0/24   fc00:c111::4                   custom-resource
+	// kind-kind/kind-worker3         172.18.0.5     10.244.2.0/24   fc00:c111::5                   custom-resource
+	//
+	// see cilium-dbg/cmd/node_list.go for more details
+	scanner := bufio.NewScanner(&output)
+	nLine := 0
+	for scanner.Scan() {
+		nLine++
+
+		// discard "cilium node list" header
+		if nLine == 1 {
+			continue
+		}
+
+		fields := strings.Fields(scanner.Text())
+
+		// discard local node CIDR
+		if source := fields[len(fields)-1]; source == "local" {
+			continue
+		}
+
+		endpointCIDR := fields[2]
+		prefix, err := netip.ParsePrefix(endpointCIDR)
+		if err != nil {
+			return nil, fmt.Errorf(`failed to get "Endpoint CIDR" from "cilium node list" output: %q, %w`, endpointCIDR, err)
+		}
+
+		prefixes = append(prefixes, prefix)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to scan nodes list: %w", err)
+	}
+
+	return prefixes, nil
+}
+
+var ipcacheGetPat = regexp.MustCompile(`identity=(\d+)\s+encryptkey=(\d+)\s+tunnelendpoint=([\d\.]+)`)
+
+// ipcacheDeleteAndRestore removes matching ipcache entry and return a function to revert the deletion.
+func ipcacheDeleteAndRestore(
+	ctx context.Context, ct *check.ConnectivityTest,
+	ciliumPod check.Pod, prefix netip.Prefix, exactMatch bool,
+) (func(), error) {
+	var lookupCmd []string
+	if exactMatch {
+		lookupCmd = []string{"cilium", "bpf", "ipcache", "match", prefix.String()}
+	} else {
+		lookupCmd = []string{"cilium", "bpf", "ipcache", "get", prefix.Addr().String()}
+	}
+
+	output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, lookupCmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup ipcache entry: %q, %w, %q", lookupCmd, err, output.String())
+	}
+
+	matches := ipcacheGetPat.FindStringSubmatch(output.String())
+	if matches == nil {
+		return nil, fmt.Errorf("failed to find ipcache entry: %q", output.String())
+	}
+	identity := matches[1]
+	encryptkey := matches[2]
+	tunnelendpoint := matches[3]
+
+	deleteCmd := []string{"cilium", "bpf", "ipcache", "delete", prefix.String()}
+	if output, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, deleteCmd); err != nil {
+		return nil, fmt.Errorf("failed to delete IP cache entry: %q, %w, %q", deleteCmd, err, output.String())
+	}
+
+	return func() {
+		updateCmd := []string{
+			"cilium", "bpf", "ipcache", "update", prefix.String(),
+			"--tunnelendpoint", tunnelendpoint, "--identity", identity, "--encryptkey", encryptkey,
+		}
+		output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, updateCmd)
+		if err != nil {
+			ct.Warnf("failed to restore ipcache entry: %q, %w, %q", updateCmd, err, output.String())
+		}
+	}, nil
 }
