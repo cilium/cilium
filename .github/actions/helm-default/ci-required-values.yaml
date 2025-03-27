@@ -1,5 +1,0 @@
-extraEnv:
-  - name: "KUBE_CACHE_MUTATION_DETECTOR"
-    value: "true"
-  - name: "CILIUM_FEATURE_METRICS_WITH_DEFAULTS"
-    value: "true"
