@@ -42,6 +42,7 @@ type RedirectSuite struct {
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	testutils.IntegrationTest(tb)
+	logger := hivetest.Logger(tb)
 
 	s := &RedirectSuite{
 		do: &DummyOwner{},
@@ -52,7 +53,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy(tb, "etcd")
 
-	s.mgr = cache.NewCachingIdentityAllocator(s.do, cache.AllocatorConfig{})
+	s.mgr = cache.NewCachingIdentityAllocator(logger, s.do, cache.AllocatorConfig{})
 	<-s.mgr.InitIdentityAllocator(nil)
 
 	identityCache := identity.IdentityMap{
@@ -60,8 +61,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		identityBar: labelsBar,
 	}
 
-	s.do.idmgr = identitymanager.NewIDManager()
-	s.do.repo = policy.NewPolicyRepository(hivetest.Logger(tb), identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(tb), certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
+	s.do.idmgr = identitymanager.NewIDManager(logger)
+	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(tb), certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
@@ -162,8 +163,9 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
+	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), nil, model)
+	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

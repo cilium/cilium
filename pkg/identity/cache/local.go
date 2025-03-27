@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 
 	"github.com/cilium/stream"
@@ -17,6 +18,7 @@ import (
 )
 
 type localIdentityCache struct {
+	logger              *slog.Logger
 	mutex               lock.RWMutex
 	identitiesByID      map[identity.NumericIdentity]*identity.Identity
 	identitiesByLabels  map[string]*identity.Identity
@@ -39,10 +41,11 @@ type localIdentityCache struct {
 	emitChange   func(IdentityChange)
 }
 
-func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity) *localIdentityCache {
+func newLocalIdentityCache(logger *slog.Logger, scope, minID, maxID identity.NumericIdentity) *localIdentityCache {
 	// There isn't a natural completion of this observable, so let's drop it.
 	mcast, emit, _ := stream.Multicast[IdentityChange]()
 	return &localIdentityCache{
+		logger:              logger,
 		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
 		identitiesByLabels:  map[string]*identity.Identity{},
 		nextNumericIdentity: minID,
@@ -72,10 +75,10 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 	if idCandidate.Scope() == l.scope {
 		if _, taken := l.identitiesByID[idCandidate]; !taken {
 			// let nextNumericIdentity be, allocated identities will be skipped anyway
-			log.Debugf("Reallocated restored local identity: %d", idCandidate)
+			l.logger.Debug("Reallocated restored local identity", logfields.Identity, idCandidate)
 			return idCandidate, nil
 		} else {
-			log.WithField(logfields.Identity, idCandidate).Debug("Requested local identity not available to allocate")
+			l.logger.Debug("Requested local identity not available to allocate", logfields.Identity, idCandidate)
 		}
 	}
 	firstID := l.nextNumericIdentity
@@ -95,7 +98,7 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 			for withheldID := range l.withheldIdentities {
 				if _, taken := l.identitiesByID[withheldID]; !taken {
 					delete(l.withheldIdentities, withheldID)
-					log.WithField(logfields.Identity, withheldID).Warn("Local identity allocator full; claiming first withheld identity. This may cause momentary policy drops")
+					l.logger.Warn("Local identity allocator full; claiming first withheld identity. This may cause momentary policy drops", logfields.Identity, withheldID)
 					return withheldID, nil
 				}
 			}
