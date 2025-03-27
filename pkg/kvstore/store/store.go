@@ -59,8 +59,7 @@ type Configuration struct {
 	// key is discovered. This parameter is required.
 	KeyCreator KeyCreator
 
-	// Backend is the kvstore to use as a backend. If no backend is
-	// specified, kvstore.Client() is being used.
+	// Backend is the kvstore to use as a backend. This parameter is required.
 	Backend kvstore.BackendOperations
 
 	// Observer is the observe that will receive events on key mutations
@@ -85,7 +84,7 @@ func (c *Configuration) validate() error {
 	}
 
 	if c.Backend == nil {
-		c.Backend = kvstore.Client()
+		return fmt.Errorf("backend must be specified")
 	}
 
 	if c.Context == nil {
