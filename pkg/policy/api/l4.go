@@ -169,6 +169,21 @@ type Listener struct {
 	Priority uint8 `json:"priority"`
 }
 
+// ServerName allows using prefix only wildcards to match DNS names.
+//
+// - "*" matches 0 or more DNS valid characters, and may only occur at the
+// beginning of the pattern. As a special case a "*" as the leftmost character,
+// without a following "." matches all subdomains as well as the name to the right.
+//
+// Examples:
+//   - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
+//   - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+//
+// +kubebuilder:validation:MaxLength=255
+// +kubebuilder:validation:Pattern=`^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$`
+// +kubebuilder:validation:OneOf
+type ServerName string
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
@@ -203,7 +218,9 @@ type PortRule struct {
 	// TLS handshake.
 	//
 	// +kubebuilder:validation:Optional
-	ServerNames []string `json:"serverNames,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	// +listType=set
+	ServerNames []ServerName `json:"serverNames,omitempty"`
 
 	// listener specifies the name of a custom Envoy listener to which this traffic should be
 	// redirected to.
@@ -227,6 +244,14 @@ func (pd PortRule) GetPortProtocols() []PortProtocol {
 // GetPortRule returns the PortRule.
 func (pd *PortRule) GetPortRule() *PortRule {
 	return pd
+}
+
+func (pd *PortRule) GetServerNames() []string {
+	res := make([]string, 0, len(pd.ServerNames))
+	for _, sn := range pd.ServerNames {
+		res = append(res, string(sn))
+	}
+	return res
 }
 
 // PortDenyRule is a list of ports/protocol that should be used for deny
