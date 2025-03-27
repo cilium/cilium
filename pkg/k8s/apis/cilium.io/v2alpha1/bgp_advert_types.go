@@ -97,6 +97,7 @@ type CiliumBGPAdvertisementSpec struct {
 // set to the advertised routes.
 //
 // +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Service' || has(self.service)", message="service field is required for the 'Service' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType != 'PodCIDR' || !has(self.selector)", message="selector field is not allowed for the 'PodCIDR' advertisementType"
 type BGPAdvertisement struct {
 	// AdvertisementType defines type of advertisement which has to be advertised.
 	//
@@ -109,7 +110,8 @@ type BGPAdvertisement struct {
 	Service *BGPServiceOptions `json:"service,omitempty"`
 
 	// Selector is a label selector to select objects of the type specified by AdvertisementType.
-	// If not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
+	// For the PodCIDR AdvertisementType it is not applicable. For other advertisement types,
+	// if not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
 	//
 	// +kubebuilder:validation:Optional
 	Selector *slimv1.LabelSelector `json:"selector,omitempty"`
