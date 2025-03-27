@@ -32,7 +32,7 @@ var (
 func TestRemoteClusterStatus(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 	kvsService := map[string]string{
 		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
 	}
@@ -84,7 +84,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				cancel()
 				wg.Wait()
 
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
+				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			metrics := NewMetrics()
@@ -102,11 +102,11 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range kvsService {
-				require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 			if tt.capabilityServiceExportsEnabled != nil {
 				for key, value := range kvsServiceExport {
-					require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+					require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 				}
 			}
 
@@ -142,7 +142,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			ready := make(chan error)
 			wg.Add(1)
 			go func() {
-				rc.Run(ctx, kvstore.Client(), cfg, ready)
+				rc.Run(ctx, client, cfg, ready)
 				wg.Done()
 			}()
 
@@ -177,7 +177,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 func TestRemoteClusterHooks(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -217,7 +217,7 @@ func TestRemoteClusterHooks(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		rc.Run(ctx, kvstore.Client(), cfg, ready)
+		rc.Run(ctx, client, cfg, ready)
 		wg.Done()
 	}()
 

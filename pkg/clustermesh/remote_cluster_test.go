@@ -64,7 +64,7 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -145,12 +145,12 @@ func TestRemoteClusterRun(t *testing.T) {
 				wg.Wait()
 
 				allocator.Close()
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
+				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
-				require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 
 			var ipc fakeIPCache
@@ -173,7 +173,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
-				BackendOperations: kvstore.Client(),
+				BackendOperations: client,
 				name:              "foo",
 			}
 
@@ -248,7 +248,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	const cid1, cid2, cid3 = 10, 20, 30
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -313,7 +313,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
-			rc.Run(ctx, kvstore.Client(), cfg, ready)
+			rc.Run(ctx, client, cfg, ready)
 			wg.Done()
 		}()
 
@@ -325,7 +325,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 		// Populate the kvstore with the appropriate KV pairs
 		for key, value := range kvs(cid1) {
-			require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -350,7 +350,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		// Update the kvstore pairs with the new ClusterID
 		obs.reset()
 		for key, value := range kvs(cid2) {
-			require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {

@@ -146,11 +146,11 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		require.NoError(t, serviceExportStore.CacheStore().Add(svcExport))
 	}
 
-	kvstore.SetupDummy(t, "etcd")
+	client := kvstore.SetupDummy(t, "etcd")
 
 	clusterName := "cluster1"
 	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
-	kvs := storeFactory.NewSyncStore(clusterName, kvstore.Client(), types.ServiceExportStorePrefix)
+	kvs := storeFactory.NewSyncStore(clusterName, client, types.ServiceExportStorePrefix)
 	require.NoError(t, kvs.UpsertKey(ctx, &types.MCSAPIServiceSpec{
 		Cluster:                 clusterName,
 		Name:                    "remove-service",
@@ -179,7 +179,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		name := "basic"
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := kvstore.Client().Get(ctx, storeKey)
+			v, err := client.Get(ctx, storeKey)
 			assert.NoError(c, err)
 			mcsAPISvcSpec := types.MCSAPIServiceSpec{}
 			assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
@@ -201,7 +201,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		name := "headless"
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := kvstore.Client().Get(ctx, storeKey)
+			v, err := client.Get(ctx, storeKey)
 			assert.NoError(c, err)
 			mcsAPISvcSpec := types.MCSAPIServiceSpec{}
 			assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
@@ -214,7 +214,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		name := "remove-service"
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := kvstore.Client().Get(ctx, storeKey)
+			v, err := client.Get(ctx, storeKey)
 			assert.NoError(c, err)
 			assert.Empty(c, string(v))
 		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
@@ -224,7 +224,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		name := "remove-service-export"
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := kvstore.Client().Get(ctx, storeKey)
+			v, err := client.Get(ctx, storeKey)
 			assert.NoError(c, err)
 			assert.Empty(c, string(v))
 		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
