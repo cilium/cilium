@@ -1529,6 +1529,11 @@ func (k *K8sClusterMesh) disconnectRemoteWithHelm(ctx context.Context, clusterNa
 }
 
 func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
+	// Check if destination context is provided
+	if len(k.params.DestinationContext) == 0 {
+		return fmt.Errorf("no destination context specified, use --destination-context to specify which cluster to disconnect from")
+	}
+
 	localClient := k.client.(*k8s.Client)
 	err := k.checkConnectionMode()
 	if err != nil {
