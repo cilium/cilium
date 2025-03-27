@@ -240,7 +240,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*sl
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed due to invalid data", logfields.Error, err)
 	if ep != nil {
 		ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	}
@@ -253,7 +253,7 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 		// by the caller
 		NoIPRelease: true,
 	})
-	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
+	ep.Logger(daemonSubsys).Warn("Creation of endpoint failed", logfields.Error, err)
 	return nil, PutEndpointIDFailedCode, err
 }
 
@@ -297,7 +297,7 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 	defer m.mutex.Unlock()
 
 	if req, ok := m.requests[cepName]; ok {
-		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same cep name")
+		ep.Logger(daemonSubsys).Warn("Cancelling obsolete endpoint creating due to new create for same cep name")
 		req.cancel()
 	}
 
@@ -332,7 +332,7 @@ func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
 
 func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
 	if m.EndCreateRequest(ep) {
-		ep.Logger(daemonSubsys).Warning("Cancelled endpoint create request due to receiving endpoint delete request")
+		ep.Logger(daemonSubsys).Warn("Cancelled endpoint create request due to receiving endpoint delete request")
 	}
 }
 
@@ -477,9 +477,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			if newPod, err2 := d.clientset.Slim().CoreV1().Pods(ep.K8sNamespace).Get(
 				ctx, ep.K8sPodName, metav1.GetOptions{},
 			); err2 != nil {
-				ep.Logger("api").WithError(err2).Warn(
-					"Failed to fetch Kubernetes Pod during detection of an outdated Pod UID. Endpoint will be created with the 'init' identity. " +
-						"The Endpoint will be updated with a real identity once the Kubernetes can be fetched.")
+				ep.Logger("api").Warn(
+					"Failed to fetch Kubernetes Pod during detection of an outdated Pod UID. Endpoint will be created with the 'init' identity. "+
+						"The Endpoint will be updated with a real identity once the Kubernetes can be fetched.",
+					logfields.Error, err2,
+				)
 				err = errors.Join(err, err2)
 			} else {
 				pod = newPod
@@ -490,7 +492,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 
 		if err != nil {
-			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
+			ep.Logger("api").Warn("Unable to fetch kubernetes labels", logfields.Error, err)
 		} else {
 			ep.SetPod(pod)
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)

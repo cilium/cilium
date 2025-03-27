@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -172,11 +171,7 @@ func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetada
 	return ch
 }
 
-func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
-	attrs := make([]any, 0, len(fields)*2)
-	for k, v := range fields {
-		attrs = append(attrs, k, v)
-	}
+func (d DummyOwner) PolicyDebug(msg string, attrs ...any) {
 	d.logger.Debug(msg, attrs...)
 }
 

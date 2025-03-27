@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -31,7 +32,8 @@ func fakeCheck(ep *endpoint.Endpoint) error {
 func TestMarkAndSweep(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	// Open-code WithPeriodicGC() to avoid running the controller
-	mgr := New(&dummyEpSyncher{}, nil, nil, nil)
+	logger := hivetest.Logger(t)
+	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	mgr.checkHealth = fakeCheck
 	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
 

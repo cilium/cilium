@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/container/set"
@@ -18,7 +19,8 @@ import (
 const numberOfEndpointPolicies = 10
 
 func Test_PolicyUpdateCallback(t *testing.T) {
-	mgr := New(&dummyEpSyncher{}, nil, nil, nil)
+	logger := hivetest.Logger(t)
+	mgr := New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	called := int32(0)
 	updateFunc := func(idsRegen *set.Set[identity.NumericIdentity], incremental bool) error {
 		atomic.AddInt32(&called, 1)
