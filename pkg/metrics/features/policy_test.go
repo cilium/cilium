@@ -511,7 +511,7 @@ func Test_ruleType(t *testing.T) {
 						{
 							ToPorts: api.PortRules{
 								{
-									ServerNames: []string{""},
+									ServerNames: []api.ServerName{""},
 									Rules: &api.L7Rules{
 										HTTP: []api.PortRuleHTTP{
 											{
