@@ -15,5 +15,5 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.31.6"
+	CustomResourceDefinitionSchemaVersion = "1.31.7"
 )

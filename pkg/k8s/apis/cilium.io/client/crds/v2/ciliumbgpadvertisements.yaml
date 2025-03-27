@@ -147,7 +147,8 @@ spec:
                     selector:
                       description: |-
                         Selector is a label selector to select objects of the type specified by AdvertisementType.
-                        If not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
+                        For the PodCIDR AdvertisementType it is not applicable. For other advertisement types,
+                        if not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -242,6 +243,8 @@ spec:
                   x-kubernetes-validations:
                   - message: service field is required for the 'Service' advertisementType
                     rule: self.advertisementType != 'Service' || has(self.service)
+                  - message: selector field is not allowed for the 'PodCIDR' advertisementType
+                    rule: self.advertisementType != 'PodCIDR' || !has(self.selector)
                 type: array
             required:
             - advertisements
@@ -382,7 +385,8 @@ spec:
                     selector:
                       description: |-
                         Selector is a label selector to select objects of the type specified by AdvertisementType.
-                        If not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
+                        For the PodCIDR AdvertisementType it is not applicable. For other advertisement types,
+                        if not specified, no objects of the type specified by AdvertisementType are selected for advertisement.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -477,6 +481,8 @@ spec:
                   x-kubernetes-validations:
                   - message: service field is required for the 'Service' advertisementType
                     rule: self.advertisementType != 'Service' || has(self.service)
+                  - message: selector field is not allowed for the 'PodCIDR' advertisementType
+                    rule: self.advertisementType != 'PodCIDR' || !has(self.selector)
                 type: array
             required:
             - advertisements
