@@ -112,14 +112,24 @@ static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthd
 	}
 }
 
-static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *nexthdr, int l3_off)
+static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off,
+					      __u8 *nexthdr, fraginfo_t *fraginfo)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = *nexthdr;
 
+	/* 0 is a valid fraginfo that encodes:
+	 * - is_fragment = false
+	 * - has_l4_header = true
+	 * - protocol = 0 (unused when !is_fragment)
+	 * This is the default in case no NEXTHDR_FRAGMENT is found.
+	 */
+	*fraginfo = 0;
+
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		int hdrlen = ipv6_skip_exthdr(ctx, &nh, l3_off + len);
+		__u8 newnh = nh;
+		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, l3_off + len);
 
 		if (hdrlen < 0)
 			return hdrlen;
@@ -129,16 +139,35 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *next
 			return len;
 		}
 
+		if (nh == NEXTHDR_FRAGMENT) {
+			struct ipv6_frag_hdr frag;
+
+			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
+				return DROP_INVALID;
+
+			*fraginfo = ipfrag_encode_ipv6(&frag);
+		}
+
 		len += hdrlen;
+		nh = newnh;
 	}
 
 	/* Reached limit of supported extension headers */
 	return DROP_INVALID_EXTHDR;
 }
 
+static __always_inline int ipv6_hdrlen_with_fraginfo(struct __ctx_buff *ctx,
+						     __u8 *nexthdr,
+						     fraginfo_t *fraginfo)
+{
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, fraginfo);
+}
+
 static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 {
-	return ipv6_hdrlen_offset(ctx, nexthdr, ETH_HLEN);
+	fraginfo_t fraginfo;
+
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, &fraginfo);
 }
 
 static __always_inline void ipv6_addr_copy(union v6addr *dst,

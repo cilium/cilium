@@ -123,7 +123,8 @@ int test_ipfrag_helpers_ipv6_nofrag_check(struct __ctx_buff *ctx __maybe_unused)
 	void *data, *data_end;
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
-	fraginfo_t fraginfo;
+	fraginfo_t fraginfo, fraginfo2;
+	__u8 nexthdr;
 
 	test_init();
 
@@ -144,6 +145,12 @@ int test_ipfrag_helpers_ipv6_nofrag_check(struct __ctx_buff *ctx __maybe_unused)
 		test_fatal("ipv6_get_fraginfo failed");
 	assert(!ipfrag_is_fragment(fraginfo));
 	assert(ipfrag_has_l4_header(fraginfo));
+
+	/* ipv6_hdrlen_with_fraginfo should return the same fraginfo. */
+	nexthdr = l3->nexthdr;
+	if (ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo2) < 0)
+		test_fatal("ipv6_hdrlen_with_fraginfo failed");
+	assert(fraginfo == fraginfo2);
 
 	test_finish();
 }
@@ -205,7 +212,8 @@ int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct ipv6_frag_hdr *fraghdr;
-	fraginfo_t fraginfo;
+	fraginfo_t fraginfo, fraginfo2;
+	__u8 nexthdr;
 
 	test_init();
 
@@ -233,6 +241,12 @@ int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
 	assert(ipfrag_get_id(fraginfo) == (__be32)(0x12345678));
 
+	/* ipv6_hdrlen_with_fraginfo should return the same fraginfo. */
+	nexthdr = l3->nexthdr;
+	if (ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo2) < 0)
+		test_fatal("ipv6_hdrlen_with_fraginfo failed");
+	assert(fraginfo == fraginfo2);
+
 	/* Non-first fragment */
 	fraghdr->frag_off = bpf_htons((0x100 << 3) | 1);
 	fraginfo = ipv6_get_fraginfo(ctx, l3);
@@ -243,6 +257,12 @@ int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
 	assert(ipfrag_get_id(fraginfo) == (__be32)(0x12345678));
 
+	/* ipv6_hdrlen_with_fraginfo should return the same fraginfo. */
+	nexthdr = l3->nexthdr;
+	if (ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo2) < 0)
+		test_fatal("ipv6_hdrlen_with_fraginfo failed");
+	assert(fraginfo == fraginfo2);
+
 	/* Last fragment */
 	fraghdr->frag_off = bpf_htons(0x200 << 3);
 	fraginfo = ipv6_get_fraginfo(ctx, l3);
@@ -252,6 +272,12 @@ int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 	assert(!ipfrag_has_l4_header(fraginfo));
 	assert(ipfrag_get_protocol(fraginfo) == IPPROTO_UDP);
 	assert(ipfrag_get_id(fraginfo) == (__be32)(0x12345678));
+
+	/* ipv6_hdrlen_with_fraginfo should return the same fraginfo. */
+	nexthdr = l3->nexthdr;
+	if (ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo2) < 0)
+		test_fatal("ipv6_hdrlen_with_fraginfo failed");
+	assert(fraginfo == fraginfo2);
 
 	test_finish();
 }
