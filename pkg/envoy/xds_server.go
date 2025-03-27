@@ -222,6 +222,7 @@ type xdsServerConfig struct {
 	proxyXffNumTrustedHopsEgress  uint32
 	policyRestoreTimeout          time.Duration
 	metrics                       xds.Metrics
+	httpLingerConfig              int
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -935,7 +936,7 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup) xds.Acki
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, zeroLinger bool) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, lingerConfig int) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -944,9 +945,9 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		ProxyId:                  uint32(proxyPort),
 	}
 
-	if zeroLinger {
-		var zero uint32
-		conf.OriginalSourceSoLingerTime = &zero
+	if lingerConfig >= 0 {
+		lingerTime := uint32(lingerConfig)
+		conf.OriginalSourceSoLingerTime = &lingerTime
 	}
 
 	return &envoy_config_listener.ListenerFilter{
@@ -967,6 +968,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	}
 
 	addr, additionalAddr := GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+	lingerConfig := -1
+	if kind == policy.ParserTypeHTTP {
+		lingerConfig = s.config.httpLingerConfig
+	}
 	listenerConf := &envoy_config_listener.Listener{
 		Name:                name,
 		Address:             addr,
@@ -980,7 +985,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port, kind == policy.ParserTypeHTTP),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig),
 		},
 	}
 
