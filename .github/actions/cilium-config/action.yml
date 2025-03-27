@@ -109,8 +109,8 @@ runs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
             --helm-set=hubble.relay.image.useDigest=false \
-            --helm-set=standaloneDnsProxy.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/standalone-dns-proxy-ci \
-            --helm-set=standaloneDnsProxy.image.tag=${{ inputs.image-tag }} \
+            --helm-set=standaloneDnsProxy.image.repository=quay.io/singhvipul/standalone-dns-proxy \
+            --helm-set=standaloneDnsProxy.image.tag=latest \
             --helm-set=standaloneDnsProxy.image.useDigest=false"
           fi
 

@@ -238,8 +238,8 @@ jobs:
             --set-string='image.override=quay.io/cilium/cilium:invalid-image' \
             --set-string='extraConfig.enable-embedded-dns-proxy=false' \
             --set='l7Proxy=true,dnsProxy.proxyPort=40046' \
-            --helm-set=standaloneDnsProxy.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/standalone-dns-proxy-ci \
-            --helm-set=standaloneDnsProxy.image.tag=${{ steps.vars.outputs.sha }} \
+            --helm-set=standaloneDnsProxy.image.repository=quay.io/singhvipul/standalone-dns-proxy \
+            --helm-set=standaloneDnsProxy.image.tag=latest \
             --helm-set=standaloneDnsProxy.image.useDigest=false
 
           kubectl rollout restart -n kube-system daemonset/cilium
