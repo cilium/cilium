@@ -1544,6 +1544,12 @@ const (
 
 	AliveEntries = "aliveEntries"
 
+	Scope = "scope"
+
+	NewLocally = "newLocally"
+
+	Released = "released"
+
 	DNSRulesV2 = "dnsRulesV2"
 
 	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"

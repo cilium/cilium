@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -32,8 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache-cell")
 
 // Cell provides the IdentityAllocator for allocating security identities
 var Cell = cell.Module(
@@ -112,6 +109,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
+		logger:    params.Log,
 		policy:    params.PolicyRepository,
 		epmanager: params.EPManager,
 
@@ -131,12 +129,12 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 		}
 
 		// Allocator: allocates local and cluster-wide security identities.
-		cacheIDAlloc := cache.NewCachingIdentityAllocator(iao, allocatorConfig)
+		cacheIDAlloc := cache.NewCachingIdentityAllocator(params.Log, iao, allocatorConfig)
 		cacheIDAlloc.EnableCheckpointing()
 
 		idAlloc = cacheIDAlloc
 	} else {
-		idAlloc = cache.NewNoopIdentityAllocator()
+		idAlloc = cache.NewNoopIdentityAllocator(params.Log)
 	}
 
 	params.Lifecycle.Append(cell.Hook{
@@ -163,6 +161,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 // identityAllocatorOwner is used to break the circular dependency between
 // CachingIdentityAllocator and policy.Repository.
 type identityAllocatorOwner struct {
+	logger    *slog.Logger
 	policy    policy.PolicyRepository
 	epmanager endpointmanager.EndpointManager
 
@@ -188,16 +187,17 @@ func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.Iden
 	// We will add the identity twice; once directly from the endpoint creation,
 	// and again from the global identity watcher (k8s or kvstore).
 	if iao.policy.GetSelectorCache().CanSkipUpdate(added, deleted) {
-		log.Debug("Skipping no-op identity update")
+		iao.logger.Debug("Skipping no-op identity update")
 		return
 	}
 
 	start := time.Now()
 
-	log.WithFields(logrus.Fields{
-		logfields.AddedPolicyID:   slices.Collect(maps.Keys(added)),
-		logfields.DeletedPolicyID: slices.Collect(maps.Keys(deleted)),
-	}).Info("Processing identity update")
+	iao.logger.Info(
+		"Processing identity update",
+		logfields.AddedPolicyID, slices.Collect(maps.Keys(added)),
+		logfields.DeletedPolicyID, slices.Collect(maps.Keys(deleted)),
+	)
 
 	wg := &sync.WaitGroup{}
 	for _, handler := range iao.identityHandlers {
@@ -235,7 +235,10 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 	iao.firstStartTime = time.Time{}
 	iao.wgsLock.Unlock()
 
-	log.WithField(logfields.Count, len(wgs)).Info("Incremental policy update: waiting for endpoint notifications to complete")
+	iao.logger.Info(
+		"Incremental policy update: waiting for endpoint notifications to complete",
+		logfields.Count, len(wgs),
+	)
 
 	// Wait for all batched incremental updates to be finished with their notifications.
 	wdc := make(chan struct{})
@@ -257,7 +260,7 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 	// Direct all endpoints to consume the incremental changes and update policy.
 	// This returns a wg that is done when all endpoints have updated both their bpf
 	// policymaps as well as Envoy. (Or if ctx is closed).
-	log.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
+	iao.logger.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
 	updatedWG := iao.epmanager.UpdatePolicyMaps(ctx, noopWG)
 	updatedWG.Wait()
 	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(start).Seconds())
@@ -277,7 +280,7 @@ func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 	}
 
 	if ip == nil {
-		log.Fatal("Node IP not available yet")
+		logging.Fatal(iao.logger, "Node IP not available yet")
 	}
 
 	return ip.String()

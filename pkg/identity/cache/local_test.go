@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,10 +22,11 @@ import (
 
 func TestBumpNextNumericIdentity(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
 	scope := identity.NumericIdentity(0x42_00_00_00)
-	cache := newLocalIdentityCache(scope, minID, maxID)
+	cache := newLocalIdentityCache(logger, scope, minID, maxID)
 
 	for i := minID; i <= maxID; i++ {
 		require.Equal(t, i, cache.nextNumericIdentity)
@@ -37,10 +39,11 @@ func TestBumpNextNumericIdentity(t *testing.T) {
 
 func TestLocalIdentityCache(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
 	scope := identity.NumericIdentity(0x42_00_00_00)
-	cache := newLocalIdentityCache(scope, minID, maxID)
+	cache := newLocalIdentityCache(logger, scope, minID, maxID)
 
 	identities := map[identity.NumericIdentity]*identity.Identity{}
 
@@ -106,9 +109,10 @@ func TestLocalIdentityCache(t *testing.T) {
 }
 
 func TestOldNID(t *testing.T) {
+	logger := hivetest.Logger(t)
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(10)
 	scope := identity.NumericIdentity(0x42_00_00_00)
-	c := newLocalIdentityCache(scope, minID, maxID)
+	c := newLocalIdentityCache(logger, scope, minID, maxID)
 
 	// Request identity, it should work
 	l := labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32"))
@@ -167,9 +171,10 @@ func TestOldNID(t *testing.T) {
 }
 
 func TestObserve(t *testing.T) {
+	logger := hivetest.Logger(t)
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(10)
 	scope := identity.NumericIdentity(0x42_00_00_00)
-	c := newLocalIdentityCache(scope, minID, maxID)
+	c := newLocalIdentityCache(logger, scope, minID, maxID)
 
 	tctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	t.Cleanup(cancel)
