@@ -58,6 +58,7 @@ func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
 
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -69,7 +70,7 @@ func TestClusterMesh(t *testing.T) {
 	client := kvstore.SetupDummy(t, "etcd")
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-mgr.InitIdentityAllocator(nil)
 	t.Cleanup(mgr.Close)
 

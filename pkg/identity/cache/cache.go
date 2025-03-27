@@ -5,6 +5,7 @@ package cache
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -14,12 +15,7 @@ import (
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache")
 )
 
 // IdentitiesModel is a wrapper so that we can implement the sort.Interface
@@ -45,7 +41,7 @@ func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) Identitie
 
 // GetIdentityCache returns a cache of all known identities
 func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
-	log.Debug("getting identity cache for identity allocator manager")
+	m.logger.Debug("getting identity cache for identity allocator manager")
 	cache := identity.IdentityMap{}
 
 	if m.isGlobalIdentityAllocatorInitialized() {
@@ -54,8 +50,11 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 				if gi, ok := val.(*key.GlobalIdentity); ok {
 					cache[identity.NumericIdentity(id)] = gi.LabelArray
 				} else {
-					log.Warningf("Ignoring unknown identity type '%s': %+v",
-						reflect.TypeOf(val), val)
+					m.logger.Warn(
+						"Ignoring unknown identity type",
+						logfields.Type, reflect.TypeOf(val),
+						logfields.Value, val,
+					)
 				}
 			}
 		})
@@ -103,13 +102,14 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 }
 
 type identityWatcher struct {
-	owner IdentityAllocatorOwner
+	logger *slog.Logger
+	owner  IdentityAllocatorOwner
 }
 
 // collectEvent records the 'event' as an added or deleted identity,
 // and makes sure that any identity is present in only one of the sets
 // (added or deleted).
-func collectEvent(event allocator.AllocatorEvent, added, deleted identity.IdentityMap) bool {
+func collectEvent(logger *slog.Logger, event allocator.AllocatorEvent, added, deleted identity.IdentityMap) bool {
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
 	if event.Typ == allocator.AllocatorChangeUpsert {
@@ -121,8 +121,11 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted identity.Identi
 			added[id] = gi.LabelArray
 			return true
 		}
-		log.Warningf("collectEvent: Ignoring unknown identity type '%s': %+v",
-			reflect.TypeOf(event.Key), event.Key)
+		logger.Warn(
+			"collectEvent: Ignoring unknown identity type",
+			logfields.Type, reflect.TypeOf(event.Key),
+			logfields.Value, event.Key,
+		)
 		return false
 	}
 	// Reverse an add when subsequently deleted
@@ -153,7 +156,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				// Collect first added and deleted labels
 				switch event.Typ {
 				case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
-					if collectEvent(event, added, deleted) {
+					if collectEvent(w.logger, event, added, deleted) {
 						// First event collected
 						break First
 					}
@@ -172,7 +175,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 					// Collect more added and deleted labels
 					switch event.Typ {
 					case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
-						collectEvent(event, added, deleted)
+						collectEvent(w.logger, event, added, deleted)
 					}
 				default:
 					// No more events available without blocking
