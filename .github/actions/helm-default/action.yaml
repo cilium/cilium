@@ -9,6 +9,10 @@ inputs:
     description: 'Path to Cilium charts directory'
     required: false
     default: 'install/kubernetes/cilium'
+  debug:
+    description: "Enable debug options"
+    required: false
+    default: 'true'
 outputs:
   cilium_install_defaults:
     description: "Generated values to be used with Cilium CLI"
@@ -25,9 +29,6 @@ runs:
         echo sha=${{ inputs.image-tag }} >> $GITHUB_OUTPUT
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
-          --helm-set=debug.enabled=true \
-          --helm-set=debug.verbose=envoy \
-          --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=hubble.relay.retryTimeout=5s \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
@@ -42,6 +43,12 @@ runs:
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
           --helm-set=hubble.relay.image.useDigest=false"
+
+        if [ "${{ inputs.debug }}" == "true" ]; then
+          CILIUM_INSTALL_DEFAULTS+="--helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
+            --helm-set=debug.metricsSamplingInterval=30s"
+        fi
 
         if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
           CILIUM_INSTALL_DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
