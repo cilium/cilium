@@ -28,12 +28,12 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) {
+func setup(tb testing.TB) (string, *k8sClient.FakeClientset, kvstore.BackendOperations, allocator.Backend) {
 	tb.Helper()
 
 	testutils.IntegrationTest(tb)
 
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreClient := kvstore.SetupDummy(tb, "etcd")
 	kvstorePrefix := fmt.Sprintf("test-prefix-%s", rand.String(12))
 	kubeClient, _ := k8sClient.NewFakeClientset(hivetest.Logger(tb))
 	backend, err := NewDoubleWriteBackend(
@@ -49,18 +49,18 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 				BasePath: kvstorePrefix,
 				Suffix:   "a",
 				Typ:      &key.GlobalIdentity{},
-				Backend:  kvstore.Client(),
+				Backend:  kvstoreClient,
 			},
 			ReadFromKVStore: true,
 		})
 	require.NoError(tb, err)
 	require.NotNil(tb, backend)
 
-	return kvstorePrefix, kubeClient, backend
+	return kvstorePrefix, kubeClient, kvstoreClient, backend
 }
 
 func TestAllocateID(t *testing.T) {
-	kvstorePrefix, kubeClient, backend := setup(t)
+	kvstorePrefix, kubeClient, kvstoreClient, backend := setup(t)
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
@@ -81,7 +81,7 @@ func TestAllocateID(t *testing.T) {
 	)
 
 	// 2. KVStore
-	kvPairs, err := kvstore.Client().ListPrefix(context.Background(), path.Join(kvstorePrefix, "id"))
+	kvPairs, err := kvstoreClient.ListPrefix(context.Background(), path.Join(kvstorePrefix, "id"))
 	require.NoError(t, err)
 	require.Len(t, kvPairs, 1)
 	require.Equal(t,
@@ -91,7 +91,7 @@ func TestAllocateID(t *testing.T) {
 }
 
 func TestAllocateIDFailure(t *testing.T) {
-	kvstorePrefix, kubeClient, backend := setup(t)
+	kvstorePrefix, kubeClient, kvstoreClient, backend := setup(t)
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
@@ -99,7 +99,7 @@ func TestAllocateIDFailure(t *testing.T) {
 	identityID := idpool.ID(10)
 
 	// Pre-create the identity in the KVStore so as to trigger failure during allocation
-	_, err := kvstore.Client().CreateOnly(context.Background(), path.Join(kvstorePrefix, "id", strconv.FormatUint(uint64(identityID), 10)), []byte(k.GetKey()), false)
+	_, err := kvstoreClient.CreateOnly(context.Background(), path.Join(kvstorePrefix, "id", strconv.FormatUint(uint64(identityID), 10)), []byte(k.GetKey()), false)
 	require.NoError(t, err)
 
 	_, err = backend.AllocateID(context.Background(), identityID, k)
@@ -113,7 +113,7 @@ func TestAllocateIDFailure(t *testing.T) {
 }
 
 func TestGetID(t *testing.T) {
-	kvstorePrefix, kubeClient, backend := setup(t)
+	kvstorePrefix, kubeClient, kvstoreClient, backend := setup(t)
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
@@ -137,7 +137,7 @@ func TestGetID(t *testing.T) {
 	require.Equal(t, returnedKey.GetKey(), k.GetKey())
 
 	// Delete the KVStore identity
-	err = kvstore.Client().Delete(context.Background(), path.Join(kvstorePrefix, "id", identityID.String()))
+	err = kvstoreClient.Delete(context.Background(), path.Join(kvstorePrefix, "id", identityID.String()))
 	require.NoError(t, err)
 
 	// Verify that we can't retrieve the identity anymore
