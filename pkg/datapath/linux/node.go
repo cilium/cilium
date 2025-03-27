@@ -607,7 +607,7 @@ var errNodeIPNotRoutable = errors.New("remote node IP is non-routable")
 
 func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error) {
 	// Figure out whether nodeIP is directly reachable (i.e. in the same L2)
-	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{Oif: link.Attrs().Name, FIBMatch: true})
+	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{OifIndex: link.Attrs().Index, FIBMatch: true})
 	if err != nil && !errors.Is(err, unix.EHOSTUNREACH) && !errors.Is(err, unix.ENETUNREACH) {
 		return nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
