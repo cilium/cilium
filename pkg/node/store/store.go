@@ -155,6 +155,7 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(logging.DefaultSlogLogger, store.Configuration{
+		Backend:              kvstore.Client(),
 		Prefix:               NodeStorePrefix,
 		KeyCreator:           ValidatingKeyCreator(),
 		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
