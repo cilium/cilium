@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -289,6 +290,10 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 
 func reinitializeWireguard(ctx context.Context) (err error) {
 	if !option.Config.EnableWireguard {
+		// Cleanup also calls map from v1.18 after downgrade.
+		// If WireGuard is disabled, cilium_wg0 does not exists anymore.
+		// Therefore, without its previous ifindex, here we remove the calls map by prefix.
+		exec.Command("rm", filepath.Join(bpf.TCGlobalsPath(), "cilium_calls_wireguard_")).Run()
 		return
 	}
 
