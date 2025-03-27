@@ -9,6 +9,14 @@ inputs:
     description: 'Path to Cilium charts directory'
     required: false
     default: 'install/kubernetes/cilium'
+  debug:
+    description: "Enable debug options"
+    required: false
+    default: 'true'
+  mutation-detection:
+    description: "Enable the kube cache mutation detection"
+    required: false
+    default: 'false'
 outputs:
   cilium_install_defaults:
     description: "Generated values to be used with Cilium CLI"
@@ -25,10 +33,8 @@ runs:
         echo sha=${{ inputs.image-tag }} >> $GITHUB_OUTPUT
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
-          --helm-set=debug.enabled=true \
-          --helm-set=debug.verbose=envoy \
-          --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=hubble.relay.retryTimeout=5s \
+          --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
           --helm-set=image.tag=${{ inputs.image-tag }} \
@@ -41,10 +47,18 @@ runs:
           --helm-set=clustermesh.apiserver.image.useDigest=false \
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
-          --helm-set=hubble.relay.image.useDigest=false"
+          --helm-set=hubble.relay.image.useDigest=false \
+          --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+          --set-string=extraEnv[0].value=true"
 
-        if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
-          CILIUM_INSTALL_DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
+        if [ "${{ inputs.debug }}" == "true" ]; then
+          CILIUM_INSTALL_DEFAULTS+=" --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy"
+        fi
+
+        if [ "${{ inputs.mutation-detection }}" == "true" ]; then
+          CILIUM_INSTALL_DEFAULTS+="--set-string=extraEnv[1].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=extraEnv[1].value=true"
         fi
 
         echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT

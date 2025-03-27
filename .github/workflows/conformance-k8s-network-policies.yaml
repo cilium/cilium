@@ -100,6 +100,12 @@ jobs:
           HELM_ARGS="\
             --wait \
             --namespace kube-system \
+            --set debug.enabled=true \
+            --set debug.verbose=envoy \
+            --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+            --set-string=extraEnv[0].value=true \
+            --set-string=extraEnv[1].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=extraEnv[1].value=true \
             --set nodeinit.enabled=true \
             --set kubeProxyReplacement=false \
             --set socketLB.enabled=false \
@@ -121,10 +127,6 @@ jobs:
             --set operator.prometheus.enabled=true \
             --set hubble.enabled=true \
             --set=hubble.metrics.enabled={dns,drop,tcp,flow,port-distribution,icmp,http}"
-
-          if [ -f ".github/actions/helm-default/ci-required-values.yaml" ]; then
-            HELM_ARGS+=" --values=.github/actions/helm-default/ci-required-values.yaml"
-          fi
 
           helm install cilium ./install/kubernetes/cilium $HELM_ARGS
 
