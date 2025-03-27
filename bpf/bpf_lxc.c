@@ -149,12 +149,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	int l4_off;
 	int ret;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 

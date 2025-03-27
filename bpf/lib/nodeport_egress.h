@@ -67,12 +67,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -169,12 +165,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
