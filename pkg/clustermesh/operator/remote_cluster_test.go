@@ -184,8 +184,6 @@ func TestRemoteClusterHooks(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
-
-		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 	})
 	logger := hivetest.Logger(t)
 	st := store.NewFactory(logger, store.MetricsProvider())

@@ -156,7 +156,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	require.NoError(tb, err)
 
 	ds.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
-	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 

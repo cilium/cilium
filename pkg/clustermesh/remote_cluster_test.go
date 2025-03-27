@@ -280,10 +280,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	<-allocator.InitIdentityAllocator(nil)
 
-	t.Cleanup(func() {
-		allocator.Close()
-		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
-	})
+	t.Cleanup(allocator.Close)
 
 	var obs fakeObserver
 	cm := ClusterMesh{
