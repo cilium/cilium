@@ -1336,6 +1336,10 @@
      - Maximum number of retries for each HTTP request
      - int
      - ``3``
+   * - :spelling:ignore:`envoy.httpUpstreamLingerTimeout`
+     - Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.idleTimeoutDurationSeconds`
      - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
      - int

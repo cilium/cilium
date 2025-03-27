@@ -2450,6 +2450,8 @@ envoy:
   # @schema
   # -- Max duration to wait for endpoint policies to be restored on restart. Default "3m".
   policyRestoreTimeoutDuration: null
+  # -- Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
+  httpUpstreamLingerTimeout: null
   # -- Envoy container image.
   image:
     # @schema
