@@ -923,7 +923,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 							Name: "tls-ca-certs",
 						},
 					},
-					ServerNames: []string{"www.foo.com"},
+					ServerNames: []api.ServerName{"www.foo.com"},
 				}},
 			},
 			{
@@ -934,7 +934,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 					Ports: []api.PortProtocol{
 						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ServerNames: []string{"www.bar.com"},
+					ServerNames: []api.ServerName{"www.bar.com"},
 				}, {
 					Ports: []api.PortProtocol{
 						{Port: "443", Protocol: api.ProtoTCP},

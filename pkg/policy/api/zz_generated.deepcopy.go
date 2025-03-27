@@ -853,7 +853,7 @@ func (in *PortRule) DeepCopyInto(out *PortRule) {
 	}
 	if in.ServerNames != nil {
 		in, out := &in.ServerNames, &out.ServerNames
-		*out = make([]string, len(*in))
+		*out = make([]ServerName, len(*in))
 		copy(*out, *in)
 	}
 	if in.Listener != nil {
