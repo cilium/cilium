@@ -6,11 +6,11 @@ package endpointcleanup
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -211,7 +211,7 @@ func TestGC(t *testing.T) {
 					return nil
 				}),
 				cell.Invoke(func(
-					logger logrus.FieldLogger,
+					logger *slog.Logger,
 					ciliumEndpoint resource.Resource[*types.CiliumEndpoint],
 					ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 					clientset k8sClient.Clientset,

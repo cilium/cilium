@@ -478,7 +478,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 				if option.Config.Debug {
 					log.WithFields(logrus.Fields{
 						logfields.Prefix:      prefix,
-						logfields.OldIdentity: oldID.ID,
+						logfields.IdentityOld: oldID.ID,
 						logfields.Identity:    entry.identity.ID,
 					}).Debug("Acquiring Identity reference")
 				}
@@ -519,7 +519,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 					if option.Config.Debug {
 						log.WithFields(logrus.Fields{
 							logfields.Prefix:      prefix,
-							logfields.OldIdentity: oldID.ID,
+							logfields.IdentityOld: oldID.ID,
 						}).Debug("Previously managed IPCache entry is now unmanaged")
 					}
 				} else if oldID.exclusivelyOwnedByLegacyAPI() {

@@ -8,10 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -94,7 +93,6 @@ func copyExistingState(oldDir, newDir string) error {
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	scopedLog := e.getLogger()
-	debugLogEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
 
 	scopedLog.Debug("synchronizing directories")
 
@@ -109,8 +107,12 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
 		if err := copyExistingState(origDir, tmpDir); err != nil {
-			scopedLog.WithError(err).Debugf("unable to copy state "+
-				"from %s into the new directory %s.", tmpDir, origDir)
+			scopedLog.Debug(
+				"unable to copy state from tmp directory to new directory",
+				logfields.Error, err,
+				logfields.TmpDirectory, tmpDir,
+				logfields.NewDirectory, origDir,
+			)
 		}
 
 		// Atomically exchange the two directories.
@@ -122,12 +124,11 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 	// simple move
 	default:
 		// Make temporary directory the new endpoint directory
-		if debugLogEnabled {
-			scopedLog.WithFields(logrus.Fields{
-				"temporaryDirectory": tmpDir,
-				"originalDirectory":  origDir,
-			}).Debug("attempting to make temporary directory new directory for endpoint programs")
-		}
+		scopedLog.Debug(
+			"attempting to make temporary directory new directory for endpoint programs",
+			logfields.TmpDirectory, tmpDir,
+			logfields.NewDirectory, origDir,
+		)
 
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			return fmt.Errorf("atomic endpoint directory move failed: %w", err)
@@ -142,9 +143,10 @@ func (e *Endpoint) synchronizeDirectories(origDir string) error {
 }
 
 func (e *Endpoint) removeDirectory(path string) error {
-	if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
-		logger.WithField("directory", path).Debug("removing directory")
-	}
+	e.getLogger().Debug(
+		"removing directory",
+		logfields.Directory, path,
+	)
 	return os.RemoveAll(path)
 }
 

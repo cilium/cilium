@@ -85,6 +85,10 @@ func initializeSlog(logOpts LogOptions, loggers []string) {
 	}
 }
 
+func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {
+	return replaceAttrFn(groups, a)
+}
+
 func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
 	case slog.TimeKey:

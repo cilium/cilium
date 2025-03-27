@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,7 +36,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 		err, release := e.ComputeInitialPolicy(regenContext)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
-				e.getLogger().WithError(err).Error("Initial policy compute failed")
+				e.getLogger().Error("Initial policy compute failed", logfields.Error, err)
 			}
 
 			res <- &EndpointRegenerationResult{
@@ -66,7 +64,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 	doneFunc, err := e.epBuildQueue.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			e.getLogger().WithError(err).Warning("unable to queue endpoint build")
+			e.getLogger().Warn("unable to queue endpoint build", logfields.Error, err)
 		}
 	} else if doneFunc != nil {
 		e.getLogger().Debug("Dequeued endpoint from build queue")
@@ -124,10 +122,11 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	// Don't check policy revision event results - it is best effort.
 	_, err := e.eventQueue.Enqueue(epBumpEvent)
 	if err != nil {
-		log.WithFields(logrus.Fields{
-			logfields.PolicyRevision: rev,
-			logfields.EndpointID:     e.ID,
-		}).Errorf("enqueue of EndpointRevisionBumpEvent failed: %s", err)
+		e.getLogger().Error(
+			"enqueue of EndpointRevisionBumpEvent failed",
+			logfields.PolicyRevision, rev,
+			logfields.Error, err,
+		)
 	}
 }
 
@@ -169,7 +168,7 @@ func (ev *EndpointNoTrackEvent) Handle(res chan any) {
 	}
 
 	if port != e.noTrackPort {
-		log.Debug("Updating NOTRACK rules")
+		e.getLogger().Debug("Updating NOTRACK rules")
 		if option.Config.EnableIPv4 && e.IPv4.IsValid() {
 			if port > 0 {
 				e.ipTablesManager.InstallNoTrackRules(e.IPv4, port)
@@ -233,7 +232,11 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 		bps, err = bandwidth.GetBytesPerSec(ev.bandwidthEgress)
 	}
 	if err != nil {
-		e.getLogger().WithError(err).Debugf("failed to parse bandwidth limit %q", ev.bandwidthEgress)
+		e.getLogger().Debug(
+			"failed to parse bandwidth limit",
+			logfields.BandwidthLimit, ev.bandwidthEgress,
+			logfields.Error, err,
+		)
 	} else {
 		bwmUpdateNeeded = true
 	}
@@ -250,14 +253,22 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 			// Also support explicitly setting priority values.
 			prio, err = strconv.ParseUint(ev.priority, 10, 32)
 			if err != nil {
-				e.getLogger().WithError(err).Debugf("failed to parse priority value %q", ev.priority)
+				e.getLogger().Debug(
+					"failed to parse priority value",
+					logfields.Priority, ev.priority,
+					logfields.Error, err,
+				)
 			} else {
 				prio += 1
 			}
 		}
 	}
 	if err != nil {
-		e.getLogger().WithError(err).Debugf("failed to parse priority value limit %q", ev.priority)
+		e.getLogger().Debug(
+			"failed to parse priority value limit",
+			logfields.Priority, ev.priority,
+			logfields.Error, err,
+		)
 	} else {
 		bwmUpdateNeeded = true
 	}
@@ -282,8 +293,11 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 	if bps != 0 {
 		bpsNew = strconv.FormatUint(bps, 10)
 	}
-	e.getLogger().Debugf("Updating %s from %s to %s bytes/sec", bandwidth.EgressBandwidth,
-		bpsOld, bpsNew)
+	e.getLogger().Debug(
+		"Updating "+bandwidth.EgressBandwidth+" bytes/sec",
+		logfields.Old, bpsOld,
+		logfields.New, bpsNew,
+	)
 	e.bps = bps
 
 	if ev.bandwidthIngress != "" {
@@ -304,8 +318,11 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan any) {
 		if ingressBps != 0 {
 			bpsNew = strconv.FormatUint(ingressBps, 10)
 		}
-		e.getLogger().Debugf("Updating %s from %s to %s bytes/sec", bandwidth.IngressBandwidth,
-			bpsOld, bpsNew)
+		e.getLogger().Debug(
+			"Updating "+bandwidth.IngressBandwidth+" bytes/sec",
+			logfields.Old, bpsOld,
+			logfields.New, bpsNew,
+		)
 
 		e.ingressBps = ingressBps
 	} else {

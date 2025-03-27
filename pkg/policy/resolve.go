@@ -12,8 +12,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -244,7 +242,7 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, 
 type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
-	PolicyDebug(fields logrus.Fields, msg string)
+	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	MapStateSize() int
 	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
@@ -547,10 +545,10 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 		}
 		p.VersionHandle = version
 
-		p.PolicyOwner.PolicyDebug(logrus.Fields{
-			logfields.Version: version,
-			logfields.Changes: changes,
-		}, msg)
+		p.PolicyOwner.PolicyDebug(msg,
+			logfields.Version, version,
+			logfields.Changes, changes,
+		)
 	}
 
 	return closer, changes

@@ -171,7 +171,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 		}
 
 		scopedLog = log.WithFields(logrus.Fields{
-			logfields.OldIdentity:    id,
+			logfields.IdentityOld:    id,
 			logfields.IdentityLabels: key.GetKey(),
 		})
 		scopedLog.Warn("ID is allocated to a different key in CRD. A new ID will be allocated for the this key")
@@ -189,7 +189,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 		}
 
 		log.WithFields(logrus.Fields{
-			logfields.OldIdentity:    id,
+			logfields.IdentityOld:    id,
 			logfields.Identity:       newID,
 			logfields.IdentityLabels: key.GetKey(),
 		}).Info("New ID allocated for key in CRD")

@@ -5,10 +5,10 @@ package endpoint
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -36,14 +36,14 @@ type Regenerator struct {
 	cmWaitFn      wait.Fn
 	cmWaitTimeout time.Duration
 
-	logger        logrus.FieldLogger
+	logger        *slog.Logger
 	cmSyncLogOnce sync.Once
 }
 
 func newRegenerator(in struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	Config      wait.TimeoutConfig
 	NodesWaitFn KVStoreNodesWaitFn
@@ -87,7 +87,7 @@ func (r *Regenerator) WaitForClusterMeshIPIdentitiesSync(ctx context.Context) er
 		// connectivity drops for cross-cluster connections. We additionally print
 		// the warning message only once, to avoid repeating it for every endpoint.
 		r.cmSyncLogOnce.Do(func() {
-			r.logger.Warning("Failed waiting for clustermesh IPs and identities synchronization before regenerating endpoints, expect possible disruption of cross-cluster connections")
+			r.logger.Warn("Failed waiting for clustermesh IPs and identities synchronization before regenerating endpoints, expect possible disruption of cross-cluster connections")
 		})
 	}
 

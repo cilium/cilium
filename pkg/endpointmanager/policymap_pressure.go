@@ -4,10 +4,12 @@
 package endpointmanager
 
 import (
+	"log/slog"
 	"maps"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -22,7 +24,7 @@ func (p *policyMapPressure) Update(ev endpoint.PolicyMapPressureEvent) {
 	p.current[ev.EndpointID] = val
 	p.Unlock()
 
-	log.WithField(logfields.Value, val).Debug("EndpointManager policymap received event")
+	p.logger.Debug("EndpointManager policymap received event", logfields.Value, val)
 
 	p.trigger.Trigger()
 }
@@ -39,12 +41,12 @@ func (p *policyMapPressure) Remove(id uint16) {
 
 var policyMapPressureMinInterval = 10 * time.Second
 
-func newPolicyMapPressure() *policyMapPressure {
+func newPolicyMapPressure(logger *slog.Logger) *policyMapPressure {
 	if !metrics.BPFMapPressure {
 		return nil
 	}
 
-	p := new(policyMapPressure)
+	p := &policyMapPressure{logger: logger}
 	p.gauge = metrics.NewBPFMapPressureGauge(policymap.MapName+"*", policymap.PressureMetricThreshold)
 	p.current = make(map[uint16]float64)
 
@@ -58,28 +60,28 @@ func newPolicyMapPressure() *policyMapPressure {
 		Name:        "endpointmanager-policymap-max-size-metrics",
 	})
 	if err != nil {
-		log.WithError(err).Panic("Failed to initialize trigger for policymap pressure metric")
+		logging.Panic(logger, "Failed to initialize trigger for policymap pressure metric", logfields.Error, err)
 	}
 
 	return p
 }
 
-func (mgr *policyMapPressure) update() {
-	log.Debug("EndpointManager policymap event metric update triggered")
+func (p *policyMapPressure) update() {
+	p.logger.Debug("EndpointManager policymap event metric update triggered")
 
-	if mgr.gauge == nil {
+	if p.gauge == nil {
 		return
 	}
 
-	mgr.RLock()
+	p.RLock()
 	max := float64(0)
-	for value := range maps.Values(mgr.current) {
+	for value := range maps.Values(p.current) {
 		if value > max {
 			max = value
 		}
 	}
-	mgr.RUnlock()
-	mgr.gauge.Set(max)
+	p.RUnlock()
+	p.gauge.Set(max)
 }
 
 type metricsGauge interface {
@@ -91,6 +93,8 @@ type metricsGauge interface {
 // from all endpoints within the EndpointManager to reduce cardinality of the
 // metric.
 type policyMapPressure struct {
+	logger *slog.Logger
+
 	lock.RWMutex
 
 	// current holds the current maximum policymap pressure values by endpoint ID

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -84,6 +85,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 }
 
 func TestReadEPsFromDirNames(t *testing.T) {
+	logger := hivetest.Logger(t)
 	s := setupEndpointSuite(t)
 	epsWanted, _ := s.createEndpoints(t)
 	tmpDir := t.TempDir()
@@ -133,7 +135,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
 	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -157,6 +159,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 }
 
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
+	logger := hivetest.Logger(t)
 	s := setupEndpointSuite(t)
 
 	eps, _ := s.createEndpoints(t)
@@ -195,7 +198,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -217,6 +220,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 }
 
 func BenchmarkReadEPsFromDirNames(b *testing.B) {
+	logger := hivetest.Logger(b)
 	s := setupEndpointSuite(b)
 
 	// For this benchmark, the real linux datapath is necessary to properly
@@ -247,7 +251,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}
 
 	for b.Loop() {
-		eps := ReadEPsFromDirNames(context.TODO(), &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
 }

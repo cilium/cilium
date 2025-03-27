@@ -12,12 +12,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -48,18 +48,22 @@ type EndpointParser interface {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, parser EndpointParser, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
 		for _, epDirName := range incompleteEPDirNames {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID: epDirName,
-			})
 			fullDirName := filepath.Join(basePath, epDirName)
-			scopedLog.Info(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
+			logger.Info(
+				fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName),
+				logfields.EndpointID, epDirName,
+			)
 			if err := os.RemoveAll(epDirName); err != nil {
-				scopedLog.WithError(err).Warn(fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName))
+				logger.Warn(
+					fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName),
+					logfields.Error, err,
+					logfields.EndpointID, epDirName,
+				)
 			}
 		}
 	}
@@ -68,20 +72,20 @@ func ReadEPsFromDirNames(ctx context.Context, parser EndpointParser, basePath st
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
 
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.EndpointID: epDirName,
-			logfields.Path:       epDir,
-		})
+		scopedLogger := logger.With(
+			logfields.EndpointID, epDirName,
+			logfields.Path, epDir,
+		)
 
-		state, err := findEndpointState(epDir, scopedLog)
+		state, err := findEndpointState(scopedLogger, epDir)
 		if err != nil {
-			scopedLog.WithError(err).Warn("Couldn't find state, ignoring endpoint")
+			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
 			continue
 		}
 
 		ep, err := parser.ParseEndpoint(state)
 		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to parse the C header file")
+			scopedLogger.Warn("Unable to parse the C header file", logfields.Error, err)
 			continue
 		}
 		if _, ok := possibleEPs[ep.ID]; ok {
@@ -108,10 +112,10 @@ func ReadEPsFromDirNames(ctx context.Context, parser EndpointParser, basePath st
 //
 // It prefers reading from the endpoint state JSON file and falls back to
 // reading from the header.
-func findEndpointState(dir string, log *logrus.Entry) ([]byte, error) {
+func findEndpointState(logger *slog.Logger, dir string) ([]byte, error) {
 	state, err := os.ReadFile(filepath.Join(dir, common.EndpointStateFileName))
 	if err == nil {
-		log.Debug("Restore from JSON file")
+		logger.Debug("Restore from JSON file")
 		return state, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -126,7 +130,7 @@ func findEndpointState(dir string, log *logrus.Entry) ([]byte, error) {
 	}
 	defer f.Close()
 
-	log.Debug("Restore from C header file")
+	logger.Debug("Restore from C header file")
 
 	br := bufio.NewReader(f)
 	var line []byte
@@ -206,8 +210,6 @@ func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, resolveMetad
 	// endpoint.
 	e.RunRestoredMetadataResolver(resolveMetadata)
 
-	scopedLog := log.WithField(logfields.EndpointID, e.ID)
-
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            "syncing state to host",
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
@@ -216,7 +218,14 @@ func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, resolveMetad
 		return fmt.Errorf("failed while regenerating endpoint")
 	}
 
-	scopedLog.WithField(logfields.IPAddr, []string{e.GetIPv4Address(), e.GetIPv6Address()}).Info("Restored endpoint")
+	e.getLogger().Info(
+		"Restored endpoint",
+		logfields.IPAddrs,
+		[]any{
+			logfields.IPv4, e.GetIPv4Address(),
+			logfields.IPv6, e.GetIPv6Address(),
+		},
+	)
 	return nil
 }
 
@@ -245,7 +254,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		e.logDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
 		return err
 	}
-	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
 	l, _ := labelsfilter.Filter(e.labels.AllLabels())
 	e.runlock()
@@ -302,7 +310,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 
 					err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)
 					if err != nil {
-						scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
+						e.getLogger().Warn("Failed while waiting for initial global identities", logfields.Error, err)
 						return err
 					}
 					close(gotInitialGlobalIdentities)
@@ -337,7 +345,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 
 	if err := e.lockAlive(); err != nil {
-		scopedLog.Warn("Endpoint to restore has been deleted")
+		e.getLogger().Warn("Endpoint to restore has been deleted")
 		return err
 	}
 
@@ -345,11 +353,11 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 
 	if e.SecurityIdentity != nil {
 		if oldSecID := e.SecurityIdentity.ID; id.ID != oldSecID {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:              e.ID,
-				logfields.IdentityLabels + ".old": oldSecID,
-				logfields.IdentityLabels + ".new": id.ID,
-			}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
+			e.getLogger().Info(
+				"Security identity for endpoint is different from the security identity restored for the endpoint",
+				logfields.IdentityOld, oldSecID,
+				logfields.IdentityNew, id.ID,
+			)
 
 			// The identity of the endpoint being
 			// restored has changed. This can be

@@ -46,6 +46,7 @@ var notifyOnDNSMsgBenchSetup sync.Once
 
 func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	testutils.IntegrationTest(tb)
+	logger := hivetest.Logger(tb)
 
 	// We rely on a sync.Once to complete the benchmark setup that initialize
 	// read-only global status.
@@ -64,7 +65,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	ds := &DaemonFQDNSuite{}
 	d := &fqdnProxyBootstrapper{}
 	d.policyRepo = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil)
+	d.endpointManager = endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),

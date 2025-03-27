@@ -93,8 +93,10 @@ const (
 	// IngressClass is the identifier of an ingress class object
 	IngressClass = "ingressClass"
 
-	// OldIdentity is a previously used security identity
-	OldIdentity = "oldIdentity"
+	// IdentityOld is a previously used security identity
+	IdentityOld = "old-" + Identity
+
+	IdentityNew = "new-" + Identity
 
 	// PolicyKey is a policy map key
 	PolicyKey = "policyKey"
@@ -1528,4 +1530,32 @@ const (
 	Args = "args"
 
 	Candidates = "candidates"
+
+	DNSRulesV2 = "dnsRulesV2"
+
+	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"
+
+	DumpedPolicyMap = "dumpedPolicyMap"
+
+	DumpedDiffs = "dumpedDiffs"
+
+	NewDirectory = "newDirectory"
+
+	TmpDirectory = "tmpDirectory"
+
+	Code = "code"
+
+	EndpointStateFrom = "endpointStateFrom"
+
+	EndpointStateTo = "endpointStateTo"
+
+	BandwidthLimit = "bandwidthLimit"
+
+	PolicyRevisionNext = "policyRevisionNext"
+
+	PolicyRevisionRepo = "policyRevisionRepo"
+
+	PolicyChanged = "policyChanged"
+
+	CEPUIDOld = "old-" + CEPUID
 )
