@@ -28,9 +28,6 @@ func TestLock(t *testing.T) {
 func testLock(t *testing.T) {
 	prefix := "locktest/"
 
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
 	for i := 0; i < 10; i++ {
 		lock, err := LockPath(context.Background(), hivetest.Logger(t), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
 		require.NoError(t, err)
@@ -56,9 +53,6 @@ func TestGetSet(t *testing.T) {
 func testGetSet(t *testing.T) {
 	prefix := "unit-test/"
 	maxID := 8
-
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	pairs, err := Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
@@ -101,8 +95,6 @@ func BenchmarkGet(b *testing.B) {
 
 func benchmarkGet(b *testing.B) {
 	prefix := "unit-test/"
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key := testKey(prefix, 1)
 	require.NoError(b, Client().Update(context.TODO(), key, []byte(testValue(100)), false))
@@ -122,8 +114,6 @@ func BenchmarkSet(b *testing.B) {
 
 func benchmarkSet(b *testing.B) {
 	prefix := "unit-test/"
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key, val := testKey(prefix, 1), testValue(100)
 	b.ResetTimer()
@@ -140,9 +130,6 @@ func TestUpdate(t *testing.T) {
 
 func testUpdate(t *testing.T) {
 	prefix := "unit-test/"
-
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	// create
 	require.NoError(t, Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true))
@@ -167,9 +154,6 @@ func TestCreateOnly(t *testing.T) {
 
 func testCreateOnly(t *testing.T) {
 	prefix := "unit-test/"
-
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	require.NoError(t, err)
@@ -211,9 +195,6 @@ func TestListAndWatch(t *testing.T) {
 func testListAndWatch(t *testing.T) {
 	key1, key2 := "foo2/key1", "foo2/key2"
 	val1, val2 := "val1", "val2"
-
-	Client().DeletePrefix(context.TODO(), "foo2/")
-	defer Client().DeletePrefix(context.TODO(), "foo2/")
 
 	success, err := Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)

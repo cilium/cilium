@@ -599,8 +599,6 @@ func TestRemoteClusterStatus(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
-
-		require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 	})
 
 	remoteClient := &remoteEtcdClientWrapper{
