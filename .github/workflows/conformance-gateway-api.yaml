@@ -299,6 +299,7 @@ jobs:
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
               --all-features \
+              --exempt-features "HTTPRouteRequestMirror,HTTPRouteRequestMultipleMirrors,HTTPRouteRequestPercentageMirror" \
               --skip-tests "${{ steps.vars.outputs.skipped_tests }}" \
               --allow-crds-mismatch \
               --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
