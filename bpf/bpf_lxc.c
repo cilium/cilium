@@ -87,8 +87,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	int ret = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -146,13 +147,20 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
-	int ret = 0;
+	int ret;
 
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
 	if (fraginfo < 0)
 		return (int)fraginfo;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	tuple.nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	if (ret < 0)
+		return ret;
+
+	l4_off = ETH_HLEN + ret;
+
+	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
