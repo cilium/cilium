@@ -606,10 +606,9 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 /** Extract IPv6 CT tuple from packet
  * @arg ctx		Packet
  * @arg ip6		Pointer to L3 header
- * @arg l3_off		Offset to L3 header
  * @arg fraginfo	fraginfo, as returned by ipv6_get_fraginfo
  * @arg l4_off		Offset to L4 header
- * @arg tuple		CT tuple
+ * @arg tuple		CT tuple, with nexthdr prefilled
  *
  * Expects the ctx to be validated for direct packet access up to L4.
  *
@@ -619,20 +618,11 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
-		  fraginfo_t fraginfo, int *l4_off, struct ipv6_ct_tuple *tuple)
+lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
+		  int l4_off, struct ipv6_ct_tuple *tuple)
 {
-	int ret;
-
-	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
-
-	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
-	if (ret < 0)
-		goto err;
-
-	*l4_off = l3_off + ret;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -640,23 +630,13 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv6_load_l4_ports(ctx, ip6, fraginfo, *l4_off,
+		return ipv6_load_l4_ports(ctx, ip6, fraginfo, l4_off,
 					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMPV6:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
-
-err:
-	/* Make sure *l4_off is always initialized on return, because
-	 * Clang can spill it from a register to the stack even in error
-	 * flows where this value is no longer used, and this pattern is
-	 * rejected by the verifier.
-	 * Use a prominent value (-1) to highlight any potential misuse.
-	 */
-	*l4_off = -1;
-	return ret;
 }
 
 static __always_inline
@@ -1360,7 +1340,6 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 /** Extract IPv4 CT tuple from packet
  * @arg ctx		Packet
  * @arg ip4		Pointer to L3 header
- * @arg l3_off		Offset to L3 header
  * @arg fraginfo	fraginfo, as returned by ipfrag_encode_ipv4
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
@@ -1371,14 +1350,12 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
-		  fraginfo_t fraginfo, int *l4_off, struct ipv4_ct_tuple *tuple)
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
+		  int l4_off, struct ipv4_ct_tuple *tuple)
 {
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
-
-	*l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -1386,7 +1363,7 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv4_load_l4_ports(ctx, ip4, fraginfo, *l4_off,
+		return ipv4_load_l4_ports(ctx, ip4, fraginfo, l4_off,
 					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMP:
 		return DROP_UNSUPP_SERVICE_PROTO;
