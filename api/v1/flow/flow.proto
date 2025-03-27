@@ -614,6 +614,12 @@ message FlowFilter {
     // node_labels filters on a list of node label selectors. Selectors support
     // the full Kubernetes label selector syntax.
     repeated string node_labels = 36;
+    // source_node_labels filters flows originating from nodes matching label selectors.
+    // Selectors support the full Kubernetes label selector syntax.
+    repeated string source_node_labels = 39;
+    // destination_node_labels filters flows destined to nodes matching label selectors.
+    // Selectors support the full Kubernetes label selector syntax.
+    repeated string destination_node_labels = 40;
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;

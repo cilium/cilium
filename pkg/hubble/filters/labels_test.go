@@ -574,6 +574,80 @@ func TestLabelSelectorFilter(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "source node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels: []string{"src1, src2=val2"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							NodeLabels: []string{"src1", "src2=val2"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							NodeLabels: []string{"other1", "other2=val2"},
+						},
+					},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+			},
+		},
+		{
+			name: "destination node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						DestinationNodeLabels: []string{"dest1, dest2=val2"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							NodeLabels: []string{"dest1", "dest2=val2"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							NodeLabels: []string{"other1", "other2=val2"},
+						},
+					},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+			},
+		},
+		{
+			name: "invalid source node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels: []string{"!"},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid destination node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						DestinationNodeLabels: []string{"()"},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

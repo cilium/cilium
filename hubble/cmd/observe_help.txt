@@ -68,6 +68,8 @@ Filters Flags:
   -l, --label filter                        Show only flows related to an endpoint with the given labels (e.g. "key1=value1", "reserved:world")
   -n, --namespace filter                    Show all flows related to the given Kubernetes namespace.
       --node-label filter                   Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")
+      --from-node-labels filter             Show only flows originating from nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")
+      --to-node-labels filter               Show only flows destined to nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")
       --node-name filter                    Show all flows which match the given node names (e.g. "k8s*", "test-cluster/*.company.com")
       --not filter[=true]                   Reverses the next filter to be blacklist i.e. --not --from-ip 2.2.2.2
       --pod filter                          Show all flows related to the given pod name prefix ([namespace/]<pod-name>). If namespace is not provided, 'default' is used.
