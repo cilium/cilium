@@ -61,6 +61,11 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Copy runtime image action to base branch directory
+        run: |
+          mkdir -p ../cilium-base-branch
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
@@ -94,6 +99,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Copy runtime image tag from stable branch
+        run: |
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+
+      - name: Set runtime image environment variable
+        uses: ./../cilium-base-branch/set-runtime-image
+        with:
+          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
+
       - name: Release Build ${{ matrix.name }}
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         id: docker_build_release
@@ -106,6 +120,7 @@ jobs:
           tags: ${{ steps.tag.outputs.image_tags }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Install Cosign
