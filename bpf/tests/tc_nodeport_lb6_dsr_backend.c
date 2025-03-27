@@ -235,14 +235,18 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
 	fraginfo_t fraginfo;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	fraginfo = ipv6_get_fraginfo(ctx, l3);
-	if (fraginfo < 0)
-		return (int)fraginfo;
+	l3_off = sizeof(*status_code) + ETH_HLEN;
 
-	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				fraginfo, &l4_off, &tuple);
+	tuple.nexthdr = l3->nexthdr;
+	ret = ipv6_hdrlen_offset(ctx, l3_off, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
+		return ret;
+
+	l4_off = l3_off + ret;
+
+	ret = lb6_extract_tuple(ctx, l3, fraginfo, l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
