@@ -23,6 +23,7 @@ spec:
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+        kubectl.kubernetes.io/default-container: cilium-pre-flight-check
       labels:
         app.kubernetes.io/part-of: cilium
         k8s-app: cilium-pre-flight-check

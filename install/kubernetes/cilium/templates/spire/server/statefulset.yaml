@@ -29,6 +29,8 @@ spec:
   serviceName: spire-server
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: spire-server
       labels:
         app: spire-server
         {{- with .Values.commonLabels }}
