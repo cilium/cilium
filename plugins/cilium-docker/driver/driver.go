@@ -397,7 +397,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 		var veth *netlink.Veth
-		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU),
+		veth, _, _, err = connector.SetupVeth(logging.DefaultSlogLogger, create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
 			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
 		defer removeLinkOnErr(veth)
@@ -495,7 +495,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		StaticRoutes:          driver.routes,
 		DisableGatewayService: true,
 		GatewayIPv6:           driver.gatewayIPv6,
-		//GatewayIPv4:           driver.gatewayIPv4,
+		// GatewayIPv4:           driver.gatewayIPv4,
 	}
 
 	// FIXME? Having the following code results on a runtime error: docker: Error

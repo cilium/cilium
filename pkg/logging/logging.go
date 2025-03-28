@@ -30,6 +30,10 @@ const (
 	Syslog    = "syslog"
 	LevelOpt  = "level"
 	FormatOpt = "format"
+	WriterOpt = "writer"
+
+	StdOutOpt = "stdout"
+	StdErrOpt = "stderr"
 
 	LogFormatText          LogFormat = "text"
 	LogFormatTextTimestamp LogFormat = "text-ts"
@@ -294,7 +298,8 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	if debug {
 		logOpts[LevelOpt] = "debug"
 	}
-	initializeSlog(logOpts, len(loggers) == 0)
+
+	initializeSlog(logOpts, loggers)
 
 	// Updating the default log format
 	SetLogFormat(logOpts.GetLogFormat())

@@ -179,7 +179,7 @@ func (m *manager) probe() error {
 		//
 		// - https://lpc.events/event/11/contributions/953/
 		// - https://lore.kernel.org/bpf/20220302195519.3479274-1-kafai@fb.com/
-		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
+		if probes.HaveProgramHelper(m.params.Log, ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
 			return fmt.Errorf("cannot enable --%s, needs kernel 5.18 or newer", types.EnableBBRFlag)
 		}
 	}

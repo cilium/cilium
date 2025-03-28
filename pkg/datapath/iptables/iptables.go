@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/mattn/go-shellwords"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/utils/clock"
 
@@ -97,9 +97,14 @@ type iptablesInterface interface {
 }
 
 type ipt struct {
+	logger   *slog.Logger
 	prog     string
 	ipset    string
 	waitArgs []string
+}
+
+func (ipt *ipt) initLogger(logger *slog.Logger) {
+	ipt.logger = logger
 }
 
 func (ipt *ipt) initArgs(ctx context.Context, waitSeconds int) {
@@ -129,7 +134,7 @@ func (ipt *ipt) getIpset() string {
 }
 
 func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
-	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(log, false)
+	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(ipt.logger, false)
 	if err != nil {
 		return semver.Version{}, err
 	}
@@ -144,13 +149,13 @@ func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
 func (ipt *ipt) runProgOutput(args []string) (string, error) {
 	fullCommand := fmt.Sprintf("%s %s", ipt.getProg(), strings.Join(args, " "))
 
-	log.Debugf("Running '%s' command", fullCommand)
+	ipt.logger.Debug("Running command", logfields.Cmd, fullCommand)
 
 	// Add wait argument to deal with concurrent calls that would fail otherwise
 	iptArgs := make([]string, 0, len(ipt.waitArgs)+len(args))
 	iptArgs = append(iptArgs, ipt.waitArgs...)
 	iptArgs = append(iptArgs, args...)
-	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).Output(log, false)
+	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).Output(ipt.logger, false)
 
 	if err != nil {
 		return "", fmt.Errorf("unable to run '%s' iptables command: %w", fullCommand, err)
@@ -221,13 +226,20 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
 		if skip, disabledChain := ruleReferencesDisabledChain(m.cfg.DisableIptablesFeederRules, rule); skip {
-			log.WithField(logfields.Chain, disabledChain).Info("Skipping the removal of feeder chain")
+			m.logger.Info(
+				"Skipping the removal of feeder chain",
+				logfields.Chain, disabledChain,
+			)
 			continue
 		}
 
 		reversedRule, err := reverseRule(rule)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
+			m.logger.Warn(
+				"Unable to parse rule into slice. Leaving rule behind.",
+				logfields.Error, err,
+				logfields.Prog, prog,
+			)
 			continue
 		}
 
@@ -244,11 +256,11 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 
 // Manager manages the iptables-related configuration for Cilium.
 type Manager struct {
+	logger *slog.Logger
 	// This lock ensures there are no concurrent executions of the doInstallRules() and
 	// GetProxyPort() methods.
 	lock lock.Mutex
 
-	logger logrus.FieldLogger
 	sysctl sysctl.Sysctl
 
 	cfg       Config
@@ -280,7 +292,7 @@ type reconcilerParams struct {
 type params struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
 	Sysctl           sysctl.Sysctl
@@ -320,6 +332,9 @@ func newIptablesManager(p params) datapath.IptablesManager {
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			defer initDone()
+			ip4tables.initLogger(p.Logger)
+			ip6tables.initLogger(p.Logger)
+
 			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
@@ -361,12 +376,12 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	defer m.startDone()
 
 	if os.Getenv("CILIUM_PREPEND_IPTABLES_CHAIN") != "" {
-		m.logger.Warning("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +
+		m.logger.Warn("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +
 			"env var or '--prepend-iptables-chains' command line flag instead")
 	}
 
 	if err := enableIPForwarding(m.sysctl, m.sharedCfg.EnableIPv6); err != nil {
-		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
+		m.logger.Warn("enabling IP forwarding via sysctl failed", logfields.Error, err)
 	}
 
 	if m.sharedCfg.EnableIPSec && m.sharedCfg.EnableL7Proxy {
@@ -375,13 +390,19 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 
 	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
 		if err := ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.WithError(err).Warningf("iptables table %s is not available on this system", table)
+			m.logger.Warn("iptables table is not available on this system",
+				logfields.Error, err,
+				logfields.Table, table,
+			)
 		}
 	}
 
 	for _, table := range []string{"mangle", "raw", "filter"} {
 		if err := ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.WithError(err).Debugf("ip6tables table %s is not available on this system", table)
+			m.logger.Debug("ip6tables table is not available on this system",
+				logfields.Error, err,
+				logfields.Table, table,
+			)
 			m.haveIp6tables = false
 		}
 	}
@@ -396,8 +417,10 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 				return fmt.Errorf(
 					"IPv6 is enabled but IPv6 kernel support probing failed with: %w", err)
 			}
-			m.logger.WithError(err).Warning(
-				"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
+			m.logger.Warn(
+				"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support",
+				logfields.Error, err,
+			)
 			m.haveIp6tables = false
 		} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
 			m.logger.Debug(
@@ -407,7 +430,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
-		m.logger.WithError(err).Warning("iptables match socket is not available (try installing xt_socket kernel module)")
+		m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
 
 		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
@@ -454,7 +477,7 @@ func (m *Manager) disableIPEarlyDemux() {
 		m.ipEarlyDemuxDisabled = true
 		m.logger.Info("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
 	} else {
-		m.logger.Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+		m.logger.Warn("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
 	}
 }
 
@@ -760,11 +783,13 @@ func (m *Manager) doCopyProxyRules(prog iptablesInterface, table string, re *reg
 
 		args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
 		if err != nil {
-			log.WithFields(logrus.Fields{
-				"table":          table,
-				"prog":           prog.getProg(),
-				logfields.Object: rule,
-			}).WithError(err).Warn("Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible")
+			m.logger.Warn(
+				"Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible",
+				logfields.Error, err,
+				logfields.Object, rule,
+				logfields.Table, table,
+				logfields.Prog, prog.getProg(),
+			)
 			continue
 		}
 
@@ -822,7 +847,12 @@ func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name
 
 		args, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
 		if err != nil {
-			log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s TPROXY rule", prog)
+			m.logger.Warn(
+				"Unable to parse TPROXY rule",
+				logfields.Error, err,
+				logfields.Prog, prog,
+				logfields.Object, rule,
+			)
 			continue
 		}
 
@@ -860,7 +890,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--dport", p,
 		"-j", "CT",
 		"--notrack"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	if err = prog.runProg([]string{
 		"-t", "filter",
@@ -870,7 +900,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--dport",
 		p, "-j",
 		"ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
 	// 2. The following 2 rules cover packets from node-local-dns to
@@ -883,7 +913,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--sport", p,
 		"-j", "CT",
 		"--notrack"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	if err = prog.runProg([]string{
 		"-t", "filter",
@@ -893,7 +923,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--sport",
 		p, "-j",
 		"ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
 	// 3. The following 2 rules cover packets from host namespaced pod to
@@ -906,7 +936,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--dport", p,
 		"-j", "CT",
 		"--notrack"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	if err = prog.runProg([]string{
 		"-t", "filter",
@@ -915,7 +945,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-d", IP,
 		"--dport", p,
 		"-j", "ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
 	// 4. The following rule (and the prerouting rule in case 2)
@@ -928,7 +958,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--sport",
 		p, "-j",
 		"ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 
 	// The following rules are kept for compatibility with host-namespaced
@@ -942,7 +972,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--sport", p,
 		"-j", "CT",
 		"--notrack"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	if err = prog.runProg([]string{
 		"-t", "filter",
@@ -951,7 +981,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"-s", IP,
 		"--sport", p,
 		"-j", "ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	if err = prog.runProg([]string{
 		"-t", "filter",
@@ -961,7 +991,7 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		"--dport",
 		p, "-j",
 		"ACCEPT"}); err != nil {
-		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	return err
 }
@@ -1000,8 +1030,10 @@ func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 
 func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
 	if m.haveBPFSocketAssign {
-		log.WithField("port", proxyPort).
-			Debug("Skipping proxy rule install due to BPF support")
+		m.logger.Debug(
+			"Skipping proxy rule install due to BPF support",
+			logfields.Port, proxyPort,
+		)
 		return nil
 	}
 
@@ -1477,7 +1509,10 @@ func (m *Manager) installRules(state desiredState) error {
 		if err := c.add(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
 			if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
-				log.WithField(logfields.Chain, c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
+				m.logger.Warn(
+					fmt.Sprintf("ignoring creation of chain since feeder rules for %s is disabled", c.hook),
+					logfields.Chain, c.name,
+				)
 				continue
 			}
 
@@ -1563,7 +1598,10 @@ func (m *Manager) installRules(state desiredState) error {
 	for _, c := range ciliumChains {
 		// do not install feeder for chains that are set to be disabled
 		if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
-			log.WithField(logfields.Chain, c.hook).Infof("Skipping the install of feeder rule")
+			m.logger.Info(
+				"Skipping the install of feeder rule",
+				logfields.Chain, c.hook,
+			)
 			continue
 		}
 
@@ -1739,7 +1777,7 @@ func (m *Manager) addCiliumENIRules() error {
 		return nil
 	}
 
-	iface, err := route.NodeDeviceWithDefaultRoute(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6)
+	iface, err := route.NodeDeviceWithDefaultRoute(m.logger, m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6)
 	if err != nil {
 		return fmt.Errorf("failed to find interface with default route: %w", err)
 	}

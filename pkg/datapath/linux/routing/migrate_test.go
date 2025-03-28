@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -48,6 +49,7 @@ const n = 5
 
 func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 	m := setupMigrateSuite(t)
+	logger := hivetest.Logger(t)
 	// First, we need to setupMigrateSuite the Linux routing policy database to mimic a
 	// broken setupMigrateSuite (1). Then we will call MigrateENIDatapath (2).
 
@@ -90,7 +92,7 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 		}
 
 		// (2) Make the call to modifying the routing table.
-		mig := migrator{rpdb: m, getter: m}
+		mig := migrator{logger: logger, rpdb: m, getter: m}
 		migrated, failed := mig.MigrateENIDatapath(false)
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
@@ -121,6 +123,7 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 }
 
 func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// This test case will cover one failure path where we successfully migrate
 	// all the old rules and routes, but fail to cleanup the old rule. This
 	// test case will be set up identically to the successful case. After we
@@ -159,7 +162,7 @@ func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
 			return devIfNumLookup[mac], nil
 		}
 
-		mig := migrator{rpdb: m, getter: m}
+		mig := migrator{logger: logger, rpdb: m, getter: m}
 		migrated, failed := mig.MigrateENIDatapath(false)
 		require.Equal(t, 4, migrated)
 		require.Equal(t, 1, failed)
@@ -199,6 +202,7 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 	//     table ID.
 	//   - The route has the old table ID.
 	m := setupMigrateSuite(t)
+	logger := hivetest.Logger(t)
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
 		// (1) Setting up the routing table.
@@ -229,7 +233,7 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 		}
 
 		// (2) Make the call to modifying the routing table.
-		mig := migrator{rpdb: m, getter: m}
+		mig := migrator{logger: logger, rpdb: m, getter: m}
 		migrated, failed := mig.MigrateENIDatapath(true)
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
@@ -268,6 +272,8 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 	// assert that the revert of the downgrade was successfully as well,
 	// meaning we expect the "newer" rules and routes to be reinstated.
 	m := setupMigrateSuite(t)
+
+	logger := hivetest.Logger(t)
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
 		index := 5
@@ -296,7 +302,7 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 			return devMACLookup[fmt.Sprintf("gotestdummy%d", i)], nil
 		}
 
-		mig := migrator{rpdb: m, getter: m}
+		mig := migrator{logger: logger, rpdb: m, getter: m}
 		migrated, failed := mig.MigrateENIDatapath(true)
 		require.Equal(t, n-1, migrated) // One failed migration.
 		require.Equal(t, 1, failed)
@@ -337,6 +343,7 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 	//   - We still upgrade the remaining rules that need to be migrated.
 	//   - We ignore the partially migrated rule.
 	m := setupMigrateSuite(t)
+	logger := hivetest.Logger(t)
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
@@ -361,7 +368,7 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 			return devIfNumLookup[mac], nil
 		}
 
-		mig := migrator{rpdb: m, getter: m}
+		mig := migrator{logger: logger, rpdb: m, getter: m}
 		migrated, failed := mig.MigrateENIDatapath(false)
 		require.Equal(t, n, migrated)
 		require.Equal(t, 0, failed)
