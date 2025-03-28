@@ -520,6 +520,21 @@ data:
   routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" .Values.gke.enabled) | quote }}
   tunnel-protocol: {{ .Values.tunnelProtocol | default "vxlan" | quote }}
 
+{{- if eq .Values.routingMode "native" }}
+  {{- if and .Values.ipv4.enabled .Values.enableIPv4Masquerade (not .Values.ipMasqAgent.enabled) }}
+    {{- if and (ne $ipam "eni") (ne $ipam "alibabacloud") }}
+      {{- if not .Values.ipv4NativeRoutingCIDR }}
+        {{- fail " ipv4NativeRoutingCIDR must be set when routingMode is native"}}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if and .Values.ipv6.enabled .Values.enableIPv6Masquerade (not .Values.ipMasqAgent.enabled) }}
+    {{- if not .Values.ipv6NativeRoutingCIDR }}
+      {{- fail "ipv6NativeRoutingCIDR must be set when routingMode is native"  }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
 {{- end }}
