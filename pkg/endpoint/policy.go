@@ -993,14 +993,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
+				if err := e.kvstoreSyncher.Upsert(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %w", endpointIP.String(), ID, err)
 				}
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				ip := endpointIP.String()
-				if err := ipcache.DeleteIPFromKVStore(ctx, ip); err != nil {
+				if err := e.kvstoreSyncher.Delete(ctx, ip); err != nil {
 					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %w", ip, err)
 				}
 				return nil

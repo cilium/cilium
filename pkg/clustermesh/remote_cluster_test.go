@@ -398,7 +398,7 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 		{
 			name: "with extra opts",
 			extra: func(config *types.CiliumClusterConfig) []ipcache.IWOpt {
-				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithSelfDeletionProtection()}
+				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithIdentityValidator(25)}
 			},
 			expected: 2,
 		},

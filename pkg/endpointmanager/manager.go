@@ -73,6 +73,10 @@ type endpointManager struct {
 	// up-to-date information about endpoints managed by the endpoint manager.
 	EndpointResourceSynchronizer
 
+	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
+	// information about endpoints.
+	kvstoreSyncher *ipcache.IPIdentitySynchronizer
+
 	// subscribers are notified when events occur in the endpointManager.
 	subscribers map[Subscriber]struct{}
 
@@ -110,13 +114,14 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, ks *ipcache.IPIdentitySynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent) *endpointManager {
 	mgr := endpointManager{
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
+		kvstoreSyncher:               ks,
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
 		localNodeStore:               lns,
@@ -670,6 +675,8 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.updateIDReferenceLocked(ep)
 	mgr.updateReferencesLocked(ep, identifiers)
 	mgr.mutex.Unlock()
+
+	ep.SetKVStoreSynchronizer(mgr.kvstoreSyncher)
 
 	ep.InitEndpointHealth(mgr.health)
 	mgr.RunK8sCiliumEndpointSync(ep, ep.GetReporter("cep-k8s-sync"))
