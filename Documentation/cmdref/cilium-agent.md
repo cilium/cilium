@@ -176,6 +176,7 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
+      --enable-standalone-dns-proxy                               Enables standalone DNS proxy.
       --enable-svc-source-range-check                             Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tcx                                                Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                            Enable tracing while determining policy (debugging)
@@ -385,6 +386,7 @@ cilium-agent [flags]
       --tofqdns-pre-cache string                                  DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                    Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration                 The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
+      --tofqdns-server-port int                                   Global port on which the gRPC server for standalone DNS proxy should listen. (default 40045)
       --trace-payloadlen int                                      Length of payload to capture when tracing (default 128)
       --trace-sock                                                Enable tracing for socket-based LB (default true)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
