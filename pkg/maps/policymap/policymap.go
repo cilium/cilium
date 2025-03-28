@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	coretypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -460,6 +461,39 @@ func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 	}
 	err := pm.DumpWithCallback(cb)
 	return out, err
+}
+
+// ShuntProxyPorts looks for any policymap entries that redirect to any of the supplied ports,
+// and replaces them with an Allow entry **without proxying**.
+//
+// This is used when the agent is shutting down, and it is desired that traffic continues to flow,
+// un-proxied, until the userspace proxy is able to come back up.
+func (pm *PolicyMap) ShuntProxyPorts(ports []coretypes.PortProto) (count int, err error) {
+	toFix := map[*PolicyKey]*PolicyEntry{}
+	cb := func(bpfKey bpf.MapKey, bpfVal bpf.MapValue) {
+		key := bpfKey.(*PolicyKey)
+		val := bpfVal.(*PolicyEntry)
+		proxyPortHost := byteorder.NetworkToHost16(val.ProxyPortNetwork)
+		for _, wantPP := range ports {
+			if proxyPortHost == wantPP.Port && key.Nexthdr == uint8(wantPP.Proto) && !val.IsDeny() {
+				toFix[key] = val
+			}
+		}
+	}
+
+	err = pm.DumpWithCallback(cb)
+	if err != nil {
+		return 0, fmt.Errorf("shunt: failed to dump policy map: %w", err)
+	}
+
+	for key, val := range toFix {
+		val.ProxyPortNetwork = 0
+		err = pm.Update(key, val)
+		if err != nil {
+			return 0, fmt.Errorf("shunt: failed to write updated policy key: %w", err)
+		}
+	}
+	return len(toFix), nil
 }
 
 func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
