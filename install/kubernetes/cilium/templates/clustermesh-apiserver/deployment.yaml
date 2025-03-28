@@ -40,6 +40,7 @@ spec:
         {{- with .Values.clustermesh.apiserver.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        kubectl.kubernetes.io/default-container: apiserver
       labels:
         app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: clustermesh-apiserver
