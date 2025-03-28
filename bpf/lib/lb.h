@@ -188,6 +188,10 @@ struct {
 		__uint(max_entries, 1);
 	});
 } cilium_lb4_maglev __section_maps_btf;
+
+#  ifndef cilium_lb4_maglev_map
+#   define cilium_lb4_maglev_map cilium_lb4_maglev
+#  endif /* cilium_lb4_maglev_map */
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
@@ -1484,7 +1488,7 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	__u32 *backend_ids;
 	void *maglev_lut;
 
-	maglev_lut = map_lookup_elem(&cilium_lb4_maglev, &index);
+	maglev_lut = map_lookup_elem(&cilium_lb4_maglev_map, &index);
 	if (unlikely(!maglev_lut))
 		return 0;
 
