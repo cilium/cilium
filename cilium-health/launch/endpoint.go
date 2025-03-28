@@ -22,30 +22,23 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
-	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
-	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -212,38 +205,13 @@ func CleanupEndpoint() {
 	}
 }
 
-// EndpointAdder is any type which adds an endpoint to be managed by Cilium.
-type EndpointAdder interface {
-	AddEndpoint(ep *endpoint.Endpoint) error
-}
-
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint, but
 // with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context,
-	dnsRulesAPI endpoint.DNSRulesAPI,
-	epBuildQueue endpoint.EndpointBuildQueue,
-	loader datapathTypes.Loader,
-	orchestrator datapathTypes.Orchestrator,
-	compilationLock datapathTypes.CompilationLock,
-	bandwidthManager datapathTypes.BandwidthManager,
-	ipTablesManager datapathTypes.IptablesManager,
-	identityManager identitymanager.IDManager,
-	monitorAgent monitoragent.Agent,
-	policyMapFactory policymap.Factory,
-	policyRepository policy.PolicyRepository,
-	ipcache *ipcache.IPCache,
-	mtuConfig mtu.MTU,
-	bigTCPConfig *bigtcp.Configuration,
-	epMgr EndpointAdder,
-	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer,
-	ctMapGC ctmap.GCRunner,
-	sysctl sysctl.Sysctl,
-) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -331,7 +299,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepository, ipcache, nil, allocator, ctMapGC, info)
+	ep, err := endpointCreator.NewEndpointFromChangeModel(baseCtx, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
@@ -374,7 +342,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
-	if err := epMgr.AddEndpoint(ep); err != nil {
+	if err := endpointManager.AddEndpoint(ep); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %w", err)
 	}
 
