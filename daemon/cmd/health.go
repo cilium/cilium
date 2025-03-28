@@ -79,28 +79,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 				if time.Since(lastSuccessfulPing) > successfulPingTimeout {
 					d.cleanupHealthEndpoint()
 
-					client, err = health.LaunchAsEndpoint(
-						ctx,
-						d.dnsRulesAPI,
-						d.epBuildQueue,
-						d.loader,
-						d.orchestrator,
-						d.compilationLock,
-						d.bwManager,
-						d.iptablesManager,
-						d.idmgr,
-						d.monitorAgent,
-						d.policyMapFactory,
-						d.policy,
-						d.ipcache,
-						d.mtuConfig,
-						d.bigTCPConfig,
-						d.endpointManager,
-						d.identityAllocator,
-						d.healthEndpointRouting,
-						d.ctMapGC,
-						sysctl,
-					)
+					client, err = health.LaunchAsEndpoint(ctx, d.endpointCreator, d.endpointManager, d.mtuConfig, d.bigTCPConfig, d.healthEndpointRouting, sysctl)
 					if err == nil {
 						// Reset lastSuccessfulPing after the new endpoint
 						// is launched to give it time to come up before
