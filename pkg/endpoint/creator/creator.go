@@ -31,6 +31,8 @@ type EndpointCreator interface {
 	// NewEndpointFromChangeModel creates a new endpoint from a request
 	NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error)
 
+	ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, error)
+
 	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
 	// corresponding container necessarily existing. This is needed to be able to ingest and
 	// sync network policies applicable to Cilium Ingress to Envoy.
@@ -121,6 +123,24 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.allocator,
 		c.ctMapGC,
 		base,
+	)
+}
+
+func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, error) {
+	return endpoint.ParseEndpoint(
+		c.dnsRulesAPI,
+		c.epBuildQueue,
+		c.loader,
+		c.orchestrator,
+		c.compilationLock,
+		c.bandwidthManager,
+		c.ipTablesManager,
+		c.identityManager,
+		c.monitorAgent,
+		c.policyMapFactory,
+		c.policyRepo,
+		c.ipcache,
+		epJSON,
 	)
 }
 
