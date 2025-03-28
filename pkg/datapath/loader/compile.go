@@ -108,7 +108,8 @@ var (
 		"-Wno-gnu-variable-sized-type-not-at-end",
 		"-Wdeclaration-after-statement",
 		"-Wimplicit-int-conversion",
-		"-Wenum-conversion"}
+		"-Wenum-conversion",
+		"-Wimplicit-fallthrough"}
 
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.
