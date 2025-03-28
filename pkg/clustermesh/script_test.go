@@ -256,6 +256,11 @@ func (d dummyNodeManager) Unsubscribe(types.NodeHandler) {
 	panic("unimplemented")
 }
 
+// SetPrefixClusterMutatorFn implements manager.NodeManager
+func (d dummyNodeManager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
+	panic("unimplemented")
+}
+
 var _ nodemanager.NodeManager = dummyNodeManager{}
 
 type dummyRemoteIdentityWatcher struct{}
