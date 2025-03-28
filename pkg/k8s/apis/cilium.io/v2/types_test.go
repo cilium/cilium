@@ -30,12 +30,8 @@ var (
 			{
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("role=frontend"),
-						),
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("reserved:world"),
-						),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:role=frontend")),
+						api.NewESFromLabels(labels.ParseSelectLabel("reserved:world")),
 					},
 				},
 				ToPorts: []api.PortRule{
@@ -71,12 +67,8 @@ var (
 			{
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("role=frontend"),
-						),
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("reserved:world"),
-						),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:role=frontend")),
+						api.NewESFromLabels(labels.ParseSelectLabel("reserved:world")),
 					},
 				},
 				ToPorts: []api.PortRule{
@@ -114,12 +106,10 @@ var (
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
 						api.NewESFromLabels(
-							labels.ParseSelectLabel("role=frontend"),
+							labels.ParseSelectLabel("k8s:role=frontend"),
 							labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"),
 						),
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("reserved:world"),
-						),
+						api.NewESFromLabels(labels.ParseSelectLabel("reserved:world")),
 					},
 				},
 				ToPorts: []api.PortRule{
@@ -171,12 +161,12 @@ var (
                 "fromEndpoints": [
                     {
                         "matchLabels": {
-                            "role": "frontend"
+                            "k8s.role": "frontend"
                         }
                     },
                     {
                         "matchLabels": {
-                            "reserved:world": ""
+                            "reserved.world": ""
                         }
                     }
                 ],
@@ -264,10 +254,10 @@ var (
 func TestParseSpec(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+			"role": "backend",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      "role",
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -297,11 +287,11 @@ func TestParseSpec(t *testing.T) {
 
 	expectedES := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s.role", labels.LabelSourceK8s):                           "backend",
 			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceK8s),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -320,9 +310,11 @@ func TestParseSpec(t *testing.T) {
 
 	b, err := json.Marshal(expectedPolicyRule)
 	require.NoError(t, err)
+
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	require.NoError(t, err)
+
 	expectedPolicyRuleUnmarshalled.Parse(logger)
 	require.EqualValues(t, *expectedPolicyRule, expectedPolicyRuleUnmarshalled)
 
@@ -354,10 +346,10 @@ func TestParseSpec(t *testing.T) {
 func TestParseRules(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+			"role": "backend",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      "role",
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -387,11 +379,11 @@ func TestParseRules(t *testing.T) {
 
 	expectedES := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s.role", labels.LabelSourceK8s):                           "backend",
 			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceK8s),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
