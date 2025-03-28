@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"slices"
 	"sort"
@@ -131,11 +132,7 @@ func (s *Status) writeStatus(res map[string][]*models.BgpPeer) error {
 
 func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 	// sort by node names
-	var nodes []string
-	for node := range peersPerNode {
-		nodes = append(nodes, node)
-	}
-	slices.Sort(nodes)
+	nodes := slices.Sorted(maps.Keys(peersPerNode))
 
 	// sort peers per node
 	for _, peers := range peersPerNode {

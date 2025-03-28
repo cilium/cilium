@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 
@@ -311,10 +312,7 @@ func (s *SharedStore) syncLocalKeys(ctx context.Context, lease bool) error {
 	// Create a copy of all local keys so we can unlock and sync to kvstore
 	// without holding the lock
 	s.mutex.RLock()
-	keys := make([]LocalKey, 0, len(s.localKeys))
-	for _, key := range s.localKeys {
-		keys = append(keys, key)
-	}
+	keys := slices.Collect(maps.Values(s.localKeys))
 	s.mutex.RUnlock()
 
 	for _, key := range keys {

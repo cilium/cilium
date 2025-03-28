@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -194,11 +195,7 @@ func parseNameAndLabels(key string) (string, string) {
 }
 
 func printPerNodeFeatureStatus(nodeMap perNodeMetrics, sp statusPrinter) error {
-	var nodesSorted []string
-	for node := range nodeMap {
-		nodesSorted = append(nodesSorted, node)
-	}
-	slices.Sort(nodesSorted)
+	nodesSorted := slices.Sorted(maps.Keys(nodeMap))
 
 	// Create header with all the nodes' names
 	err := sp.printHeader(nodesSorted)
@@ -233,11 +230,7 @@ func printPerNodeFeatureStatus(nodeMap perNodeMetrics, sp statusPrinter) error {
 		}
 	}
 
-	var metricNamesLabelsSorted []string
-	for key := range metricNamesLabels {
-		metricNamesLabelsSorted = append(metricNamesLabelsSorted, key)
-	}
-	slices.Sort(metricNamesLabelsSorted)
+	metricNamesLabelsSorted := slices.Sorted(maps.Keys(metricNamesLabels))
 
 	var previousMetricName string
 	var firstMetric bool

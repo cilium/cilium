@@ -6,6 +6,7 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1161,14 +1162,8 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 // not support ordered maps and for DNS-config the values need to be always
 // sorted.
 func getMapValues(m map[string]string) []interface{} {
-
 	values := make([]interface{}, len(m))
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	for i, k := range keys {
+	for i, k := range slices.Sorted(maps.Keys(m)) {
 		values[i] = m[k]
 	}
 	return values
