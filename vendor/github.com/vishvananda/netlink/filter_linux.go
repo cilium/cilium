@@ -752,6 +752,7 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 			table := attr.AddRtAttr(tabIndex, nil)
 			tabIndex++
 			pedit := nl.TcPedit{}
+			toTcGen(action.Attrs(), &pedit.Sel.TcGen)
 			if action.SrcMacAddr != nil {
 				pedit.SetEthSrc(action.SrcMacAddr)
 			}
