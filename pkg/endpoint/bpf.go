@@ -38,8 +38,10 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
+	coretypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -1325,6 +1327,38 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 		}
 	}
 	return nil
+}
+
+// DisableDNSProxy tells the endpoint to force-remove any BPF policymap entries
+// that would proxy traffic to the DNS proxy. They are replaced with allow entries.
+//
+// This is intended to be called on shutdown, so that DNS traffic may still be allowed
+// while the agent is being upgaded.
+func (e *Endpoint) DisableDNSProxy() {
+	if e.IsProxyDisabled() {
+		return
+	}
+	if err := e.lockAlive(); err != nil {
+		return
+	}
+	defer e.unlock()
+	proxyPorts := []coretypes.PortProto{}
+	for portProto, proxyType := range e.proxy.GetRedirects(e.ID) {
+		if proxyType != proxytypes.ProxyTypeDNS {
+			continue
+		}
+		proxyPorts = append(proxyPorts, portProto)
+	}
+	if len(proxyPorts) == 0 {
+		return
+	}
+	e.getLogger().Info("Force-converting all DNS redirects to allow entries")
+	count, err := e.policyMap.ShuntProxyPorts(proxyPorts)
+	if err != nil {
+		e.getLogger().WithError(err).Warning("failed to shunt DNS redirects to allows")
+	} else {
+		e.getLogger().WithField(logfields.Count, count).Info("shunted DNS redirects to allows")
+	}
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
