@@ -10,7 +10,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/cloudflare/cfssl/log"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -250,7 +249,10 @@ func syncToK8s(logger *slog.Logger, nodeGetterUpdater ipam.CiliumNodeGetterUpdat
 		case k8sOpUpdate:
 			var updatedNode *v2.CiliumNode
 			updatedNode, err = nodeGetterUpdater.Update(nil, nodeToK8s.ciliumNode)
-			log.Debug("Updated Node", logfields.Error, err, logfields.NodeName, nodeName)
+			logger.Debug("Updated Node",
+				logfields.Error, err,
+				logfields.NodeName, nodeName,
+			)
 			if err != nil {
 				if k8sErrors.IsNotFound(err) {
 					// In case the node was not found we should not try to re-create
@@ -268,7 +270,10 @@ func syncToK8s(logger *slog.Logger, nodeGetterUpdater ipam.CiliumNodeGetterUpdat
 			fallthrough
 		case k8sOpUpdateStatus:
 			_, err = nodeGetterUpdater.UpdateStatus(nil, nodeToK8s.ciliumNode)
-			log.Debug("UpdatedStatus Node", logfields.Error, err, logfields.NodeName, nodeName)
+			logger.Debug("UpdatedStatus Node",
+				logfields.Error, err,
+				logfields.NodeName, nodeName,
+			)
 			switch {
 			case k8sErrors.IsNotFound(err):
 				// In case the node was not found we should not try to re-create
