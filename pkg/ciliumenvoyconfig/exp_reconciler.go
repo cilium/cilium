@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 type envoyOps struct {
@@ -137,13 +137,13 @@ func registerEnvoyReconciler(
 	return err
 }
 
-type policyTriggerWrapper struct{ updater *policy.Updater }
+type policyTriggerWrapper struct{ updater policycell.PolicyUpdater }
 
 func (p policyTriggerWrapper) TriggerPolicyUpdates() {
 	p.updater.TriggerPolicyUpdates("Envoy Listeners changed")
 }
 
-func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
+func newPolicyTrigger(log *slog.Logger, updater policycell.PolicyUpdater) policyTrigger {
 	return policyTriggerWrapper{updater}
 }
 

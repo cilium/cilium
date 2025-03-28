@@ -21,8 +21,8 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -37,7 +37,7 @@ type ciliumEnvoyConfigManager interface {
 type cecManager struct {
 	logger *slog.Logger
 
-	policyUpdater  *policy.Updater
+	policyUpdater  policycell.PolicyUpdater
 	serviceManager service.ServiceManager
 
 	xdsServer      envoy.XDSServer
@@ -54,7 +54,7 @@ type cecManager struct {
 }
 
 func newCiliumEnvoyConfigManager(logger *slog.Logger,
-	policyUpdater *policy.Updater,
+	policyUpdater policycell.PolicyUpdater,
 	serviceManager service.ServiceManager,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,

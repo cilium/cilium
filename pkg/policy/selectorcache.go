@@ -139,6 +139,16 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 	return selCacheMdl
 }
 
+func (sc *SelectorCache) allIDs() []identity.NumericIdentity {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+	out := make([]identity.NumericIdentity, len(sc.idCache))
+	for k := range sc.idCache {
+		out = append(out, k)
+	}
+	return out
+}
+
 func (sc *SelectorCache) Stats() selectorStats {
 	result := newSelectorStats()
 

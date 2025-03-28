@@ -110,7 +110,7 @@ func (p *policyContext) SetDeny(deny bool) bool {
 }
 
 type PolicyRepository interface {
-	BumpRevision() uint64
+	BumpRevision() (affectedIDs *set.Set[identity.NumericIdentity], newRev uint64)
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 
@@ -280,7 +280,7 @@ func (p *Repository) addListLocked(rules api.Rules) (ruleSlice, uint64) {
 		p.nextID++
 	}
 
-	return newRules, p.BumpRevision()
+	return newRules, p.bumpRevision()
 }
 
 func (p *Repository) insert(r *rule) {
@@ -380,9 +380,16 @@ func (p *Repository) GetRevision() uint64 {
 }
 
 // BumpRevision allows forcing policy regeneration
-func (p *Repository) BumpRevision() uint64 {
+func (p *Repository) bumpRevision() uint64 {
 	metrics.PolicyRevision.Inc()
 	return p.revision.Add(1)
+}
+
+func (p *Repository) BumpRevision() (affectedIDs *set.Set[identity.NumericIdentity], newRev uint64) {
+	rev := p.bumpRevision()
+	ids := set.NewSet(p.selectorCache.allIDs()...)
+
+	return &ids, rev
 }
 
 // GetRulesList returns the current policy
@@ -678,7 +685,7 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 		p.releaseRule(r)
 	}
 
-	return affectedIDs, p.BumpRevision(), len(oldRules)
+	return affectedIDs, p.bumpRevision(), len(oldRules)
 }
 
 // ReplaceByLabels implements the somewhat awkward REST local API for providing network policy,
@@ -718,5 +725,5 @@ func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.
 		p.releaseRule(oldRule)
 	}
 
-	return affectedIDs, p.BumpRevision(), len(oldRules)
+	return affectedIDs, p.bumpRevision(), len(oldRules)
 }

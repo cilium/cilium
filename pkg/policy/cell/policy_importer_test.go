@@ -104,8 +104,6 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		epm:  epm,
 		ipc:  ipc,
 
-		q: make(chan *policytypes.PolicyUpdate, 10),
-
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())

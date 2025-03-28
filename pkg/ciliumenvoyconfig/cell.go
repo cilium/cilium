@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
@@ -147,7 +147,7 @@ type managerParams struct {
 	Config      cecConfig
 	EnvoyConfig envoy.ProxyConfig
 
-	PolicyUpdater  *policy.Updater
+	PolicyUpdater  policycell.PolicyUpdater
 	ServiceManager service.ServiceManager
 
 	XdsServer      envoy.XDSServer
