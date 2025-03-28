@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -161,6 +162,10 @@ type Endpoint struct {
 
 	// namedPortsGetter can get the ipcache.IPCache object.
 	namedPortsGetter namedPortsGetter
+
+	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
+	// information about endpoints. Initialized by manager.expose.
+	kvstoreSyncher *ipcache.IPIdentitySynchronizer
 
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
@@ -2727,4 +2732,10 @@ func (e *Endpoint) SetCtMapGC(ctMapGC ctmap.GCRunner) {
 	e.unconditionalLock()
 	defer e.unlock()
 	e.ctMapGC = ctMapGC
+}
+
+// SetKVStoreSynchronizer sets the object used to synchronize the endpoint into
+// the kvstore.
+func (e *Endpoint) SetKVStoreSynchronizer(sync *ipcache.IPIdentitySynchronizer) {
+	e.kvstoreSyncher = sync
 }
