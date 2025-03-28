@@ -11,7 +11,6 @@ import (
 	"net/netip"
 	"path"
 	"sort"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -21,7 +20,6 @@ import (
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -45,8 +43,6 @@ var (
 	// globalMap wraps the kvstore and provides a cache of all entries
 	// which are owned by a local user
 	globalMap = newKVReferenceCounter(kvstoreImplementation{})
-
-	setupIPIdentityWatcher sync.Once
 )
 
 // store is a key-value store for an underlying implementation, provided to
@@ -306,6 +302,17 @@ func (iw *IPIdentityWatcher) Synced() bool {
 	return iw.store.Synced()
 }
 
+// WaitForSync blocks until either the initial list of entries had been retrieved
+// from the kvstore, or the given context is canceled.
+func (iw *IPIdentityWatcher) WaitForSync(ctx context.Context) error {
+	select {
+	case <-iw.synced:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // OnUpdate is triggered when a new upsertion event is observed, and
 // synchronizes local caching of endpoint IP to ipIDPair mapping with
 // the operation the key-value store has informed us about.
@@ -435,38 +442,4 @@ func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 	}
 
 	return false
-}
-
-var (
-	watcher     *IPIdentityWatcher
-	initialized = make(chan struct{})
-)
-
-// InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
-// in the key-value store.
-func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context, factory storepkg.Factory) {
-	setupIPIdentityWatcher.Do(func() {
-		go func() {
-			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(option.Config.ClusterName, ipc, factory, source.KVStore)
-			close(initialized)
-			watcher.Watch(ctx, kvstore.Client(), WithSelfDeletionProtection())
-		}()
-	})
-}
-
-// WaitForKVStoreSync waits until the ipcache has been synchronized from the kvstore
-func WaitForKVStoreSync(ctx context.Context) error {
-	select {
-	case <-initialized:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	select {
-	case <-watcher.synced:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
