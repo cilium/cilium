@@ -178,3 +178,15 @@ by default, use interfaces listed in the ``devices`` field as the egress masquer
 when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
 it takes precedence over ``devices`` to choose which network interface should perform masquerading.
 You can set ``egress-masquerade-interfaces`` to match multiple interfaces like this: ``eth+ ens+``.
+
+SNAT traffic to Remote Node
+****************************
+
+To SNAT traffic to the remote node in BPF routing mode, a feature flag has been introduced. 
+It can be enabled via the option ``enable-remote-node-snat: "true"``. 
+This option requires ``enable-bpf-masquerade: "true"`` and also either 
+``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively.
+
+However, this flag does not provide the optimal behavior because packets directed to the nodes' InternalIP addresses will also be masqueraded. 
+To achieve the optimal behavior, we would need to inform the datapath about the type of IP address each node IP address represents. 
+This could potentially be accomplished by extending the node ID map.
