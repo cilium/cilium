@@ -26,6 +26,7 @@ var Cell = cell.Module(
 	cell.Provide(
 		newIPCache,
 		newIPIdentityWatcher,
+		ipcache.NewIPIdentitySynchronizer,
 	),
 )
 

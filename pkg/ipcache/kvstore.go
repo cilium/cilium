@@ -39,62 +39,32 @@ var (
 	// AddressSpace is the address space (cluster, etc.) in which policy is
 	// computed. It is determined by the orchestration system / runtime.
 	AddressSpace = DefaultAddressSpace
-
-	// globalMap wraps the kvstore and provides a cache of all entries
-	// which are owned by a local user
-	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 )
 
-// store is a key-value store for an underlying implementation, provided to
-// mock out the kvstore for unit testing.
-type store interface {
-	// update will insert the {key, value} tuple into the underlying
-	// kvstore.
-	upsert(ctx context.Context, key string, value string, lease bool) error
-
-	// delete will remove the key from the underlying kvstore.
-	release(ctx context.Context, key string) error
+type backend interface {
+	// UpdateIfDifferent updates a key if the value is different
+	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
+	// Delete deletes a key. It does not return an error if the key does not exist.
+	Delete(ctx context.Context, key string) error
 }
 
-// kvstoreImplementation is a store implementation backed by the kvstore.
-type kvstoreImplementation struct{}
-
-// upsert places the mapping of {key, value} into the kvstore, optionally with
-// a lease.
-func (k kvstoreImplementation) upsert(ctx context.Context, key string, value string, lease bool) error {
-	_, err := kvstore.Client().UpdateIfDifferent(ctx, key, []byte(value), lease)
-	return err
+// IPIdentitySynchronizer handles the synchronization of ipcache entries into the kvstore.
+type IPIdentitySynchronizer struct {
+	client  backend
+	tracker lock.Map[string, []byte]
 }
 
-// release removes the specified key from the kvstore.
-func (k kvstoreImplementation) release(ctx context.Context, key string) error {
-	return kvstore.Client().Delete(ctx, key)
+func NewIPIdentitySynchronizer() *IPIdentitySynchronizer {
+	return &IPIdentitySynchronizer{}
 }
 
-// kvReferenceCounter provides a thin wrapper around the kvstore which adds
-// reference tracking for all entries which are used by a local user.
-type kvReferenceCounter struct {
-	lock.Mutex
-	store
-
-	// marshaledIPIDPair is map indexed by the key that contains the
-	// marshaled IPIdentityPair
-	marshaledIPIDPairs map[string][]byte
-}
-
-// newKVReferenceCounter creates a new reference counter using the specified
-// store as the underlying location for key/value pairs to be stored.
-func newKVReferenceCounter(s store) *kvReferenceCounter {
-	return &kvReferenceCounter{
-		store:              s,
-		marshaledIPIDPairs: map[string][]byte{},
-	}
-}
-
-// UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
-// kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
+// Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
+func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
 	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
+	if s.client == nil {
+		s.client = kvstore.Client()
+	}
+
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
 	for name, value := range npm {
@@ -132,24 +102,24 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.N
 		logfields.Modification: Upsert,
 	}).Debug("Upserting IP->ID mapping to kvstore")
 
-	err = globalMap.store.upsert(ctx, ipKey, string(marshaledIPIDPair), true)
+	_, err = s.client.UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
-		globalMap.Lock()
-		globalMap.marshaledIPIDPairs[ipKey] = marshaledIPIDPair
-		globalMap.Unlock()
+		s.tracker.Store(ipKey, marshaledIPIDPair)
 	}
 	return err
 }
 
-// DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip
+// Delete removes the IP->Identity mapping for the specified ip
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
-func DeleteIPFromKVStore(ctx context.Context, ip string) error {
+func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
+	if s.client == nil {
+		s.client = kvstore.Client()
+	}
+
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	globalMap.Lock()
-	delete(globalMap.marshaledIPIDPairs, ipKey)
-	globalMap.Unlock()
-	return globalMap.store.release(ctx, ipKey)
+	s.tracker.Delete(ipKey)
+	return s.client.Delete(ctx, ipKey)
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
@@ -163,6 +133,9 @@ type IPIdentityWatcher struct {
 	source                     source.Source
 	withSelfDeletionProtection bool
 	validators                 []ipIdentityValidator
+
+	// Set only when withSelfDeletionProtection is true
+	syncer *IPIdentitySynchronizer
 
 	started bool
 	synced  chan struct{}
@@ -201,7 +174,7 @@ type IWOpt func(*iwOpts)
 
 type iwOpts struct {
 	clusterID              uint32
-	selfDeletionProtection bool
+	selfDeletionProtection *IPIdentitySynchronizer
 	cachedPrefix           bool
 	validators             []ipIdentityValidator
 }
@@ -214,12 +187,11 @@ func WithClusterID(id uint32) IWOpt {
 }
 
 // WithSelfDeletionProtection enables the automatic re-creation of the owned
-// keys if they are detected to have been deleted. Note that this operation
-// is performed using the client provided by kvstore.Client(), and shall not
-// be enabled when using a different client.
-func WithSelfDeletionProtection() IWOpt {
+// keys if they are detected to have been deleted, based on the synchronizer
+// parameter.
+func WithSelfDeletionProtection(synchronizer *IPIdentitySynchronizer) IWOpt {
 	return func(opts *iwOpts) {
-		opts.selfDeletionProtection = true
+		opts.selfDeletionProtection = synchronizer
 	}
 }
 
@@ -281,7 +253,8 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 
 	iw.started = true
 	iw.clusterID = iwo.clusterID
-	iw.withSelfDeletionProtection = iwo.selfDeletionProtection
+	iw.withSelfDeletionProtection = iwo.selfDeletionProtection != nil
+	iw.syncer = iwo.selfDeletionProtection
 	iw.validators = iwo.validators
 	iw.store.Watch(ctx, backend, prefix)
 }
@@ -428,13 +401,10 @@ func (iw *IPIdentityWatcher) onSync(context.Context) {
 }
 
 func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
-	globalMap.Lock()
-	defer globalMap.Unlock()
-
 	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	if m, ok := globalMap.marshaledIPIDPairs[key]; ok {
+	if m, ok := iw.syncer.tracker.Load(key); ok {
 		iw.log.WithField(logfields.IPAddr, ip).Warning("Received kvstore delete notification for alive ipcache entry")
-		err := globalMap.store.upsert(context.TODO(), key, string(m), true)
+		_, err := iw.syncer.client.UpdateIfDifferent(context.TODO(), key, m, true)
 		if err != nil {
 			iw.log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to re-create alive ipcache entry")
 		}
