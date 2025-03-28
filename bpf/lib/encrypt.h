@@ -256,11 +256,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ip_proto = ip4->protocol;
-
-		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-
 #  if defined(TUNNEL_MODE)
 		/* tunnel mode needs a bit of special handling when
 		 * encapsulated packets get here the destination address is
@@ -325,6 +320,11 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
+
+		ip_proto = ip4->protocol;
+
+		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
 		break;
 # endif /* ENABLE_IPV4 */
