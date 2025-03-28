@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
@@ -130,6 +131,7 @@ type Daemon struct {
 
 	policyMapFactory policymap.Factory
 
+	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
 
 	endpointRestoreComplete       chan struct{}
@@ -391,6 +393,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
 		policyMapFactory:  params.PolicyMapFactory,
+		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,

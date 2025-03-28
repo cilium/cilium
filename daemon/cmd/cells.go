@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -182,6 +183,9 @@ var (
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
+
+		// EndpointCreator helps creating endpoints
+		endpointcreator.Cell,
 
 		// Register the startup procedure to remove stale CiliumEndpoints referencing pods no longer
 		// managed by Cilium.
