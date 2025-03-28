@@ -3759,6 +3759,7 @@ func init() {
               }
             },
             "gracefulTermination": {
+              "description": "Deprecated",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9576,6 +9577,7 @@ func init() {
               }
             },
             "gracefulTermination": {
+              "description": "Deprecated",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9761,6 +9763,7 @@ func init() {
           }
         },
         "gracefulTermination": {
+          "description": "Deprecated",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9907,6 +9910,7 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesGracefulTermination": {
+      "description": "Deprecated",
       "type": "object",
       "properties": {
         "enabled": {
