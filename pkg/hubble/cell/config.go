@@ -26,9 +26,6 @@ type config struct {
 	// EventQueueSize specifies the buffer size of the channel to receive
 	// monitor events.
 	EventQueueSize int `mapstructure:"hubble-event-queue-size"`
-	// SkipUnknownCGroupIDs specifies if events with unknown cgroup ids should
-	// be skipped.
-	SkipUnknownCGroupIDs bool `mapstructure:"hubble-skip-unknown-cgroup-ids"`
 	// MonitorEvents specifies Cilium monitor events for Hubble to observe. By
 	// default, Hubble observes all monitor events.
 	MonitorEvents []string `mapstructure:"hubble-monitor-events"`
@@ -89,22 +86,6 @@ type config struct {
 	// RecorderSinkQueueSize is the queue size for each recorder sink.
 	RecorderSinkQueueSize int `mapstructure:"hubble-recorder-sink-queue-size"`
 
-	// EnableRedact controls if sensitive information will be redacted from L7
-	// flows.
-	EnableRedact bool `mapstructure:"hubble-redact-enabled"`
-	// RedactHttpURLQuery controls if the URL query will be redacted from flows.
-	RedactHttpURLQuery bool `mapstructure:"hubble-redact-http-urlquery"`
-	// RedactHttpUserInfo controls if the user info will be redacted from flows.
-	RedactHttpUserInfo bool `mapstructure:"hubble-redact-http-userinfo"`
-	// RedactHttpHeadersAllow controls which http headers will not be redacted
-	// from flows.
-	RedactHttpHeadersAllow []string `mapstructure:"hubble-redact-http-headers-allow"`
-	// RedactHttpHeadersDeny controls which http headers will be redacted from
-	// flows.
-	RedactHttpHeadersDeny []string `mapstructure:"hubble-redact-http-headers-deny"`
-	// RedactKafkaAPIKey controls if Kafka API key will be redacted from flows.
-	RedactKafkaAPIKey bool `mapstructure:"hubble-redact-kafka-apikey"`
-
 	// EnableK8sDropEvents controls whether Hubble should create v1.Events for
 	// packet drops related to pods.
 	EnableK8sDropEvents bool `mapstructure:"hubble-drop-events"`
@@ -120,10 +101,9 @@ type config struct {
 var defaultConfig = config{
 	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration
-	EventBufferCapacity:  observeroption.Default.MaxFlows.AsInt(),
-	EventQueueSize:       0, // see getDefaultMonitorQueueSize()
-	SkipUnknownCGroupIDs: true,
-	MonitorEvents:        []string{},
+	EventBufferCapacity: observeroption.Default.MaxFlows.AsInt(),
+	EventQueueSize:      0, // see getDefaultMonitorQueueSize()
+	MonitorEvents:       []string{},
 	// Hubble local server configuration
 	SocketPath: hubbleDefaults.SocketPath,
 	// Hubble TCP server configuration
@@ -148,13 +128,6 @@ var defaultConfig = config{
 	EnableRecorderAPI:     true,
 	RecorderStoragePath:   hubbleDefaults.RecorderStoragePath,
 	RecorderSinkQueueSize: 1024,
-	// Hubble field redaction configuration
-	EnableRedact:           false,
-	RedactHttpURLQuery:     false,
-	RedactHttpUserInfo:     true,
-	RedactHttpHeadersAllow: []string{},
-	RedactHttpHeadersDeny:  []string{},
-	RedactKafkaAPIKey:      false,
 	// Hubble k8s v1.Events integration configuration.
 	EnableK8sDropEvents:            false,
 	K8sDropEventsInterval:          2 * time.Minute,
@@ -167,7 +140,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	// Hubble internals (parser, ringbuffer) configuration
 	flags.Int("hubble-event-buffer-capacity", def.EventBufferCapacity, "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
 	flags.Int("hubble-event-queue-size", def.EventQueueSize, "Buffer size of the channel to receive monitor events.")
-	flags.Bool("hubble-skip-unknown-cgroup-ids", def.SkipUnknownCGroupIDs, "Skip Hubble events with unknown cgroup ids")
 	flags.StringSlice("hubble-monitor-events", def.MonitorEvents,
 		fmt.Sprintf(
 			"Cilium monitor events for Hubble to observe: [%s]. By default, Hubble observes all monitor events.",
@@ -197,13 +169,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
 	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
 	flags.Int("hubble-recorder-sink-queue-size", def.RecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
-	// Hubble field redaction configuration
-	flags.Bool("hubble-redact-enabled", def.EnableRedact, "Hubble redact sensitive information from flows")
-	flags.Bool("hubble-redact-http-urlquery", def.RedactHttpURLQuery, "Hubble redact http URL query from flows")
-	flags.Bool("hubble-redact-http-userinfo", def.RedactHttpUserInfo, "Hubble redact http user info from flows")
-	flags.StringSlice("hubble-redact-http-headers-allow", def.RedactHttpHeadersAllow, "HTTP headers to keep visible in flows")
-	flags.StringSlice("hubble-redact-http-headers-deny", def.RedactHttpHeadersDeny, "HTTP headers to redact from flows")
-	flags.Bool("hubble-redact-kafka-apikey", def.RedactKafkaAPIKey, "Hubble redact Kafka API key from flows")
 	// Hubble k8s v1.Events integration configuration.
 	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
 	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
@@ -233,13 +198,6 @@ func (cfg *config) normalize() {
 	if len(cfg.K8sDropEventsReasons) == 1 {
 		cfg.K8sDropEventsReasons = strings.Fields(cfg.K8sDropEventsReasons[0])
 	}
-}
-
-func (cfg config) validate() error {
-	if len(cfg.RedactHttpHeadersAllow) > 0 && len(cfg.RedactHttpHeadersDeny) > 0 {
-		return fmt.Errorf("Only one of --hubble-redact-http-headers-allow and --hubble-redact-http-headers-deny can be specified, not both")
-	}
-	return nil
 }
 
 func getDefaultMonitorQueueSize(numCPU int) int {

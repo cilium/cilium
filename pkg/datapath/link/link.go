@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cilium/hive/cell"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -78,25 +79,74 @@ func GetIfIndex(ifName string) (uint32, error) {
 type LinkCache struct {
 	mu          lock.RWMutex
 	indexToName map[int]string
+	manager     *controller.Manager
 }
 
-// NewLinkCache begins monitoring local interfaces for changes in order to
-// track local link information.
-func NewLinkCache() *LinkCache {
-	once.Do(func() {
-		linkCache = LinkCache{}
-		controller.NewManager().UpdateController("link-cache",
-			controller.ControllerParams{
-				Group:       linkCacheControllerGroup,
-				RunInterval: 15 * time.Second,
-				DoFunc: func(ctx context.Context) error {
-					return linkCache.syncCache()
+var Cell = cell.Module(
+	"link-cache",
+	"Provides a cache of link names to ifindex mappings",
+
+	cell.Provide(newLinkCache),
+	cell.Invoke(registerLinkCacheHooks),
+)
+
+type linkCacheParams struct {
+	cell.In
+	Lifecycle cell.Lifecycle
+}
+
+func registerLinkCacheHooks(params linkCacheParams, cache *LinkCache) {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			// Start the controller when the application starts
+			cache.manager.UpdateController("link-cache",
+				controller.ControllerParams{
+					Group:       linkCacheControllerGroup,
+					RunInterval: 15 * time.Second,
+					DoFunc: func(ctx context.Context) error {
+						return cache.syncCache()
+					},
 				},
-			},
-		)
+			)
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			cache.Stop()
+			return nil
+		},
+	})
+}
+
+func newLinkCache() *LinkCache {
+	once.Do(func() {
+		linkCache = LinkCache{
+			indexToName: make(map[int]string),
+			manager:     controller.NewManager(),
+		}
 	})
 
 	return &linkCache
+}
+
+func NewLinkCache() *LinkCache {
+	lc := newLinkCache()
+
+	lc.manager.UpdateController("link-cache",
+		controller.ControllerParams{
+			Group:       linkCacheControllerGroup,
+			RunInterval: 15 * time.Second,
+			DoFunc: func(ctx context.Context) error {
+				return linkCache.syncCache()
+			},
+		},
+	)
+
+	return lc
+}
+
+// Stop terminates the link cache controller
+func (c *LinkCache) Stop() {
+	c.manager.RemoveController("link-cache")
 }
 
 func (c *LinkCache) syncCache() error {
