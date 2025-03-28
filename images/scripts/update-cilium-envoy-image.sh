@@ -7,8 +7,6 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
@@ -17,23 +15,20 @@ github_repo=${proxy_repo:-"cilium/proxy"}
 github_branch=${proxy_branch:-"main"}
 
 latest_commit_sha="$(curl -s https://api.github.com/repos/"${github_repo}"/commits/"${github_branch}" | jq -r --exit-status '.sha')"
-envoy_version="$(curl -s https://raw.githubusercontent.com/"${github_repo}"/"${latest_commit_sha}"/ENVOY_VERSION)"
 
+repo="cilium-envoy"
 image="quay.io/cilium/cilium-envoy"
-image_tag="${envoy_version//envoy-/v}-${latest_commit_sha}"
 if [ "${github_branch}" != "main" ] && ! [[ "${github_branch}" =~ ^v1\.[0-9]+$ ]]; then
     image="quay.io/cilium/cilium-envoy-dev"
-    image_tag="${latest_commit_sha}"
+    repo="cilium-envoy-dev"
 fi
 
-image_full="${image}:${image_tag}"
-image_sha256=$("${script_dir}/get-image-digest.sh" "${image_full}" || echo "")
-if [ -n "${image_sha256}" ]; then
-  image_full="${image_full}@${image_sha256}"
-else
-  echo "Digest is not (yet) available for image ${image_full}!"
-  exit 1
-fi
+# Filter all tags that are in the format of .*-.*-.* (e.g. v1.33.2-1742995211-ca0b42f0ecdf835224a8ddfc6fe0442368d4d766)
+tags=$(curl -s "https://quay.io/api/v1/repository/cilium/${repo}/tag/?onlyActiveTags=true&filter_tag_name=like:${latest_commit_sha}" | jq -r '.tags[] | select(.name | test(".*-.*-.*"))')
+image_tag=$(echo "${tags}" | jq -r .name)
+image_sha256=$(echo "${tags}" | jq -r .manifest_digest)
+
+image_full="${image}:${image_tag}@${image_sha256}"
 
 echo "Latest image from branch ${github_branch}: ${image_full}"
 
