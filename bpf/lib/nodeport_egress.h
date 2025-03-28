@@ -11,6 +11,10 @@
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
 #elif defined(IS_BPF_WIREGUARD)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_CRYPTO
+/* handle_nat_fwd is always called with revdnat_only = true. Don't compile
+ * tail_handle_snat_fwd_ipv6 which is prone to stack overflows in this config.
+ */
+#define NODEPORT_EGRESS_REVDNAT_ONLY
 #elif defined(IS_BPF_HOST)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_NETWORK
 #else
@@ -62,9 +66,14 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
@@ -78,7 +87,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, &tuple, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -102,7 +111,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
-	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
+	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
+			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -117,6 +127,7 @@ out:
 	return ret;
 }
 
+#if !defined(NODEPORT_EGRESS_REVDNAT_ONLY)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -145,6 +156,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif
 
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
@@ -155,6 +167,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
+	fraginfo_t fraginfo;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
 	int ret, l4_off;
@@ -162,7 +175,11 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
+
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (ret < 0) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
@@ -191,14 +208,16 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 skip_fib:
 #endif
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			      SCOPE_REVERSE, CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, fraginfo,
+			      l4_off, CT_INGRESS, SCOPE_REVERSE,
+			      CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
 			      NULL, &monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
 
-		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info);
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
+				    ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 
@@ -219,6 +238,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 	if (ret != CTX_ACT_OK || revdnat_only)
 		return ret;
 
+#if !defined(NODEPORT_EGRESS_REVDNAT_ONLY)
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
@@ -231,6 +251,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);
+#endif
 
 	return ret;
 }
@@ -469,7 +490,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
