@@ -140,7 +140,8 @@ func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.Pr
 }
 
 func (c *cecController) processLoop(ctx context.Context, health cell.Health) error {
-	watchSets := map[CECName]*statedb.WatchSet{}
+	cecWatchSets := map[CECName]*statedb.WatchSet{}
+	clusterWatchSets := map[loadbalancer.ServiceName]*statedb.WatchSet{}
 	var closedWatches []<-chan struct{}
 	orphans := sets.New[CECName]()
 
@@ -165,7 +166,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 			existing.Insert(cec.Name)
 			orphans.Delete(cec.Name)
 
-			if ws, found := watchSets[cec.Name]; found {
+			if ws, found := cecWatchSets[cec.Name]; found {
 				if !ws.HasAny(closedWatches) {
 					// Queries related to this CEC did not change, skip.
 					allWatches.Merge(ws)
@@ -175,15 +176,77 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 			watchSet := c.processCEC(wtxn, cec.Name)
 			if watchSet != nil {
 				allWatches.Merge(watchSet)
-				watchSets[cec.Name] = watchSet
+				cecWatchSets[cec.Name] = watchSet
+
+				// Force process all referenced cluster resources.
+				for svcName := range cec.ServicePorts {
+					delete(clusterWatchSets, svcName)
+				}
 			}
 		}
 
 		// Remove orphaned envoy resources.
 		for orphan := range orphans {
-			c.EnvoyResources.Delete(wtxn, &EnvoyResource{Name: orphan})
-			delete(watchSets, orphan)
+			old, found, _ := c.EnvoyResources.Delete(wtxn, &EnvoyResource{
+				Name: EnvoyResourceName{Kind: EnvoyResourceKindListener, Namespace: orphan.Namespace, Name: orphan.Name},
+			})
+			if found {
+				// Update cluster resource references.
+				for svcName := range old.Listener.ServicePorts {
+					if c.removeClusterReference(wtxn, orphan, svcName) {
+						// Delete the watch set to force it to be processed.
+						delete(clusterWatchSets, svcName)
+					}
+				}
+			}
+			delete(cecWatchSets, orphan)
 		}
+
+		// Update cluster resources.
+		for res := range c.EnvoyResources.List(wtxn, EnvoyResourceByKind(EnvoyResourceKindEndpoints)) {
+			if ws, found := clusterWatchSets[res.ClusterServiceName()]; found {
+				if !ws.HasAny(closedWatches) {
+					// Queries related to this did not change, skip.
+					allWatches.Merge(ws)
+					continue
+				}
+			}
+
+			if len(res.Cluster.References) == 0 {
+				// No CEC references this cluster resource. We can delete it.
+				c.EnvoyResources.Delete(wtxn, res)
+				delete(clusterWatchSets, res.ClusterServiceName())
+				continue
+			}
+
+			ws := statedb.NewWatchSet()
+			clusterWatchSets[res.ClusterServiceName()] = ws
+
+			res = res.Clone()
+
+			// Look up the referenced service for the port name to port number mappings.
+			svc, _, watchSvc, found := c.Services.GetWatch(wtxn, experimental.ServiceByName(res.ClusterServiceName()))
+			ws.Add(watchSvc)
+			if found {
+				// Look up associated backends and update the load assignments.
+				bes, watchBes := c.Writer.BackendsForService(wtxn, svc.Name)
+				ws.Add(watchBes)
+				res.Resources.Endpoints = computeLoadAssignments(
+					svc.Name,
+					res.Cluster.References,
+					svc.PortNames,
+					c.Writer.SelectBackends(bes, svc, nil))
+			} else {
+				// No service found (yet) and thus there are no endpoints.
+				res.Resources.Endpoints = nil
+			}
+
+			res.Status = reconciler.StatusPending()
+			c.EnvoyResources.Insert(wtxn, res)
+
+			allWatches.Merge(ws)
+		}
+
 		wtxn.Commit()
 
 		orphans = existing
@@ -208,106 +271,103 @@ func (c *cecController) processCEC(wtxn statedb.WriteTxn, cecName CECName) *stat
 	ws := statedb.NewWatchSet()
 	ws.Add(watch)
 
-	assignments := map[string]*envoy_config_endpoint.ClusterLoadAssignment{}
 	redirects := map[loadbalancer.ServiceName]*experimental.ProxyRedirect{}
-	c.specToAssignmentsAndRedirects(
-		wtxn,
-		ws,
-		cec,
-		assignments,
-		redirects,
-	)
+	for _, l := range cec.Spec.Services {
+		redirects[l.ServiceName()] = getProxyRedirect(cec, l)
 
-	// Shallow copy of Resources is enough as we just set the Endpoints field.
-	resources := cec.Resources
-
-	resources.Endpoints = make([]*envoy_config_endpoint.ClusterLoadAssignment, 0, len(assignments))
-	for _, key := range slices.Sorted(maps.Keys(assignments)) {
-		resources.Endpoints = append(resources.Endpoints, assignments[key])
+		// Watch changes for each of the referenced services to make sure we reprocess the CEC
+		// and set the ProxyRedirect in cases where CEC was created before the Service.
+		_, _, watchSvc, _ := c.Services.GetWatch(wtxn, experimental.ServiceByName(l.ServiceName()))
+		ws.Add(watchSvc)
 	}
 
-	c.EnvoyResources.Modify(
-		wtxn,
-		&EnvoyResource{
-			Name:      cec.Name,
-			Resources: resources,
-			Redirects: redirects,
-			Status:    reconciler.StatusPending(),
+	// Update/create the "cluster" resources. For each referenced service we'll have an EnvoyResource
+	// to which the endpoints are added. This is then reconciled separately from the "listener" resource
+	// we create below.
+	for svcName, ports := range cec.ServicePorts {
+		resName := EnvoyResourceName{
+			Kind:      EnvoyResourceKindEndpoints,
+			Cluster:   svcName.Cluster,
+			Namespace: svcName.Namespace,
+			Name:      svcName.Name,
+		}
+
+		res, _, found := c.EnvoyResources.Get(wtxn, EnvoyResourceByName(resName))
+		if found {
+			res = res.Clone()
+		} else {
+			res = &EnvoyResource{Name: resName}
+		}
+		res.Cluster.References = res.Cluster.References.Add(cec.Name, ports)
+		c.EnvoyResources.Insert(wtxn, res)
+	}
+
+	// Create or update the "listener" resource.
+	resName := EnvoyResourceName{Kind: EnvoyResourceKindListener, Namespace: cec.Name.Namespace, Name: cec.Name.Name}
+	new := &EnvoyResource{
+		Name:      resName,
+		Resources: cec.Resources,
+		Listener: EnvoyResourceListener{
+			Redirects:    redirects,
+			ServicePorts: cec.ServicePorts,
 		},
-		func(old, new *EnvoyResource) *EnvoyResource {
-			if old != nil {
-				new.ReconciledResources = old.ReconciledResources
-				new.ReconciledRedirects = old.ReconciledRedirects
+		Status: reconciler.StatusPending(),
+	}
+	if old, _, found := c.EnvoyResources.Get(wtxn, EnvoyResourceByName(resName)); found {
+		new.ReconciledResources = old.ReconciledResources
+		new.Listener.ReconciledRedirects = old.Listener.ReconciledRedirects
+
+		for svcName := range old.Listener.ServicePorts {
+			_, found := new.Listener.ServicePorts[svcName]
+			if !found {
+				c.removeClusterReference(wtxn, cec.Name, svcName)
 			}
-			return new
-		},
-	)
+		}
+	}
+	c.EnvoyResources.Insert(wtxn, new)
 
 	// Return the watch set. When any of the channels in the set closes we will
 	// reprocess this CEC.
 	return ws
 }
 
-func (c *cecController) specToAssignmentsAndRedirects(
-	txn statedb.ReadTxn,
-	ws *statedb.WatchSet,
-	cec *CEC,
-	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
-	redirects map[loadbalancer.ServiceName]*experimental.ProxyRedirect,
-) {
-	servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
-
-	for _, l := range cec.Spec.Services {
-		ports := servicePorts[l.ServiceName()]
-		if ports == nil {
-			ports = sets.New[string]()
-			servicePorts[l.ServiceName()] = ports
-		}
-		for _, p := range l.Ports {
-			ports.Insert(strconv.Itoa(int(p)))
-		}
-		redirects[l.ServiceName()] = getProxyRedirect(cec, l)
-	}
-
-	for _, l := range cec.Spec.BackendServices {
-		ports := servicePorts[l.ServiceName()]
-		if ports == nil {
-			ports = sets.New[string]()
-			servicePorts[l.ServiceName()] = ports
-		}
-		for _, p := range l.Ports {
-			ports.Insert(p)
+func (c *cecController) removeClusterReference(wtxn statedb.WriteTxn, cecName CECName, svcName loadbalancer.ServiceName) bool {
+	res, _, found := c.EnvoyResources.Get(wtxn, EnvoyResourceByName(EnvoyResourceName{
+		Kind:      EnvoyResourceKindEndpoints,
+		Cluster:   svcName.Cluster,
+		Namespace: svcName.Namespace,
+		Name:      svcName.Name,
+	}))
+	if found {
+		newRefs := res.Cluster.References.Remove(cecName)
+		if len(newRefs) == 0 {
+			c.EnvoyResources.Delete(wtxn, res)
+		} else {
+			res = res.Clone()
+			res.Cluster.References = newRefs
+			c.EnvoyResources.Insert(wtxn, res)
+			return true
 		}
 	}
-
-	for name, ports := range servicePorts {
-		svc, _, watchSvc, found := c.Services.GetWatch(txn, experimental.ServiceByName(name))
-		ws.Add(watchSvc)
-		if !found {
-			continue
-		}
-		bes, watchBes := c.Writer.BackendsForService(txn, svc.Name)
-		ws.Add(watchBes)
-		bes = c.Writer.SelectBackends(bes, svc, nil)
-
-		computeLoadAssignments(
-			assignments,
-			svc.Name,
-			ports,
-			svc.PortNames,
-			bes)
-	}
+	return false
 }
 
 func computeLoadAssignments(
-	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
 	serviceName loadbalancer.ServiceName,
-	ports sets.Set[string],
+	clusterRefs clusterReferences,
 	portNames map[string]uint16,
 	backends iter.Seq2[experimental.BackendParams, statedb.Revision],
-) {
+) (assignments []*envoy_config_endpoint.ClusterLoadAssignment) {
 	// Partition backends by port name.
 	backendMap := map[string]map[string]experimental.BackendParams{}
+
+	// Union of all port names from all referencing CECs.
+	ports := sets.New[string]()
+	for _, ref := range clusterRefs {
+		for p := range ref.PortNames {
+			ports.Insert(p)
+		}
+	}
 
 	for be := range backends {
 		if be.State != loadbalancer.BackendStateActive || be.Unhealthy {
@@ -318,7 +378,7 @@ func computeLoadAssignments(
 		bePortNames := []string{anyPort}
 
 		// If ports are specified only pick the backends that match the service port name or number.
-		if ports.Len() > 0 {
+		if len(ports) > 0 {
 			bePortNames = bePortNames[:0]
 			if len(be.PortNames) == 0 {
 				// Backend without a port name will match with the
@@ -398,28 +458,22 @@ func computeLoadAssignments(
 			})
 		}
 
-		endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
-			ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
-			Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-				{
-					LbEndpoints: lbEndpoints,
-				},
-			},
-		}
-		assignments[endpoint.ClusterName] = endpoint
+		endpoints := []*envoy_config_endpoint.LocalityLbEndpoints{{LbEndpoints: lbEndpoints}}
+		assignments = append(assignments,
+			&envoy_config_endpoint.ClusterLoadAssignment{
+				ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
+				Endpoints:   endpoints,
+			})
 
 		// for backward compatibility, if any port is allowed, publish one more
 		// endpoint having cluster name as service name.
 		if port == anyPort {
-			assignments[serviceName.String()] =
+			assignments = append(assignments,
 				&envoy_config_endpoint.ClusterLoadAssignment{
 					ClusterName: serviceName.String(),
-					Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-						{
-							LbEndpoints: lbEndpoints,
-						},
-					},
-				}
+					Endpoints:   endpoints,
+				})
 		}
 	}
+	return
 }

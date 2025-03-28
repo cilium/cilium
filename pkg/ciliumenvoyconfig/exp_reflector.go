@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"iter"
 	"log/slog"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/statedb/part"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -23,6 +25,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -133,6 +136,28 @@ func registerCECReflector(
 			}
 		}
 
+		servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
+		for _, l := range spec.Services {
+			ports := servicePorts[l.ServiceName()]
+			if ports == nil {
+				ports = sets.New[string]()
+				servicePorts[l.ServiceName()] = ports
+			}
+			for _, p := range l.Ports {
+				ports.Insert(strconv.Itoa(int(p)))
+			}
+		}
+		for _, l := range spec.BackendServices {
+			ports := servicePorts[l.ServiceName()]
+			if ports == nil {
+				ports = sets.New[string]()
+				servicePorts[l.ServiceName()] = ports
+			}
+			for _, p := range l.Ports {
+				ports.Insert(p)
+			}
+		}
+
 		cec := &CEC{
 			Name: k8sTypes.NamespacedName{
 				Name:      objMeta.GetName(),
@@ -140,6 +165,7 @@ func registerCECReflector(
 			},
 			Selector:         selector,
 			SelectsLocalNode: selectsLocalNode,
+			ServicePorts:     servicePorts,
 			Spec:             spec,
 			Resources:        resources,
 			Listeners:        listeners,
