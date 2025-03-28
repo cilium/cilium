@@ -1499,7 +1499,7 @@ skip_host_firewall:
 	 * is set before the redirect.
 	 */
 	if (!ctx_mark_is_wireguard(ctx)) {
-		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
+		ret = wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
