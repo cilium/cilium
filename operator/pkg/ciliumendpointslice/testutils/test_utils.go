@@ -7,6 +7,7 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
 func CreateManagerEndpoint(name string, identity int64) capi_v2a1.CoreCiliumEndpoint {
@@ -27,6 +28,25 @@ func CreateStoreEndpoint(name string, namespace string, identity int64) *v2.Cili
 				ID: identity,
 			},
 			Networking: &v2.EndpointNetworking{},
+		},
+	}
+}
+
+func CreateStoreNode(name string) *v2.CiliumNode {
+	return &v2.CiliumNode{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: name,
+		},
+		Spec: v2.NodeSpec{
+			Addresses: []v2.NodeAddress{
+				{
+					Type: addressing.AddressType("InternalIP"),
+					IP:   "10.0.0.0",
+				},
+			},
+			Encryption: v2.EncryptionSpec{
+				Key: 0,
+			},
 		},
 	}
 }
