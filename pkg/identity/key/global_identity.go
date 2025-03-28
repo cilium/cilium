@@ -19,20 +19,28 @@ const (
 )
 
 // GlobalIdentity is the structure used to store an identity
+// Note: GlobalIdentity is immutable; use the mutator methods.
 type GlobalIdentity struct {
 	labels.LabelArray
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
+
+	// memoized key
+	key string
 }
 
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
+	if gi.key != "" {
+		return gi.key
+	}
 	var str strings.Builder
 	for _, l := range gi.LabelArray {
 		str.Write(l.FormatForKVStore())
 	}
-	return str.String()
+	gi.key = str.String()
+	return gi.key
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will

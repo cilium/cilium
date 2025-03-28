@@ -4,6 +4,7 @@
 package idpool
 
 import (
+	"math/rand/v2"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -76,19 +77,32 @@ func NewIDPool(minID ID, maxID ID) *IDPool {
 // LeaseAvailableID returns an available ID at random from the pool.
 // Returns an ID or NoID if no there is no available ID in the pool.
 func (p *IDPool) LeaseAvailableID() ID {
+	return p.LeaseRandomID(0)
+}
+
+// LeaseRandomID returns an available ID at random, seeded by the seed,
+// from the pool.
+// Returns an ID or NoID if no there is no available ID in the pool.
+func (p *IDPool) LeaseRandomID(seed uint64) ID {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.idCache.leaseAvailableID()
+	return p.leaseAvailableID(seed)
 }
 
 // AllocateID returns a random available ID. Unlike LeaseAvailableID, the ID is
 // immediately marked for use and there is no need to call Use().
 func (p *IDPool) AllocateID() ID {
+	return p.AllocateRandomID(0)
+}
+
+// AllocateID returns a random available ID. Unlike LeaseAvailableID, the ID is
+// immediately marked for use and there is no need to call Use().
+func (p *IDPool) AllocateRandomID(seed uint64) ID {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.idCache.allocateID()
+	return p.allocateID(seed)
 }
 
 // Release returns a leased ID back to the pool.
@@ -162,24 +176,42 @@ func newIDCache(minID ID, maxID ID) *idCache {
 }
 
 // allocateID returns a random available ID without leasing it
-func (c *idCache) allocateID() ID {
-	for id := range c.ids {
-		delete(c.ids, id)
-		return id
+// if seed is non-zero, it will deterministcally allocate IDs,
+// tending to allocate the same ID for the same seed as long as
+// there are no collisions.
+func (p *IDPool) allocateID(seed uint64) ID {
+	if seed == 0 {
+		for id := range p.idCache.ids {
+			delete(p.idCache.ids, id)
+			return id
+		}
+		return NoID // give up
 	}
 
-	return NoID
+	// Create a seeded rng
+	r := rand.New(rand.NewPCG(seed, seed))
+
+	for try := 0; try < 1000; try++ {
+		id := ID(r.Uint64N((uint64(p.maxID) - uint64(p.minID))) + uint64(p.minID))
+		if _, ok := p.idCache.ids[id]; ok {
+			delete(p.idCache.ids, id)
+			return id
+		}
+	}
+
+	// After 1000 tries, we still failed: fall back to next free
+	return p.allocateID(0)
 }
 
 // leaseAvailableID returns a random available ID.
-func (c *idCache) leaseAvailableID() ID {
-	id := c.allocateID()
+func (p *IDPool) leaseAvailableID(seed uint64) ID {
+	id := p.allocateID(seed)
 	if id == NoID {
 		return NoID
 	}
 
 	// Mark as leased
-	c.leased[id] = struct{}{}
+	p.idCache.leased[id] = struct{}{}
 
 	return id
 }
