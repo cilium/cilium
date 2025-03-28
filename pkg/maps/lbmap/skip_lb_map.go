@@ -7,10 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"net"
 	"unsafe"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -48,8 +47,8 @@ type SkipLBMap interface {
 	Close() error
 }
 
-func NewSkipLBMap() (SkipLBMap, error) {
-	skipLBMap := &skipLBMap{}
+func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
+	skipLBMap := &skipLBMap{logger: logger}
 
 	pinning := ebpf.PinByName
 	if testutils.IsPrivileged() {
@@ -58,7 +57,7 @@ func NewSkipLBMap() (SkipLBMap, error) {
 	}
 
 	if option.Config.EnableIPv4 {
-		skipLBMap.bpfMap4 = ebpf.NewMap(&ebpf.MapSpec{
+		skipLBMap.bpfMap4 = ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       SkipLB4MapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
@@ -69,7 +68,7 @@ func NewSkipLBMap() (SkipLBMap, error) {
 		})
 	}
 	if option.Config.EnableIPv6 {
-		skipLBMap.bpfMap6 = ebpf.NewMap(&ebpf.MapSpec{
+		skipLBMap.bpfMap6 = ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       SkipLB6MapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
@@ -178,10 +177,12 @@ func (m *skipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
 		if ip.To4().Equal(key.Address.IP()) && byteorder.NetworkToHost16(key.Port) == port {
 			if err := m.bpfMap4.Delete(key); err != nil {
 				errors++
-				log.WithError(err).WithFields(logrus.Fields{
-					"key": key,
-					"map": SkipLB4MapName,
-				}).Error("error deleting entry from map")
+				m.logger.Error(
+					"error deleting entry from map",
+					logfields.Error, err,
+					logfields.Key, key,
+					logfields.BPFMapName, SkipLB4MapName,
+				)
 				return
 			}
 			deleted++
@@ -193,16 +194,15 @@ func (m *skipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
 			value := v.(*SkipLB4Value)
 			deleteEntry(key, value)
 		}); err != nil {
-		log.WithError(err).Error("error iterating over skip_lb4 map")
+		m.logger.Error("error iterating over skip_lb4 map", logfields.Error, err)
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Address: ip,
-		logfields.Port:    port,
-	})
-	scopedLog.WithFields(logrus.Fields{
-		"deleted": deleted,
-		"errors":  errors,
-	}).Info("DeleteLB4ByAddrPort")
+	m.logger.Info(
+		"DeleteLB4ByAddrPort",
+		logfields.Address, ip,
+		logfields.Port, port,
+		logfields.Deleted, deleted,
+		logfields.Errors, errors,
+	)
 }
 
 // DeleteLB4ByNetnsCookie deletes entries associated with the passed netns cookie from the v4 map.
@@ -216,10 +216,11 @@ func (m *skipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
 		if key.NetnsCookie == cookie {
 			if err := m.bpfMap4.Delete(key); err != nil {
 				errors++
-				log.WithFields(logrus.Fields{
-					"key": key,
-					"map": SkipLB4MapName,
-				}).Error("error deleting entry from map")
+				m.logger.Error(
+					"error deleting entry from map",
+					logfields.Key, key,
+					logfields.BPFMapName, SkipLB4MapName,
+				)
 				return
 			}
 			deleted++
@@ -231,15 +232,14 @@ func (m *skipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
 			value := v.(*SkipLB4Value)
 			deleteEntry(key, value)
 		}); err != nil {
-		log.WithError(err).Error("error iterating over skip_lb4 map")
+		m.logger.Error("error iterating over skip_lb4 map", logfields.Error, err)
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		"netns_cookie": cookie,
-	})
-	scopedLog.WithFields(logrus.Fields{
-		"deleted": deleted,
-		"errors":  errors,
-	}).Info("DeleteLB4ByNetnsCookie")
+	m.logger.Info(
+		"DeleteLB4ByNetnsCookie",
+		logfields.Deleted, deleted,
+		logfields.Errors, errors,
+		logfields.NetnsCookie, cookie,
+	)
 }
 
 // DeleteLB6ByAddrPort deletes entries associated with the passed address and port from the v6 map.
@@ -253,10 +253,11 @@ func (m *skipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
 		if ip.To16().Equal(key.Address.IP()) && byteorder.NetworkToHost16(key.Port) == port {
 			if err := m.bpfMap6.Delete(key); err != nil {
 				errors++
-				log.WithFields(logrus.Fields{
-					"key": key,
-					"map": SkipLB6MapName,
-				}).Error("error deleting entry from map")
+				m.logger.Error(
+					"error deleting entry from map",
+					logfields.Key, key,
+					logfields.BPFMapName, SkipLB6MapName,
+				)
 				return
 			}
 			deleted++
@@ -268,16 +269,15 @@ func (m *skipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
 			value := v.(*SkipLB6Value)
 			deleteEntry(key, value)
 		}); err != nil {
-		log.WithError(err).Error("error iterating over skip_lb6 map")
+		m.logger.Error("error iterating over skip_lb6 map", logfields.Error, err)
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Address: ip,
-		logfields.Port:    port,
-	})
-	scopedLog.WithFields(logrus.Fields{
-		"deleted": deleted,
-		"errors":  errors,
-	}).Info("DeleteLB6ByAddrPort")
+	m.logger.Info(
+		"DeleteLB6ByAddrPort",
+		logfields.Deleted, deleted,
+		logfields.Errors, errors,
+		logfields.Address, ip,
+		logfields.Port, port,
+	)
 }
 
 // DeleteLB6ByNetnsCookie deletes entries associated with the passed netns cookie from the v6 map.
@@ -291,10 +291,12 @@ func (m *skipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 		if key.NetnsCookie == cookie {
 			if err := m.bpfMap6.Delete(key); err != nil {
 				errors++
-				log.WithError(err).WithFields(logrus.Fields{
-					"key": key,
-					"map": SkipLB6MapName,
-				}).Error("error deleting entry from map")
+				m.logger.Error(
+					"error deleting entry from map",
+					logfields.Error, err,
+					logfields.Key, key,
+					logfields.BPFMapName, SkipLB6MapName,
+				)
 				return
 			}
 			deleted++
@@ -306,15 +308,14 @@ func (m *skipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 			value := v.(*SkipLB6Value)
 			deleteEntry(key, value)
 		}); err != nil {
-		log.WithError(err).Error("error iterating over skip_lb6 map")
+		m.logger.Error("error iterating over skip_lb6 map", logfields.Error, err)
 	}
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.NetnsCookie: cookie,
-	})
-	scopedLog.WithFields(logrus.Fields{
-		"deleted": deleted,
-		"errors":  errors,
-	}).Info("DeleteLB6ByNetnsCookie")
+	m.logger.Info(
+		"DeleteLB6ByNetnsCookie",
+		logfields.Deleted, deleted,
+		logfields.Errors, errors,
+		logfields.NetnsCookie, cookie,
+	)
 }
 
 // SkipLB4Key is the tuple with netns cookie, address and port and used as key in
@@ -408,6 +409,7 @@ func (v *SkipLB6Value) String() string {
 func (k *SkipLB6Key) NewValue() bpf.MapValue { return &SkipLB6Value{} }
 
 type skipLBMap struct {
+	logger  *slog.Logger
 	bpfMap4 *ebpf.Map
 	bpfMap6 *ebpf.Map
 }

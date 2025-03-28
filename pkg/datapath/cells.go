@@ -78,12 +78,12 @@ var Cell = cell.Module(
 
 	cell.Provide(newWireguardAgent),
 
-	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
+	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev, logger *slog.Logger) types.LBMap {
 		if expConfig.EnableExperimentalLB {
 			// The experimental control-plane comes with its own LBMap implementation.
 			return nil
 		}
-		return lbmap.New(maglev)
+		return lbmap.New(logger, maglev)
 	}),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]

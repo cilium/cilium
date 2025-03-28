@@ -1446,4 +1446,30 @@ const (
 	GlobalConfiguration = "globalConfiguration"
 
 	Annotation = "annotation"
+
+	LPM = "LPM"
+
+	IngressDeleted = "ingressDeleted"
+
+	EgressDeleted = "egressDeleted"
+
+	IngressAlive = "ingressAlive"
+
+	EgressAlive = "egressAlive"
+
+	CTMapIPVersion = "ctMapIPVersion"
+
+	ExpectedPrevInterval = "expectedPrevInterval"
+
+	ActualPrevInterval = "actualPrevInterval"
+
+	NewInterval = "newInterval"
+
+	DeleteRatio = "deleteRatio"
+
+	AdjustedDeleteRatio = "adjustedDeleteRatio"
+
+	Interrupted = "interrupted"
+
+	Errors = "errors"
 )
