@@ -268,6 +268,8 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		 * set_ipsec_encrypt to obtain the correct node ID and spi.
 		 */
 		if (ctx_is_overlay(ctx)) {
+			__u32 src_sec_identity;
+
 			/* if bpf_overlay is v1.17 we immediately know if the
 			 * overlay prog saw this packet as encrypted, short
 			 * circuit.
@@ -302,18 +304,18 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 			 * tunnel traffic per v1.17 rules
 			 */
 			dst = lookup_ip4_remote_endpoint(ip4_inner->daddr, 0);
-			src = lookup_ip4_remote_endpoint(ip4_inner->saddr, 0);
+			src_sec_identity = get_identity(ctx);
 
-			if (!dst || !src)
+			if (!dst)
 				return CTX_ACT_OK;
 
-			if (!ipsec_redirect_sec_id_ok(src->sec_identity,
+			if (!ipsec_redirect_sec_id_ok(src_sec_identity,
 						      dst->sec_identity,
 				                      ip_proto))
 				return CTX_ACT_OK;
 
 			ret = set_ipsec_encrypt(ctx, 0, ip4->daddr,
-						get_identity(ctx), true,
+						src_sec_identity, true,
 						true);
 			if (ret != CTX_ACT_OK)
 				return ret;
