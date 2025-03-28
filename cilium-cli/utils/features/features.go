@@ -28,7 +28,6 @@ const (
 
 	KPRMode                 Feature = "kpr-mode"
 	KPRExternalIPs          Feature = "kpr-external-ips"
-	KPRGracefulTermination  Feature = "kpr-graceful-termination"
 	KPRHostPort             Feature = "kpr-hostport"
 	KPRSocketLB             Feature = "kpr-socket-lb"
 	KPRSocketLBHostnsOnly   Feature = "kpr-socket-lb-hostns-only"

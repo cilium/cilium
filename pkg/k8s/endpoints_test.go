@@ -16,7 +16,6 @@ import (
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -869,58 +868,7 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 				return svcEP
 			},
 		},
-		{
-			name: "endpoints with some addresses not ready and terminating, EnableK8sTerminatingEndpoint disabled",
-			setupArgs: func() args {
-				return args{
-					eps: &slim_discovery_v1beta1.EndpointSlice{
-						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
-						ObjectMeta:  meta,
-						Endpoints: []slim_discovery_v1beta1.Endpoint{
-							{
-								Addresses: []string{
-									"172.0.0.1",
-								},
-							},
-							{
-								Conditions: slim_discovery_v1beta1.EndpointConditions{
-									Ready:       func() *bool { a := false; return &a }(),
-									Terminating: func() *bool { a := true; return &a }(),
-								},
-								Addresses: []string{
-									"172.0.0.2",
-								},
-							},
-						},
-						Ports: []slim_discovery_v1beta1.EndpointPort{
-							{
-								Name:     func() *string { a := "http-test-svc"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8080); return &a }(),
-							},
-							{
-								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8081); return &a }(),
-							},
-						},
-					},
-					overrideConfig: func() {
-						option.Config.EnableK8sTerminatingEndpoint = false
-					},
-				}
-			},
-			setupWanted: func() *Endpoints {
-				svcEP := newEmptyEndpoints()
-				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
-					},
-				}
-				return svcEP
-			},
-		},
+
 		{
 			name: "endpoints with all addresses not ready and terminating",
 			setupArgs: func() args {
@@ -982,58 +930,7 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 				return svcEP
 			},
 		},
-		{
-			name: "endpoints with some addresses not ready and terminating, EnableK8sTerminatingEndpoint disabled",
-			setupArgs: func() args {
-				return args{
-					eps: &slim_discovery_v1beta1.EndpointSlice{
-						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
-						ObjectMeta:  meta,
-						Endpoints: []slim_discovery_v1beta1.Endpoint{
-							{
-								Addresses: []string{
-									"172.0.0.1",
-								},
-							},
-							{
-								Conditions: slim_discovery_v1beta1.EndpointConditions{
-									Ready:       func() *bool { a := false; return &a }(),
-									Terminating: func() *bool { a := true; return &a }(),
-								},
-								Addresses: []string{
-									"172.0.0.2",
-								},
-							},
-						},
-						Ports: []slim_discovery_v1beta1.EndpointPort{
-							{
-								Name:     func() *string { a := "http-test-svc"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8080); return &a }(),
-							},
-							{
-								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8081); return &a }(),
-							},
-						},
-					},
-					overrideConfig: func() {
-						option.Config.EnableK8sTerminatingEndpoint = false
-					},
-				}
-			},
-			setupWanted: func() *Endpoints {
-				svcEP := newEmptyEndpoints()
-				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
-					},
-				}
-				return svcEP
-			},
-		},
+
 		{
 			name: "endpoints with SCTP",
 			setupArgs: func() args {
@@ -1137,8 +1034,6 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 		want := tt.setupWanted()
 		if args.overrideConfig != nil {
 			args.overrideConfig()
-		} else {
-			option.Config.EnableK8sTerminatingEndpoint = true
 		}
 		got := ParseEndpointSliceV1Beta1(args.eps)
 		require.EqualValuesf(t, want, got, "Test name: %q", tt.name)
@@ -1647,58 +1542,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 				return svcEP
 			},
 		},
-		{
-			name: "endpoints with some addresses not ready and terminating, EnableK8sTerminatingEndpoint disabled",
-			setupArgs: func() args {
-				return args{
-					eps: &slim_discovery_v1.EndpointSlice{
-						AddressType: slim_discovery_v1.AddressTypeIPv4,
-						ObjectMeta:  meta,
-						Endpoints: []slim_discovery_v1.Endpoint{
-							{
-								Addresses: []string{
-									"172.0.0.1",
-								},
-							},
-							{
-								Conditions: slim_discovery_v1.EndpointConditions{
-									Ready:       func() *bool { a := false; return &a }(),
-									Terminating: func() *bool { a := true; return &a }(),
-								},
-								Addresses: []string{
-									"172.0.0.2",
-								},
-							},
-						},
-						Ports: []slim_discovery_v1.EndpointPort{
-							{
-								Name:     func() *string { a := "http-test-svc"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8080); return &a }(),
-							},
-							{
-								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8081); return &a }(),
-							},
-						},
-					},
-					overrideConfig: func() {
-						option.Config.EnableK8sTerminatingEndpoint = false
-					},
-				}
-			},
-			setupWanted: func() *Endpoints {
-				svcEP := newEmptyEndpoints()
-				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
-					},
-				}
-				return svcEP
-			},
-		},
+
 		{
 			name: "endpoints with all addresses ready and serving and terminating",
 			setupArgs: func() args {
@@ -1855,58 +1699,6 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			},
 		},
 		{
-			name: "endpoints with some addresses not ready and terminating, EnableK8sTerminatingEndpoint disabled",
-			setupArgs: func() args {
-				return args{
-					eps: &slim_discovery_v1.EndpointSlice{
-						AddressType: slim_discovery_v1.AddressTypeIPv4,
-						ObjectMeta:  meta,
-						Endpoints: []slim_discovery_v1.Endpoint{
-							{
-								Addresses: []string{
-									"172.0.0.1",
-								},
-							},
-							{
-								Conditions: slim_discovery_v1.EndpointConditions{
-									Ready:       func() *bool { a := false; return &a }(),
-									Terminating: func() *bool { a := true; return &a }(),
-								},
-								Addresses: []string{
-									"172.0.0.2",
-								},
-							},
-						},
-						Ports: []slim_discovery_v1.EndpointPort{
-							{
-								Name:     func() *string { a := "http-test-svc"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8080); return &a }(),
-							},
-							{
-								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
-								Port:     func() *int32 { a := int32(8081); return &a }(),
-							},
-						},
-					},
-					overrideConfig: func() {
-						option.Config.EnableK8sTerminatingEndpoint = false
-					},
-				}
-			},
-			setupWanted: func() *Endpoints {
-				svcEP := newEmptyEndpoints()
-				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
-					},
-				}
-				return svcEP
-			},
-		},
-		{
 			name: "endpoints have zone hints",
 			setupArgs: func() args {
 				return args{
@@ -2011,8 +1803,6 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 		want := tt.setupWanted()
 		if args.overrideConfig != nil {
 			args.overrideConfig()
-		} else {
-			option.Config.EnableK8sTerminatingEndpoint = true
 		}
 		got := ParseEndpointSliceV1(hivetest.Logger(t), args.eps)
 		require.EqualValues(t, want, got, "Test name: %q", tt.name)

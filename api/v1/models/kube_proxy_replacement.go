@@ -828,7 +828,7 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) erro
 	return nil
 }
 
-// KubeProxyReplacementFeaturesGracefulTermination kube proxy replacement features graceful termination
+// KubeProxyReplacementFeaturesGracefulTermination Deprecated
 //
 // swagger:model KubeProxyReplacementFeaturesGracefulTermination
 type KubeProxyReplacementFeaturesGracefulTermination struct {

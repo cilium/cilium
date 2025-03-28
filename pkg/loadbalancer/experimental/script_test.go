@@ -55,9 +55,6 @@ func TestScript(t *testing.T) {
 	// Issue for fixing this: https://github.com/cilium/cilium/issues/35537
 	version.Force(testutils.DefaultVersion)
 
-	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
-	option.Config.EnableK8sTerminatingEndpoint = true
-
 	// Set the node name
 	nodeTypes.SetName("testnode")
 
@@ -100,7 +97,6 @@ func TestScript(t *testing.T) {
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 							KubeProxyReplacement:            option.KubeProxyReplacementTrue,
 							EnableNodePort:                  true,
-							EnableK8sTerminatingEndpoint:    true,
 							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}

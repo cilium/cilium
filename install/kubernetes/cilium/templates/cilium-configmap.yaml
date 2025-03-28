@@ -1231,10 +1231,6 @@ data:
 
   identity-management-mode: {{ .Values.identityManagementMode | quote }}
 
-{{- if hasKey .Values "enableK8sTerminatingEndpoint" }}
-  enable-k8s-terminating-endpoint: {{ .Values.enableK8sTerminatingEndpoint | quote }}
-{{- end }}
-
 {{- if hasKey .Values.sctp "enabled" }}
   enable-sctp: {{ .Values.sctp.enabled | quote }}
 {{- end }}

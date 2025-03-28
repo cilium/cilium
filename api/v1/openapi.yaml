@@ -2351,6 +2351,7 @@ definitions:
               enabled:
                 type: boolean
           gracefulTermination:
+            description: Deprecated
             type: object
             properties:
               enabled:

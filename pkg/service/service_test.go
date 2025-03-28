@@ -1397,7 +1397,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 	require.Equal(t, lb.ID(1), id1)
 	require.Len(t, m.lbmap.ServiceByID[uint16(id1)].Backends, 1)
 	require.Len(t, m.lbmap.BackendByID, 1)
-	require.Equal(t, 0, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
+	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	// Delete terminating backends.
 	p.Backends = []*lb.Backend{}

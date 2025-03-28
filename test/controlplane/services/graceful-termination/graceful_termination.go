@@ -26,10 +26,6 @@ func testGracefulTermination(t *testing.T) {
 
 	abs := func(f string) string { return path.Join(cwd, "services", "graceful-termination", f) }
 
-	modConfig := func(cfg *option.DaemonConfig) {
-		cfg.EnableK8sTerminatingEndpoint = true
-	}
-
 	k8sVersions := controlplane.K8sVersions()
 	// We only need to test the last k8s version
 	test := suite.NewControlPlaneTest(t, "graceful-term-control-plane", k8sVersions[len(k8sVersions)-1])
@@ -39,7 +35,7 @@ func testGracefulTermination(t *testing.T) {
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
 		SetupEnvironment().
-		StartAgent(modConfig).
+		StartAgent(func(cfg *option.DaemonConfig) {}).
 		EnsureWatchers("endpointslices", "services").
 
 		// Step 1: Initial creation of the services and backends

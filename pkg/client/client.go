@@ -717,11 +717,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			socketLBCoverage = "Hostns-only"
 		}
 
-		gracefulTerm := "Disabled"
-		if sr.KubeProxyReplacement.Features.GracefulTermination.Enabled {
-			gracefulTerm = "Enabled"
-		}
-
 		nat46X64 := "Disabled"
 		nat46X64GW := "Disabled"
 		nat46X64SVC := "Disabled"
@@ -756,7 +751,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			fmt.Fprintf(tab, "  Backend Selection:\t%s\n", selection)
 		}
 		fmt.Fprintf(tab, "  Session Affinity:\t%s\n", affinity)
-		fmt.Fprintf(tab, "  Graceful Termination:\t%s\n", gracefulTerm)
 		if nat46X64 == "Disabled" {
 			fmt.Fprintf(tab, "  NAT46/64 Support:\t%s\n", nat46X64)
 		} else {
