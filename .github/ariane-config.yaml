@@ -90,6 +90,9 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+  /ci-kube-apiserver-ha:
+    workflows:
+    - tests-kube-apiserver-ha.yaml
 
 workflows:
   conformance-aks.yaml:
