@@ -31,7 +31,7 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	// Check for local node ID explicitly as local node IPs are not in our maps!
 	if nodeID == 0 {
 		// Returns local node's IPv4 address if available, IPv6 address otherwise.
-		return node.GetCiliumEndpointNodeIP()
+		return node.GetCiliumEndpointNodeIP(n.log)
 	}
 
 	// Otherwise, return one of the IPs matching the given ID.
@@ -50,8 +50,8 @@ func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
 }
 
 func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
-	localNodeV4 := node.GetIPv4()
-	localNodeV6 := node.GetIPv6()
+	localNodeV4 := node.GetIPv4(n.log)
+	localNodeV6 := node.GetIPv6(n.log)
 	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
 		return 0, true
 	}

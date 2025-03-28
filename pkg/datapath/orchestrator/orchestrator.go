@@ -194,6 +194,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
+			o.params.Log,
 			option.Config,
 			localNode,
 			o.params.DB.ReadTxn(),

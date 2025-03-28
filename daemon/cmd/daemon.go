@@ -623,9 +623,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// k8s.WaitForNodeInformation(). These will be used later after starting
 	// IPAM initialization to finish off the `cilium_host` IP restoration.
 	var restoredRouterIPs restoredIPs
-	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(), node.GetIPv6Router()
+	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
 	// Fetch the router IPs from the filesystem in case they were set a priori
-	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS()
+	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
 
 	// Configure IPAM without using the configuration yet.
 	d.configureIPAM()
@@ -654,14 +654,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if params.Clientset.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
-			logfields.V4Prefix:       node.GetIPv4AllocRange(),
-			logfields.V6Prefix:       node.GetIPv6AllocRange(),
-			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(),
-			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(),
-			logfields.V4IngressIP:    node.GetIngressIPv4(),
-			logfields.V6IngressIP:    node.GetIngressIPv6(),
-			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
-			logfields.V6CiliumHostIP: node.GetIPv6Router(),
+			logfields.V4Prefix:       node.GetIPv4AllocRange(params.Logger),
+			logfields.V6Prefix:       node.GetIPv6AllocRange(params.Logger),
+			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(params.Logger),
+			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(params.Logger),
+			logfields.V4IngressIP:    node.GetIngressIPv4(params.Logger),
+			logfields.V6IngressIP:    node.GetIngressIPv6(params.Logger),
+			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(params.Logger),
+			logfields.V6CiliumHostIP: node.GetIPv6Router(params.Logger),
 		}).Info("Annotating k8s node")
 
 		latestLocalNode, err := d.nodeLocalStore.Get(ctx)

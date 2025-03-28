@@ -64,7 +64,7 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 		ini.WireGuard.InitLocalNodeFromWireGuard(n)
 	}
 
-	n.BootID = node.GetBootID()
+	n.BootID = node.GetBootID(ini.Logger)
 	if option.Config.EnableIPSec && n.BootID == "" {
 		return fmt.Errorf("IPSec requires a valid BootID")
 	}
@@ -271,6 +271,7 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 
 func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node) *node.LocalNode {
 	return &node.LocalNode{
+		Logger:     logger,
 		Node:       *k8s.ParseNode(logger, k8sNode, source.Kubernetes),
 		UID:        k8sNode.GetUID(),
 		ProviderID: k8sNode.Spec.ProviderID,

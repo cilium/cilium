@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/stretchr/testify/require"
 
@@ -30,11 +31,12 @@ var fakeConfig = &option.DaemonConfig{
 }
 
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
+	logger := hivetest.Logger(tb)
 	option.Config.IPv4ServiceRange = "auto"
 	option.Config.IPv6ServiceRange = "auto"
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil)
+	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{

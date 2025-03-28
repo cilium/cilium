@@ -128,12 +128,12 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			// to a tunnel endpoint destination.
 			switch l.tunnelConf.UnderlayProtocol() {
 			case tunnel.IPv4:
-				nodeIPv4 := node.GetIPv4()
+				nodeIPv4 := node.GetIPv4(l.logger)
 				if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
 					tunnelEndpoint = ip4
 				}
 			case tunnel.IPv6:
-				nodeIPv6 := node.GetIPv6()
+				nodeIPv6 := node.GetIPv6(l.logger)
 				if !newHostIP.Equal(nodeIPv6) {
 					tunnelEndpoint = newHostIP
 				}

@@ -4,6 +4,8 @@
 package manager
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -90,6 +92,7 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
+	Logger      *slog.Logger
 	TunnelConf  tunnel.Config
 	Lifecycle   cell.Lifecycle
 	IPCache     *ipcache.IPCache
@@ -102,7 +105,7 @@ func newAllNodeManager(in struct {
 	Devices     statedb.Table[*tables.Device]
 },
 ) (NodeManager, error) {
-	mngr, err := New(option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
+	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
 	if err != nil {
 		return nil, err
 	}

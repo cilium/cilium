@@ -54,6 +54,7 @@ func TestPrepareRemoveNodeAnnotationsPayload(t *testing.T) {
 }
 
 func TestPatchingCIDRAnnotation(t *testing.T) {
+	logger := hivetest.Logger(t)
 	node.WithTestLocalNodeStore(func() {
 		prevAnnotateK8sNode := option.Config.AnnotateK8sNode
 		option.Config.AnnotateK8sNode = true
@@ -95,14 +96,14 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				return true, n1copy, nil
 			})
 
-		node1Cilium := ParseNode(hivetest.Logger(t), toSlimNode(node1.DeepCopy()), source.Unspec)
+		node1Cilium := ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec)
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node1Cilium.IPv4AllocCIDR)
 
-		require.Equal(t, "10.2.0.0/16", node.GetIPv4AllocRange().String())
+		require.Equal(t, "10.2.0.0/16", node.GetIPv4AllocRange(logger).String())
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
-		_, err := AnnotateNode(hivetest.Logger(t), fakeK8sClient, "node1", *node1Cilium, 0)
+		_, err := AnnotateNode(logger, fakeK8sClient, "node1", *node1Cilium, 0)
 
 		require.NoError(t, err)
 
@@ -159,8 +160,8 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 
 		// We use the node's annotation for the IPv4 and the PodCIDR for the
 		// IPv6.
-		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange().String())
-		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange().String())
+		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange(logger).String())
+		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange(logger).String())
 
 		_, err = AnnotateNode(hivetest.Logger(t), fakeK8sClient, "node2", *node2Cilium, 0)
 

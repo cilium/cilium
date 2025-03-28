@@ -5,7 +5,10 @@
 
 package node
 
-import "net"
+import (
+	"log/slog"
+	"net"
+)
 
 func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
 	return net.IP{}, nil
@@ -29,6 +32,6 @@ func initMasqueradeV6Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string,
 
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
 // it
-func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
+func getCiliumHostIPsFromNetDev(_ *slog.Logger, devName string) (ipv4GW, ipv6Router net.IP) {
 	return net.IP{}, net.IP{}
 }
