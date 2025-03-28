@@ -208,13 +208,14 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	Config          EndpointManagerConfig
-	Clientset       client.Clientset
-	MetricsRegistry *metrics.Registry
-	Health          cell.Health
-	EPSynchronizer  EndpointResourceSynchronizer
-	LocalNodeStore  *node.LocalNodeStore
+	Lifecycle           cell.Lifecycle
+	Config              EndpointManagerConfig
+	Clientset           client.Clientset
+	MetricsRegistry     *metrics.Registry
+	Health              cell.Health
+	EPSynchronizer      EndpointResourceSynchronizer
+	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
+	LocalNodeStore      *node.LocalNodeStore
 }
 
 type endpointManagerOut struct {
@@ -228,7 +229,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(p.EPSynchronizer, p.LocalNodeStore, p.Health)
+	mgr := New(p.EPSynchronizer, p.KVStoreSynchronizer, p.LocalNodeStore, p.Health)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{
