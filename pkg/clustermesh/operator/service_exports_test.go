@@ -30,7 +30,7 @@ func TestGlobalServiceExportCache(t *testing.T) {
 		Namespace: "default",
 	})
 	require.EqualValues(t, 1, globalServiceExports.Size())
-	require.EqualValues(t, []string{"reset"}, globalServiceExports.GetServiceExportsName("default"))
+	require.Equal(t, []string{"reset"}, globalServiceExports.GetServiceExportsName("default"))
 	require.Len(t, globalServiceExports.GetServiceExportByCluster(types.NamespacedName{
 		Namespace: "default",
 		Name:      "reset",
@@ -38,7 +38,7 @@ func TestGlobalServiceExportCache(t *testing.T) {
 	require.Nil(t, globalServiceExports.GetServiceExportByCluster(types.NamespacedName{
 		Namespace: "default",
 		Name:      "unknown",
-	}), 1)
+	}))
 
 	require.True(t, globalServiceExports.OnDelete(&mcsapitypes.MCSAPIServiceSpec{
 		Cluster:   "cluster1",

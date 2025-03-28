@@ -571,7 +571,7 @@ func TestParseMountInfoFile(t *testing.T) {
 	mountInfos, err := parseMountInfoFile(r)
 	require.NoError(t, err)
 	require.Len(t, mountInfos, expectedLength)
-	require.EqualValues(t, expectedMountInfos, mountInfos)
+	require.Equal(t, expectedMountInfos, mountInfos)
 }
 
 func TestGetMountInfo(t *testing.T) {

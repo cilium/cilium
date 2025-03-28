@@ -21,7 +21,7 @@ func TestICMPFieldUnmarshal(t *testing.T) {
 	err := json.Unmarshal(value1, &i)
 
 	icmpType := intstr.FromInt(8)
-	require.EqualValues(t, ICMPField{Family: IPv4Family, Type: &icmpType}, i)
+	require.Equal(t, ICMPField{Family: IPv4Family, Type: &icmpType}, i)
 	require.NoError(t, err)
 
 	// Check ICMPFIeld can treat ICMP type name
@@ -29,7 +29,7 @@ func TestICMPFieldUnmarshal(t *testing.T) {
 	err = json.Unmarshal(value2, &i)
 
 	icmpType = intstr.FromString("EchoRequest")
-	require.EqualValues(t, ICMPField{Family: IPv4Family, Type: &icmpType}, i)
+	require.Equal(t, ICMPField{Family: IPv4Family, Type: &icmpType}, i)
 	require.NoError(t, err)
 
 	// ICMP Node Information Query is only for IPv6

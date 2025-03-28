@@ -941,7 +941,7 @@ func TestSortedAddresses(t *testing.T) {
 
 	for _, expected := range testCases {
 		actual := SortedAddresses(shuffleSlice(slices.Clone(expected)))
-		assert.EqualValues(t, expected, actual)
+		assert.Equal(t, expected, actual)
 
 		// Shuffle again.
 		actual = SortedAddresses(shuffleSlice(slices.Clone(expected)))

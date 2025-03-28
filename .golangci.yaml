@@ -110,16 +110,9 @@ linters:
     testifylint:
       enable-all: true
       disable: # TODO: remove each disabled rule and fix it
-        - empty
-        - equal-values
-        - expected-actual
         - float-compare
-        - formatter
         - go-require
-        - len
         - require-error
-        - suite-method-signature
-        - useless-assert
   exclusions:
     generated: lax
     presets:

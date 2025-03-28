@@ -320,7 +320,7 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 		require.EqualValues(t, expKeepAlive, p.ConfiguredKeepAliveTimeSeconds)
 
 		if n.GracefulRestart != nil {
-			require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
+			require.Equal(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
 			expGRRestartTime := ptr.Deref[int32](n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds)
 			require.EqualValues(t, expGRRestartTime, p.GracefulRestart.RestartTimeSeconds)
 		} else {

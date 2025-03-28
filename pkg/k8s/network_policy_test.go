@@ -537,7 +537,7 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 	rules, err := ParseNetworkPolicy(hivetest.Logger(t), &np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
-	require.EqualValues(t, expectedRules, rules)
+	require.Equal(t, expectedRules, rules)
 }
 
 func TestParseNetworkPolicyEgress(t *testing.T) {
@@ -1639,7 +1639,7 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
-			require.EqualValues(t, tt.want, got)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -1735,7 +1735,7 @@ func TestIPBlockToCIDRRule(t *testing.T) {
 		if len(block.Except) == 0 {
 			require.Nil(t, cidrRule.ExceptCIDRs)
 		} else {
-			require.EqualValues(t, exceptCIDRs, cidrRule.ExceptCIDRs)
+			require.Equal(t, exceptCIDRs, cidrRule.ExceptCIDRs)
 		}
 	}
 }

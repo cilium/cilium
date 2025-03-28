@@ -197,7 +197,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			slices.Sort(testEPManager.removedPaths)
 			slices.Sort(tt.removedMappings)
 			slices.Sort(testEPManager.removedMappings)
-			require.EqualValues(t, tt.removedPaths, testEPManager.removedPaths)
+			require.Equal(t, tt.removedPaths, testEPManager.removedPaths)
 		})
 	}
 }

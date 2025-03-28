@@ -519,7 +519,7 @@ func Test_pathPrefixMutation(t *testing.T) {
 		}
 
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
-		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
 				Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 			},
@@ -539,7 +539,7 @@ func Test_pathPrefixMutation(t *testing.T) {
 		}
 
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
-		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
 				Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 			},

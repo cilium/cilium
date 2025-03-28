@@ -31,7 +31,7 @@ func TestGetPrefixesFromCIDR(t *testing.T) {
 		inputs = append(inputs, api.CIDR(ruleStr))
 	}
 	result := getPrefixesFromCIDR(inputs)
-	require.EqualValues(t, expected, result)
+	require.Equal(t, expected, result)
 }
 
 func TestGetCIDRPrefixes(t *testing.T) {

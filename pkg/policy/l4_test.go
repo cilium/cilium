@@ -261,8 +261,8 @@ func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule 
 func TestJSONMarshal(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
 	model := &models.L4Policy{}
-	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Egress))
-	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Ingress))
+	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Egress))
+	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Ingress))
 
 	policy := L4Policy{
 		Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -338,7 +338,7 @@ func TestJSONMarshal(t *testing.T) {
 }`}
 	sort.StringSlice(expectedEgress).Sort()
 	sort.Sort(SortablePolicyRules(model.Egress))
-	require.Equal(t, len(model.Egress), len(expectedEgress))
+	require.Len(t, model.Egress, len(expectedEgress))
 	for i := range expectedEgress {
 		expected := new(bytes.Buffer)
 		err := json.Compact(expected, []byte(expectedEgress[i]))
@@ -415,7 +415,7 @@ func TestJSONMarshal(t *testing.T) {
 }`}
 	sort.StringSlice(expectedIngress).Sort()
 	sort.Sort(SortablePolicyRules(model.Ingress))
-	require.Equal(t, len(model.Ingress), len(expectedIngress))
+	require.Len(t, model.Ingress, len(expectedIngress))
 	for i := range expectedIngress {
 		expected := new(bytes.Buffer)
 		err := json.Compact(expected, []byte(expectedIngress[i]))

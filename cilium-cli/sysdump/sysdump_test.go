@@ -228,7 +228,7 @@ func TestListCiliumEndpointSlices(t *testing.T) {
 
 	endpointSlices, err := client.ListCiliumEndpointSlices(context.Background(), metav1.ListOptions{})
 	assert.NoError(err)
-	assert.GreaterOrEqual(len(endpointSlices.Items), 0)
+	assert.Len(endpointSlices.Items, 1)
 }
 
 func TestFilterPods(t *testing.T) {
@@ -687,7 +687,7 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 func Test_removeTopDirectory(t *testing.T) {
 	result, err := removeTopDirectory("/")
 	assert.NoError(t, err)
-	assert.Equal(t, "", result)
+	assert.Empty(t, result)
 
 	result, err = removeTopDirectory("a/b/c")
 	assert.NoError(t, err)

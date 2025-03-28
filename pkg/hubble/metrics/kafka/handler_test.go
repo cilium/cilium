@@ -20,7 +20,7 @@ import (
 func Test_kafkaHandler_Status(t *testing.T) {
 	plugin := kafkaPlugin{}
 	handler := plugin.NewHandler()
-	assert.Equal(t, "", handler.Status())
+	assert.Empty(t, handler.Status())
 	options := &api.MetricConfig{
 		ContextOptionConfigs: []*api.ContextOptionConfig{
 			{

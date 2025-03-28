@@ -499,7 +499,7 @@ func TestRequestSomeResources(t *testing.T) {
 	rsrc, err = cache.Lookup(typeURL, resources[2].Name)
 	require.NoError(t, err)
 	require.NotNil(t, rsrc)
-	require.EqualValues(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
+	require.Equal(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -993,7 +993,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
-	require.NotEqual(t, "", resp.Nonce)
+	require.NotEmpty(t, resp.Nonce)
 
 	require.Condition(t, isNotCompletedComparison(comp2))
 	require.Equal(t, 0, metrics.nack[typeURL])
@@ -1077,7 +1077,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
-	require.NotEqual(t, "", resp.Nonce)
+	require.NotEmpty(t, resp.Nonce)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 

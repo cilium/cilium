@@ -511,7 +511,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			want.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 			rules, policyImportErr := args.cnp.Parse(hivetest.Logger(t))
-			require.EqualValues(t, want.err, policyImportErr)
+			require.Equal(t, want.err, policyImportErr)
 
 			// Only add policies if we have successfully parsed them. Otherwise, if
 			// parsing fails, `rules` is nil, which would wipe out the repo.
@@ -530,7 +530,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				Source:            metrics.LabelEventSourceK8s,
 			}})
 
-			require.EqualValuesf(t, want.repo.GetRulesList().Policy, args.repo.GetRulesList().Policy, "Test name: %q", tt.name)
+			require.Equalf(t, want.repo.GetRulesList().Policy, args.repo.GetRulesList().Policy, "Test name: %q", tt.name)
 		})
 	}
 }

@@ -570,7 +570,7 @@ func testRemoteCache(t *testing.T) {
 		a.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			cacheLen++
 		})
-		assert.EqualValues(c, 4, cacheLen)
+		assert.Equal(c, 4, cacheLen)
 	}, timeout, tick)
 
 	// count identical allocations returned
@@ -615,7 +615,7 @@ func testRemoteCache(t *testing.T) {
 			cacheLen++
 		})
 		// 4 local + 4 remote
-		assert.EqualValues(c, 8, cacheLen)
+		assert.Equal(c, 8, cacheLen)
 	}, timeout, tick)
 
 	// count the allocations in the main cache *AND* the remote cache

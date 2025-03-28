@@ -693,7 +693,7 @@ func TestPeerManager(t *testing.T) {
 			// the objects are not easily compared -> hack the assertion
 			sort.Sort(ByName(got))
 			sort.Sort(ByName(tt.want.peers))
-			assert.Equal(t, len(tt.want.peers), len(got))
+			assert.Len(t, got, len(tt.want.peers))
 			for i := range got {
 				if tt.want.peers[i].Conn == nil {
 					assert.Nil(t, got[i].Conn)

@@ -125,7 +125,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		}
 	}
 	eps := ReadEPsFromDirNames(context.TODO(), s, nil, s, s, tmpDir, epsNames)
-	require.Equal(t, len(epsWanted), len(eps))
+	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
 	restoredEPs := make([]*Endpoint, 0, len(eps))
@@ -134,7 +134,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	}
 	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
 
-	require.Equal(t, len(epsWanted), len(restoredEPs))
+	require.Len(t, restoredEPs, len(epsWanted))
 	for i, restoredEP := range restoredEPs {
 		// We probably shouldn't modify these, but the status will
 		// naturally differ between the wanted endpoint and the version
@@ -143,7 +143,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		restoredEP.status = nil
 		wanted := epsWanted[i]
 		wanted.status = nil
-		require.EqualValues(t, wanted.String(), restoredEP.String())
+		require.Equal(t, wanted.String(), restoredEP.String())
 	}
 }
 
@@ -190,7 +190,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
-	require.EqualValues(t, ep.String(), restoredEP.String())
+	require.Equal(t, ep.String(), restoredEP.String())
 
 	// Check that the directory for failed restore was removed.
 	fileExists := func(fileName string) bool {
@@ -242,7 +242,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		eps := ReadEPsFromDirNames(context.TODO(), s, nil, s, s, tmpDir, epsNames)
-		require.Equal(b, len(epsWanted), len(eps))
+		require.Len(b, eps, len(epsWanted))
 	}
 }
 
@@ -265,6 +265,6 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 	slices.Sort(completeWanted)
 	slices.Sort(incomplete)
 	slices.Sort(incompleteWanted)
-	require.EqualValues(t, completeWanted, complete)
-	require.EqualValues(t, incompleteWanted, incomplete)
+	require.Equal(t, completeWanted, complete)
+	require.Equal(t, incompleteWanted, incomplete)
 }

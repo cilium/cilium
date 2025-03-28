@@ -363,9 +363,9 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(del1stWanted), svcDeleteManagerCalls)
 
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-	require.EqualValues(t, del1stWanted, del1st)
+	require.Equal(t, upsert1stWanted, upsert1st)
+	require.Equal(t, upsert2ndWanted, upsert2nd)
+	require.Equal(t, del1stWanted, del1st)
 }
 
 func TestChangeSVCPort(t *testing.T) {
@@ -491,7 +491,7 @@ func TestChangeSVCPort(t *testing.T) {
 	swg.Stop()
 	swg.Wait()
 	require.Equal(t, 2, svcUpsertManagerCalls) // Add and Update events
-	require.EqualValues(t, upsertsWanted, upserts)
+	require.Equal(t, upsertsWanted, upserts)
 }
 
 func Test_addK8sSVCs_NodePort(t *testing.T) {
@@ -968,9 +968,9 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(del1stWanted), svcDeleteManagerCalls)
 
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-	require.EqualValues(t, del1stWanted, del1st)
+	require.Equal(t, upsert1stWanted, upsert1st)
+	require.Equal(t, upsert2ndWanted, upsert2nd)
+	require.Equal(t, del1stWanted, del1st)
 }
 
 func Test_addK8sSVCs_GH9576_1(t *testing.T) {
@@ -1261,9 +1261,9 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	require.Equal(t, wantSvcUpsertManagerCalls, svcUpsertManagerCalls)
 	require.Equal(t, wantSvcDeleteManagerCalls, svcDeleteManagerCalls)
 
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-	require.EqualValues(t, del1stWanted, del1st)
+	require.Equal(t, upsert1stWanted, upsert1st)
+	require.Equal(t, upsert2ndWanted, upsert2nd)
+	require.Equal(t, del1stWanted, del1st)
 }
 
 func Test_addK8sSVCs_GH9576_2(t *testing.T) {
@@ -1552,9 +1552,9 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	require.Equal(t, wantSvcUpsertManagerCalls, svcUpsertManagerCalls)
 	require.Equal(t, wantSvcDeleteManagerCalls, svcDeleteManagerCalls)
 
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-	require.EqualValues(t, del1stWanted, del1st)
+	require.Equal(t, upsert1stWanted, upsert1st)
+	require.Equal(t, upsert2ndWanted, upsert2nd)
+	require.Equal(t, del1stWanted, del1st)
 }
 
 func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
@@ -2484,11 +2484,11 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted)+len(upsert3rdWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(del1stWanted)+len(del2ndWanted), svcDeleteManagerCalls)
 
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-	require.EqualValues(t, upsert3rdWanted, upsert3rd)
-	require.EqualValues(t, del1stWanted, del1st)
-	require.EqualValues(t, del2ndWanted, del2nd)
+	require.Equal(t, upsert1stWanted, upsert1st)
+	require.Equal(t, upsert2ndWanted, upsert2nd)
+	require.Equal(t, upsert3rdWanted, upsert3rd)
+	require.Equal(t, del1stWanted, del1st)
+	require.Equal(t, del2ndWanted, del2nd)
 }
 
 func TestHeadless(t *testing.T) {
@@ -2608,8 +2608,8 @@ func TestHeadless(t *testing.T) {
 	swg.Wait()
 	require.Equal(t, len(upsertsWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(delstWanted), svcDeleteManagerCalls)
-	require.EqualValues(t, upsertsWanted, upserts)
-	require.EqualValues(t, delstWanted, delst)
+	require.Equal(t, upsertsWanted, upserts)
+	require.Equal(t, delstWanted, delst)
 }
 
 func TestK8sServiceWatcher_checkServiceNodeExposure(t *testing.T) {

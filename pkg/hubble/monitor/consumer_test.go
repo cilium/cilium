@@ -118,7 +118,7 @@ func TestHubbleConsumer(t *testing.T) {
 	// Verify that the events channel is empty now.
 	select {
 	case ev := <-observer.GetEventsChannel():
-		assert.Fail(t, "Unexpected event", ev)
+		assert.Fail(t, "Unexpected event", "event %v", ev)
 	default:
 	}
 }

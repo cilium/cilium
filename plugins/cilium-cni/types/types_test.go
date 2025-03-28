@@ -28,7 +28,7 @@ func testConfRead(t *testing.T, confContent string, netconf *NetConf) {
 	netConf, err := ReadNetConf(p)
 	require.NoError(t, err)
 
-	require.EqualValues(t, netConf, netconf)
+	require.Equal(t, netConf, netconf)
 }
 
 func TestReadCNIConf(t *testing.T) {

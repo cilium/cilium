@@ -167,7 +167,7 @@ func TestGetIfLocked(t *testing.T) {
 		want := tt.setupWanted()
 		value, err := Client().GetIfLocked(context.TODO(), args.key, args.lock)
 		require.Equal(t, want.err, err)
-		require.EqualValues(t, want.value, value)
+		require.Equal(t, want.value, value)
 		err = tt.cleanup(args)
 		require.NoError(t, err)
 	}
@@ -277,7 +277,7 @@ func TestDeleteIfLocked(t *testing.T) {
 				value, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), value.Count)
-				require.EqualValues(t, []byte("bar"), value.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), value.Kvs[0].Value)
 				return nil
 			},
 		},
@@ -338,7 +338,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -370,7 +370,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -402,7 +402,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 				return nil
 			},
 		},
@@ -433,7 +433,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -466,7 +466,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -499,7 +499,7 @@ func TestUpdateIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 				return nil
 			},
 		},
@@ -562,7 +562,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
 				return args.lock.Unlock(context.TODO())
@@ -594,7 +594,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -627,7 +627,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
 				return args.lock.Unlock(context.TODO())
@@ -661,7 +661,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
 				return nil
@@ -695,7 +695,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
 				return args.lock.Unlock(context.TODO())
@@ -730,7 +730,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -766,7 +766,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
 				return args.lock.Unlock(context.TODO())
@@ -800,7 +800,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 				return nil
 			},
 		},
@@ -865,7 +865,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -898,7 +898,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -963,7 +963,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("newbar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("newbar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -997,7 +997,7 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 				gr, err := e.Get(context.Background(), key)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), gr.Count)
-				require.EqualValues(t, []byte("bar"), gr.Kvs[0].Value)
+				require.Equal(t, []byte("bar"), gr.Kvs[0].Value)
 
 				return args.lock.Unlock(context.TODO())
 			},
@@ -1166,7 +1166,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 			// its value.
 			v1, ok := want.kvPairs[k]
 			require.True(t, ok)
-			require.EqualValues(t, v1.Data, v.Data)
+			require.Equal(t, v1.Data, v.Data)
 		}
 		err = tt.cleanup(args)
 		require.NoError(t, err)

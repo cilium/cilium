@@ -561,7 +561,7 @@ func TestProxyID(t *testing.T) {
 	e.UpdateLogger(nil)
 
 	id, port, proto := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "")
-	require.NotEqual(t, "", id)
+	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, u8proto.TCP, proto)
 
@@ -570,11 +570,11 @@ func TestProxyID(t *testing.T) {
 	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, "", listener)
+	require.Empty(t, listener)
 	require.NoError(t, err)
 
 	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "test-listener")
-	require.NotEqual(t, "", id)
+	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, u8proto.TCP, proto)
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
@@ -587,7 +587,7 @@ func TestProxyID(t *testing.T) {
 
 	// Undefined named port
 	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
-	require.Equal(t, "", id)
+	require.Empty(t, id)
 	require.Equal(t, uint16(0), port)
 	require.Equal(t, u8proto.ANY, proto)
 }

@@ -301,7 +301,7 @@ func TestCountIPs(t *testing.T) {
 	// Dump() returns the deduplicated (or consolidated) list of entries with
 	// length equal to CountFQDNs(), while CountIPs() returns the raw number of
 	// IPs.
-	require.Equal(t, len(names), len(cache.Dump()))
+	require.Len(t, cache.Dump(), len(names))
 	require.Equal(t, len(names), int(fqdns))
 	require.Equal(t, len(names)*2, int(ips))
 }
@@ -555,10 +555,10 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	require.EqualValues(t, sets.New[string]("test.com"), affectedNames)
+	require.Equal(t, sets.New[string]("test.com"), affectedNames)
 
 	require.Len(t, cache.Lookup("test.com"), limit)
-	require.EqualValues(t, []string{"foo.bar"}, cache.LookupIP(netip.MustParseAddr("1.1.1.1")))
+	require.Equal(t, []string{"foo.bar"}, cache.LookupIP(netip.MustParseAddr("1.1.1.1")))
 	require.Nil(t, cache.forward["test.com"][netip.MustParseAddr("1.1.1.1")])
 	require.Len(t, cache.Lookup("foo.bar"), 1)
 	require.Len(t, cache.Lookup("bar.foo"), 1)
@@ -590,7 +590,7 @@ func TestGCOverlimitAfterTTLCleanup(t *testing.T) {
 	require.Len(t, cache.overLimit, 1)
 
 	result, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
-	require.EqualValues(t, sets.New[string]("test.com"), result)
+	require.Equal(t, sets.New[string]("test.com"), result)
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()

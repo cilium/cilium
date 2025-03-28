@@ -42,7 +42,7 @@ func TestCreateDerivativeRuleWithoutToGroups(t *testing.T) {
 		},
 	}
 	newRule, err := eg.CreateDerivative(context.TODO())
-	require.EqualValues(t, newRule, eg)
+	require.Equal(t, newRule, eg)
 	require.NoError(t, err)
 }
 
@@ -103,7 +103,7 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.EqualValues(t, &EgressRule{}, newRule)
+	require.Equal(t, &EgressRule{}, newRule)
 }
 
 func TestIsLabelBasedEgress(t *testing.T) {
@@ -354,7 +354,7 @@ func TestIsLabelBasedEgress(t *testing.T) {
 		want := tt.setupWanted()
 		require.NoError(t, args.eg.sanitize(false), "Test name: %q", tt.name)
 		isLabelBased := args.eg.AllowsWildcarding()
-		require.EqualValues(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
+		require.Equal(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
 	}
 }
 

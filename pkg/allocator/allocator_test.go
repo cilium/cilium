@@ -276,7 +276,7 @@ func TestSelectID(t *testing.T) {
 	id, val, unmaskedID := a.selectAvailableID()
 	require.Equal(t, idpool.ID(0), id)
 	require.Equal(t, unmaskedID, id)
-	require.Equal(t, "", val)
+	require.Empty(t, val)
 }
 
 func TestPrefixMask(t *testing.T) {

@@ -16,7 +16,7 @@ func TestHardwareAddr(t *testing.T) {
 	var expectedAddress net.HardwareAddr = []byte{1, 2, 3, 4, 5, 6}
 	result := testMACAddress.hardwareAddr()
 
-	require.EqualValues(t, expectedAddress, result)
+	require.Equal(t, expectedAddress, result)
 }
 
 func TestStringMAC(t *testing.T) {

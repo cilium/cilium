@@ -48,7 +48,7 @@ func TestGetCIDRSetWithValidValue(t *testing.T) {
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	require.EqualValues(t, expectedCidrRule, cidr)
+	require.Equal(t, expectedCidrRule, cidr)
 	require.NoError(t, err)
 }
 
@@ -61,7 +61,7 @@ func TestGetCIDRSetWithMultipleSorted(t *testing.T) {
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	require.EqualValues(t, expectedCidrRule, cidr)
+	require.Equal(t, expectedCidrRule, cidr)
 	require.NoError(t, err)
 }
 
@@ -75,7 +75,7 @@ func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
 
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
-	require.EqualValues(t, cidrRule, cidr)
+	require.Equal(t, cidrRule, cidr)
 	require.NoError(t, err)
 }
 

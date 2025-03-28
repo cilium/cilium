@@ -464,9 +464,9 @@ specs:
 		require.NoError(t, err)
 
 		if tt.clusterwide {
-			require.EqualValues(t, tt.err, validator.ValidateCCNP(&us))
+			require.Equal(t, tt.err, validator.ValidateCCNP(&us))
 		} else {
-			require.EqualValues(t, tt.err, validator.ValidateCNP(&us))
+			require.Equal(t, tt.err, validator.ValidateCNP(&us))
 		}
 	}
 }

@@ -180,11 +180,11 @@ func TestNodesPodCIDRManager_Delete(t *testing.T) {
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnRelease: func(cidr *net.IPNet) error {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return nil
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 						},
@@ -202,7 +202,7 @@ func TestNodesPodCIDRManager_Delete(t *testing.T) {
 			},
 			testPostRun: func(fields *fields) {
 				time.Sleep(2 * time.Millisecond)
-				require.EqualValues(t, map[string]*nodeCIDRs{}, fields.nodes)
+				require.Equal(t, map[string]*nodeCIDRs{}, fields.nodes)
 				require.Equal(t, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						op: k8sOpDelete,
@@ -228,7 +228,7 @@ func TestNodesPodCIDRManager_Delete(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, fields.ciliumNodesToK8s)
+				require.Equal(t, map[string]*ciliumNodeK8sOp{}, fields.ciliumNodesToK8s)
 				require.Equal(t, int32(0), reSyncCalls.Load())
 			},
 			args: args{
@@ -399,7 +399,7 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.EqualValues(t, map[string]*nodeCIDRs{}, fields.nodes)
+				require.Equal(t, map[string]*nodeCIDRs{}, fields.nodes)
 				require.Equal(t, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
@@ -619,16 +619,16 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 						&mockCIDRAllocator{
 							OnOccupy: func(cidr *net.IPNet) error {
 								onOccupyCallsv4++
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return nil
 							},
 							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
 								onIsAllocatedCallsv4++
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return false, nil
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -640,16 +640,16 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 						&mockCIDRAllocator{
 							OnOccupy: func(cidr *net.IPNet) error {
 								onOccupyCallsv6++
-								require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 								return nil
 							},
 							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
 								onIsAllocatedCallsv6++
-								require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 								return false, nil
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -699,21 +699,21 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 						&mockCIDRAllocator{
 							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
 								onIsAllocatedCallsv4++
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return false, nil
 							},
 							OnOccupy: func(cidr *net.IPNet) error {
 								onOccupyCallsv4++
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return nil
 							},
 							OnRelease: func(cidr *net.IPNet) error {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								releaseCallsv4++
 								return nil
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -724,7 +724,7 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -736,7 +736,7 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.EqualValues(t, map[string]*nodeCIDRs{}, fields.nodes)
+				require.Equal(t, map[string]*nodeCIDRs{}, fields.nodes)
 				require.Equal(t, 1, onIsAllocatedCallsv4)
 				require.Equal(t, 1, onOccupyCallsv4)
 				require.Equal(t, 1, releaseCallsv4)
@@ -880,7 +880,7 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 		gotErr := err != nil
 		require.Equal(t, tt.wantErr, gotErr, "Test Name: %s", tt.name)
 		require.Equal(t, tt.wantAllocated, gotAllocated, "Test Name: %s", tt.name)
-		require.EqualValues(t, tt.fields.newNodeCIDRs, newNodeCIDRs, "Test Name: %s", tt.name)
+		require.Equal(t, tt.fields.newNodeCIDRs, newNodeCIDRs, "Test Name: %s", tt.name)
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
@@ -959,7 +959,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 								return false
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 						},
@@ -974,7 +974,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 								return false
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 						},
@@ -1015,7 +1015,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 								return mustNewCIDRs("10.10.0.0/24")[0], nil
 							},
 							OnRelease: func(cidr *net.IPNet) error {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								releaseCallsv4++
 								return nil
 							},
@@ -1023,7 +1023,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 								return false
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 						},
@@ -1034,7 +1034,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 								return true
 							},
 							OnInRange: func(cidr *net.IPNet) bool {
-								require.EqualValues(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
 								return true
 							},
 						},
@@ -1043,7 +1043,7 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.EqualValues(t, map[string]*nodeCIDRs{}, fields.nodes)
+				require.Equal(t, map[string]*nodeCIDRs{}, fields.nodes)
 				require.Equal(t, 1, allocateNextCallsv4)
 				require.Equal(t, 1, releaseCallsv4)
 			},
@@ -1131,11 +1131,11 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 					&mockCIDRAllocator{
 						OnRelease: func(cidr *net.IPNet) error {
 							onReleaseCalls++
-							require.EqualValues(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
+							require.Equal(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
 							return nil
 						},
 						OnInRange: func(cidr *net.IPNet) bool {
-							require.EqualValues(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
+							require.Equal(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
 							return true
 						},
 					},
@@ -1166,11 +1166,11 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 					&mockCIDRAllocator{
 						OnRelease: func(cidr *net.IPNet) error {
 							onReleaseCalls++
-							require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+							require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 							return nil
 						},
 						OnInRange: func(cidr *net.IPNet) bool {
-							require.EqualValues(t, mustNewCIDRs("fd00::/80")[0], cidr)
+							require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
 							return true
 						},
 					},
@@ -1299,7 +1299,7 @@ func Test_parsePodCIDRs(t *testing.T) {
 		nodeCIDRs, err := parsePodCIDRs(tt.args.podCIDRs)
 		gotErr := err != nil
 		require.Equal(t, tt.wantErr, gotErr, fmt.Sprintf("Test Name: %s", tt.name), gotErr)
-		require.EqualValues(t, tt.want, nodeCIDRs, "Test Name: %s", tt.name)
+		require.Equal(t, tt.want, nodeCIDRs, "Test Name: %s", tt.name)
 	}
 }
 
@@ -1364,7 +1364,7 @@ func Test_syncToK8s(t *testing.T) {
 				require.Equal(t, map[k8sOp]int{
 					k8sOpCreate: 1,
 				}, calls)
-				require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
+				require.Equal(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
 			},
 			wantErr: false,
 		},
@@ -1585,7 +1585,7 @@ func Test_syncToK8s(t *testing.T) {
 				require.Equal(t, map[k8sOp]int{
 					k8sOpUpdate: 1,
 				}, calls)
-				require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
+				require.Equal(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
 			},
 			wantErr: false,
 		},
@@ -1635,7 +1635,7 @@ func Test_syncToK8s(t *testing.T) {
 				require.Equal(t, map[k8sOp]int{
 					k8sOpUpdateStatus: 1,
 				}, calls)
-				require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
+				require.Equal(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
 			},
 			wantErr: false,
 		},
@@ -1649,7 +1649,7 @@ func Test_syncToK8s(t *testing.T) {
 					// k8sOpDelete calls Get(), instead of Delete()
 					OnGet: func(nodeName string) (*v2.CiliumNode, error) {
 						calls[k8sOpDelete]++
-						require.EqualValues(t, "node-1", nodeName)
+						require.Equal(t, "node-1", nodeName)
 						return nil, k8sErrors.NewNotFound(schema.GroupResource{}, nodeName)
 					},
 				},
@@ -1663,7 +1663,7 @@ func Test_syncToK8s(t *testing.T) {
 				require.Equal(t, map[k8sOp]int{
 					k8sOpDelete: 1,
 				}, calls)
-				require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
+				require.Equal(t, map[string]*ciliumNodeK8sOp{}, args.ciliumNodesToK8s)
 			},
 			wantErr: false,
 		},
@@ -1677,7 +1677,7 @@ func Test_syncToK8s(t *testing.T) {
 					// k8sOpDelete calls Get(), instead of Delete()
 					OnGet: func(nodeName string) (*v2.CiliumNode, error) {
 						calls[k8sOpDelete]++
-						require.EqualValues(t, "node-1", nodeName)
+						require.Equal(t, "node-1", nodeName)
 						return nil, k8sErrors.NewTimeoutError("", 0)
 					},
 				},
@@ -1752,7 +1752,7 @@ func TestNewNodesPodCIDRManager(t *testing.T) {
 		t.Error("The controller should have received the delete operation by now")
 	}
 	nm.Mutex.Lock()
-	require.EqualValues(t, map[string]*ciliumNodeK8sOp{}, nm.ciliumNodesToK8s)
+	require.Equal(t, map[string]*ciliumNodeK8sOp{}, nm.ciliumNodesToK8s)
 	nm.Mutex.Unlock()
 	// Wait for the controller to try more times, the number of deletedCalls
 	// should not be different because we have successfully processed the

@@ -51,15 +51,15 @@ func TestPathConversions(t *testing.T) {
 				paths, err := ToAgentPaths(destination.Paths)
 				require.NoError(t, err)
 				require.NotZero(t, paths)
-				require.EqualValues(t, tt.Path.NLRI, paths[0].NLRI)
-				require.EqualValues(t, len(tt.Path.PathAttributes), len(paths[0].PathAttributes))
+				require.Equal(t, tt.Path.NLRI, paths[0].NLRI)
+				require.Len(t, paths[0].PathAttributes, len(tt.Path.PathAttributes))
 				for i := range tt.Path.PathAttributes {
 					// byte-compare encoded path attributes
 					data1, err := tt.Path.PathAttributes[i].Serialize()
 					require.NoError(t, err)
 					data2, err := paths[0].PathAttributes[i].Serialize()
 					require.NoError(t, err)
-					require.EqualValues(t, data1, data2)
+					require.Equal(t, data1, data2)
 				}
 			})
 			require.NoError(t, err)

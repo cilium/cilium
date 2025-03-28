@@ -181,7 +181,7 @@ func TestParseNode(t *testing.T) {
 	require.Equal(t, "node2", n.Name)
 	require.NotNil(t, n.IPv4AllocCIDR)
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
-	require.Equal(t, len(expected), len(n.IPAddresses))
+	require.Len(t, n.IPAddresses, len(expected))
 	addrsFound := 0
 	for _, addr := range n.IPAddresses {
 		for _, expect := range expected {
@@ -337,7 +337,7 @@ func Test_ParseNodeAddressType(t *testing.T) {
 				ciliumNodeType: gotNodeAddress,
 				errExists:      gotErr != nil,
 			}
-			require.EqualValues(t, tt.want, res)
+			require.Equal(t, tt.want, res)
 		})
 	}
 }
@@ -386,7 +386,7 @@ func TestParseNodeWithService(t *testing.T) {
 	require.Equal(t, "node2", n2.Name)
 	require.NotNil(t, n2.IPv4AllocCIDR)
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
-	require.Equal(t, "", n2.Labels[annotation.ServiceNodeExposure])
+	require.Empty(t, n2.Labels[annotation.ServiceNodeExposure])
 
 	objMeta := slim_metav1.ObjectMeta{
 		Name:      "foo",
@@ -407,8 +407,8 @@ func TestParseNodeWithService(t *testing.T) {
 	}
 
 	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
-	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
-	require.EqualValues(t, &Service{
+	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
+	require.Equal(t, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},

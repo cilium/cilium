@@ -63,10 +63,10 @@ func TestFilterLabels(t *testing.T) {
 	allLabels["lizards.foo.lizards.k8s"] = labels.NewLabel("lizards.foo.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 6)
-	require.EqualValues(t, wanted, filtered)
+	require.Equal(t, wanted, filtered)
 	// Making sure we are deep copying the labels
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
-	require.EqualValues(t, wanted, filtered)
+	require.Equal(t, wanted, filtered)
 }
 
 func TestDefaultFilterLabels(t *testing.T) {
@@ -117,7 +117,7 @@ func TestDefaultFilterLabels(t *testing.T) {
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
 	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	require.EqualValues(t, wanted, filtered)
+	require.Equal(t, wanted, filtered)
 }
 
 func TestFilterLabelsDocExample(t *testing.T) {
@@ -159,7 +159,7 @@ func TestFilterLabelsDocExample(t *testing.T) {
 	allLabels["k8s-app-role"] = labels.NewLabel("k8s-app-role", "foo", labels.LabelSourceContainer)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 7)
-	require.EqualValues(t, wanted, filtered)
+	require.Equal(t, wanted, filtered)
 }
 
 func TestFilterLabelsByRegex(t *testing.T) {

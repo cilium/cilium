@@ -679,7 +679,7 @@ func validatePoliciesMatch(t *testing.T, actual map[string]*types.RoutePolicy, e
 	for _, expPolicy := range expected {
 		policy := actual[expPolicy.Name]
 		require.NotNil(t, policy)
-		require.EqualValues(t, expPolicy, policy)
+		require.Equal(t, expPolicy, policy)
 	}
 }
 
@@ -750,7 +750,7 @@ func TestCommunityDeduplication(t *testing.T) {
 
 			res2 := dedupLargeCommunities(tt.large)
 
-			require.EqualValues(t, tt.expected, append(res, res2...))
+			require.Equal(t, tt.expected, append(res, res2...))
 		})
 	}
 }
