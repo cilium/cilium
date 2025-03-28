@@ -10,7 +10,9 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
+	coretypes "github.com/cilium/cilium/pkg/types"
 )
 
 // EndpointProxy defines any L7 proxy with which an Endpoint must interact.
@@ -20,6 +22,7 @@ type EndpointProxy interface {
 	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
 	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
+	GetRedirects(epID uint16) map[coretypes.PortProto]types.ProxyType
 }
 
 // SetProxy sets the proxy for this endpoint.
@@ -63,3 +66,7 @@ func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, pol
 
 // RemoveNetworkPolicy does nothing.
 func (f *FakeEndpointProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
+
+func (f *FakeEndpointProxy) GetRedirects(epID uint16) map[coretypes.PortProto]types.ProxyType {
+	return nil
+}
