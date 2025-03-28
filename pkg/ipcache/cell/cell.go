@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 // Cell provides the IPCache that manages the IP to identity mappings.
@@ -29,7 +30,7 @@ type ipCacheParams struct {
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
 	PolicyRepository       policy.PolicyRepository
-	PolicyUpdater          *policy.Updater
+	PolicyUpdater          policycell.PolicyUpdater
 	EndpointManager        endpointmanager.EndpointManager
 	CacheStatus            synced.CacheStatus
 }

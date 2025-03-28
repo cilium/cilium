@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
+	policyCell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/source"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -38,7 +38,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	K8sAPIGroups      *k8sSynced.APIGroups
 
 	EndpointManager endpointmanager.EndpointManager
-	PolicyUpdater   *policy.Updater
+	PolicyUpdater   policyCell.PolicyUpdater
 	IPCache         *ipcache.IPCache
 }
 
@@ -49,7 +49,7 @@ func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCi
 		k8sAPIGroups:      params.K8sAPIGroups,
 		resources:         params.Resources,
 		endpointManager:   params.EndpointManager,
-		policyManager:     params.PolicyUpdater,
+		policyUpdater:     params.PolicyUpdater,
 		ipcache:           params.IPCache,
 	}
 }
@@ -66,7 +66,7 @@ type K8sCiliumEndpointsWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 
 	endpointManager endpointManager
-	policyManager   policyManager
+	policyUpdater   policyCell.PolicyUpdater
 	ipcache         ipcacheManager
 
 	resources agentK8s.Resources
@@ -121,7 +121,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	var namedPortsChanged bool
 	defer func() {
 		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
+			k.policyUpdater.TriggerPolicyUpdates("Named ports added or updated")
 		}
 	}()
 	var ipsAdded []string
@@ -238,7 +238,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoi
 			}
 		}
 		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates("Named ports deleted")
+			k.policyUpdater.TriggerPolicyUpdates("Named ports deleted")
 		}
 	}
 	hubblemetrics.ProcessCiliumEndpointDeletion(endpoint)

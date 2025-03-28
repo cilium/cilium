@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/trigger"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -102,7 +103,7 @@ type configModifyEventHandlerParams struct {
 	Logger    logrus.FieldLogger
 
 	Orchestrator    datapath.Orchestrator
-	Policy          policy.PolicyRepository
+	Policy          policycell.PolicyUpdater
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
 }
@@ -157,7 +158,7 @@ type ConfigModifyEventHandler struct {
 	configModifyQueue *eventqueue.EventQueue
 
 	orchestrator    datapath.Orchestrator
-	policy          policy.PolicyRepository
+	policy          policycell.PolicyUpdater
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
 }
@@ -260,7 +261,6 @@ func (h *ConfigModifyEventHandler) changedOption(key string, value option.Option
 			h.l7Proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
 		}
 	}
-	h.policy.BumpRevision() // force policy recalculation
 }
 
 // triggerDatapathRegen triggers datapath rewrite for every daemon's endpoint.
@@ -269,7 +269,7 @@ func (h *ConfigModifyEventHandler) changedOption(key string, value option.Option
 func (h *ConfigModifyEventHandler) triggerDatapathRegen(force bool, reason string) {
 	if force {
 		h.logger.Debug("PolicyEnforcement mode changed, increasing policy revision to enforce policy recalculation")
-		h.policy.BumpRevision()
+		h.policy.TriggerPolicyUpdates("PolicyEnforcement mode changed")
 	}
 	h.datapathRegenTrigger.TriggerWithReason(reason)
 }

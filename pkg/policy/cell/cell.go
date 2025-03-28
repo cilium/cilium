@@ -11,7 +11,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -26,9 +25,8 @@ var Cell = cell.Module(
 	"policy",
 	"Contains policy rules",
 
-	cell.Provide(newPolicyRepo),
-	cell.Provide(newPolicyUpdater),
-	cell.Provide(newPolicyImporter),
+	cell.Provide(newPolicyRepo, newPolicyQueue),
+	cell.ProvidePrivate(newPolicyImporter),
 	cell.Config(defaultConfig),
 )
 
@@ -94,21 +92,4 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	})
 
 	return policyRepo
-}
-
-type policyUpdaterParams struct {
-	cell.In
-
-	Logger           *slog.Logger
-	PolicyRepository policy.PolicyRepository
-	EndpointManager  endpointmanager.EndpointManager
-}
-
-func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
-	// policyUpdater: forces policy recalculation on all endpoints.
-	// Called for various events, such as named port changes
-	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(params.Logger, params.PolicyRepository, params.EndpointManager)
-
-	return policyUpdater
 }

@@ -35,6 +35,34 @@ type PolicyImporter interface {
 	UpdatePolicy(*policytypes.PolicyUpdate)
 }
 
+type PolicyUpdater interface {
+	TriggerPolicyUpdates(reason string)
+}
+
+// policyQueue separates the update queue from the
+// importer that consumes it.
+//
+// It is just to break a circular Hive dependency.
+type policyQueue struct {
+	log *slog.Logger
+	q   chan *policytypes.PolicyUpdate
+}
+
+func (q *policyQueue) UpdatePolicy(u *policytypes.PolicyUpdate) {
+	q.q <- u
+}
+
+// TriggerPolicyUpdates bumps the policy revision and regenerates
+// all endpoints. This has the effect of recomputing policy.
+// This is done if a downstream resource has changed,
+// so cached policy is no longer valid.
+func (q *policyQueue) TriggerPolicyUpdates(reason string) {
+	q.log.Info("Triggering full policy recalculation and regeneration of all endpoints", logfields.Reason, reason)
+	q.UpdatePolicy(&policytypes.PolicyUpdate{
+		BumpAll: true,
+	})
+}
+
 type policyImporterParams struct {
 	cell.In
 
@@ -46,6 +74,7 @@ type policyImporterParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	IPCache         *ipcache.IPCache
 	MonitorAgent    agent.Agent
+	Queue           *policyQueue
 }
 
 type policyImporter struct {
@@ -59,8 +88,6 @@ type policyImporter struct {
 	// that belong to each resource. This is tracked separately
 	// so we can allocate and release prefixes as policy changes.
 	prefixesByResource map[ipcachetypes.ResourceID][]netip.Prefix
-
-	q chan *policytypes.PolicyUpdate
 }
 
 type ipcacher interface {
@@ -73,7 +100,16 @@ type epmanager interface {
 	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
 }
 
-func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
+func newPolicyQueue(config Config, log *slog.Logger) (PolicyImporter, PolicyUpdater, *policyQueue) {
+	queue := &policyQueue{
+		log: log,
+		q:   make(chan *policytypes.PolicyUpdate, config.PolicyQueueSize),
+	}
+
+	return queue, queue, queue
+}
+
+func newPolicyImporter(cfg policyImporterParams) *policyImporter {
 	i := &policyImporter{
 		log:          cfg.Log,
 		repo:         cfg.Repo,
@@ -81,13 +117,11 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 		ipc:          cfg.IPCache,
 		monitorAgent: cfg.MonitorAgent,
 
-		q: make(chan *policytypes.PolicyUpdate, cfg.Config.PolicyQueueSize),
-
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
 
 	buf := stream.Buffer(
-		stream.FromChannel(i.q),
+		stream.FromChannel(cfg.Queue.q),
 		int(cfg.Config.PolicyQueueSize), 10*time.Millisecond,
 		concat)
 
@@ -100,10 +134,6 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 // for policies that allocate CIDRs but do not have an owning resource.
 // (This is only used for policies created by the local API).
 const ResourceIDAnonymous = "policy/anonymous"
-
-func (i *policyImporter) UpdatePolicy(u *policytypes.PolicyUpdate) {
-	i.q <- u
-}
 
 func concat(buf []*policytypes.PolicyUpdate, in *policytypes.PolicyUpdate) []*policytypes.PolicyUpdate {
 	buf = append(buf, in)
