@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -326,14 +325,10 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// Wait for ipcache sync before regeneration for endpoints including
 	// the ones with fixed identity (e.g. host endpoint), this ensures that
 	// the regenerated datapath always lookups from a ready ipcache map.
+	// Additionally wait for node synchronization, as nodes also contribute
+	// entries to the ipcache map, most notably about the remote node IPs.
 	if option.Config.KVStore != "" {
-		if err := ipcache.WaitForKVStoreSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
-
-		// Additionally wait for node synchronization, as nodes also contribute
-		// entries to the ipcache map, most notably about the remote node IPs.
-		if err := regenerator.WaitForKVStoreNodesSync(e.aliveCtx); err != nil {
+		if err := regenerator.WaitForKVStoreSync(e.aliveCtx); err != nil {
 			return ErrNotAlive
 		}
 	}
