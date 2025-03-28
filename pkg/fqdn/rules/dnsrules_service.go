@@ -31,7 +31,7 @@ type dnsRulesService struct {
 
 var _ DNSRulesService = &dnsRulesService{}
 
-func newDNSRulesService(logger *slog.Logger, dnsProxy defaultdns.Proxy, policyRepo policy.PolicyRepository) DNSRulesService {
+func NewDNSRulesService(logger *slog.Logger, dnsProxy defaultdns.Proxy, policyRepo policy.PolicyRepository) DNSRulesService {
 	return &dnsRulesService{
 		logger:     logger,
 		dnsProxy:   dnsProxy,
