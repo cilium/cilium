@@ -7,7 +7,7 @@ MAKEFLAGS += -r
 
 CLANG ?= clang
 
-FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -O2 -g
+FLAGS := -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include -O2 -g
 
 CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu99 -nostdinc
 # eBPF verifier enforces unaligned access checks where necessary, so don't
