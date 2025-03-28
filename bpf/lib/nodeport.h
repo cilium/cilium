@@ -1072,8 +1072,10 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 # endif
 
-	ret = invoke_traced_tailcall_if(__and(is_defined(ENABLE_HOST_FIREWALL),
-					      is_defined(IS_BPF_HOST)),
+	ret = invoke_traced_tailcall_if(__or(__and(is_defined(ENABLE_HOST_FIREWALL),
+						   is_defined(IS_BPF_HOST)),
+					     __and(is_defined(ENABLE_IPV6_FRAGMENTS),
+						   is_defined(IS_BPF_XDP))),
 					CILIUM_CALL_IPV6_NODEPORT_REVNAT,
 					nodeport_rev_dnat_ingress_ipv6,
 					&trace, &ext_err);
