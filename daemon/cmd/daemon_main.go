@@ -1553,7 +1553,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				// This validation needs to be done outside of the agent until
 				// datapath.NodeAddressing is used consistently across the code base.
 				log.Info("Validating configured node address ranges")
-				if err := node.ValidatePostInit(); err != nil {
+				if err := node.ValidatePostInit(params.Logger); err != nil {
 					return fmt.Errorf("postinit failed: %w", err)
 				}
 
@@ -1674,8 +1674,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		if !d.endpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
 			// allocated first. This happens earlier in the agent bootstrap.
-			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4()) == 0) ||
-				(option.Config.EnableIPv6 && len(node.GetIngressIPv6()) == 0) {
+			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
+				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
 				log.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
 				log.Info("Creating ingress endpoint")

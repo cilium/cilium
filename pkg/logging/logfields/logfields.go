@@ -1584,6 +1584,18 @@ const (
 
 	HubbleServerVersion = "hubble-server-version"
 
+	Handler = "handler"
+
+	NodeOwner = "nodeOwner"
+
+	LenStaleNodes = "lenStaleNodes"
+
+	StaleNodes = "staleNodes"
+
+	SyncInterval = "syncInterval"
+
+	BootID = "bootID"
+
 	Resources = "resources"
 
 	LastModifiedVersion = "lastModifiedVersion"

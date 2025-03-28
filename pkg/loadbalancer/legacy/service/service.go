@@ -865,7 +865,7 @@ func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 				continue
 			}
 			if params.ProxyDelegation != lb.SVCProxyDelegationNone {
-				if node.IsNodeIP(b.L3n4Addr.AddrCluster.Addr()) == "" {
+				if node.IsNodeIP(s.logger, b.L3n4Addr.AddrCluster.Addr()) == "" {
 					continue
 				}
 			}
@@ -929,7 +929,7 @@ func (s *Service) upsertService(params *lb.LegacySVC) (bool, lb.ID, error) {
 			s.healthServer.UpsertService(svc.frontend.ID, svc.svcName.Namespace, svc.svcName.Name,
 				activeBackends, svc.svcHealthCheckNodePort)
 
-			if err = s.upsertNodePortHealthService(svc, &nodeMetaCollector{}); err != nil {
+			if err = s.upsertNodePortHealthService(svc, &nodeMetaCollector{logger: s.logger}); err != nil {
 				return false, lb.ID(0), fmt.Errorf("upserting NodePort health service failed: %w", err)
 			}
 
@@ -969,14 +969,16 @@ type NodeMetaCollector interface {
 	GetIPv6() net.IP
 }
 
-type nodeMetaCollector struct{}
+type nodeMetaCollector struct {
+	logger *slog.Logger
+}
 
 func (n *nodeMetaCollector) GetIPv4() net.IP {
-	return node.GetIPv4()
+	return node.GetIPv4(n.logger)
 }
 
 func (n *nodeMetaCollector) GetIPv6() net.IP {
-	return node.GetIPv6()
+	return node.GetIPv6(n.logger)
 }
 
 // upsertNodePortHealthService makes the HealthCheckNodePort available to the external IP of the service

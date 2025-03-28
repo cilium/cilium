@@ -62,7 +62,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager(logger)
-	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(tb), certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
+	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
