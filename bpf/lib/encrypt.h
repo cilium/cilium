@@ -233,7 +233,8 @@ ipsec_redirect_sec_id_ok(__u32 src_sec_id, __u32 dst_sec_id, int ip_proto) {
 }
 
 static __always_inline int
-ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
+ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
+				__u32 src_sec_identity)
 {
 	struct remote_endpoint_info __maybe_unused *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
@@ -268,8 +269,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		 * set_ipsec_encrypt to obtain the correct node ID and spi.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			__u32 src_sec_identity;
-
 			/* if bpf_overlay is v1.17 we immediately know if the
 			 * overlay prog saw this packet as encrypted, short
 			 * circuit.
@@ -326,8 +325,14 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		ip_proto = ip4->protocol;
 
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 # endif /* ENABLE_IPV4 */
 
@@ -341,8 +346,14 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		ip_proto = ip6->nexthdr;
 
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 #endif /* TUNNEL_MODE */
 # endif /* ENABLE_IPv6 */
@@ -350,15 +361,15 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 		return CTX_ACT_OK;
 	}
 
-	if (!dst || !src)
+	if (!dst)
 		return CTX_ACT_OK;
 
-	if (!ipsec_redirect_sec_id_ok(src->sec_identity, dst->sec_identity,
+	if (!ipsec_redirect_sec_id_ok(src_sec_identity, dst->sec_identity,
 				      ip_proto))
 		return CTX_ACT_OK;
 
 	ret = set_ipsec_encrypt(ctx, 0, dst->tunnel_endpoint,
-				src->sec_identity, true, true);
+				src_sec_identity, true, true);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
