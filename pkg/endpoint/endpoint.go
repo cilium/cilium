@@ -580,36 +580,6 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
-// NewTestEndpointWithState creates a new endpoint useful for testing purposes
-//
-// Note: This function is intended for testing purposes only and should not be used in production code.
-func NewTestEndpointWithState(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, state State) *Endpoint {
-	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
-
-	if epBuildQueue == nil {
-		epBuildQueue = &mockEndpointBuildQueue{}
-	}
-
-	ep := createEndpoint(dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, nil, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, ID, "")
-	ep.SetPropertyValue(PropertyFakeEndpoint, true)
-	ep.state = state
-	ep.eventQueue = eventqueue.NewEventQueueBuffered(endpointQueueName, option.Config.EndpointQueueSize)
-
-	ep.UpdateLogger(nil)
-
-	ep.eventQueue.Run()
-
-	return ep
-}
-
-type mockEndpointBuildQueue struct{}
-
-var _ EndpointBuildQueue = &mockEndpointBuildQueue{}
-
-func (m *mockEndpointBuildQueue) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
 func createEndpoint(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		dnsRulesAPI:      dnsRulesAPI,

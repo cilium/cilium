@@ -61,61 +61,61 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
-	if base == nil {
+func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, model *models.EndpointChangeRequest) (*Endpoint, error) {
+	if model == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
-	ep.ifIndex = int(base.InterfaceIndex)
-	ep.containerIfName = base.ContainerInterfaceName
-	ep.parentIfIndex = int(base.ParentInterfaceIndex)
-	if base.ContainerName != "" {
-		ep.containerName.Store(&base.ContainerName)
+	ep := createEndpoint(dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, uint16(model.ID), model.InterfaceName)
+	ep.ifIndex = int(model.InterfaceIndex)
+	ep.containerIfName = model.ContainerInterfaceName
+	ep.parentIfIndex = int(model.ParentInterfaceIndex)
+	if model.ContainerName != "" {
+		ep.containerName.Store(&model.ContainerName)
 	}
-	if base.ContainerID != "" {
-		ep.containerID.Store(&base.ContainerID)
+	if model.ContainerID != "" {
+		ep.containerID.Store(&model.ContainerID)
 	}
-	ep.dockerNetworkID = base.DockerNetworkID
-	ep.dockerEndpointID = base.DockerEndpointID
-	ep.K8sPodName = base.K8sPodName
-	ep.K8sNamespace = base.K8sNamespace
-	ep.K8sUID = base.K8sUID
-	ep.disableLegacyIdentifiers = base.DisableLegacyIdentifiers
+	ep.dockerNetworkID = model.DockerNetworkID
+	ep.dockerEndpointID = model.DockerEndpointID
+	ep.K8sPodName = model.K8sPodName
+	ep.K8sNamespace = model.K8sNamespace
+	ep.K8sUID = model.K8sUID
+	ep.disableLegacyIdentifiers = model.DisableLegacyIdentifiers
 
-	if base.Mac != "" {
-		m, err := mac.ParseMAC(base.Mac)
+	if model.Mac != "" {
+		m, err := mac.ParseMAC(model.Mac)
 		if err != nil {
 			return nil, err
 		}
 		ep.mac = m
 	}
 
-	if base.HostMac != "" {
-		m, err := mac.ParseMAC(base.HostMac)
+	if model.HostMac != "" {
+		m, err := mac.ParseMAC(model.HostMac)
 		if err != nil {
 			return nil, err
 		}
 		ep.nodeMAC = m
 	}
 
-	if base.NetnsCookie != "" {
-		cookie64, err := strconv.ParseInt(base.NetnsCookie, 10, 64)
+	if model.NetnsCookie != "" {
+		cookie64, err := strconv.ParseInt(model.NetnsCookie, 10, 64)
 		if err != nil {
 			// Don't return on error (and block the endpoint creation) as this
 			// is an unusual case where data could have been malformed. Defer error
 			// logging to individual features depending on the metadata.
 			log.WithError(err).WithFields(logrus.Fields{
-				"netns_cookie": base.NetnsCookie,
-				"ep_id":        base.ID,
+				"netns_cookie": model.NetnsCookie,
+				"ep_id":        model.ID,
 			}).Error("unable to parse netns cookie for ep")
 		} else {
 			ep.NetNsCookie = uint64(cookie64)
 		}
 	}
 
-	if base.Addressing != nil {
-		if ip := base.Addressing.IPV6; ip != "" {
+	if model.Addressing != nil {
+		if ip := model.Addressing.IPV6; ip != "" {
 			ip6, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
@@ -124,10 +124,10 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 				return nil, fmt.Errorf("invalid IPv6 address %q", ip)
 			}
 			ep.IPv6 = ip6
-			ep.IPv6IPAMPool = base.Addressing.IPV6PoolName
+			ep.IPv6IPAMPool = model.Addressing.IPV6PoolName
 		}
 
-		if ip := base.Addressing.IPV4; ip != "" {
+		if ip := model.Addressing.IPV4; ip != "" {
 			ip4, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
@@ -136,12 +136,12 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 				return nil, fmt.Errorf("invalid IPv4 address %q", ip)
 			}
 			ep.IPv4 = ip4
-			ep.IPv4IPAMPool = base.Addressing.IPV4PoolName
+			ep.IPv4IPAMPool = model.Addressing.IPV4PoolName
 		}
 	}
 
-	if base.DatapathConfiguration != nil {
-		ep.DatapathConfiguration = *base.DatapathConfiguration
+	if model.DatapathConfiguration != nil {
+		ep.DatapathConfiguration = *model.DatapathConfiguration
 		// We need to make sure DatapathConfiguration.DisableSipVerification value
 		// overrides the value of SourceIPVerification runtime option of the endpoint.
 		if ep.DatapathConfiguration.DisableSipVerification {
@@ -149,19 +149,19 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 		}
 	}
 
-	if base.Labels != nil {
-		lbls := labels.NewLabelsFromModel(base.Labels)
+	if model.Labels != nil {
+		lbls := labels.NewLabelsFromModel(model.Labels)
 		identityLabels, infoLabels := labelsfilter.Filter(lbls)
 		ep.OpLabels.OrchestrationIdentity = identityLabels
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
 
-	if base.State != nil {
-		ep.setState(State(*base.State), "Endpoint creation")
+	if model.State != nil {
+		ep.setState(State(*model.State), "Endpoint creation")
 	}
 
-	if base.Properties != nil {
-		ep.properties = base.Properties
+	if model.Properties != nil {
+		ep.properties = model.Properties
 	}
 
 	return ep, nil
