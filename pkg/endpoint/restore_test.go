@@ -26,12 +26,12 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) createEndpoints() ([]*Endpoint, map[uint16]*Endpoint) {
+func (s *EndpointSuite) createEndpoints(t testing.TB) ([]*Endpoint, map[uint16]*Endpoint) {
 	epsWanted := []*Endpoint{
-		s.endpointCreator(256, identity.NumericIdentity(1256)),
-		s.endpointCreator(257, identity.NumericIdentity(1257)),
-		s.endpointCreator(258, identity.NumericIdentity(1258)),
-		s.endpointCreator(259, identity.NumericIdentity(1259)),
+		s.endpointCreator(t, 256, identity.NumericIdentity(1256)),
+		s.endpointCreator(t, 257, identity.NumericIdentity(1257)),
+		s.endpointCreator(t, 258, identity.NumericIdentity(1258)),
+		s.endpointCreator(t, 259, identity.NumericIdentity(1259)),
 	}
 	epsMap := map[uint16]*Endpoint{
 		epsWanted[0].ID: epsWanted[0],
@@ -46,7 +46,7 @@ func getStrID(id uint16) string {
 	return fmt.Sprintf("%05d", id)
 }
 
-func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentity) *Endpoint {
+func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.NumericIdentity) *Endpoint {
 	strID := getStrID(id)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, id)
@@ -59,7 +59,13 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	}
 	identity.Sanitize()
 
-	ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), id, StateReady)
+	model := newTestEndpointModel(int(id), StateReady)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
+
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -77,7 +83,7 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 
 func TestReadEPsFromDirNames(t *testing.T) {
 	s := setupEndpointSuite(t)
-	epsWanted, _ := s.createEndpoints()
+	epsWanted, _ := s.createEndpoints(t)
 	tmpDir := t.TempDir()
 
 	const unsupportedTestOption = "unsupported-test-only-option-xyz"
@@ -151,7 +157,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	eps, _ := s.createEndpoints()
+	eps, _ := s.createEndpoints(t)
 	ep := eps[0]
 	require.NotNil(t, ep)
 	tmpDir := t.TempDir()
@@ -214,7 +220,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	// For this benchmark, the real linux datapath is necessary to properly
 	// serialize config files to disk and benchmark the restore.
 
-	epsWanted, _ := s.createEndpoints()
+	epsWanted, _ := s.createEndpoints(b)
 	tmpDir := b.TempDir()
 
 	cwd, err := os.Getwd()

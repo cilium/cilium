@@ -18,7 +18,9 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -27,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 var (
@@ -202,8 +203,16 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 	if qa {
 		testEndpointID = testQAEndpointID
 	}
-	e := endpoint.NewTestEndpointWithState(ds.d.dnsRulesAPI, ds.d.epBuildQueue, ds.d.loader, ds.d.orchestrator, ds.d.compilationLock, ds.d.bwManager, ds.d.iptablesManager, ds.d.idmgr, ds.d.policyMapFactory, ds.d.policy, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, ds.d.ctMapGC, testEndpointID, endpoint.StateWaitingForIdentity)
-	e.SetPropertyValue(endpoint.PropertyFakeEndpoint, false)
+	model := &models.EndpointChangeRequest{
+		ID:    int64(testEndpointID),
+		State: ptr.To(models.EndpointState(endpoint.StateWaitingForIdentity)),
+	}
+	e, err := ds.d.endpointCreator.NewEndpointFromChangeModel(t.Context(), model)
+	require.NoError(t, err)
+
+	e.Start(testEndpointID)
+	t.Cleanup(e.Stop)
+
 	e.SetPropertyValue(endpoint.PropertyWithouteBPFDatapath, true)
 	e.SetPropertyValue(endpoint.PropertySkipBPFPolicy, true)
 	if qa {
