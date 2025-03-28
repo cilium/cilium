@@ -919,6 +919,7 @@ The important default commands are:
 - ``cmp file1 file2``: Compare two files
 - ``exec cmd args...``: Execute an external program (``$PATH`` needs to be set!)
 - ``replace old new file``: Replace text in a file
+- ``empty``: Check if file is empty
 
 The commands can be modified with prefixes:
 
