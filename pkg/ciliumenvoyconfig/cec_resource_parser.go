@@ -57,6 +57,7 @@ type cecResourceParser struct {
 	ingressIPv6 net.IP
 
 	defaultMaxConcurrentRetries uint32
+	httpLingerConfig            int
 }
 
 type parserParams struct {
@@ -77,6 +78,7 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 		logger:                      params.Logger,
 		portAllocator:               params.PortAllocator,
 		defaultMaxConcurrentRetries: params.EnvoyConfig.ProxyMaxConcurrentRetries,
+		httpLingerConfig:            params.EnvoyConfig.EnvoyHTTPUpstreamLingerTimeout,
 	}
 
 	// Retrieve Ingress IPs from local Node.
@@ -464,8 +466,23 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			if !found {
 				// Get the listener port from the listener's (main) address
 				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
+				// Only use zero linger for HTTP listener
+				isHTTPListener := func() bool {
+					for _, fc := range listener.FilterChains {
+						for _, filter := range fc.Filters {
+							tc := filter.GetTypedConfig()
+							if tc == nil {
+								continue
+							}
+							if tc.GetTypeUrl() == envoy.HttpConnectionManagerTypeURL {
+								return true
+							}
+						}
+					}
+					return false
+				}()
 
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port))
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, isHTTPListener))
 			}
 		}
 
@@ -538,13 +555,18 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16, isHTTPListener bool) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
+	}
+
+	if isHTTPListener && r.httpLingerConfig >= 0 {
+		lingerTime := uint32(r.httpLingerConfig)
+		conf.OriginalSourceSoLingerTime = &lingerTime
 	}
 
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when

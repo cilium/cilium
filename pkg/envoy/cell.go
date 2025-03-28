@@ -80,6 +80,7 @@ type ProxyConfig struct {
 	ProxyXffNumTrustedHopsIngress     uint32
 	ProxyXffNumTrustedHopsEgress      uint32
 	EnvoyPolicyRestoreTimeout         time.Duration
+	EnvoyHTTPUpstreamLingerTimeout    int
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -110,6 +111,8 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("proxy-xff-num-trusted-hops-ingress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
 	flags.Uint32("proxy-xff-num-trusted-hops-egress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.")
 	flags.Duration("envoy-policy-restore-timeout", 3*time.Minute, "Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy")
+	flags.Int("envoy-http-upstream-linger-timeout", -1, "Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. "+
+		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.")
 }
 
 type secretSyncConfig struct {
@@ -180,6 +183,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
 			policyRestoreTimeout:          params.EnvoyProxyConfig.EnvoyPolicyRestoreTimeout,
 			metrics:                       params.Metrics,
+			httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		},
 		params.SecretManager)
 

@@ -57,17 +57,6 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 
 	var errors []error
 
-	if len(m.GetResolvers()) < 1 {
-		err := CaresDnsResolverConfigValidationError{
-			field:  "Resolvers",
-			reason: "value must contain at least 1 item(s)",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	for idx, item := range m.GetResolvers() {
 		_, _ = idx, item
 
@@ -163,6 +152,38 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 			}
 		}
 	}
+
+	if wrapper := m.GetQueryTimeoutSeconds(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			err := CaresDnsResolverConfigValidationError{
+				field:  "QueryTimeoutSeconds",
+				reason: "value must be greater than or equal to 1",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if wrapper := m.GetQueryTries(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			err := CaresDnsResolverConfigValidationError{
+				field:  "QueryTries",
+				reason: "value must be greater than or equal to 1",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	// no validation rules for RotateNameservers
 
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
