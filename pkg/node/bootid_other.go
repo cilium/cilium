@@ -5,5 +5,8 @@
 
 package node
 
-func initLocalBootID() {
-}
+import (
+	"log/slog"
+)
+
+func initLocalBootID(_ *slog.Logger) {}

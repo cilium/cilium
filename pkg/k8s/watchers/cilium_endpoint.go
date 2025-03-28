@@ -155,7 +155,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex()
+	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger)
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {

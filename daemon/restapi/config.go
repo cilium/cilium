@@ -355,7 +355,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 	}
 
 	status := &models.DaemonConfigurationStatus{
-		Addressing:       node.GetNodeAddressing(),
+		Addressing:       node.GetNodeAddressing(logging.DefaultSlogLogger),
 		K8sConfiguration: h.clientset.Config().K8sKubeConfigPath,
 		K8sEndpoint:      h.clientset.Config().K8sAPIServer,
 		NodeMonitor:      h.monitorAgent.State(),

@@ -445,7 +445,7 @@ func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, er
 		)
 		return nil, nil
 	}
-	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 		indices = append(indices, cep.Networking.NodeIP)
 	}
 	return indices, nil
@@ -465,7 +465,9 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeS
 		opts...,
 	)
 	indexers := cache.Indexers{
-		"localNode": ciliumEndpointSliceLocalPodIndexFunc,
+		"localNode": func(obj any) ([]string, error) {
+			return ciliumEndpointSliceLocalPodIndexFunc(params.Logger, obj)
+		},
 	}
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
 		resource.WithMetric("CiliumEndpointSlice"),
@@ -476,14 +478,14 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeS
 
 // ciliumEndpointSliceLocalPodIndexFunc is an IndexFunc that indexes CiliumEndpointSlices
 // by their corresponding Pod, which are running locally on this Node.
-func ciliumEndpointSliceLocalPodIndexFunc(obj any) ([]string, error) {
+func ciliumEndpointSliceLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, error) {
 	ces, ok := obj.(*cilium_api_v2alpha1.CiliumEndpointSlice)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object type: %T", obj)
 	}
 	indices := []string{}
 	for _, ep := range ces.Endpoints {
-		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 			indices = append(indices, ep.Networking.NodeIP)
 			break
 		}

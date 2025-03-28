@@ -66,6 +66,7 @@ func newIPAddressManager(params ipamParams) *ipam.IPAM {
 type ipamAPIHandlerParams struct {
 	cell.In
 
+	Logger          *slog.Logger
 	IPAM            *ipam.IPAM
 	EndpointManager endpointmanager.EndpointManager
 }
@@ -85,7 +86,8 @@ func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
 			EndpointManager: params.EndpointManager,
 		},
 		IpamPostIpamHandler: &ipamapi.IpamPostIpamHandler{
-			IPAM: params.IPAM,
+			Logger: params.Logger,
+			IPAM:   params.IPAM,
 		},
 		IpamPostIpamIPHandler: &ipamapi.IpamPostIpamIPHandler{
 			IPAM: params.IPAM,
