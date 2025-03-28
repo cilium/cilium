@@ -521,6 +521,9 @@ const (
 	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
 	ARPBaseReachableTime = 30 * time.Second
 
+	// EndpointHeaderFileSyncInterval
+	EndpointHeaderFileSyncInterval = 5 * time.Minute
+
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
 	EnableVTEP     = false
 	MaxVTEPDevices = 8

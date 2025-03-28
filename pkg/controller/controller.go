@@ -105,6 +105,11 @@ type ControllerParams struct {
 	NoErrorRetry bool
 
 	Context context.Context
+
+	// MinTriggerInterval is the minimum interval between controller runs. If the
+	// controller is triggered more frequently than this interval, the
+	// controller will wait until the interval has passed before running.
+	MinTriggerInterval time.Duration
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
@@ -247,6 +252,9 @@ func (c *controller) runController(params ControllerParams) {
 
 		interval := params.RunInterval
 
+		delay := c.needsDelay(params.MinTriggerInterval)
+		time.Sleep(delay)
+
 		start := time.Now()
 		err = params.DoFunc(params.Context)
 		duration := time.Since(start)
@@ -350,6 +358,16 @@ shutdown:
 	}
 
 	close(c.terminated)
+}
+
+func (c *controller) needsDelay(minInterval time.Duration) time.Duration {
+	successTime := time.Since(c.lastSuccessStamp.Add(minInterval)) * -1
+	failureTime := time.Since(c.lastErrorStamp.Add(minInterval)) * -1
+	if successTime > 0 || failureTime > 0 {
+		return time.Duration(math.Max(float64(successTime), float64(failureTime)))
+	}
+
+	return time.Duration(0)
 }
 
 // logger returns a logrus object with controllerName and UUID fields.

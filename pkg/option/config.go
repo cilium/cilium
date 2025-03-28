@@ -87,6 +87,9 @@ const (
 	// ARPPingRefreshPeriod is the ARP entries refresher period
 	ARPPingRefreshPeriod = "arping-refresh-period"
 
+	// EndpointHeaderFileSyncInterval is the interval for syncing endpointHeader file
+	EndpointHeaderFileSyncInterval = "endpoint-header-file-sync-interval"
+
 	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
 	// discovery.
 	EnableL2NeighDiscovery = "enable-l2-neigh-discovery"
@@ -1361,6 +1364,9 @@ type DaemonConfig struct {
 	// at runtime and reconfigure the datapath to load programs onto the new
 	// devices.
 	EnableRuntimeDeviceDetection bool
+
+	// EndpointHeaderFileSyncInterval is the interval for syncing the endpointHeader file
+	EndpointHeaderFileSyncInterval time.Duration
 
 	DatapathMode string // Datapath mode
 	RoutingMode  string // Routing mode
@@ -2839,6 +2845,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.AgentHealthPort = vp.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.ClusterMeshHealthPort = vp.GetInt(ClusterMeshHealthPort)
+	c.EndpointHeaderFileSyncInterval = vp.GetDuration(EndpointHeaderFileSyncInterval)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = vp.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = vp.GetBool(AnnotateK8sNode)

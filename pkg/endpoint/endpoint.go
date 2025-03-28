@@ -56,15 +56,15 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
 	maxLogs = 256
 
-	resolveIdentity = "resolve-identity"
-	resolveLabels   = "resolve-labels"
+	resolveIdentity        = "resolve-identity"
+	resolveLabels          = "resolve-labels"
+	endpointHeaderFileSync = "endpoint-header-file-sync"
 )
 
 const (
@@ -101,6 +101,8 @@ var (
 	resolveIdentityControllerGroup = controller.NewGroup(resolveIdentity)
 
 	resolveLabelsControllerGroup = controller.NewGroup(resolveLabels)
+
+	endpointHeaderFileSyncGroup = controller.NewGroup(endpointHeaderFileSync)
 )
 
 // State is an enumeration for possible endpoint states.
@@ -285,10 +287,6 @@ type Endpoint struct {
 	// evicted from DNSHistory. They are held back from deletion until we can
 	// confirm that no existing connection is using them.
 	DNSZombies *fqdn.DNSZombieMappings
-
-	// dnsHistoryTrigger is the trigger to write down the ep_config.h to make
-	// sure that restores when DNS policy is in there are correct
-	dnsHistoryTrigger atomic.Pointer[trigger.Trigger]
 
 	// state is the state the endpoint is in. See setState()
 	state State
@@ -619,23 +617,21 @@ func createEndpoint(owner regeneration.Owner, policyMapFactory policymap.Factory
 	return ep
 }
 
-func (e *Endpoint) initDNSHistoryTrigger() {
-	if e.dnsHistoryTrigger.Load() != nil {
-		// Already initialized, bail out.
-		return
-	}
-
-	// Note: This can only fail if the trigger func is nil.
-	trigger, err := trigger.NewTrigger(trigger.Parameters{
-		Name:        "sync_endpoint_header_file",
-		MinInterval: 5 * time.Second,
-		TriggerFunc: e.syncEndpointHeaderFile,
-	})
-	if err != nil {
-		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Failed to create the endpoint header file sync trigger")
-		return
-	}
-	e.dnsHistoryTrigger.Store(trigger)
+// The controller is added to ensure timely sync of DNS information to disk.
+func (e *Endpoint) initEndpointSyncController(interval time.Duration) {
+	ctrlName := e.GetK8sNamespaceAndPodName() + "-" + endpointHeaderFileSync
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			Group: endpointHeaderFileSyncGroup,
+			DoFunc: func(_ context.Context) error {
+				e.syncEndpointHeaderFile()
+				return nil
+			},
+			RunInterval:        interval,
+			Context:            e.aliveCtx,
+			MinTriggerInterval: 5 * time.Second,
+		},
+	)
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
@@ -1270,10 +1266,6 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.removeDirectories()
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
-
-	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
-		trigger.Shutdown()
-	}
 
 	if e.ConntrackLocalLocked() {
 		ctmap.CloseLocalMaps(e.ConntrackNameLocked())
@@ -2429,7 +2421,7 @@ func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
-func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
+func (e *Endpoint) syncEndpointHeaderFile() {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
@@ -2451,18 +2443,14 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.setDNSRulesLocked(rules)
 
 	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.Reason: reasons,
-		}).WithError(err).Warning("could not sync header file")
+		e.getLogger().WithError(err).Warning("could not sync header file")
 	}
 }
 
 // SyncEndpointHeaderFile triggers the header file sync to the ep_config.h
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
-	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
-		trigger.Trigger()
-	}
+	e.controllers.TriggerController(e.GetK8sNamespaceAndPodName() + "-sync-endpoint-header-file")
 }
 
 // Delete cleans up all resources associated with this endpoint, including the
