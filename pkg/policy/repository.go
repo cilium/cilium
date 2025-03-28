@@ -125,7 +125,6 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
-	Iterate(f func(rule *api.Rule))
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search(lbls labels.LabelArray) (api.Rules, uint64)
@@ -352,16 +351,6 @@ func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return p.addListLocked(rules)
-}
-
-// Iterate iterates the policy repository, calling f for each rule. It is safe
-// to execute Iterate concurrently.
-func (p *Repository) Iterate(f func(rule *api.Rule)) {
-	p.mutex.RWMutex.Lock()
-	defer p.mutex.RWMutex.Unlock()
-	for _, r := range p.rules {
-		f(&r.Rule)
-	}
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON
