@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cloudflare/cfssl/log"
 	"k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -637,7 +636,7 @@ func (k *K8sServiceWatcher) updateK8sAPIServiceMappings(svc *loadbalancer.SVC) {
 	for i := range mapping.Endpoints {
 		mapping.Endpoints[i] = svc.Backends[i].AddrString()
 	}
-	log.Info("writing kubernetes service mapping",
+	k.logger.Info("writing kubernetes service mapping",
 		logfields.Entry, mapping,
 	)
 	client.UpdateK8sAPIServerEntry(k.logger, mapping)
