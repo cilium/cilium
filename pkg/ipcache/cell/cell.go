@@ -8,11 +8,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // Cell provides the IPCache that manages the IP to identity mappings.
@@ -20,7 +23,10 @@ var Cell = cell.Module(
 	"ipcache",
 	"Managing IP to identity mappings",
 
-	cell.Provide(newIPCache),
+	cell.Provide(
+		newIPCache,
+		newIPIdentityWatcher,
+	),
 )
 
 type ipCacheParams struct {
@@ -58,4 +64,14 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	})
 
 	return ipc
+}
+
+func newIPIdentityWatcher(in struct {
+	cell.In
+
+	ClusterInfo cmtypes.ClusterInfo
+	IPCache     *ipcache.IPCache
+	Factory     store.Factory
+}) *ipcache.IPIdentityWatcher {
+	return ipcache.NewIPIdentityWatcher(in.ClusterInfo.Name, in.IPCache, in.Factory, source.KVStore)
 }
