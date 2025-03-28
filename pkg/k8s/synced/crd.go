@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/cloudflare/cfssl/log"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -224,13 +223,13 @@ func SyncCRDs(ctx context.Context, logger *slog.Logger, clientset client.Clients
 		case <-ticker.C:
 			if crds.isSynced() {
 				ticker.Stop()
-				log.Info("All Cilium CRDs have been found and are available")
+				logger.Info("All Cilium CRDs have been found and are available")
 				return nil
 			}
 			count++
 			if count == 20 {
 				count = 0
-				log.Info(
+				logger.Info(
 					"Still waiting for Cilium Operator to register CRDs",
 					logfields.CRDs, crds.unSynced(),
 				)

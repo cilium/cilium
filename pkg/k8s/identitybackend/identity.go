@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/cloudflare/cfssl/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -422,7 +421,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						handler.OnDelete(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				} else {
-					log.Debug(
+					c.logger.Debug(
 						"Ignoring unknown delete event",
 						logfields.Object, obj,
 					)
