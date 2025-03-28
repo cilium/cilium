@@ -58,6 +58,14 @@ const (
 	// to identify cilium-managed overlay traffic.
 	MagicMarkOverlay int = 0x0400
 
+	// MagicMarkProxyRedirected is the mark used for proxy traffic
+	// that was redirected (by eg policy routing) to another interface and
+	// processed by a BPF program.
+	// We need to set a mark so that transparent proxy connections can be
+	// excluded from tproxy matching in netfilter. But to avoid a routing loop,
+	// we can't restore the initial MagicMark{Egress,Ingress}.
+	MagicMarkProxyRedirected = 0x800
+
 	// MagicMarkProxyEgressEPID determines that the traffic is sourced from
 	// the proxy which is capturing traffic before it is subject to egress
 	// policy enforcement that must be done after the proxy. The identity
