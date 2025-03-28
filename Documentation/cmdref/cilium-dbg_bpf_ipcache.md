@@ -26,5 +26,6 @@ Manage the IPCache mappings for IP/CIDR <-> Identity
 * [cilium-dbg bpf ipcache delete](cilium-dbg_bpf_ipcache_delete.md)	 - Delete an entry for a prefix
 * [cilium-dbg bpf ipcache get](cilium-dbg_bpf_ipcache_get.md)	 - Retrieve identity for an ip
 * [cilium-dbg bpf ipcache list](cilium-dbg_bpf_ipcache_list.md)	 - List endpoint IPs (local and remote) and their corresponding security identities
+* [cilium-dbg bpf ipcache match](cilium-dbg_bpf_ipcache_match.md)	 - Retrieve identity for a prefix using an exact match
 * [cilium-dbg bpf ipcache update](cilium-dbg_bpf_ipcache_update.md)	 - Update an entry for a prefix
 
