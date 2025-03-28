@@ -324,14 +324,10 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	# cilium-cli's --wait flag doesn't work, so we just force it to run
-	# in the background instead and wait for the resources to be available.
-	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
@@ -357,8 +353,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
 	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
@@ -405,16 +400,12 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	# cilium-cli's --wait flag doesn't work, so we just force it to run
-	# in the background instead and wait for the resources to be available.
-	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
 		--nodes-without-cilium \
-		--version= \
-		>/dev/null 2>&1 &
+		--version=
 
 KVSTORE_POD_NAME ?= "kvstore"
 KVSTORE_POD_PORT ?= "2378"
