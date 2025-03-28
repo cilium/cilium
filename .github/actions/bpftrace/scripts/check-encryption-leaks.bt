@@ -1,0 +1,398 @@
+// Six parameters expected:
+// $1: IPv4 CiliumInternalIP - Node1
+// $2: IPv6 CiliumInternalIP - Node1
+// $3: IPv4 CiliumInternalIP - Node2
+// $4: IPv6 CiliumInternalIP - Node2
+// $5: IPv4 CiliumInternalIP - Node3
+// $6: IPv6 CiliumInternalIP - Node3
+// $7: Report errors if proxy traffic not found - [true|false]
+// $8: Encryption type: [wireguard|ipsec]
+
+#define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
+#define MASK4 (uint32)0xFF000000
+#define CIDR6 (uint32)0xfd00
+
+#define PROTO_IPV4 0x0800
+#define PROTO_IPV6 0x86DD
+#define PROTO_TCP 6
+#define PROTO_UDP 17
+#define PROTO_ESP 50
+
+#define AF_INET	2
+#define AF_INET6 10
+
+#define PORT_VXLAN 8472
+#define PORT_GENEVE 6081
+#define PORT_DNS 53
+#define PORT_WIREGUARD 51871
+
+#define TYPE_PROXY_L7_IP4 1
+#define TYPE_PROXY_L7_IP6 2
+#define TYPE_PROXY_DNS_IP4 3
+#define TYPE_PROXY_DNS_IP6 4
+
+// Character literals don't appear be supported, hence this hack.
+// https://github.com/bpftrace/bpftrace/issues/3278
+#define CH_A 0x41   // 'A'
+#define CH_F 0x46   // 'F'
+#define CH_R 0x52   // 'R'
+#define CH_S 0x53   // 'S'
+#define CH_DOT 0x2E // '.'
+
+struct dnshdr {
+  u16 id;
+  u16 flags;
+  u16 qdcount;
+  u16 ancount;
+  u16 nscount;
+  u16 arcount;
+}
+
+// Monitor and log plain text pod-to-pod packets passing through the bridge if:
+// 1. packet traced by proxy and at least one IP is in PodCIDR, or
+// 2. both IPs are in PodCIDR and not CiliumInternalIPs.
+// In addition, skip TCP RST packets, as they might be kernel-level packet due
+// to proxy timeout sockets (https://github.com/cilium/cilium/issues/35485).
+//
+// Shift header references to inner packet in case of encapsulation:
+// - EinV (< v1.18):  outer packet is plaintext overlay, checks must be against inner packet.
+// - VinE (>=v1.18):  outer packet is encrypted (encap bit not set).
+//                    in case of plaintext encap'd packet, shift headers and check:
+//                    * if ESP, then might be a legit EinV upgrade/downgrade scenario
+//                    * otherwise, report leakage if not pod-to-pod.
+// - WG pod-to-pod:   outer packet is encrypted (encap bit not set), similarly as VinE.
+// - WG node-to-node: currently unsupported, only pod-to-pod leak detection checks.
+//
+// Note: br_forward is not exclusive of Kind. We run this script in CI where we
+// expect only br-kind-cilium (and br-kind-cilium-secondary). To run this script
+// on a local setup, ensure that no other bridges interfere.
+kprobe:br_forward
+{
+  $skb = ((struct sk_buff *) arg1);
+
+  $proto = bswap($skb->protocol);
+  $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
+  $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
+  $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
+  $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
+
+  // $skb->encapsulation might be unset when encap headers are manually pushed,
+  // despite $skb->inner references being correct.
+  $encap =
+      (($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_UDP) ||
+        ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_UDP)) &&
+      ((bswap($udph->source) == PORT_VXLAN || bswap($udph->dest) == PORT_VXLAN) ||
+        (bswap($udph->source) == PORT_GENEVE || bswap($udph->dest) == PORT_GENEVE));
+
+  if ($skb->encapsulation || $encap) {
+    // $skb->inner_protocol does not appear to be correctly initialized
+    $proto = bswap(*((uint16*) ($skb->head + $skb->inner_mac_header + 12)));
+    $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
+    $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
+    $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
+    $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
+  }
+
+  if ($proto == PROTO_IPV4) {
+    if (
+      (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
+      (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP &&
+                                      (bswap($udph->dest) == PORT_WIREGUARD ||
+                                        bswap($udph->source) == PORT_WIREGUARD)))
+      ) {
+      $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
+      $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
+
+      $src_is_internal =
+        $ip4h->saddr == (uint32)pton(str($1)) ||
+        $ip4h->saddr == (uint32)pton(str($3)) ||
+        $ip4h->saddr == (uint32)pton(str($5));
+
+      $dst_is_internal =
+        $ip4h->daddr == (uint32)pton(str($1)) ||
+        $ip4h->daddr == (uint32)pton(str($3)) ||
+        $ip4h->daddr == (uint32)pton(str($5));
+
+      $pod_to_pod_via_proxy =
+          !($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ?
+          @trace_ip4[$ip4h->saddr, 0, 0] :
+          (@trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
+            @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol]);
+
+      if (
+          (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
+          ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
+        ) {
+        if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
+          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
+            strftime("%H:%M:%S:%f", nsecs),
+            ntop($ip4h->saddr),
+            ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
+            ntop($ip4h->daddr),
+            ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
+            $ip4h->protocol,
+            $ip4h->protocol == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
+            $ip4h->protocol == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
+            $ip4h->protocol == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
+            $ip4h->protocol == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
+            $encap, $skb->encapsulation,
+            $skb->dev->ifindex,
+            $skb->dev->nd_net.net->ns.inum,
+            $pod_to_pod_via_proxy);
+
+          if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
+            $dns = (struct dnshdr*)($udph + 1);
+            $query = (uint8 *)($dns + 1);
+            printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+              strftime("%H:%M:%S:%f", nsecs),
+              bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
+              bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
+              str(kptr($query)));
+          }
+        }
+      }
+    }
+  }
+
+  if ($proto == PROTO_IPV6) {
+    if (
+      (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
+      (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP &&
+                                      (bswap($udph->dest) == PORT_WIREGUARD ||
+                                        bswap($udph->source) == PORT_WIREGUARD)))
+      ) {
+      $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
+      $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
+
+      $src_is_internal =
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $ip6h->saddr.in6_u.u6_addr8 == pton(str($6));
+
+      $dst_is_internal =
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $ip6h->daddr.in6_u.u6_addr8 == pton(str($6));
+
+      $pod_to_pod_via_proxy =
+          !($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ?
+          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, 0, 0] :
+          (@trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
+            @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr]);
+
+      if (
+          (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
+          ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
+        ) {
+        if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
+          printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, override: %d)\n",
+            strftime("%H:%M:%S:%f", nsecs),
+            ntop($ip6h->saddr.in6_u.u6_addr8),
+            ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
+            ntop($ip6h->daddr.in6_u.u6_addr8),
+            ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
+            $ip6h->nexthdr,
+            $ip6h->nexthdr == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
+            $ip6h->nexthdr == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
+            $ip6h->nexthdr == PROTO_TCP && $tcph->fin ? CH_F : CH_DOT,
+            $ip6h->nexthdr == PROTO_TCP && $tcph->rst ? CH_R : CH_DOT,
+            $encap, $skb->encapsulation,
+            $skb->dev->ifindex,
+            $skb->dev->nd_net.net->ns.inum,
+            $pod_to_pod_via_proxy);
+
+          if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
+            $dns = (struct dnshdr*)($udph + 1);
+            $query = (uint8 *)($dns + 1);
+            printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+              strftime("%H:%M:%S:%f", nsecs),
+              bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
+              bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
+              str(kptr($query)));
+          }
+        }
+      }
+    }
+  }
+}
+
+// Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
+// Ignore connections:
+// - with the destination address outside PodCIDR;
+// - with CiliumInternalIPs (IPSec only).
+// In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case, we'd need to
+// rework this CiliumInternalIP condition.
+kprobe:tcp_connect
+{
+  if (strncmp(comm, "wrk:", 4) != 0) {
+    return;
+  }
+
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+  $dst_is_pod = false;
+
+  if ($inet_family == AF_INET) {
+    $src_is_pod = (bswap($sk->__sk_common.skc_rcv_saddr) & MASK4) == CIDR4;
+    $dst_is_pod = (bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4;
+
+    $src_is_internal =
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($1)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($3)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($5));
+    $dst_is_internal =
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($1)) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($3)) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(str($5));
+
+    if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_L7_IP4] = true;
+    }
+  }
+
+  if ($inet_family == AF_INET6) {
+    $src_is_pod = bswap($sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr16[0]) == CIDR6;
+    $dst_is_pod = bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6;
+
+    $src_is_internal =
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($6));
+    $dst_is_internal =
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($6));
+
+    if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_L7_IP6] = true;
+    }
+  }
+}
+
+kprobe:tcp_close
+{
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+  }
+
+  if ($inet_family == AF_INET6) {
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+  }
+}
+
+// Trace UDP messages sent by the DNS proxy.
+// Ignore messages with the source address equal to a CiliumInternalIP (IPSec only).
+// In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case,
+// we'd need to rework this CiliumInternalIP condition.
+kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
+{
+  $sk = ((struct sock *) arg0);
+  if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
+    $src_is_internal =
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($1)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($3)) ||
+        $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($5));
+
+    if (!(str($8) == "ipsec" && $src_is_internal)) {
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_DNS_IP4] = true;
+    }
+  }
+}
+
+// Trace UDP6 messages sent by the DNS proxy.
+// Ignore messages with the source address equal to a CiliumInternalIP (IPSec only).
+// In CI we don't test the `--use-cilium-internal-ip-for-ipsec` flag: in that case,
+// we'd need to rework this CiliumInternalIP condition.
+kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
+{
+  $sk = ((struct sock *) arg0);
+  if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
+    $src_is_internal =
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($2)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($4)) ||
+        $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($6));
+
+    if (!(str($8) == "ipsec" && $src_is_internal)) {
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+      @trace_sk[$sk] = true;
+      @sanity[TYPE_PROXY_DNS_IP6] = true;
+    }
+  }
+}
+
+// Clear traced UDP connections.
+kprobe:udp_destroy_sock
+{
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  if ($inet_family == AF_INET6) {
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+  }
+
+  delete(@trace_sk[$sk]);
+}
+
+// Additionally trace traffic flows in which the source got masquerated.
+kprobe:__dev_queue_xmit
+{
+  $skb = ((struct sk_buff *) arg0);
+  $sk = $skb->sk;
+
+  if ($sk == 0 || !@trace_sk[$sk]) {
+    return;
+  }
+
+  $proto = bswap($skb->protocol);
+  $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
+  $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
+  $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
+  $l4proto = $proto == PROTO_IPV4 ? $ip4h->protocol : $ip6h->nexthdr;
+
+  if ($l4proto == PROTO_TCP) {
+    @sanity[$proto == PROTO_IPV4 ? TYPE_PROXY_L7_IP4 : TYPE_PROXY_L7_IP6] = true;
+  } else {
+    @sanity[$proto == PROTO_IPV4 ? TYPE_PROXY_DNS_IP4 : TYPE_PROXY_DNS_IP6] = true;
+  }
+
+  if ($proto == PROTO_IPV4) {
+    @trace_ip4[$ip4h->saddr, $udph->source, $l4proto] = true;
+  } else {
+    @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $l4proto] = true;
+  }
+
+  delete(@trace_sk[$sk])
+}
+
+END
+{
+  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4]) {
+    printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
+  }
+
+  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
+    printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
+  }
+
+  if (str($7) == "true" && !(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
+    printf("Sanity check failed: detected no messages sent by the DNS proxy. Is the filter correct?\n")
+  }
+
+  clear(@trace_ip4);
+  clear(@trace_ip6);
+  clear(@trace_sk);
+  clear(@sanity);
+}
