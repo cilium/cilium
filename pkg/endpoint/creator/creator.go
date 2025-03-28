@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/api/v1/models"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -27,6 +28,9 @@ import (
 var launchTime = 30 * time.Second
 
 type EndpointCreator interface {
+	// NewEndpointFromChangeModel creates a new endpoint from a request
+	NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error)
+
 	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
 	// corresponding container necessarily existing. This is needed to be able to ingest and
 	// sync network policies applicable to Cilium Ingress to Envoy.
@@ -96,6 +100,28 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 	}
+}
+
+func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
+	return endpoint.NewEndpointFromChangeModel(
+		ctx,
+		c.dnsRulesAPI,
+		c.epBuildQueue,
+		c.loader,
+		c.orchestrator,
+		c.compilationLock,
+		c.bandwidthManager,
+		c.ipTablesManager,
+		c.identityManager,
+		c.monitorAgent,
+		c.policyMapFactory,
+		c.policyRepo,
+		c.ipcache,
+		c.proxy,
+		c.allocator,
+		c.ctMapGC,
+		base,
+	)
 }
 
 func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
