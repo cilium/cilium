@@ -21,10 +21,11 @@ var Cell = cell.Module(
 		newHealthV2Provider,
 		statedb.RWTable[types.Status].ToTable,
 	),
-
 	// Module health metrics.
 	cell.Invoke(metricPublisher),
 	metrics.Metric(newMetrics),
+
+	cell.Provide(healthCommands),
 )
 
 var (
