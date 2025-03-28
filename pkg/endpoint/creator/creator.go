@@ -4,6 +4,8 @@
 package creator
 
 import (
+	"context"
+
 	"github.com/cilium/hive/cell"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -16,11 +18,22 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
-type EndpointCreator interface{}
+var launchTime = 30 * time.Second
+
+type EndpointCreator interface {
+	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
+	// corresponding container necessarily existing. This is needed to be able to ingest and
+	// sync network policies applicable to Cilium Ingress to Envoy.
+	AddIngressEndpoint(ctx context.Context) error
+
+	AddHostEndpoint(ctx context.Context) error
+}
 
 type endpointCreator struct {
 	endpointManager  endpointmanager.EndpointManager
@@ -83,4 +96,68 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 	}
+}
+
+func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
+	ep, err := endpoint.CreateIngressEndpoint(
+		c.dnsRulesAPI,
+		c.epBuildQueue,
+		c.loader,
+		c.orchestrator,
+		c.compilationLock,
+		c.bandwidthManager,
+		c.ipTablesManager,
+		c.identityManager,
+		c.monitorAgent,
+		c.policyMapFactory,
+		c.policyRepo,
+		c.ipcache,
+		c.proxy,
+		c.allocator,
+		c.ctMapGC,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := c.endpointManager.AddEndpoint(ep); err != nil {
+		return err
+	}
+
+	ep.InitWithIngressLabels(ctx, launchTime)
+
+	return nil
+}
+
+func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
+	ep, err := endpoint.CreateHostEndpoint(
+		c.dnsRulesAPI,
+		c.epBuildQueue,
+		c.loader,
+		c.orchestrator,
+		c.compilationLock,
+		c.bandwidthManager,
+		c.ipTablesManager,
+		c.identityManager,
+		c.monitorAgent,
+		c.policyMapFactory,
+		c.policyRepo,
+		c.ipcache,
+		c.proxy,
+		c.allocator,
+		c.ctMapGC,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := c.endpointManager.AddEndpoint(ep); err != nil {
+		return err
+	}
+
+	node.SetEndpointID(ep.GetID())
+
+	c.endpointManager.InitHostEndpointLabels(ctx)
+
+	return nil
 }

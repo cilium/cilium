@@ -550,7 +550,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	e.setPolicyRevision(revision)
 
 	// Remove restored rules after successful regeneration
-	e.dnsRulesApi.RemoveRestoredDNSRules(e.ID)
+	e.dnsRulesAPI.RemoveRestoredDNSRules(e.ID)
 
 	return nil
 }
