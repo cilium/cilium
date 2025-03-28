@@ -271,22 +271,23 @@ func setupVxlanDevice(sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16
 		PortHigh:  int(srcPortHigh),
 	}
 
-	l, err := ensureDevice(sysctl, dev)
-	if err != nil {
-		return fmt.Errorf("creating vxlan device: %w", err)
+	if l, err := safenetlink.LinkByName(dev.Attrs().Name); err == nil {
+		// Recreate the device with the correct destination port. Modifying the device
+		// without recreating it is not supported.
+		vxlan, _ := l.(*netlink.Vxlan)
+		if vxlan.Port != int(port) {
+			if err := netlink.LinkDel(l); err != nil {
+				return fmt.Errorf("deleting outdated vxlan device: %w", err)
+			}
+		}
 	}
 
-	// Recreate the device with the correct destination port. Modifying the device
-	// without recreating it is not supported.
-	vxlan, _ := l.(*netlink.Vxlan)
-	if vxlan.Port != int(port) {
-		if err := netlink.LinkDel(l); err != nil {
-			return fmt.Errorf("deleting outdated vxlan device: %w", err)
-		}
-		if _, err := ensureDevice(sysctl, dev); err != nil {
-			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
-		}
+	l, err := ensureDevice(sysctl, dev)
+	if err != nil {
+		return fmt.Errorf("creating vxlan device %s: %w", dev.Attrs().Name, err)
 	}
+
+	vxlan, _ := l.(*netlink.Vxlan)
 	if vxlan.PortLow != int(srcPortLow) || vxlan.PortHigh != int(srcPortHigh) {
 		log.WithField("device", defaults.VxlanDevice).Infof("Source port range hint (%d-%d) ignored given vxlan device already exists (range %d-%d)", int(srcPortLow), int(srcPortHigh), vxlan.PortLow, vxlan.PortHigh)
 	}
