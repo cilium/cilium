@@ -867,3 +867,15 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 
 	wg.Wait()
 }
+
+// DisableDNSProxy tells all endpoints to force-remove any BPF policymap entries
+// that would proxy traffic to the DNS proxy. They are replaced with allow entries.
+//
+// This is intended to be called on shutdown, so that DNS traffic may still be allowed
+// while the agent is being upgaded.
+func (mgr *endpointManager) DisableDNSProxy() {
+	eps := mgr.GetEndpoints()
+	for _, ep := range eps {
+		ep.DisableDNSProxy()
+	}
+}
