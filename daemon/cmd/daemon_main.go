@@ -60,7 +60,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1557,7 +1556,6 @@ type daemonParams struct {
 	IPIdentityWatcher   *ipcache.IPIdentityWatcher
 	IPIdentitySyncer    *ipcache.IPIdentitySynchronizer
 	EndpointRegenerator *endpoint.Regenerator
-	EndpointBuildQueue  endpoint.EndpointBuildQueue
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        *bigtcp.Configuration
 	TunnelConfig        tunnel.Config
@@ -1567,18 +1565,15 @@ type daemonParams struct {
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	CompilationLock     datapath.CompilationLock
 	ServiceResolver     *dial.ServiceResolver
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
 	Orchestrator        datapath.Orchestrator
-	IPTablesManager     datapath.IptablesManager
 	Hubble              hubblecell.HubbleIntegration
 	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	ExpLBConfig         experimental.Config
-	DNSRulesAPI         fqdnRules.DNSRulesService
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 }
 
