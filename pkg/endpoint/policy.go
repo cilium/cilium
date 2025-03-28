@@ -1024,14 +1024,15 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return nil
 				}
+				logger := e.getLogger()
 
 				ID := e.SecurityIdentity.ID
-				hostIP, ok := netipx.FromStdIP(node.GetIPv4())
+				hostIP, ok := netipx.FromStdIP(node.GetIPv4(logger))
 				if !ok {
 					e.runlock()
 					return controller.NewExitReason("Failed to convert node IPv4 address")
 				}
-				key := node.GetEndpointEncryptKeyIndex()
+				key := node.GetEndpointEncryptKeyIndex(logger)
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName

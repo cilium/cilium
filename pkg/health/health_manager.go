@@ -189,8 +189,8 @@ func (h *ciliumHealthManager) cleanupHealthEndpoint() {
 	h.logger.Info("Cleaning up Cilium health endpoint")
 
 	// Clean up agent resources
-	healthIPv4 := node.GetEndpointHealthIPv4()
-	healthIPv6 := node.GetEndpointHealthIPv6()
+	healthIPv4 := node.GetEndpointHealthIPv4(h.logger)
+	healthIPv6 := node.GetEndpointHealthIPv6(h.logger)
 	if healthIPv4 != nil {
 		ep = h.endpointManager.LookupIPv4(healthIPv4.String())
 	}

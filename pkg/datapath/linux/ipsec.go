@@ -201,7 +201,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 
 	// The common bits which are consistent between XFRM policy/state creation.
 	template := &ipsec.IPSecParameters{
-		LocalBootID:    node.GetBootID(),
+		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
 		ReqID:          ipsec.DefaultReqID,
@@ -280,7 +280,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 
 	// The common bits which are consistent between XFRM policy/state creation.
 	template := &ipsec.IPSecParameters{
-		LocalBootID:    node.GetBootID(),
+		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
 		ReqID:          ipsec.DefaultReqID,
@@ -433,7 +433,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 
 	// The common bits which are consistent between XFRM policy/state creation.
 	template := &ipsec.IPSecParameters{
-		LocalBootID:    node.GetBootID(),
+		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
 		ReqID:          ipsec.DefaultReqID,
@@ -512,7 +512,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 
 	// The common bits which are consistent between XFRM policy/state creation.
 	template := &ipsec.IPSecParameters{
-		LocalBootID:    node.GetBootID(),
+		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
 		ReqID:          ipsec.DefaultReqID,
