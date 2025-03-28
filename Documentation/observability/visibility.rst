@@ -106,3 +106,4 @@ Limitations
 -----------
 
 * DNS visibility is available on egress only.
+* L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) are `broken <https://github.com/cilium/cilium/issues/37932#issuecomment-2730287932>`__ and waiting for the `kernel fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__.
