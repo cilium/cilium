@@ -16,7 +16,7 @@
 #include "lib/proxy.h"
 
 static __always_inline int
-wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
+wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
@@ -56,7 +56,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		}
 #endif
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 #endif
 #ifdef ENABLE_IPV4
@@ -87,7 +94,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		}
 # endif /* TUNNEL_MODE */
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 #endif
 	default:
@@ -118,7 +132,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * This means that the packet won't be encrypted. This is fine,
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
-	if (!src || src->sec_identity == HOST_ID)
+	if (src_sec_identity == HOST_ID)
 		goto out;
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
@@ -128,7 +142,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * reply traffic arrives from the cluster-external server and goes to
 	 * the client pod.
 	 */
-	if (!src || !identity_is_cluster(src->sec_identity))
+	if (!identity_is_cluster(src_sec_identity))
 		goto out;
 
 maybe_encrypt: __maybe_unused
