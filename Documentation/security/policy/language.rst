@@ -945,6 +945,10 @@ latter rule will have no effect.
           When Envoy is embedded in the agent pod, Layer 7 traffic targeted by policies
           will therefore depend on the availability of the Cilium agent pod.
 
+.. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) are `broken <https://github.com/cilium/cilium/issues/37932#issuecomment-2730287932>`__
+          and waiting for the `kernel fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__.
+
+
 HTTP
 ----
 
