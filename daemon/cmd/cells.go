@@ -35,9 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	"github.com/cilium/cilium/pkg/gops"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -332,11 +331,8 @@ var (
 		// Determines priorities of data sources.
 		source.Cell,
 
-		// The FQDN NameManager stores DNS mappings.
-		namemanager.Cell,
-
-		// FQDN rules cell provides the API for retrieving and deleting FQDN rules.
-		fqdnRules.Cell,
+		// FQDN rules cell provides the FQDN proxy functionality.
+		fqdn.Cell,
 	)
 )
 
