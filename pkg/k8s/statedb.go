@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -232,11 +233,14 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	}
 	type buffer struct {
 		replaceItems []any
-		entries      map[string]entry
+		entries      *container.InsertOrderedMap[string, entry]
 	}
 	bufferSize := r.BufferSize
 	waitTime := r.BufferWaitTime
 	table := r.table
+
+	// Use a small initial size to avoid buffer resizing in usual cases.
+	const initialBufferSize = 32
 
 	transformMany := r.TransformMany
 	if transformMany == nil {
@@ -290,12 +294,12 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			case ev.Kind == CacheStoreEventReplace:
 				return &buffer{
 					replaceItems: ev.Obj.([]any),
-					entries:      make(map[string]entry, bufferSize), // Forget prior entries
+					entries:      container.NewInsertOrderedMap[string, entry](initialBufferSize),
 				}
 			case buf == nil:
 				buf = &buffer{
 					replaceItems: nil,
-					entries:      make(map[string]entry, bufferSize),
+					entries:      container.NewInsertOrderedMap[string, entry](initialBufferSize),
 				}
 			}
 
@@ -315,7 +319,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			} else {
 				key = entry.name
 			}
-			buf.entries[key] = entry
+			buf.entries.Insert(key, entry)
 			return buf
 		},
 	)
@@ -356,7 +360,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			r.initDone(txn)
 		}
 
-		for _, entry := range buf.entries {
+		for entry := range buf.entries.Values() {
 			for _, obj := range transformMany(txn, entry.obj) {
 				if !entry.deleted {
 					if _, _, err := table.Modify(txn, obj, merge); err != nil {
