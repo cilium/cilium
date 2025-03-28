@@ -14,6 +14,7 @@ import (
 func TestWatcher(t *testing.T) {
 	tmp := t.TempDir()
 
+	var data = []byte("data")
 	regularFile := filepath.Join(tmp, "file")
 	regularSymlink := filepath.Join(tmp, "symlink")
 	nestedDir := filepath.Join(tmp, "foo", "bar")
@@ -22,113 +23,163 @@ func TestWatcher(t *testing.T) {
 	indirectSymlink := filepath.Join(tmp, "foo", "symlink", "nested")
 	targetFile := filepath.Join(tmp, "target")
 
+	cases := []struct {
+		name string
+		work func() // os level file operations
+		want []Event
+	}{
+		{
+			name: "create untracked dir",
+			work: func() {
+				// create $tmp/foo/ (this should not emit an event)
+				fooDirectory := filepath.Join(tmp, "foo")
+				err := os.MkdirAll(fooDirectory, 0777)
+				require.NoError(t, err)
+			},
+			want: []Event{},
+		},
+		{
+			name: "create and write file",
+			work: func() {
+				// create $tmp/file
+				err := os.WriteFile(regularFile, data, 0777)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: regularFile, Op: Create | Write},
+			},
+		},
+		{
+			name: "update file",
+			work: func() {
+				// create $tmp/file
+				err := os.WriteFile(regularFile, []byte("some new data"), 0777)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: regularFile, Op: Write},
+			},
+		},
+		{
+			name: "create symlink",
+			work: func() {
+				// symlink $tmp/symlink -> $tmp/target
+				err := os.WriteFile(targetFile, data, 0777)
+				require.NoError(t, err)
+				err = os.Symlink(targetFile, regularSymlink)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: regularSymlink, Op: Create | Write},
+			},
+		},
+		{
+			name: "create nested file",
+			work: func() {
+				// create $tmp/foo/bar/nested
+				err := os.MkdirAll(filepath.Dir(nestedFile), 0777)
+				require.NoError(t, err)
+				err = os.WriteFile(nestedFile, data, 0777)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: nestedFile, Op: Create | Write},
+			},
+		},
+		{
+			name: "create indirect symlink",
+			work: func() {
+				// symlink $tmp/foo/symlink -> $tmp/foo/bar (this will emit an event on indirectSymlink)
+				err := os.Symlink(nestedDir, directSymlink)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: indirectSymlink, Op: Create | Write},
+			},
+		},
+		{
+			name: "redirect symlink",
+			work: func() {
+				// redirect $tmp/symlink -> $tmp/file (this will not emit an event)
+				err := os.Remove(regularSymlink)
+				require.NoError(t, err)
+				err = os.Symlink(regularFile, regularSymlink)
+				require.NoError(t, err)
+			},
+			want: []Event{},
+		},
+		{
+			name: "delete file",
+			work: func() {
+				// delete $tmp/file (this will also emit an event on regularSymlink)
+				err := os.Remove(regularFile)
+				require.NoError(t, err)
+			},
+			want: []Event{
+				{Name: regularFile, Op: Remove},
+				{Name: regularSymlink, Op: Remove},
+			},
+		},
+	}
+
 	w, err := New([]string{
 		regularFile,
 		regularSymlink,
 		nestedFile,
 		indirectSymlink,
-	})
-	require.NoError(t, err)
-	defer w.Close()
+	}, WithInterval(0))
 
-	var lastName string
-	assertEventName := func(name string) {
+	require.NoError(t, err)
+	t.Cleanup(func() { w.Close() })
+
+	getEventsFor := func(work func()) ([]Event, error) {
 		t.Helper()
 
-		for {
-			select {
-			case event := <-w.Events:
-				// not every file operation deterministically emits the same
-				// number of events, therefore report each name only once
-				if event.Name != lastName {
-					require.Equal(t, name, event.Name)
-					lastName = event.Name
+		got := []Event{}
+		var watchErr error
+
+		ready := Event{Name: "test listener is ready"}
+		done := Event{Name: "test listener is done"}
+
+		go func() {
+			t.Helper()
+
+		LOOP:
+			for {
+				select {
+				case event := <-w.Events:
+					// sync event to make sure channel is being listened to before
+					// any os operations are done otherwise on particularly fast systems the
+					// events may be missed when the test is still setting up
+					if event == ready {
+						continue
+					}
+
+					if event == done {
+						break LOOP
+					}
+
+					got = append(got, event)
+				case err := <-w.Errors:
+					watchErr = err
 					return
 				}
-			case err := <-w.Errors:
-				t.Fatalf("unexpected error: %s", err)
 			}
-		}
+		}()
+
+		w.Events <- ready
+		work()
+		w.tick()
+		w.Events <- done
+
+		return got, watchErr
 	}
 
-	// create $tmp/foo/ (this should not emit an event)
-	fooDirectory := filepath.Join(tmp, "foo")
-	err = os.MkdirAll(fooDirectory, 0777)
-	require.NoError(t, err)
-
-	// create $tmp/file
-	var data = []byte("data")
-	err = os.WriteFile(regularFile, data, 0777)
-	require.NoError(t, err)
-	assertEventName(regularFile)
-
-	// symlink $tmp/symlink -> $tmp/target
-	err = os.WriteFile(targetFile, data, 0777)
-	require.NoError(t, err)
-	err = os.Symlink(targetFile, regularSymlink)
-	require.NoError(t, err)
-	assertEventName(regularSymlink)
-
-	// create $tmp/foo/bar/nested
-	err = os.MkdirAll(filepath.Dir(nestedFile), 0777)
-	require.NoError(t, err)
-	err = os.WriteFile(nestedFile, data, 0777)
-	require.NoError(t, err)
-	assertEventName(nestedFile)
-
-	// symlink $tmp/foo/symlink -> $tmp/foo/bar (this will emit an event on indirectSymlink)
-	err = os.Symlink(nestedDir, directSymlink)
-	require.NoError(t, err)
-	assertEventName(indirectSymlink)
-
-	// redirect $tmp/symlink -> $tmp/file (this will not emit an event)
-	err = os.Remove(regularSymlink)
-	require.NoError(t, err)
-	err = os.Symlink(regularFile, regularSymlink)
-	require.NoError(t, err)
-	select {
-	case n := <-w.Events:
-		t.Fatalf("rewriting symlink emitted unexpected event on %q", n)
-	default:
-	}
-
-	// delete $tmp/target (this will emit an event on regularSymlink)
-	err = os.Remove(targetFile)
-	require.NoError(t, err)
-	assertEventName(regularSymlink)
-}
-
-func TestHasParent(t *testing.T) {
-	type args struct {
-		path   string
-		parent string
-	}
-	tests := []struct {
-		args args
-		want bool
-	}{
-		{args: args{"/foo/bar", "/foo"}, want: true},
-
-		{args: args{"/foo", "/foo/"}, want: true},
-		{args: args{"/foo/", "/foo"}, want: true},
-		{args: args{"/foo", "/foo/bar"}, want: false},
-		{args: args{"/foo", "/foo/bar/baz"}, want: false},
-
-		{args: args{"/foo/bar/baz/", "/foo"}, want: true},
-		{args: args{"/foo/bar/baz/", "/foo/bar"}, want: true},
-		{args: args{"/foo/bar/baz/", "/foo/baz"}, want: false},
-
-		{args: args{"/foobar/baz", "/foo"}, want: false},
-
-		{args: args{"/foo/..", "/foo"}, want: false},
-		{args: args{"/foo/.", "/foo/.."}, want: true},
-		{args: args{"/foo/.", "/foo"}, want: true},
-		{args: args{"/foo/.", "/"}, want: true},
-	}
-	for _, tt := range tests {
-		got := hasParent(tt.args.path, tt.args.parent)
-		if got != tt.want {
-			t.Fatalf("unexpected result %t for hasParent(%q, %q)", got, tt.args.path, tt.args.parent)
-		}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getEventsFor(tt.work)
+			require.NoError(t, err)
+			require.ElementsMatch(t, tt.want, got)
+		})
 	}
 }
