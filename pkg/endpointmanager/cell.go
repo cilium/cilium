@@ -11,15 +11,18 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/container/set"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -36,6 +39,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
+	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
 )
 
@@ -91,16 +95,24 @@ type EndpointsLookup interface {
 
 type EndpointsModify interface {
 	// AddEndpoint takes the prepared endpoint object and starts managing it.
-	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error)
+	AddEndpoint(ep *endpoint.Endpoint) (err error)
 
 	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
 	// corresponding container necessarily existing. This is needed to be able to ingest and
 	// sync network policies applicable to Cilium Ingress to Envoy.
 	AddIngressEndpoint(
 		ctx context.Context,
-		owner regeneration.Owner,
+		dnsRulesApi endpoint.DNSRulesAPI,
+		epBuildQueue endpoint.EndpointBuildQueue,
+		loader datapath.Loader,
+		orchestrator datapath.Orchestrator,
+		compilationLock datapath.CompilationLock,
+		bandwidthManager datapath.BandwidthManager,
+		ipTablesManager datapath.IptablesManager,
+		identityManager identitymanager.IDManager,
+		monitorAgent monitoragent.Agent,
 		policyMapFactory policymap.Factory,
-		policyGetter policyRepoGetter,
+		policyRepo policy.PolicyRepository,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
@@ -109,9 +121,17 @@ type EndpointsModify interface {
 
 	AddHostEndpoint(
 		ctx context.Context,
-		owner regeneration.Owner,
+		dnsRulesApi endpoint.DNSRulesAPI,
+		epBuildQueue endpoint.EndpointBuildQueue,
+		loader datapath.Loader,
+		orchestrator datapath.Orchestrator,
+		compilationLock datapath.CompilationLock,
+		bandwidthManager datapath.BandwidthManager,
+		ipTablesManager datapath.IptablesManager,
+		identityManager identitymanager.IDManager,
+		monitorAgent monitoragent.Agent,
 		policyMapFactory policymap.Factory,
-		policyGetter policyRepoGetter,
+		policyRepo policy.PolicyRepository,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
@@ -126,7 +146,7 @@ type EndpointsModify interface {
 	UpdateReferences(ep *endpoint.Endpoint) error
 
 	// RemoveEndpoint stops the active handling of events by the specified endpoint,
-	// and prevents the endpoint from being globally acccessible via other packages.
+	// and prevents the endpoint from being globally accessible via other packages.
 	RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error
 }
 

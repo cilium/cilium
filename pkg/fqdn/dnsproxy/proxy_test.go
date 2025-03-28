@@ -26,17 +26,16 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -91,7 +90,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 			if s.restoring {
 				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady), false, nil
+			return endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady), false, nil
 		},
 		// LookupSecIDByIP
 		func(ip netip.Addr) (ipcache.Identity, bool) {
@@ -162,58 +161,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 
 	return s
 }
-
-func (s *DNSProxyTestSuite) GetPolicyRepository() policy.PolicyRepository {
-	return s.repo
-}
-
-func (s *DNSProxyTestSuite) GetProxyPort(string) (uint16, error) {
-	return 0, nil
-}
-
-func (s *DNSProxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
-func (s *DNSProxyTestSuite) GetCompilationLock() datapath.CompilationLock {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
-func (s *DNSProxyTestSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) Loader() datapath.Loader {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) Orchestrator() datapath.Orchestrator {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) BandwidthManager() datapath.BandwidthManager {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) IPTablesManager() datapath.IptablesManager {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *DNSProxyTestSuite) RemoveRestoredDNSRules(epID uint16) {}
-
-func (s *DNSProxyTestSuite) AddIdentity(id *identity.Identity) {}
-
-func (s *DNSProxyTestSuite) RemoveIdentity(id *identity.Identity) {}
-
-func (s *DNSProxyTestSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {
 	waitOnListen := make(chan struct{})
@@ -890,7 +837,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.False(t, allowed, "request was allowed when it should be rejected")
 
 	// Restore rules
-	ep1 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
 	ep1.DNSRulesV2 = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -936,7 +883,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID3), endpoint.StateReady)
+	ep3 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID3), endpoint.StateReady)
 	ep3.DNSRulesV2 = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -1142,7 +1089,7 @@ func TestRestoredEndpoint(t *testing.T) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), uint16(epID1), endpoint.StateReady)
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRulesV2 = restored

@@ -13,16 +13,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -141,62 +138,6 @@ type DummyOwner struct {
 	idmgr identitymanager.IDManager
 }
 
-// GetPolicyRepository returns the policy repository of the owner.
-func (d *DummyOwner) GetPolicyRepository() policy.PolicyRepository {
-	return d.repo
-}
-
-// QueueEndpointBuild does nothing.
-func (d *DummyOwner) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
-// GetCompilationLock does nothing.
-func (d *DummyOwner) GetCompilationLock() datapath.CompilationLock {
-	return nil
-}
-
-// GetCIDRPrefixLengths does nothing.
-func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
-// SendNotification does nothing.
-func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
-// Datapath returns a nil datapath.
-func (d *DummyOwner) Loader() datapath.Loader {
-	return nil
-}
-
-func (d *DummyOwner) Orchestrator() datapath.Orchestrator {
-	return nil
-}
-
-func (d *DummyOwner) BandwidthManager() datapath.BandwidthManager {
-	return nil
-}
-
-func (d *DummyOwner) IPTablesManager() datapath.IptablesManager {
-	return nil
-}
-
-func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
-
-func (s *DummyOwner) AddIdentity(id *identity.Identity) { s.idmgr.Add(id) }
-
-func (s *DummyOwner) RemoveIdentity(id *identity.Identity) { s.idmgr.Remove(id) }
-
-func (s *DummyOwner) RemoveOldAddNewIdentity(old, new *identity.Identity) {
-	s.idmgr.RemoveOldAddNew(old, new)
-}
-
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
@@ -217,7 +158,7 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
-	ep := NewTestEndpointWithState(s.do, nil, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
+	ep := NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)

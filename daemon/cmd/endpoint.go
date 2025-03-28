@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -350,7 +349,7 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
-func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRulesAPI, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	if option.Config.EnableEndpointRoutes {
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
@@ -405,7 +404,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	epTemplate.Labels = nil
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, dnsRulesApi, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %w", err))
 	}
@@ -536,7 +535,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	}
 
 	// e.ID assigned here
-	err = d.endpointManager.AddEndpoint(owner, ep)
+	err = d.endpointManager.AddEndpoint(ep)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %w", err))
 	}
@@ -664,7 +663,7 @@ func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middlewar
 	}
 	defer r.Done()
 
-	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d, epTemplate)
+	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d.dnsRulesAPI, epTemplate)
 	if err != nil {
 		r.Error(err, code)
 		return api.Error(code, err)
@@ -716,7 +715,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.policyMapFactory, d, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d.dnsRulesAPI, d.epBuildQueue, d.loader, d.orchestrator, d.compilationLock, d.bwManager, d.iptablesManager, d.idmgr, d.monitorAgent, d.policyMapFactory, d.policy, d.ipcache, d.l7Proxy, d.identityAllocator, d.ctMapGC, epTemplate)
 	if err2 != nil {
 		r.Error(err2, PutEndpointIDInvalidCode)
 		return api.Error(PutEndpointIDInvalidCode, err2)
@@ -874,7 +873,9 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 //
 // It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
 func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
-	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
+	if !option.Config.DryMode {
+		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
+	}
 
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
@@ -899,7 +900,9 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 //
 // It is called after Daemon calls into d.endpointManager.AddEndpoint().
 func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
-	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
+	if !option.Config.DryMode {
+		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointCreateMessage(ep))
+	}
 }
 
 // EndpointRestored implements endpointmanager.Subscriber.
@@ -1149,69 +1152,4 @@ func putEndpointIDLabelsHandler(d *Daemon, params PatchEndpointIDLabelsParams) m
 		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
-}
-
-// QueueEndpointBuild waits for a "build permit" for the endpoint
-// identified by 'epID'. This function blocks until the endpoint can
-// start building.  The returned function must then be called to
-// release the "build permit" when the most resource intensive parts
-// of the build are done. The returned function is idempotent, so it
-// may be called more than once. Returns a nil function if the caller should NOT
-// start building the endpoint. This may happen due to a build being
-// queued for the endpoint already, or due to the wait for the build
-// permit being canceled. The latter case happens when the endpoint is
-// being deleted. Returns an error if the build permit could not be acquired.
-func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	// Acquire build permit. This may block.
-	err := d.buildEndpointSem.Acquire(ctx, 1)
-
-	if err != nil {
-		return nil, err // Acquire failed
-	}
-
-	// Acquire succeeded, but the context was canceled after?
-	if ctx.Err() != nil {
-		d.buildEndpointSem.Release(1)
-		return nil, ctx.Err()
-	}
-
-	// At this point the build permit has been acquired. It must
-	// be released by the caller by calling the returned function
-	// when the heavy lifting of the build is done.
-	// Using sync.Once to make the returned function idempotent.
-	var once sync.Once
-	doneFunc := func() {
-		once.Do(func() {
-			d.buildEndpointSem.Release(1)
-		})
-	}
-	return doneFunc, nil
-}
-
-func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
-	dnsProxy := d.dnsProxy.Get()
-	if dnsProxy == nil {
-		return nil
-	}
-
-	// We get the latest consistent view on the DNS rules by getting handle to the latest
-	// coherent state of the selector cache
-	version := d.policy.GetSelectorCache().GetVersionHandle()
-	rules, err := dnsProxy.GetRules(version, epID)
-	version.Close()
-
-	if err != nil {
-		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Could not get DNS rules")
-		return nil
-	}
-	return rules
-}
-
-func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
-	dnsProxy := d.dnsProxy.Get()
-	if dnsProxy == nil {
-		return
-	}
-
-	dnsProxy.RemoveRestoredRules(epID)
 }

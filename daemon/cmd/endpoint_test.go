@@ -61,7 +61,7 @@ func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 
 	epTemplate := getEPTemplate(t, ds.d)
 	epTemplate.Labels = []string{"reserved:world"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	_, code, err := ds.d.createEndpoint(context.TODO(), ds.d.dnsRulesAPI, epTemplate)
 	require.Error(t, err)
 	require.Equal(t, apiEndpoint.PutEndpointIDInvalidCode, code)
 
@@ -73,7 +73,7 @@ func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 	// Endpoint is created with initial label as well as disallowed
 	// reserved:world label.
 	epTemplate.Labels = append(epTemplate.Labels, "reserved:init")
-	_, code, err = ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	_, code, err = ds.d.createEndpoint(context.TODO(), ds.d.dnsRulesAPI, epTemplate)
 	require.Condition(t, errorMatch(err, "not allowed to add reserved labels:.+"))
 	require.Equal(t, apiEndpoint.PutEndpointIDInvalidCode, code)
 
@@ -93,7 +93,7 @@ func (ds *DaemonSuite) testEndpointAddInvalidLabel(t *testing.T) {
 
 	epTemplate := getEPTemplate(t, ds.d)
 	epTemplate.Labels = []string{"reserved:foo"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	_, code, err := ds.d.createEndpoint(context.TODO(), ds.d.dnsRulesAPI, epTemplate)
 	require.Error(t, err)
 	require.Equal(t, apiEndpoint.PutEndpointIDInvalidCode, code)
 
@@ -111,13 +111,9 @@ func TestEndpointAddNoLabelsEtcd(t *testing.T) {
 func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
-	// For this test case, we want to allow the endpoint controllers to rebuild
-	// the endpoint after getting new labels.
-	ds.OnQueueEndpointBuild = ds.d.QueueEndpointBuild
-
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(t, ds.d)
-	_, _, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	_, _, err := ds.d.createEndpoint(context.TODO(), ds.d.dnsRulesAPI, epTemplate)
 	require.NoError(t, err)
 
 	expectedLabels := labels.Labels{
@@ -159,7 +155,7 @@ func (ds *DaemonSuite) testUpdateLabelsFailed(t *testing.T) {
 
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(t, ds.d)
-	_, _, err := ds.d.createEndpoint(cancelledContext, ds, epTemplate)
+	_, _, err := ds.d.createEndpoint(cancelledContext, ds.d.dnsRulesAPI, epTemplate)
 	require.ErrorContains(t, err, "request cancelled while resolving identity")
 
 	assertOnMetric(t, string(models.EndpointStateReady), 0)
@@ -193,6 +189,7 @@ func assertOnMetric(t *testing.T, state string, expected int64) {
 }
 
 type fetcherFn func(run uint, nsName, podName string) (*slim_corev1.Pod, error)
+
 type fetcher struct {
 	fn   fetcherFn
 	runs uint

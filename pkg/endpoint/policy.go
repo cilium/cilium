@@ -216,7 +216,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision, err = e.policyGetter.GetPolicyRepository().GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
+	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
 	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to calculate SelectorPolicy")
 		return err
@@ -550,7 +550,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	e.setPolicyRevision(revision)
 
 	// Remove restored rules after successful regeneration
-	e.owner.RemoveRestoredDNSRules(e.ID)
+	e.dnsRulesApi.RemoveRestoredDNSRules(e.ID)
 
 	return nil
 }
@@ -929,9 +929,11 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
-	reprerr := e.owner.SendNotification(monitorAPI.EndpointRegenMessage(e, err))
-	if reprerr != nil {
-		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+	if !option.Config.DryMode {
+		reprerr := e.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointRegenMessage(e, err))
+		if reprerr != nil {
+			e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+		}
 	}
 }
 
@@ -1023,9 +1025,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	// identity for the endpoint.
 	if newEndpoint {
 		// TODO - GH-9354.
-		e.owner.AddIdentity(identity)
+		e.identityManager.Add(identity)
 	} else {
-		e.owner.RemoveOldAddNewIdentity(e.SecurityIdentity, identity)
+		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	}
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)

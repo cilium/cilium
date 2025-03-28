@@ -10,14 +10,12 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"runtime"
 	"sync"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -43,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
+	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -64,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -95,7 +93,7 @@ type Daemon struct {
 	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
-	buildEndpointSem  *semaphore.Weighted
+	epBuildQueue      endpoint.EndpointBuildQueue
 	l7Proxy           *proxy.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
 	envoyXdsServer    envoy.XDSServer
@@ -200,18 +198,8 @@ type Daemon struct {
 
 	explbConfig experimental.Config
 
-	dnsProxy defaultdns.Proxy
-}
-
-// GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
-	return d.policy
-}
-
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
-	return d.compilationLock
+	dnsProxy    defaultdns.Proxy
+	dnsRulesAPI fqdnRules.DNSRulesService
 }
 
 func (d *Daemon) init() error {
@@ -373,7 +361,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
+		epBuildQueue:      params.EndpointBuildQueue,
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
@@ -423,6 +411,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		dnsNameManager:    params.NameManager,
 		explbConfig:       params.ExpLBConfig,
 		dnsProxy:          params.DNSProxy,
+		dnsRulesAPI:       params.DNSRulesAPI,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -538,8 +527,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				return nil
 			}
 
-			policyRepo := d.GetPolicyRepository()
-			policyRepo.Iterate(func(rule *policyAPI.Rule) {
+			d.policy.Iterate(func(rule *policyAPI.Rule) {
 				for _, er := range rule.Egress {
 					_ = er.ToPorts.Iterate(removeL7DNSRules)
 				}
@@ -552,7 +540,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 			// Bump revision to trigger policy recalculation
 			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
-			policyRepo.BumpRevision()
+			d.policy.BumpRevision()
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason:            "unloading DNS rules on graceful shutdown",
 				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
@@ -867,25 +855,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// numWorkerThreads returns the number of worker threads with a minimum of 2.
-func numWorkerThreads() int {
-	ncpu := runtime.NumCPU()
-	minWorkerThreads := 2
-
-	if ncpu < minWorkerThreads {
-		return minWorkerThreads
-	}
-	return ncpu
-}
-
-// SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
-	if option.Config.DryMode {
-		return nil
-	}
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 
 type endpointMetadataFetcher interface {
