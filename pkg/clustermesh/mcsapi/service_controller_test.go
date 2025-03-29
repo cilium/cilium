@@ -249,9 +249,8 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		Build()
 	r := &mcsAPIServiceReconciler{
-		Client:      c,
-		Logger:      hivetest.Logger(t),
-		clusterName: "cluster1",
+		Client: c,
+		Logger: hivetest.Logger(t),
 	}
 
 	t.Run("Test service creation/update with export and import", func(t *testing.T) {
@@ -278,7 +277,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			require.Len(t, svc.OwnerReferences, 1)
 			require.Equal(t, "ServiceImport", svc.OwnerReferences[0].Kind)
 
-			require.Equal(t, "cluster1", svc.Labels[mcsapiv1alpha1.LabelSourceCluster])
 			require.Equal(t, key.Name, svc.Labels[mcsapiv1alpha1.LabelServiceName])
 			require.Equal(t, "copied", svc.Labels["test-label"])
 
@@ -289,8 +287,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			require.Equal(t, "my-port-1", svc.Spec.Ports[0].Name)
 			require.Equal(t, "my-port-target-port", svc.Spec.Ports[1].Name)
 			require.Equal(t, "test-target-port", svc.Spec.Ports[1].TargetPort.String())
-
-			require.Equal(t, "value", svc.Spec.Selector["selector"])
 
 			svcImport := &mcsapiv1alpha1.ServiceImport{}
 			err = c.Get(context.Background(), key, svcImport)
@@ -323,8 +319,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		require.Equal(t, "ServiceImport", svc.OwnerReferences[0].Kind)
 
 		require.Nil(t, svc.Spec.Selector)
-
-		require.Equal(t, "cluster1", svc.Labels[mcsapiv1alpha1.LabelSourceCluster])
 
 		require.Equal(t, "true", svc.Annotations[annotation.GlobalService])
 

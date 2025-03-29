@@ -69,7 +69,7 @@ rules:
   resources:
   - endpointslices
   verbs:
-{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
   - create
   - update
   - delete
