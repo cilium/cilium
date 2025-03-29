@@ -38,15 +38,12 @@ const (
 type mcsAPIServiceReconciler struct {
 	client.Client
 	Logger *slog.Logger
-
-	clusterName string
 }
 
-func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger, clusterName string) *mcsAPIServiceReconciler {
+func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger) *mcsAPIServiceReconciler {
 	return &mcsAPIServiceReconciler{
-		Client:      mgr.GetClient(),
-		Logger:      logger,
-		clusterName: clusterName,
+		Client: mgr.GetClient(),
+		Logger: logger,
 	}
 }
 
@@ -195,17 +192,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return controllerruntime.Fail(err)
 	}
 
-	// Copy the local Service selector to let kube-controller-manager do
-	// the actual syncing of the endpoints.
-	// This has the drawback that this implementation doesn't
-	// support the endpoints created with the `kubernetes.io/service-name`
-	// label without any pod backing them (i.e.: endpoints created manually
-	// or by some third party tooling).
 	svc.Spec.Selector = map[string]string{}
-	if localSvc != nil {
-		svc.Spec.Selector = localSvc.Spec.Selector
-	}
-
 	svc.Spec.Ports = servicePorts(svcImport, localSvc)
 	if err := ctrl.SetControllerReference(svcImport, svc, r.Scheme()); err != nil {
 		return controllerruntime.Fail(err)
@@ -222,9 +209,6 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		svc.Labels = map[string]string{}
 	}
 	svc.Labels[mcsapiv1alpha1.LabelServiceName] = req.NamespacedName.Name
-	// We set the source cluster label on the service as well so that the
-	// EndpointSlices created by kube-controller-manager will also mirror that label.
-	svc.Labels[mcsapiv1alpha1.LabelSourceCluster] = r.clusterName
 
 	if !svcExists {
 		if err := r.Client.Create(ctx, svc); err != nil {
