@@ -107,8 +107,12 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return err
 	}
 
-	if err := newMCSAPIServiceReconciler(params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name).SetupWithManager(params.CtrlRuntimeManager); err != nil {
+	if err := newMCSAPIServiceReconciler(params.CtrlRuntimeManager, params.Logger).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register MCSAPIServiceReconciler: %w", err)
+	}
+
+	if err := newMCSAPIEndpointSliceMirrorReconciler(params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name).SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("Failed to register MCSAPIEndpointSliceMirrorReconciler: %w", err)
 	}
 
 	// Upstream controller that we use as is to update the ServiceImport
