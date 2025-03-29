@@ -107,8 +107,10 @@ flowchart TD
         localServiceExport & kvstoremesh --> |mcsAPIServiceImportReconciler| serviceImport
 
         bpfMaps["BPF Maps"]
-        endpointslices["Remote EndpointSlices"]
+        remoteEndpointslices["Remote EndpointSlices"]
+        localEndpointslices["Local EndpointSlices"]
         derivedService --> |BPF maps via the global annotations| bpfMaps
-        derivedService --> |endointslicesync via an optional annotation or if the service is Headless| endpointslices
+        derivedService --> |endointslicesync via an optional annotation or if the service is Headless| remoteEndpointslices
+        derivedService --> |mcsAPIEndpointSliceMirrorReconciler| localEndpointslices
     end
 ```
