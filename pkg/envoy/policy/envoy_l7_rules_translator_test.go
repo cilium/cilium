@@ -176,3 +176,71 @@ func TestGetHTTPRule_SDS(t *testing.T) {
 	require.False(t, canShortCircuit)
 	require.Equal(t, expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS, result.HeaderMatches)
 }
+func TestCreateStringMatcher(t *testing.T) {
+	tests := []struct {
+		name      string
+		matchType string
+		value     string
+		expected  *envoy_type_matcher.StringMatcher
+	}{
+		{
+			name:      "Exact match",
+			matchType: string(api.Exact),
+			value:     "exact-value",
+			expected: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+					Exact: "exact-value",
+				},
+			},
+		},
+		{
+			name:      "Prefix match",
+			matchType: string(api.Prefix),
+			value:     "prefix-value",
+			expected: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Prefix{
+					Prefix: "prefix-value",
+				},
+			},
+		},
+		{
+			name:      "Suffix match",
+			matchType: string(api.Suffix),
+			value:     "suffix-value",
+			expected: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Suffix{
+					Suffix: "suffix-value",
+				},
+			},
+		},
+		{
+			name:      "SafeRegex match",
+			matchType: string(api.SafeRegex),
+			value:     "regex-value",
+			expected: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "regex-value",
+					},
+				},
+			},
+		},
+		{
+			name:      "Default to Exact match",
+			matchType: "unknown",
+			value:     "default-value",
+			expected: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+					Exact: "default-value",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createStringMatcher(tt.matchType, tt.value)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
