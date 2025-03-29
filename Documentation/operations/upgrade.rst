@@ -299,6 +299,8 @@ communicating via the proxy must reconnect to re-establish connections.
   ``spec.transport.localPort`` in ``CiliumBGPPeerConfig`` has been removed and will be ignored if it was configured in the ``v2alpha1`` version.
 * The ``CiliumBGPPeeringPolicy`` CRD is deprecated and will be removed in a future release. Please migrate to ``cilium.io/v2``
   BGP CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) to configure BGP.
+* The label ``io.cilium.k8s.policy.serviceaccount`` will be included in the default label list. If you configure your own Identity-Relevant Labels 
+  on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops.
 
 
 Removed Options
