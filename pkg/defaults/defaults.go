@@ -578,9 +578,6 @@ const (
 	// EnableSourceIPVerification is the default value for source ip validation
 	EnableSourceIPVerification = true
 
-	// BGPRouterIDAllocationMode is default BGP router-id allocation mode
-	BGPRouterIDAllocationMode = "default"
-
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
 	WireguardTrackAllIPsFallback = false
 

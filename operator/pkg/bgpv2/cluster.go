@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -105,6 +107,41 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 
 	// Name of the nodes selected by nodeSelector
 	matchingNodes := sets.New[string]()
+	for _, node := range b.ciliumNodeStore.List() {
+		if !nodeSelector.Matches(slim_labels.Set(node.Labels)) {
+			continue
+		}
+
+		// Record selected node for later use
+		matchingNodes.Insert(node.Name)
+	}
+
+	if b.bgpRouterIDIPPool != nil {
+		from, to := b.bgpRouterIDIPPool.Range()
+		// Reset the allocator to the initial state
+		b.bgpRouterIDIPPool, _ = ipalloc.NewHashAllocator[string](from, to, 10)
+		// Reset the map to the initial state
+		b.bgpRouterIDMap = make(map[string]*netip.Addr)
+
+		_, available := b.bgpRouterIDIPPool.Stats()
+		ipCount := int(available.Int64())
+
+		if ipCount < matchingNodes.Len() {
+			b.logger.Warn("Not enough router IDs available for the selected nodes")
+		}
+
+		currentIP := from
+		for _, node := range sets.List(matchingNodes) {
+			b.bgpRouterIDMap[node] = &currentIP
+			if err := b.bgpRouterIDIPPool.Alloc(currentIP, node); err != nil {
+				b.logger.Error("Failed to allocate router ID",
+					types.BGPNodeConfigLogField, node,
+				)
+				continue
+			}
+			currentIP = currentIP.Next()
+		}
+	}
 
 	// Name of the ClusterConfig selecting the same node
 	conflictingClusterConfigs := sets.New[string]()
@@ -113,13 +150,6 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 	var errs error
 
 	for _, node := range b.ciliumNodeStore.List() {
-		if !nodeSelector.Matches(slim_labels.Set(node.Labels)) {
-			continue
-		}
-
-		// Record selected node for later use
-		matchingNodes.Insert(node.Name)
-
 		// Find node config for this node
 		oldNodeConfig, oldNodeConfigExists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
 		if err != nil {
@@ -170,7 +200,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				},
 			},
 			Spec: v2.CiliumBGPNodeSpec{
-				BGPInstances: toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
+				BGPInstances: b.toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
 			},
 		}
 
@@ -297,7 +327,7 @@ func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2.CiliumBGPC
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPInstances []v2.CiliumBGPNodeConfigInstanceOverride) []v2.CiliumBGPNodeInstance {
+func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPInstances []v2.CiliumBGPNodeConfigInstanceOverride) []v2.CiliumBGPNodeInstance {
 	var res []v2.CiliumBGPNodeInstance
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
@@ -307,11 +337,16 @@ func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPIn
 			LocalPort: clusterBGPInstance.LocalPort,
 		}
 
+		if routerID, exists := b.bgpRouterIDMap[clusterBGPInstance.Name]; exists {
+			nodeBGPInstance.RouterID = ptr.To(routerID.String())
+		}
 		// find BGPResourceManager global override for this instance
 		var override v2.CiliumBGPNodeConfigInstanceOverride
 		for _, overrideBGPInstance := range overrideBGPInstances {
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
-				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
+				if overrideBGPInstance.RouterID != nil {
+					nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
+				}
 				if overrideBGPInstance.LocalPort != nil {
 					nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
 				}
