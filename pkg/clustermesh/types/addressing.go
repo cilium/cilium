@@ -273,7 +273,7 @@ func (ac AddrCluster) AsNetIP() net.IP {
 }
 
 func (ac AddrCluster) AsPrefixCluster() PrefixCluster {
-	return PrefixClusterFrom(ac.addr, ac.addr.BitLen(), WithClusterID(ac.clusterID))
+	return PrefixClusterFrom(netip.PrefixFrom(ac.addr, ac.addr.BitLen()), WithClusterID(ac.clusterID))
 }
 
 // PrefixCluster is a type that holds a pair of prefix and ClusterID.
@@ -362,8 +362,8 @@ func WithClusterID(id uint32) PrefixClusterOpts {
 	return func(pc *PrefixCluster) { pc.clusterID = id }
 }
 
-func PrefixClusterFrom(addr netip.Addr, bits int, opts ...PrefixClusterOpts) PrefixCluster {
-	pc := PrefixCluster{prefix: netip.PrefixFrom(addr, bits)}
+func PrefixClusterFrom(prefix netip.Prefix, opts ...PrefixClusterOpts) PrefixCluster {
+	pc := PrefixCluster{prefix: prefix}
 	for _, opt := range opts {
 		opt(&pc)
 	}
@@ -381,7 +381,7 @@ func PrefixClusterFromCIDR(c *cidr.CIDR, opts ...PrefixClusterOpts) PrefixCluste
 	}
 	ones, _ := c.Mask.Size()
 
-	return PrefixClusterFrom(addr, ones, opts...)
+	return PrefixClusterFrom(netip.PrefixFrom(addr, ones), opts...)
 }
 
 func (pc0 PrefixCluster) Equal(pc1 PrefixCluster) bool {

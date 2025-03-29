@@ -66,7 +66,7 @@ func (k Key) String() string {
 	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
 	clusterID := uint32(k.ClusterID)
 
-	return cmtypes.PrefixClusterFrom(addr, prefixLen, cmtypes.WithClusterID(clusterID)).String()
+	return cmtypes.PrefixClusterFrom(netip.PrefixFrom(addr, prefixLen), cmtypes.WithClusterID(clusterID)).String()
 }
 
 func (k *Key) New() bpf.MapKey { return &Key{} }
