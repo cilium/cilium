@@ -1,5 +1,42 @@
 # Release History
 
+## 6.4.0 (2025-03-28)
+### Features Added
+
+- New value `AllocationStrategyPrioritized` added to enum type `AllocationStrategy`
+- New value `InstanceViewTypesResiliencyView` added to enum type `InstanceViewTypes`
+- New value `NetworkAPIVersionTwoThousandTwentyTwo1101` added to enum type `NetworkAPIVersion`
+- New enum type `Expand` with values `ExpandProperties`
+- New enum type `Modes` with values `ModesAudit`, `ModesDisabled`, `ModesEnforce`
+- New enum type `RebalanceBehavior` with values `RebalanceBehaviorCreateBeforeDelete`
+- New enum type `RebalanceStrategy` with values `RebalanceStrategyRecreate`
+- New enum type `ResilientVMDeletionStatus` with values `ResilientVMDeletionStatusDisabled`, `ResilientVMDeletionStatusEnabled`, `ResilientVMDeletionStatusFailed`, `ResilientVMDeletionStatusInProgress`
+- New enum type `ZonePlacementPolicyType` with values `ZonePlacementPolicyTypeAny`
+- New function `*AvailabilitySetsClient.CancelMigrationToVirtualMachineScaleSet(context.Context, string, string, *AvailabilitySetsClientCancelMigrationToVirtualMachineScaleSetOptions) (AvailabilitySetsClientCancelMigrationToVirtualMachineScaleSetResponse, error)`
+- New function `*AvailabilitySetsClient.BeginConvertToVirtualMachineScaleSet(context.Context, string, string, *AvailabilitySetsClientBeginConvertToVirtualMachineScaleSetOptions) (*runtime.Poller[AvailabilitySetsClientConvertToVirtualMachineScaleSetResponse], error)`
+- New function `*AvailabilitySetsClient.StartMigrationToVirtualMachineScaleSet(context.Context, string, string, MigrateToVirtualMachineScaleSetInput, *AvailabilitySetsClientStartMigrationToVirtualMachineScaleSetOptions) (AvailabilitySetsClientStartMigrationToVirtualMachineScaleSetResponse, error)`
+- New function `*AvailabilitySetsClient.ValidateMigrationToVirtualMachineScaleSet(context.Context, string, string, MigrateToVirtualMachineScaleSetInput, *AvailabilitySetsClientValidateMigrationToVirtualMachineScaleSetOptions) (AvailabilitySetsClientValidateMigrationToVirtualMachineScaleSetResponse, error)`
+- New function `*VirtualMachineImagesClient.NewListWithPropertiesPager(string, string, string, string, Expand, *VirtualMachineImagesClientListWithPropertiesOptions) *runtime.Pager[VirtualMachineImagesClientListWithPropertiesResponse]`
+- New function `*VirtualMachinesClient.BeginMigrateToVMScaleSet(context.Context, string, string, *VirtualMachinesClientBeginMigrateToVMScaleSetOptions) (*runtime.Poller[VirtualMachinesClientMigrateToVMScaleSetResponse], error)`
+- New struct `AutomaticZoneRebalancingPolicy`
+- New struct `ConvertToVirtualMachineScaleSetInput`
+- New struct `DefaultVirtualMachineScaleSetInfo`
+- New struct `HostEndpointSettings`
+- New struct `MigrateToVirtualMachineScaleSetInput`
+- New struct `MigrateVMToVirtualMachineScaleSetInput`
+- New struct `Placement`
+- New struct `VirtualMachineImagesWithPropertiesListResult`
+- New struct `VirtualMachineScaleSetMigrationInfo`
+- New field `VirtualMachineScaleSetMigrationInfo` in struct `AvailabilitySetProperties`
+- New field `Imds`, `WireServer` in struct `ProxyAgentSettings`
+- New field `AutomaticZoneRebalancingPolicy` in struct `ResiliencyPolicy`
+- New field `Rank` in struct `SKUProfileVMSize`
+- New field `PrioritizeUnhealthyVMs` in struct `ScaleInPolicy`
+- New field `AlignRegionalDisksToVMZone` in struct `StorageProfile`
+- New field `Placement` in struct `VirtualMachine`
+- New field `ResilientVMDeletionStatus` in struct `VirtualMachineScaleSetVMProperties`
+
+
 ## 6.3.0 (2025-01-24)
 ### Features Added
 

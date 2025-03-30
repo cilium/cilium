@@ -173,6 +173,7 @@ func (m *Manager) Write(authParameters authority.AuthParams, tokenResponse acces
 	environment := authParameters.AuthorityInfo.Host
 	realm := authParameters.AuthorityInfo.Tenant
 	clientID := authParameters.ClientID
+
 	target := strings.Join(tokenResponse.GrantedScopes.Slice, scopeSeparator)
 	cachedAt := time.Now()
 	authnSchemeKeyID := authParameters.AuthnScheme.KeyID()
@@ -193,7 +194,7 @@ func (m *Manager) Write(authParameters authority.AuthParams, tokenResponse acces
 			realm,
 			clientID,
 			cachedAt,
-			tokenResponse.ExpiresOn.T,
+			tokenResponse.ExpiresOn,
 			tokenResponse.ExtExpiresOn.T,
 			target,
 			tokenResponse.AccessToken,
@@ -265,6 +266,9 @@ func (m *Manager) aadMetadataFromCache(ctx context.Context, authorityInfo author
 }
 
 func (m *Manager) aadMetadata(ctx context.Context, authorityInfo authority.Info) (authority.InstanceDiscoveryMetadata, error) {
+	if m.requests == nil {
+		return authority.InstanceDiscoveryMetadata{}, fmt.Errorf("httpclient in oauth instance for fetching metadata is nil")
+	}
 	m.aadCacheMu.Lock()
 	defer m.aadCacheMu.Unlock()
 	discoveryResponse, err := m.requests.AADInstanceDiscovery(ctx, authorityInfo)
@@ -459,6 +463,7 @@ func (m *Manager) readAccount(homeAccountID string, envAliases []string, realm s
 
 func (m *Manager) writeAccount(account shared.Account) error {
 	key := account.Key()
+
 	m.contractMu.Lock()
 	defer m.contractMu.Unlock()
 	m.contract.Accounts[key] = account
