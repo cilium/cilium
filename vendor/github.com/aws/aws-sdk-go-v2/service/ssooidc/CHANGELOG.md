@@ -1,3 +1,11 @@
+# v1.30.0 (2025-03-27)
+
+* **Feature**: This release adds AwsAdditionalDetails in the CreateTokenWithIAM API response.
+
+# v1.29.2 (2025-03-24)
+
+* No change notes available for this release.
+
 # v1.29.1 (2025-03-04.2)
 
 * **Bug Fix**: Add assurance test for operation order.
