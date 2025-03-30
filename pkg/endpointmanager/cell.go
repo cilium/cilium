@@ -190,6 +190,13 @@ type EndpointManager interface {
 	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
 	// policy revision will be bumped to toRev.
 	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
+
+	// DisableDNSProxy tells all endpoints to force-remove any BPF policymap entries
+	// that would proxy traffic to the DNS proxy. They are replaced with allow entries.
+	//
+	// This is intended to be called on shutdown, so that DNS traffic may still be allowed
+	// while the agent is being upgaded.
+	DisableDNSProxy()
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint

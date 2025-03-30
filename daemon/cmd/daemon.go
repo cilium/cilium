@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
@@ -503,63 +502,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			// Stop k8s watchers
 			log.Info("Stopping k8s watcher")
 			d.k8sWatcher.StopWatcher()
-
-			// Iterate over the policy repository and remove L7 DNS part
-			needsPolicyRegen := false
-			removeL7DNSRules := func(pr policyAPI.Ports) error {
-				portProtocols := pr.GetPortProtocols()
-				if len(portProtocols) == 0 {
-					return nil
-				}
-				portRule := pr.GetPortRule()
-				if portRule == nil || portRule.Rules == nil {
-					return nil
-				}
-				dnsRules := portRule.Rules.DNS
-				log.Debugf("Found egress L7 DNS rules (portProtocol %#v): %#v", portProtocols[0], dnsRules)
-
-				// For security reasons, the L7 DNS policy must be a
-				// wildcard in order to trigger this logic.
-				// Otherwise we could invalidate the L7 security
-				// rules. This means if any of the DNS L7 rules
-				// have a matchPattern of * then it is OK to delete
-				// the L7 portion of those rules.
-				hasWildcard := false
-				for _, dns := range dnsRules {
-					if dns.MatchPattern == "*" {
-						hasWildcard = true
-						break
-					}
-				}
-				if hasWildcard {
-					portRule.Rules = nil
-					needsPolicyRegen = true
-				}
-				return nil
-			}
-
-			policyRepo := d.GetPolicyRepository()
-			policyRepo.Iterate(func(rule *policyAPI.Rule) {
-				for _, er := range rule.Egress {
-					_ = er.ToPorts.Iterate(removeL7DNSRules)
-				}
-			})
-
-			if !needsPolicyRegen {
-				log.Infof("No policy recalculation needed to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
-				return
-			}
-
-			// Bump revision to trigger policy recalculation
-			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
-			policyRepo.BumpRevision()
-			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-				Reason:            "unloading DNS rules on graceful shutdown",
-				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-			}
-			wg := d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
-			wg.Wait()
-			log.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")
+			d.endpointManager.DisableDNSProxy()
 		})
 	}
 

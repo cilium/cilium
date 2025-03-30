@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
+	coretypes "github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // field names used while logging
@@ -387,4 +389,20 @@ func (p *Proxy) updateRedirectMetrics() {
 	for proto, count := range result {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
+}
+
+func (p *Proxy) GetRedirects(epID uint16) map[coretypes.PortProto]types.ProxyType {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	out := map[coretypes.PortProto]types.ProxyType{}
+	for _, ri := range p.redirects {
+		r := ri.GetRedirect()
+		if r.endpointID == epID {
+			out[coretypes.PortProto{
+				Proto: u8proto.U8proto(r.dstPortProto.Protocol()),
+				Port:  ri.GetRedirect().dstPortProto.Port(),
+			}] = r.proxyType
+		}
+	}
+	return out
 }
