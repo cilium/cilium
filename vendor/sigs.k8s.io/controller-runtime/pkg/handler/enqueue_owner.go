@@ -72,7 +72,7 @@ func TypedEnqueueRequestForOwner[object client.Object](scheme *runtime.Scheme, m
 	for _, opt := range opts {
 		opt(e)
 	}
-	return e
+	return WithLowPriorityWhenUnchanged(e)
 }
 
 // OnlyControllerOwner if provided will only look at the first OwnerReference with Controller: true.

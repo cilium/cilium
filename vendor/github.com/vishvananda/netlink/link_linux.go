@@ -3903,11 +3903,27 @@ func parseTuntapData(link Link, data []syscall.NetlinkRouteAttr) {
 			tuntap.Group = native.Uint32(datum.Value)
 		case nl.IFLA_TUN_TYPE:
 			tuntap.Mode = TuntapMode(uint8(datum.Value[0]))
+		case nl.IFLA_TUN_PI:
+			if datum.Value[0] == 0 {
+				tuntap.Flags |= TUNTAP_NO_PI
+			}
+		case nl.IFLA_TUN_VNET_HDR:
+			if datum.Value[0] == 1 {
+				tuntap.Flags |= TUNTAP_VNET_HDR
+			}
 		case nl.IFLA_TUN_PERSIST:
 			tuntap.NonPersist = false
 			if uint8(datum.Value[0]) == 0 {
 				tuntap.NonPersist = true
 			}
+		case nl.IFLA_TUN_MULTI_QUEUE:
+			if datum.Value[0] == 1 {
+				tuntap.Flags |= TUNTAP_MULTI_QUEUE
+			}
+		case nl.IFLA_TUN_NUM_QUEUES:
+			tuntap.Queues = int(native.Uint32(datum.Value))
+		case nl.IFLA_TUN_NUM_DISABLED_QUEUES:
+			tuntap.DisabledQueues = int(native.Uint32(datum.Value))
 		}
 	}
 }
