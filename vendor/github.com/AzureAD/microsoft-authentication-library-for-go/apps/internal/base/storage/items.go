@@ -102,8 +102,9 @@ func NewAccessToken(homeID, env, realm, clientID string, cachedAt, expiresOn, ex
 
 // Key outputs the key that can be used to uniquely look up this entry in a map.
 func (a AccessToken) Key() string {
+	ks := []string{a.HomeAccountID, a.Environment, a.CredentialType, a.ClientID, a.Realm, a.Scopes}
 	key := strings.Join(
-		[]string{a.HomeAccountID, a.Environment, a.CredentialType, a.ClientID, a.Realm, a.Scopes},
+		ks,
 		shared.CacheKeySeparator,
 	)
 	// add token type to key for new access tokens types. skip for bearer token type to
