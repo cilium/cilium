@@ -34,7 +34,7 @@ func checkName(name string) error {
 	}
 
 	if usedNames.Has(name) {
-		return fmt.Errorf("controller with name %s already exists. Controller names must be unique to avoid multiple controllers reporting to the same metric", name)
+		return fmt.Errorf("controller with name %s already exists. Controller names must be unique to avoid multiple controllers reporting the same metric. This validation can be disabled via the SkipNameValidation option", name)
 	}
 
 	usedNames.Insert(name)

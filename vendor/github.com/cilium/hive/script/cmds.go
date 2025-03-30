@@ -33,6 +33,7 @@ func DefaultCmds() map[string]Cmd {
 		"cd":      Cd(),
 		"chmod":   Chmod(),
 		"cmp":     Cmp(),
+		"empty":   Empty(),
 		"cmpenv":  Cmpenv(),
 		"cp":      Cp(),
 		"echo":    Echo(),
@@ -231,17 +232,10 @@ func doCompare(s *State, env bool, args ...string) error {
 
 	name1, name2 := args[0], args[1]
 	var text1, text2 string
-	switch name1 {
-	case "stdout":
-		text1 = s.Stdout()
-	case "stderr":
-		text1 = s.Stderr()
-	default:
-		data, err := os.ReadFile(s.Path(name1))
-		if err != nil {
-			return err
-		}
-		text1 = string(data)
+
+	text1, err = getActualFileData(s, name1)
+	if err != nil {
+		return err
 	}
 
 	data, err := os.ReadFile(s.Path(name2))
@@ -1231,4 +1225,85 @@ func Break() Cmd {
 			}
 		},
 	)
+}
+
+func emptyFlags(fs *pflag.FlagSet) {
+	fs.BoolP("quiet", "q", false, "Suppress printing of non-empty output diff")
+	fs.BoolP("trim", "t", false, "Trim newline chars")
+}
+
+// Empty checks whether contents of a file, or contents of either "stdout" or "stderr"
+// are empty.
+// Returns non-nil error if this assertion fails.
+func Empty() Cmd {
+	return Command(
+		CmdUsage{
+			Args:    "file",
+			Summary: "check if file is empty",
+			Flags:   emptyFlags,
+			Detail: []string{
+				"The command succeeds if the file is empty.",
+				"File can be 'stdout' or 'stderr' to compare the stdout or stderr buffer from the most recent command.",
+			},
+		},
+		func(s *State, args ...string) (WaitFunc, error) {
+			return nil, doEmpty(s, args...)
+		})
+}
+
+func doEmpty(s *State, args ...string) error {
+	quiet, err := s.Flags.GetBool("quiet")
+	if err != nil {
+		return err
+	}
+	trim, err := s.Flags.GetBool("trim")
+	if err != nil {
+		return err
+	}
+	if len(args) != 1 {
+		return ErrUsage
+	}
+
+	name := args[0]
+	text, err := getActualFileData(s, name)
+
+	if trim {
+		text = strings.Trim(text, "\n")
+	}
+
+	if text != "" {
+		if s.DoUpdate && s.RetryCount > 0 {
+			// Updates requested and we've already retried at least once
+			// (and given time for things to settle down).
+			// Store the file contents and ignore the mismatch.
+			s.FileUpdates[name] = ""
+			return nil
+		}
+
+		if !quiet {
+			diffText := diff.Diff(name, []byte(text), "<empty>", []byte{})
+			s.Logf("%s\n", diffText)
+		}
+		return fmt.Errorf("%s is not empty", name)
+	}
+	return nil
+}
+
+// getActualFileData is used to read "actual" test data (i.e. such as files
+// created by test script or test stdout.
+func getActualFileData(s *State, name string) (string, error) {
+	var text string
+	switch name {
+	case "stdout":
+		text = s.Stdout()
+	case "stderr":
+		text = s.Stderr()
+	default:
+		data, err := os.ReadFile(s.Path(name))
+		if err != nil {
+			return "", err
+		}
+		text = string(data)
+	}
+	return text, nil
 }

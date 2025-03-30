@@ -174,7 +174,7 @@ release-binary: $(RELEASE_DIR)
 		-v "$$(pwd):/workspace$(DOCKER_VOL_OPTS)" \
 		-w /workspace/tools/setup-envtest \
 		golang:$(GO_VERSION) \
-		go build -a -trimpath -ldflags "-extldflags '-static'" \
+		go build -a -trimpath -ldflags "-X 'sigs.k8s.io/controller-runtime/tools/setup-envtest/version.version=$(RELEASE_TAG)' -extldflags '-static'" \
 		-o ./out/$(RELEASE_BINARY) ./
 
 ## --------------------------------------

@@ -163,7 +163,7 @@ func (blder *TypedBuilder[request]) Watches(
 ) *TypedBuilder[request] {
 	input := WatchesInput[request]{
 		obj:     object,
-		handler: handler.WithLowPriorityWhenUnchanged(eventHandler),
+		handler: eventHandler,
 	}
 	for _, opt := range opts {
 		opt.ApplyToWatches(&input)
@@ -317,7 +317,7 @@ func (blder *TypedBuilder[request]) doWatch() error {
 		}
 
 		var hdler handler.TypedEventHandler[client.Object, request]
-		reflect.ValueOf(&hdler).Elem().Set(reflect.ValueOf(handler.WithLowPriorityWhenUnchanged(&handler.EnqueueRequestForObject{})))
+		reflect.ValueOf(&hdler).Elem().Set(reflect.ValueOf(&handler.EnqueueRequestForObject{}))
 		allPredicates := append([]predicate.Predicate(nil), blder.globalPredicates...)
 		allPredicates = append(allPredicates, blder.forInput.predicates...)
 		src := source.TypedKind(blder.mgr.GetCache(), obj, hdler, allPredicates...)
@@ -341,11 +341,11 @@ func (blder *TypedBuilder[request]) doWatch() error {
 		}
 
 		var hdler handler.TypedEventHandler[client.Object, request]
-		reflect.ValueOf(&hdler).Elem().Set(reflect.ValueOf(handler.WithLowPriorityWhenUnchanged(handler.EnqueueRequestForOwner(
+		reflect.ValueOf(&hdler).Elem().Set(reflect.ValueOf(handler.EnqueueRequestForOwner(
 			blder.mgr.GetScheme(), blder.mgr.GetRESTMapper(),
 			blder.forInput.object,
 			opts...,
-		))))
+		)))
 		allPredicates := append([]predicate.Predicate(nil), blder.globalPredicates...)
 		allPredicates = append(allPredicates, own.predicates...)
 		src := source.TypedKind(blder.mgr.GetCache(), obj, hdler, allPredicates...)
