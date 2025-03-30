@@ -852,7 +852,7 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fr
 	      int l4_off, bool update_tuple, const struct ipv4_nat_target *target,
 	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv4_nat_entry *state, tmp;
+	struct ipv4_nat_entry *state = NULL, tmp;
 	int ret;
 
 	ret = snat_v4_nat_handle_mapping(ctx, tuple, fraginfo, &state, &tmp,
@@ -860,10 +860,11 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fr
 	if (ret < 0)
 		return ret;
 
-	ret = snat_v4_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
-				      ipfrag_has_l4_header(fraginfo), l4_off,
-				      tuple->saddr, state->to_saddr, IPV4_SADDR_OFF,
-				      tuple->sport, state->to_sport, port_off);
+	if (state)
+		ret = snat_v4_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
+					      ipfrag_has_l4_header(fraginfo), l4_off,
+					      tuple->saddr, state->to_saddr, IPV4_SADDR_OFF,
+					      tuple->sport, state->to_sport, port_off);
 
 	if (update_tuple) {
 		tuple->saddr = state->to_saddr;
