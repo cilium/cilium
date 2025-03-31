@@ -169,7 +169,7 @@ var (
 // getXDSNetworkPolicies returns the representation of the xDS network policies
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []string) map[string]*cilium.NetworkPolicy {
-	networkPolicies, err := ds.d.envoyXdsServer.GetNetworkPolicies(resourceNames)
+	networkPolicies, err := ds.envoyXdsServer.GetNetworkPolicies(resourceNames)
 	require.NoError(t, err)
 	return networkPolicies
 }
@@ -291,7 +291,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -468,7 +468,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -558,7 +558,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -649,7 +649,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -819,7 +819,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -911,7 +911,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 

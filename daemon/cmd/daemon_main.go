@@ -1550,7 +1550,6 @@ type daemonParams struct {
 	ServiceManager      service.ServiceManager
 	L7Proxy             *proxy.Proxy
 	ProxyAccessLogger   accesslog.ProxyAccessLogger
-	EnvoyXdsServer      envoy.XDSServer
 	DB                  *statedb.DB
 	APILimiterSet       *rate.APILimiterSet
 	AuthManager         *auth.AuthManager
