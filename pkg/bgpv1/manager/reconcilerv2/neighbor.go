@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
 
 	"github.com/cilium/hive/cell"
 
@@ -335,26 +334,6 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 		result[k] = []byte(v)
 	}
 	return result, true, nil
-}
-
-// GetPeerAddressFromConfig returns peering address for the given peer from the provided BGPNodeInstance.
-// If no error is returned and "exists" is false, it means that PeerAddress is not present in peer configuration.
-func GetPeerAddressFromConfig(conf *v2.CiliumBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
-	if conf == nil {
-		return netip.Addr{}, false, fmt.Errorf("passed instance is nil")
-	}
-
-	for _, peer := range conf.Peers {
-		if peer.Name == peerName {
-			if peer.PeerAddress != nil {
-				addr, err = netip.ParseAddr(*peer.PeerAddress)
-				return addr, true, err
-			} else {
-				return netip.Addr{}, false, nil // PeerAddress not present in peer configuration
-			}
-		}
-	}
-	return netip.Addr{}, false, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
 
 func (r *NeighborReconciler) neighborID(n *v2.CiliumBGPNodePeer) string {
