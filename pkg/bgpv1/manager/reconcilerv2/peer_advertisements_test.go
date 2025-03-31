@@ -283,11 +283,12 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 				},
 			},
 			reqAdvertTypes:  []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{},
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{},
 		},
 		{
 			name: "Expecting PodCIDR advertisement for single peer",
@@ -310,12 +311,13 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 				},
 			},
 			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
@@ -342,6 +344,7 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 					{
 						Name: "blue-peer-65001",
@@ -350,16 +353,17 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-blue",
 						},
+						PeerAddress: ptr.To("10.0.0.2"),
 					},
 				},
 			},
 			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
-				"blue-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				{Name: "blue-peer-65001", Address: "10.0.0.2"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {bluePodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
@@ -386,12 +390,13 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 				},
 			},
 			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: nil, // empty advertisement
 					{Afi: "ipv6", Safi: "unicast"}: nil, // empty advertisement
 				},
@@ -418,12 +423,13 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 				},
 			},
 			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert, v2alpha1.BGPServiceAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 				},
@@ -450,6 +456,7 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-red",
 						},
+						PeerAddress: ptr.To("10.0.0.1"),
 					},
 					{
 						Name: "blue-peer-65001",
@@ -458,16 +465,17 @@ func Test_GetAdvertisements(t *testing.T) {
 							Kind:  "CiliumBGPPeerConfig",
 							Name:  "peer-config-blue",
 						},
+						PeerAddress: ptr.To("10.0.0.2"),
 					},
 				},
 			},
 			reqAdvertTypes: []v2alpha1.BGPAdvertisementType{v2alpha1.BGPPodCIDRAdvert, v2alpha1.BGPServiceAdvert},
-			expectedAdverts: map[string]PeerFamilyAdvertisements{
-				"red-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert, redServiceLBAdvert},
 				},
-				"blue-peer-65001": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				{Name: "blue-peer-65001", Address: "10.0.0.2"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {bluePodCIDRAdvert, blueServicePodAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert, blueServicePodAdvert},
 				},
@@ -522,33 +530,33 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Empty FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				PeerID{Name: "peer-1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				PeerID{Name: "peer-1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
 			},
 			expectedEqual: true,
 		},
 		{
 			name: "Nil FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
+				PeerID{Name: "peer-1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": nil,
+				PeerID{Name: "peer-1"}: nil,
 			},
 			expectedEqual: true,
 		},
 		{
 			name: "Equal FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
@@ -558,13 +566,13 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Unequal length in FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
 			},
@@ -573,15 +581,31 @@ func Test_PeerAdvertisementsEqual(t *testing.T) {
 		{
 			name: "Unequal value in FamilyAdvertisements in peers",
 			peerAdvert1: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			peerAdvert2: PeerAdvertisements{
-				"peer-1": map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
+				},
+			},
+			expectedEqual: false,
+		},
+		{
+			name: "Unequal Address in PeerID",
+			peerAdvert1: PeerAdvertisements{
+				PeerID{Name: "peer-1", Address: "10.0.0.1"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
+					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
+				},
+			},
+			peerAdvert2: PeerAdvertisements{
+				PeerID{Name: "peer-1", Address: "10.0.0.99"}: map[v2alpha1.CiliumBGPFamily][]v2alpha1.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
+					{Afi: "ipv6", Safi: "unicast"}: {bluePodCIDRAdvert},
 				},
 			},
 			expectedEqual: false,
