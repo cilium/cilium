@@ -1496,6 +1496,9 @@
         "install": {
           "type": "boolean"
         },
+        "iptablesRemoveAWSRules": {
+          "type": "boolean"
+        },
         "logFile": {
           "type": "string"
         },
