@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -19,10 +20,16 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+// PeerID identifies the peer within the instance.
+type PeerID struct {
+	Name    string
+	Address string
+}
+
 type (
 	// PeerAdvertisements is a map of peer name to its family advertisements
 	// This is the top level map that is returned to the consumer with requested advertisements.
-	PeerAdvertisements       map[string]PeerFamilyAdvertisements
+	PeerAdvertisements       map[PeerID]PeerFamilyAdvertisements
 	PeerFamilyAdvertisements map[v2.CiliumBGPFamily][]v2.BGPAdvertisement // key is the address family type
 )
 
@@ -88,7 +95,11 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGP
 		if err != nil {
 			return nil, err
 		}
-		result[peer.Name] = peerAdverts
+		id := PeerID{
+			Name:    peer.Name,
+			Address: ptr.Deref(peer.PeerAddress, ""),
+		}
+		result[id] = peerAdverts
 	}
 	return result, nil
 }

@@ -615,6 +615,11 @@ var (
 		},
 	}
 
+	testPeerID = PeerID{
+		Name:    "red-peer-65001",
+		Address: "10.10.10.1",
+	}
+
 	eps1Local = &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1",
@@ -731,7 +736,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
 						{Afi: "ipv6", Safi: "unicast"}: nil,
 					},
@@ -749,7 +754,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(mismatchSvcSelector),
 						},
@@ -785,7 +790,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -821,7 +826,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector, aggregation),
 						},
@@ -858,7 +863,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -895,7 +900,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -918,7 +923,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -941,7 +946,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1018,7 +1023,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
 						{Afi: "ipv6", Safi: "unicast"}: nil,
 					},
@@ -1036,7 +1041,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(mismatchSvcSelector),
 						},
@@ -1072,7 +1077,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1108,7 +1113,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector, aggregation),
 						},
@@ -1145,7 +1150,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1182,7 +1187,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1205,7 +1210,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1273,7 +1278,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							externalSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes),
 							externalSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes2),
@@ -1354,7 +1359,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
 						{Afi: "ipv6", Safi: "unicast"}: nil,
 					},
@@ -1372,7 +1377,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(mismatchSvcSelector),
 						},
@@ -1408,7 +1413,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1444,7 +1449,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector, aggregation),
 						},
@@ -1481,7 +1486,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1518,7 +1523,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1541,7 +1546,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelector(redSvcSelector),
 						},
@@ -1609,7 +1614,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							clusterIPSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes),
 							clusterIPSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes2),
@@ -1691,7 +1696,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
 						{Afi: "ipv6", Safi: "unicast"}: nil,
 					},
@@ -1735,7 +1740,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -1813,7 +1818,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -1866,7 +1871,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -1933,7 +1938,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -2079,7 +2084,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -2147,7 +2152,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -2203,7 +2208,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -2245,7 +2250,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							{
 								AdvertisementType: v2.BGPServiceAdvert,
@@ -2335,7 +2340,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 					},
 				},
 				ServiceAdvertisements: PeerAdvertisements{
-					"red-peer-65001": PeerFamilyAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
 							lbSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes),
 							lbSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes2),
