@@ -85,7 +85,11 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 
 			// Run tests for skipRedirectFromBackend=true policies regardless of SocketLB
 			if s.skipRedirectFromBackend && len(ipv6SkipTruePolicies) > 0 {
-				s.runTestsForIPFamily(ctx, t, ipv6SkipTruePolicies, ipFamily)
+				if versioncheck.MustCompile(">=1.17.3")(t.Context().CiliumVersion) {
+					s.runTestsForIPFamily(ctx, t, ipv6SkipTruePolicies, ipFamily)
+				} else {
+					t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=true. It works with >=1.17.3.")
+				}
 			}
 
 			// Run tests for skipRedirectFromBackend=false policies only if SocketLB is fully functional
