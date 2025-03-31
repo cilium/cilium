@@ -501,7 +501,7 @@ func (m *Multicast) AddAllNodes() error {
 				}
 			}
 			if cnt == 0 {
-				fmt.Fprintf(m.params.Writer, "Unable to add any node to multicast group %s in %s\n", m.params.MulticastGroupIP, pod.Spec.NodeName)
+				fmt.Fprintf(m.params.Writer, "No available nodes to be added to multicast group %s in %s\n", m.params.MulticastGroupIP, pod.Spec.NodeName)
 				return
 			}
 			if cnt == 1 {
