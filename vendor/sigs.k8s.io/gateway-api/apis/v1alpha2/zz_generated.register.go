@@ -23,8 +23,8 @@ package v1alpha2
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GroupName specifies the group name used to register the objects.
@@ -61,8 +61,6 @@ func init() {
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&BackendLBPolicy{},
-		&BackendLBPolicyList{},
 		&GRPCRoute{},
 		&GRPCRouteList{},
 		&ReferenceGrant{},
