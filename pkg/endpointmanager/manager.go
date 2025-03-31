@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -100,6 +101,8 @@ type endpointManager struct {
 
 	// Allocator for local endpoint identifiers.
 	epIDAllocator *epIDAllocator
+
+	monitorAgent monitoragent.Agent
 }
 
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
@@ -107,7 +110,7 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent) *endpointManager {
 	mgr := endpointManager{
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
@@ -118,6 +121,7 @@ func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, 
 		controllers:                  controller.NewManager(),
 		localNodeStore:               lns,
 		epIDAllocator:                newEPIDAllocator(),
+		monitorAgent:                 monitorAgent,
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 	mgr.policyMapPressure = newPolicyMapPressure()
@@ -457,6 +461,10 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 	mgr.unexpose(ep)
 	result := ep.Delete(conf)
 
+	if !option.Config.DryMode {
+		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
+	}
+
 	mgr.mutex.RLock()
 	for s := range mgr.subscribers {
 		s.EndpointDeleted(ep, conf)
@@ -712,6 +720,10 @@ func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	err = mgr.expose(ep)
 	if err != nil {
 		return err
+	}
+
+	if !option.Config.DryMode {
+		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointCreateMessage(ep))
 	}
 
 	mgr.mutex.RLock()
