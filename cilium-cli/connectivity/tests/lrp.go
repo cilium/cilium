@@ -44,13 +44,6 @@ func (s lrp) Name() string {
 	return "lrp"
 }
 
-func getIPFamily(ip string) features.IPFamily {
-	if strings.Contains(ip, ":") {
-		return features.IPFamilyV6
-	}
-	return features.IPFamilyV4
-}
-
 func (s lrp) Run(ctx context.Context, t *check.Test) {
 	policies := make([]*v2.CiliumLocalRedirectPolicy, 0, len(t.CiliumLocalRedirectPolicies()))
 
@@ -67,7 +60,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 		var familyPolicies []*v2.CiliumLocalRedirectPolicy
 		for _, policy := range policies {
 			frontendIP := policy.Spec.RedirectFrontend.AddressMatcher.IP
-			if getIPFamily(frontendIP) == ipFamily {
+			if features.GetIPFamily(frontendIP) == ipFamily {
 				familyPolicies = append(familyPolicies, policy)
 			}
 		}
@@ -91,14 +84,14 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 			}
 
 			// Run tests for skipRedirectFromBackend=true policies regardless of SocketLB
-			if len(ipv6SkipTruePolicies) > 0 {
+			if s.skipRedirectFromBackend && len(ipv6SkipTruePolicies) > 0 {
 				s.runTestsForIPFamily(ctx, t, ipv6SkipTruePolicies, ipFamily)
 			}
 
 			// Run tests for skipRedirectFromBackend=false policies only if SocketLB is fully functional
-			if len(ipv6SkipFalsePolicies) > 0 {
-				if !isSocketLBFull(t.Context()) {
-					t.Logf("Skipping IPv6 tests for policies with skipRedirectFromBackend=false due to SocketLB not being fully functional")
+			if !s.skipRedirectFromBackend && len(ipv6SkipFalsePolicies) > 0 {
+				if !t.Context().IsSocketLBFull() {
+					t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=false due to SocketLB not being fully functional")
 				} else {
 					s.runTestsForIPFamily(ctx, t, ipv6SkipFalsePolicies, ipFamily)
 				}
@@ -122,10 +115,7 @@ func (s lrp) runTestsForIPFamily(ctx context.Context, t *check.Test, policies []
 		// Check for LRP backend pods deployed on nodes in the cluster.
 		for _, pod := range t.Context().LrpBackendPods() {
 			node := pod.NodeName()
-			podIP := pod.Pod.Status.PodIP
-			if ipFamily == features.IPFamilyV6 {
-				podIP = pod.Pod.Status.PodIPs[1].IP
-			}
+			podIP := getPodIP(pod, ipFamily)
 			if _, ok := lrpBackendsMap[node]; !ok {
 				lrpBackendsMap[node] = []string{podIP}
 				continue
@@ -179,13 +169,29 @@ func (s lrp) runTestsForIPFamily(ctx context.Context, t *check.Test, policies []
 	}
 }
 
-func isSocketLBFull(ct *check.ConnectivityTest) bool {
-	socketLBEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLB))
-	if socketLBEnabled {
-		socketLBHostnsOnly, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLBHostnsOnly))
-		return !socketLBHostnsOnly
+func getPodIP(pod check.Pod, ipFamily features.IPFamily) string {
+	matchesFamily := func(ipStr string) bool {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return false
+		}
+		if ipFamily == features.IPFamilyV4 {
+			return ip.To4() != nil
+		}
+		return ip.To4() == nil
 	}
-	return false
+
+	if matchesFamily(pod.Pod.Status.PodIP) {
+		return pod.Pod.Status.PodIP
+	}
+
+	for _, podIP := range pod.Pod.Status.PodIPs {
+		if matchesFamily(podIP.IP) {
+			return podIP.IP
+		}
+	}
+
+	return ""
 }
 
 func WaitForLocalRedirectBPFEntries(ctx context.Context, t *check.Test, frontend string, backendsMap map[string][]string) {
