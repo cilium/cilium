@@ -1129,15 +1129,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 # endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_with_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					     TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					     trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity, ret,
+						ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1172,8 +1173,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 #endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_with_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					     TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					     trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
 							  CILIUM_CALL_IPV4_FROM_NETDEV,
@@ -1184,8 +1186,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity, ret,
+						ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,

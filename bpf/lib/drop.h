@@ -45,7 +45,7 @@ struct drop_notify {
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |                       Destination Label                       |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |  Error Code   | Extended Error|            Unused             |
+ *     |  Error Code   | Extended Error|      Flags     |    Unused    |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |             Designated Destination Endpoint ID                |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -90,7 +90,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
-		.flags          = __get_common_trace_flags(ctx),
+		.flags          = (__u8)(error >> 16),
 	};
 
 	ctx_event_output(ctx, &cilium_events,
@@ -182,6 +182,11 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
 
+#define __DROP_REASON_EXT_FLAGS(err, ext_err, ctx, flags) ({ \
+	flags = ((__u8)(flags) | __get_common_trace_flags(ctx)); \
+	__DROP_REASON_EXT(err, ext_err) | (flags << 16); \
+})
+
 #define send_drop_notify(ctx, src, dst, dst_id, reason, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
 			  __DROP_REASON(reason), CTX_ACT_DROP, direction)
@@ -198,6 +203,7 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), CTX_ACT_DROP, direction)
 
-#define send_drop_notify_error_with_exitcode_ext(ctx, src, reason, ext_err, exitcode, direction) \
+#define send_drop_notify_error_with_exitcode_ext_flags(ctx, src, reason, ext_err, \
+				exitcode, direction, flags) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+			  __DROP_REASON_EXT_FLAGS(reason, ext_err, ctx, flags), exitcode, direction)
