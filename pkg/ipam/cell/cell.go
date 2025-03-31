@@ -52,10 +52,15 @@ type ipamParams struct {
 	IPAMMetadataManager ipamMetadata.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Sysctl              sysctl.Sysctl
+	EndpointManager     endpointmanager.EndpointManager
 }
 
 func newIPAddressManager(params ipamParams) *ipam.IPAM {
-	return ipam.NewIPAM(params.Logger, params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
+	ipam := ipam.NewIPAM(params.Logger, params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
+
+	params.EndpointManager.Subscribe(ipam)
+
+	return ipam
 }
 
 type ipamAPIHandlerParams struct {

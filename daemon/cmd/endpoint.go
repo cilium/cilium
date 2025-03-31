@@ -876,21 +876,6 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	if !option.Config.DryMode {
 		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
 	}
-
-	if !conf.NoIPRelease {
-		if option.Config.EnableIPv4 {
-			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice(), ipam.PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
-				scopedLog := ep.Logger(daemonSubsys).WithError(err)
-				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
-			}
-		}
-	}
 }
 
 // EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
