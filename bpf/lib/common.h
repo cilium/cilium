@@ -1270,3 +1270,31 @@ struct skip_lb6_key {
 #define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
 
 #include "overloadable.h"
+
+/* Additional flags associated to trace/drop events.
+ * These are used from Monitor/Hubble to:
+ * 1. infer the correct packet decoder;
+ * 2. report additional flow information.
+ */
+enum {
+	TRACE_FLAG_IPV6 = 0x1,
+	TRACE_FLAG_L3_DEV = 0x2,
+};
+
+static __always_inline __u8 __get_common_trace_flags(struct __ctx_buff *ctx __maybe_unused)
+{
+	__u8 flags = 0;
+
+#if defined(IS_BPF_WIREGUARD) || (defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD))
+#if defined(IS_BPF_HOST)
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+#endif
+	{
+		flags |= TRACE_FLAG_L3_DEV;
+		if (ctx->protocol == bpf_htons(ETH_P_IPV6))
+			flags |= TRACE_FLAG_IPV6;
+	}
+#endif
+
+	return flags;
+}
