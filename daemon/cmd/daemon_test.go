@@ -58,6 +58,7 @@ type DaemonSuite struct {
 	oldPolicyEnabled string
 
 	PolicyImporter policycell.PolicyImporter
+	envoyXdsServer envoy.XDSServer
 }
 
 func setupTestDirectories() string {
@@ -138,6 +139,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		}),
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
+		}),
+		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
+			ds.envoyXdsServer = envoyXdsServer
 		}),
 	)
 

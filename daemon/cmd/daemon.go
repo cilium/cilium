@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
@@ -96,7 +95,6 @@ type Daemon struct {
 	epBuildQueue      endpoint.EndpointBuildQueue
 	l7Proxy           *proxy.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
-	envoyXdsServer    envoy.XDSServer
 	svc               service.ServiceManager
 	policy            policy.PolicyRepository
 	idmgr             identitymanager.IDManager
@@ -390,7 +388,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		svc:               params.ServiceManager,
 		l7Proxy:           params.L7Proxy,
 		proxyAccessLogger: params.ProxyAccessLogger,
-		envoyXdsServer:    params.EnvoyXdsServer,
 		authManager:       params.AuthManager,
 		settings:          params.Settings,
 		bigTCPConfig:      params.BigTCPConfig,
