@@ -1,0 +1,26 @@
+{{- if .Values.standaloneDnsProxy.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: standalone-dns-proxy-config
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.standaloneDnsProxy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  enable-l7-proxy: {{ .Values.standaloneDnsProxy.l7Proxy | quote }}
+  debug: {{ .Values.standaloneDnsProxy.debug | quote }}
+  enable-standalone-dns-proxy: {{ .Values.standaloneDnsProxy.enabled | quote }}
+  enable-ipv4: {{ .Values.ipv4.enabled | quote }}
+  enable-ipv6: {{ .Values.ipv6.enabled | quote }}
+  tofqdns-proxy-port: {{ .Values.standaloneDnsProxy.proxyPort | quote }}
+  tofqdns-server-port: {{ .Values.standaloneDnsProxy.serverPort | quote }}
+  tofqdns-enable-dns-compression: {{ .Values.standaloneDnsProxy.dnsCompression | quote }}
+{{- end }}

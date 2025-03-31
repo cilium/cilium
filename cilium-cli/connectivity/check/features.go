@@ -80,6 +80,11 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		Enabled: isFeatureKNPEnabled,
 	}
 
+	// Embedded DNS proxy is enabled by default, so we only need to set it if it's disabled
+	result[features.EmbeddedDNSProxy] = features.Status{
+		Enabled: cfg.EnableEmbeddedDNSProxy,
+	}
+
 	return nil
 }
 

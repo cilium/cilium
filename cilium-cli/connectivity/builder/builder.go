@@ -33,6 +33,9 @@ var (
 	//go:embed manifests/client-egress-to-fqdns.yaml
 	clientEgressToFQDNsPolicyYAML string
 
+	//go:embed manifests/client-egress-standalone-dns-proxy.yaml
+	clientEgressStandaloneDNSProxyYAML string
+
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
 
@@ -217,6 +220,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		allEntitiesDeny{},
 		clusterEntity{},
 		clusterEntityMultiCluster{},
+		checkStandaloneDnsProxy{},
 		hostEntityEgress{},
 		hostEntityIngress{},
 		echoIngress{},
@@ -321,6 +325,7 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 		"clientEgressL7HTTPExternalYAML":                     clientEgressL7HTTPExternalYAML,
 		"clientEgressNodeLocalDNSYAML":                       clientEgressNodeLocalDNSYAML,
 		"clientEgressOnlyDNSPolicyYAML":                      clientEgressOnlyDNSPolicyYAML,
+		"clientEgressStandaloneDNSProxyYAML":                 clientEgressStandaloneDNSProxyYAML,
 		"echoIngressFromCIDRYAML":                            echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                 denyCIDRPolicyYAML,
 	}
