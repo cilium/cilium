@@ -4,20 +4,123 @@
 package policy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
 	"runtime"
+	"strings"
 
 	"github.com/sirupsen/logrus"
+
+	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// PolicyContext is an interface policy resolution functions use to access the Repository.
+// This way testing code can run without mocking a full Repository.
+type PolicyContext interface {
+	// return the namespace in which the policy rule is being resolved
+	GetNamespace() string
+
+	// return the SelectorCache
+	GetSelectorCache() *SelectorCache
+
+	// GetTLSContext resolves the given 'api.TLSContext' into CA
+	// certs and the public and private keys, using secrets from
+	// k8s or from the local file system.
+	GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error)
+
+	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
+	// the protobuf representation the Envoy can consume. The bool
+	// return parameter tells whether the rule enforcement can
+	// be short-circuited upon the first allowing rule. This is
+	// false if any of the rules has side-effects, requiring all
+	// such rules being evaluated.
+	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
+
+	// IsDeny returns true if the policy computation should be done for the
+	// policy deny case. This function returns different values depending on the
+	// code path as it can be changed during the policy calculation.
+	IsDeny() bool
+
+	// SetDeny sets the Deny field of the PolicyContext and returns the old
+	// value stored.
+	SetDeny(newValue bool) (oldValue bool)
+
+	GetLogger() *slog.Logger
+
+	PolicyTrace(format string, a ...any)
+}
+
+type policyContext struct {
+	repo *Repository
+	ns   string
+	// isDeny this field is set to true if the given policy computation should
+	// be done for the policy deny.
+	isDeny bool
+
+	logger       *slog.Logger
+	traceEnabled bool
+}
+
+var _ PolicyContext = &policyContext{}
+
+// GetNamespace() returns the namespace for the policy rule being resolved
+func (p *policyContext) GetNamespace() string {
+	return p.ns
+}
+
+// GetSelectorCache() returns the selector cache used by the Repository
+func (p *policyContext) GetSelectorCache() *SelectorCache {
+	return p.repo.GetSelectorCache()
+}
+
+// GetTLSContext() returns data for TLS Context via a CertificateManager
+func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error) {
+	if p.repo.certManager == nil {
+		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
+	}
+	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
+}
+
+func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
+	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
+}
+
+// IsDeny returns true if the policy computation should be done for the
+// policy deny case. This function return different values depending on the
+// code path as it can be changed during the policy calculation.
+func (p *policyContext) IsDeny() bool {
+	return p.isDeny
+}
+
+// SetDeny sets the Deny field of the PolicyContext and returns the old
+// value stored.
+func (p *policyContext) SetDeny(deny bool) bool {
+	oldDeny := p.isDeny
+	p.isDeny = deny
+	return oldDeny
+}
+
+func (p *policyContext) GetLogger() *slog.Logger {
+	return p.logger
+}
+
+func (p *policyContext) PolicyTrace(format string, a ...any) {
+	if p.logger == nil || !p.traceEnabled {
+		return
+	}
+	format = strings.TrimRight(format, " \t\n")
+	p.logger.Info(fmt.Sprintf(format, a...))
+}
 
 // SelectorPolicy represents a selectorPolicy, previously resolved from
 // the policy repository and ready to be distilled against a set of identities

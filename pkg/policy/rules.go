@@ -17,8 +17,7 @@ type ruleSlice []*rule
 func (rules ruleSlice) resolveL4IngressPolicy(logger *slog.Logger, policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
-	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
+	policyCtx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
 
 	state := traceState{}
 	var matchedRules ruleSlice
@@ -56,7 +55,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(logger *slog.Logger, policyCtx Pol
 		state.ruleID++
 	}
 
-	state.trace(len(rules), ctx)
+	state.trace(len(rules), policyCtx)
 
 	// Restore ctx in case caller uses it again.
 	ctx.rulesSelect = oldRulesSelect
@@ -67,8 +66,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(logger *slog.Logger, policyCtx Pol
 func (rules ruleSlice) resolveL4EgressPolicy(logger *slog.Logger, policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
-	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving egress policy for %+v\n", ctx.From)
+	policyCtx.PolicyTrace("solving egress policy for %+v\n", ctx.From)
 
 	state := traceState{}
 	var matchedRules ruleSlice
@@ -107,7 +105,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(logger *slog.Logger, policyCtx Poli
 		state.ruleID++
 	}
 
-	state.trace(len(rules), ctx)
+	state.trace(len(rules), policyCtx)
 
 	// Restore ctx in case caller uses it again.
 	ctx.rulesSelect = oldRulesSelect

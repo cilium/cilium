@@ -4,9 +4,7 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -31,83 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
-
-// PolicyContext is an interface policy resolution functions use to access the Repository.
-// This way testing code can run without mocking a full Repository.
-type PolicyContext interface {
-	// return the namespace in which the policy rule is being resolved
-	GetNamespace() string
-
-	// return the SelectorCache
-	GetSelectorCache() *SelectorCache
-
-	// GetTLSContext resolves the given 'api.TLSContext' into CA
-	// certs and the public and private keys, using secrets from
-	// k8s or from the local file system.
-	GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error)
-
-	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
-	// the protobuf representation the Envoy can consume. The bool
-	// return parameter tells whether the rule enforcement can
-	// be short-circuited upon the first allowing rule. This is
-	// false if any of the rules has side-effects, requiring all
-	// such rules being evaluated.
-	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
-
-	// IsDeny returns true if the policy computation should be done for the
-	// policy deny case. This function returns different values depending on the
-	// code path as it can be changed during the policy calculation.
-	IsDeny() bool
-
-	// SetDeny sets the Deny field of the PolicyContext and returns the old
-	// value stored.
-	SetDeny(newValue bool) (oldValue bool)
-}
-
-type policyContext struct {
-	repo *Repository
-	ns   string
-	// isDeny this field is set to true if the given policy computation should
-	// be done for the policy deny.
-	isDeny bool
-}
-
-// GetNamespace() returns the namespace for the policy rule being resolved
-func (p *policyContext) GetNamespace() string {
-	return p.ns
-}
-
-// GetSelectorCache() returns the selector cache used by the Repository
-func (p *policyContext) GetSelectorCache() *SelectorCache {
-	return p.repo.GetSelectorCache()
-}
-
-// GetTLSContext() returns data for TLS Context via a CertificateManager
-func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error) {
-	if p.repo.certManager == nil {
-		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
-	}
-	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
-}
-
-func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
-	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
-}
-
-// IsDeny returns true if the policy computation should be done for the
-// policy deny case. This function return different values depending on the
-// code path as it can be changed during the policy calculation.
-func (p *policyContext) IsDeny() bool {
-	return p.isDeny
-}
-
-// SetDeny sets the Deny field of the PolicyContext and returns the old
-// value stored.
-func (p *policyContext) SetDeny(deny bool) bool {
-	oldDeny := p.isDeny
-	p.isDeny = deny
-	return oldDeny
-}
 
 type PolicyRepository interface {
 	BumpRevision() uint64
@@ -229,20 +150,20 @@ type traceState struct {
 	ruleID int
 }
 
-func (state *traceState) trace(rules int, ctx *SearchContext) {
-	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
+func (state *traceState) trace(rules int, policyCtx PolicyContext) {
+	policyCtx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
 	if state.constrainedRules > 0 {
-		ctx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
+		policyCtx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
 	} else {
 		if state.matchedRules > 0 {
-			ctx.PolicyTrace("Found allow rule\n")
+			policyCtx.PolicyTrace("Found allow rule\n")
 		} else {
-			ctx.PolicyTrace("Found no allow rule\n")
+			policyCtx.PolicyTrace("Found no allow rule\n")
 		}
 		if state.matchedDenyRules > 0 {
-			ctx.PolicyTrace("Found deny rule\n")
+			policyCtx.PolicyTrace("Found deny rule\n")
 		} else {
-			ctx.PolicyTrace("Found no deny rule\n")
+			policyCtx.PolicyTrace("Found no deny rule\n")
 		}
 	}
 }
@@ -432,14 +353,11 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		rulesSelect: true,
 	}
 
-	if option.Config.TracingEnabled() {
-		ingressCtx.Trace = TRACE_ENABLED
-		egressCtx.Trace = TRACE_ENABLED
-	}
-
 	policyCtx := policyContext{
-		repo: p,
-		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:         p,
+		ns:           lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		traceEnabled: option.Config.TracingEnabled(),
+		logger:       p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
 	if ingressEnabled {
