@@ -801,8 +801,18 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies")
 	option.BindEnv(vp, option.ToFQDNsMinTTL)
 
+	flags.Bool(option.EnableStandaloneDNSProxy, false, "Enables standalone DNS proxy.")
+	option.BindEnv(vp, option.EnableStandaloneDNSProxy)
+
+	flags.Bool(option.EnableEmbeddedDNSProxy, true, "Enables embedded DNS proxy.")
+	flags.MarkHidden(option.EnableEmbeddedDNSProxy)
+	option.BindEnv(vp, option.EnableEmbeddedDNSProxy)
+
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	option.BindEnv(vp, option.ToFQDNsProxyPort)
+
+	flags.Int(option.ToFQDNsServerPort, 40045, "Global port on which the gRPC server for standalone DNS proxy should listen.")
+	option.BindEnv(vp, option.ToFQDNsServerPort)
 
 	flags.String(option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
 	option.BindEnv(vp, option.FQDNRejectResponseCode)
