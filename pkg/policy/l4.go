@@ -1223,7 +1223,7 @@ func addL4Filter(policyCtx PolicyContext,
 	}
 
 	selectorCache := policyCtx.GetSelectorCache()
-	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
+	if err := mergePortProto(policyCtx, existingFilter, filterToMerge, selectorCache); err != nil {
 		filterToMerge.detach(selectorCache)
 		return err
 	}
