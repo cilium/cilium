@@ -130,44 +130,6 @@ func NewPolicyRepository(
 	return repo
 }
 
-// traceState is an internal structure used to collect information
-// while determining policy decision
-type traceState struct {
-	// selectedRules is the number of rules with matching EndpointSelector
-	selectedRules int
-
-	// matchedRules is the number of rules that have allowed traffic
-	matchedRules int
-
-	// matchedDenyRules is the number of rules that have denied traffic
-	matchedDenyRules int
-
-	// constrainedRules counts how many "FromRequires" constraints are
-	// unsatisfied
-	constrainedRules int
-
-	// ruleID is the rule ID currently being evaluated
-	ruleID int
-}
-
-func (state *traceState) trace(rules int, policyCtx PolicyContext) {
-	policyCtx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
-	if state.constrainedRules > 0 {
-		policyCtx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
-	} else {
-		if state.matchedRules > 0 {
-			policyCtx.PolicyTrace("Found allow rule\n")
-		} else {
-			policyCtx.PolicyTrace("Found no allow rule\n")
-		}
-		if state.matchedDenyRules > 0 {
-			policyCtx.PolicyTrace("Found deny rule\n")
-		} else {
-			policyCtx.PolicyTrace("Found no deny rule\n")
-		}
-	}
-}
-
 func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
@@ -342,26 +304,15 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		EgressPolicyEnabled:  egressEnabled,
 	}
 
-	lbls := securityIdentity.LabelArray
-	ingressCtx := SearchContext{
-		To:          lbls,
-		rulesSelect: true,
-	}
-
-	egressCtx := SearchContext{
-		From:        lbls,
-		rulesSelect: true,
-	}
-
 	policyCtx := policyContext{
 		repo:         p,
-		ns:           lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		ns:           securityIdentity.LabelArray.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 		traceEnabled: option.Config.TracingEnabled(),
 		logger:       p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(p.logger, &policyCtx, &ingressCtx)
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +320,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(p.logger, &policyCtx, &egressCtx)
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
