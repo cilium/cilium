@@ -1330,3 +1330,12 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {
 		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
 		ct.params.MultiCluster == ""
 }
+
+func (ct *ConnectivityTest) IsSocketLBFull() bool {
+	socketLBEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLB))
+	if socketLBEnabled {
+		socketLBHostnsOnly, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLBHostnsOnly))
+		return !socketLBHostnsOnly
+	}
+	return false
+}

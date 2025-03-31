@@ -30,7 +30,7 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {
 			if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
-				if isSocketLBFull(ct) || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+				if ct.IsSocketLBFull() || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
 					return true
 				}
 			}
@@ -80,13 +80,4 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 			}
 			return check.ResultOK, check.ResultNone
 		})
-}
-
-func isSocketLBFull(ct *check.ConnectivityTest) bool {
-	socketLBEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLB))
-	if socketLBEnabled {
-		socketLBHostnsOnly, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.KPRSocketLBHostnsOnly))
-		return !socketLBHostnsOnly
-	}
-	return false
 }
