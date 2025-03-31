@@ -12,8 +12,10 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -121,6 +123,25 @@ type IPAM struct {
 	nodeDiscovery  Owner
 	sysctl         sysctl.Sysctl
 }
+
+func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
+
+func (ipam *IPAM) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	if !conf.NoIPRelease {
+		if option.Config.EnableIPv4 {
+			if err := ipam.ReleaseIP(ep.IPv4.AsSlice(), PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
+				ipam.logger.Warn("Unable to release IPv4 address during endpoint deletion", logfields.Error, err)
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := ipam.ReleaseIP(ep.IPv6.AsSlice(), PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
+				ipam.logger.Warn("Unable to release IPv6 address during endpoint deletion", logfields.Error, err)
+			}
+		}
+	}
+}
+
+func (ipam *IPAM) EndpointRestored(ep *endpoint.Endpoint) {}
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability
