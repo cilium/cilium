@@ -12,7 +12,7 @@ spec:
     - matchName: "api.github.com"  
   - toEndpoints:
     - matchLabels:
-        "k8s:io.kubernetes.pod.namespace": openshift-dns
+        "k8s.io.kubernetes.pod.namespace": openshift-dns
     toPorts:
     - ports:
       - port: "5353"

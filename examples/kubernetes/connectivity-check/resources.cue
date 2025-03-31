@@ -224,14 +224,14 @@ egressCNP: [ID=_]: _cnp & {
 				toEndpoints: [
 					{
 						matchLabels: {
-							"k8s:io.kubernetes.pod.namespace": "kube-system"
+							"k8s.io.kubernetes.pod.namespace": "kube-system"
 							"k8s:k8s-app":                     "kube-dns"
 						}
 					},
 					{
 						// Allows connectivity to NodeLocal DNSCache when deployed with Local Redirect Policy.
 						matchLabels: {
-							"k8s:io.kubernetes.pod.namespace": "kube-system"
+							"k8s.io.kubernetes.pod.namespace": "kube-system"
 							"k8s:k8s-app":                     "node-local-dns"
 						}
 					},
@@ -249,7 +249,7 @@ egressCNP: [ID=_]: _cnp & {
 			{
 				toEndpoints: [{
 					matchLabels: {
-						"k8s:io.kubernetes.pod.namespace":             "openshift-dns"
+						"k8s.io.kubernetes.pod.namespace":             "openshift-dns"
 						"k8s:dns.operator.openshift.io/daemonset-dns": "default"
 					}
 				}]

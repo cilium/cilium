@@ -46,7 +46,7 @@ specs:
 - egress:
   - toEndpoints:
     - matchExpressions:
-      - key: k8s:io.kubernetes.pod.namespace
+      - key: k8s.io.kubernetes.pod.namespace
         operator: Exists
   - toEntities:
     - cluster
