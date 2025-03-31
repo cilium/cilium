@@ -37,10 +37,7 @@ type handlersOut struct {
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 
-	PolicyGetIdentityEndpointsHandler policy.GetIdentityEndpointsHandler
-	PolicyGetIdentityHandler          policy.GetIdentityHandler
-	PolicyGetIdentityIDHandler        policy.GetIdentityIDHandler
-	PolicyGetIPHandler                policy.GetIPHandler
+	PolicyGetIPHandler policy.GetIPHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -105,13 +102,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /endpoint/{id}/healthz
 	out.EndpointGetEndpointIDHealthzHandler = wrapAPIHandler(dp, getEndpointIDHealthzHandler)
-
-	// /identity/
-	out.PolicyGetIdentityHandler = wrapAPIHandler(dp, getIdentityHandler)
-	out.PolicyGetIdentityIDHandler = wrapAPIHandler(dp, getIdentityIDHandler)
-
-	// /identity/endpoints
-	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)

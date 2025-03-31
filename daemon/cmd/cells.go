@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/gops"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
+	identityapi "github.com/cilium/cilium/pkg/identity/api"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -184,6 +185,9 @@ var (
 		// IdentityManager maintains the set of identities and a count of its
 		// users.
 		identitymanager.Cell,
+
+		// IdentityApiHandler provides the Identity Cilium API
+		identityapi.Cell,
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
