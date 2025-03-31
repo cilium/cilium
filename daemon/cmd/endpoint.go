@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -864,35 +863,6 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 	}
 
 	return nErrors, nil
-}
-
-// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
-// which works around the difficulties in initializing various subsystems
-// involved in managing endpoints, such as the EndpointManager, IPAM and
-// the Monitor.
-//
-// It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
-func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
-	if !option.Config.DryMode {
-		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
-	}
-}
-
-// EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
-// allowing the EndpointManager to be the primary implementer of the core
-// endpoint management functionality while deferring other responsibilities
-// to the daemon.
-//
-// It is called after Daemon calls into d.endpointManager.AddEndpoint().
-func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
-	if !option.Config.DryMode {
-		_ = d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointCreateMessage(ep))
-	}
-}
-
-// EndpointRestored implements endpointmanager.Subscriber.
-func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
-	// No-op
 }
 
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {

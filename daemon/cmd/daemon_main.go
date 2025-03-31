@@ -1784,9 +1784,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		time.Sleep(option.Config.IdentityRestoreGracePeriod)
 		d.releaseRestoredIdentities()
 	}()
-	d.endpointManager.Subscribe(d)
-	// Add the endpoint manager unsubscribe as the last step in cleanup
-	defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
 
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
