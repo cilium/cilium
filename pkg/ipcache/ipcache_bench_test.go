@@ -25,7 +25,6 @@ func (d *dummyOwner) GetNodeSuffix() string {
 }
 
 func BenchmarkInjectLabels(b *testing.B) {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	alloc := cache.NewCachingIdentityAllocator(&dummyOwner{}, cache.AllocatorConfig{})
 	//<-alloc.InitIdentityAllocator(nil)
@@ -41,9 +40,10 @@ func BenchmarkInjectLabels(b *testing.B) {
 
 	addr := netip.MustParseAddr("1.0.0.0")
 	lbls := labels.NewLabelsFromSortedList(labels.LabelSourceCIDRGroup + ":foo=bar")
-	b.ResetTimer()
-
 	prefixes := make([]cmtypes.PrefixCluster, 0, b.N)
+
+	b.ReportAllocs()
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		pfx := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(addr, 30))

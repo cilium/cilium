@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"sync"
@@ -705,7 +706,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 	ipc.metadata.mergeParentLabels(lbls, prefix)
 
 	// Enforce certain label invariants, e.g. adding or removing `reserved:world`.
-	lbls = resolveLabels(prefix, lbls)
+	resolveLabels(lbls, prefix)
 
 	if prefix.ClusterID() == 0 && lbls.HasHostLabel() {
 		// Associate any new labels with the host identity.
@@ -768,9 +769,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 //
 // However, nodes *are* allowed to be selectable by CIDR and CIDR equivalents
 // if PolicyCIDRMatchesNodes() is true.
-func resolveLabels(prefix cmtypes.PrefixCluster, lbls labels.Labels) labels.Labels {
-	out := labels.NewFrom(lbls)
-
+func resolveLabels(lbls labels.Labels, prefix cmtypes.PrefixCluster) {
 	isNode := lbls.HasRemoteNodeLabel() || lbls.HasHostLabel()
 
 	isInCluster := (isNode ||
@@ -779,37 +778,35 @@ func resolveLabels(prefix cmtypes.PrefixCluster, lbls labels.Labels) labels.Labe
 
 	// In-cluster entities must not have reserved:world.
 	if isInCluster {
-		out.Remove(labels.LabelWorld)
-		out.Remove(labels.LabelWorldIPv4)
-		out.Remove(labels.LabelWorldIPv6)
+		lbls.Remove(labels.LabelWorld)
+		lbls.Remove(labels.LabelWorldIPv4)
+		lbls.Remove(labels.LabelWorldIPv6)
 	}
 
 	// In-cluster entities must not have cidr or fqdn labels.
 	// Exception: nodes may, when PolicyCIDRMatchesNodes() is enabled.
 	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
-		out.RemoveFromSource(labels.LabelSourceCIDR)
-		out.RemoveFromSource(labels.LabelSourceFQDN)
-		out.RemoveFromSource(labels.LabelSourceCIDRGroup)
+		lbls.RemoveFromSource(labels.LabelSourceCIDR)
+		lbls.RemoveFromSource(labels.LabelSourceFQDN)
+		lbls.RemoveFromSource(labels.LabelSourceCIDRGroup)
 	}
 
 	// Remove all labels with source `node:`, unless this is a node *and* node labels are enabled.
 	if !(isNode && option.Config.PerNodeLabelsEnabled()) {
-		out.RemoveFromSource(labels.LabelSourceNode)
+		lbls.RemoveFromSource(labels.LabelSourceNode)
 	}
 
 	// No empty labels allowed.
 	// Add in (cidr:<address/prefix>) label as a fallback.
 	// This should not be hit in production, but is used in tests.
-	if len(out) == 0 {
-		out = labels.GetCIDRLabels(prefix.AsPrefix())
+	if len(lbls) == 0 {
+		maps.Copy(lbls, labels.GetCIDRLabels(prefix.AsPrefix()))
 	}
 
 	// add world if not in-cluster.
 	if !isInCluster {
-		out.AddWorldLabel(prefix.AsPrefix().Addr())
+		lbls.AddWorldLabel(prefix.AsPrefix().Addr())
 	}
-
-	return out
 }
 
 // updateReservedHostLabels adds or removes labels that apply to the local host.
