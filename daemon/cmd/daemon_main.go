@@ -103,7 +103,6 @@ import (
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -1545,7 +1544,6 @@ type daemonParams struct {
 	L2Announcer         *l2announcer.L2Announcer
 	ServiceManager      service.ServiceManager
 	L7Proxy             *proxy.Proxy
-	ProxyAccessLogger   accesslog.ProxyAccessLogger
 	DB                  *statedb.DB
 	APILimiterSet       *rate.APILimiterSet
 	AuthManager         *auth.AuthManager
