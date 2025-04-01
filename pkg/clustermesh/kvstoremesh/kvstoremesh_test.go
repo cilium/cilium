@@ -534,7 +534,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	)
 
 	dir := t.TempDir()
-	cfg := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+	cfg := fmt.Appendf(nil, "endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "remote"), cfg, 0644))
 
 	// Let's manually create a fake cluster configuration for the remote cluster,
