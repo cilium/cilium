@@ -263,6 +263,9 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 	// Indicates if client received the first response,
 	// but it doesn't necessarily mean that it was ACKed.
 	clientReceivedFirstResponse := false
+	// responseAcked indicates if we already
+	// had some request on this stream that was ACKed by a client.
+	responseAcked := false
 
 	for {
 		// Process either a new request from the xDS stream or a response
@@ -349,6 +352,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				clientReceivedFirstResponse = true
 			}
 
+			if clientReceivedFirstResponse && versionInfo == nonce {
+				// Once we get the first ACK,
+				// we can start using versionInfo for ACKing observers.
+				responseAcked = true
+			}
+
 			if versionInfo > 0 && firstRequest {
 				requestLog.Infof("xDS was restarted, previous versionInfo: %d", versionInfo)
 			}
@@ -363,7 +372,15 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				ackObserver := s.ackObservers[typeURL]
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
+					if !responseAcked {
+						// If we haven't received any ACK, it means that versionInfo
+						// is stale and we can't ACK anything.
+						// Also we can't send versionInfo as it would incorrectly be cached
+						// as last acked version.
+						ackObserver.HandleResourceVersionAck(0, nonce, nodeIP, state.resourceNames, typeURL, detail)
+					} else {
+						ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
+					}
 				} else {
 					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
