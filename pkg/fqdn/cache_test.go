@@ -371,7 +371,7 @@ func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cac
 
 // Note: each "op" works on size things
 func BenchmarkGetIPs(b *testing.B) {
-	b.StopTimer()
+
 	now := time.Now()
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 60)
@@ -379,16 +379,15 @@ func BenchmarkGetIPs(b *testing.B) {
 	for _, entry := range entriesOrig {
 		cache.updateWithEntryIPs(entries, entry)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		entries.getIPs(now)
 	}
 }
 
 // Note: each "op" works on size things
 func BenchmarkUpdateIPs(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StopTimer()
 		now := time.Now()
 		cache := NewDNSCache(0)
@@ -437,7 +436,7 @@ func BenchmarkMarshalJSON1000Repeat2(b *testing.B) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
-	b.StopTimer()
+
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -445,9 +444,8 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := cache.MarshalJSON()
 		require.NoError(b, err)
 	}
@@ -458,7 +456,7 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
-	b.StopTimer()
+
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -470,13 +468,13 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 	data, err := cache.MarshalJSON()
 	require.NoError(b, err)
 
-	emptyCaches := make([]*DNSCache, b.N)
-	for i := 0; i < b.N; i++ {
+	n := b.N
+	emptyCaches := make([]*DNSCache, n)
+	for i := 0; i < n; i++ {
 		emptyCaches[i] = NewDNSCache(0)
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < n; i++ {
 		err := emptyCaches[i].UnmarshalJSON(data)
 		require.NoError(b, err)
 	}

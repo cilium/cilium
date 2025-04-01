@@ -972,14 +972,12 @@ func BenchmarkResource(b *testing.B) {
 	assert.Equal(b, resource.Sync, ev.Kind)
 	ev.Done(nil)
 
-	b.ResetTimer()
-
 	var wg sync.WaitGroup
 
 	// Feed in b.N nodes as watcher events
 	wg.Add(1)
 	go func() {
-		for i := 0; i < b.N; i++ {
+		for i := 0; b.Loop(); i++ {
 			name := fmt.Sprintf("node-%d", i)
 			lw.events <- watch.Event{Type: watch.Added, Object: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -992,7 +990,7 @@ func BenchmarkResource(b *testing.B) {
 	}()
 
 	// Consume the events via the resource
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ev, ok := <-events
 		assert.True(b, ok)
 		assert.Equal(b, resource.Upsert, ev.Kind)

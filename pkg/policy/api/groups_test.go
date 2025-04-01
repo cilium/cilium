@@ -107,8 +107,8 @@ func BenchmarkGetCIDRSet(b *testing.B) {
 	RegisterToGroupsProvider(AWSProvider, cb)
 	group := GetGroupsRule()
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, err := group.GetCidrSet(context.TODO())
 		if err != nil {
 			b.Fatal(err)

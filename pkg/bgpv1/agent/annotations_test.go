@@ -160,8 +160,8 @@ func BenchmarkErrNotVRouterAnnoError(b *testing.B) {
 		a: "foo error",
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = e.Error()
 	}
 }
@@ -171,8 +171,8 @@ func BenchmarkErrErrNoASNAnno(b *testing.B) {
 		a: "foo error",
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = e.Error()
 	}
 }
@@ -184,8 +184,8 @@ func BenchmarkErrASNAnno(b *testing.B) {
 		anno: "foo anno",
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = e.Error()
 	}
 }

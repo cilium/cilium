@@ -172,7 +172,7 @@ func BenchmarkSocketReqSerialize(b *testing.B) {
 		},
 	}
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, req := range requests {
 			req.Serialize()
 		}
@@ -185,7 +185,7 @@ func BenchmarkSocketDeserialize(b *testing.B) {
 		{2, 1, 0, 0, 189, 137, 1, 187, 192, 168, 50, 194, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 151, 99, 52, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 3, 0, 0, 146, 138, 10, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 1, 42, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
 	}
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, buf := range buffers {
 			var sock Socket
 			sock.Deserialize(buf)

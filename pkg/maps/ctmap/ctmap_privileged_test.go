@@ -45,8 +45,8 @@ func BenchmarkMapBatchLookup(b *testing.B) {
 	_ = populateFakeDataCTMap4(b, m, option.CTMapEntriesGlobalTCPDefault)
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		count, err := m.Count(context.TODO())
 		assert.NoError(b, err)
 		assert.Greater(b, count, option.CTMapEntriesGlobalAnyDefault)
@@ -85,7 +85,7 @@ func Benchmark_MapUpdate(b *testing.B) {
 	}
 
 	require.Less(b, b.N, 0xFFFF*0xFFFF)
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		key.DestPort = uint16(i % 0xFFFF)
 		key.SourcePort = uint16(i / 0xFFFF)
 		err := m.Map.Update(key, value)
@@ -852,7 +852,7 @@ func BenchmarkCtGcTcpM(t *testing.B) {
 }
 
 func benchmarkCtGc(t *testing.B, size int) {
-	for range t.N {
+	for t.Loop() {
 		t.StopTimer()
 		setupCTMap(t)
 		// Init maps

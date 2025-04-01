@@ -450,7 +450,7 @@ func benchmarkUnique(b *testing.B, benchUniqueFunc bool) {
 
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				values = values[:cap(values)]
 				copy(values, orig)
@@ -497,7 +497,7 @@ func BenchmarkSubsetOf(b *testing.B) {
 
 				b.ResetTimer()
 
-				for i := 0; i < b.N; i++ {
+				for b.Loop() {
 					_, _ = SubsetOf(subset, superset)
 				}
 			},

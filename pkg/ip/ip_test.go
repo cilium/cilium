@@ -1055,7 +1055,7 @@ func BenchmarkSortAddrList(b *testing.B) {
 	size := 1000
 
 	var lists [][]netip.Addr
-	for range b.N {
+	for b.Loop() {
 		list := make([]netip.Addr, size)
 		for i := range size {
 			bits := r.Uint32()

@@ -540,9 +540,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 		nms[i] = strconv.Itoa(i)
 	}
 
-	b.StopTimer()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ctx, cancel := context.WithCancel(context.Background())
 		allocator := testidentity.NewMockIdentityAllocator(nil)
 		ipcache := NewIPCache(&Configuration{

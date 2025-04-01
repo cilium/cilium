@@ -469,8 +469,7 @@ func BenchmarkExporter(b *testing.B) {
 
 	ctx := b.Context()
 
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		event := &allowEvent
 		if i%10 == 0 { // 10% doesn't match allow filter
 			event = &noAllowEvent

@@ -211,8 +211,6 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	b.StopTimer()
-
 	// For this benchmark, the real linux datapath is necessary to properly
 	// serialize config files to disk and benchmark the restore.
 
@@ -239,9 +237,8 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 
 		epsNames = append(epsNames, ep.DirectoryPath())
 	}
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		eps := ReadEPsFromDirNames(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, nil, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}

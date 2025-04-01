@@ -98,8 +98,7 @@ func benchmarkMoveNewFilesTo(b *testing.B, numFiles int) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := copyExistingState(oldDir, newDir); err != nil {
 			b.Fatal(err)
 		}

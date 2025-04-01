@@ -195,8 +195,8 @@ func BenchmarkParseLabel(b *testing.B) {
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	count := 0
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, test := range tests {
 			if ParseLabel(test.str).Source == LabelSourceUnspec {
 				count++
@@ -510,16 +510,16 @@ func TestLabels_HasSource(t *testing.T) {
 
 func BenchmarkNewFrom(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = NewFrom(lbls)
 	}
 }
 
 func BenchmarkLabels_SortedList(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = lbls.SortedList()
 	}
 }
@@ -527,8 +527,8 @@ func BenchmarkLabels_SortedList(b *testing.B) {
 func BenchmarkLabel_FormatForKVStore(b *testing.B) {
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.FormatForKVStore()
 	}
 }
@@ -536,16 +536,16 @@ func BenchmarkLabel_FormatForKVStore(b *testing.B) {
 func BenchmarkLabel_String(b *testing.B) {
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = l.String()
 	}
 }
 
 func BenchmarkGenerateLabelString(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+
+	for b.Loop() {
 		generateLabelString("foo", "key", "value")
 	}
 }

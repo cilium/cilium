@@ -237,8 +237,7 @@ func benchmarkGetMaglevTable(b *testing.B, m uint64) {
 		backends[i].setHashString()
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		table := ml.GetLookupTable(slices.Values(backends))
 		require.Len(b, table, int(m))
 	}

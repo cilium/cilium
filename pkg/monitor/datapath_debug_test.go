@@ -54,9 +54,8 @@ func BenchmarkNewDecodeDebugCapture(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dbg := &DebugCapture{}
 		if err := DecodeDebugCapture(buf.Bytes(), dbg); err != nil {
 			b.Fatal(err)
@@ -73,9 +72,8 @@ func BenchmarkOldDecodeDebugCapture(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dbg := &DebugCapture{}
 		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, dbg); err != nil {
 			b.Fatal(err)
@@ -124,9 +122,8 @@ func BenchmarkNewDecodeDebugMsg(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dbg := &DebugMsg{}
 		if err := DecodeDebugMsg(buf.Bytes(), dbg); err != nil {
 			b.Fatal(err)
@@ -143,9 +140,8 @@ func BenchmarkOldDecodeDebugMsg(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dbg := &DebugMsg{}
 		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, dbg); err != nil {
 			b.Fatal(err)

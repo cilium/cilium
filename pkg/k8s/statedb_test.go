@@ -579,10 +579,8 @@ func BenchmarkStateDBReflector(b *testing.B) {
 		objs[i] = obj
 	}
 
-	b.ResetTimer()
-
 	// Do n rounds of upserting and deleting [numObjects] to benchmark the throughput
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		for _, obj := range objs {
 			lw.Upsert(obj.DeepCopy())
 		}

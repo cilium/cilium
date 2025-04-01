@@ -699,7 +699,7 @@ func BenchmarkIsConnReady(b *testing.B) {
 	tlog := hivetest.Logger(b)
 	require.NoError(b, h.Start(tlog, ctx))
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		require.NoError(b, isConnReady(clientset))
 	}
 
@@ -751,7 +751,7 @@ func BenchmarkIsConnReadyMultipleAPIServers(b *testing.B) {
 	require.NoError(b, h.Start(tlog, ctx))
 
 	num := 20
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var wg sync.WaitGroup
 		wg.Add(num)
 		for range num {

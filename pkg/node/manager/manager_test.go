@@ -432,13 +432,12 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 	}
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeDeleted(n)
 	}

@@ -1235,9 +1235,8 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	pea := perEPAllow{}
 	c := regexCache{}
 	b.ReportAllocs()
-	b.StopTimer()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for epID := uint64(0); epID < nEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, nil)
 		}
@@ -1352,8 +1351,8 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	pea := perEPAllow{}
 	c := regexCache{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for epID := uint64(0); epID < numEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, rules)
 		}
