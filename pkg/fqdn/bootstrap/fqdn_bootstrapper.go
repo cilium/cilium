@@ -53,6 +53,7 @@ const (
 type FQDNProxyBootstrapper interface {
 	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) error
 	UpdateDNSDatapathRules(ctx context.Context) error
+	CompleteBootstrap()
 }
 
 type fqdnProxyBootstrapper struct {
@@ -418,4 +419,8 @@ func (b *fqdnProxyBootstrapper) notifyOnDNSMsg(
 	b.proxyAccessLogger.Log(record)
 
 	return nil
+}
+
+func (b *fqdnProxyBootstrapper) CompleteBootstrap() {
+	b.nameManager.CompleteBootstrap()
 }
