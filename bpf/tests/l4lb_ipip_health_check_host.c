@@ -73,8 +73,6 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #define TO_NETDEV	0
 
 struct {

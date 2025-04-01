@@ -11,7 +11,6 @@
 #include "pktgen.h"
 
 #define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 
