@@ -530,6 +530,7 @@ Makefile* @cilium/build
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
+/pkg/datapath/sockets/ @cilium/sig-lb
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
 /pkg/dial @cilium/sig-agent
