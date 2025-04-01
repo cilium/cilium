@@ -22,7 +22,7 @@ spec:
           value: "8080"
         ports:
         - containerPort: 8080
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -79,7 +79,7 @@ spec:
         ports:
         - containerPort: 8080
           hostPort: 40000
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -134,7 +134,7 @@ spec:
         - name: PORT
           value: "41000"
         ports: []
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
