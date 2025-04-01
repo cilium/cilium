@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -27,6 +28,8 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(func(sm ServiceManager) syncNodePort { return sm }),
 	cell.Invoke(registerServiceReconciler),
+
+	filter.Cell,
 )
 
 type serviceManagerParams struct {
@@ -42,7 +45,8 @@ type serviceManagerParams struct {
 	Clientset      k8sClient.Clientset
 	NodeNeighbors  types.NodeNeighbors
 
-	Config *option.DaemonConfig
+	Config         *option.DaemonConfig
+	SockTermFilter *filter.SockTermFilterMap
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
