@@ -71,7 +71,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		PolicyHandler:     d.policyRepo.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,
 	})
-	d.nameManager = namemanager.New(namemanager.ManagerParams{
+	ns := namemanager.New(namemanager.ManagerParams{
 		Config: namemanager.NameManagerConfig{
 			MinTTL:            1,
 			DNSProxyLockCount: defaults.DNSProxyLockCount,
@@ -79,9 +79,15 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		},
 		IPCache: d.ipcache,
 	})
+	d.nameManager = ns
 	d.nameManager.CompleteBootstrap()
 	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
-	d.proxyAccessLogger = accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{})
+	d.dnsRequestHandler = &dnsRequestHandler{
+		logger:            hivetest.Logger(tb),
+		nameManager:       ns,
+		proxyInstance:     nil,
+		proxyAccessLogger: accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
+	}
 
 	ds.d = d
 
@@ -185,8 +191,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
-				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, ds.d.dnsRequestHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, ds.d.dnsRequestHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
 			}()
 		}
 		wg.Wait()
