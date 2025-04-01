@@ -49,6 +49,8 @@ type EndpointSelector struct {
 	sanitized bool `json:"-"`
 }
 
+func (n EndpointSelector) IsPeerSelector() {}
+
 // Used for `omitzero` json tag.
 func (n *EndpointSelector) IsZero() bool {
 	return n.LabelSelector == nil
@@ -225,6 +227,9 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav
 // become out of sync.
 func (n *EndpointSelector) SyncRequirementsWithLabelSelector() {
 	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	// Even though this string is deep copied, we need to override it
+	// because we are updating the contents of the MatchExpressions.
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // newReservedEndpointSelector returns a selector that matches on all

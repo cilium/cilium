@@ -8,7 +8,6 @@ import (
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -16,7 +15,7 @@ import (
 type PolicyUpdate struct {
 	// The set of rules to be added.
 	// Set to nil to delete for the given resource or labels.
-	Rules policyapi.Rules
+	Rules PolicyEntries
 
 	// Resource provides the object ID for the underlying object that backs
 	// this information from 'source'.
