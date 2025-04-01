@@ -78,19 +78,18 @@ func TestPortAllocator(t *testing.T) {
 	require.False(t, pp.acknowledged)
 	require.Zero(t, pp.ProxyPort)
 
-	err = p.releaseProxyPortWithWait("listener1", 10*time.Millisecond)
+	err = p.releaseProxyPortWithWait("listener1", time.Minute /* extra high wait time - as it should not be used */)
 	require.NoError(t, err)
 
-	// Proxy port is not released immediately
+	require.True(t, p.released(pp), "Proxy port is not released immediately")
 	require.Zero(t, pp.nRedirects)
 	require.Zero(t, pp.ProxyPort)
 	port1a, _, err = p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Zero(t, port1a)
 
-	require.Eventually(t, func() bool {
-		return p.released(pp)
-	}, 100*time.Millisecond, time.Millisecond)
+	// Cancel timed proxy port release - otherwise it will interfere with upcoming test logic
+	pp.releaseCancel()
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
 	port1b, _, err := p.GetProxyPort("listener1")
