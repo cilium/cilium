@@ -15,6 +15,7 @@
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
+{{- $defaultEnableIPv4Masquerade := "true" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 {{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
 {{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
@@ -61,6 +62,14 @@
   {{- $defaultKubeProxyReplacement = "false" -}}
 {{- end -}}
 
+{{- /* Default values when 1.18 was initially deployed */ -}}
+{{- if semverCompare ">=1.18" (default "1.18" .Values.upgradeCompatibility) -}}
+  {{- /* defaultIPv4Masquerad in ENI mode for 1.18 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
+  {{- if .Values.eni.enabled }}
+    {{- $defaultEnableIPv4Masquerade = "false" -}}
+    # Will also do this for ipv6 when ENI mode works with ipv6.
+  {{- end }}
+{{- end -}}
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
@@ -626,7 +635,11 @@ data:
 {{- end }}
 {{- end }}
 
-  enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+{{- if (not (kindIs "invalid" .Values.enableIPv4Masquerade)) }}
+  enable-ipv4-masquerade: {{.Values.enableIPv4Masquerade | quote }}
+{{- else }}
+  enable-ipv4-masquerade: {{ $defaultEnableIPv4Masquerade | quote }}
+{{- end }}
   enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}

@@ -2129,8 +2129,12 @@ maglev: {}
 # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
 # hashSeed:
 
-# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
-enableIPv4Masquerade: true
+# @schema
+# type: [null, boolean]
+# @schema
+# -- (bool) Enables masquerading of IPv4 traffic leaving the node from endpoints.
+# @default -- `true` unless ipam eni mode is active 
+enableIPv4Masquerade: ~
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 # -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.

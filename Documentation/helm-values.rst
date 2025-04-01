@@ -1123,7 +1123,7 @@
    * - :spelling:ignore:`enableIPv4Masquerade`
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
-     - ``true``
+     - ``true`` unless ipam eni mode is active
    * - :spelling:ignore:`enableIPv6BIGTCP`
      - Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
      - bool
