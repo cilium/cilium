@@ -1116,3 +1116,93 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	case <-streamDone:
 	}
 }
+
+func TestNotAckedAfterRestart(t *testing.T) {
+	// Similar to test case TestNAckFromTheStart
+	// But here we are making sure that we don't issue incorrect ACKs
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+
+	var err error
+	var req *envoy_service_discovery.DiscoveryRequest
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		require.NoError(t, err)
+	}()
+
+	// Create version 2 with resource 0.
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	require.Condition(t, isNotCompletedComparison(comp1))
+
+	// Request all resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	req = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "64",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	// Expecting a response with that resource.
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
+
+	// Version 2 was not ACKED by the last request, so it must NOT be completedInTime successfully.
+	require.Condition(t, isNotCompletedComparison(comp1))
+	// Check that the completion was not NACKed
+	require.NoError(t, comp1.Err())
+	// Simulate that first request on a new stream was NACKed.
+	req = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "64",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "65",
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	// Since we don't update resources, we expect that we will not receive
+	// any response. However, we want to make sure that previously
+	// pending completions are still not ACKed, but they are NACKed.
+	resp, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	// IsCompleted is true only for completions without error
+	require.Condition(t, isNotCompletedComparison(comp1))
+	// Check that the completion was NACKed
+	require.Error(t, comp1.Err())
+
+	// Close the stream.
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
