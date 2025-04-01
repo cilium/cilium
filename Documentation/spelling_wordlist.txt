@@ -323,6 +323,7 @@ endpointSelector
 endpointmanager
 enet
 enetc
+eni
 enqueuing
 etcd
 etcdinit
