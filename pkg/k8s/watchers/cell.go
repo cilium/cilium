@@ -21,7 +21,6 @@ var Cell = cell.Module(
 	cell.Provide(newK8sWatcher),
 	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.Provide(newK8sCiliumNodeWatcher),
-	cell.ProvidePrivate(newK8sNamespaceWatcher),
 	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
 	cell.ProvidePrivate(newK8sCiliumLRPWatcher),
@@ -39,7 +38,6 @@ type k8sWatcherParams struct {
 	K8sEventReporter          *K8sEventReporter
 	K8sPodWatcher             *K8sPodWatcher
 	K8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
-	K8sNamespaceWatcher       *K8sNamespaceWatcher
 	K8sServiceWatcher         *K8sServiceWatcher
 	K8sEndpointsWatcher       *K8sEndpointsWatcher
 	K8sCiliumLRPWatcher       *K8sCiliumLRPWatcher
@@ -60,7 +58,6 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.Clientset,
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,
-		params.K8sNamespaceWatcher,
 		params.K8sServiceWatcher,
 		params.K8sEndpointsWatcher,
 		params.K8sCiliumLRPWatcher,
