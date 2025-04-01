@@ -235,7 +235,7 @@ func (c *crdLock) Unlock(ctx context.Context) error {
 
 // Comparator does nothing. Locking is not supported with the k8s
 // CRD allocator. It is here to meet interface requirements.
-func (c *crdLock) Comparator() interface{} {
+func (c *crdLock) Comparator() any {
 	return nil
 }
 
@@ -353,8 +353,8 @@ func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.Al
 	return nil
 }
 
-func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
-	return func(obj interface{}) ([]string, error) {
+func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj any) ([]string, error) {
+	return func(obj any) ([]string, error) {
 		if identity, ok := obj.(*v2.CiliumIdentity); ok {
 			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
 		}
@@ -390,14 +390,14 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				if identity, ok := obj.(*v2.CiliumIdentity); ok {
 					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
 						handler.OnUpsert(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
+			UpdateFunc: func(oldObj, newObj any) {
 				if oldIdentity, ok := oldObj.(*v2.CiliumIdentity); ok {
 					if newIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
 						if oldIdentity.DeepEqual(newIdentity) {
@@ -409,7 +409,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 					}
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
+			DeleteFunc: func(obj any) {
 				// The delete event is sometimes for items with unknown state that are
 				// deleted anyway.
 				if deleteObj, isDeleteObj := obj.(cache.DeletedFinalStateUnknown); isDeleteObj {

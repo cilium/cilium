@@ -10,7 +10,7 @@ import (
 )
 
 // Operation represents an API operation
-type Operation interface{}
+type Operation any
 
 // DelaySimulator simulates delays in API calls
 type DelaySimulator struct {

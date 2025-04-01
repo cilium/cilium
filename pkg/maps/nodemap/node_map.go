@@ -114,7 +114,7 @@ type NodeIterateCallback func(*NodeKey, *NodeValue)
 
 func (m *nodeMap) IterateWithCallback(cb NodeIterateCallback) error {
 	return m.bpfMap.IterateWithCallback(&NodeKey{}, &NodeValue{},
-		func(k, v interface{}) {
+		func(k, v any) {
 			key := k.(*NodeKey)
 			value := v.(*NodeValue)
 

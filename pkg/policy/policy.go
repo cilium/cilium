@@ -28,11 +28,11 @@ func (s *SearchContext) TraceEnabled() bool {
 
 // PolicyTrace logs the given message into the SearchContext logger only if
 // TRACE_ENABLED or TRACE_VERBOSE is enabled in the receiver's SearchContext.
-func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
+func (s *SearchContext) PolicyTrace(format string, a ...any) {
 	if s.TraceEnabled() {
 		if s.Logging != nil {
 			format = "%-" + s.CallDepth() + "s" + format
-			a = append([]interface{}{""}, a...)
+			a = append([]any{""}, a...)
 			s.Logging.Printf(format, a...)
 		}
 	}
@@ -40,7 +40,7 @@ func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
 
 // PolicyTraceVerbose logs the given message into the SearchContext logger only
 // if TRACE_VERBOSE is enabled in the receiver's SearchContext.
-func (s *SearchContext) PolicyTraceVerbose(format string, a ...interface{}) {
+func (s *SearchContext) PolicyTraceVerbose(format string, a ...any) {
 	switch s.Trace {
 	case TRACE_VERBOSE:
 		if s.Logging != nil {

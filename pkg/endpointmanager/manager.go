@@ -705,7 +705,7 @@ func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	// when endpoint and its logger are created pod details are not populated
 	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
 	// this update will populate pod details in logger
-	ep.UpdateLogger(map[string]interface{}{
+	ep.UpdateLogger(map[string]any{
 		logfields.ContainerID: ep.GetShortContainerID(),
 		logfields.IPv4:        ep.GetIPv4Address(),
 		logfields.IPv6:        ep.GetIPv6Address(),

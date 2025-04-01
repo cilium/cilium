@@ -31,7 +31,7 @@ const (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadinfo")
 
 // LogFunc is the function to used to log the system load
-type LogFunc func(format string, args ...interface{})
+type LogFunc func(format string, args ...any)
 
 func toMB(total uint64) uint64 {
 	return total / 1024 / 1024

@@ -32,7 +32,7 @@ type Parameters struct {
 	HelmReleaseName string
 }
 
-func (p *Parameters) Log(format string, a ...interface{}) {
+func (p *Parameters) Log(format string, a ...any) {
 	fmt.Fprintf(p.Writer, format+"\n", a...)
 }
 

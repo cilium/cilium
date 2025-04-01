@@ -533,7 +533,7 @@ func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
 	i.Interfaces[iface.Resource.InterfaceID()] = iface
 }
 
-type Address interface{}
+type Address any
 
 // AddressIterator is the function called by the ForeachAddress iterator
 type AddressIterator func(instanceID, interfaceID, ip, poolID string, address Address) error

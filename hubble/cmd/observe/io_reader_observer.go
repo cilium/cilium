@@ -168,7 +168,7 @@ func (c *ioReaderClient) popFromLastBuffer() *observerpb.GetFlowsResponse {
 			// index into the ring buffer itself
 			// TODO: Add the ability to index into the ring buffer and we could avoid
 			// this copy.
-			c.buffer.Iterate(func(i interface{}) {
+			c.buffer.Iterate(func(i any) {
 				c.resps = append(c.resps, i.(*observerpb.GetFlowsResponse))
 			})
 		}

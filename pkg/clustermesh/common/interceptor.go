@@ -54,7 +54,7 @@ type wrappedClientStream struct {
 }
 
 // RecvMsg implements the grpc.ClientStream interface, adding validation for the etcd cluster ID
-func (w *wrappedClientStream) RecvMsg(m interface{}) error {
+func (w *wrappedClientStream) RecvMsg(m any) error {
 	if err := w.ClientStream.RecvMsg(m); err != nil {
 		return err
 	}

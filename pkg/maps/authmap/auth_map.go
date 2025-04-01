@@ -108,7 +108,7 @@ type IterateCallback func(*AuthKey, *AuthInfo)
 
 func (m *authMap) IterateWithCallback(cb IterateCallback) error {
 	return m.bpfMap.IterateWithCallback(&AuthKey{}, &AuthInfo{},
-		func(k, v interface{}) {
+		func(k, v any) {
 			key := k.(*AuthKey)
 			value := v.(*AuthInfo)
 			cb(key, value)

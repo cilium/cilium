@@ -38,14 +38,14 @@ type terminalEscaperWriter struct {
 	err      error
 }
 
-func (tew *terminalEscaperWriter) print(a ...interface{}) {
+func (tew *terminalEscaperWriter) print(a ...any) {
 	if tew.err != nil {
 		return
 	}
 	_, tew.err = tew.replacer.WriteString(tew.w, fmt.Sprint(a...))
 }
 
-func (tew *terminalEscaperWriter) printf(format string, a ...interface{}) {
+func (tew *terminalEscaperWriter) printf(format string, a ...any) {
 	if tew.err != nil {
 		return
 	}

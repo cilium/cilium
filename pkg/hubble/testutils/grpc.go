@@ -18,8 +18,8 @@ type FakeGRPCServerStream struct {
 	OnSendHeader func(metadata.MD) error
 	OnSetTrailer func(m metadata.MD)
 	OnContext    func() context.Context
-	OnSendMsg    func(m interface{}) error
-	OnRecvMsg    func(m interface{}) error
+	OnSendMsg    func(m any) error
+	OnRecvMsg    func(m any) error
 }
 
 // SetHeader implements grpc.ServerStream.SetHeader.
@@ -55,7 +55,7 @@ func (s *FakeGRPCServerStream) Context() context.Context {
 }
 
 // SendMsg implements grpc.ServerStream.SendMsg.
-func (s *FakeGRPCServerStream) SendMsg(m interface{}) error {
+func (s *FakeGRPCServerStream) SendMsg(m any) error {
 	if s.OnSendMsg != nil {
 		return s.OnSendMsg(m)
 	}
@@ -63,7 +63,7 @@ func (s *FakeGRPCServerStream) SendMsg(m interface{}) error {
 }
 
 // RecvMsg implements grpc.ServerStream.RecvMsg.
-func (s *FakeGRPCServerStream) RecvMsg(m interface{}) error {
+func (s *FakeGRPCServerStream) RecvMsg(m any) error {
 	if s.OnRecvMsg != nil {
 		return s.OnRecvMsg(m)
 	}
@@ -77,8 +77,8 @@ type FakeGRPCClientStream struct {
 	OnTrailer   func() metadata.MD
 	OnCloseSend func() error
 	OnContext   func() context.Context
-	OnSendMsg   func(m interface{}) error
-	OnRecvMsg   func(m interface{}) error
+	OnSendMsg   func(m any) error
+	OnRecvMsg   func(m any) error
 }
 
 // Header implements grpc.ClientStream.Header.
@@ -114,7 +114,7 @@ func (c *FakeGRPCClientStream) Context() context.Context {
 }
 
 // SendMsg implements grpc.ClientStream.SendMsg.
-func (c *FakeGRPCClientStream) SendMsg(m interface{}) error {
+func (c *FakeGRPCClientStream) SendMsg(m any) error {
 	if c.OnSendMsg != nil {
 		return c.OnSendMsg(m)
 	}
@@ -122,7 +122,7 @@ func (c *FakeGRPCClientStream) SendMsg(m interface{}) error {
 }
 
 // RecvMsg implements grpc.ClientStream.RecvMsg.
-func (c *FakeGRPCClientStream) RecvMsg(m interface{}) error {
+func (c *FakeGRPCClientStream) RecvMsg(m any) error {
 	if c.OnRecvMsg != nil {
 		return c.OnRecvMsg(m)
 	}

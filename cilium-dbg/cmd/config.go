@@ -145,7 +145,7 @@ func dumpReadOnlyConfigs(cfgStatus *models.DaemonConfigurationStatus) {
 		v := cfgStatus.DaemonConfigurationMap[k]
 		if reflect.ValueOf(v).Kind() == reflect.Map {
 			mapString := make(map[string]string)
-			m, ok := v.(map[string]interface{})
+			m, ok := v.(map[string]any)
 			if ok {
 				fmt.Println(k)
 				for key, value := range m {

@@ -31,7 +31,7 @@ func NewBGPCPSignaler() *BGPCPSignaler {
 //
 // This signature adheres to the common event handling signatures of
 // cache.ResourceEventHandlerFuncs for convenience.
-func (s BGPCPSignaler) Event(_ interface{}) {
+func (s BGPCPSignaler) Event(_ any) {
 	select {
 	case s.Sig <- struct{}{}:
 	default:

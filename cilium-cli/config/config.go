@@ -43,7 +43,7 @@ func NewK8sConfig(client k8sConfigImplementation, p Parameters) *K8sConfig {
 	}
 }
 
-func (k *K8sConfig) Log(format string, a ...interface{}) {
+func (k *K8sConfig) Log(format string, a ...any) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 

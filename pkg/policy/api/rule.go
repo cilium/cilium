@@ -149,7 +149,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		Description       string            `json:"description,omitempty"`
 	}
 
-	var a interface{}
+	var a any
 	ruleCommon := common{
 		Ingress:           r.Ingress,
 		IngressDeny:       r.IngressDeny,

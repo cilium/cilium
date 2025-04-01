@@ -264,6 +264,6 @@ func (d *Dispatch) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 }
 
 // NotifyAgentEvent implements consumer.MonitorConsumer
-func (d *Dispatch) NotifyAgentEvent(typ int, message interface{}) {
+func (d *Dispatch) NotifyAgentEvent(typ int, message any) {
 	// ignored
 }

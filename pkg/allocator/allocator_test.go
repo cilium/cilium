@@ -104,7 +104,7 @@ func (d *dummyLock) Unlock(ctx context.Context) error {
 	return nil
 }
 
-func (d *dummyLock) Comparator() interface{} {
+func (d *dummyLock) Comparator() any {
 	return nil
 }
 

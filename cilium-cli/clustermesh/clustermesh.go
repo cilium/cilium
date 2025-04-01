@@ -139,7 +139,7 @@ func NewK8sClusterMesh(client k8sClusterMeshImplementation, p Parameters) *K8sCl
 	}
 }
 
-func (k *K8sClusterMesh) Log(format string, a ...interface{}) {
+func (k *K8sClusterMesh) Log(format string, a ...any) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
@@ -1007,14 +1007,14 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	}
 }
 
-func log(format string, a ...interface{}) {
+func log(format string, a ...any) {
 	// TODO (ajs): make logger configurable
 	fmt.Fprintf(os.Stdout, format+"\n", a...)
 }
 
-func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]interface{}, error) {
-	helmVals := map[string]interface{}{
-		"clustermesh": map[string]interface{}{
+func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]any, error) {
+	helmVals := map[string]any{
+		"clustermesh": map[string]any{
 			"useAPIServer": true,
 		},
 	}
@@ -1023,10 +1023,10 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 		switch flavor.Kind {
 		case k8s.KindGKE:
 			log("🔮 Auto-exposing service within GCP VPC (networking.gke.io/load-balancer-type=Internal)")
-			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
-				"service": map[string]interface{}{
+			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
+				"service": map[string]any{
 					"type": corev1.ServiceTypeLoadBalancer,
-					"annotations": map[string]interface{}{
+					"annotations": map[string]any{
 						"networking.gke.io/load-balancer-type": "Internal",
 						// Allows cross-region access
 						"networking.gke.io/internal-load-balancer-allow-global-access": "true",
@@ -1035,20 +1035,20 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			}
 		case k8s.KindAKS:
 			log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
-			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
-				"service": map[string]interface{}{
+			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
+				"service": map[string]any{
 					"type": corev1.ServiceTypeLoadBalancer,
-					"annotations": map[string]interface{}{
+					"annotations": map[string]any{
 						"service.beta.kubernetes.io/azure-load-balancer-internal": "true",
 					},
 				},
 			}
 		case k8s.KindEKS:
 			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-scheme: internal")
-			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
-				"service": map[string]interface{}{
+			helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
+				"service": map[string]any{
 					"type": corev1.ServiceTypeLoadBalancer,
-					"annotations": map[string]interface{}{
+					"annotations": map[string]any{
 						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 					},
 				},
@@ -1063,17 +1063,17 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			return nil, fmt.Errorf("service type %q is not valid", params.ServiceType)
 		}
 
-		helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
-			"service": map[string]interface{}{
+		helmVals["clustermesh"].(map[string]any)["apiserver"] = map[string]any{
+			"service": map[string]any{
 				"type": params.ServiceType,
 			},
 		}
 	}
 
-	helmVals["clustermesh"].(map[string]interface{})["apiserver"].(map[string]interface{})["tls"] =
+	helmVals["clustermesh"].(map[string]any)["apiserver"].(map[string]any)["tls"] =
 		// default to using certgen, so that certificates are renewed automatically
-		map[string]interface{}{
-			"auto": map[string]interface{}{
+		map[string]any{
+			"auto": map[string]any{
 				"enabled": true,
 				"method":  "cronJob",
 				// run the renewal every 4 months on the 1st of the month
@@ -1082,8 +1082,8 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 		}
 
 	if params.EnableKVStoreMeshChanged {
-		helmVals["clustermesh"].(map[string]interface{})["apiserver"].(map[string]interface{})["kvstoremesh"] =
-			map[string]interface{}{
+		helmVals["clustermesh"].(map[string]any)["apiserver"].(map[string]any)["kvstoremesh"] =
+			map[string]any{
 				"enabled": params.EnableKVStoreMesh,
 			}
 	}
@@ -1117,7 +1117,7 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		return err
 	}
 
-	err = unstructured.SetNestedSlice(vals, []interface{}{}, "clustermesh", "config", "clusters")
+	err = unstructured.SetNestedSlice(vals, []any{}, "clustermesh", "config", "clusters")
 	if err != nil {
 		return err
 	}
@@ -1171,17 +1171,17 @@ func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (
 
 // ClusterState holds the state during the processing of remote clusters.
 type ClusterState struct {
-	localOldClusters       []map[string]interface{}               // current clustermesh section of helm values
-	localNewClusters       []map[string]interface{}               // new clustermesh section of helm values
-	localHelmValues        map[string]interface{}                 // localOldClusters + localNewClusters => local helm values generated
-	remoteHelmValuesMesh   map[string]map[string]interface{}      // helm values for all remote cluster in mesh mode
-	remoteHelmValuesBD     map[string]map[string]interface{}      // helm values for all remote cluster bidirectional mode
-	remoteClients          map[string]*k8s.Client                 // Map of remoteClients to apply remoteHelmValuesMesh or remoteHelmValuesBD
-	remoteOldClustersAll   map[string][]map[string]interface{}    // current clustermesh sections of helm values for remote clusters
-	remoteHelmValuesDelete map[*k8s.Client]map[string]interface{} // helm values for all remote clusters to disconnect
-	remoteNewCluster       map[string]interface{}                 // local cluster to add to remote clusters
-	remoteClusterNames     []string                               // names of remote clusters for displaying logs
-	remoteClusterNamesAi   []string                               // names of remote clusters for remove sections
+	localOldClusters       []map[string]any               // current clustermesh section of helm values
+	localNewClusters       []map[string]any               // new clustermesh section of helm values
+	localHelmValues        map[string]any                 // localOldClusters + localNewClusters => local helm values generated
+	remoteHelmValuesMesh   map[string]map[string]any      // helm values for all remote cluster in mesh mode
+	remoteHelmValuesBD     map[string]map[string]any      // helm values for all remote cluster bidirectional mode
+	remoteClients          map[string]*k8s.Client         // Map of remoteClients to apply remoteHelmValuesMesh or remoteHelmValuesBD
+	remoteOldClustersAll   map[string][]map[string]any    // current clustermesh sections of helm values for remote clusters
+	remoteHelmValuesDelete map[*k8s.Client]map[string]any // helm values for all remote clusters to disconnect
+	remoteNewCluster       map[string]any                 // local cluster to add to remote clusters
+	remoteClusterNames     []string                       // names of remote clusters for displaying logs
+	remoteClusterNamesAi   []string                       // names of remote clusters for remove sections
 }
 
 func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
@@ -1232,17 +1232,17 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 		return err
 	}
 	if state.remoteOldClustersAll == nil {
-		state.remoteOldClustersAll = make(map[string][]map[string]interface{})
+		state.remoteOldClustersAll = make(map[string][]map[string]any)
 	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 
 	state.remoteNewCluster = getCluster(aiLocal, !match)
-	remoteHelmValues, err := mergeClusters(remoteOldClusters, []map[string]interface{}{state.remoteNewCluster}, "")
+	remoteHelmValues, err := mergeClusters(remoteOldClusters, []map[string]any{state.remoteNewCluster}, "")
 	if err != nil {
 		return err
 	}
 	if state.remoteHelmValuesBD == nil {
-		state.remoteHelmValuesBD = make(map[string]map[string]interface{})
+		state.remoteHelmValuesBD = make(map[string]map[string]any)
 	}
 	state.remoteHelmValuesBD[aiRemote.ClusterName] = remoteHelmValues
 
@@ -1271,7 +1271,7 @@ func (k *K8sClusterMesh) processRemoteClients(ctx context.Context, remoteClients
 
 func processRemoteHelmValuesMesh(state *ClusterState) error {
 	if state.remoteHelmValuesMesh == nil {
-		state.remoteHelmValuesMesh = make(map[string]map[string]interface{})
+		state.remoteHelmValuesMesh = make(map[string]map[string]any)
 	}
 	remoteNewClusters := append(state.localNewClusters, state.remoteNewCluster)
 	for aiClusterName, remoteOldClusters := range state.remoteOldClustersAll {
@@ -1296,7 +1296,7 @@ func (k *K8sClusterMesh) connectLocalWithHelm(ctx context.Context, localClient *
 	return k.helmUpgrade(ctx, localClient, state.localHelmValues)
 }
 
-func (k *K8sClusterMesh) helmUpgrade(ctx context.Context, client *k8s.Client, values map[string]interface{}) error {
+func (k *K8sClusterMesh) helmUpgrade(ctx context.Context, client *k8s.Client, values map[string]any) error {
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
 		Name:        k.params.HelmReleaseName,
@@ -1396,7 +1396,7 @@ func (k *K8sClusterMesh) displayCompleteMessage(localClient *k8s.Client, remoteC
 func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localClusterName string, state *ClusterState) error {
 	var rc map[string]*k8s.Client
 	var cn []string
-	var helmValues map[string]map[string]interface{}
+	var helmValues map[string]map[string]any
 
 	switch k.params.ConnectionMode {
 	case defaults.ClusterMeshConnectionModeBidirectional:
@@ -1421,7 +1421,7 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 
 		sem <- struct{}{}
 
-		go func(cn []string, rc *k8s.Client, helmVals map[string]interface{}) {
+		go func(cn []string, rc *k8s.Client, helmVals map[string]any) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
@@ -1440,7 +1440,7 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 	return firstErr
 }
 
-func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, helmValues map[string]interface{}) error {
+func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, helmValues map[string]any) error {
 	clusterNamesExceptRemote := removeStringFromSlice(remoteClient.ClusterName(), clusterNames)
 	k.Log("ℹ️ Configuring Cilium in cluster %s to connect to cluster %s",
 		remoteClient.ClusterName(), strings.Join(clusterNamesExceptRemote, ","))
@@ -1486,7 +1486,7 @@ func (k *K8sClusterMesh) retrieveRemoteHelmValues(ctx context.Context, remoteCli
 			return err
 		}
 		if state.remoteHelmValuesDelete == nil {
-			state.remoteHelmValuesDelete = make(map[*k8s.Client]map[string]interface{})
+			state.remoteHelmValuesDelete = make(map[*k8s.Client]map[string]any)
 		}
 		state.remoteHelmValuesDelete[remoteClient] = remoteHelmValues
 		state.remoteClusterNames = append(state.remoteClusterNames, remoteClient.ClusterName())
@@ -1597,24 +1597,24 @@ func (k *K8sClusterMesh) displayDisconnectedCompleteMessage(localClient *k8s.Cli
 	}
 }
 
-func getOldClusters(values map[string]interface{}) ([]map[string]interface{}, error) {
+func getOldClusters(values map[string]any) ([]map[string]any, error) {
 	// get current clusters config slice, if it exists
 	c, found, err := unstructured.NestedFieldCopy(values, "clustermesh", "config", "clusters")
 	if err != nil {
 		return nil, fmt.Errorf("existing clustermesh.config is invalid")
 	}
 	if !found || c == nil {
-		c = []interface{}{}
+		c = []any{}
 	}
 
 	// parse the existing config slice
-	oldClusters := make([]map[string]interface{}, 0)
-	cs, ok := c.([]interface{})
+	oldClusters := make([]map[string]any, 0)
+	cs, ok := c.([]any)
 	if !ok {
 		return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
 	}
 	for _, m := range cs {
-		cluster, ok := m.(map[string]interface{})
+		cluster, ok := m.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
 		}
@@ -1624,8 +1624,8 @@ func getOldClusters(values map[string]interface{}) ([]map[string]interface{}, er
 	return oldClusters, nil
 }
 
-func getCluster(ai *accessInformation, configTLS bool) map[string]interface{} {
-	remoteCluster := map[string]interface{}{
+func getCluster(ai *accessInformation, configTLS bool) map[string]any {
+	remoteCluster := map[string]any{
 		"name": ai.ClusterName,
 		"ips":  []string{ai.ServiceIPs[0]},
 		"port": ai.ServicePort,
@@ -1636,7 +1636,7 @@ func getCluster(ai *accessInformation, configTLS bool) map[string]interface{} {
 	// mode of operation in which client certificates will not be
 	// renewed automatically and cross-cluster Hubble does not operate.
 	if configTLS {
-		remoteCluster["tls"] = map[string]interface{}{
+		remoteCluster["tls"] = map[string]any{
 			"cert":   base64.StdEncoding.EncodeToString(ai.ClientCert),
 			"key":    base64.StdEncoding.EncodeToString(ai.ClientKey),
 			"caCert": base64.StdEncoding.EncodeToString(ai.CA),
@@ -1647,8 +1647,8 @@ func getCluster(ai *accessInformation, configTLS bool) map[string]interface{} {
 }
 
 func mergeClusters(
-	oldClusters []map[string]interface{}, newClusters []map[string]interface{}, exceptCluster string) (map[string]interface{}, error) {
-	clusters := map[string]map[string]interface{}{}
+	oldClusters []map[string]any, newClusters []map[string]any, exceptCluster string) (map[string]any, error) {
+	clusters := map[string]map[string]any{}
 	for _, c := range oldClusters {
 		name, ok := c["name"].(string)
 		if !ok {
@@ -1662,14 +1662,14 @@ func mergeClusters(
 		}
 	}
 
-	outputClusters := make([]map[string]interface{}, 0)
+	outputClusters := make([]map[string]any, 0)
 	for _, v := range clusters {
 		outputClusters = append(outputClusters, v)
 	}
 
-	newValues := map[string]interface{}{
-		"clustermesh": map[string]interface{}{
-			"config": map[string]interface{}{
+	newValues := map[string]any{
+		"clustermesh": map[string]any{
+			"config": map[string]any{
 				"enabled":  true,
 				"clusters": outputClusters,
 			},

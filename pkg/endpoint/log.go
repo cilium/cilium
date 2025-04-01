@@ -68,7 +68,7 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 // Note: You must hold Endpoint.mutex.Lock() to synchronize logger pointer
 // updates if the endpoint is already exposed. Callers that create new
 // endpoints do not need locks to call this.
-func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
+func (e *Endpoint) UpdateLogger(fields map[string]any) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
 	if fields != nil && epLogger != nil {
@@ -125,7 +125,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 }
 
 // Only to be called from UpdateLogger() above
-func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
+func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 	policyLogger := e.policyLogger.Load()
 	// e.Options check needed for unit testing.
 	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {

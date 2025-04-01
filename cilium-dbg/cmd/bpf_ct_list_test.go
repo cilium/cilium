@@ -65,7 +65,7 @@ type ctRecord6 struct {
 	Value ctmap.CtEntry
 }
 
-func dumpAndRead[T any](t *testing.T, maps []T, dump func([]T, ...interface{}), args ...interface{}) string {
+func dumpAndRead[T any](t *testing.T, maps []T, dump func([]T, ...any), args ...any) string {
 	// dumpCt() prints to standard output. Let's redirect it to a pipe, and
 	// read the dump from there.
 	stdout := os.Stdout

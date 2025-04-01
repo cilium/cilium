@@ -31,7 +31,7 @@ func (t *dummyTarWriter) WriteHeader(h *tar.Header) error {
 }
 
 type logWrapper struct {
-	logf func(format string, args ...interface{})
+	logf func(format string, args ...any)
 }
 
 func (l *logWrapper) Write(p []byte) (n int, err error) {

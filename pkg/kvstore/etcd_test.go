@@ -1208,7 +1208,7 @@ func TestEtcdRateLimiter(t *testing.T) {
 	})
 }
 
-func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT, interface{}, interface{}, ...interface{})) {
+func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT, any, any, ...any)) {
 	const (
 		prefix  = "foo"
 		condKey = prefix + "-cond-key"

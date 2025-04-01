@@ -50,12 +50,12 @@ func ForceJSON() {
 
 // PrintOutput receives an interface and dump the data using the --output flag.
 // ATM only json or jsonpath. In the future yaml
-func PrintOutput(data interface{}) error {
+func PrintOutput(data any) error {
 	return PrintOutputWithType(data, outputOpt)
 }
 
 // PrintOutputWithPatch merges data with patch and dump the data using the --output flag.
-func PrintOutputWithPatch(data interface{}, patch interface{}) error {
+func PrintOutputWithPatch(data any, patch any) error {
 	mergedInterface, err := mergeInterfaces(data, patch)
 	if err != nil {
 		return fmt.Errorf("Unable to merge Interfaces: %w", err)
@@ -63,8 +63,8 @@ func PrintOutputWithPatch(data interface{}, patch interface{}) error {
 	return PrintOutputWithType(mergedInterface, outputOpt)
 }
 
-func mergeInterfaces(data, patch interface{}) (interface{}, error) {
-	var i1, i2 interface{}
+func mergeInterfaces(data, patch any) (any, error) {
+	var i1, i2 any
 
 	data1, err := json.Marshal(data)
 	if err != nil {
@@ -86,10 +86,10 @@ func mergeInterfaces(data, patch interface{}) (interface{}, error) {
 	return recursiveMerge(i1, i2), nil
 }
 
-func recursiveMerge(i1, i2 interface{}) interface{} {
+func recursiveMerge(i1, i2 any) any {
 	switch i1 := i1.(type) {
-	case map[string]interface{}:
-		i2, ok := i2.(map[string]interface{})
+	case map[string]any:
+		i2, ok := i2.(map[string]any)
 		if !ok {
 			return i1
 		}
@@ -101,7 +101,7 @@ func recursiveMerge(i1, i2 interface{}) interface{} {
 			}
 		}
 	case nil:
-		i2, ok := i2.(map[string]interface{})
+		i2, ok := i2.(map[string]any)
 		if ok {
 			return i2
 		}
@@ -111,7 +111,7 @@ func recursiveMerge(i1, i2 interface{}) interface{} {
 
 // PrintOutputWithType receives an interface and dump the data using the --output flag.
 // ATM only json, yaml, or jsonpath.
-func PrintOutputWithType(data interface{}, outputType string) error {
+func PrintOutputWithType(data any, outputType string) error {
 	if outputType == "json" {
 		return dumpJSON(data, "")
 	}
@@ -131,7 +131,7 @@ func PrintOutputWithType(data interface{}, outputType string) error {
 // non-empty, will attempt to do jsonpath filtering using said string. Returns a
 // string containing the JSON in data, or an error if any JSON marshaling,
 // parsing operations fail.
-func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
+func DumpJSONToString(data any, jsonPath string) (string, error) {
 	if len(jsonPath) == 0 {
 		result, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
@@ -160,7 +160,7 @@ func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
 // dumpJSON dumps the data variable to the stdout as json.
 // If something fails, it returns an error
 // If jsonPath is passed, it runs the json query over data var.
-func dumpJSON(data interface{}, jsonPath string) error {
+func dumpJSON(data any, jsonPath string) error {
 	jsonStr, err := DumpJSONToString(data, jsonPath)
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func dumpJSON(data interface{}, jsonPath string) error {
 
 // dumpYAML dumps the data variable to the stdout as yaml.
 // If something fails, it returns an error
-func dumpYAML(data interface{}) error {
+func dumpYAML(data any) error {
 	result, err := yaml.Marshal(data)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't marshal to yaml: '%s'\n", err)

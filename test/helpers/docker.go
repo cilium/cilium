@@ -90,7 +90,7 @@ func (s *SSHMeta) containerInspectNet(name string, network string) (map[string]s
 	}
 	for _, val := range data {
 		iface := val.Interface()
-		for k, v := range iface.(map[string]interface{}) {
+		for k, v := range iface.(map[string]any) {
 			if key, ok := properties[k]; ok {
 				result[key] = fmt.Sprintf("%s", v)
 			}

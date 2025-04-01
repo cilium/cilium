@@ -102,7 +102,7 @@ func New(cells ...cell.Cell) *Hive {
 
 var decodeHooks = cell.DecodeHooks{
 	// Decode *cidr.CIDR fields
-	func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	func(from reflect.Type, to reflect.Type, data any) (any, error) {
 		if from.Kind() != reflect.String {
 			return data, nil
 		}

@@ -124,7 +124,7 @@ func TestReadDirConfig(t *testing.T) {
 		dirName string
 	}
 	type want struct {
-		allSettings map[string]interface{}
+		allSettings map[string]any
 		err         error
 	}
 	tests := []struct {
@@ -149,7 +149,7 @@ func TestReadDirConfig(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings: map[string]interface{}{},
+					allSettings: map[string]any{},
 					err:         nil,
 				}
 			},
@@ -180,7 +180,7 @@ func TestReadDirConfig(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					allSettings: map[string]interface{}{"test": `"1"`},
+					allSettings: map[string]any{"test": `"1"`},
 					err:         nil,
 				}
 			},

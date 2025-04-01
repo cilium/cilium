@@ -122,7 +122,7 @@ func (a *EnvoyAdminClient) GetEnvoyVersion() (string, error) {
 		return "", fmt.Errorf("failed to read ServerInfo response: %w", err)
 	}
 
-	serverInfo := map[string]interface{}{}
+	serverInfo := map[string]any{}
 	if err := json.Unmarshal(body, &serverInfo); err != nil {
 		return "", fmt.Errorf("failed to parse ServerInfo: %w", err)
 	}

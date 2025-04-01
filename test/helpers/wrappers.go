@@ -47,7 +47,7 @@ func Ping(endpoint string) string {
 // variadic optionalValues argument. This is passed on to fmt.Sprintf() and
 // used into the curl message. Note that `endpoint` is expected to be a format
 // string (first argument to fmt.Sprintf()) if optionalValues are used.
-func CurlFail(endpoint string, optionalValues ...interface{}) string {
+func CurlFail(endpoint string, optionalValues ...any) string {
 	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
 		`Transfer '%{time_starttransfer}', total '%{time_total}'`
 
@@ -61,7 +61,7 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 
 // CurlFailNoStats does the same as CurlFail() except that it does not print
 // the stats info. See note about optionalValues on CurlFail().
-func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
+func CurlFailNoStats(endpoint string, optionalValues ...any) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
@@ -75,7 +75,7 @@ func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
 // endpoint. It takes a variadic optinalValues argument. This is passed on to
 // fmt.Sprintf() and uses into the curl message. See note about optionalValues
 // on CurlFail().
-func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
+func CurlWithHTTPCode(endpoint string, optionalValues ...any) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
@@ -91,7 +91,7 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 // function will call CurlFail() and add --retry flag at the end of the command
 // and return.  If flag "fail" is false, the function will generate the command
 // with --retry flag and return. See note about optionalValues on CurlFail().
-func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...interface{}) string {
+func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...any) string {
 	if fail {
 		return fmt.Sprintf(
 			`%s --retry %d`,
@@ -107,7 +107,7 @@ func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...
 
 // CurlTimeout does the same as CurlFail() except you can define the timeout.
 // See note about optionalValues on CurlFail().
-func CurlTimeout(endpoint string, timeout time.Duration, optionalValues ...interface{}) string {
+func CurlTimeout(endpoint string, timeout time.Duration, optionalValues ...any) string {
 	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
 		`Transfer '%{time_starttransfer}', total '%{time_total}'`
 

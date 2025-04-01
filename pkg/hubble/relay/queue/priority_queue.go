@@ -87,12 +87,12 @@ func (h minHeap) Swap(i, j int) {
 	}
 }
 
-func (h *minHeap) Push(x interface{}) {
+func (h *minHeap) Push(x any) {
 	resp := x.(*observerpb.GetFlowsResponse)
 	*h = append(*h, resp)
 }
 
-func (h *minHeap) Pop() interface{} {
+func (h *minHeap) Pop() any {
 	old := *h
 	n := len(old)
 	if n == 0 {

@@ -60,7 +60,7 @@ func init() {
 	command.AddOutputOption(bpfNatListCmd)
 }
 
-func dumpNat(maps []nat.NatMap, args ...interface{}) {
+func dumpNat(maps []nat.NatMap, args ...any) {
 	entries := make([]nat.NatMapRecord, 0)
 
 	for _, m := range maps {

@@ -79,7 +79,7 @@ func (b *CmdStreamBuffer) KVOutput() map[string]string {
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
 func (b *CmdStreamBuffer) Filter(filter string) (*FilterBuffer, error) {
-	var data interface{}
+	var data any
 	result := new(bytes.Buffer)
 
 	err := json.Unmarshal(b.Bytes(), &data)
@@ -107,7 +107,7 @@ func (b *CmdStreamBuffer) FilterLinesJSONPath(filter *jsonpath.JSONPath) ([]Filt
 			continue
 		}
 
-		var data interface{}
+		var data any
 		result := new(bytes.Buffer)
 		err := json.Unmarshal([]byte(line), &data)
 		if err != nil {
@@ -213,7 +213,7 @@ func (res *CmdRes) WasSuccessful() bool {
 
 // ExpectFail asserts whether res failed to execute. It accepts an optional
 // parameter that can be used to annotate failure messages.
-func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectFail(optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res).ShouldNot(
 		CMDSuccess(), optionalDescription...)
 }
@@ -221,7 +221,7 @@ func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
 // ExpectFailWithError asserts whether res failed to execute with the
 // error output containing the given data.  It accepts an optional
 // parameter that can be used to annotate failure messages.
-func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res).ShouldNot(
 		CMDSuccess(), optionalDescription...) &&
 		gomega.ExpectWithOffset(1, res.Stderr()).To(
@@ -230,7 +230,7 @@ func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...inter
 
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
-func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectSuccess(optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res).Should(
 		CMDSuccess(), optionalDescription...)
 }
@@ -238,7 +238,7 @@ func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 // ExpectContains asserts a string into the stdout of the response of executed
 // command. It accepts an optional parameter that can be used to annotate
 // failure messages.
-func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectContains(data string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res.Stdout()).To(
 		gomega.ContainSubstring(data), optionalDescription...)
 }
@@ -246,7 +246,7 @@ func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{
 // ExpectMatchesRegexp asserts that the stdout of the executed command
 // matches the regexp. It accepts an optional parameter that can be
 // used to annotate failure messages.
-func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res.Stdout()).To(
 		gomega.MatchRegexp(regexp), optionalDescription...)
 }
@@ -256,7 +256,7 @@ func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...int
 // matches at least one of the lines.
 // It accepts an optional parameter that can be used to annotate failure
 // messages.
-func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDescription ...any) bool {
 	lines, err := res.FilterLines(filter)
 	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
 	sLines := []string{}
@@ -270,7 +270,7 @@ func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDes
 // ExpectDoesNotContain asserts that a string is not contained in the stdout of
 // the executed command. It accepts an optional parameter that can be used to
 // annotate failure messages.
-func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
 		gomega.ContainSubstring(data), optionalDescription...)
 }
@@ -278,7 +278,7 @@ func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...inte
 // ExpectDoesNotMatchRegexp asserts that the stdout of the executed command
 // doesn't match the regexp. It accepts an optional parameter that can be used
 // to annotate failure messages.
-func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
 		gomega.MatchRegexp(regexp), optionalDescription...)
 }
@@ -288,7 +288,7 @@ func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription .
 // does not matches any of the lines.
 // It accepts an optional parameter that can be used to annotate failure
 // messages.
-func (res *CmdRes) ExpectDoesNotContainFilterLine(filter, expected string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectDoesNotContainFilterLine(filter, expected string, optionalDescription ...any) bool {
 	lines, err := res.FilterLines(filter)
 	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
 	sLines := []string{}
@@ -343,7 +343,7 @@ func (res *CmdRes) InRange(min, max int) error {
 // the unmarshalling of the stdout of res fails.
 // TODO - what exactly is the need for this vs. Filter function below?
 func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
-	var data interface{}
+	var data any
 	var result []reflect.Value
 
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
@@ -423,7 +423,7 @@ func (res *CmdRes) OutputPrettyPrint() string {
 // ExpectEqual asserts whether cmdRes.Output().String() and expected are equal.
 // It accepts an optional parameter that can be used to annotate failure
 // messages.
-func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...interface{}) bool {
+func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...any) bool {
 	return gomega.ExpectWithOffset(1, res.Stdout()).Should(
 		gomega.Equal(expected), optionalDescription...)
 }
@@ -442,7 +442,7 @@ func (res *CmdRes) SingleOut() string {
 
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
 // res is in JSON format. Returns an error if the unmarshalling fails.
-func (res *CmdRes) Unmarshal(data interface{}) error {
+func (res *CmdRes) Unmarshal(data any) error {
 	return json.Unmarshal(res.stdout.Bytes(), data)
 }
 
@@ -564,7 +564,7 @@ type BeSuccesfulMatcher struct{}
 // Match validates that the given interface will be a `*CmdRes` struct and it
 // was successful. In case of not a valid CmdRes will return an error. If the
 // command was not successful it returns false.
-func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err error) {
+func (matcher *BeSuccesfulMatcher) Match(actual any) (success bool, err error) {
 	res, ok := actual.(*CmdRes)
 	if !ok {
 		return false, fmt.Errorf("%q is not a valid *CmdRes type", actual)
@@ -574,7 +574,7 @@ func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err 
 
 // FailureMessage it returns a pretty printed error message in the case of the
 // command was not successful.
-func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message string) {
+func (matcher *BeSuccesfulMatcher) FailureMessage(actual any) (message string) {
 	res, _ := actual.(*CmdRes)
 	return fmt.Sprintf("Expected command: %s \nTo succeed, but it failed:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())
@@ -582,7 +582,7 @@ func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message s
 
 // NegatedFailureMessage returns a pretty printed error message in case of the
 // command is tested with a negative
-func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual any) (message string) {
 	res, _ := actual.(*CmdRes)
 	return fmt.Sprintf("Expected command: %s\nTo have failed, but it was successful:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())

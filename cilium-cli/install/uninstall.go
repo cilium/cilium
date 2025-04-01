@@ -42,7 +42,7 @@ func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters)
 	}
 }
 
-func (k *K8sUninstaller) Log(format string, a ...interface{}) {
+func (k *K8sUninstaller) Log(format string, a ...any) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 

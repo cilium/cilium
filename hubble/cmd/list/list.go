@@ -37,7 +37,7 @@ func New(vp *viper.Viper) *cobra.Command {
 	return listCmd
 }
 
-func jsonOutput(buf io.Writer, v interface{}) error {
+func jsonOutput(buf io.Writer, v any) error {
 	bs, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err

@@ -23,17 +23,17 @@ func newSpiffeLogWrapper(log *slog.Logger) *spiffeLogWrapper {
 }
 
 // Debugf logs a debug message
-func (l *spiffeLogWrapper) Debugf(format string, args ...interface{}) {
+func (l *spiffeLogWrapper) Debugf(format string, args ...any) {
 	l.log.Debug(fmt.Sprintf(format, args...))
 }
 
 // Infof logs an info message
-func (l *spiffeLogWrapper) Infof(format string, args ...interface{}) {
+func (l *spiffeLogWrapper) Infof(format string, args ...any) {
 	l.log.Info(fmt.Sprintf(format, args...))
 }
 
 // Warnf logs a warning message
-func (l *spiffeLogWrapper) Warnf(format string, args ...interface{}) {
+func (l *spiffeLogWrapper) Warnf(format string, args ...any) {
 	l.log.Warn(fmt.Sprintf(format, args...))
 }
 
@@ -42,6 +42,6 @@ func (l *spiffeLogWrapper) Warnf(format string, args ...interface{}) {
 // while the SPIRE server is still starting up. Any errors given by spire will
 // result in an error passed back to the function caller which then is logged
 // as an error.
-func (l *spiffeLogWrapper) Errorf(format string, args ...interface{}) {
+func (l *spiffeLogWrapper) Errorf(format string, args ...any) {
 	l.log.Warn(fmt.Sprintf(format, args...))
 }

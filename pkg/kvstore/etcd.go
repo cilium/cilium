@@ -396,7 +396,7 @@ func (e *etcdMutex) Unlock(ctx context.Context) (err error) {
 	return e.mutex.Unlock(ctx)
 }
 
-func (e *etcdMutex) Comparator() interface{} {
+func (e *etcdMutex) Comparator() any {
 	return e.mutex.IsOwner()
 }
 

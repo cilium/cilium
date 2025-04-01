@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
+func (k *K8sInstaller) getHelmValues() (map[string]any, error) {
 	helmMapOpts := map[string]string{}
 
 	switch {

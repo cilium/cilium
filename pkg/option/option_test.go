@@ -423,7 +423,7 @@ func TestApplyValidated(t *testing.T) {
 		k6: OptionEnabled,
 	}
 	actualChanges := OptionMap{}
-	var changed ChangedFunc = func(key string, value OptionSetting, data interface{}) {
+	var changed ChangedFunc = func(key string, value OptionSetting, data any) {
 		require.Equal(t, &cfg, data)
 		actualChanges[key] = value
 	}

@@ -8,6 +8,6 @@ import (
 )
 
 // Repr formats an object with the Printf %+v formatter
-func Repr(s interface{}) string {
+func Repr(s any) string {
 	return fmt.Sprintf("%+v", s)
 }

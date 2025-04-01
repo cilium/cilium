@@ -8,7 +8,7 @@ import "github.com/cilium/hive/cell"
 // BpfMap defines the base interface every BPF map needs to implement.
 //
 // Its main purpose is to register a BPF map via value group `bpf-maps`. See [MapOut].
-type BpfMap interface{}
+type BpfMap any
 
 // MapOut ensures that maps are created before the datapath loader
 // is invoked.

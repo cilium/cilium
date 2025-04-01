@@ -285,7 +285,7 @@ func sendError(w http.ResponseWriter, msg string, code int) {
 	http.Error(w, msg, code)
 }
 
-func objectResponse(w http.ResponseWriter, obj interface{}) {
+func objectResponse(w http.ResponseWriter, obj any) {
 	if err := json.NewEncoder(w).Encode(obj); err != nil {
 		sendError(w, "Could not JSON encode response", http.StatusInternalServerError)
 		return
@@ -460,7 +460,7 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.WithField(logfields.Request, logfields.Repr(&info)).Debug("Endpoint info request")
-	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]interface{}{}})
+	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]any{}})
 	log.WithField(logfields.Response, info.EndpointID).Debug("Endpoint info")
 }
 

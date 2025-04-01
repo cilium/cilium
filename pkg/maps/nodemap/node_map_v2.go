@@ -121,7 +121,7 @@ type NodeIterateCallbackV2 func(*NodeKey, *NodeValueV2)
 
 func (m *nodeMapV2) IterateWithCallback(cb NodeIterateCallbackV2) error {
 	return m.bpfMap.IterateWithCallback(&NodeKey{}, &NodeValueV2{},
-		func(k, v interface{}) {
+		func(k, v any) {
 			key, ok := k.(*NodeKey)
 			if !ok {
 				log.WithField("key", k).Error("failed to cast key to NodeKey")

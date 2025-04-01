@@ -42,7 +42,7 @@ var (
 )
 
 // identityIndexFunc index identities by ID.
-func identityIndexFunc(obj interface{}) ([]string, error) {
+func identityIndexFunc(obj any) ([]string, error) {
 	switch t := obj.(type) {
 	case *cilium_api_v2.CiliumEndpoint:
 		if t.Status.Identity != nil {
@@ -84,7 +84,7 @@ func CiliumEndpointsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sC
 // Warning: The CiliumEndpoints created by the converter are not intended to be
 // used for Update operations in k8s. If the given obj can't be cast into either
 // CiliumEndpoint nor DeletedFinalStateUnknown, an error is returned.
-func transformToCiliumEndpoint(obj interface{}) (interface{}, error) {
+func transformToCiliumEndpoint(obj any) (any, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_api_v2.CiliumEndpoint:
 		p := &cilium_api_v2.CiliumEndpoint{
