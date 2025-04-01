@@ -1,9 +1,4 @@
 #! --test-peering-ips=fd00::aa:bb:cc:101,fd00::aa:bb:cc:102
-# NOTE: Each test should use unique peering IPs, as the tests are executed in parallel.
-
-# HINT: Put "break" anywhere in the test to observe the state with "bgp" and "gobgp" commands. For example:
-# - "bgp/peers" shows peers on the Cilium side
-# - "gobgp/peers" shows peers on the test GoBGP server side
 
 # Start the hive
 hive start
