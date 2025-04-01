@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	waitStateTimeout = 30 * time.Second
+
 	serverASNFlag      = "server-asn"
 	serverASNFlagShort = "s"
 
@@ -193,7 +195,7 @@ func GoBGPWaitStateCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Args:    "peer state",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
-				fs.DurationP(timeoutFlag, timeoutFlagShort, 15*time.Second, "Maximum amount of time to wait for the peering state")
+				fs.DurationP(timeoutFlag, timeoutFlagShort, waitStateTimeout, "Maximum amount of time to wait for the peering state")
 			},
 			Detail: []string{
 				"Wait until the specified peer is in the specified state.",
@@ -237,6 +239,20 @@ func GoBGPWaitStateCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			if err != nil {
 				return nil, err
 			}
+			// check if the peer isn't already in the expected state
+			done := false
+			err = gobgpServer.ListPeer(s.Context(), &gobgpapi.ListPeerRequest{Address: args[0]}, func(p *gobgpapi.Peer) {
+				if p.State.SessionState == gobgpapi.PeerState_SessionState(gobgpapi.PeerState_SessionState_value[args[1]]) {
+					done = true
+				}
+			})
+			if err != nil {
+				return nil, err
+			}
+			if done {
+				return nil, nil
+			}
+			// wait for the expected state
 			select {
 			case <-s.Context().Done():
 				return nil, s.Context().Err()
