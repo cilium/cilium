@@ -83,12 +83,6 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 
 	return CTX_ACT_OK;
 }
-
-#define SECCTX_FROM_IPCACHE_OK	2
-static __always_inline bool identity_from_ipcache_ok(void)
-{
-	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
-}
 #endif
 
 #ifdef ENABLE_IPV6
@@ -126,7 +120,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-	else if (identity_from_ipcache_ok())
+	else if (CONFIG(secctx_from_ipcache))
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
@@ -571,7 +565,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* If we could not derive the secctx from the packet itself but
 	 * from the ipcache instead, then use the ipcache identity.
 	 */
-	else if (identity_from_ipcache_ok())
+	else if (CONFIG(secctx_from_ipcache))
 		src_id = srcid_from_ipcache;
 	return src_id;
 }

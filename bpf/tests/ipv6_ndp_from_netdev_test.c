@@ -10,8 +10,6 @@
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
 
