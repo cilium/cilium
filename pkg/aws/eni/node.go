@@ -511,7 +511,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	var attachmentID string
-	for attachRetries := 0; attachRetries < maxAttachRetries; attachRetries++ {
+	for range maxAttachRetries {
 		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID)
 
 		// The index is already in use, this can happen if the local

@@ -70,7 +70,7 @@ func TestObjectCacheParallel(t *testing.T) {
 	ep := testutils.NewTestEndpoint()
 
 	var wg sync.WaitGroup
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+	for range runtime.GOMAXPROCS(0) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

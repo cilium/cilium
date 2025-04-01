@@ -33,7 +33,7 @@ func maskedIPToLabel(ipStr string, prefix int) Label {
 			1, /* '/' */
 	)
 
-	for i := 0; i < len(ipStr); i++ {
+	for i := range len(ipStr) {
 		if ipStr[i] == ':' {
 			// EndpointSelector keys can't start or end with a "-", so insert a
 			// zero at the start or end if it would otherwise have a "-" at that

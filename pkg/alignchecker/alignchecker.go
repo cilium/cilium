@@ -163,7 +163,7 @@ func check(name string, toCheck []any, structs map[string]*structInfo, checkOffs
 			continue
 		}
 
-		for i := 0; i < g.NumField(); i++ {
+		for i := range g.NumField() {
 			fieldName := g.Field(i).Tag.Get("align")
 			// Ignore fields without `align` struct tag
 			if fieldName == "" {

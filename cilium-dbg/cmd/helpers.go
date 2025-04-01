@@ -132,7 +132,7 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 		}
 
 		// Determine the current indentation
-		for i := 0; i < loc[0]-1; i++ {
+		for i := range loc[0] - 1 {
 			idx := loc[0] - i - 1
 			if resBytes[idx] != ' ' {
 				break

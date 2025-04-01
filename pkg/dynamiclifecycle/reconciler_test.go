@@ -56,7 +56,7 @@ func TestManager_Enablement(t *testing.T) {
 	wTxn.Commit()
 
 	// Repeat the operation 2 times
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		// Start the registered feature
 		wTxn = db.WriteTxn(dc)
 		c := dynamicconfig.DynamicConfig{

@@ -272,12 +272,12 @@ func BenchmarkParseLabel(b *testing.B) {
 	var cntAdd, cntFound int
 
 	lbls := make([]labels.LabelArray, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		I := fmt.Sprintf("%d", i)
 		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}
 	}
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			J := fmt.Sprintf("%d", j)
 			_, _, err = repo.mustAdd(api.Rule{
 				EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
@@ -293,7 +293,7 @@ func BenchmarkParseLabel(b *testing.B) {
 		}
 
 		repo.mutex.RLock()
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			cntFound += len(repo.searchRLocked(lbls[j]))
 		}
 		repo.mutex.RUnlock()
@@ -1469,7 +1469,7 @@ func TestIterate(t *testing.T) {
 
 	numRules := 10
 	lbls := make([]labels.Label, 10)
-	for i := 0; i < numRules; i++ {
+	for i := range numRules {
 		it := fmt.Sprintf("baz%d", i)
 		epSelector := api.NewESFromLabels(
 			labels.NewLabel(

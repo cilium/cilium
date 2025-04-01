@@ -220,7 +220,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 
 	performGet := true
 	var nodeResource *ciliumv2.CiliumNode
-	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+	for retryCount := range maxRetryCount {
 		performUpdate := true
 		if performGet {
 			var err error

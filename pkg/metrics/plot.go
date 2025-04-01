@@ -81,8 +81,8 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan, sampling
 
 	// Set up a canvas into which to draw in.
 	canvas := make([]rune, width*height)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
+	for x := range width {
+		for y := range height {
 			if x >= originX && y <= originY {
 				// initialize the plot area to the braille base. this way we can
 				// just OR in the dots we want to show.
@@ -190,7 +190,7 @@ func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan, sampling
 	}
 
 	// Plot the samples (up to second to last column)
-	for x := 0; x < plotWidthDots-1; x++ {
+	for x := range plotWidthDots - 1 {
 		if v, exists := getSample(x); exists {
 			setDot(x, mapToY(v))
 		}

@@ -101,7 +101,7 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	d := &driver{client: c, dockerClient: dockerCli}
 
-	for tries := 0; tries < 24; tries++ {
+	for tries := range 24 {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
 				scopedLog.WithError(err).Fatal("Unable to connect to cilium daemon")

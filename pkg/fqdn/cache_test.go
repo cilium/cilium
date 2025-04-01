@@ -441,7 +441,7 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
-	for i := 0; i < numDNSEntries; i++ {
+	for i := range numDNSEntries {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
 	}
@@ -462,7 +462,7 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
-	for i := 0; i < numDNSEntries; i++ {
+	for i := range numDNSEntries {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
 	}
@@ -568,7 +568,7 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 func TestOverlimitEntriesWithoutLimit(t *testing.T) {
 	limit := 0
 	cache := NewDNSCacheWithLimit(0, limit)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
@@ -784,14 +784,14 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 
 	// Limit the number of IPs per hostname, but associate 'test.com' with
 	// more IPs.
-	for i := 0; i < maxConnections+1; i++ {
+	for i := range maxConnections + 1 {
 		zombies.Upsert(now, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)), "test.com")
 	}
 
 	// Simulate that CT garbage collection marks some IPs as live, we'll
 	// use the first 'maxConnections' IPs just so we can sort the output
 	// in the test below.
-	for i := 0; i < maxConnections; i++ {
+	for i := range maxConnections {
 		zombies.MarkAlive(afterNow, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)))
 	}
 	zombies.SetCTGCTime(afterNow, afterNow.Add(5*time.Minute))
@@ -1274,7 +1274,7 @@ func validateZombieSort(t *testing.T, zombies []*DNSZombieMapping) {
 	}
 	// Don't try to be efficient, just check that the properties we want hold
 	// for every pair of zombie mappings.
-	for i := 0; i < sl; i++ {
+	for i := range sl {
 		for j := i + 1; j < sl; j++ {
 			if zombies[i].AliveAt.Before(zombies[j].AliveAt) {
 				continue
@@ -1389,7 +1389,7 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 	}
 
 	// Five random tests:
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		ts := make([]*DNSZombieMapping, len(allMappings))
 		copy(ts, allMappings)
 		rand.Shuffle(len(ts), func(i, j int) {

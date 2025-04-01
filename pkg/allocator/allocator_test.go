@@ -414,7 +414,7 @@ func TestObserveAllocatorChanges(t *testing.T) {
 	numAllocations := 10
 
 	// Allocate few ids
-	for i := 0; i < numAllocations; i++ {
+	for i := range numAllocations {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
 		require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestObserveAllocatorChanges(t *testing.T) {
 	// Subscribe to the changes. This should replay the current state.
 	ctx, cancel := context.WithCancel(context.Background())
 	changes := stream.ToChannel[AllocatorChange](ctx, allocator)
-	for i := 0; i < numAllocations; i++ {
+	for range numAllocations {
 		change := <-changes
 		// Since these are replayed in hash map traversal order, just validate that
 		// the fields are set.
