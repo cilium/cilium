@@ -566,7 +566,7 @@ func (l Labels) StringMap() map[string]string {
 	return o
 }
 
-// StringMap converts Labels into map[string]string
+// K8sStringMap converts Labels into map[string]string
 func (l Labels) K8sStringMap() map[string]string {
 	o := make(map[string]string, len(l))
 	for _, v := range l {
@@ -803,6 +803,13 @@ func parseSource(str string, delim byte) (src, next string) {
 // forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
 func ParseLabel(str string) Label {
 	return parseLabel(str, ':')
+}
+
+// ParseK8sLabel returns the label representation of the given string. The str should be
+// in the form of Source.Key=Value or Source.Key if Value is empty. It also parses short
+// forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
+func ParseK8sLabel(str string) Label {
+	return parseLabel(str, '.')
 }
 
 // parseLabel returns the label representation of the given string by value.
