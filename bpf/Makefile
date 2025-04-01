@@ -187,8 +187,15 @@ testdata:
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
 
-generate: $(BPF)
+generate-config: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+
+generate-skels: $(BPF)
+	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/loader
+
+generate:
+	../contrib/scripts/builder.sh \
+		$(MAKE) $(SUBMAKEOPTS) -C bpf/ generate-config generate-skels
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
@@ -211,6 +218,10 @@ bpf_sock.o:: bpf_sock.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 $(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_sock.o,$(OPTS))))
+
+bpf_sock_term.o:: bpf_sock_term.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_overlay.o:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
