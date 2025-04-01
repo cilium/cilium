@@ -680,6 +680,7 @@ type DNSProxyConfig struct {
 	MaxRestoreDNSIPs       int
 	ConcurrencyLimit       int
 	ConcurrencyGracePeriod time.Duration
+	DisableDNSProxy        bool
 }
 
 // NewDNSProxy creates a proxy used for DNS L7 redirects that listens on
