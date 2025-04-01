@@ -348,12 +348,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				// a response to the client and client saw response.
 				clientReceivedFirstResponse = true
 			}
-			if nonce == 0 && versionInfo > 0 {
-				requestLog.Infof("xDS was restarted, setting nonce to %d", versionInfo)
-				nonce = versionInfo
+
+			if versionInfo > 0 && firstRequest {
+				requestLog.Infof("xDS was restarted, previous versionInfo: %d", versionInfo)
 			}
 
-			if versionInfo > nonce {
+			if versionInfo > nonce && clientReceivedFirstResponse {
 				requestLog.Warning("received invalid nonce in xDS request")
 				return ErrInvalidResponseNonce
 			}
@@ -368,7 +368,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
 			}
-			if versionInfo < nonce {
+
+			if versionInfo < nonce && clientReceivedFirstResponse {
 				// versions after VersionInfo, upto and including ResponseNonce are NACKed
 				requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
 			}
