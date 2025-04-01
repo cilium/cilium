@@ -59,7 +59,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
@@ -1578,9 +1577,8 @@ type daemonParams struct {
 	LRPManager          *redirectpolicy.Manager
 	MaglevConfig        maglev.Config
 	ExpLBConfig         experimental.Config
-	DNSProxy            defaultdns.Proxy
 	DNSRulesAPI         fqdnRules.DNSRulesService
-	DNSBootstrapper     bootstrap.FQDNProxyBootstrapper
+	DNSProxy            bootstrap.FQDNProxyBootstrapper
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1768,7 +1766,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 				return
 			}
 		}
-		d.dnsBootstrapper.CompleteBootstrap()
+		params.DNSProxy.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(&EndpointMapManager{
 			EndpointManager: d.endpointManager,
