@@ -6,6 +6,7 @@ package cell
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/rules"
 )
@@ -17,6 +18,9 @@ var Cell = cell.Module(
 
 	// The FQDN NameManager stores DNS mappings.
 	namemanager.Cell,
+
+	// The FQDN bootstrap logic
+	bootstrap.Cell,
 
 	cell.Provide(rules.NewDNSRulesService),
 )

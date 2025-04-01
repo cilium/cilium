@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -91,14 +90,6 @@ func TestMain(m *testing.M) {
 	time.Local = time.UTC
 
 	os.Exit(m.Run())
-}
-
-type dummyEpSyncher struct{}
-
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
-}
-
-func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
 func setupDaemonSuite(tb testing.TB) *DaemonSuite {

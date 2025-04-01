@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
@@ -196,8 +197,9 @@ type Daemon struct {
 
 	explbConfig experimental.Config
 
-	dnsProxy    defaultdns.Proxy
-	dnsRulesAPI fqdnRules.DNSRulesService
+	dnsProxy        defaultdns.Proxy
+	dnsRulesAPI     fqdnRules.DNSRulesService
+	dnsBootstrapper bootstrap.FQDNProxyBootstrapper
 }
 
 func (d *Daemon) init() error {
@@ -415,6 +417,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		explbConfig:       params.ExpLBConfig,
 		dnsProxy:          params.DNSProxy,
 		dnsRulesAPI:       params.DNSRulesAPI,
+		dnsBootstrapper:   params.DNSBootstrapper,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -565,7 +568,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	err = d.dnsBootstrapper.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
@@ -813,8 +816,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
-	// iptables rules can be updated only after d.init() intializes the iptables above.
-	err = d.updateDNSDatapathRules(d.ctx)
+	// iptables rules can be updated only after d.init() initializes the iptables above.
+	err = d.dnsBootstrapper.UpdateDNSDatapathRules(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)

@@ -58,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
@@ -1583,6 +1584,7 @@ type daemonParams struct {
 	ExpLBConfig         experimental.Config
 	DNSProxy            defaultdns.Proxy
 	DNSRulesAPI         fqdnRules.DNSRulesService
+	DNSBootstrapper     bootstrap.FQDNProxyBootstrapper
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
