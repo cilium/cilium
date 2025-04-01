@@ -445,20 +445,6 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 // during individual program loading. Since we have less context available
 // at those stages, we batch the lookups here instead to avoid redundant work.
 func populateKallsyms(progs map[string]*ProgramSpec) error {
-	// Look up associated kernel modules for all symbols referenced by
-	// ProgramSpec.AttachTo for program types that support attaching to kmods.
-	mods := make(map[string]string)
-	for _, p := range progs {
-		if p.AttachTo != "" && p.targetsKernelModule() {
-			mods[p.AttachTo] = ""
-		}
-	}
-	if len(mods) != 0 {
-		if err := kallsyms.AssignModules(mods); err != nil {
-			return fmt.Errorf("getting modules from kallsyms: %w", err)
-		}
-	}
-
 	// Look up addresses of all kernel symbols referenced by all programs.
 	addrs := make(map[string]uint64)
 	for _, p := range progs {
