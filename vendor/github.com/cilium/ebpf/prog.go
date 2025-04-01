@@ -8,7 +8,6 @@ import (
 	"math"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"time"
 
 	"github.com/cilium/ebpf/asm"
@@ -95,13 +94,10 @@ type ProgramOptions struct {
 	// use the kernel BTF from a well-known location if nil.
 	KernelTypes *btf.Spec
 
-	// Type information used for CO-RE relocations of kernel modules,
-	// indexed by module name.
-	//
-	// This is useful in environments where the kernel BTF is not available
-	// (containers) or where it is in a non-standard location. Defaults to
-	// use the kernel module BTF from a well-known location if nil.
-	KernelModuleTypes map[string]*btf.Spec
+	// Additional targets to consider for CO-RE relocations. This can be used to
+	// pass BTF information for kernel modules when it's not present on
+	// KernelTypes.
+	ExtraRelocationTargets []*btf.Spec
 }
 
 // ProgramSpec defines a Program.
@@ -293,7 +289,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 	copy(insns, spec.Instructions)
 
 	var b btf.Builder
-	if err := applyRelocations(insns, spec.ByteOrder, &b, c); err != nil {
+	if err := applyRelocations(insns, spec.ByteOrder, &b, c, opts.ExtraRelocationTargets); err != nil {
 		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
 	}
 
@@ -868,6 +864,16 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 		Cpu:         opts.CPU,
 	}
 
+	if p.Type() == Syscall && ctxIn != nil && ctxOut != nil {
+		// Linux syscall program errors on non-nil ctxOut, uses ctxIn
+		// for both input and output. Shield the user from this wart.
+		if len(ctxIn) != len(ctxOut) {
+			return 0, 0, errors.New("length mismatch: Context and ContextOut")
+		}
+		attr.CtxOut, attr.CtxSizeOut = sys.TypedPointer[uint8]{}, 0
+		ctxOut = ctxIn
+	}
+
 retry:
 	for {
 		err := sys.ProgRun(&attr)
@@ -968,20 +974,16 @@ func LoadPinnedProgram(fileName string, opts *LoadPinOptions) (*Program, error) 
 		return nil, fmt.Errorf("%s is not a Program", fileName)
 	}
 
-	info, err := newProgramInfoFromFd(fd)
-	if err != nil {
-		_ = fd.Close()
-		return nil, fmt.Errorf("info for %s: %w", fileName, err)
+	p, err := newProgramFromFD(fd)
+	if err == nil {
+		p.pinnedPath = fileName
+
+		if haveObjName() != nil {
+			p.name = filepath.Base(fileName)
+		}
 	}
 
-	var progName string
-	if haveObjName() == nil {
-		progName = info.Name
-	} else {
-		progName = filepath.Base(fileName)
-	}
-
-	return &Program{"", fd, progName, fileName, info.Type}, nil
+	return p, err
 }
 
 // ProgramGetNextID returns the ID of the next eBPF program.
@@ -1196,14 +1198,7 @@ func newBTFCache(opts *ProgramOptions) *btf.Cache {
 	c := btf.NewCache()
 	if opts.KernelTypes != nil {
 		c.KernelTypes = opts.KernelTypes
-		c.ModuleTypes = opts.KernelModuleTypes
-		if opts.KernelModuleTypes != nil {
-			c.LoadedModules = []string{}
-			for name := range opts.KernelModuleTypes {
-				c.LoadedModules = append(c.LoadedModules, name)
-			}
-			sort.Strings(c.LoadedModules)
-		}
+		c.LoadedModules = []string{}
 	}
 	return c
 }

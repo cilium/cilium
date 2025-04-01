@@ -19,7 +19,7 @@ require (
 	github.com/cilium/charts v0.0.0-20250729183302-d9624f77f0e6
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.0
+	github.com/cilium/ebpf v0.19.1-0.20250729164112-d994daa25101
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
@@ -329,6 +329,7 @@ replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-2025071719
 
 tool (
 	github.com/cilium/deepequal-gen
+	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
 	golang.org/x/tools/cmd/goimports

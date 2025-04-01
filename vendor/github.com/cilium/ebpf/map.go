@@ -1220,17 +1220,18 @@ func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, va
 		return 0, fmt.Errorf("keys: %w", err)
 	}
 
-	valueBuf := make([]byte, count*int(m.fullValueSize))
-	valuePtr := sys.UnsafeSlicePointer(valueBuf)
+	valueBuf := sysenc.SyscallOutput(valuesOut, count*int(m.fullValueSize))
 
-	n, sysErr := m.batchLookupCmd(cmd, cursor, count, keysOut, valuePtr, opts)
+	n, sysErr := m.batchLookupCmd(cmd, cursor, count, keysOut, valueBuf.Pointer(), opts)
 	if sysErr != nil && !errors.Is(sysErr, unix.ENOENT) {
 		return 0, sysErr
 	}
 
-	err = unmarshalBatchPerCPUValue(valuesOut, count, int(m.valueSize), valueBuf)
-	if err != nil {
-		return 0, err
+	if bytesBuf := valueBuf.Bytes(); bytesBuf != nil {
+		err = unmarshalBatchPerCPUValue(valuesOut, count, int(m.valueSize), bytesBuf)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	return n, sysErr
