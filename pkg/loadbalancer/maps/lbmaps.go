@@ -103,6 +103,7 @@ type sockRevNatMaps interface {
 	UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error
 	DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error
 	ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool
+	SockRevNat() (*bpf.Map, *bpf.Map)
 }
 
 // LBMaps defines the map operations performed by the reconciliation.
@@ -763,6 +764,10 @@ func (r *BPFLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bo
 	return false
 }
 
+func (r *BPFLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
+	return r.sockRevNat4Map, r.sockRevNat6Map
+}
+
 // MaglevInnerMap represents a maglev inner map.
 type MaglevInnerMap struct {
 	*ebpf.Map
@@ -987,6 +992,10 @@ func (f *FaultyLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, Maglev
 
 func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
 	return f.impl.ExistsSockRevNat(cookie, addr, port)
+}
+
+func (f *FaultyLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
+	return f.impl.SockRevNat()
 }
 
 // LookupBackend implements LBMaps.
@@ -1257,6 +1266,10 @@ func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) b
 		key = key6
 	}
 	return f.sockRevNat.exists(key)
+}
+
+func (f *FakeLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
+	return nil, nil
 }
 
 // LookupBackend implements LBMaps.

@@ -299,6 +299,20 @@ type CollectionOptions struct {
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
 	MapRenames map[string]string
+
+	// MapReplacements passes along the inner map to MapReplacements inside
+	// the embedded ebpf.CollectionOptions struct.
+	MapReplacements map[string]*Map
+}
+
+func (co *CollectionOptions) populateMapReplacements() {
+	if co.CollectionOptions.MapReplacements == nil {
+		co.CollectionOptions.MapReplacements = make(map[string]*ebpf.Map)
+	}
+
+	for n, m := range co.MapReplacements {
+		co.CollectionOptions.MapReplacements[n] = m.m
+	}
 }
 
 // LoadCollection loads the given spec into the kernel with the specified opts.
@@ -328,6 +342,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	if opts == nil {
 		opts = &CollectionOptions{}
 	}
+
+	opts.populateMapReplacements()
 
 	logger.Debug("Loading Collection into kernel",
 		logfields.MapRenames, opts.MapRenames,

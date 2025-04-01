@@ -905,6 +905,9 @@ const (
 	// NetnsCookie is the Linux kernel netns cookie.
 	NetnsCookie = "netnsCookie"
 
+	// SocketCookie is the Linux kernel socket cookie.
+	SocketCookie = "socketCookie"
+
 	// Source identifies a source value
 	Source = "source"
 
