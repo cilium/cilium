@@ -328,9 +328,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
@@ -460,9 +458,7 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
@@ -515,9 +511,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
+	cmp := completion.NewWaitGroup(t.Context())
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
