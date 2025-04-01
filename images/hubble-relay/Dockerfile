@@ -1,16 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-# distroless images are signed by cosign. You should verify the image with the following public key:
-# $ cat cosign.pub
-# -----BEGIN PUBLIC KEY-----
-# MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWZzVzkb8A+DbgDpaJId/bOmV8n7Q
-# OqxYbK0Iro6GzSmOzxkn+N2AKawLyXi84WSwJQBK//psATakCgAQKkNTAA==
-# -----END PUBLIC KEY-----
-# $ cosign verify --key cosign.pub $BASE_IMAGE
-# The key may be found at the following address:
-# https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:63ebe035fbdd056ed682e6a87b286d07d3f05f12cb46f26b2b44fc10fc4a59ed
+# distroless images are signed by cosign and can be verified using:
+# $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:c0f429e16b13e583da7e5a6ec20dd656d325d88e6819cafe0adb0828976529dc
 ARG GOLANG_IMAGE=docker.io/library/golang:1.23.7@sha256:1acb493b9f9dfdfe705042ce09e8ded908ce4fb342405ecf3ca61ce7f3b168c7
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:cc6efdc9fac089c3e441fae9b6b3d746449326da@sha256:dd6daa6e53e514e862f254f93e999d200e4bb5024274be65edf7c4d1e3afc47f
 
