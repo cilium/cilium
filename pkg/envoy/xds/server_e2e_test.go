@@ -698,21 +698,19 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.Equal(t, uint64(3), v)
 	require.True(t, mod)
 
-	// Request the next version of resources, with a stale nonce.
+	// Request the next version of resources, with a stale nonce and version.
 	req = &envoy_service_discovery.DiscoveryRequest{
 		TypeUrl:       typeURL,
-		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		VersionInfo:   "1",
 		Node:          nodes[node0],
 		ResourceNames: nil,
-		ResponseNonce: "0",
+		ResponseNonce: "1",
 	}
 	// Do not update the nonce.
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	// Server correctly detects 0 nonce and resets it to the correct value.
-
-	// Expecting a response with both resources.
+	// Server correctly detects stale Nonce and sends response.
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
