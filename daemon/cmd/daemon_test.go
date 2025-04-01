@@ -45,6 +45,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -227,7 +228,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules: rules,
+		Rules: policyUtils.RulesToPolicyEntries(rules),
 	})
 }
 

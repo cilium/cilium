@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -111,7 +112,7 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 	dc := make(chan uint64, 1)
 	// add to policy engine
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               rules,
+		Rules:               policyutils.RulesToPolicyEntries(rules),
 		Source:              source.Directory,
 		Resource:            resourceID,
 		ProcessingStartTime: time.Now(),
