@@ -81,7 +81,7 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion, previouslyAckedVersion uint64, nodeIP string,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
@@ -102,12 +102,10 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 
 	for ctx.Err() == nil && res == nil {
 		w.versionLocker.Lock()
-		// If the client ACKed a version that we have never sent back, this
-		// indicates that this server restarted but the client survived and had
-		// received a higher version number from the previous server instance.
-		// Bump the resource set's version number to match the client's and
-		// send a response immediately.
-		if waitForVersion && w.version < waitVersion {
+		// lastVersion == 0 indicates that this is a new stream and
+		// previouslyAckedVersion comes from previous instance of xDS server.
+		// In this case, we artificially increase the version of the resource set.
+		if w.version <= previouslyAckedVersion && lastVersion == 0 {
 			w.versionLocker.Unlock()
 			// Calling EnsureVersion will increase the version of the resource
 			// set, which in turn will callback w.HandleNewResourceVersion with
@@ -115,7 +113,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			// deadlock, temporarily unlock w.versionLocker.
 			// The w.HandleNewResourceVersion callback will update w.version to
 			// the new resource set version.
-			w.resourceSet.EnsureVersion(typeURL, waitVersion+1)
+			w.resourceSet.EnsureVersion(typeURL, previouslyAckedVersion+1)
 			w.versionLocker.Lock()
 		}
 
