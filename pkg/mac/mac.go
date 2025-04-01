@@ -82,7 +82,7 @@ func (m MAC) MarshalJSON() ([]byte, error) {
 	if len(m) != 6 {
 		return nil, fmt.Errorf("invalid MAC address length %s", string(m))
 	}
-	return []byte(fmt.Sprintf("\"%02x:%02x:%02x:%02x:%02x:%02x\"", m[0], m[1], m[2], m[3], m[4], m[5])), nil
+	return fmt.Appendf(nil, "\"%02x:%02x:%02x:%02x:%02x:%02x\"", m[0], m[1], m[2], m[3], m[4], m[5]), nil
 }
 
 func (m MAC) MarshalIndentJSON(prefix, indent string) ([]byte, error) {
