@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -757,7 +758,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 		},
 	}
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules:           rules,
+		Rules:           k8sCiliumUtils.RulesToPolicyEntries(rules),
 		ReplaceByLabels: true,
 	})
 
