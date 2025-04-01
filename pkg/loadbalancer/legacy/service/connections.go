@@ -6,13 +6,11 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/vishvananda/netlink"
@@ -121,13 +119,4 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error 
 		}
 	}
 	return destroyErrs
-}
-
-// backendConnectionHandler is added for dependency injection in tests.
-type backendConnectionHandler struct {
-	logger *slog.Logger
-}
-
-func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(logging.DefaultSlogLogger, filter)
 }

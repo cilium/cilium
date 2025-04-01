@@ -4,11 +4,13 @@
 package service
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -28,6 +30,23 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(func(sm ServiceManager) syncNodePort { return sm }),
 	cell.Invoke(registerServiceReconciler),
+	cell.Provide(func(l *slog.Logger) (sockets.SocketDestroyer, error) {
+		bpfSD := &sockets.BPFSocketDestroyer{
+			Logger: l,
+		}
+
+		if supported, err := bpfSD.IsSupported(); err != nil {
+			return nil, fmt.Errorf("probing BPF socket destroyer support: %w", err)
+		} else if supported {
+			l.Info("Using BPF socket destroyer")
+			return bpfSD, nil
+		}
+
+		l.Info("bpf_sock_destroy is not supported on the current kernel. Falling back to netlink-based socket destroyer")
+		return &sockets.NetlinkSocketDestroyer{
+			Logger: l,
+		}, nil
+	}),
 )
 
 type serviceManagerParams struct {
@@ -43,8 +62,9 @@ type serviceManagerParams struct {
 	NodeNeighbors   types.NodeNeighbors
 	MetricsRegistry *metrics.Registry
 
-	Config   *option.DaemonConfig
-	LBConfig loadbalancer.Config
+	Config                   *option.DaemonConfig
+	LBConfig                 loadbalancer.Config
+	BackendConnectionHandler sockets.SocketDestroyer
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -64,6 +84,7 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		enabledHealthCheckers,
 		params.Clientset.IsEnabled(),
 		params.Config,
+		params.BackendConnectionHandler,
 	)
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))
