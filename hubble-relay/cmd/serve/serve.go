@@ -4,6 +4,7 @@
 package serve
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,8 +16,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/server"
 	"github.com/cilium/cilium/pkg/logging"
@@ -195,6 +199,8 @@ func runServe(vp *viper.Viper) error {
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 		server.WithLogger(logger),
+		server.WithGRPCUnaryInterceptor(relayVersionUnaryInterceptor()),
+		server.WithGRPCStreamInterceptor(relayVersionStreamInterceptor()),
 	}
 
 	metricsListenAddress := vp.GetString(keyMetricsListenAddress)
@@ -308,4 +314,21 @@ func hubbleClientCertFile(vp *viper.Viper) string {
 		return val
 	}
 	return vp.GetString(keyTLSClientCertFile)
+}
+
+var relayVersionHeader = metadata.Pairs(defaults.GRPCMetadataRelayVersionKey, build.RelayVersion.SemVer())
+
+func relayVersionUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		resp, err := handler(ctx, req)
+		grpc.SetHeader(ctx, relayVersionHeader)
+		return resp, err
+	}
+}
+
+func relayVersionStreamInterceptor() grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ss.SetHeader(relayVersionHeader)
+		return handler(srv, ss)
+	}
 }
