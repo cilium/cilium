@@ -71,7 +71,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -89,16 +88,15 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx               context.Context
-	logger            *slog.Logger
-	clientset         k8sClient.Clientset
-	db                *statedb.DB
-	epBuildQueue      endpoint.EndpointBuildQueue
-	l7Proxy           *proxy.Proxy
-	proxyAccessLogger accesslog.ProxyAccessLogger
-	svc               service.ServiceManager
-	policy            policy.PolicyRepository
-	idmgr             identitymanager.IDManager
+	ctx          context.Context
+	logger       *slog.Logger
+	clientset    k8sClient.Clientset
+	db           *statedb.DB
+	epBuildQueue endpoint.EndpointBuildQueue
+	l7Proxy      *proxy.Proxy
+	svc          service.ServiceManager
+	policy       policy.PolicyRepository
+	idmgr        identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -395,7 +393,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:      params.MonitorAgent,
 		svc:               params.ServiceManager,
 		l7Proxy:           params.L7Proxy,
-		proxyAccessLogger: params.ProxyAccessLogger,
 		authManager:       params.AuthManager,
 		settings:          params.Settings,
 		bigTCPConfig:      params.BigTCPConfig,
