@@ -18,7 +18,6 @@
 
 #include <bpf_host.c>
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
 struct {
