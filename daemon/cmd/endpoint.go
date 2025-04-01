@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
@@ -31,8 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -203,9 +203,9 @@ func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim
 }
 
 func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
-	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
-	if err != nil {
-		return nil, err
+	ns, found := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
+	if !found {
+		return nil, fmt.Errorf("namespace %q not found", p.Namespace)
 	}
 
 	containerPorts, lbls := k8s.GetPodMetadata(logging.DefaultSlogLogger, ns, p)
@@ -219,24 +219,31 @@ func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoi
 }
 
 type cachedEndpointMetadataFetcher struct {
-	k8sWatcher *watchers.K8sWatcher
+	db         *statedb.DB
+	namespaces statedb.Table[daemonk8s.Namespace]
+	pods       statedb.Table[daemonk8s.LocalPod]
 }
 
-func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
-	// If network policies are disabled, labels are not needed, the namespace
-	// watcher is not running, and a namespace containing only the name is returned.
-	if !option.NetworkPolicyEnabled(option.Config) {
-		return &slim_corev1.Namespace{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name: nsName,
-			},
-		}, nil
-	}
-	return cemf.k8sWatcher.GetCachedNamespace(nsName)
+func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (ns daemonk8s.Namespace, found bool) {
+	txn := cemf.db.ReadTxn()
+
+	// Wait for the namespace table to be fully populated before querying.
+	_, initWatch := cemf.namespaces.Initialized(txn)
+	<-initWatch
+
+	ns, _, found = cemf.namespaces.Get(txn, daemonk8s.NamespaceByName(nsName))
+	return
 }
 
-func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
-	return cemf.k8sWatcher.GetCachedPod(nsName, podName)
+func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, bool) {
+	txn := cemf.db.ReadTxn()
+
+	// Wait for the pod table to be fully populated before querying.
+	_, initWatch := cemf.pods.Initialized(txn)
+	<-initWatch
+
+	pod, _, found := cemf.pods.Get(txn, daemonk8s.PodByName(nsName))
+	return pod.Pod, found
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {

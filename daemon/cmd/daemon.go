@@ -92,6 +92,8 @@ type Daemon struct {
 	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
+	namespaces        statedb.Table[agentK8s.Namespace]
+	pods              statedb.Table[agentK8s.LocalPod]
 	epBuildQueue      endpoint.EndpointBuildQueue
 	l7Proxy           *proxy.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
@@ -360,6 +362,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clientset:         params.Clientset,
 		db:                params.DB,
 		epBuildQueue:      params.EndpointBuildQueue,
+		namespaces:        params.Namespaces,
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
@@ -855,6 +858,6 @@ func (d *Daemon) Close() {
 }
 
 type endpointMetadataFetcher interface {
-	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
-	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
+	FetchNamespace(nsName string) (agentK8s.Namespace, bool)
+	FetchPod(nsName, podName string) (*slim_corev1.Pod, bool)
 }
