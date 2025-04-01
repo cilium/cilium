@@ -11,6 +11,7 @@
 #include "lib/trace.h"
 #include "lib/policy_log.h"
 #include "lib/pcap.h"
+#include "lib/sock_term.h"
 #include "lib/trace_sock.h"
 #include "lib/mcast.h"
 #include "lib/vtep.h"
@@ -91,3 +92,4 @@ add_type(struct node_key);
 add_type(struct node_value);
 add_type(struct skip_lb4_key);
 add_type(struct skip_lb6_key);
+add_type(struct sock_term_filter);
