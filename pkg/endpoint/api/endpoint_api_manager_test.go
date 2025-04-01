@@ -19,7 +19,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -40,17 +39,17 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	}{
 		{
 			name: "pod not found",
-			fetcher: func(_ uint, nsName, podName string) (*slim_corev1.Pod, error) {
-				return nil, notFoundErr
+			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+				return nil, nil, notFoundErr
 			},
 			err: func(string) error { return notFoundErr },
 		},
 		{
 			name: "uid mismatch",
-			fetcher: func(_ uint, nsName, podName string) (*slim_corev1.Pod, error) {
+			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
 					Name: podName, Namespace: nsName, UID: "other",
-				}}, nil
+				}}, &endpoint.K8sMetadata{}, nil
 			},
 			err: func(uid string) error {
 				if uid == "" {
@@ -62,7 +61,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		},
 		{
 			name: "uid mismatch, then resolved",
-			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, error) {
+			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				uid := types.UID("uid")
 				if run < 5 {
 					uid = types.UID("other")
@@ -70,17 +69,17 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 
 				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
 					Name: podName, Namespace: nsName, UID: uid,
-				}}, nil
+				}}, &endpoint.K8sMetadata{}, nil
 			},
 			err:     func(string) error { return nil },
 			retries: 6,
 		},
 		{
 			name: "pod found",
-			fetcher: func(_ uint, nsName, podName string) (*slim_corev1.Pod, error) {
+			fetcher: func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 				return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
 					Name: podName, Namespace: nsName, UID: "uid",
-				}}, nil
+				}}, &endpoint.K8sMetadata{}, nil
 			},
 			err: func(string) error { return nil },
 		},
@@ -90,7 +89,7 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (epUID: %s)", tt.name, epUID), func(t *testing.T) {
 				k8sPodFetcher := &fetcher{fn: tt.fetcher}
-				apiManager := endpointAPIManager{logger: hivetest.Logger(t), endpointMetadata: endpointmetadata.NewEndpointMetadataFetcher(hivetest.Logger(t), &option.DaemonConfig{}, k8sPodFetcher)}
+				apiManager := endpointAPIManager{logger: hivetest.Logger(t), endpointMetadata: k8sPodFetcher}
 				ep := endpoint.Endpoint{K8sPodName: "foo", K8sNamespace: "bar", K8sUID: epUID}
 
 				pod, meta, err := apiManager.handleOutdatedPodInformer(t.Context(), &ep)
@@ -110,18 +109,28 @@ func TestHandleOutdatedPodInformer(t *testing.T) {
 	}
 }
 
-type fetcherFn func(run uint, nsName, podName string) (*slim_corev1.Pod, error)
+type fetcherFn func(run uint, nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error)
 
 type fetcher struct {
 	fn   fetcherFn
 	runs uint
 }
 
-func (f *fetcher) GetCachedNamespace(nsName string) (*slim_corev1.Namespace, error) {
-	return &slim_corev1.Namespace{ObjectMeta: slim_metav1.ObjectMeta{Name: nsName}}, nil
+// FetchK8sMetadataForEndpoint implements metadata.EndpointMetadataFetcher.
+func (f *fetcher) FetchK8sMetadataForEndpoint(nsName string, podName string, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+	defer func() { f.runs++ }()
+
+	pod, m, err := f.fn(f.runs, nsName, podName)
+	if uid != "" && err == nil && pod != nil && string(pod.GetUID()) != uid {
+		return nil, nil, endpointmetadata.PodStoreOutdatedErr
+	}
+	return pod, m, err
 }
 
-func (f *fetcher) GetCachedPod(nsName, podName string) (*slim_corev1.Pod, error) {
-	defer func() { f.runs++ }()
-	return f.fn(f.runs, nsName, podName)
+// FetchK8sMetadataForEndpointFromPod implements metadata.EndpointMetadataFetcher.
+func (f *fetcher) FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
+	_, m, err := f.FetchK8sMetadataForEndpoint(p.Namespace, p.Name, string(p.UID))
+	return m, err
 }
+
+var _ endpointmetadata.EndpointMetadataFetcher = &fetcher{}
