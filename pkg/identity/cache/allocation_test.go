@@ -76,9 +76,7 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 		err   error
 	)
 
-	lbls = labels.Labels{
-		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
 
 	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
@@ -89,9 +87,8 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	require.Equal(t, identity.ReservedIdentityHost, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
@@ -104,18 +101,16 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityInit, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)

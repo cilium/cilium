@@ -875,13 +875,12 @@ func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(Identi
 }
 
 func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
-	var idLabels labels.Labels = nil
+	var idLabels labels.Labels = labels.Empty
 
 	if allocatorKey != nil {
-		idLabels = labels.Labels{}
 		for k, v := range allocatorKey.GetAsMap() {
 			label := labels.ParseLabel(k + "=" + v)
-			idLabels[label.Key()] = label
+			idLabels = idLabels.Add(label)
 		}
 	}
 

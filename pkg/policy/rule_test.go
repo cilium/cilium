@@ -2199,15 +2199,15 @@ func TestMatches(t *testing.T) {
 	hostRule := repo.rules[ruleKey{idx: 1}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key(): selectedEpLabels})
+	selectedIdentity := identity.NewIdentity(54321, labels.NewLabels(selectedEpLabels))
 	td.addIdentity(selectedIdentity)
 
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key(): notSelectedEpLabels})
+	notSelectedIdentity := identity.NewIdentity(9876, labels.NewLabels(notSelectedEpLabels))
 	td.addIdentity(notSelectedIdentity)
 
-	hostLabels := labels.Labels{selectedEpLabels.Key(): selectedEpLabels}
-	hostLabels.MergeLabels(labels.LabelHost)
+	hostLabels := labels.NewLabels(selectedEpLabels)
+	hostLabels = hostLabels.Merge(labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)
 
@@ -2238,7 +2238,7 @@ func TestMatches(t *testing.T) {
 
 	// Assert that mutable host identities are handled
 	// First, add an additional label, ensure that match succeeds
-	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
+	hostLabels = hostLabels.Merge(labels.NewLabelsFromModel([]string{"foo=bar"}))
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)
 	require.True(t, hostRule.matchesSubject(hostIdentity))

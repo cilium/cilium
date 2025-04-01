@@ -76,7 +76,7 @@ func TestHostIdentityLifecycle(t *testing.T) {
 	require.Equal(t, uint(1), idm.identities[hostIdentity.ID].refCount)
 
 	newHostLabels := labels.NewLabelsFromModel([]string{"id=foo"})
-	newHostLabels.MergeLabels(labels.LabelHost)
+	newHostLabels = newHostLabels.Merge(labels.LabelHost)
 	newHostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, newHostLabels)
 	idm.RemoveOldAddNew(hostIdentity, newHostIdentity)
 	require.Equal(t, uint(1), idm.identities[hostIdentity.ID].refCount)

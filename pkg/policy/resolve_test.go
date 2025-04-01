@@ -26,9 +26,8 @@ import (
 
 var (
 	fooLabel = labels.NewLabel("k8s:foo", "", "")
-	lbls     = labels.Labels{
-		"foo": fooLabel,
-	}
+	lbls     = labels.NewLabels(fooLabel)
+
 	fooIdentity = &identity.Identity{
 		ID:         303,
 		Labels:     lbls,
@@ -50,13 +49,11 @@ func generateNumIdentities(numIdentities int) identity.IdentityMap {
 		namespaceLabel := labels.NewLabel("io.kubernetes.pod.namespace=monitoring", "", labels.LabelSourceK8s)
 		funLabel := labels.NewLabel("app=analytics-erneh", "", labels.LabelSourceK8s)
 
-		identityLabels := labels.Labels{
-			fmt.Sprintf("foo%d", i):                           identityLabel,
-			"k8s:io.cilium.k8s.policy.cluster=default":        clusterLabel,
-			"k8s:io.cilium.k8s.policy.serviceaccount=default": serviceAccountLabel,
-			"k8s:io.kubernetes.pod.namespace=monitoring":      namespaceLabel,
-			"k8s:app=analytics-erneh":                         funLabel,
-		}
+		identityLabels := labels.NewLabels(identityLabel,
+			clusterLabel,
+			serviceAccountLabel,
+			namespaceLabel,
+			funLabel)
 
 		bumpedIdentity := i + 1000
 		numericIdentity := identity.NumericIdentity(bumpedIdentity)
@@ -248,9 +245,9 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
+		idFooSelectLabels = idFooSelectLabels.Add(lbl)
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -355,9 +352,9 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
+		idFooSelectLabels = idFooSelectLabels.Add(lbl)
 	}
 
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
@@ -490,9 +487,9 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	}
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
+		idFooSelectLabels = idFooSelectLabels.Add(lbl)
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -598,9 +595,9 @@ func TestMapStateWithIngress(t *testing.T) {
 	}
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
+		idFooSelectLabels = idFooSelectLabels.Add(lbl)
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)

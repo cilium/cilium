@@ -76,7 +76,7 @@ func (p *Parser) decodeEndpoint(id uint16) *flowpb.Endpoint {
 			return &flowpb.Endpoint{
 				ID:          epId,
 				Identity:    uint32(ep.GetIdentity()),
-				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value(),
+				ClusterName: labels.GetValue(k8sConst.PolicyLabelCluster),
 				Namespace:   ep.GetK8sNamespace(),
 				Labels:      common.SortAndFilterLabels(p.log, labels.GetModel(), ep.GetIdentity()),
 				PodName:     ep.GetK8sPodName(),

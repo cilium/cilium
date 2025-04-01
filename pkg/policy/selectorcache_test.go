@@ -232,9 +232,9 @@ func TestAddRemoveSelector(t *testing.T) {
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
-			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
-		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+		1234: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)).LabelArray(),
+		2345: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -286,8 +286,8 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
 	sc.UpdateIdentities(identity.IdentityMap{
-		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+		1234: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
+		2345: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
 
 		li1: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.1/32")).LabelArray(),
 		li2: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/8")).LabelArray(),
@@ -345,8 +345,8 @@ func TestIdentityUpdates(t *testing.T) {
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+		1234: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
+		2345: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -374,7 +374,7 @@ func TestIdentityUpdates(t *testing.T) {
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
+		12345: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -392,7 +392,7 @@ func TestIdentityUpdates(t *testing.T) {
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(nil, identity.IdentityMap{
-		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
+		12345: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
 	}, wg)
 	wg.Wait()
 
@@ -418,8 +418,8 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+		1234: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
+		2345: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -438,9 +438,9 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
-		345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
+		123: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
+		234: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
+		345: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -465,8 +465,8 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(nil, identity.IdentityMap{
-		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
-		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
+		123: labels.NewLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s)).LabelArray(),
+		234: labels.NewLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s)).LabelArray(),
 	}, wg)
 	wg.Wait()
 

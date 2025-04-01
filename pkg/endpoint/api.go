@@ -635,7 +635,7 @@ func (e *Endpoint) GetConfigurationStatus() *models.EndpointConfigurationStatus 
 // error if the endpoint is being deleted.
 func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.Labels, err error) {
 	if err := e.rlockAlive(); err != nil {
-		return nil, nil, err
+		return labels.Empty, labels.Empty, err
 	}
 	defer e.runlock()
 	add, del = e.OpLabels.SplitUserLabelChanges(lbls)

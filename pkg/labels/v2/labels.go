@@ -38,6 +38,9 @@ type noCompare [0]func()
 
 var labelsCache = newCache[smallRep]()
 
+// Empty is the canonical empty set of labels.
+var Empty = NewLabels()
+
 func NewLabels(lbls ...Label) Labels {
 	// Sort the labels by key and remember if we see any duplicates
 	equalKeysSeen := false

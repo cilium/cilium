@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -18,15 +17,15 @@ import (
 var (
 	// Elements are sorted by the key
 	lblsArray = []string{`unspec:%=%ed`, `unspec://=/=`, `unspec:foo=bar`, `unspec:foo2==bar2`, `unspec:foo=====`, `unspec:foo\\==\=`, `unspec:key=`}
-	lbls      = Labels{
-		"foo":    NewLabel("foo", "bar", LabelSourceUnspec),
-		"foo2":   NewLabel("foo2", "=bar2", LabelSourceUnspec),
-		"key":    NewLabel("key", "", LabelSourceUnspec),
-		"foo==":  NewLabel("foo==", "==", LabelSourceUnspec),
-		`foo\\=`: NewLabel(`foo\\=`, `\=`, LabelSourceUnspec),
-		`//=/`:   NewLabel(`//=/`, "", LabelSourceUnspec),
-		`%`:      NewLabel(`%`, `%ed`, LabelSourceUnspec),
-	}
+	lbls      = NewLabels(
+		NewLabel("foo", "bar", LabelSourceUnspec),
+		NewLabel("foo2", "=bar2", LabelSourceUnspec),
+		NewLabel("key", "", LabelSourceUnspec),
+		NewLabel("foo==", "==", LabelSourceUnspec),
+		NewLabel(`foo\\=`, `\=`, LabelSourceUnspec),
+		NewLabel(`//=/`, "", LabelSourceUnspec),
+		NewLabel(`%`, `%ed`, LabelSourceUnspec),
+	)
 
 	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
 )
@@ -44,21 +43,13 @@ func TestNewFrom(t *testing.T) {
 		},
 		{
 			name: "empty labels",
-			lbls: Labels{},
-			want: Labels{},
-		},
-		{
-			name: "nil labels",
-			lbls: nil,
-			want: Labels{},
+			lbls: NewLabels(),
+			want: NewLabels(),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			newLbls := NewFrom(tt.lbls)
-			// Verify that underlying maps are different
-			assert.NotEqual(t, reflect.ValueOf(tt.lbls).UnsafePointer(), reflect.ValueOf(newLbls).UnsafePointer())
-			// Verify that the map contents are equal
-			assert.EqualValues(t, tt.want, newLbls)
+			newLbls := tt.lbls
+			assert.True(t, tt.want.Equal(newLbls))
 		})
 	}
 }
@@ -94,48 +85,48 @@ func TestMap2Labels(t *testing.T) {
 }
 
 func TestMergeLabels(t *testing.T) {
-	to := Labels{
-		"key1": NewLabel("key1", "value1", "source1"),
-		"key2": NewLabel("key2", "value3", "source4"),
-	}
-	from := Labels{
-		"key1": NewLabel("key1", "value3", "source4"),
-	}
-	want := Labels{
-		"key1": NewLabel("key1", "value3", "source4"),
-		"key2": NewLabel("key2", "value3", "source4"),
-	}
-	to.MergeLabels(from)
-	from["key1"] = NewLabel("key1", "changed", "source4")
+	to := NewLabels(
+		NewLabel("key1", "value1", "source1"),
+		NewLabel("key2", "value3", "source4"),
+	)
+	from := NewLabels(
+		NewLabel("key1", "value3", "source4"),
+	)
+	want := NewLabels(
+		NewLabel("key1", "value3", "source4"),
+		NewLabel("key2", "value3", "source4"),
+	)
+	to = to.Merge(from)
+	from = from.Add(NewLabel("key1", "changed", "source4"))
 	require.EqualValues(t, want, to)
 }
 
 func TestRemove(t *testing.T) {
-	to := Labels{
-		"key1": NewLabel("key1", "value1", "source1"),
-		"key2": NewLabel("key2", "value3", "source4"),
-	}
-	remove := Labels{
-		"key1": NewLabel("key1", "value3", "source4"),
-	}
-	want := Labels{
-		"key2": NewLabel("key2", "value3", "source4"),
-	}
-	to.Remove(remove)
+	to := NewLabels(
+		NewLabel("key1", "value1", "source1"),
+		NewLabel("key2", "value3", "source4"),
+	)
+	remove := NewLabels(
+		NewLabel("key1", "value3", "source4"),
+	)
+	want := NewLabels(
+		NewLabel("key2", "value3", "source4"),
+	)
+	to = to.Difference(remove)
 	require.EqualValues(t, want, to)
 }
 
 func TestRemoveFromSource(t *testing.T) {
-	to := Labels{
-		"key1": NewLabel("key1", "value1", "source1"),
-		"key2": NewLabel("key2", "value3", "source4"),
-		"key3": NewLabel("key2", "value5", "source1"),
-	}
-	want := Labels{
-		"key2": NewLabel("key2", "value3", "source4"),
-	}
-	to.RemoveFromSource("source1")
-	require.EqualValues(t, want, to)
+	to := NewLabels(
+		NewLabel("key1", "value1", "source1"),
+		NewLabel("key2", "value3", "source4"),
+		NewLabel("key3", "value5", "source1"),
+	)
+	want := NewLabels(
+		NewLabel("key2", "value3", "source4"),
+	)
+	to = to.RemoveFromSource("source1")
+	require.True(t, want.Equal(to))
 }
 
 func TestParseLabel(t *testing.T) {
@@ -310,22 +301,22 @@ func TestLabelsCompare(t *testing.T) {
 	la22 := NewLabel("a", "2", "src2")
 	lb22 := NewLabel("b", "2", "src2")
 
-	lblsAll := Labels{la11.Key(): la11, la12.Key(): la12, la22.Key(): la22, lb22.Key(): lb22}
-	lblsFewer := Labels{la11.Key(): la11, la12.Key(): la12, la22.Key(): la22}
-	lblsLa11 := Labels{la11.Key(): la11}
-	lblsLa12 := Labels{la12.Key(): la12}
-	lblsLa22 := Labels{la22.Key(): la22}
-	lblsLb22 := Labels{lb22.Key(): lb22}
+	lblsAll := NewLabels(la11, la12, la22, lb22)
+	lblsFewer := NewLabels(la11, la12, la22)
+	lblsLa11 := NewLabels(la11)
+	lblsLa12 := NewLabels(la12)
+	lblsLa22 := NewLabels(la22)
+	lblsLb22 := NewLabels(lb22)
 
-	require.True(t, lblsAll.Equals(lblsAll))
-	require.False(t, lblsAll.Equals(lblsFewer))
-	require.False(t, lblsFewer.Equals(lblsAll))
-	require.False(t, lblsLa11.Equals(lblsLa12))
-	require.False(t, lblsLa12.Equals(lblsLa11))
-	require.False(t, lblsLa12.Equals(lblsLa22))
-	require.False(t, lblsLa22.Equals(lblsLa12))
-	require.False(t, lblsLa22.Equals(lblsLb22))
-	require.False(t, lblsLb22.Equals(lblsLa22))
+	require.True(t, lblsAll.Equal(lblsAll))
+	require.False(t, lblsAll.Equal(lblsFewer))
+	require.False(t, lblsFewer.Equal(lblsAll))
+	require.False(t, lblsLa11.Equal(lblsLa12))
+	require.False(t, lblsLa12.Equal(lblsLa11))
+	require.False(t, lblsLa12.Equal(lblsLa22))
+	require.False(t, lblsLa22.Equal(lblsLa12))
+	require.False(t, lblsLa22.Equal(lblsLb22))
+	require.False(t, lblsLb22.Equal(lblsLa22))
 }
 
 func TestLabelsK8sStringMap(t *testing.T) {
@@ -336,15 +327,15 @@ func TestLabelsK8sStringMap(t *testing.T) {
 	lbAb2 := NewLabel("b", "2", LabelSourceAny)
 	lbRb2 := NewLabel("b", "2", LabelSourceReserved)
 
-	lblsKa1 := Labels{laKa1.Key(): laKa1}
-	lblsUa1 := Labels{laUa1.Key(): laUa1}
-	lblsCa2 := Labels{laCa2.Key(): laCa2}
-	lblsNa3 := Labels{laNa3.Key(): laNa3}
-	lblsAb2 := Labels{lbAb2.Key(): lbAb2}
-	lblsRb2 := Labels{lbRb2.Key(): lbRb2}
-	lblsOverlap := Labels{laKa1.Key(): laKa1, laUa1.Key(): laUa1}
-	lblsAll := Labels{laKa1.Key(): laKa1, laUa1.Key(): laUa1, laCa2.Key(): laCa2, lbAb2.Key(): lbAb2, lbRb2.Key(): lbRb2}
-	lblsFewer := Labels{laKa1.Key(): laKa1, laCa2.Key(): laCa2, lbAb2.Key(): lbAb2, lbRb2.Key(): lbRb2}
+	lblsKa1 := NewLabels(laKa1)
+	lblsUa1 := NewLabels(laUa1)
+	lblsCa2 := NewLabels(laCa2)
+	lblsNa3 := NewLabels(laNa3)
+	lblsAb2 := NewLabels(lbAb2)
+	lblsRb2 := NewLabels(lbRb2)
+	lblsOverlap := NewLabels(laKa1, laUa1)
+	lblsAll := NewLabels(laKa1, laUa1, laCa2, lbAb2, lbRb2)
+	lblsFewer := NewLabels(laKa1, laCa2, lbAb2, lbRb2)
 
 	require.Equal(t, map[string]string{"a": "1"}, lblsKa1.K8sStringMap())
 	require.Equal(t, map[string]string{"a": "1"}, lblsUa1.K8sStringMap())
@@ -381,35 +372,35 @@ func TestLabels_Has(t *testing.T) {
 		},
 		{
 			name: "has label",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "k8s"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "k8s"),
+				NewLabel("other", "bar", ""),
+			),
 			in:   NewLabel("foo", "bar", "k8s"),
 			want: true,
 		},
 		{
 			name: "has label, any source",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "k8s"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "k8s"),
+				NewLabel("other", "bar", ""),
+			),
 			in:   NewLabel("foo", "bar", "any"),
 			want: true,
 		},
 		{
 			name: "does not have label",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "any"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "any"),
+				NewLabel("other", "bar", ""),
+			),
 			in:   NewLabel("nope", "", ""),
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.l.Has(tt.in))
+			assert.Equal(t, tt.want, tt.l.Has(tt.in.Key()))
 		})
 	}
 }
@@ -426,23 +417,23 @@ func TestLabels_GetFromSource(t *testing.T) {
 	}{
 		{
 			name: "should contain label with the given source",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "my-source"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "my-source"),
+				NewLabel("other", "bar", ""),
+			),
 			args: args{
 				source: "my-source",
 			},
-			want: Labels{
-				"foo": NewLabel("foo", "bar", "my-source"),
-			},
+			want: NewLabels(
+				NewLabel("foo", "bar", "my-source"),
+			),
 		},
 		{
 			name: "should return an empty slice as there are not labels for the given source",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "any"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "any"),
+				NewLabel("other", "bar", ""),
+			),
 			args: args{
 				source: "my-source",
 			},
@@ -451,7 +442,7 @@ func TestLabels_GetFromSource(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.l.GetFromSource(tt.args.source); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.l.GetFromSource(tt.args.source); !got.Equal(tt.want) {
 				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
 			}
 		})
@@ -478,10 +469,10 @@ func TestLabels_HasSource(t *testing.T) {
 		},
 		{
 			name: "should contain label with the given source",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "my-source"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "my-source"),
+				NewLabel("other", "bar", ""),
+			),
 			args: args{
 				source: "my-source",
 			},
@@ -489,10 +480,10 @@ func TestLabels_HasSource(t *testing.T) {
 		},
 		{
 			name: "should return false as there are not labels for the given source",
-			l: Labels{
-				"foo":   NewLabel("foo", "bar", "any"),
-				"other": NewLabel("other", "bar", ""),
-			},
+			l: NewLabels(
+				NewLabel("foo", "bar", "any"),
+				NewLabel("other", "bar", ""),
+			),
 			args: args{
 				source: "my-source",
 			},
@@ -505,14 +496,6 @@ func TestLabels_HasSource(t *testing.T) {
 				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func BenchmarkNewFrom(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = NewFrom(lbls)
 	}
 }
 
@@ -546,7 +529,7 @@ func BenchmarkGenerateLabelString(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		generateLabelString("foo", "key", "value")
+		GenerateK8sLabelString("key", "value")
 	}
 }
 

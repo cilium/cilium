@@ -726,18 +726,19 @@ func (e *Endpoint) getK8sPodLabels() labels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
 	allLabels := e.OpLabels.AllLabels()
-	if allLabels == nil {
-		return nil
+	if allLabels.IsEmpty() {
+		return labels.Empty
 	}
 
 	allLabelsFromK8s := allLabels.GetFromSource(labels.LabelSourceK8s)
 
-	k8sEPPodLabels := labels.Labels{}
-	for k, v := range allLabelsFromK8s {
-		if !strings.HasPrefix(v.Key(), ciliumio.PodNamespaceMetaLabels) &&
-			!strings.HasPrefix(v.Key(), ciliumio.PolicyLabelServiceAccount) &&
-			!strings.HasPrefix(v.Key(), ciliumio.PodNamespaceLabel) {
-			k8sEPPodLabels[k] = v
+	k8sEPPodLabels := labels.Empty
+	for v := range allLabelsFromK8s.All() {
+		k := v.Key()
+		if !strings.HasPrefix(k, ciliumio.PodNamespaceMetaLabels) &&
+			!strings.HasPrefix(k, ciliumio.PolicyLabelServiceAccount) &&
+			!strings.HasPrefix(k, ciliumio.PodNamespaceLabel) {
+			k8sEPPodLabels = k8sEPPodLabels.Add(v)
 		}
 	}
 	return k8sEPPodLabels
@@ -786,7 +787,7 @@ func TestMetadataResolver(t *testing.T) {
 					testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
 
-				_, err := ep.metadataResolver(ctx, restored, true, labels.Labels{}, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
+				_, err := ep.metadataResolver(ctx, restored, true, labels.Empty, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
 				tt.assert(t, err)
 			})
 		}

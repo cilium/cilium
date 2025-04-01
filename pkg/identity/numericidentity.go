@@ -205,7 +205,7 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 
 func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
 	for _, i := range w {
-		if lbls.Equals(i.identity.Labels) {
+		if lbls.Equal(i.identity.Labels) {
 			return i.identity
 		}
 	}

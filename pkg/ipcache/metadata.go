@@ -277,12 +277,13 @@ func (m *metadata) mergeParentLabels(lbls labels.Labels, prefixCluster cmtypes.P
 	for bits := prefix.Bits() - 1; bits >= 0; bits-- {
 		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
 		if info, ok := m.m[cmtypes.NewPrefixCluster(parent, prefixCluster.ClusterID())]; ok {
-			for k, v := range info.ToLabels() {
+			for v := range info.ToLabels().All() {
+				k := v.Key()
 				if v.Source() == labels.LabelSourceCIDR && hasCIDR {
 					continue
 				}
-				if _, ok := lbls[k]; !ok {
-					lbls[k] = v
+				if !lbls.Has(k) {
+					lbls = lbls.Add(v)
 					if v.Source() == labels.LabelSourceCIDR {
 						hasCIDR = true
 					}
@@ -542,7 +543,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		// for reserved:host and push that to the SelectorCache
 		if entryExists && oldID.ID == identity.ReservedIdentityHost &&
 			(newID == nil || newID.ID != identity.ReservedIdentityHost) && prefix.ClusterID() == 0 {
-			i := ipc.updateReservedHostLabels(prefix.AsPrefix(), nil)
+			i := ipc.updateReservedHostLabels(prefix.AsPrefix(), labels.Empty)
 			idsToAdd[i.ID] = i.Labels.LabelArray()
 		}
 
@@ -769,7 +770,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix cmtypes.PrefixCl
 // However, nodes *are* allowed to be selectable by CIDR and CIDR equivalents
 // if PolicyCIDRMatchesNodes() is true.
 func resolveLabels(prefix cmtypes.PrefixCluster, lbls labels.Labels) labels.Labels {
-	out := labels.NewFrom(lbls)
+	out := lbls
 
 	isNode := lbls.HasRemoteNodeLabel() || lbls.HasHostLabel()
 
@@ -779,34 +780,32 @@ func resolveLabels(prefix cmtypes.PrefixCluster, lbls labels.Labels) labels.Labe
 
 	// In-cluster entities must not have reserved:world.
 	if isInCluster {
-		out.Remove(labels.LabelWorld)
-		out.Remove(labels.LabelWorldIPv4)
-		out.Remove(labels.LabelWorldIPv6)
+		out = out.RemoveKeys(labels.IDNameWorld, labels.IDNameWorldIPv4, labels.IDNameWorldIPv6)
 	}
 
 	// In-cluster entities must not have cidr or fqdn labels.
 	// Exception: nodes may, when PolicyCIDRMatchesNodes() is enabled.
 	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
-		out.RemoveFromSource(labels.LabelSourceCIDR)
-		out.RemoveFromSource(labels.LabelSourceFQDN)
-		out.RemoveFromSource(labels.LabelSourceCIDRGroup)
+		out = out.RemoveFromSource(labels.LabelSourceCIDR)
+		out = out.RemoveFromSource(labels.LabelSourceFQDN)
+		out = out.RemoveFromSource(labels.LabelSourceCIDRGroup)
 	}
 
 	// Remove all labels with source `node:`, unless this is a node *and* node labels are enabled.
 	if !(isNode && option.Config.PerNodeLabelsEnabled()) {
-		out.RemoveFromSource(labels.LabelSourceNode)
+		out = out.RemoveFromSource(labels.LabelSourceNode)
 	}
 
 	// No empty labels allowed.
 	// Add in (cidr:<address/prefix>) label as a fallback.
 	// This should not be hit in production, but is used in tests.
-	if len(out) == 0 {
+	if out.Len() == 0 {
 		out = labels.GetCIDRLabels(prefix.AsPrefix())
 	}
 
 	// add world if not in-cluster.
 	if !isInCluster {
-		out.AddWorldLabel(prefix.AsPrefix().Addr())
+		out = out.AddWorldLabel(prefix.AsPrefix().Addr())
 	}
 
 	return out
@@ -825,16 +824,16 @@ func resolveLabels(prefix cmtypes.PrefixCluster, lbls labels.Labels) labels.Labe
 func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.Labels) *identity.Identity {
 	ipc.metadata.reservedHostLock.Lock()
 	defer ipc.metadata.reservedHostLock.Unlock()
-	if lbls == nil {
+	if lbls.IsEmpty() {
 		delete(ipc.metadata.reservedHostLabels, prefix)
 	} else {
 		ipc.metadata.reservedHostLabels[prefix] = lbls
 	}
 
 	// aggregate all labels and update static identity
-	newLabels := labels.NewFrom(labels.LabelHost)
+	newLabels := labels.LabelHost
 	for _, l := range ipc.metadata.reservedHostLabels {
-		newLabels.MergeLabels(l)
+		newLabels = newLabels.Merge(l)
 	}
 
 	log.WithField(logfields.Labels, newLabels).Debug("Merged labels for reserved:host identity")
@@ -845,8 +844,8 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 // appendAPIServerLabelsForDeletion inspects labels and performs special handling for corner cases like API server entities
 // deployed external to the cluster.
 func appendAPIServerLabelsForDeletion(lbls labels.Labels, currentLabels labels.Labels) labels.Labels {
-	if currentLabels.HasKubeAPIServerLabel() && currentLabels.HasWorldLabel() && len(currentLabels) == 2 {
-		lbls.MergeLabels(labels.LabelWorld)
+	if currentLabels.HasKubeAPIServerLabel() && currentLabels.HasWorldLabel() && currentLabels.Len() == 2 {
+		lbls = lbls.Merge(labels.LabelWorld)
 	}
 	return lbls
 }

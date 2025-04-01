@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"maps"
 	"net/netip"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,13 +46,13 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		oldCIDRs = make(sets.Set[netip.Prefix])
 	}
 	newCIDRs := make(sets.Set[netip.Prefix])
-	lbls := labels.Labels{}
+	lbls := labels.Empty
 
 	// If CIDRGroup isn't deleted; populate newCIDRs
 	if cidrGroup, ok := p.cidrGroupCache[name]; ok {
 		lbls = labels.Map2Labels(utils.RemoveCiliumLabels(cidrGroup.Labels), labels.LabelSourceCIDRGroup)
 		lbl := api.LabelForCIDRGroupRef(name)
-		lbls[lbl.Key()] = lbl
+		lbls = lbls.Add(lbl)
 
 		for i, c := range cidrGroup.Spec.ExternalCIDRs {
 			pfx, err := netip.ParsePrefix(string(c))
@@ -94,8 +93,8 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 			oldCIDRs.Delete(newCIDR)
 			// Note: we cannot short-cut injecting newCIDR; labels may have changed.
 		}
-		cidrLbls := maps.Clone(lbls)
-		cidrLbls.AddWorldLabel(newCIDR.Addr())
+		cidrLbls := lbls
+		cidrLbls = cidrLbls.AddWorldLabel(newCIDR.Addr())
 
 		mu = append(mu, ipcache.MU{
 			Prefix:   cmtypes.NewLocalPrefixCluster(newCIDR),
@@ -115,7 +114,7 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 			Prefix:   cmtypes.NewLocalPrefixCluster(oldCIDR),
 			Source:   source.Generated,
 			Resource: resourceID,
-			Metadata: []ipcache.IPMetadata{labels.Labels{}},
+			Metadata: []ipcache.IPMetadata{labels.Empty},
 		})
 	}
 	if len(mu) > 0 {

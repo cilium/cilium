@@ -61,11 +61,11 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 	log.WithField(logfields.Labels, logfields.Repr(*lbls)).Debug("All Labels")
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
-	for _, v := range lbls.IdentityLabels() {
+	for v := range lbls.IdentityLabels().All() {
 		fmt.Fprintf(w, "%s\t%s\n", v.String(), "Enabled")
 	}
 
-	for _, v := range lbls.Disabled {
+	for v := range lbls.Disabled.All() {
 		fmt.Fprintf(w, "%s\t%s\n", v.String(), "Disabled")
 	}
 	w.Flush()

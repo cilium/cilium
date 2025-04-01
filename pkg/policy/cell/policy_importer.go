@@ -244,7 +244,7 @@ func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID
 			ipcUpdates = append(ipcUpdates, ipcache.MU{
 				Prefix:   cmtypes.NewLocalPrefixCluster(oldPrefix),
 				Resource: resource,
-				Metadata: []ipcache.IPMetadata{labels.Labels{}},
+				Metadata: []ipcache.IPMetadata{labels.Empty},
 			})
 		}
 	}

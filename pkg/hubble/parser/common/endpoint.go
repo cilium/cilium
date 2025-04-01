@@ -143,7 +143,7 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 			e := &pb.Endpoint{
 				ID:          uint32(ep.GetID()),
 				Identity:    epIdentity,
-				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value(),
+				ClusterName: labels.GetValue(k8sConst.PolicyLabelCluster),
 				Namespace:   ep.GetK8sNamespace(),
 				Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
 				PodName:     ep.GetK8sPodName(),
@@ -180,7 +180,7 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 			)
 		} else {
 			labels = SortAndFilterLabels(r.log, id.Labels.GetModel(), identity.NumericIdentity(numericIdentity))
-			clusterName = (id.Labels[k8sConst.PolicyLabelCluster]).Value()
+			clusterName = id.Labels.GetValue(k8sConst.PolicyLabelCluster)
 		}
 	}
 

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
@@ -57,7 +58,7 @@ var testServiceName = loadbalancer.ServiceName{Name: "test", Namespace: "test"}
 var baseService = Service{
 	Name:                   testServiceName,
 	Source:                 source.Kubernetes,
-	Labels:                 nil,
+	Labels:                 labels.Empty,
 	NatPolicy:              loadbalancer.SVCNatPolicyNone,
 	ExtTrafficPolicy:       loadbalancer.SVCTrafficPolicyLocal,
 	IntTrafficPolicy:       loadbalancer.SVCTrafficPolicyLocal,

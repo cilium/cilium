@@ -1846,9 +1846,9 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	defer SetPolicyEnabled(oldPolicyEnable)
 
 	SetPolicyEnabled(option.DefaultEnforcement)
-	hostLabel := labels.NewFrom(labels.LabelHost)
-	hostLabel.MergeLabels(lblHostIPv4CIDR)
-	hostLabel.MergeLabels(lblHostIPv6CIDR)
+	hostLabel := labels.LabelHost
+	hostLabel = hostLabel.Merge(lblHostIPv4CIDR)
+	hostLabel = hostLabel.Merge(lblHostIPv6CIDR)
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
@@ -1911,9 +1911,9 @@ func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIden
 }
 
 func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id identity.NumericIdentity, adds identity.IdentityMap) {
-	lbls := labels.Labels{}
+	lbls := labels.Empty
 	l := fqdnSel.IdentityLabel()
-	lbls[l.Key()] = l
+	lbls = lbls.Add(l)
 
 	lblA := lbls.LabelArray()
 
