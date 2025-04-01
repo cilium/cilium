@@ -3152,7 +3152,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
 	var ctMonitorReportFlags uint16
-	for i := 0; i < len(monitorAggregationFlags); i++ {
+	for i := range monitorAggregationFlags {
 		value := strings.ToLower(monitorAggregationFlags[i])
 		flag, exists := TCPFlags[value]
 		if !exists {

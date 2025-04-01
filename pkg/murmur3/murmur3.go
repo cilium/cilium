@@ -23,7 +23,7 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 	h1 := uint64(seed)
 	h2 := uint64(seed)
 
-	for i := 0; i < nblocks; i++ {
+	for i := range nblocks {
 		tmp := (*[2]uint64)(unsafe.Pointer(&data[i*16]))
 		k1 := tmp[0]
 		k2 := tmp[1]

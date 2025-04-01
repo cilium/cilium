@@ -31,7 +31,7 @@ func testLock(t *testing.T) {
 	Client().DeletePrefix(context.TODO(), prefix)
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		lock, err := LockPath(context.Background(), hivetest.Logger(t), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
 		require.NoError(t, err)
 		require.NotNil(t, lock)
@@ -64,7 +64,7 @@ func testGetSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, pairs)
 
-	for i := 0; i < maxID; i++ {
+	for i := range maxID {
 		val, err := Client().Get(context.TODO(), testKey(prefix, i))
 		require.NoError(t, err)
 		require.Nil(t, val)
@@ -80,7 +80,7 @@ func testGetSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, pairs, maxID)
 
-	for i := 0; i < maxID; i++ {
+	for i := range maxID {
 		require.NoError(t, Client().Delete(context.TODO(), testKey(prefix, i)))
 
 		val, err := Client().Get(context.TODO(), testKey(prefix, i))

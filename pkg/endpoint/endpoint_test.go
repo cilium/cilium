@@ -709,7 +709,7 @@ func BenchmarkEndpointGetModel(b *testing.B) {
 
 	e := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
 
-	for i := 0; i < 256; i++ {
+	for range 256 {
 		e.LogStatusOK(BPF, "Hello World!")
 	}
 

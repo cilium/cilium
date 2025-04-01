@@ -520,7 +520,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		}
 
 		By("Testing %q and %q containers are allow to work with roundrobin dns", helpers.App1, helpers.App2)
-		for i := 0; i < numberOfTries; i++ {
+		for range numberOfTries {
 			for _, container := range []string{helpers.App1, helpers.App2} {
 				By("Testing connectivity to Cilium.test domain")
 				res := vm.ContainerExec(container, helpers.CurlFail(target))

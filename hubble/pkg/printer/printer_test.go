@@ -110,7 +110,7 @@ func TestPrinter_AllFieldsInMask(t *testing.T) {
 	}
 	check := func(msg protoreflect.Message, prefix string) {
 		fds := msg.Descriptor().Fields()
-		for i := 0; i < fds.Len(); i++ {
+		for i := range fds.Len() {
 			fd := fds.Get(i)
 			if !msg.Has(fd) {
 				continue

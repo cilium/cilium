@@ -93,7 +93,7 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
-		for k := 0; k < numColumns; k++ {
+		for k := range numColumns {
 			c := strings.Compare(rows[i][k], rows[j][k])
 
 			if c != 0 {

@@ -695,7 +695,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -1360,7 +1360,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -2023,7 +2023,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,
@@ -2377,7 +2377,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 
 			// Run the reconciler twice to ensure idempotency. This
 			// simulates the retrying behavior of the controller.
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				t.Run(tt.name, func(t *testing.T) {
 					err = reconciler.Reconcile(context.Background(), ReconcileParams{
 						CurrentServer: testSC,

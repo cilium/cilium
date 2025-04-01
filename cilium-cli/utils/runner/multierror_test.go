@@ -14,7 +14,7 @@ func TestMultiError_no_errors(t *testing.T) {
 	m := MultiError{}
 
 	check := make([]int, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		id := i
 		m.Go(func() error {
 			check[id] = 1
@@ -23,7 +23,7 @@ func TestMultiError_no_errors(t *testing.T) {
 	}
 
 	require.NoError(t, m.Wait())
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		require.Equal(t, 1, check[i])
 	}
 }

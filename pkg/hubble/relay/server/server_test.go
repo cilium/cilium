@@ -73,7 +73,7 @@ var endpoints map[string]*testutils.FakeEndpointInfo
 
 func init() {
 	endpoints = make(map[string]*testutils.FakeEndpointInfo, 254)
-	for i := 0; i < 254; i++ {
+	for i := range 254 {
 		ip := fake.IP(fake.WithIPv4())
 		endpoints[ip] = &testutils.FakeEndpointInfo{
 			ID:           uint64(i),
@@ -105,7 +105,7 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 
 	m := s.GetEventsChannel()
 
-	for i := 0; i < numFlows; i++ {
+	for i := range numFlows {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		src := getRandomEndpoint()
 		dst := getRandomEndpoint()

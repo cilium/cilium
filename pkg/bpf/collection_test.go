@@ -22,7 +22,7 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 
 	num := 32
 	insns := make(asm.Instructions, 0, num)
-	for i := 0; i < num-1; i++ {
+	for range num - 1 {
 		insns = append(insns, asm.Mov.Reg(asm.R0, asm.R1))
 	}
 	insns = append(insns, asm.Return())

@@ -21,7 +21,7 @@ import (
 
 func TestRingReader_Previous(t *testing.T) {
 	ring := NewRing(Capacity15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 	tests := []struct {
@@ -76,7 +76,7 @@ func TestRingReader_Previous(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			reader := NewRingReader(ring, tt.start)
 			var got []*v1.Event
-			for i := 0; i < tt.count; i++ {
+			for range tt.count {
 				event, err := reader.Previous()
 				if !errors.Is(err, tt.wantErr) {
 					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
@@ -94,7 +94,7 @@ func TestRingReader_Previous(t *testing.T) {
 
 func TestRingReader_PreviousLost(t *testing.T) {
 	ring := NewRing(Capacity15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 	reader := NewRingReader(ring, ^uint64(0))
@@ -113,7 +113,7 @@ func TestRingReader_PreviousLost(t *testing.T) {
 
 func TestRingReader_Next(t *testing.T) {
 	ring := NewRing(Capacity15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 
@@ -163,7 +163,7 @@ func TestRingReader_Next(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			reader := NewRingReader(ring, tt.start)
 			var got []*v1.Event
-			for i := 0; i < tt.count; i++ {
+			for range tt.count {
 				event, err := reader.Next()
 				if !errors.Is(err, tt.wantErr) {
 					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
@@ -181,7 +181,7 @@ func TestRingReader_Next(t *testing.T) {
 
 func TestRingReader_NextLost(t *testing.T) {
 	ring := NewRing(Capacity15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 	expected := &v1.Event{
@@ -206,7 +206,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).read"))
 	ring := NewRing(Capacity15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 
@@ -258,7 +258,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 			reader := NewRingReader(ring, tt.start)
 			var timedOut bool
 			var got []*v1.Event
-			for i := 0; i < tt.count; i++ {
+			for i := range tt.count {
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				got = append(got, reader.NextFollow(ctx))
 				select {

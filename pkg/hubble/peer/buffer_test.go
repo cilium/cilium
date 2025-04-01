@@ -20,7 +20,7 @@ func TestBufferPush(t *testing.T) {
 	assert.NotNil(t, buf)
 	assert.Equal(t, 0, buf.Len())
 	assert.Equal(t, 0, buf.Cap())
-	for i := 0; i < max; i++ {
+	for i := range max {
 		assert.NoError(t, buf.Push(&peerpb.ChangeNotification{}))
 		assert.Equal(t, i+1, buf.Len())
 	}
@@ -41,11 +41,11 @@ func TestBufferPop(t *testing.T) {
 	assert.NotNil(t, buf)
 	assert.Equal(t, 0, buf.Len())
 	assert.Equal(t, 0, buf.Cap())
-	for i := 0; i < max; i++ {
+	for i := range max {
 		assert.NoError(t, buf.Push(&peerpb.ChangeNotification{Name: fmt.Sprintf("#%d", i)}))
 		assert.Equal(t, i+1, buf.Len())
 	}
-	for i := 0; i < max; i++ {
+	for i := range max {
 		cn, err := buf.Pop()
 		assert.NoError(t, err)
 		assert.Equal(t, &peerpb.ChangeNotification{Name: fmt.Sprintf("#%d", i)}, cn)
@@ -84,7 +84,7 @@ func TestBufferPopWithClosedStopChan(t *testing.T) {
 	assert.Equal(t, 0, buf.Len())
 	assert.Equal(t, 0, buf.Cap())
 
-	for i := 0; i < max; i++ {
+	for i := range max {
 		assert.NoError(t, buf.Push(&peerpb.ChangeNotification{}))
 		assert.Equal(t, i+1, buf.Len())
 	}

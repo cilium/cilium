@@ -2944,7 +2944,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// 'limitTimes' retries has been exhausted.
 	// https://github.com/cilium/cilium/issues/22476
 	// [1]: https://github.com/golang/go/blob/go1.20rc1/src/os/exec_posix.go#L128-L130
-	for i := 0; i < limitTimes; i++ {
+	for i := range limitTimes {
 		res = execute()
 		switch res.GetExitCode() {
 		case 0:

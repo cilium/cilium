@@ -229,7 +229,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	m := s.GetEventsChannel()
 	input := make([]*observerpb.Flow, numFlows)
 
-	for i := 0; i < numFlows; i++ {
+	for i := range numFlows {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		macOnly := func(mac string) net.HardwareAddr {
 			m, _ := net.ParseMAC(mac)
@@ -371,7 +371,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	go s.Start()
 
 	m := s.GetEventsChannel()
-	for i := 0; i < numEvents; i++ {
+	for i := range numEvents {
 		ts := time.Unix(int64(i), 0)
 		node := fmt.Sprintf("node #%03d", i)
 		var msg monitorAPI.AgentNotifyMessage
@@ -524,7 +524,7 @@ func TestHooks(t *testing.T) {
 	go s.Start()
 
 	m := s.GetEventsChannel()
-	for i := 0; i < numFlows; i++ {
+	for i := range numFlows {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{
@@ -579,7 +579,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	go s.Start()
 
 	m := s.GetEventsChannel()
-	for i := 0; i < numFlows; i++ {
+	for i := range numFlows {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{
@@ -643,7 +643,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	go s.Start()
 
 	m := s.GetEventsChannel()
-	for i := 0; i < numFlows; i++ {
+	for i := range numFlows {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{

@@ -99,7 +99,7 @@ func TestIdentitiesGC(t *testing.T) {
 		identities *v2.CiliumIdentityList
 		err        error
 	)
-	for retry := 0; retry < 10; retry++ {
+	for range 10 {
 		identities, err = clientset.CiliumV2().CiliumIdentities().List(
 			ctx,
 			metav1.ListOptions{

@@ -24,7 +24,7 @@ func CartesianProduct[T any](vs ...[]T) [][]T {
 	}
 
 	lastm := 1
-	for i := 0; i < dimension; i++ {
+	for i := range dimension {
 		permuteColumn[T](dst, i, lastm, vs[i])
 		lastm = lastm * len(vs[i])
 	}
@@ -67,7 +67,7 @@ func permuteColumn[T any](dst [][]T, col int, leftPermSize int, vec []T) {
 	// You want to skip along, lastm elements at a time.
 	for i := 0; i < len(dst); i += leftPermSize { // So we're skipping n rows at a time,
 		vi := (i / leftPermSize) % len(vec)
-		for off := 0; off < leftPermSize; off++ { // this is a repeat
+		for off := range leftPermSize { // this is a repeat
 			dst[i+off][col] = vec[vi]
 		}
 	}

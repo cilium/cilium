@@ -322,7 +322,7 @@ func newConnectivityTests(
 	}
 
 	connTests := make([]*check.ConnectivityTest, 0, params.TestConcurrency)
-	for i := 0; i < params.TestConcurrency; i++ {
+	for i := range params.TestConcurrency {
 		params := params
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
 		params.TestNamespaceIndex = i
