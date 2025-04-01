@@ -260,6 +260,9 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 	nodeIP := ""
 	firstRequest := true
+	// Indicates if client received the first response,
+	// but it doesn't necessarily mean that it was ACKed.
+	clientReceivedFirstResponse := false
 
 	for {
 		// Process either a new request from the xDS stream or a response
@@ -340,6 +343,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state := &typeStates[index]
 			watcher := s.watchers[typeURL]
 
+			if nonce > 0 {
+				// Non-zero nonce indicates that we have already sent
+				// a response to the client and client saw response.
+				clientReceivedFirstResponse = true
+			}
 			if nonce == 0 && versionInfo > 0 {
 				requestLog.Infof("xDS was restarted, setting nonce to %d", versionInfo)
 				nonce = versionInfo
@@ -350,17 +358,15 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				return ErrInvalidResponseNonce
 			}
 
-			// Response nonce is always the same as the response version.
-			// Request version indicates the last acked version. If the
-			// response nonce in the request is different(bigger) than
-			// request version, all versions upto that version are acked, but
-			// the versions from that to and including the nonce are nacked.
-			ackObserver := s.ackObservers[typeURL]
-			if ackObserver != nil {
-				requestLog.Debug("notifying observers of ACKs")
-				ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
-			} else if firstRequest {
-				requestLog.Info("ACK received but no observers are waiting for ACKs")
+			// We want to trigger HandleResourceVersionAck even for NACKs
+			if clientReceivedFirstResponse {
+				ackObserver := s.ackObservers[typeURL]
+				if ackObserver != nil {
+					requestLog.Debug("notifying observers of ACKs")
+					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
+				} else {
+					requestLog.Info("ACK received but no observers are waiting for ACKs")
+				}
 			}
 			if versionInfo < nonce {
 				// versions after VersionInfo, upto and including ResponseNonce are NACKed
