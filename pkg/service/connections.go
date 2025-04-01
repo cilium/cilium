@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -140,9 +141,27 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 
 // backendConnectionHandler is added for dependency injection in tests.
 type backendConnectionHandler struct {
-	logger *slog.Logger
+	sockets.SocketDestroyer
+	logger     *slog.Logger
+	useNetlink bool
+}
+
+func newBackendConnectionHandler(l *slog.Logger, sockTermFilter *filter.SockTermFilterMap) *backendConnectionHandler {
+	return &backendConnectionHandler{
+		SocketDestroyer: &sockets.BPFSocketDestroyer{
+			SockTermFilter: sockTermFilter,
+		},
+		logger: l,
+	}
 }
 
 func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(filter)
+	err := h.SocketDestroyer.Destroy(filter)
+	if err != nil && !h.useNetlink {
+		h.useNetlink = true
+		h.SocketDestroyer = &sockets.NetlinkSocketDestroyer{}
+		return h.Destroy(filter)
+	}
+
+	return err
 }
