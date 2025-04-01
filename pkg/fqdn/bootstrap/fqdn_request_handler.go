@@ -53,6 +53,7 @@ type DNSRequestHandler interface {
 		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
 	) error
+	UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error
 }
 
 type dnsRequestHandler struct {
@@ -183,99 +184,13 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 	}
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		stat.PolicyGenerationTime.Start()
-
-		// Create a critical section especially for when multiple DNS requests
-		// are in-flight for the same name (i.e. cilium.io).
-		//
-		// In the absence of such a critical section, consider the following
-		// race condition:
-		//
-		//              G1                                    G2
-		//
-		// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
-		//
-		// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
-		//
-		// T2 ----> mutex.Lock()                 +--------------------------+
-		//                                       |No selectors need updating|
-		// T3 ----> wg := UpdatePolicyMaps()     +--------------------------+
-		//
-		// T4 ----> mutex.Unlock()               mutex.Lock() / mutex.Unlock() <-- T4
-		//
-		// T5 ----> wg.Wait()                    DNS released back to pod    <-- T5
-		//                                                    |
-		// T6 --> DNS released back to pod                    |
-		//              |                                     |
-		//              |                                     |
-		//              v                                     v
-		//       Traffic flows fine                   Leads to policy drop until T6
-		//
-		// Note how G2 releases the DNS msg back to the pod at T5 because
-		// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
-		// UpdateGenerateDNS() first at T1 and performed the necessary policy
-		// updates for the response IPs. Due to G1 performing all the work
-		// first, G2 executes T4 also as a no-op and releases the msg back to the
-		// pod at T5 before G1 would at T6.
-		//
-		// We do not do a `defer unlock()` here, as we should release the lock before
-		// doing final bookkeeping.
-		mutexAcquireStart := time.Now()
-		b.nameManager.LockName(qname)
-
-		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-			b.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
+		if err := b.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat); err != nil {
+			b.logger.Error("failed to update DNS message",
+				logfields.Error, err,
 				logfields.DNSName, qname,
-				logfields.Duration, d,
-				logfields.Expected, option.Config.DNSProxyLockTimeout,
+				logfields.IPAddrs, responseIPs,
 			)
 		}
-
-		b.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
-
-		// This must happen before the NameManager update below, to ensure that
-		// this data is included in the serialized Endpoint object.
-		// We also need to add to the cache before we purge any matching zombies
-		// because they are locked separately and we want to keep the allowed IPs
-		// consistent if a regeneration happens between the two steps. If an update
-		// doesn't happen in the case, we play it safe and don't purge the zombie
-		// in case of races.
-		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
-			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
-			ep.SyncEndpointHeaderFile()
-		}
-
-		b.logger.Debug("Updating DNS name in cache from response to query",
-			logfields.DNSName, qname,
-			logfields.IPAddrs, responseIPs,
-		)
-
-		updateCtx, updateCancel := context.WithTimeout(b.ctx, option.Config.FQDNProxyResponseMaxDelay)
-		defer updateCancel()
-		updateStart := time.Now()
-
-		dpUpdates := b.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
-			IPs: responseIPs,
-			TTL: int(TTL),
-		})
-
-		stat.PolicyGenerationTime.End(true)
-		stat.DataplaneTime.Start()
-
-		if err := <-dpUpdates; err != nil {
-			b.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
-			metrics.ProxyDatapathUpdateTimeout.Inc()
-		}
-
-		// Policy updates for this name have been pushed out; we can release the lock.
-		b.nameManager.UnlockName(qname)
-
-		b.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
-			logfields.Duration, time.Since(updateStart),
-			logfields.EndpointID, ep.GetID(),
-			logfields.DNSName, qname,
-		)
-
 		endMetric()
 	}
 
@@ -312,6 +227,107 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 		}),
 	)
 	b.proxyAccessLogger.Log(record)
+
+	return nil
+}
+
+func (b *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error {
+	if stat != nil {
+		stat.PolicyGenerationTime.Start()
+	}
+
+	// Create a critical section especially for when multiple DNS requests
+	// are in-flight for the same name (i.e. cilium.io).
+	//
+	// In the absence of such a critical section, consider the following
+	// race condition:
+	//
+	//              G1                                    G2
+	//
+	// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
+	//
+	// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
+	//
+	// T2 ----> mutex.Lock()                 +--------------------------+
+	//                                       |No selectors need updating|
+	// T3 ----> wg := UpdatePolicyMaps()     +--------------------------+
+	//
+	// T4 ----> mutex.Unlock()               mutex.Lock() / mutex.Unlock() <-- T4
+	//
+	// T5 ----> wg.Wait()                    DNS released back to pod    <-- T5
+	//                                                    |
+	// T6 --> DNS released back to pod                    |
+	//              |                                     |
+	//              |                                     |
+	//              v                                     v
+	//       Traffic flows fine                   Leads to policy drop until T6
+	//
+	// Note how G2 releases the DNS msg back to the pod at T5 because
+	// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
+	// UpdateGenerateDNS() first at T1 and performed the necessary policy
+	// updates for the response IPs. Due to G1 performing all the work
+	// first, G2 executes T4 also as a no-op and releases the msg back to the
+	// pod at T5 before G1 would at T6.
+	//
+	// We do not do a `defer unlock()` here, as we should release the lock before
+	// doing final bookkeeping.
+	mutexAcquireStart := time.Now()
+	b.nameManager.LockName(qname)
+
+	if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
+		b.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
+			logfields.DNSName, qname,
+			logfields.Duration, d,
+			logfields.Expected, option.Config.DNSProxyLockTimeout,
+		)
+	}
+
+	b.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
+
+	// This must happen before the NameManager update below, to ensure that
+	// this data is included in the serialized Endpoint object.
+	// We also need to add to the cache before we purge any matching zombies
+	// because they are locked separately and we want to keep the allowed IPs
+	// consistent if a regeneration happens between the two steps. If an update
+	// doesn't happen in the case, we play it safe and don't purge the zombie
+	// in case of races.
+	if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+		ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
+		ep.SyncEndpointHeaderFile()
+	}
+
+	b.logger.Debug("Updating DNS name in cache from response to query",
+		logfields.DNSName, qname,
+		logfields.IPAddrs, responseIPs,
+	)
+
+	updateCtx, updateCancel := context.WithTimeout(b.ctx, option.Config.FQDNProxyResponseMaxDelay)
+	defer updateCancel()
+	updateStart := time.Now()
+
+	dpUpdates := b.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+		IPs: responseIPs,
+		TTL: int(TTL),
+	})
+
+	if stat != nil {
+		stat.PolicyGenerationTime.End(true)
+		stat.DataplaneTime.Start()
+	}
+
+	if err := <-dpUpdates; err != nil {
+		b.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
+		metrics.ProxyDatapathUpdateTimeout.Inc()
+	}
+
+	// Policy updates for this name have been pushed out; we can release the lock.
+	b.nameManager.UnlockName(qname)
+
+	b.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
+		logfields.Duration, time.Since(updateStart),
+		logfields.EndpointID, ep.GetID(),
+		logfields.DNSName, qname,
+	)
 
 	return nil
 }
