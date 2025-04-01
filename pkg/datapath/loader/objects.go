@@ -95,11 +95,12 @@ func (o *networkObjects) Close() {
 // wireguardObjects receives eBPF objects for attaching to Wireguard interfaces.
 // Objects originate from bpf_wireguard.c.
 type wireguardObjects struct {
-	ToWireguard *ebpf.Program `ebpf:"cil_to_wireguard"`
+	FromWireguard *ebpf.Program `ebpf:"cil_from_wireguard"`
+	ToWireguard   *ebpf.Program `ebpf:"cil_to_wireguard"`
 }
 
 func (o *wireguardObjects) Close() {
-	bpfClose(o.ToWireguard)
+	bpfClose(o.FromWireguard, o.ToWireguard)
 }
 
 func bpfClose(closers ...io.Closer) error {
