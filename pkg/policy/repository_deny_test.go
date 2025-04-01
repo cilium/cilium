@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
@@ -46,99 +47,83 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		return []labels.LabelArray{{lbl}}
 	}
 
-	fooIngressDenyRule1 := api.Rule{
+	fooIngressDenyRule1 := types.PolicyEntry{
+		Ingress:          true,
+		DefaultDeny:      true,
+		Deny:             true,
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
-		IngressDeny: []api.IngressDenyRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
-			},
+		L3: types.EndpointSelectorInterfaceSlice{
+			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
 			fooIngressDenyRule1Label,
 		},
 	}
-	fooIngressDenyRule1.Sanitize()
 
-	fooIngressDenyRule2 := api.Rule{
+	fooIngressDenyRule2 := types.PolicyEntry{
+		Ingress:          true,
+		DefaultDeny:      true,
+		Deny:             true,
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
-		IngressDeny: []api.IngressDenyRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
-			},
+		L3: types.EndpointSelectorInterfaceSlice{
+			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
 			fooIngressDenyRule2Label,
 		},
 	}
-	fooIngressDenyRule2.Sanitize()
 
-	fooEgressDenyRule1 := api.Rule{
+	fooEgressDenyRule1 := types.PolicyEntry{
+		Ingress:          false,
+		DefaultDeny:      true,
+		Deny:             true,
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
-		EgressDeny: []api.EgressDenyRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
-			},
+		L3: types.EndpointSelectorInterfaceSlice{
+			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
 			fooEgressDenyRule1Label,
 		},
 	}
-	fooEgressDenyRule1.Sanitize()
 
-	fooEgressDenyRule2 := api.Rule{
+	fooEgressDenyRule2 := types.PolicyEntry{
+		Ingress:          false,
+		DefaultDeny:      true,
+		Deny:             true,
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
-		EgressDeny: []api.EgressDenyRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
-			},
+		L3: types.EndpointSelectorInterfaceSlice{
+			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
 			fooEgressDenyRule2Label,
 		},
 	}
-	fooEgressDenyRule2.Sanitize()
 
-	combinedRule := api.Rule{
-		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
-		IngressDeny: []api.IngressDenyRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
+	combinedRule := types.PolicyEntries{
+		&types.PolicyEntry{
+			Ingress:          true,
+			DefaultDeny:      true,
+			Deny:             true,
+			EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+			L3: types.EndpointSelectorInterfaceSlice{
+				api.NewESFromLabels(fooSelectLabel),
 			},
-		},
-		EgressDeny: []api.EgressDenyRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(fooSelectLabel),
-					},
-				},
+			Labels: labels.LabelArray{
+				combinedLabel,
 			},
-		},
-		Labels: labels.LabelArray{
-			combinedLabel,
+		}, &types.PolicyEntry{
+			Ingress:          false,
+			DefaultDeny:      true,
+			Deny:             true,
+			EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+			L3: types.EndpointSelectorInterfaceSlice{
+				api.NewESFromLabels(fooSelectLabel),
+			},
+			Labels: labels.LabelArray{
+				combinedLabel,
+			},
 		},
 	}
-	combinedRule.Sanitize()
 
 	genCommentf := func(ingress, accept bool) string {
 		direction := "egress"
@@ -161,19 +146,19 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, genCommentf(false, false))
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err := repo.mustAdd(fooIngressDenyRule1)
+	_, _, err := repo.mustAddPolicyEntry(fooIngressDenyRule1)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, fooIngressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
+	require.Equal(t, fooIngressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, err = repo.mustAdd(fooIngressDenyRule2)
+	_, _, err = repo.mustAddPolicyEntry(fooIngressDenyRule2)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), types.PolicyEntries{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.ReplaceByLabels(nil, lal(fooIngressDenyRule1Label))
 	require.Equal(t, 1, numDeleted)
@@ -181,7 +166,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, fooIngressDenyRule2, matchingRules[0].Rule, "returned matching rules did not match")
+	require.Equal(t, fooIngressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooIngressDenyRule2Label))
 	require.Equal(t, 1, numDeleted)
@@ -190,33 +175,32 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, genCommentf(false, false))
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err = repo.mustAdd(fooEgressDenyRule1)
+	_, _, err = repo.mustAddPolicyEntry(fooEgressDenyRule1)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, fooEgressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
+	require.Equal(t, fooEgressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressDenyRule1Label))
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.mustAdd(fooEgressDenyRule2)
+	_, _, err = repo.mustAddPolicyEntry(fooEgressDenyRule2)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, fooEgressDenyRule2, matchingRules[0].Rule, "returned matching rules did not match")
+	require.Equal(t, fooEgressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressDenyRule2Label))
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.mustAdd(combinedRule)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	_, _ = repo.MustAddPolicyEntries(combinedRule)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), combinedRule, "returned matching rules did not match")
 	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(combinedLabel))
-	require.Equal(t, 1, numDeleted)
+	require.Equal(t, 2, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
 	require.NoError(t, err, "unable to add rule to policy repository")
@@ -226,8 +210,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
 	SetPolicyEnabled(option.NeverEnforce)
-	_, _, err = repo.mustAdd(combinedRule)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	_, _ = repo.MustAddPolicyEntries(combinedRule)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.False(t, egr, genCommentf(false, false))
@@ -442,13 +425,7 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 		},
 	}
 
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "a"}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"t"},
-		},
-	})
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "a"}, nil)
 	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
 
 	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -495,13 +472,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 		},
 	}
 
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "a"}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"t"},
-		},
-	})
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "a"}, nil)
 	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []slim_metav1.LabelSelectorRequirement{
 		{
 			Key:      "any.id",
