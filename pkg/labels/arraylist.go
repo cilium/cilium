@@ -12,6 +12,7 @@ import (
 
 // LabelArrayList is an array of LabelArrays. It is primarily intended as a
 // simple collection
+// +deepequal-gen=true
 type LabelArrayList []LabelArray
 
 // DeepCopy returns a deep copy of the LabelArray, with each element also copied.

@@ -8,14 +8,6 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
-
-	v2 "github.com/cilium/cilium/pkg/labels/v2"
-)
-
-var (
-	worldLabelNonDualStack = NewLabel(IDNameWorld, "", LabelSourceReserved)
-	worldLabelV4           = NewLabel(IDNameWorldIPv4, "", LabelSourceReserved)
-	worldLabelV6           = NewLabel(IDNameWorldIPv6, "", LabelSourceReserved)
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -90,16 +82,7 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 	lbls := make([]Label, 0, 2)
 	if prefix.Bits() > 0 {
 		l := maskedIPToLabel(prefix.Addr().String(), prefix.Bits())
-		lbls = append(lbls, v2.MakeCIDRLabel(l.Key(), l.Value(), l.Source(), &prefix))
+		lbls = append(lbls, MakeCIDRLabel(l.Key(), l.Value(), l.Source(), &prefix))
 	}
 	return NewLabels(lbls...).AddWorldLabel(prefix.Addr())
-}
-
-func LabelToPrefix(key string) (netip.Prefix, error) {
-	prefixStr := strings.Replace(key, "-", ":", -1)
-	pfx, err := netip.ParsePrefix(prefixStr)
-	if err != nil {
-		return netip.Prefix{}, fmt.Errorf("failed to parse label prefix %s: %w", key, err)
-	}
-	return pfx, nil
 }

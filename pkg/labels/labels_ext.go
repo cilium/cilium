@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2
+package labels
 
 import (
 	"bytes"
@@ -542,4 +542,43 @@ func generateLabelString(source, key, value string) string {
 // the provided source, key, and value in the format "LabelSourceK8s:key=value".
 func GenerateK8sLabelString(k, v string) string {
 	return generateLabelString(LabelSourceK8s, k, v)
+}
+
+// GetExtendedKeyFrom returns the extended key of a label string.
+// For example:
+// `k8s:foo=bar` returns `k8s.foo`
+// `container:foo=bar` returns `container.foo`
+// `foo=bar` returns `any.foo=bar`
+func GetExtendedKeyFrom(str string) string {
+	src, next := ParseSource(str, ':')
+	if src == "" {
+		src = LabelSourceAny
+	}
+	// Remove an eventually value
+	i := strings.IndexByte(next, '=')
+	if i >= 0 {
+		return src + PathDelimiter + next[:i]
+	}
+	return src + PathDelimiter + next
+}
+
+// NewLabelsFromModel creates labels from string array.
+func NewLabelsFromModel(base []string) Labels {
+	lbls := make([]Label, 0, len(base))
+	for _, v := range base {
+		if lbl := ParseLabel(v); lbl.Key() != "" {
+			lbls = append(lbls, lbl)
+		}
+	}
+	return NewLabels(lbls...)
+}
+
+// GetCiliumKeyFrom returns the label's source and key from the an extended key
+// in the format SOURCE:KEY.
+func GetCiliumKeyFrom(extKey string) string {
+	i := strings.IndexByte(extKey, PathDelimiter[0])
+	if i >= 0 {
+		return extKey[:i] + ":" + extKey[i+1:]
+	}
+	return LabelSourceAny + ":" + extKey
 }

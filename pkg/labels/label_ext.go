@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2
+package labels
 
 import (
 	"bytes"
@@ -104,6 +104,11 @@ var (
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = NewLabels(NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved))
 
+	LabelKubeAPIServerExt = NewLabels(
+		NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved),
+		NewLabel(IDNameWorld, "", LabelSourceReserved),
+	)
+
 	// LabelIngress is the label used for Ingress proxies. See comment
 	// on IDNameIngress.
 	LabelIngress = NewLabels(NewLabel(IDNameIngress, "", LabelSourceReserved))
@@ -184,7 +189,6 @@ func NewLabel(key string, value string, source string) Label {
 	if source == LabelSourceCIDR {
 		c, err := LabelToPrefix(key)
 		if err != nil {
-			// FIXME what are these logs
 			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
 			l = MakeLabel(key, value, source)
 		} else {
@@ -197,6 +201,9 @@ func NewLabel(key string, value string, source string) Label {
 }
 
 func (l Label) DeepEqual(other *Label) bool {
+	if other == nil {
+		return false
+	}
 	return l.Equal(*other)
 }
 

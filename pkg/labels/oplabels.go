@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	v2 "github.com/cilium/cilium/pkg/labels/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -54,8 +53,6 @@ func NewOpLabels() OpLabels {
 
 // SplitUserLabelChanges returns labels to 'add' and 'del'ete to make
 // the custom labels match 'lbls'
-// FIXME: Somewhere in the code we crash if the returned maps are non-nil
-// but length 0. We retain this behaviour here because it's easier.
 func (o *OpLabels) SplitUserLabelChanges(lbls Labels) (add, del Labels) {
 	for lbl := range lbls.All() {
 		if !o.Custom.Has(lbl.Key()) {
@@ -75,7 +72,7 @@ func (o *OpLabels) SplitUserLabelChanges(lbls Labels) (add, del Labels) {
 // IdentityLabels returns map of labels that are used when determining a
 // security identity.
 func (o *OpLabels) IdentityLabels() Labels {
-	return v2.Merge(o.Custom, o.OrchestrationIdentity)
+	return Merge(o.Custom, o.OrchestrationIdentity)
 }
 
 // GetIdentityLabel returns the value of the given Key from all IdentityLabels.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2
+package labels
 
 import (
 	"cmp"
@@ -249,8 +249,6 @@ func parseLabel(str string, delim byte) Label {
 
 	if src == LabelSourceCIDR {
 		if value != "" {
-			// FIXME: figure out what to do with these loggings. Return errors instead? Why is this
-			// logging in the first place and continuing?
 			logrus.WithField(logfields.Label, src+":"+key+"="+value).Error("Invalid CIDR label: labels with source cidr cannot have values.")
 		} else {
 			c, err := LabelToPrefix(key)

@@ -1,4 +1,7 @@
-package v2
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package labels
 
 import (
 	"encoding/json"
