@@ -4,7 +4,6 @@
 package exporter
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -25,10 +24,7 @@ func TestReloadNotificationReceived(t *testing.T) {
 		configReceived = true
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go watcher.watch(ctx, 1*time.Millisecond)
+	go watcher.watch(t.Context(), 1*time.Millisecond)
 
 	// then
 	assert.Eventually(t, func() bool {

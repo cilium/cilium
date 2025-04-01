@@ -4,7 +4,6 @@
 package identitybackend
 
 import (
-	"context"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -197,8 +196,7 @@ func TestGetIdentity(t *testing.T) {
 				t.Fatalf("Can't create CRD Backend: %s", err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			addWaitGroup := sync.WaitGroup{}
 			addWaitGroup.Add(len(tc.identities))

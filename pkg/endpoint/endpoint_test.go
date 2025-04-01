@@ -779,14 +779,11 @@ func TestMetadataResolver(t *testing.T) {
 	for _, restored := range []bool{false, true} {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%s (restored=%t)", tt.name, restored), func(t *testing.T) {
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-
 				ep := NewTestEndpointWithState(nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
 					testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
 
-				_, err := ep.metadataResolver(ctx, restored, true, labels.Labels{}, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
+				_, err := ep.metadataResolver(t.Context(), restored, true, labels.Labels{}, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
 				tt.assert(t, err)
 			})
 		}

@@ -4,7 +4,6 @@
 package observer
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,8 +14,7 @@ import (
 )
 
 func Test_LocalNodeWatcher(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	localNode := node.LocalNode{
 		Node: types.Node{
