@@ -83,11 +83,9 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
-#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
-		l3_dev = true;
-		ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
-	}
+#ifdef IS_BPF_WIREGUARD
+	l3_dev = true;
+	ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
 #endif
 
 	msg = (typeof(msg)) {
