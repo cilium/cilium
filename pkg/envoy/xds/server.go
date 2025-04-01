@@ -371,10 +371,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			if versionInfo < nonce {
 				// versions after VersionInfo, upto and including ResponseNonce are NACKed
 				requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
-				// Watcher will behave as if the sent version was acked.
-				// Otherwise we will just be sending the same failing
-				// version over and over filling logs.
-				versionInfo = nonce
 			}
 
 			if state.pendingWatchCancel != nil {
@@ -391,7 +387,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state.pendingWatchCancel = cancel
 
 			requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-			go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
+			go watcher.WatchResources(ctx, typeURL, nonce, nodeIP, req.GetResourceNames(), respCh)
 
 			firstRequest = false
 
