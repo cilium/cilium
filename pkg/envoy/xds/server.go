@@ -345,47 +345,48 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				nonce = versionInfo
 			}
 
-			// Response nonce is always the same as the response version.
-			// Request version indicates the last acked version. If the
-			// response nonce in the request is different (smaller) than
-			// the version, all versions upto that version are acked, but
-			// the versions from that to and including the nonce are nacked.
-			if versionInfo <= nonce {
-				ackObserver := s.ackObservers[typeURL]
-				if ackObserver != nil {
-					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
-				} else if firstRequest {
-					requestLog.Info("ACK received but no observers are waiting for ACKs")
-				}
-				if versionInfo < nonce {
-					// versions after VersionInfo, upto and including ResponseNonce are NACKed
-					requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
-					// Watcher will behave as if the sent version was acked.
-					// Otherwise we will just be sending the same failing
-					// version over and over filling logs.
-					versionInfo = nonce
-				}
-
-				if state.pendingWatchCancel != nil {
-					// A pending watch exists for this type URL. Cancel it to
-					// start a new watch.
-					requestLog.Debug("canceling pending watch")
-					state.pendingWatchCancel()
-				}
-
-				respCh := make(chan *VersionedResources, 1)
-				selectCases[index].Chan = reflect.ValueOf(respCh)
-
-				ctx, cancel := context.WithCancel(ctx)
-				state.pendingWatchCancel = cancel
-
-				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
-			} else {
+			if versionInfo > nonce {
 				requestLog.Warning("received invalid nonce in xDS request")
 				return ErrInvalidResponseNonce
 			}
+
+			// Response nonce is always the same as the response version.
+			// Request version indicates the last acked version. If the
+			// response nonce in the request is different(bigger) than
+			// request version, all versions upto that version are acked, but
+			// the versions from that to and including the nonce are nacked.
+			ackObserver := s.ackObservers[typeURL]
+			if ackObserver != nil {
+				requestLog.Debug("notifying observers of ACKs")
+				ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
+			} else if firstRequest {
+				requestLog.Info("ACK received but no observers are waiting for ACKs")
+			}
+			if versionInfo < nonce {
+				// versions after VersionInfo, upto and including ResponseNonce are NACKed
+				requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
+				// Watcher will behave as if the sent version was acked.
+				// Otherwise we will just be sending the same failing
+				// version over and over filling logs.
+				versionInfo = nonce
+			}
+
+			if state.pendingWatchCancel != nil {
+				// A pending watch exists for this type URL. Cancel it to
+				// start a new watch.
+				requestLog.Debug("canceling pending watch")
+				state.pendingWatchCancel()
+			}
+
+			respCh := make(chan *VersionedResources, 1)
+			selectCases[index].Chan = reflect.ValueOf(respCh)
+
+			ctx, cancel := context.WithCancel(ctx)
+			state.pendingWatchCancel = cancel
+
+			requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
+			go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
+
 			firstRequest = false
 
 		default: // Pending watch response.
