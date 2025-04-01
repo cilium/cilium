@@ -52,14 +52,17 @@ The Observer service
 The Observer service is the principal service. It provides four RPC endpoints:
 ``GetFlows``, ``GetNodes``, ``GetNamespaces``  and ``ServerStatus``.
 
-* ``GetNodes`` returns a list of metrics and other information related to each Hubble instance
-* ``ServerStatus`` returns a summary the information in ``GetNodes``
-* ``GetNamespaces`` returns a list of namespaces that had network flows within the last one hour
-* ``GetFlows`` returns a stream of flow related events
+* ``GetNodes`` returns a list of metrics and other information related to each Hubble instance.
+* ``ServerStatus`` returns a summary of the information in ``GetNodes``.
+* ``GetNamespaces`` returns a list of namespaces that had network flows within the last one hour.
+* ``GetFlows`` returns a stream of flow related events.
 
 Using ``GetFlows``, callers get a stream of payloads. Request parameters allow
-callers to specify filters in the form of allow lists and deny lists to allow
-for fine-grained filtering of data.
+callers to specify filters in the form of allow lists and deny lists to provide
+fine-grained filtering of data. When multiple flow filters are provided, only
+one of them has to match for a flow to be included/excluded. When both allow and
+deny filters are specified, the result will contain all flows matched by the allow
+list that are not also simultaneously matched by the deny list.
 
 In order to answer ``GetFlows`` requests, Hubble stores monitoring events from
 Cilium's event monitor into a user-space ring buffer structure. Monitoring
