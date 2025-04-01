@@ -191,11 +191,6 @@ type perTypeStreamState struct {
 	// If nil, no watch is pending.
 	pendingWatchCancel context.CancelFunc
 
-	// version is the last version sent. This is needed so that we'll know
-	// if a new request is an ACK (VersionInfo matches current version), or a NACK
-	// (VersionInfo matches an earlier version).
-	version uint64
-
 	// resourceNames is the list of names of resources sent in the last
 	// response to a request for this resource type.
 	resourceNames []string
@@ -299,9 +294,13 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
 
-			// Ensure that the version info is a string that was sent by this
-			// server or the empty string (the first request in a stream should
-			// always have an empty version info).
+			// VersionInfo is property of resources,
+			// while nonce is property of the stream.
+			// VersionInfo is only empty for a new client instance that did not
+			// receive any ACKed version of resources previously.
+			// In case of xDS server restart (cilium-agent),
+			// Envoy will send a request with VersionInfo set to the last ACKed version
+			// it received. Additionally, nonce will be empty.
 			var versionInfo uint64
 			if req.GetVersionInfo() != "" {
 				var err error
@@ -365,7 +364,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					// Watcher will behave as if the sent version was acked.
 					// Otherwise we will just be sending the same failing
 					// version over and over filling logs.
-					versionInfo = state.version
+					versionInfo = nonce
 				}
 
 				if state.pendingWatchCancel != nil {
@@ -440,7 +439,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				return err
 			}
 
-			state.version = resp.Version
 			state.resourceNames = resp.ResourceNames
 		}
 	}
