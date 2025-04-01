@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
@@ -64,7 +65,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 
 	ds := &DaemonFQDNSuite{}
 	d := &fqdnProxyBootstrapper{}
-	d.policyRepo = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	d.policyRepo = policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.endpointManager = endpointmanager.New(logger, &dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
@@ -83,12 +84,13 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d.nameManager = ns
 	d.nameManager.CompleteBootstrap()
 	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
-	d.dnsRequestHandler = &dnsRequestHandler{
-		logger:            hivetest.Logger(tb),
-		nameManager:       ns,
-		proxyInstance:     nil,
-		proxyAccessLogger: accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
-	}
+	d.dnsMessageHandler = messagehandler.NewDNSMessageHandler(
+		messagehandler.DNSMessageHandlerParams{
+			Logger:            logger,
+			NameManager:       ns,
+			ProxyInstance:     nil,
+			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
+		})
 
 	ds.d = d
 
@@ -192,8 +194,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, ds.d.dnsRequestHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
-				require.NoError(b, ds.d.dnsRequestHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, ds.d.dnsMessageHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, ds.d.dnsMessageHandler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
 			}()
 		}
 		wg.Wait()

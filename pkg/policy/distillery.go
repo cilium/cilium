@@ -49,6 +49,18 @@ func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cached
 	return cip
 }
 
+// GetPolicySnapshot returns a snapshot of the current policy cache.
+// The policy snapshot has the lock order as: Repository.Mutex before policyCache.Mutex.
+func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]SelectorPolicy {
+	cache.Lock()
+	defer cache.Unlock()
+	snapshot := make(map[identityPkg.NumericIdentity]SelectorPolicy, len(cache.policies))
+	for k, v := range cache.policies {
+		snapshot[k] = v.getPolicy()
+	}
+	return snapshot
+}
+
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
 //
 // Returns true if the SelectorPolicy was removed from the cache.

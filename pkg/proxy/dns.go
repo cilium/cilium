@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -51,7 +52,8 @@ func (dr *dnsRedirect) Close() {
 }
 
 type dnsProxyIntegration struct {
-	dnsProxy defaultdns.Proxy
+	dnsProxy         defaultdns.Proxy
+	sdpPolicyUpdater service.PolicyUpdater
 }
 
 // createRedirect creates a redirect to the dns proxy. The redirect structure passed
