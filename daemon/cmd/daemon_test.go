@@ -58,6 +58,7 @@ type DaemonSuite struct {
 
 	PolicyImporter policycell.PolicyImporter
 	envoyXdsServer envoy.XDSServer
+	dnsProxy       defaultdns.Proxy
 }
 
 func setupTestDirectories() string {
@@ -134,6 +135,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
 			ds.envoyXdsServer = envoyXdsServer
 		}),
+		cell.Invoke(func(dnsProxy defaultdns.Proxy) {
+			ds.dnsProxy = dnsProxy
+		}),
 	)
 
 	// bootstrap global config
@@ -151,7 +155,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
 
-	ds.d.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
+	ds.dnsProxy.Set(fqdnproxy.MockFQDNProxy{})
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
