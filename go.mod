@@ -329,6 +329,7 @@ replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-2025071719
 
 tool (
 	github.com/cilium/deepequal-gen
+	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
 	golang.org/x/tools/cmd/goimports

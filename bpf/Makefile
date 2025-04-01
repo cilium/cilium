@@ -189,6 +189,7 @@ testdata:
 
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/loader
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
@@ -211,6 +212,10 @@ bpf_sock.o:: bpf_sock.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 $(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_sock.o,$(OPTS))))
+
+bpf_sock_term.o:: bpf_sock_term.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_overlay.o:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
