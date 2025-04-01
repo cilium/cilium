@@ -687,7 +687,7 @@ spec:
           value: "8080"
         ports:
         - containerPort: 8080
-        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
@@ -765,7 +765,7 @@ spec:
         ports:
         - containerPort: 8080
           hostPort: 40000
-        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
@@ -842,7 +842,7 @@ spec:
         - name: PORT
           value: "21000"
         ports: []
-        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
@@ -930,7 +930,7 @@ spec:
         ports:
         - containerPort: 8080
           hostPort: 40001
-        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
@@ -1031,7 +1031,7 @@ spec:
         - name: PORT
           value: "21002"
         ports: []
-        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
