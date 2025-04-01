@@ -1,28 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package bootstrap
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"strings"
 
 	"github.com/cilium/dns"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -44,18 +50,37 @@ const (
 	metricErrorAllow   = "allow"
 )
 
+type FQDNProxyBootstrapper interface {
+	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) error
+	UpdateDNSDatapathRules(ctx context.Context) error
+}
+
+type fqdnProxyBootstrapper struct {
+	ctx               context.Context
+	logger            *slog.Logger
+	nameManager       namemanager.NameManager
+	proxyInstance     defaultdns.Proxy
+	proxyPorts        *proxy.Proxy
+	proxyAccessLogger accesslog.ProxyAccessLogger
+	policyRepo        policy.PolicyRepository
+	ipcache           *ipcache.IPCache
+	endpointManager   endpointmanager.EndpointManager
+}
+
+var _ FQDNProxyBootstrapper = &fqdnProxyBootstrapper{}
+
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
-	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
+func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+	b.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(b.nameManager)
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
-	d.dnsNameManager.StartGC(d.ctx)
+	b.nameManager.StartGC(b.ctx)
 
 	// restore the global DNS cache state
-	d.dnsNameManager.RestoreCache(preCachePath, possibleEndpoints)
+	b.nameManager.RestoreCache(preCachePath, possibleEndpoints)
 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
@@ -68,15 +93,15 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	port := uint16(option.Config.ToFQDNsProxyPort)
 	if port == 0 {
 		// Try reuse previous DNS proxy port number
-		if oldPort, isStatic, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
+		if oldPort, isStatic, err := b.proxyPorts.GetProxyPort(proxytypes.DNSProxyName); err == nil {
 			if isStatic {
 				port = oldPort
 			} else {
-				openLocalPorts := d.l7Proxy.GetOpenLocalPorts()
+				openLocalPorts := b.proxyPorts.GetOpenLocalPorts()
 				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
 					port = oldPort
 				} else {
-					log.WithField(logfields.Port, oldPort).Info("Unable re-use old DNS proxy port as it is already in use")
+					b.logger.Info("Unable re-use old DNS proxy port as it is already in use", logfields.Port, oldPort)
 				}
 			}
 		}
@@ -95,14 +120,14 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
 	var dnsProxy fqdnproxy.DNSProxier
-	dnsProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
-		d.notifyOnDNSMsg)
-	d.dnsProxy.Set(dnsProxy)
+	dnsProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity,
+		b.notifyOnDNSMsg)
+	b.proxyInstance.Set(dnsProxy)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false)
+		err = b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, dnsProxy.GetBindPort(), false)
 		if err == nil && port == dnsProxy.GetBindPort() {
-			log.Infof("Reusing previous DNS proxy port: %d", port)
+			b.logger.Info("Reusing previous DNS proxy port", logfields.Port, port)
 		}
 		dnsProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 		// Restore old rules
@@ -119,22 +144,22 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
 // called after iptables has been initialized, and only after
 // successful bootstrapFQDN().
-func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
+func (b *fqdnProxyBootstrapper) UpdateDNSDatapathRules(ctx context.Context) error {
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
 		return nil
 	}
 
-	return d.l7Proxy.AckProxyPort(ctx, proxytypes.DNSProxyName)
+	return b.proxyPorts.AckProxyPort(ctx, proxytypes.DNSProxyName)
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
-func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
-	if e := d.endpointManager.LookupIP(endpointAddr); e != nil {
+func (b *fqdnProxyBootstrapper) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
+	if e := b.endpointManager.LookupIP(endpointAddr); e != nil {
 		return e, e.IsHost(), nil
 	}
 
 	if node.IsNodeIP(endpointAddr) != "" {
-		if e := d.endpointManager.GetHostEndpoint(); e != nil {
+		if e := b.endpointManager.GetHostEndpoint(); e != nil {
 			return e, true, nil
 		} else {
 			return nil, true, errors.New("host endpoint has not been created yet")
@@ -160,7 +185,7 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (d *Daemon) notifyOnDNSMsg(
+func (b *fqdnProxyBootstrapper) notifyOnDNSMsg(
 	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
@@ -254,7 +279,10 @@ func (d *Daemon) notifyOnDNSMsg(
 
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
-		log.WithError(err).WithField(logfields.DNSName, qname).Error("cannot extract DNS message details")
+		b.logger.Error("cannot extract DNS message details",
+			logfields.Error, err,
+			logfields.DNSName, qname,
+		)
 		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
@@ -297,23 +325,18 @@ func (d *Daemon) notifyOnDNSMsg(
 		// We do not do a `defer unlock()` here, as we should release the lock before
 		// doing final bookkeeping.
 		mutexAcquireStart := time.Now()
-		d.dnsNameManager.LockName(qname)
+		b.nameManager.LockName(qname)
 
 		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-			log.WithFields(logrus.Fields{
-				logfields.DNSName:  qname,
-				logfields.Duration: d,
-				logfields.Expected: option.Config.DNSProxyLockTimeout,
-			}).Warnf("Name lock acquisition time took longer than expected. "+
-				"Potentially too many parallel DNS requests being processed, "+
-				"consider adjusting --%s and/or --%s",
-				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+			b.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
+				logfields.DNSName, qname,
+				logfields.Duration, d,
+				logfields.Expected, option.Config.DNSProxyLockTimeout,
+			)
 		}
 
-		logDebug := log.Logger.IsLevelEnabled(logrus.DebugLevel)
-		if logDebug {
-			log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		}
+		b.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
+
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
@@ -326,18 +349,16 @@ func (d *Daemon) notifyOnDNSMsg(
 			ep.SyncEndpointHeaderFile()
 		}
 
-		if logDebug {
-			log.WithFields(logrus.Fields{
-				"qname": qname,
-				"ips":   responseIPs,
-			}).Debug("Updating DNS name in cache from response to query")
-		}
+		b.logger.Debug("Updating DNS name in cache from response to query",
+			logfields.DNSName, qname,
+			logfields.IPAddrs, responseIPs,
+		)
 
-		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
+		updateCtx, updateCancel := context.WithTimeout(b.ctx, option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
 		updateStart := time.Now()
 
-		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+		dpUpdates := b.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
 			IPs: responseIPs,
 			TTL: int(TTL),
 		})
@@ -346,20 +367,18 @@ func (d *Daemon) notifyOnDNSMsg(
 		stat.DataplaneTime.Start()
 
 		if err := <-dpUpdates; err != nil {
-			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
+			b.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
 
 		// Policy updates for this name have been pushed out; we can release the lock.
-		d.dnsNameManager.UnlockName(qname)
+		b.nameManager.UnlockName(qname)
 
-		if logDebug {
-			log.WithFields(logrus.Fields{
-				logfields.Duration:   time.Since(updateStart),
-				logfields.EndpointID: ep.GetID(),
-				"qname":              qname,
-			}).Debug("Waited for endpoints to regenerate due to a DNS response")
-		}
+		b.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
+			logfields.Duration, time.Since(updateStart),
+			logfields.EndpointID, ep.GetID(),
+			logfields.DNSName, qname,
+		)
 
 		endMetric()
 	}
@@ -367,7 +386,7 @@ func (d *Daemon) notifyOnDNSMsg(
 	stat.ProcessingTime.End(true)
 
 	bindPort := uint16(0)
-	if dnsProxy := d.dnsProxy.Get(); dnsProxy != nil {
+	if dnsProxy := b.proxyInstance.Get(); dnsProxy != nil {
 		bindPort = dnsProxy.GetBindPort()
 	}
 	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), bindPort, false, !msg.Response, verdict)
@@ -377,9 +396,9 @@ func (d *Daemon) notifyOnDNSMsg(
 	//
 	// Restrict label enrichment time to 10ms; we don't want to block DNS
 	// requests because an identity isn't in the local cache yet.
-	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
+	logContext, lcncl := context.WithTimeout(b.ctx, 10*time.Millisecond)
 	defer lcncl()
-	record := d.proxyAccessLogger.NewLogRecord(flowType, false,
+	record := b.proxyAccessLogger.NewLogRecord(flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -396,7 +415,7 @@ func (d *Daemon) notifyOnDNSMsg(
 			AnswerTypes:       recordTypes,
 		}),
 	)
-	d.proxyAccessLogger.Log(record)
+	b.proxyAccessLogger.Log(record)
 
 	return nil
 }
