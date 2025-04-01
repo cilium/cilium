@@ -92,7 +92,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		if len(p.PreferredBackends) > 0 {
 			backends = p.PreferredBackends
 		}
-		if p.UseMaglev && len(backends) != 0 {
+		if p.UseMaglev {
 			if err := lbmap.UpsertMaglevLookupTable(p.ID, backends, ipv6); err != nil {
 				return err
 			}
@@ -183,6 +183,10 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
 func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
+	if len(backends) == 0 {
+		deleteMaglevTable(ipv6, svcID)
+		return nil
+	}
 	table := maglev.GetLookupTable(backends, lbmap.maglevTableSize)
 	for i, id := range table {
 		lbmap.maglevBackendIDsBuffer[i] = loadbalancer.BackendID(id)
@@ -216,9 +220,7 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	}
 
 	if useMaglev {
-		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
-			return fmt.Errorf("Unable to delete maglev lookup table %d: %w", svc.ID, err)
-		}
+		deleteMaglevTable(ipv6, uint16(svc.ID))
 	}
 
 	if err := deleteRevNatLocked(revNATKey); err != nil {
