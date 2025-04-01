@@ -27,7 +27,7 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	lrpFrontendIPSkipRedirectV4 := "169.254.169.255"
 	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:255"
 
-	newTest("local-redirect-policy", ct).
+	lrpTest := newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {
 			if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
 				if ct.IsSocketLBFull() || versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
@@ -42,26 +42,31 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 			FrontendIP:              lrpFrontendIPV4,
 			SkipRedirectFromBackend: false,
 		}).
-		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
-			Policy:                  localRedirectPolicyYAML,
-			Name:                    "lrp-address-matcher-v6",
-			FrontendIP:              lrpFrontendIPV6,
-			SkipRedirectFromBackend: false,
-		}).
 		WithCiliumPolicy(localRedirectPolicyFrontendDenyYAML).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher-skip-redirect-from-backend-v4",
 			FrontendIP:              lrpFrontendIPSkipRedirectV4,
 			SkipRedirectFromBackend: true,
-		}).
-		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
+		})
+
+	// Skip to apply CLRPs with ipv6 frontend if IPv6 is disabled to avoid the agent crash
+	// caused by https://github.com/cilium/cilium/issues/38570
+	if f, ok := ct.Features[features.IPv6]; ok && f.Enabled {
+		lrpTest.WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
+			Policy:                  localRedirectPolicyYAML,
+			Name:                    "lrp-address-matcher-v6",
+			FrontendIP:              lrpFrontendIPV6,
+			SkipRedirectFromBackend: false,
+		}).WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher-skip-redirect-from-backend-v6",
 			FrontendIP:              lrpFrontendIPSkipRedirectV6,
 			SkipRedirectFromBackend: true,
-		}).
-		WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy)).
+		})
+	}
+
+	lrpTest.WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy)).
 		WithScenarios(
 			tests.LRP(false),
 			tests.LRP(true),
