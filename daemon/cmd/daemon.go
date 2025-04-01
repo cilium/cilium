@@ -38,8 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -190,9 +188,7 @@ type Daemon struct {
 
 	explbConfig experimental.Config
 
-	dnsProxy        defaultdns.Proxy
-	dnsRulesAPI     fqdnRules.DNSRulesService
-	dnsBootstrapper bootstrap.FQDNProxyBootstrapper
+	dnsRulesAPI fqdnRules.DNSRulesService
 }
 
 func (d *Daemon) init() error {
@@ -406,9 +402,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
 		explbConfig:       params.ExpLBConfig,
-		dnsProxy:          params.DNSProxy,
 		dnsRulesAPI:       params.DNSRulesAPI,
-		dnsBootstrapper:   params.DNSBootstrapper,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -559,18 +553,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.dnsBootstrapper.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	err = params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
 
-	if dnsProxy := d.dnsProxy.Get(); dnsProxy != nil {
-		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
-		cleaner.preCleanupFuncs.Add(func() {
-			dnsProxy.Cleanup()
-		})
-	}
+	// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
+	cleaner.preCleanupFuncs.Add(func() {
+		params.DNSProxy.Cleanup()
+	})
 
 	bootstrapStats.fqdn.End(true)
 
@@ -808,7 +800,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// iptables rules can be updated only after d.init() initializes the iptables above.
-	err = d.dnsBootstrapper.UpdateDNSDatapathRules(d.ctx)
+	err = params.DNSProxy.UpdateDNSDatapathRules(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
