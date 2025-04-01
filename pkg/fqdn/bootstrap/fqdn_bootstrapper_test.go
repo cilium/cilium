@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package bootstrap
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ciliumdns "github.com/cilium/dns"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +39,7 @@ import (
 )
 
 type DaemonFQDNSuite struct {
-	d *Daemon
+	d *fqdnProxyBootstrapper
 }
 
 var notifyOnDNSMsgBenchSetup sync.Once
@@ -61,17 +62,16 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	})
 
 	ds := &DaemonFQDNSuite{}
-	d := &Daemon{}
-	d.ctx = context.Background()
-	d.policy = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	d := &fqdnProxyBootstrapper{}
+	d.policyRepo = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-		PolicyHandler:     d.policy.GetSelectorCache(),
+		PolicyHandler:     d.policyRepo.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,
 	})
-	d.dnsNameManager = namemanager.New(namemanager.ManagerParams{
+	d.nameManager = namemanager.New(namemanager.ManagerParams{
 		Config: namemanager.NameManagerConfig{
 			MinTTL:            1,
 			DNSProxyLockCount: defaults.DNSProxyLockCount,
@@ -79,8 +79,8 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 		},
 		IPCache: d.ipcache,
 	})
-	d.dnsNameManager.CompleteBootstrap()
-	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
+	d.nameManager.CompleteBootstrap()
+	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
 	d.proxyAccessLogger = accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{})
 
 	ds.d = d
@@ -149,7 +149,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	for _, sel := range selectorsToAdd {
-		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, policy.EmptyStringLabels, sel)
+		ds.d.policyRepo.GetSelectorCache().AddFQDNSelector(dscu, policy.EmptyStringLabels, sel)
 	}
 
 	const nEndpoints int = 1024
@@ -191,4 +191,12 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		}
 		wg.Wait()
 	}
+}
+
+type dummyEpSyncher struct{}
+
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr cell.Health) {
+}
+
+func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
