@@ -179,10 +179,10 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
+
 	// Simulate parallel DNS responses from the upstream DNS for cilium.io and
 	// ebpf.io, done by every endpoint.
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, ep := range endpoints {
 			wg.Add(1)
 			go func() {

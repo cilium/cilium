@@ -286,8 +286,7 @@ func BenchmarkGetPodMetadataForContainer(b *testing.B) {
 	// Add pod, and check for pod metadata for their containers.
 	mm.OnAddPod(pod3)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		got := mm.GetPodMetadataForContainer(c3CId)
 		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
 	}

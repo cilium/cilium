@@ -319,8 +319,8 @@ func BenchmarkL34Decode(b *testing.B) {
 
 	f := &flowpb.Flow{}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = parser.Decode(d, f)
 	}
 }

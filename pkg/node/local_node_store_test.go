@@ -108,9 +108,8 @@ func BenchmarkLocalNodeStoreGet(b *testing.B) {
 	lns := NewTestLocalNodeStore(LocalNode{})
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = lns.Get(ctx)
 	}
 }

@@ -188,8 +188,8 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{logger: logger}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		epPolicy := ip.DistillPolicy(logger, owner, nil)
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()

@@ -204,8 +204,8 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{logger: hivetest.Logger(b)}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
@@ -217,8 +217,8 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
@@ -229,8 +229,8 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
