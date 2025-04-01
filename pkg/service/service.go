@@ -308,7 +308,7 @@ type Service struct {
 
 // newService creates a new instance of the service handler.
 func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool,
-	config *option.DaemonConfig) *Service {
+	config *option.DaemonConfig, backendConnectionHandler sockets.SocketDestroyer) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
@@ -325,7 +325,7 @@ func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap data
 		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
-		backendConnectionHandler: backendConnectionHandler{logger: logger},
+		backendConnectionHandler: backendConnectionHandler,
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
