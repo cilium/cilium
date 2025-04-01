@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -49,10 +50,10 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
-	Iterate(f func(rule *api.Rule))
-	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
-	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
-	Search(lbls labels.LabelArray) (api.Rules, uint64)
+	Iterate(f func(rule *types.PolicyEntry))
+	ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
+	ReplaceByLabels(rules types.PolicyEntries, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
+	Search(lbls labels.LabelArray) (types.PolicyEntries, uint64)
 }
 
 type GetPolicyStatistics interface {
@@ -133,7 +134,7 @@ func NewPolicyRepository(
 	return repo
 }
 
-func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
+func (p *Repository) Search(lbls labels.LabelArray) (types.PolicyEntries, uint64) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	return p.searchRLocked(lbls), p.GetRevision()
@@ -141,12 +142,12 @@ func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
 
 // searchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
-func (p *Repository) searchRLocked(lbls labels.LabelArray) api.Rules {
-	result := api.Rules{}
+func (p *Repository) searchRLocked(lbls labels.LabelArray) types.PolicyEntries {
+	result := types.PolicyEntries{}
 
 	for _, r := range p.rules {
 		if r.Labels.Contains(lbls) {
-			result = append(result, &r.Rule)
+			result = append(result, &r.PolicyEntry)
 		}
 	}
 
@@ -157,9 +158,9 @@ func (p *Repository) searchRLocked(lbls labels.LabelArray) api.Rules {
 // Expects that the entire rule list has already been sanitized.
 //
 // Only used by unit tests, but by multiple packages.
-func (p *Repository) addListLocked(rules api.Rules) (ruleSlice, uint64) {
-	newRules := make(ruleSlice, 0, len(rules))
-	for _, r := range rules {
+func (p *Repository) addListLocked(entries types.PolicyEntries) (ruleSlice, uint64) {
+	newRules := make(ruleSlice, 0, len(entries))
+	for _, r := range entries {
 		newRule := p.newRule(*r, ruleKey{idx: p.nextID})
 		newRules = append(newRules, newRule)
 		p.insert(newRule)
@@ -171,7 +172,7 @@ func (p *Repository) addListLocked(rules api.Rules) (ruleSlice, uint64) {
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
-	p.metricsManager.AddRule(r.Rule)
+	p.metricsManager.AddRule(r.PolicyEntry)
 	namespace := r.key.resource.Namespace()
 	if _, ok := p.rulesByNamespace[namespace]; !ok {
 		p.rulesByNamespace[namespace] = sets.New[ruleKey]()
@@ -193,7 +194,7 @@ func (p *Repository) del(key ruleKey) {
 	if r == nil {
 		return
 	}
-	p.metricsManager.DelRule(r.Rule)
+	p.metricsManager.DelRule(r.PolicyEntry)
 	delete(p.rules, key)
 	namespace := r.key.resource.Namespace()
 	p.rulesByNamespace[namespace].Delete(key)
@@ -212,12 +213,12 @@ func (p *Repository) del(key ruleKey) {
 }
 
 // newRule allocates a CachedSelector for a given rule.
-func (p *Repository) newRule(apiRule api.Rule, key ruleKey) *rule {
+func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 	r := &rule{
-		Rule: apiRule,
-		key:  key,
+		PolicyEntry: policyEntry,
+		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), *r.getSelector())
+	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.EndpointSelector)
 	return r
 }
 
@@ -237,24 +238,30 @@ func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 			panic(err)
 		}
 	}
+	return p.MustAddPolicyEntries(k8sCiliumUtils.RulesToPolicyEntries(rules))
+}
+
+// MustAddList inserts a PolicyEntry into the policy repository. It is used for
+// unit-testing purposes only.
+func (p *Repository) MustAddPolicyEntries(entries types.PolicyEntries) (ruleSlice, uint64) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return p.addListLocked(rules)
+	return p.addListLocked(entries)
 }
 
 // Iterate iterates the policy repository, calling f for each rule. It is safe
 // to execute Iterate concurrently.
-func (p *Repository) Iterate(f func(rule *api.Rule)) {
+func (p *Repository) Iterate(f func(rule *types.PolicyEntry)) {
 	p.mutex.RWMutex.Lock()
 	defer p.mutex.RWMutex.Unlock()
 	for _, r := range p.rules {
-		f(&r.Rule)
+		f(&r.PolicyEntry)
 	}
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON
 // representation
-func JSONMarshalRules(rules api.Rules) string {
+func JSONMarshalRules(rules types.PolicyEntries) string {
 	b, err := json.MarshalIndent(rules, "", "  ")
 	if err != nil {
 		return err.Error()
@@ -409,21 +416,15 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
 	//    rules may have additional effects such as enabling L7 proxy.
 	for _, r := range matchingRules {
-		if !ingress || !hasIngressDefaultDeny { // short-circuit len()
-			if len(r.Ingress) > 0 || len(r.IngressDeny) > 0 {
-				ingress = true
-				if *r.EnableDefaultDeny.Ingress {
-					hasIngressDefaultDeny = true
-				}
+		if r.Ingress {
+			ingress = true
+			if r.DefaultDeny {
+				hasIngressDefaultDeny = true
 			}
-		}
-
-		if !egress || !hasEgressDefaultDeny { // short-circuit len()
-			if len(r.Egress) > 0 || len(r.EgressDeny) > 0 {
-				egress = true
-				if *r.EnableDefaultDeny.Egress {
-					hasEgressDefaultDeny = true
-				}
+		} else {
+			egress = true
+			if r.DefaultDeny {
+				hasEgressDefaultDeny = true
 			}
 		}
 		if ingress && egress && hasIngressDefaultDeny && hasEgressDefaultDeny {
@@ -448,35 +449,13 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 // wildcardRule generates a wildcard rule that only selects the given identity.
 func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
-	r := &rule{}
-
-	if ingress {
-		r.Ingress = []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEntities: []api.Entity{api.EntityAll},
-				},
-			},
-		}
-	} else {
-		r.Egress = []api.EgressRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEntities: []api.Entity{api.EntityAll},
-				},
-			},
-		}
+	return &rule{
+		PolicyEntry: types.PolicyEntry{
+			Ingress:          ingress,
+			EndpointSelector: api.NewESFromLabels(lbls...),
+			L3:               types.EndpointSelectorInterfaceSlice{api.WildcardEndpointSelector},
+		},
 	}
-
-	es := api.NewESFromLabels(lbls...)
-	if lbls.Has(labels.IDNameHost) {
-		r.NodeSelector = es
-	} else {
-		r.EndpointSelector = es
-	}
-	_ = r.Sanitize()
-
-	return r
 }
 
 // GetSelectorPolicy computes the SelectorPolicy for a given identity.
@@ -514,7 +493,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
-func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
+func (p *Repository) ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
 	if len(resource) == 0 {
 		// This should never ever be hit, as the caller should have already validated the resource.
 		// Out of paranoia, do nothing.
@@ -559,7 +538,7 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 // ReplaceByLabels implements the somewhat awkward REST local API for providing network policy,
 // where the "key" is a list of labels, possibly multiple, that should be removed before
 // installing the new rules.
-func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
+func (p *Repository) ReplaceByLabels(rules types.PolicyEntries, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
