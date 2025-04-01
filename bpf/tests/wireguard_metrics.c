@@ -22,8 +22,6 @@ static volatile const __u8 *node_mac = mac_one;
 
 #include "bpf_wireguard.c"
 
-ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
