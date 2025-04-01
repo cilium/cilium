@@ -13,7 +13,7 @@ type failIfCalled struct {
 	t *testing.T
 }
 
-func (f *failIfCalled) Log(_ string, _ ...interface{}) {
+func (f *failIfCalled) Log(_ string, _ ...any) {
 	f.t.Error("log method should not be called")
 }
 
@@ -21,7 +21,7 @@ type countIfCalled struct {
 	count int
 }
 
-func (c *countIfCalled) Log(_ string, _ ...interface{}) {
+func (c *countIfCalled) Log(_ string, _ ...any) {
 	c.count++
 }
 

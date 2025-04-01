@@ -33,7 +33,7 @@ var configGetCmd = &cobra.Command{
 			Fatalf("Empty configuration status returned")
 		}
 
-		readWriteConfigMap := make(map[string]interface{})
+		readWriteConfigMap := make(map[string]any)
 		readOnlyConfigMap := resp.Status.DaemonConfigurationMap
 
 		for k, v := range resp.Status.Realized.Options {

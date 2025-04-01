@@ -141,7 +141,7 @@ func doDumpEntries(m ctmap.CtMap) {
 	fmt.Println(out)
 }
 
-func dumpCt(maps []ctmap.CtMap, args ...interface{}) {
+func dumpCt(maps []ctmap.CtMap, args ...any) {
 	entries := make([]ctmap.CtMapRecord, 0)
 
 	t := args[0].(string)

@@ -32,19 +32,19 @@ const (
 // test suite, individual tests and actions.
 type Logger interface {
 	// Log logs a message.
-	Log(a ...interface{})
+	Log(a ...any)
 	// Logf logs a formatted message.
-	Logf(format string, a ...interface{})
+	Logf(format string, a ...any)
 
 	// Debug logs a debug message.
-	Debug(a ...interface{})
+	Debug(a ...any)
 	// Debugf logs a formatted debug message.
-	Debugf(format string, a ...interface{})
+	Debugf(format string, a ...any)
 
 	// Info logs an informational message.
-	Info(a ...interface{})
+	Info(a ...any)
 	// Infof logs a formatted informational message.
-	Infof(format string, a ...interface{})
+	Infof(format string, a ...any)
 }
 
 var _ Logger = (*ConnectivityTest)(nil)
@@ -58,13 +58,13 @@ var _ Logger = (*Action)(nil)
 //
 
 // Header prints a newline followed by a formatted message.
-func (ct *ConnectivityTest) Header(a ...interface{}) {
+func (ct *ConnectivityTest) Header(a ...any) {
 	fmt.Fprintln(ct.params.Writer, "")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Headerf prints a newline followed by a formatted message.
-func (ct *ConnectivityTest) Headerf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Headerf(format string, a ...any) {
 	fmt.Fprintf(ct.params.Writer, "\n"+format+"\n", a...)
 }
 
@@ -76,7 +76,7 @@ func (ct *ConnectivityTest) Timestamp() {
 }
 
 // Log logs a message.
-func (ct *ConnectivityTest) Log(a ...interface{}) {
+func (ct *ConnectivityTest) Log(a ...any) {
 	ct.Timestamp()
 	fmt.Fprintln(ct.params.Writer, a...)
 }
@@ -187,13 +187,13 @@ func (ct *ConnectivityTest) LogOwners(scenarios ...ownedScenario) {
 }
 
 // Logf logs a formatted message.
-func (ct *ConnectivityTest) Logf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Logf(format string, a ...any) {
 	ct.Timestamp()
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Debug logs a debug message.
-func (ct *ConnectivityTest) Debug(a ...interface{}) {
+func (ct *ConnectivityTest) Debug(a ...any) {
 	if ct.debug() {
 		ct.Timestamp()
 		fmt.Fprint(ct.params.Writer, debug+" ")
@@ -202,7 +202,7 @@ func (ct *ConnectivityTest) Debug(a ...interface{}) {
 }
 
 // Debugf logs a formatted debug message.
-func (ct *ConnectivityTest) Debugf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Debugf(format string, a ...any) {
 	if ct.debug() {
 		ct.Timestamp()
 		fmt.Fprint(ct.params.Writer, debug+" ")
@@ -211,56 +211,56 @@ func (ct *ConnectivityTest) Debugf(format string, a ...interface{}) {
 }
 
 // Info logs an informational message.
-func (ct *ConnectivityTest) Info(a ...interface{}) {
+func (ct *ConnectivityTest) Info(a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, info+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Infof logs a formatted informational message.
-func (ct *ConnectivityTest) Infof(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Infof(format string, a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, info+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Warn logs a warning message.
-func (ct *ConnectivityTest) Warn(a ...interface{}) {
+func (ct *ConnectivityTest) Warn(a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, warn+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Warnf logs a formatted warning message.
-func (ct *ConnectivityTest) Warnf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Warnf(format string, a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, warn+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fail logs a failure message.
-func (ct *ConnectivityTest) Fail(a ...interface{}) {
+func (ct *ConnectivityTest) Fail(a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fail+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Failf logs a formatted failure message.
-func (ct *ConnectivityTest) Failf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Failf(format string, a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fail+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fatal logs an error.
-func (ct *ConnectivityTest) Fatal(a ...interface{}) {
+func (ct *ConnectivityTest) Fatal(a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fatal+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Fatalf logs a formatted error.
-func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
+func (ct *ConnectivityTest) Fatalf(format string, a ...any) {
 	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fatal+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
@@ -276,7 +276,7 @@ func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
 // log takes out a read lock and logs a message to the Test's internal buffer.
 // If the internal log buffer is nil, write to user-specified writer instead.
 // Prefix is an optional prefix to the message.
-func (t *Test) log(prefix string, a ...interface{}) {
+func (t *Test) log(prefix string, a ...any) {
 	t.logMu.RLock()
 	defer t.logMu.RUnlock()
 
@@ -303,7 +303,7 @@ func (t *Test) log(prefix string, a ...interface{}) {
 // logf takes out a read lock and logs a formatted message to the Test's
 // internal buffer. If the internal log buffer is nil, write to user-specified
 // writer instead.
-func (t *Test) logf(format string, a ...interface{}) {
+func (t *Test) logf(format string, a ...any) {
 	t.logMu.RLock()
 	defer t.logMu.RUnlock()
 
@@ -343,36 +343,36 @@ func (t *Test) flush() {
 }
 
 // Log logs a message.
-func (t *Test) Log(a ...interface{}) {
+func (t *Test) Log(a ...any) {
 	t.log("", a...)
 }
 
 // Logf logs a formatted message.
-func (t *Test) Logf(format string, a ...interface{}) {
+func (t *Test) Logf(format string, a ...any) {
 	t.logf(format, a...)
 }
 
 // Debug logs a debug message.
-func (t *Test) Debug(a ...interface{}) {
+func (t *Test) Debug(a ...any) {
 	if t.ctx.debug() {
 		t.log(debug, a...)
 	}
 }
 
 // Debugf logs a formatted debug message.
-func (t *Test) Debugf(format string, a ...interface{}) {
+func (t *Test) Debugf(format string, a ...any) {
 	if t.ctx.debug() {
 		t.logf(debug+" "+format, a...)
 	}
 }
 
 // Info logs an informational message.
-func (t *Test) Info(a ...interface{}) {
+func (t *Test) Info(a ...any) {
 	t.log(info, a...)
 }
 
 // Infof logs a formatted informational message.
-func (t *Test) Infof(format string, a ...interface{}) {
+func (t *Test) Infof(format string, a ...any) {
 	t.logf(info+" "+format, a...)
 }
 
@@ -403,7 +403,7 @@ func (t *Test) failCommon() {
 //
 // Flushes the Test's internal log buffer. Any further logs against the Test
 // will go directly to the user-specified writer.
-func (t *Test) Fail(a ...interface{}) {
+func (t *Test) Fail(a ...any) {
 	t.log(fail, a...)
 	t.failCommon()
 }
@@ -412,14 +412,14 @@ func (t *Test) Fail(a ...interface{}) {
 //
 // Flushes the Test's internal log buffer. Any further logs against the Test
 // will go directly to the user-specified writer.
-func (t *Test) Failf(format string, a ...interface{}) {
+func (t *Test) Failf(format string, a ...any) {
 	t.logf(fail+" "+format, a...)
 	t.failCommon()
 }
 
 // Fatal marks the test as failed, logs an error and exits the
 // calling goroutine.
-func (t *Test) Fatal(a ...interface{}) {
+func (t *Test) Fatal(a ...any) {
 	t.log(fatal, a...)
 	t.failCommon()
 	runtime.Goexit()
@@ -427,7 +427,7 @@ func (t *Test) Fatal(a ...interface{}) {
 
 // Fatalf marks the test as failed, logs a formatted error and exits the
 // calling goroutine.
-func (t *Test) Fatalf(format string, a ...interface{}) {
+func (t *Test) Fatalf(format string, a ...any) {
 	t.logf(fatal+" "+format, a...)
 	t.failCommon()
 	runtime.Goexit()
@@ -438,59 +438,59 @@ func (t *Test) Fatalf(format string, a ...interface{}) {
 //
 
 // Log logs a message.
-func (a *Action) Log(s ...interface{}) {
+func (a *Action) Log(s ...any) {
 	a.test.Log(s...)
 }
 
 // Logf logs a formatted message.
-func (a *Action) Logf(format string, s ...interface{}) {
+func (a *Action) Logf(format string, s ...any) {
 	a.test.Logf(format, s...)
 }
 
 // Debug logs a debug message.
-func (a *Action) Debug(s ...interface{}) {
+func (a *Action) Debug(s ...any) {
 	if a.test.ctx.debug() {
 		a.test.Debug(s...)
 	}
 }
 
 // Debugf logs a formatted debug message.
-func (a *Action) Debugf(format string, s ...interface{}) {
+func (a *Action) Debugf(format string, s ...any) {
 	if a.test.ctx.debug() {
 		a.test.Debugf(format, s...)
 	}
 }
 
 // Info logs a debug message.
-func (a *Action) Info(s ...interface{}) {
+func (a *Action) Info(s ...any) {
 	a.test.Info(s...)
 }
 
 // Infof logs a formatted debug message.
-func (a *Action) Infof(format string, s ...interface{}) {
+func (a *Action) Infof(format string, s ...any) {
 	a.test.Infof(format, s...)
 }
 
 // Fail must be called when the Action is unsuccessful.
-func (a *Action) Fail(s ...interface{}) {
+func (a *Action) Fail(s ...any) {
 	a.fail()
 	a.test.Fail(s...)
 }
 
 // Failf must be called when the Action is unsuccessful.
-func (a *Action) Failf(format string, s ...interface{}) {
+func (a *Action) Failf(format string, s ...any) {
 	a.fail()
 	a.test.Failf(format, s...)
 }
 
 // Fatal must be called when an irrecoverable error was encountered during the Action.
-func (a *Action) Fatal(s ...interface{}) {
+func (a *Action) Fatal(s ...any) {
 	a.fail()
 	a.test.Fatal(s...)
 }
 
 // Fatalf must be called when an irrecoverable error was encountered during the Action.
-func (a *Action) Fatalf(format string, s ...interface{}) {
+func (a *Action) Fatalf(format string, s ...any) {
 	a.fail()
 	a.test.Fatalf(format, s...)
 }

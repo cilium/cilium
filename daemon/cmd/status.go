@@ -596,7 +596,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 	probes := []status.Probe{
 		{
 			Name: "kvstore",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if option.Config.KVStore == "" {
 					return &models.Status{State: models.StatusStateDisabled}, nil
 				} else {
@@ -649,7 +649,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 				// 16384 | 1m32s
 				return d.nodeDiscovery.Manager.ClusterSizeDependantInterval(10 * time.Second)
 			},
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return d.getK8sStatus(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -670,7 +670,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "ipam",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return d.DumpIPAM(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -687,7 +687,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "node-monitor",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return d.monitorAgent.State(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -704,7 +704,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "cluster",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				clusterStatus := &models.ClusterStatus{
 					Self: nodeTypes.GetAbsoluteNodeName(),
 				}
@@ -729,7 +729,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "cilium-health",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if d.ciliumHealth == nil {
 					return nil, nil
 				}
@@ -760,7 +760,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "l7-proxy",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if d.l7Proxy == nil {
 					return nil, nil
 				}
@@ -780,7 +780,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "controllers",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return controller.GetGlobalStatus(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -797,7 +797,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "clustermesh",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if d.clustermesh == nil {
 					return nil, nil
 				}
@@ -816,7 +816,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "hubble",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return d.hubble.Status(ctx), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -832,7 +832,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "encryption",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				switch {
 				case option.Config.EnableIPSec:
 					return &models.EncryptionStatus{
@@ -868,7 +868,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "kube-proxy-replacement",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				return d.getKubeProxyReplacementStatus(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
@@ -884,7 +884,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "auth-cert-provider",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if d.authManager == nil {
 					return &models.Status{State: models.StatusStateDisabled}, nil
 				}
@@ -904,7 +904,7 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 		},
 		{
 			Name: "cni-config",
-			Probe: func(ctx context.Context) (interface{}, error) {
+			Probe: func(ctx context.Context) (any, error) {
 				if d.cniConfigManager == nil {
 					return nil, nil
 				}

@@ -198,7 +198,7 @@ type AgentNotify struct {
 // constructors in this package for possible values.
 type AgentNotifyMessage struct {
 	Type         AgentNotification
-	Notification interface{}
+	Notification any
 }
 
 // ToJSON encodes a AgentNotifyMessage to its JSON-based AgentNotify representation

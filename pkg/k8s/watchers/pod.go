@@ -190,7 +190,6 @@ func (k *K8sPodWatcher) podsInit(ctx context.Context) {
 					}
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
 					pods[name] = pod
-
 				} else {
 					k.deleteK8sPodV1(pod)
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)

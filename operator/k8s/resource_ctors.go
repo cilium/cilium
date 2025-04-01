@@ -36,7 +36,7 @@ func CiliumEndpointResource(lc cell.Lifecycle, cs client.Clientset, opts ...func
 		lc, lw, resource.WithMetric("CiliumEndpoint"), resource.WithIndexers(indexers)), nil
 }
 
-func identityIndexFunc(obj interface{}) ([]string, error) {
+func identityIndexFunc(obj any) ([]string, error) {
 	switch t := obj.(type) {
 	case *cilium_api_v2.CiliumEndpoint:
 		if t.Status.Identity != nil {

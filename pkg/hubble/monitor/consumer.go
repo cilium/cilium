@@ -71,7 +71,7 @@ func (c *consumer) sendNumLostEvents() bool {
 	}
 
 	if c.cachedLostNotification == nil {
-		c.cachedLostNotification = c.newEvent(func() interface{} {
+		c.cachedLostNotification = c.newEvent(func() any {
 			return &observerTypes.LostEvent{
 				Source:        observerTypes.LostEventSourceEventsQueue,
 				NumLostEvents: c.numEventsLost,
@@ -103,7 +103,7 @@ func (c *consumer) sendNumLostEvents() bool {
 // sendEvent enqueues an event in the observer. If this is not possible, it
 // keeps a counter of lost events, which it will regularly try to send to the
 // observer as well
-func (c *consumer) sendEvent(payloader func() interface{}) {
+func (c *consumer) sendEvent(payloader func() any) {
 	if c.numEventsLost > 0 {
 		if !c.sendNumLostEvents() {
 			// We just failed sending the lost notification, hence it doesn't
@@ -121,7 +121,7 @@ func (c *consumer) sendEvent(payloader func() interface{}) {
 	}
 }
 
-func (c *consumer) newEvent(payloader func() interface{}) *observerTypes.MonitorEvent {
+func (c *consumer) newEvent(payloader func() any) *observerTypes.MonitorEvent {
 	ev := &observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
 		NodeName:  nodeTypes.GetAbsoluteNodeName(),
@@ -149,8 +149,8 @@ func (c *consumer) countDroppedEvent() {
 }
 
 // NotifyAgentEvent implements monitorConsumer.MonitorConsumer
-func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
-	c.sendEvent(func() interface{} {
+func (c *consumer) NotifyAgentEvent(typ int, message any) {
+	c.sendEvent(func() any {
 		return &observerTypes.AgentEvent{
 			Type:    typ,
 			Message: message,
@@ -160,7 +160,7 @@ func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 
 // NotifyPerfEvent implements monitorConsumer.MonitorConsumer
 func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
-	c.sendEvent(func() interface{} {
+	c.sendEvent(func() any {
 		return &observerTypes.PerfEvent{
 			Data: data,
 			CPU:  cpu,
@@ -170,7 +170,7 @@ func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 
 // NotifyPerfEventLost implements monitorConsumer.MonitorConsumer
 func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
-	c.sendEvent(func() interface{} {
+	c.sendEvent(func() any {
 		return &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourcePerfRingBuffer,
 			NumLostEvents: numLostEvents,

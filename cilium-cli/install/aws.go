@@ -19,12 +19,12 @@ const (
 	AwsNodeDaemonSetNodeSelectorValue = "true"
 )
 
-func getChainingMode(values map[string]interface{}) string {
+func getChainingMode(values map[string]any) string {
 	chainingMode, _, _ := unstructured.NestedString(values, "cni", "chainingMode")
 	return chainingMode
 }
 
-func (k *K8sInstaller) awsSetupChainingMode(ctx context.Context, values map[string]interface{}) error {
+func (k *K8sInstaller) awsSetupChainingMode(ctx context.Context, values map[string]any) error {
 	// detect chaining mode
 	chainingMode := getChainingMode(values)
 

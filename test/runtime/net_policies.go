@@ -181,7 +181,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 		// curlWithRetry retries the curl, to make sure that allowed curls don't
 		// flake on bad connectivity
-		curlWithRetry := func(name string, cmd string, optionalArgs ...interface{}) (res *helpers.CmdRes) {
+		curlWithRetry := func(name string, cmd string, optionalArgs ...any) (res *helpers.CmdRes) {
 			for range 5 {
 				res = vm.ContainerExec(name, helpers.CurlFail(cmd, optionalArgs...))
 				if res.WasSuccessful() {

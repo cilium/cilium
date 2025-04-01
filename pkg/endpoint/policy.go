@@ -115,7 +115,7 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16
 // Must be called with the endpoint lock held for at least reading
 func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 	e.nextPolicyRevision = revision
-	e.UpdateLogger(map[string]interface{}{
+	e.UpdateLogger(map[string]any{
 		logfields.DesiredPolicyRevision: e.nextPolicyRevision,
 	})
 }
@@ -1049,7 +1049,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 			logfields.IdentityLabels: identity.Labels.String(),
 		}).Info("Identity of endpoint changed")
 	}
-	e.UpdateLogger(map[string]interface{}{
+	e.UpdateLogger(map[string]any{
 		logfields.Identity: identity.StringID(),
 	})
 }

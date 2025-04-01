@@ -420,7 +420,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 }
 
 // ChangedFunc is called by `Apply()` for each option changed
-type ChangedFunc func(key string, value OptionSetting, data interface{})
+type ChangedFunc func(key string, value OptionSetting, data any)
 
 // enable enables the option `name` with all its dependencies
 func (o *IntOptions) enable(name string) {
@@ -471,7 +471,7 @@ type changedOptions struct {
 //
 // The caller is expected to have validated the configuration options prior to
 // calling this function.
-func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data interface{}) int {
+func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data any) int {
 	changes := make([]changedOptions, 0, len(n))
 
 	o.optsMU.Lock()

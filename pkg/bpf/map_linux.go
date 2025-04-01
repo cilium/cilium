@@ -597,7 +597,7 @@ func (m *Map) Close() error {
 	return nil
 }
 
-func (m *Map) NextKey(key, nextKeyOut interface{}) error {
+func (m *Map) NextKey(key, nextKeyOut any) error {
 	var duration *spanstat.SpanStat
 	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
@@ -1068,7 +1068,7 @@ func (m *Map) Dump(hash map[string][]string) error {
 
 // BatchLookup returns the count of elements in the map by dumping the map
 // using batch lookup.
-func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut interface{}, opts *ebpf.BatchOptions) (int, error) {
+func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, opts *ebpf.BatchOptions) (int, error) {
 	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
 }
 

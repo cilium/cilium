@@ -166,7 +166,7 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 	}, nil
 }
 
-func (k *K8sInstaller) Log(format string, a ...interface{}) {
+func (k *K8sInstaller) Log(format string, a ...any) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 

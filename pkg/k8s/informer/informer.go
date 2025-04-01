@@ -21,7 +21,7 @@ import (
 func init() {
 	utilRuntime.PanicHandlers = append(
 		utilRuntime.PanicHandlers,
-		func(_ context.Context, r interface{}) {
+		func(_ context.Context, r any) {
 			// from k8s library
 			if err, ok := r.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 				// honor the http.ErrAbortHandler sentinel panic value:
@@ -85,11 +85,11 @@ func NewInformerWithStore(
 		FullResyncPeriod: resyncPeriod,
 		RetryOnError:     false,
 
-		Process: func(obj interface{}, isInInitialList bool) error {
+		Process: func(obj any, isInInitialList bool) error {
 			// from oldest to newest
 			for _, d := range obj.(cache.Deltas) {
 
-				var obj interface{}
+				var obj any
 				if transformer != nil {
 					var err error
 					if obj, err = transformer(d.Object); err != nil {
