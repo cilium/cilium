@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -762,7 +763,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 		},
 	}
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules:           rules,
+		Rules:           policyUtils.RulesToPolicyEntries(rules),
 		ReplaceByLabels: true,
 	})
 

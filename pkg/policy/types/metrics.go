@@ -3,9 +3,7 @@
 
 package types
 
-import "github.com/cilium/cilium/pkg/policy/api"
-
 type PolicyMetrics interface {
-	AddRule(r api.Rule)
-	DelRule(r api.Rule)
+	AddRule(r PolicyEntry)
+	DelRule(r PolicyEntry)
 }
