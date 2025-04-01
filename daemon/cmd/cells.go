@@ -382,13 +382,6 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 		resources.K8sAPIGroupEndpointSliceOrEndpoint,
 	}
 
-	if option.NetworkPolicyEnabled(option.Config) {
-		// Namespaces can contain labels which are essential for
-		// endpoints being restored to have the right identity.
-		// Namespaces are only used when network policies are enabled.
-		k8sGroups = append(k8sGroups, resources.K8sAPIGroupNamespaceV1Core)
-	}
-
 	if cfg.K8sNetworkPolicyEnabled() {
 		// When the flag is set,
 		// We need all network policies in place before restoring to
