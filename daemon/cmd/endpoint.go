@@ -86,7 +86,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	epModelsCh := make(chan *models.Endpoint, maxGoroutines)
 
 	epWorkersWg.Add(maxGoroutines)
-	for i := 0; i < maxGoroutines; i++ {
+	for range maxGoroutines {
 		// Run goroutines to process each endpoint and the corresponding model.
 		// The obtained endpoint model is sent to the endpoint models channel from
 		// where it will be aggregated later.

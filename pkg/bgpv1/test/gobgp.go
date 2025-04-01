@@ -343,7 +343,7 @@ func (g *goBGP) waitForSessionState(ctx context.Context, expectedStates []string
 func (g *goBGP) getRouteEvents(ctx context.Context, numExpectedEvents int) ([]routeEvent, error) {
 	var receivedEvents []routeEvent
 
-	for i := 0; i < numExpectedEvents; i++ {
+	for range numExpectedEvents {
 		select {
 		case r := <-g.routeNotif:
 			g.logger.Info("GoBGP test instance", types.RouteLogField, r)

@@ -19,7 +19,7 @@ func TestRateLimitBurst(t *testing.T) {
 	require.NotNil(t, limiter)
 
 	// Exhaust bucket (rate limit should not kick in)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		limiter.Limit(context.TODO(), "test")
 	}
 	require.Equal(t, time.Duration(0), metricsAPI.RateLimit("test"))
@@ -43,7 +43,7 @@ func TestRateLimitWait(t *testing.T) {
 	// Hit rate limit 15 times. The bucket refill rate is 100 per second,
 	// meaning we expect this to take around 15 * 10 = 150 milliseconds
 	start := time.Now()
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		limiter.Limit(context.TODO(), "test")
 	}
 	measured := time.Since(start)

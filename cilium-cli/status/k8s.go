@@ -402,7 +402,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 }
 
 func cursorUp(lines int) {
-	for i := 0; i < lines; i++ {
+	for range lines {
 		fmt.Print("\033[A\033[2K")
 	}
 }

@@ -204,7 +204,7 @@ func estimateBootTimeOffset() (bootTimeOffset int64, err error) {
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	for round := 0; round < estimationRounds; round++ {
+	for range estimationRounds {
 		var bootTimespec unix.Timespec
 
 		// Ideally we would use __vdso_clock_gettime for both clocks here,

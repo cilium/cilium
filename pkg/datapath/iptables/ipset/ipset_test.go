@@ -607,7 +607,7 @@ func BenchmarkManager(b *testing.B) {
 			time.Sleep(time.Millisecond)
 
 		}
-		for i := 0; i < numEntries; i++ {
+		for i := range numEntries {
 			ip := toNetIP(i)
 			mgr.RemoveFromIPSet(CiliumNodeIPSetV4, ip)
 		}

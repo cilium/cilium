@@ -336,7 +336,7 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 
 	nodes := make([]*models.NodeStatus, healthy+unhealthy)
 
-	for i := 0; i < healthy; i++ {
+	for i := range healthy {
 		nodes[i] = &models.NodeStatus{
 			Name: fmt.Sprintf("node%d", i),
 			Host: &models.HostStatus{

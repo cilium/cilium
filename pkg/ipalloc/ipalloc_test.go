@@ -502,7 +502,7 @@ func BenchmarkHashAlloc_AllocBalanced(b *testing.B) {
 
 			bb.ResetTimer()
 
-			for i := 0; i < bb.N/r; i++ {
+			for i := range bb.N / r {
 				ip, ok := netip.AddrFromSlice(append([]byte{0}, buf[i*3:(i+1)*3]...))
 				if !ok {
 					b.Fatal("can't convert IP")
@@ -513,7 +513,7 @@ func BenchmarkHashAlloc_AllocBalanced(b *testing.B) {
 					b.Fatal(err)
 				}
 
-				for ii := 0; ii < a; ii++ {
+				for range a {
 					_, err = alloc.AllocAny(true)
 					if err != nil && !errors.Is(err, ErrInUse) {
 						b.Fatal(err)
@@ -544,7 +544,7 @@ func BenchmarkHashAlloc_AllocPerStage(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			for i := 0; i < p; i++ {
+			for i := range p {
 				ip, ok := netip.AddrFromSlice(append([]byte{0}, buf[i*3:(i+1)*3]...))
 				if !ok {
 					b.Fatal("can't convert IP")

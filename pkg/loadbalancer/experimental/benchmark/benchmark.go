@@ -126,7 +126,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 
 	var runs []run
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		runtime.GC()
 		var memory memoryPair
 		runtime.ReadMemStats(&memory.before)

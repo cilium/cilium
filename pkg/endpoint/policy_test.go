@@ -114,7 +114,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	// simulate ipcache churn: continuously allocate IDs and push them to the policy engine.
 	go func() {
-		for i := 0; i < testfactor; i++ {
+		for i := range testfactor {
 			if i%100 == 0 {
 				t.Log(i)
 			}

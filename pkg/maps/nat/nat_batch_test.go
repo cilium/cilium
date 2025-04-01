@@ -20,7 +20,7 @@ func TestDumpBatch4(t *testing.T) {
 	err := m.OpenOrCreate()
 	assert.NoError(t, err)
 	defer assert.NoError(t, m.UnpinIfExists())
-	for i := 0; i < 1024+1; i++ {
+	for i := range 1024 + 1 {
 		var ip types.IPv4
 		ip[0] = byte(i)
 		ip[1] = byte(i >> 8)

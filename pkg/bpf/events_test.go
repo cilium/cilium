@@ -29,7 +29,7 @@ func TestEventsSubscribe(t *testing.T) {
 	assert.Equal("key=123", (<-handle.C()).Key.String())
 	assert.Equal("key=124", (<-handle.C()).Key.String())
 
-	for i := 0; i < eventSubChanBufferSize; i++ {
+	for i := range eventSubChanBufferSize {
 		assert.False(handle.isClosed(), "should not close until buffer is full")
 		assert.Len(eb.subscriptions, 1)
 		assert.Len(eb.subscriptions[0].c, i+1)

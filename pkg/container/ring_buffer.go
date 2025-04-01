@@ -72,7 +72,7 @@ func (eb *RingBuffer) firstValidIndex(isValid func(interface{}) bool) int {
 func (eb *RingBuffer) IterateValid(isValid func(interface{}) bool, callback func(interface{})) {
 	startIndex := eb.firstValidIndex(isValid)
 	l := len(eb.buffer) - startIndex
-	for i := 0; i < l; i++ {
+	for i := range l {
 		index := eb.mapIndex(startIndex + i)
 		callback(eb.buffer[index])
 	}

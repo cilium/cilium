@@ -612,7 +612,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			})
 
 			// run podIPPoolReconciler twice to ensure idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := podIPPoolReconciler.Reconcile(context.Background(), ReconcileParams{
 					BGPInstance:   testBGPInstance,
 					DesiredConfig: tt.testBGPInstanceConfig,

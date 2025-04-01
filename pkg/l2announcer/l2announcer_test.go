@@ -367,7 +367,7 @@ func TestHappyPathPermutations(t *testing.T) {
 		} else {
 			generate(k-1, fns)
 
-			for i := 0; i < k-1; i++ {
+			for i := range k - 1 {
 				if k%2 == 0 {
 					fns[i], fns[k-1] = fns[k-1], fns[i]
 				} else {

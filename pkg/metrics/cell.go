@@ -70,7 +70,7 @@ func Metric[S any](ctor func() S) cell.Cell {
 
 	withMetaTyp := reflect.TypeOf(&withMeta).Elem()
 	collectorTyp := reflect.TypeOf(&collector).Elem()
-	for i := 0; i < outTyp.NumField(); i++ {
+	for i := range outTyp.NumField() {
 		field := outTyp.Field(i)
 		if !field.IsExported() {
 			panic(fmt.Errorf(
@@ -118,7 +118,7 @@ func provideMetrics[S any](metricSet S) hiveMetricOut {
 		return hiveMetricOut{}
 	}
 
-	for i := 0; i < typ.NumField(); i++ {
+	for i := range typ.NumField() {
 		if withMeta, ok := value.Field(i).Interface().(pkgmetric.WithMetadata); ok {
 			metrics = append(metrics, withMeta)
 		}

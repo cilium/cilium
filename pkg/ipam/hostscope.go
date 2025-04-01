@@ -76,7 +76,7 @@ func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
 		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To16())
 	}
 	bits := big.NewInt(0).SetBytes(data)
-	for i := 0; i < bits.BitLen(); i++ {
+	for i := range bits.BitLen() {
 		if bits.Bit(i) != 0 {
 			ip := net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String()
 			alloc[ip] = ""

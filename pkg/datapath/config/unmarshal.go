@@ -68,7 +68,7 @@ func structFields(structVal reflect.Value, tag string, visited map[reflect.Type]
 	}
 
 	fields := make([]structField, 0, structType.NumField())
-	for i := 0; i < structType.NumField(); i++ {
+	for i := range structType.NumField() {
 		field := structField{structType.Field(i), structVal.Field(i)}
 
 		// If the field is tagged, gather it and move on.

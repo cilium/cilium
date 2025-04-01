@@ -174,7 +174,7 @@ func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
 					// related events trigger one `notifyOnDNSMsg` callback each and
 					// consequently the event logging.
 					var wg sync.WaitGroup
-					for j := 0; j < bm.nRecords; j++ {
+					for range bm.nRecords {
 						wg.Add(1)
 						go func() {
 							defer wg.Done()
@@ -207,7 +207,7 @@ func benchWithListeners(accessLogger ProxyAccessLogger, listener *MockMonitorLis
 					// related events trigger one `notifyOnDNSMsg` callback each and
 					// consequently the event logging.
 					var logWg sync.WaitGroup
-					for j := 0; j < bm.nRecords; j++ {
+					for range bm.nRecords {
 						logWg.Add(1)
 						go func() {
 							defer logWg.Done()

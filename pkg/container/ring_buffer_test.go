@@ -95,7 +95,7 @@ func TestRingBuffer_AddingAndIterating(t *testing.T) {
 
 func TestEventBuffer_GC(t *testing.T) {
 	assert := assert.New(t)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		buffer := NewRingBuffer(100)
 		for i := 1; i <= 102; i++ {
 			buffer.Add(i)
@@ -217,7 +217,7 @@ func Test_firstValidIndex(t *testing.T) {
 	assert := assert.New(t)
 	buffer := NewRingBuffer(4)
 	df := dumpFunc(buffer)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		buffer.Add(i)
 	}
 	assert.IsNonDecreasing(df())
@@ -237,7 +237,7 @@ func Test_firstValidIndex2(t *testing.T) {
 		s := rand.IntN(1000)
 		buffer := NewRingBuffer(s)
 		df := dumpFunc(buffer)
-		for i := 0; i < s+1; i++ {
+		for i := range s + 1 {
 			buffer.Add(i)
 		}
 		assert.IsNonDecreasing(df())

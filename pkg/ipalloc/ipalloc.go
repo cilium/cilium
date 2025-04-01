@@ -373,7 +373,7 @@ func (abl *availableBlockList) put(ip netip.Addr) error {
 
 	curr := (*abl)[0]
 	var prev *linkedBlock
-	for i := 0; i < maxIter; i++ {
+	for i := range maxIter {
 		if ip.Compare(curr.from) < 0 {
 			// Is `ip` on the left current block
 

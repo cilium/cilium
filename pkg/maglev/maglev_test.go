@@ -34,7 +34,7 @@ func TestPermutations(t *testing.T) {
 	}
 	for _, bCount := range []int{0, 1, 2, 5, 111, 222, 333, 1001} {
 		backends := make([]BackendInfo, bCount)
-		for i := 0; i < len(backends); i++ {
+		for i := range backends {
 			backends[i] = BackendInfo{
 				Addr:   mkAddr(int32(i)),
 				ID:     loadbalancer.BackendID(i),
@@ -230,7 +230,7 @@ func benchmarkGetMaglevTable(b *testing.B, m uint64) {
 	ml.backendInfosBuffer = make([]BackendInfo, 0, 1024)
 
 	backends := make([]BackendInfo, backendCount)
-	for i := 0; i < backendCount; i++ {
+	for i := range backendCount {
 		backends[i] = BackendInfo{ID: loadbalancer.BackendID(i), Weight: 1, Addr: mkAddr(int32(i))}
 		// Already compute hash string so we compare apples-to-apples to prev benchmarks. Previously
 		// the backends were passed in as map[string]*Backend so these strings precomputed.

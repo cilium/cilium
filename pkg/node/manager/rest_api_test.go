@@ -50,7 +50,7 @@ func Test_getNodesHandle(t *testing.T) {
 	const numberOfClients = 10
 
 	clientIDs := make([]int64, 0, numberOfClients)
-	for i := 0; i < numberOfClients; i++ {
+	for range numberOfClients {
 		clientIDs = append(clientIDs, randGen.Int64())
 	}
 

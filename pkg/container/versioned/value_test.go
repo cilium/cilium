@@ -58,7 +58,7 @@ func (c *testCleaner) cleanValues(keepVersion KeepVersion, values []Value[[]uint
 	oldest := c.oldestVersion.load()
 	if oldest < version(keepVersion) {
 		// remove old versions for all values before bumping 'oldestVersion'
-		for i := 0; i < len(values); i++ {
+		for i := range values {
 			values[i].RemoveBefore(keepVersion)
 		}
 		c.oldestVersion.store(version(keepVersion))
@@ -341,7 +341,7 @@ func TestVersionedChaos(t *testing.T) {
 
 	cv := Coordinator{
 		Cleaner: func(keepVersion KeepVersion) {
-			for i := 0; i < nValues; i++ {
+			for range nValues {
 				cleaner.cleanValues(keepVersion, values)
 			}
 		},
@@ -349,7 +349,7 @@ func TestVersionedChaos(t *testing.T) {
 
 	// Initially empty
 	handle := cv.GetVersionHandle()
-	for i := 0; i < nValues; i++ {
+	for i := range nValues {
 		assert.Empty(t, values[i].At(handle))
 	}
 	assert.NoError(t, handle.Close())
@@ -357,8 +357,8 @@ func TestVersionedChaos(t *testing.T) {
 
 	var mutex lock.Mutex
 	var writerWg, readerWg sync.WaitGroup
-	for j := 0; j < 1000; j++ {
-		for k := 0; k < 100; k++ {
+	for range 1000 {
+		for range 100 {
 			readerWg.Add(1)
 			go func() {
 				time.Sleep(time.Duration(rand.IntN(100)) * time.Millisecond)
@@ -404,7 +404,7 @@ func TestVersionedChaos(t *testing.T) {
 	defer mutex.Unlock()
 
 	tx := cv.PrepareNextVersion()
-	for i := 0; i < nValues; i++ {
+	for i := range nValues {
 		assert.NoError(t, values[i].RemoveAt(tx))
 	}
 	tx.Commit()
@@ -413,7 +413,7 @@ func TestVersionedChaos(t *testing.T) {
 	cleaner.waitUntilOldest(t, tx.nextVersion)
 
 	// Check that all values were removed
-	for i := 0; i < nValues; i++ {
+	for i := range nValues {
 		assert.Nil(t, values[i].head.Load())
 	}
 

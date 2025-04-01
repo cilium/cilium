@@ -1209,14 +1209,14 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	rulesPerEP := make([]policy.L7DataMap, 0, nEPs)
 
 	var defaultRules []api.PortRuleDNS
-	for i := 0; i < nMatchPatterns; i++ {
+	for i := range nMatchPatterns {
 		defaultRules = append(defaultRules, api.PortRuleDNS{MatchPattern: "*.bar" + strconv.Itoa(i) + "another.very.long.domain.here"})
 	}
-	for i := 0; i < nMatchNames; i++ {
+	for i := range nMatchNames {
 		defaultRules = append(defaultRules, api.PortRuleDNS{MatchName: strconv.Itoa(i) + "very.long.domain.containing.a.lot.of.chars"})
 	}
 
-	for i := 0; i < nEPs; i++ {
+	for i := range nEPs {
 		commonRules := slices.Clone(defaultRules)
 		if i%everyNIsEqual != 0 {
 			commonRules = append(

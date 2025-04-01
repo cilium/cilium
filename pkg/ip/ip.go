@@ -196,12 +196,12 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 
 	if ipNet.IP.To4() == nil {
 		mask = make(net.IP, net.IPv6len)
-		for i := 0; i < len(ipNet.Mask); i++ {
+		for i := range ipNet.Mask {
 			mask[net.IPv6len-i-1] = ipNet.IP[net.IPv6len-i-1] & ^ipNet.Mask[i]
 		}
 	} else {
 		mask = make(net.IP, net.IPv4len)
-		for i := 0; i < net.IPv4len; i++ {
+		for i := range net.IPv4len {
 			mask[net.IPv4len-i-1] = ipNet.IP[net.IPv6len-i-1] & ^ipNet.Mask[i]
 		}
 	}

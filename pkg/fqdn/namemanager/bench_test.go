@@ -48,7 +48,7 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 		IPCache: testipcache.NewMockIPCache(),
 	})
 
-	for i := 0; i < numSelectors; i++ {
+	for i := range numSelectors {
 		nameManager.RegisterFQDNSelector(api.FQDNSelector{
 			MatchName: fmt.Sprintf("%d.example.com", i),
 		})
@@ -64,7 +64,7 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 	ip := netip.MustParseAddr("10.0.0.0")
 
 	b.ResetTimer() // Don't benchmark adding selectors, just evaluating them
-	for i := 0; i < b.N*numSelectors; i++ {
+	for i := range b.N * numSelectors {
 		t = t.Add(1 * time.Second)
 		ip = ip.Next()
 
@@ -92,7 +92,7 @@ func BenchmarkFqdnCache(b *testing.B) {
 		lookupTime := time.Now()
 		dnsHistory := fqdn.NewDNSCache(0)
 
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			dnsHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
 		}
 

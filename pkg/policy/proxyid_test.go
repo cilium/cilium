@@ -38,7 +38,7 @@ func BenchmarkProxyID(b *testing.B) {
 	port := uint16(rand.IntN(65535))
 
 	b.ReportAllocs()
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		b.StartTimer()
 		proxyID := ProxyID(id, true, "TCP", port, "")
 		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080:" {

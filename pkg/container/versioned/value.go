@@ -520,7 +520,7 @@ func (s VersionedSlice[T]) Append(value T, tx *Tx) VersionedSlice[T] {
 func (s VersionedSlice[T]) Before(keepVersion KeepVersion) iter.Seq[T] {
 	return func(yield func(T) bool) {
 		version := version(keepVersion)
-		for n := 0; n < len(s); n++ {
+		for n := range s {
 			if s[n].version >= version {
 				break
 			}

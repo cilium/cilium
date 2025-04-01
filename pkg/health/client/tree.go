@@ -157,7 +157,7 @@ func dumpNodes(w io.Writer, level, maxLevel int, levelsEnded []int, nodes []*nod
 }
 
 func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decoration, node *node) {
-	for i := 0; i < level; i++ {
+	for i := range level {
 		if isEnded(levelsEnded, i) {
 			fmt.Fprint(w, strings.Repeat(" ", indentSize+1))
 			continue

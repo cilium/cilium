@@ -140,7 +140,7 @@ const (
 )
 
 func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMac linkMap, err error) {
-	for try := 0; try < waitForNetlinkDevicesMaxTries; try++ {
+	for try := range waitForNetlinkDevicesMaxTries {
 		links, err := safenetlink.LinkList()
 		if err != nil {
 			logger.Warn("failed to obtain eni link list - retrying", logfields.Error, err)

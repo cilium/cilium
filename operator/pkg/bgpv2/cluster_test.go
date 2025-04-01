@@ -1164,7 +1164,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 				slices.SortFunc(tt.conflictingRelations, sortRelation)
 
 				// Compare the conflicting relations.
-				for i := 0; i < len(tt.conflictingRelations); i++ {
+				for i := range tt.conflictingRelations {
 					if !assert.ElementsMatch(ct, tt.conflictingRelations[i], conflictingRelations[i]) {
 						return
 					}

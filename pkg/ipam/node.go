@@ -1102,7 +1102,7 @@ func (n *Node) syncToAPIServer() error {
 	// second attempt fails as well we are likely under heavy contention,
 	// fall back to the controller based background interval to retry.
 	maxRetries := 2
-	for retry := 0; retry < maxRetries; retry++ {
+	for retry := range maxRetries {
 		if node.Status.IPAM.Used == nil {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
@@ -1122,7 +1122,7 @@ func (n *Node) syncToAPIServer() error {
 		}
 	}
 
-	for retry := 0; retry < maxRetries; retry++ {
+	for retry := range maxRetries {
 		node.Spec.IPAM.Pool = pool
 		n.logger.Load().Debug("Updating node in apiserver", logfields.PoolSize, len(node.Spec.IPAM.Pool))
 

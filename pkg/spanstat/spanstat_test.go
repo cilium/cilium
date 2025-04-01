@@ -77,7 +77,7 @@ func TestSpanStatSecondsRaceCondition(t *testing.T) {
 	span1 := Start()
 	var wg sync.WaitGroup
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func(span *SpanStat) {
 			defer wg.Done()
@@ -159,7 +159,7 @@ func TestSpanStatRaceCondition(t *testing.T) {
 			span := Start()
 			var wg sync.WaitGroup
 
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				wg.Add(1)
 				go func(span *SpanStat) {
 					defer wg.Done()

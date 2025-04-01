@@ -121,7 +121,7 @@ func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *Alloca
 	n.mutex.Lock()
 	n.allocator.mutex.Lock()
 	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
-	for i := 0; i < allocation.IPv4.AvailableForAllocation; i++ {
+	for range allocation.IPv4.AvailableForAllocation {
 		n.allocator.ipGenerator++
 		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
 	}

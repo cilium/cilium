@@ -416,7 +416,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, res, len(tt.expected))
 
-			for i := 0; i < len(tt.expected); i++ {
+			for i := range tt.expected {
 				cluster := &envoy_config_cluster_v3.Cluster{}
 				err := proto.Unmarshal(res[i].GetValue(), cluster)
 				require.NoError(t, err)

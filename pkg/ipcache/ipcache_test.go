@@ -554,7 +554,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 
 		// We only want to measure the calls to upsert.
 		b.StartTimer()
-		for j := 0; j < num; j++ {
+		for j := range num {
 			meta.PodName = nms[j]
 			_, err := ipcache.Upsert(ips[j], nil, 0, &meta, Identity{
 				ID:     identityPkg.NumericIdentity(j),

@@ -225,7 +225,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 			return fmt.Errorf("subnet %s does not exist", subnetID)
 		}
 
-		for i := 0; i < addresses; i++ {
+		for range addresses {
 			ip, err := s.allocator.AllocateNext()
 			if err != nil {
 				panic("Unable to allocate IP from allocator")

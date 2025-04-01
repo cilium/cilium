@@ -31,7 +31,7 @@ func Test_getFlowsBasic(t *testing.T) {
 	req := observerpb.GetFlowsRequest{}
 	client, err := server.GetFlows(context.Background(), &req)
 	require.NoError(t, err)
-	for i := 0; i < len(flows); i++ {
+	for range flows {
 		_, err = client.Recv()
 		require.NoError(t, err)
 	}

@@ -329,7 +329,7 @@ func TestResource_RepeatedDelete(t *testing.T) {
 	// Repeatedly create and delete the node in the background
 	// while "unreliably" processing some of the delete events.
 	go func() {
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			node.ObjectMeta.ResourceVersion = fmt.Sprintf("%d", i)
 
 			lw.events <- watch.Event{
@@ -678,7 +678,7 @@ func TestResource_WithIndexers(t *testing.T) {
 	events := nodeResource.Events(ctx)
 
 	// wait for the upsert events
-	for i := 0; i < len(nodes); i++ {
+	for range len(nodes) {
 		ev, ok := <-events
 		require.True(t, ok)
 		require.Equal(t, resource.Upsert, ev.Kind)

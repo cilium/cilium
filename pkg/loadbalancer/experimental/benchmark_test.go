@@ -35,7 +35,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	// realistic as we'll then have existing objects in the table which makes the
 	// inserts slightly more costly.
 	wtxn := p.Writer.WriteTxn()
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		name := loadbalancer.ServiceName{Namespace: "test-existing", Name: fmt.Sprintf("svc-%d", i)}
 		var addr1 [4]byte
 		binary.BigEndian.PutUint32(addr1[:], 0x02000000+uint32(i))
@@ -62,7 +62,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	// WriteTxn.
 	for n := 0; n < b.N; n++ {
 		wtxn := p.Writer.WriteTxn()
-		for i := 0; i < numObjects; i++ {
+		for i := range numObjects {
 			name := loadbalancer.ServiceName{Namespace: "test-new", Name: fmt.Sprintf("svc-%d", i)}
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i))
@@ -118,7 +118,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		wtxn = p.Writer.WriteTxn()
-		for i := 0; i < numObjects; i++ {
+		for i := range numObjects {
 			beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, uint16(i), loadbalancer.ScopeExternal)
 			p.Writer.UpsertBackends(
 				wtxn,

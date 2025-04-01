@@ -535,7 +535,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	}
 
 	ipConfigurations := make([]*armcompute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
-	for i := 0; i < addresses; i++ {
+	for range addresses {
 		ipConfigurations = append(ipConfigurations,
 			&armcompute.VirtualMachineScaleSetIPConfiguration{
 				Name: to.Ptr(generateIpConfigName()),
@@ -601,7 +601,7 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	}
 
 	ipConfigurations := make([]*armnetwork.InterfaceIPConfiguration, 0, addresses)
-	for i := 0; i < addresses; i++ {
+	for range addresses {
 		ipConfigurations = append(ipConfigurations, &armnetwork.InterfaceIPConfiguration{
 			Name: to.Ptr(generateIpConfigName()),
 			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{

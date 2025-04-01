@@ -652,7 +652,7 @@ func TestDumpReliablyWithCallbackOverlapping(t *testing.T) {
 		}
 	}
 	close(start) // start testing.
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		dump := map[string]string{}
 		ds := NewDumpStats(m)
 		err := m.DumpReliablyWithCallback(func(key MapKey, value MapValue) {
@@ -738,7 +738,7 @@ func TestDumpReliablyWithCallback(t *testing.T) {
 		for i := uint32(4); i < maxEntries; i++ {
 			expect[fmt.Sprintf("key=%d", i)] = fmt.Sprintf("custom-value=%d", i+100)
 		}
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			dump := map[string]string{}
 			customCb := func(key MapKey, value MapValue) {
 				k, err := strconv.ParseUint(strings.TrimPrefix(key.String(), "key="), 10, 32)

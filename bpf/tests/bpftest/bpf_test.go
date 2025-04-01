@@ -385,7 +385,7 @@ func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t
 				var key int32
 				value := make([]byte, m.ValueSize())
 				m.Lookup(&key, &value)
-				for i := 0; i < len(value); i++ {
+				for i := range value {
 					value[i] = 0
 				}
 				m.Update(&key, &value, ebpf.UpdateAny)
