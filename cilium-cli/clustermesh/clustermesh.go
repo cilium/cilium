@@ -43,6 +43,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -1786,7 +1787,7 @@ func PolicyDefaultLocalClusterInspect(ctx context.Context, k8sClient *k8s.Client
 			return nil, fmt.Errorf("Error parsing network policies: %w", err)
 		}
 
-		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *types.PolicyEntry) bool { return a.DeepEqual(b) })
 	}
 
 	cnps, err := k8sClient.ListCiliumNetworkPolicies(ctx, namespace, metav1.ListOptions{})

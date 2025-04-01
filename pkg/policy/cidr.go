@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -19,12 +20,12 @@ func getPrefixesFromCIDR(cidrs api.CIDRSlice) []netip.Prefix {
 	return result
 }
 
-// GetPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
+// getPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
 // and returns them as regular golang CIDR objects. Includes CIDRs listed in
 // ExceptCIDRs fields.
 //
 // Assumes that validation already occurred on 'rules'.
-func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []netip.Prefix {
+func getPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []netip.Prefix {
 	out := make([]netip.Prefix, 0, len(rules))
 	for _, rule := range rules {
 		if rule.Cidr != "" {
@@ -51,44 +52,16 @@ func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []netip.Prefix {
 // Includes prefixes referenced solely by "ExceptCIDRs" entries.
 //
 // Assumes that validation already occurred on 'rules'.
-func GetCIDRPrefixes(rules api.Rules) []netip.Prefix {
+func GetCIDRPrefixes(rules types.PolicyEntries) []netip.Prefix {
 	if len(rules) == 0 {
 		return nil
 	}
 	res := make(sets.Set[netip.Prefix], 32)
 	for _, r := range rules {
-		for _, ir := range r.Ingress {
-			if len(ir.FromCIDR) > 0 {
-				res.Insert(getPrefixesFromCIDR(ir.FromCIDR)...)
-			}
-			if len(ir.FromCIDRSet) > 0 {
-				res.Insert(GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
-			}
-		}
-		for _, ir := range r.IngressDeny {
-			if len(ir.FromCIDR) > 0 {
-				res.Insert(getPrefixesFromCIDR(ir.FromCIDR)...)
-			}
-			if len(ir.FromCIDRSet) > 0 {
-				res.Insert(GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
-			}
-		}
-		for _, er := range r.Egress {
-			if len(er.ToCIDR) > 0 {
-				res.Insert(getPrefixesFromCIDR(er.ToCIDR)...)
-			}
-			if len(er.ToCIDRSet) > 0 {
-				res.Insert(GetPrefixesFromCIDRSet(er.ToCIDRSet)...)
-			}
-		}
-		for _, er := range r.EgressDeny {
-			if len(er.ToCIDR) > 0 {
-				res.Insert(getPrefixesFromCIDR(er.ToCIDR)...)
-			}
-			if len(er.ToCIDRSet) > 0 {
-				res.Insert(GetPrefixesFromCIDRSet(er.ToCIDRSet)...)
-			}
-		}
+		cidrs := types.FromPeerSelectorSlice[api.CIDR](r.L3)
+		res.Insert(getPrefixesFromCIDR(cidrs)...)
+		cidrRules := types.FromPeerSelectorSlice[api.CIDRRule](r.L3)
+		res.Insert(getPrefixesFromCIDRSet(cidrRules)...)
 	}
 	return res.UnsortedList()
 }

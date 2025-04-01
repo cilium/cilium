@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -784,10 +785,6 @@ func TestL3Policy(t *testing.T) {
 	err := apiRule1.Sanitize()
 	require.NoError(t, err)
 
-	rule1 := &rule{Rule: apiRule1}
-	err = rule1.Sanitize()
-	require.NoError(t, err)
-
 	// Must be parsable, make sure Validate fails when not.
 	err = (&api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1528,9 +1525,10 @@ var (
 		idC.ID: idC.LabelArray,
 	}
 
-	defaultDenyIngress = &api.Rule{
-		EndpointSelector: api.WildcardEndpointSelector,
-		Ingress:          []api.IngressRule{{}},
+	defaultDenyIngress = &types.PolicyEntry{
+		Subject:     api.WildcardEndpointSelector,
+		Ingress:     true,
+		DefaultDeny: true,
 	}
 	namedPorts = map[string]uint16{
 		"port-80": 80,
@@ -1558,22 +1556,17 @@ func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) 
 func TestIngressAllowAll(t *testing.T) {
 	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
+	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					// Allow all L3&L4 ingress rule
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{
-							api.WildcardEndpointSelector,
-						},
-					},
-				},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// Allow all L3&L4 ingress rule
+			L3: types.PeerSelectorSlice{
+				api.WildcardEndpointSelector,
 			},
-		},
-	})
+		}})
 
 	checkFlow(t, repo, flowAToB, api.Denied)
 	checkFlow(t, repo, flowAToC, api.Allowed)
@@ -1585,30 +1578,28 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 
 	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
+	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					// Allow all L3&L4 ingress rule
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{
-							api.WildcardEndpointSelector,
-						},
-					},
-				},
-				{
-					// This rule is a subset of the above
-					// rule and should *NOT* restrict to
-					// port 80 only
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// Allow all L3&L4 ingress rule
+			L3: types.PeerSelectorSlice{
+				api.WildcardEndpointSelector,
 			},
+		}, &types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// This rule is a subset of the above
+			// rule and should *NOT* restrict to
+			// port 80 only
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{
+					{Port: "80", Protocol: api.ProtoTCP},
+				},
+			}},
 		},
 	})
 
@@ -1618,25 +1609,21 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 
 func TestIngressAllowAllNamedPort(t *testing.T) {
 	repo := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs).repo
-	repo.MustAddList(api.Rules{
+	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					// Allow all L3&L4 ingress rule
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{
-							api.WildcardEndpointSelector,
-						},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "port-80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// Allow all L3&L4 ingress rule
+			L3: types.PeerSelectorSlice{
+				api.WildcardEndpointSelector,
 			},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{
+					{Port: "port-80", Protocol: api.ProtoTCP},
+				},
+			}},
 		},
 	})
 
@@ -1648,30 +1635,28 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
+	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					// Allow all L3&L4 ingress rule
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{
-							api.WildcardEndpointSelector,
-						},
-					},
-				},
-				{
-					// This rule is a subset of the above
-					// rule and should *NOT* restrict to
-					// port 80 only
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "port-80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// Allow all L3&L4 ingress rule
+			L3: types.PeerSelectorSlice{
+				api.WildcardEndpointSelector,
 			},
+		}, &types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			// This rule is a subset of the above
+			// rule and should *NOT* restrict to
+			// port 80 only
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{
+					{Port: "port-80", Protocol: api.ProtoTCP},
+				},
+			}},
 		},
 	})
 	checkFlow(t, repo, flowAToC, api.Allowed)
@@ -1681,19 +1666,18 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 func TestIngressL4AllowAll(t *testing.T) {
 	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
+	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			L3:          types.PeerSelectorSlice{},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{
+					{Port: "80", Protocol: api.ProtoTCP},
 				},
-			},
+			}},
 		},
 	})
 	checkFlow(t, repo, flowAToC, api.Allowed)
@@ -2324,26 +2308,22 @@ func TestL3L4L7Merge(t *testing.T) {
 func TestMatches(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
 	repo := td.repo
-	repo.MustAddList(api.Rules{
-		&api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorC},
-					},
-				},
-			},
+	repo.MustAddPolicyEntries(types.PolicyEntries{
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorA,
+			L3:          types.PeerSelectorSlice{endpointSelectorC},
 		},
-		&api.Rule{
-			NodeSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorC},
-					},
-				},
-			},
+		&types.PolicyEntry{
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject: api.NewESFromLabels(
+				labels.ParseSelectLabel("id=a"),
+				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
+			),
+			Node: true,
+			L3:   types.PeerSelectorSlice{endpointSelectorC},
 		},
 	})
 
@@ -2399,43 +2379,6 @@ func TestMatches(t *testing.T) {
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabelsFromModel([]string{"id=c"}))
 	td.addIdentity(hostIdentity)
 	require.False(t, hostRule.matchesSubject(hostIdentity))
-}
-
-func BenchmarkRuleString(b *testing.B) {
-	r := &rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-							{Port: "8080", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "3000", Protocol: api.ProtoAny},
-						},
-					}},
-				},
-			},
-		},
-	}
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_ = r.String()
-	}
 }
 
 // Test merging of L7 rules when the same rules apply to multiple selectors.

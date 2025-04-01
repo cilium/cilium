@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -120,7 +121,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		dc := make(chan uint64, 1)
 		pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{
 			{
-				Rules:    []*policyapi.Rule{r},
+				Rules:    policyutils.RulesToPolicyEntries([]*policyapi.Rule{r}),
 				Resource: resource,
 				DoneChan: dc,
 			},
@@ -509,7 +510,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			}
 
 			pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{{
-				Rules:             rules,
+				Rules:             policyutils.RulesToPolicyEntries(rules),
 				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
 				Source:            metrics.LabelEventSourceK8s,
 			}})
