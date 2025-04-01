@@ -63,8 +63,6 @@ static volatile const __u8 *node_mac = mac_two;
 
 ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #include "lib/endpoint.h"
 
 struct {

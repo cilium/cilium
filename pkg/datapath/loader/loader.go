@@ -64,11 +64,6 @@ const (
 	dirEgress  = "egress"
 )
 
-const (
-	secctxFromIpcacheDisabled = iota + 1
-	secctxFromIpcacheEnabled
-)
-
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
@@ -189,9 +184,8 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.EthHeaderLength = 0
 	}
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
-	if option.Config.EnableHostLegacyRouting {
-		cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
 	}
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
@@ -349,8 +343,6 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
-
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	renames := map[string]string{
@@ -421,9 +413,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	}
 	cfg.InterfaceMAC = em.As8()
 
-	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
-	if option.Config.EnableHostLegacyRouting {
-		cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	if !option.Config.EnableHostLegacyRouting {
+		cfg.SecctxFromIPCache = true
 	}
 
 	ifindex := link.Attrs().Index
