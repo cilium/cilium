@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -91,6 +92,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		DisableDNSProxy:        !option.Config.EnableEmbeddedDNSProxy,
 	}
 	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsRequestHandler.NotifyOnDNSMsg)
 	b.proxyInstance.Set(dnsProxy)
@@ -156,4 +158,15 @@ func (b *fqdnProxyBootstrapper) Cleanup() {
 	if p := b.proxyInstance.Get(); p != nil {
 		p.Cleanup()
 	}
+}
+
+// Standalone DNS Proxy grpc server is used to communicate with the Standalone DNS Proxy
+func (b *fqdnProxyBootstrapper) bootstrapStandaloneDNSProxyServer() {
+	sdpServer := service.NewServer(b.endpointManager, b.dnsRequestHandler.UpdateOnDNSMsg, b.logger)
+	proxy.GlobalStandaloneDNSProxy = sdpServer
+
+	// Add the Standalone DNS Proxy as a listener to the IPCache
+	b.ipcache.AddListener(sdpServer)
+
+	go service.RunServer(option.Config.ToFQDNsServerPort, sdpServer)
 }
