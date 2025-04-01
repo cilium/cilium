@@ -668,8 +668,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 // TestLocalObserverServer_NodeLabels test the LocalNodeWatcher integration
 // with the observer.
 func TestLocalObserverServer_NodeLabels(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// local node stuff setup.
 	localNode := node.LocalNode{

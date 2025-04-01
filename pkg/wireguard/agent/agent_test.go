@@ -271,9 +271,6 @@ func TestAgent_PeerConfig(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
@@ -282,7 +279,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
 			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
-			wgAgent, ipCache := newTestAgent(ctx, newFakeWgClient())
+			wgAgent, ipCache := newTestAgent(t.Context(), newFakeWgClient())
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before UpdatePeer are handled correctly
@@ -480,8 +477,6 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
-			ctx := context.Background()
-
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
@@ -501,7 +496,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				},
 			})
 
-			wgAgent, ipCache := newTestAgent(ctx, wgClient)
+			wgAgent, ipCache := newTestAgent(t.Context(), wgClient)
 			defer ipCache.Shutdown()
 
 			assertAllowedIPs := func(e expectation) {
