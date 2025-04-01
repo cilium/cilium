@@ -131,7 +131,7 @@ func calculateMetricHash(file []byte) uint64 {
 }
 
 func (c *metricConfigWatcher) validateMetricConfig(config *api.Config) error {
-	metrics := make(map[string]interface{})
+	metrics := make(map[string]any)
 	var errs error
 
 	for i, newMetric := range config.Metrics {

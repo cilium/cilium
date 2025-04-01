@@ -147,8 +147,8 @@ func SyncCRDs(ctx context.Context, logger *slog.Logger, clientset client.Clients
 		&slim_metav1.PartialObjectMetadata{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { crds.add(obj) },
-			DeleteFunc: func(obj interface{}) { crds.remove(obj) },
+			AddFunc:    func(obj any) { crds.add(obj) },
+			DeleteFunc: func(obj any) { crds.remove(obj) },
 		},
 		nil,
 	)
@@ -238,7 +238,7 @@ func SyncCRDs(ctx context.Context, logger *slog.Logger, clientset client.Clients
 	}
 }
 
-func (s *crdState) add(obj interface{}) {
+func (s *crdState) add(obj any) {
 	if pom := informer.CastInformerEvent[slim_metav1.PartialObjectMetadata](s.logger, obj); pom != nil {
 		s.Lock()
 		s.m[CRDResourceName(pom.GetName())] = true
@@ -246,7 +246,7 @@ func (s *crdState) add(obj interface{}) {
 	}
 }
 
-func (s *crdState) remove(obj interface{}) {
+func (s *crdState) remove(obj any) {
 	if pom := informer.CastInformerEvent[slim_metav1.PartialObjectMetadata](s.logger, obj); pom != nil {
 		s.Lock()
 		s.m[CRDResourceName(pom.GetName())] = false

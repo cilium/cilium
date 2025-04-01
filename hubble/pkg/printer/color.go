@@ -12,7 +12,7 @@ import (
 )
 
 type sprinter interface {
-	Sprint(a ...interface{}) string
+	Sprint(a ...any) string
 }
 
 type colorer struct {
@@ -79,43 +79,43 @@ func (c *colorer) disable() {
 	}
 }
 
-func (c colorer) port(a interface{}) string {
+func (c colorer) port(a any) string {
 	return c.yellow.Sprint(a)
 }
 
-func (c colorer) host(a interface{}) string {
+func (c colorer) host(a any) string {
 	return c.cyan.Sprint(a)
 }
 
-func (c colorer) identity(a interface{}) string {
+func (c colorer) identity(a any) string {
 	return c.magenta.Sprint(a)
 }
 
-func (c colorer) verdictForwarded(a interface{}) string {
+func (c colorer) verdictForwarded(a any) string {
 	return c.green.Sprint(a)
 }
 
-func (c colorer) verdictDropped(a interface{}) string {
+func (c colorer) verdictDropped(a any) string {
 	return c.red.Sprint(a)
 }
 
-func (c colorer) verdictAudit(a interface{}) string {
+func (c colorer) verdictAudit(a any) string {
 	return c.yellow.Sprint(a)
 }
 
-func (c colorer) verdictTraced(a interface{}) string {
+func (c colorer) verdictTraced(a any) string {
 	return c.yellow.Sprint(a)
 }
 
-func (c colorer) verdictTranslated(a interface{}) string {
+func (c colorer) verdictTranslated(a any) string {
 	return c.yellow.Sprint(a)
 }
 
-func (c colorer) authTestAlwaysFail(a interface{}) string {
+func (c colorer) authTestAlwaysFail(a any) string {
 	return c.red.Sprint(a)
 }
 
-func (c colorer) authIsEnabled(a interface{}) string {
+func (c colorer) authIsEnabled(a any) string {
 	return c.green.Sprint(a)
 }
 

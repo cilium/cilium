@@ -84,7 +84,7 @@ func HasCEWithIdentity(cepStore resource.Store[*cilium_api_v2.CiliumEndpoint], i
 }
 
 // podNodeNameIndexFunc indexes pods by node name.
-func PodNodeNameIndexFunc(obj interface{}) ([]string, error) {
+func PodNodeNameIndexFunc(obj any) ([]string, error) {
 	pod := obj.(*slim_corev1.Pod)
 	if pod.Spec.NodeName != "" {
 		return []string{pod.Spec.NodeName}, nil

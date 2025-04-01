@@ -94,7 +94,7 @@ func TestDumpMetrics(t *testing.T) {
 		},
 	}
 
-	rawDump := dumpAndRead(t, metricsMap, func(maps []*mockmaps.MetricsMockMap, args ...interface{}) {
+	rawDump := dumpAndRead(t, metricsMap, func(maps []*mockmaps.MetricsMockMap, args ...any) {
 		for _, m := range maps {
 			listMetrics(m)
 		}

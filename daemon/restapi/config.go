@@ -174,7 +174,7 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 
 // ConfigModifyEvents are serialized by the event queue, no need for additional locking for
 // changing 'Opts'
-func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan interface{}) {
+func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan any) {
 	cfgSpec := params.Configuration
 
 	om, err := option.Config.Opts.ValidateConfigurationMap(cfgSpec.Options)
@@ -230,7 +230,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 			if policyEnforcementChanged {
 				policy.SetPolicyEnabled(oldEnforcementValue)
 			}
-			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, interface{}) {}, h)
+			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, any) {}, h)
 			h.endpointManager.OverrideEndpointOpts(oldConfigOpts)
 			h.logger.Debug("finished reverting agent configuration changes")
 			resChan <- api.Error(daemonapi.PatchConfigFailureCode, msg)
@@ -245,7 +245,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	resChan <- daemonapi.NewPatchConfigOK()
 }
 
-func (h *ConfigModifyEventHandler) changedOption(key string, value option.OptionSetting, _ interface{}) {
+func (h *ConfigModifyEventHandler) changedOption(key string, value option.OptionSetting, _ any) {
 	if key == option.Debug {
 		// Set the log level of the agent (this can be a no-op)
 		if option.Config.Opts.IsEnabled(option.Debug) {
@@ -281,7 +281,7 @@ type ConfigModifyEvent struct {
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
-func (e *ConfigModifyEvent) Handle(res chan interface{}) {
+func (e *ConfigModifyEvent) Handle(res chan any) {
 	e.eventHandler.configModify(e.params, res)
 }
 
@@ -328,7 +328,7 @@ type getConfigHandler struct {
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
 	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 
 	// Collect config ignoring the mutable options.
 	e := reflect.ValueOf(option.Config).Elem()

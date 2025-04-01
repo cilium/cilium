@@ -1161,8 +1161,8 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 // returned array will be sorted by map keys, the reason is that Golang does
 // not support ordered maps and for DNS-config the values need to be always
 // sorted.
-func getMapValues(m map[string]string) []interface{} {
-	values := make([]interface{}, len(m))
+func getMapValues(m map[string]string) []any {
+	values := make([]any, len(m))
 	for i, k := range slices.Sorted(maps.Keys(m)) {
 		values[i] = m[k]
 	}

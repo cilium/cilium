@@ -2715,8 +2715,8 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 
 // ReadDirConfig reads the given directory and returns a map that maps the
 // filename to the contents of that file.
-func ReadDirConfig(dirName string) (map[string]interface{}, error) {
-	m := map[string]interface{}{}
+func ReadDirConfig(dirName string) (map[string]any, error) {
+	m := map[string]any{}
 	files, err := os.ReadDir(dirName)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("unable to read configuration directory: %w", err)
@@ -2757,7 +2757,7 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 }
 
 // MergeConfig merges the given configuration map with viper's configuration.
-func MergeConfig(vp *viper.Viper, m map[string]interface{}) error {
+func MergeConfig(vp *viper.Viper, m map[string]any) error {
 	err := vp.MergeConfigMap(m)
 	if err != nil {
 		return fmt.Errorf("unable to read merge directory configuration: %w", err)
@@ -2773,7 +2773,7 @@ func MergeConfig(vp *viper.Viper, m map[string]interface{}) error {
 // Once we remove them from this function we also need to remove them from
 // daemon_main.go and warn users about the old environment variable nor the
 // option in the configuration map have any effect.
-func ReplaceDeprecatedFields(m map[string]interface{}) {
+func ReplaceDeprecatedFields(m map[string]any) {
 	deprecatedFields := map[string]string{
 		"monitor-aggregation-level":   MonitorAggregationName,
 		"ct-global-max-entries-tcp":   CTMapEntriesGlobalTCPName,
@@ -3926,7 +3926,7 @@ func sanitizeIntParam(vp *viper.Viper, paramName string, paramDefault int) int {
 	return intParam
 }
 
-func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) error {
+func validateConfigMapFlag(flag *pflag.Flag, key string, value any) error {
 	var err error
 	switch t := flag.Value.Type(); t {
 	case "bool":
@@ -3973,7 +3973,7 @@ func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) erro
 }
 
 // validateConfigMap checks whether the flag exists and validate its value
-func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
+func validateConfigMap(cmd *cobra.Command, m map[string]any) error {
 	flags := cmd.Flags()
 
 	for key, value := range m {

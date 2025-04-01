@@ -453,25 +453,25 @@ type cacheStoreListener struct {
 	onReplace                 func([]any)
 }
 
-func (s *cacheStoreListener) Add(obj interface{}) error {
+func (s *cacheStoreListener) Add(obj any) error {
 	s.onAdd(obj)
 	return nil
 }
 
-func (s *cacheStoreListener) Update(obj interface{}) error {
+func (s *cacheStoreListener) Update(obj any) error {
 	s.onUpdate(obj)
 	return nil
 }
 
-func (s *cacheStoreListener) Delete(obj interface{}) error {
+func (s *cacheStoreListener) Delete(obj any) error {
 	s.onDelete(obj)
 	return nil
 }
 
-func (s *cacheStoreListener) Replace(items []interface{}, resourceVersion string) error {
+func (s *cacheStoreListener) Replace(items []any, resourceVersion string) error {
 	if items == nil {
 		// Always emit a non-nil slice for replace.
-		items = []interface{}{}
+		items = []any{}
 	}
 	s.onReplace(items)
 	return nil
@@ -479,14 +479,14 @@ func (s *cacheStoreListener) Replace(items []interface{}, resourceVersion string
 
 // These methods are never called by cache.Reflector:
 
-func (*cacheStoreListener) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (*cacheStoreListener) Get(obj any) (item any, exists bool, err error) {
 	panic("unimplemented")
 }
-func (*cacheStoreListener) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (*cacheStoreListener) GetByKey(key string) (item any, exists bool, err error) {
 	panic("unimplemented")
 }
-func (*cacheStoreListener) List() []interface{} { panic("unimplemented") }
-func (*cacheStoreListener) ListKeys() []string  { panic("unimplemented") }
-func (*cacheStoreListener) Resync() error       { panic("unimplemented") }
+func (*cacheStoreListener) List() []any        { panic("unimplemented") }
+func (*cacheStoreListener) ListKeys() []string { panic("unimplemented") }
+func (*cacheStoreListener) Resync() error      { panic("unimplemented") }
 
 var _ cache.Store = &cacheStoreListener{}

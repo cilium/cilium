@@ -78,7 +78,7 @@ func dumpIPCache() map[string][]string {
 // keys in entries. The keys in entries must be specified in CIDR notation.
 // If LPM is found, the value associated with that entry is returned
 // along with boolean true. Otherwise, false is returned.
-func getLPMValue(ip net.IP, entries map[string][]string) (interface{}, bool) {
+func getLPMValue(ip net.IP, entries map[string][]string) (any, bool) {
 	type lpmEntry struct {
 		prefix   []byte
 		identity []string

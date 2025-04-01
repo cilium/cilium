@@ -550,7 +550,7 @@ type serializableEndpoint struct {
 	CiliumEndpointUID types.UID
 
 	// Properties are used to store some internal property about this Endpoint.
-	Properties map[string]interface{}
+	Properties map[string]any
 
 	// NetnsCookie is the network namespace cookie of the Endpoint.
 	NetnsCookie uint64
@@ -613,7 +613,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	if r.Properties != nil {
 		ep.properties = r.Properties
 	} else {
-		ep.properties = map[string]interface{}{}
+		ep.properties = map[string]any{}
 	}
 	ep.NetNsCookie = r.NetnsCookie
 }

@@ -428,8 +428,8 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
+				AddFunc: func(obj any) {},
+				UpdateFunc: func(oldObj, newObj any) {
 					if oldK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), oldObj); oldK8sNP != nil {
 						if newK8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), newObj); newK8sNP != nil {
 							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
@@ -438,7 +438,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 						}
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
+				DeleteFunc: func(obj any) {
 					k8sNP := informer.CastInformerEvent[slim_corev1.Node](hivetest.Logger(b), obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -465,8 +465,8 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
+				AddFunc: func(obj any) {},
+				UpdateFunc: func(oldObj, newObj any) {
 					if oldK8sNP := OldCopyObjToV1Node(oldObj); oldK8sNP != nil {
 						if newK8sNP := OldCopyObjToV1Node(newObj); newK8sNP != nil {
 							if OldEqualV1Node(oldK8sNP, newK8sNP) {
@@ -475,7 +475,7 @@ func benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, b *te
 						}
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
+				DeleteFunc: func(obj any) {
 					k8sNP := OldCopyObjToV1Node(obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -515,7 +515,7 @@ func OldEqualV1Node(node1, node2 *slim_corev1.Node) bool {
 		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
 }
 
-func OldCopyObjToV1Node(obj interface{}) *slim_corev1.Node {
+func OldCopyObjToV1Node(obj any) *slim_corev1.Node {
 	node, ok := obj.(*slim_corev1.Node)
 	if !ok {
 		return nil

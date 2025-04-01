@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-func (k *K8sInstaller) detectDatapathMode(helmValues map[string]interface{}) error {
+func (k *K8sInstaller) detectDatapathMode(helmValues map[string]any) error {
 	if k.params.DatapathMode != "" {
 		k.Log("ℹ️  Custom datapath mode: %s", k.params.DatapathMode)
 		return nil
@@ -69,7 +69,7 @@ func (k *K8sInstaller) autodetect(ctx context.Context) {
 	}
 }
 
-func getClusterName(helmValues map[string]interface{}) string {
+func getClusterName(helmValues map[string]any) string {
 	clusterName, _, _ := unstructured.NestedString(helmValues, "cluster", "name")
 	return clusterName
 }
@@ -88,7 +88,7 @@ func trimEKSClusterARN(fullARN string) string {
 	return ""
 }
 
-func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]interface{}) error {
+func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]any) error {
 	k.autodetect(ctx)
 
 	k.Log("ℹ️  Using Cilium version %s", k.chartVersion)
@@ -122,7 +122,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 	return nil
 }
 
-func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[string]interface{}) error {
+func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[string]any) error {
 	if k.flavor.Kind == k8s.KindK3s {
 		return nil
 	}

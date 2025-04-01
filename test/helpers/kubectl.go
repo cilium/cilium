@@ -2965,7 +2965,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 
 // CiliumExecMustSucceed runs cmd in the specified Cilium pod.
 // it causes a test failure if the command was not successful.
-func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...interface{}) *CmdRes {
+func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...any) *CmdRes {
 	res := kub.CiliumExecContext(ctx, pod, cmd)
 	if !res.WasSuccessful() {
 		res.SendToLog(false)
@@ -2977,7 +2977,7 @@ func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, 
 
 // CiliumExecMustSucceedOnAll does the same as CiliumExecMustSucceed, just that
 // it execs cmd on all cilium-agent pods.
-func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, optionalDescription ...interface{}) {
+func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, optionalDescription ...any) {
 	pods, err := kub.GetCiliumPods()
 	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
 

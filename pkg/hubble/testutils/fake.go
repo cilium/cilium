@@ -220,7 +220,7 @@ func (r *FakePeerLister) List() []poolTypes.Peer {
 type FakeClientConn struct {
 	OnGetState  func() connectivity.State
 	OnClose     func() error
-	OnInvoke    func(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error
+	OnInvoke    func(ctx context.Context, method string, args any, reply any, opts ...grpc.CallOption) error
 	OnNewStream func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
 }
 
@@ -241,7 +241,7 @@ func (c FakeClientConn) Close() error {
 }
 
 // Invoke implements poolTypes.ClientConn.Invoke.
-func (c FakeClientConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
+func (c FakeClientConn) Invoke(ctx context.Context, method string, args any, reply any, opts ...grpc.CallOption) error {
 	if c.OnInvoke != nil {
 		return c.OnInvoke(ctx, method, args, reply, opts...)
 	}

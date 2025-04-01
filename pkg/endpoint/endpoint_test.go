@@ -606,7 +606,7 @@ var (
 	deadlockTestTimeout = 3*deadlockTimeout + 1*time.Second
 )
 
-func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
+func (n *EndpointDeadlockEvent) Handle(ifc chan any) {
 	// We need to sleep here so that we are consuming an event off the queue,
 	// but not acquiring the lock yet.
 	// There isn't much of a better way to ensure that an Event is being
