@@ -38,8 +38,11 @@ var Cell = cell.Module(
 	"Manages the collection of local endpoints",
 
 	cell.Config(defaultEndpointManagerConfig),
-	cell.Provide(newDefaultEndpointManager),
-	cell.Provide(endpoint.NewEndpointBuildQueue),
+	cell.Provide(
+		newDefaultEndpointManager,
+		endpoint.NewEndpointBuildQueue,
+		endpoint.NewMetadataResolver,
+	),
 	cell.ProvidePrivate(newEndpointSynchronizer),
 	cell.Invoke(
 		registerNamespaceUpdater,

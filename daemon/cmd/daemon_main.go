@@ -1546,7 +1546,6 @@ type daemonParams struct {
 	L7Proxy             *proxy.Proxy
 	ProxyAccessLogger   accesslog.ProxyAccessLogger
 	DB                  *statedb.DB
-	Namespaces          statedb.Table[agentK8s.Namespace]
 	APILimiterSet       *rate.APILimiterSet
 	AuthManager         *auth.AuthManager
 	Settings            cellSettings
@@ -1584,6 +1583,7 @@ type daemonParams struct {
 	ExpLBConfig         experimental.Config
 	DNSProxy            defaultdns.Proxy
 	DNSRulesAPI         fqdnRules.DNSRulesService
+	MetadataResolver    endpoint.MetadataResolver
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

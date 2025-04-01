@@ -92,8 +92,6 @@ type Daemon struct {
 	logger            *slog.Logger
 	clientset         k8sClient.Clientset
 	db                *statedb.DB
-	namespaces        statedb.Table[agentK8s.Namespace]
-	pods              statedb.Table[agentK8s.LocalPod]
 	epBuildQueue      endpoint.EndpointBuildQueue
 	l7Proxy           *proxy.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
@@ -151,8 +149,8 @@ type Daemon struct {
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
 
-	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
-	endpointMetadataFetcher endpointMetadataFetcher
+	// metadataResolver knows how to fetch Kubernetes metadata for endpoints.
+	metadataResolver endpoint.MetadataResolver
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -362,7 +360,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clientset:         params.Clientset,
 		db:                params.DB,
 		epBuildQueue:      params.EndpointBuildQueue,
-		namespaces:        params.Namespaces,
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
@@ -412,6 +409,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		explbConfig:       params.ExpLBConfig,
 		dnsProxy:          params.DNSProxy,
 		dnsRulesAPI:       params.DNSRulesAPI,
+		metadataResolver:  params.MetadataResolver,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
