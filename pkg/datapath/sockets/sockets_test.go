@@ -252,7 +252,7 @@ func TestPrivilegedDestroy(t *testing.T) {
 		assert.NoError(t, err)
 		daddr := net.ParseIP(toks[0])
 		matches := 0
-		assert.NoError(t, Destroy(log, SocketFilter{
+		assert.NoError(t, (&netlinkSocketDestroyer{}).Destroy(log, SocketFilter{
 			DestIp:   daddr,
 			DestPort: uint16(dport),
 			Family:   unix.AF_INET,
