@@ -53,7 +53,7 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 	if cidrGroup, ok := p.cidrGroupCache[name]; ok {
 		lbls = labels.Map2Labels(utils.RemoveCiliumLabels(cidrGroup.Labels), labels.LabelSourceCIDRGroup)
 		lbl := api.LabelForCIDRGroupRef(name)
-		lbls[lbl.Key] = lbl
+		lbls[lbl.Key()] = lbl
 
 		for i, c := range cidrGroup.Spec.ExternalCIDRs {
 			pfx, err := netip.ParsePrefix(string(c))

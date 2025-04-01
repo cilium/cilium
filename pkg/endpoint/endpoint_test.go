@@ -734,9 +734,9 @@ func (e *Endpoint) getK8sPodLabels() labels.Labels {
 
 	k8sEPPodLabels := labels.Labels{}
 	for k, v := range allLabelsFromK8s {
-		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
-			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
-			!strings.HasPrefix(v.Key, ciliumio.PodNamespaceLabel) {
+		if !strings.HasPrefix(v.Key(), ciliumio.PodNamespaceMetaLabels) &&
+			!strings.HasPrefix(v.Key(), ciliumio.PolicyLabelServiceAccount) &&
+			!strings.HasPrefix(v.Key(), ciliumio.PodNamespaceLabel) {
 			k8sEPPodLabels[k] = v
 		}
 	}

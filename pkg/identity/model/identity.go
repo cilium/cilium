@@ -20,7 +20,7 @@ func NewIdentityFromModel(base *models.Identity) *identity.Identity {
 	}
 	for _, v := range base.Labels {
 		lbl := labels.ParseLabel(v)
-		id.Labels[lbl.Key] = lbl
+		id.Labels[lbl.Key()] = lbl
 	}
 	id.Sanitize()
 

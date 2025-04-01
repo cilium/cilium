@@ -2199,14 +2199,14 @@ func TestMatches(t *testing.T) {
 	hostRule := repo.rules[ruleKey{idx: 1}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key(): selectedEpLabels})
 	td.addIdentity(selectedIdentity)
 
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key(): notSelectedEpLabels})
 	td.addIdentity(notSelectedIdentity)
 
-	hostLabels := labels.Labels{selectedEpLabels.Key: selectedEpLabels}
+	hostLabels := labels.Labels{selectedEpLabels.Key(): selectedEpLabels}
 	hostLabels.MergeLabels(labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)

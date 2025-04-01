@@ -9,13 +9,14 @@ import (
 	"strconv"
 	"strings"
 
+	v2 "github.com/cilium/cilium/pkg/labels/v2"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
-	worldLabelNonDualStack = Label{Source: LabelSourceReserved, Key: IDNameWorld}
-	worldLabelV4           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
-	worldLabelV6           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
+	worldLabelNonDualStack = NewLabel(IDNameWorld, "", LabelSourceReserved)
+	worldLabelV4           = NewLabel(IDNameWorldIPv4, "", LabelSourceReserved)
+	worldLabelV6           = NewLabel(IDNameWorldIPv6, "", LabelSourceReserved)
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -55,7 +56,7 @@ func maskedIPToLabel(ipStr string, prefix int) Label {
 	}
 	str.WriteRune('/')
 	str.WriteString(strconv.Itoa(prefix))
-	return Label{Key: str.String(), Source: LabelSourceCIDR}
+	return NewLabel(str.String(), "", LabelSourceCIDR)
 }
 
 // IPStringToLabel parses a string and returns it as a CIDR label.
@@ -90,8 +91,7 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 	lbls := make(Labels, 2)
 	if prefix.Bits() > 0 {
 		l := maskedIPToLabel(prefix.Addr().String(), prefix.Bits())
-		l.cidr = &prefix
-		lbls[l.Key] = l
+		lbls[l.Key()] = v2.MakeCIDRLabel(l.Key(), l.Value(), l.Source(), &prefix)
 	}
 	lbls.AddWorldLabel(prefix.Addr())
 
@@ -101,11 +101,11 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 func (lbls Labels) AddWorldLabel(addr netip.Addr) {
 	switch {
 	case !option.Config.IsDualStack():
-		lbls[worldLabelNonDualStack.Key] = worldLabelNonDualStack
+		lbls[worldLabelNonDualStack.Key()] = worldLabelNonDualStack
 	case addr.Is4():
-		lbls[worldLabelV4.Key] = worldLabelV4
+		lbls[worldLabelV4.Key()] = worldLabelV4
 	default:
-		lbls[worldLabelV6.Key] = worldLabelV6
+		lbls[worldLabelV6.Key()] = worldLabelV6
 	}
 }
 

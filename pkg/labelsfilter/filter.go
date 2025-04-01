@@ -57,16 +57,16 @@ func (p LabelPrefix) String() string {
 // matches returns true and the length of the matched section if the label is
 // matched by the LabelPrefix. The Ignore flag has no effect at this point.
 func (p LabelPrefix) matches(l labels.Label) (bool, int) {
-	if p.Source != "" && p.Source != l.Source {
+	if p.Source != "" && p.Source != l.Source() {
 		return false, 0
 	}
 
 	// If no regular expression is available, fall back to prefix matching
 	if p.expr == nil {
-		return strings.HasPrefix(l.Key, p.Prefix), len(p.Prefix)
+		return strings.HasPrefix(l.Key(), p.Prefix), len(p.Prefix)
 	}
 
-	res := p.expr.FindStringIndex(l.Key)
+	res := p.expr.FindStringIndex(l.Key())
 
 	// No match if regexp was not found
 	if res == nil {

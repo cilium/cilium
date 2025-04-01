@@ -250,7 +250,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -357,7 +357,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
@@ -492,7 +492,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -600,7 +600,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)

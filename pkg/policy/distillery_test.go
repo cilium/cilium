@@ -1913,7 +1913,7 @@ func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIden
 func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id identity.NumericIdentity, adds identity.IdentityMap) {
 	lbls := labels.Labels{}
 	l := fqdnSel.IdentityLabel()
-	lbls[l.Key] = l
+	lbls[l.Key()] = l
 
 	lblA := lbls.LabelArray()
 

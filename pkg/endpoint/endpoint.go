@@ -1207,7 +1207,7 @@ func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
 	for _, v := range l {
 		found := false
 		for _, j := range allEpLabels {
-			if j.Equals(&v) {
+			if j.Equal(v) {
 				found = true
 				break
 			}
@@ -2002,7 +2002,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
 	init, found := e.OpLabels.GetIdentityLabel(labels.IDNameInit)
-	return found && init.Source == labels.LabelSourceReserved
+	return found && init.Source() == labels.LabelSourceReserved
 }
 
 // InitWithIngressLabels initializes the endpoint with reserved:ingress.

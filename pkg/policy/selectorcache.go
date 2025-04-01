@@ -170,9 +170,9 @@ func labelArrayToModel(arr labels.LabelArray) models.LabelArray {
 	lbls := make(models.LabelArray, 0, len(arr))
 	for _, l := range arr {
 		lbls = append(lbls, &models.Label{
-			Key:    l.Key,
-			Value:  l.Value,
-			Source: l.Source,
+			Key:    l.Key(),
+			Value:  l.Value(),
+			Source: l.Source(),
 		})
 	}
 	return lbls

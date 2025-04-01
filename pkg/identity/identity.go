@@ -203,7 +203,7 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	}
 
 	for _, label := range lbls {
-		switch label.Source {
+		switch label.Source() {
 		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved, labels.LabelSourceCIDRGroup:
 			scope = IdentityScopeLocal
 		default:
@@ -248,7 +248,7 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 	if lbl, exists := lbls[labels.LabelKeyFixedIdentity]; exists {
 		// If the set of labels contain a fixed identity then and exists in
 		// the map of reserved IDs then return the identity of that reserved ID.
-		id := GetReservedID(lbl.Value)
+		id := GetReservedID(lbl.Value())
 		if id != IdentityUnknown && IsUserReservedIdentity(id) {
 			return LookupReservedIdentity(id)
 		}
@@ -299,7 +299,7 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		return nil
 	}
 
-	nid = GetReservedID(lbls.ToSlice()[0].Key)
+	nid = GetReservedID(lbls.ToSlice()[0].Key())
 	if nid != IdentityUnknown && !IsUserReservedIdentity(nid) {
 		return LookupReservedIdentity(nid)
 	}

@@ -389,7 +389,7 @@ func deriveLabelsForName(dnsName string, selectors map[api.FQDNSelector]*regexp.
 		matches := fqdnRegex.MatchString(dnsName)
 		if matches {
 			l := fqdnSel.IdentityLabel()
-			lbls[l.Key] = l
+			lbls[l.Key()] = l
 		}
 	}
 	return lbls

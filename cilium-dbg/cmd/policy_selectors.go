@@ -82,11 +82,7 @@ func getNameAndNamespaceFromLabels(lbls labels.LabelArray) string {
 func constructLabelsArrayFromAPIType(in models.LabelArray) labels.LabelArray {
 	lbls := make(labels.LabelArray, 0, len(in))
 	for _, l := range in {
-		lbls = append(lbls, labels.Label{
-			Key:    l.Key,
-			Value:  l.Value,
-			Source: l.Source,
-		})
+		lbls = append(lbls, labels.NewLabel(l.Key, l.Value, l.Source))
 	}
 	return lbls
 }
