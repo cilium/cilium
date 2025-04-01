@@ -1090,3 +1090,94 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	case <-streamDone:
 	}
 }
+
+func TestTheSameVersionOnRestart(t *testing.T) {
+	// This is a special case similar to the TestRequestHighVersionFromTheStart.
+	// We check that if new stream is established with accidentally the
+	// same version as previously, we still receive response.
+	// It can happen especially with Listeners as we have fixed number
+	// of listeners and we can hit this edge case.
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	var err error
+	var req *envoy_service_discovery.DiscoveryRequest
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		require.NoError(t, err)
+	}()
+
+	// Create version 2 with resource 0.
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	require.Condition(t, isNotCompletedComparison(comp1))
+
+	// Close previous stream and create a new one.
+	closeStream()
+	streamCtx, closeStream = context.WithCancel(ctx)
+	stream = NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+
+	streamDone = make(chan struct{})
+	// Start processing new stream
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		require.NoError(t, err)
+	}()
+
+	// Request all resources, with a version equal to the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// Nonce is empty though as it's a new stream.
+	req = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "2",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	// Expecting a response with that resource, and an updated version.
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0]}, false, typeURL))
+	require.NotEmpty(t, resp.Nonce)
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
+
+	// Close the stream.
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
