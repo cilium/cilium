@@ -363,7 +363,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	}
 }
 
-// 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
+// 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'ackVersion', is the last version that was NACKed.
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSAckedVersion: ackVersion,
