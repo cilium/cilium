@@ -1204,8 +1204,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
  * managed by Cilium (e.g., eth0). This program is only attached when:
  * - the host firewall is enabled, or
  * - BPF NodePort is enabled, or
- * - L2 announcements are enabled, or
- * - WireGuard's host-to-host encryption and BPF NodePort are enabled
+ * - L2 announcements are enabled
  */
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)

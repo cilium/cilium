@@ -383,7 +383,7 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 			// bpf_overlay.c
 			"cil_to_overlay", "cil_from_overlay",
 			// bpf_wireguard.c
-			"cil_to_wireguard":
+			"cil_to_wireguard", "cil_from_wireguard":
 			t = ebpf.SchedCLS
 		default:
 			continue

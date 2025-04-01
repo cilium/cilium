@@ -2389,9 +2389,9 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
-// NeedBPFHostOnWireGuardDevice returns true if the agent needs to attach
-// cil_from_netdev on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
+// NeedIngressOnWireGuardDevice returns true if the agent needs to attach
+// cil_from_wireguard on the Ingress of Cilium's WireGuard device
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice() bool {
 	if !c.EnableWireguard {
 		return false
 	}
