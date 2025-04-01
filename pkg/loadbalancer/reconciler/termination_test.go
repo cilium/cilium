@@ -170,7 +170,7 @@ type mockDestroyer struct {
 }
 
 // Destroy implements sockets.SocketDestroyer.
-func (m *mockDestroyer) Destroy(filter sockets.SocketFilter) error {
+func (m *mockDestroyer) Destroy(logger *slog.Logger, filter sockets.SocketFilter) error {
 	m.requests <- filter
 	return nil
 }
@@ -301,14 +301,13 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 
 	// Set up the parameters that [terminateConnectionsToBackend] needs.
 	params := socketTerminationParams{
-		JobGroup:        nil,
-		DB:              nil,
-		Backends:        nil,
-		Log:             log,
-		Config:          loadbalancer.DefaultConfig,
-		ExtConfig:       extConfig,
-		LBMaps:          lbmap,
-		SocketDestroyer: &socketDestroyer{log},
+		JobGroup:  nil,
+		DB:        nil,
+		Backends:  nil,
+		Log:       log,
+		Config:    loadbalancer.DefaultConfig,
+		ExtConfig: extConfig,
+		LBMaps:    lbmap,
 		NetNSOps: netnsOps{
 			current: netns.Current,
 			do:      (*netns.NetNS).Do,
@@ -325,6 +324,9 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 			},
 		},
 	}
+
+	sd, err := sockets.NewSocketDestroyer(log, nil, nil)
+	require.NoError(t, err)
 
 	lbmap.UpdateSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000, 0)
 
@@ -351,13 +353,13 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	// 	* Real socket cookie.
 	// 	* BPFSocketLBHostnsOnly is disabled
 	// Therefore we expect a socket close.
-	terminateConnectionsToBackend(params, l4a)
+	terminateConnectionsToBackend(params, sd, l4a)
 
 	assertForceClose(true, conn1)
 	assertForceClose(false, conn2)
 
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
-	terminateConnectionsToBackend(params, l4a)
+	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(false, conn3)
 
 	// 2. Will otherwise close, but we have lb host ns only enabled so we expect
@@ -371,7 +373,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	lbmap.UpdateSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30001, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
 	params.ExtConfig.BPFSocketLBHostnsOnly = true
-	terminateConnectionsToBackend(params, l4a)
+	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(false, conn3)
 
 	// 3. Now we try a similar test, but with a connection in host ns
@@ -380,7 +382,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	assert.NoError(t, err)
 	lbmap.UpdateSockRevNat(uint64(getCookie(nil, 30004)), net.IP{127, 0, 0, 1}, 30004, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30004, 0)
-	terminateConnectionsToBackend(params, l4a)
+	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(true, conn3)
 
 	// 4. Now we try one in ns3 again, but we turn off lb host ns only so we expect a connection
@@ -395,7 +397,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30003, 0)
 
 	params.ExtConfig.BPFSocketLBHostnsOnly = false
-	terminateConnectionsToBackend(params, l4a)
+	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(true, conn3)
 }
 

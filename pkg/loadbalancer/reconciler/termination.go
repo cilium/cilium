@@ -45,9 +45,6 @@ var SocketTerminationCell = cell.Module(
 				all:     netns.All,
 			}
 		},
-		func(log *slog.Logger) sockets.SocketDestroyer {
-			return socketDestroyer{log}
-		},
 	),
 
 	cell.Invoke(registerSocketTermination),
@@ -64,8 +61,7 @@ type socketTerminationParams struct {
 	ExtConfig lb.ExternalConfig
 	LBMaps    maps.LBMaps
 
-	SocketDestroyer sockets.SocketDestroyer
-	NetNSOps        netnsOps
+	NetNSOps netnsOps
 
 	// TestSyncChan is used by the tests to synchronize with the job so it
 	// knows when to delete the backend.
@@ -83,24 +79,7 @@ type netnsOps struct {
 	all     func() (iter.Seq2[string, *netns.NetNS], <-chan error)
 }
 
-type socketDestroyer struct {
-	log *slog.Logger
-}
-
-func (sd socketDestroyer) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(sd.log, filter)
-}
-
 func registerSocketTermination(p socketTerminationParams) error {
-	if p.SocketDestroyer == nil {
-		// To make the load-balancer cell easier to use in tests we don't require that
-		// SocketDestroyer is always provided.
-		if p.TestConfig == nil {
-			return fmt.Errorf("SocketDestroyer not provided and not running in tests")
-		}
-		return nil
-	}
-
 	if !(p.ExtConfig.EnableSocketLB || p.ExtConfig.BPFSocketLBHostnsOnly) {
 		return nil
 	}
@@ -109,14 +88,20 @@ func registerSocketTermination(p socketTerminationParams) error {
 		job.OneShot(
 			"socket-termination",
 			func(ctx context.Context, h cell.Health) error {
-				return socketTerminationLoop(p, ctx, h)
+				sockRevNat4, sockRevNat6 := p.LBMaps.SockRevNat()
+				sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6)
+				if err != nil {
+					return fmt.Errorf("creating socket destroyer: %w", err)
+				}
+
+				return socketTerminationLoop(p, sd, ctx, h)
 			},
 		))
 
 	return nil
 }
 
-func socketTerminationLoop(p socketTerminationParams, ctx context.Context, health cell.Health) error {
+func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer, ctx context.Context, health cell.Health) error {
 	wtxn := p.DB.WriteTxn(p.Backends)
 	changeIter, err := p.Backends.Changes(wtxn)
 	wtxn.Commit()
@@ -146,7 +131,7 @@ func socketTerminationLoop(p socketTerminationParams, ctx context.Context, healt
 			// Terminate the sockets connected to backends that have been either
 			// deleted or which are no longer considered viable.
 			if change.Deleted || !backend.IsAlive() {
-				opSupported := terminateConnectionsToBackend(p, backend.Address)
+				opSupported := terminateConnectionsToBackend(p, sd, backend.Address)
 				if !opSupported {
 					// The kernel doesn't support socket termination. We can stop processing.
 					p.Log.Error("Forcefully terminating sockets connected to deleted service backends " +
@@ -171,7 +156,7 @@ func socketTerminationLoop(p socketTerminationParams, ctx context.Context, healt
 // terminateConnectionsToBackend closes UDP & TCP connection sockets that match
 // the destination l3/l4 tuple addr that also are tracked in the sock rev nat map
 // (including socket cookie).
-func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Addr) (opSupported bool) {
+func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketDestroyer, l3n4Addr lb.L3n4Addr) (opSupported bool) {
 	opSupported = true
 
 	var (
@@ -221,7 +206,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 
 	destroy := func(nsName string, ns *netns.NetNS) error {
 		err := p.NetNSOps.do(ns, func() error {
-			return p.SocketDestroyer.Destroy(sockets.SocketFilter{
+			return sd.Destroy(p.Log, sockets.SocketFilter{
 				Family:    family,
 				Protocol:  protocol,
 				States:    states,
