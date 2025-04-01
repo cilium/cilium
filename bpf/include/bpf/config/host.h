@@ -9,9 +9,6 @@
 
 #include <lib/static_data.h>
 
-DECLARE_CONFIG(__u32, host_secctx_from_ipcache, "Pull security context from IP cache")
-#define SECCTX_FROM_IPCACHE CONFIG(host_secctx_from_ipcache) /* Backwards compatibility */
-
 #include <linux/if_ether.h>
 /* Allow ETH_HLEN to be overridden from tests. Careful, lib/eth.h contains
  * another ifndef-guarded definition, so the one here needs to go first.

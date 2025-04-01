@@ -41,7 +41,6 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 ASSIGN_CONFIG(__u32, security_label, TUNNEL_ID)
 
 #include "lib/ipcache.h"
