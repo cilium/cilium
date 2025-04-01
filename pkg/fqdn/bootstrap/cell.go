@@ -24,6 +24,7 @@ var Cell = cell.Module(
 	"Bootstraps the FQDN policy subsystem",
 
 	cell.Provide(newFQDNProxyBootstrapper),
+	cell.Provide(newDNSRequestHandler),
 )
 
 type fqdnProxyBootstrapperParams struct {
@@ -34,10 +35,10 @@ type fqdnProxyBootstrapperParams struct {
 	NameManager       namemanager.NameManager
 	ProxyInstance     defaultdns.Proxy
 	ProxyPorts        *proxy.Proxy
-	ProxyAccessLogger accesslog.ProxyAccessLogger
 	PolicyRepo        policy.PolicyRepository
 	IPCache           *ipcache.IPCache
 	EndpointManager   endpointmanager.EndpointManager
+	DNSRequestHandler DNSRequestHandler
 }
 
 func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBootstrapper {
@@ -49,10 +50,10 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 		nameManager:       params.NameManager,
 		proxyInstance:     params.ProxyInstance,
 		proxyPorts:        params.ProxyPorts,
-		proxyAccessLogger: params.ProxyAccessLogger,
 		policyRepo:        params.PolicyRepo,
 		ipcache:           params.IPCache,
 		endpointManager:   params.EndpointManager,
+		dnsRequestHandler: params.DNSRequestHandler,
 	}
 
 	params.Lifecycle.Append(cell.Hook{
@@ -63,4 +64,35 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 	})
 
 	return bootstrapper
+}
+
+type dnsRequestHandlerParams struct {
+	cell.In
+
+	Lifecycle         cell.Lifecycle
+	Logger            *slog.Logger
+	NameManager       namemanager.NameManager
+	ProxyInstance     defaultdns.Proxy
+	ProxyAccessLogger accesslog.ProxyAccessLogger
+}
+
+func newDNSRequestHandler(params dnsRequestHandlerParams) DNSRequestHandler {
+	ctx, cancelCtx := context.WithCancel(context.Background())
+
+	handler := &dnsRequestHandler{
+		ctx:               ctx,
+		logger:            params.Logger,
+		nameManager:       params.NameManager,
+		proxyInstance:     params.ProxyInstance,
+		proxyAccessLogger: params.ProxyAccessLogger,
+	}
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hookContext cell.HookContext) error {
+			cancelCtx()
+			return nil
+		},
+	})
+
+	return handler
 }
