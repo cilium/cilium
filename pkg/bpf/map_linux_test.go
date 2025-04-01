@@ -928,9 +928,7 @@ func BenchmarkMapLookup(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		if _, err := m.Lookup(&k); err != nil {
 			b.Fatal(err)
 		}

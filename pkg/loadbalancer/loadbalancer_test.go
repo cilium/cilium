@@ -725,8 +725,8 @@ func TestServiceNameYAML(t *testing.T) {
 
 func benchmarkHash(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		addr.Hash()
 	}
 }
@@ -753,9 +753,9 @@ func BenchmarkL3n4Addr_Hash_IPv6_Max(b *testing.B) {
 
 func benchmarkString(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
-	b.ResetTimer()
+
 	var length int
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		length += len(addr.String())
 	}
 }
@@ -772,8 +772,8 @@ func BenchmarkL3n4Addr_String_IPv6_Max(b *testing.B) {
 
 func benchmarkStringWithProtocol(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		addr.StringWithProtocol()
 	}
 }

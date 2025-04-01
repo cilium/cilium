@@ -256,8 +256,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 	dirInfo := getDirs(b)
 	option.Config.Debug = true
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
 			b.Fatal(err)
 		}
@@ -282,8 +281,8 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	}
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		if err != nil {
 			b.Fatal(err)

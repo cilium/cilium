@@ -70,7 +70,7 @@ func TestLabelSelectorToRequirements(t *testing.T) {
 
 func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {
 	stringLabels := []string{}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		stringLabels = append(stringLabels, fmt.Sprintf("%d", i))
 	}
 	lbls := labels.NewLabelsFromModel(stringLabels)
@@ -79,16 +79,16 @@ func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.La
 
 func BenchmarkMatchesValid1000(b *testing.B) {
 	es, match := benchmarkMatchesSetup("42", 1000)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		es.Matches(match)
 	}
 }
 
 func BenchmarkMatchesInvalid1000(b *testing.B) {
 	es, match := benchmarkMatchesSetup("foo", 1000)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		es.Matches(match)
 	}
 }

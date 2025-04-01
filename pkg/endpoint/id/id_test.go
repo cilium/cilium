@@ -88,8 +88,8 @@ func BenchmarkSplitID(b *testing.B) {
 		{string(PodNamePrefix + ":default:foobar"), PodNamePrefix, "default:foobar"},
 	}
 	count := 0
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, test := range tests {
 			pt, str := splitID(test.str)
 			if pt == test.prefixType && str == test.id {

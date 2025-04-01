@@ -1689,8 +1689,7 @@ func BenchmarkCorrelateEndpoints(b *testing.B) {
 		}(i), &swg)
 	}
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		eps, ready := cache.correlateEndpoints(id)
 		assert.True(b, ready)
 		assert.Len(b, eps.Backends, epslices*epsPerSlice)

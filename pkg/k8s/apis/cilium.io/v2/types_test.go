@@ -625,7 +625,7 @@ func BenchmarkSpecEquals(b *testing.B) {
 	b.Run("Reflected SpecEquals", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			reflect.DeepEqual(r.Spec, o.Spec)
 			reflect.DeepEqual(r.Specs, o.Specs)
 		}
@@ -633,7 +633,7 @@ func BenchmarkSpecEquals(b *testing.B) {
 	b.Run("Generated SpecEquals", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r.DeepEqual(o)
 		}
 	})

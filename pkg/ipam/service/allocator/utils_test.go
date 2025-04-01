@@ -36,7 +36,7 @@ func BenchmarkCountBits(b *testing.B) {
 	if !ok {
 		b.Fatal("Failed to set bigN")
 	}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		countBits(bigN)
 	}
 }

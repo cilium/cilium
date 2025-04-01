@@ -122,7 +122,7 @@ func TestShutdownFunc(t *testing.T) {
 func BenchmarkUntriggeredTrigger(b *testing.B) {
 	b.ReportAllocs()
 
-	for range b.N {
+	for b.Loop() {
 		tr, err := NewTrigger(Parameters{
 			TriggerFunc:   func(reasons []string) {},
 			ShutdownFunc:  func() {},

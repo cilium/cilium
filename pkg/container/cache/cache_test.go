@@ -26,7 +26,7 @@ func TestStringsCache(t *testing.T) {
 
 func BenchmarkStringsCache(b *testing.B) {
 	s := "foobar"
-	for range b.N {
+	for b.Loop() {
 		x := Strings.Get(s)
 		if x != s {
 			b.Fatalf("strings not equal, %q vs %q", s, x)
@@ -38,7 +38,7 @@ func BenchmarkStringsCache(b *testing.B) {
 // are skipped.
 func BenchmarkStringsCache_Large(b *testing.B) {
 	s := strings.Repeat("ni", 500)
-	for range b.N {
+	for b.Loop() {
 		x := Strings.Get(s)
 		if x != s {
 			b.Fatalf("strings not equal, %q vs %q", s, x)
@@ -48,7 +48,7 @@ func BenchmarkStringsCache_Large(b *testing.B) {
 
 func BenchmarkUniqueString(b *testing.B) {
 	s := "foobar"
-	for range b.N {
+	for b.Loop() {
 		x := unique.Make(s)
 		if x.Value() != s {
 			b.Fatalf("strings not equal, %q vs %q", s, x.Value())
@@ -70,7 +70,7 @@ func TestStringMapsCache(t *testing.T) {
 
 func BenchmarkStringMapsCache(b *testing.B) {
 	m := map[string]string{"foo": "bar"}
-	for range b.N {
+	for b.Loop() {
 		x := StringMaps.Get(m)
 		if !maps.Equal(x, m) {
 			b.Fatalf("maps not equal, %q vs %q", m, x)
@@ -86,8 +86,8 @@ func BenchmarkStringMapsCache_Large(b *testing.B) {
 	for range 500 {
 		m[s] = s
 	}
-	b.ResetTimer()
-	for range b.N {
+
+	for b.Loop() {
 		x := StringMaps.Get(m)
 		if !maps.Equal(x, m) {
 			b.Fatalf("maps not equal, %q vs %q", m, x)

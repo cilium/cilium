@@ -211,7 +211,7 @@ func BenchmarkAllocation(b *testing.B) {
 
 	logger := hivetest.Logger(b)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		addr.L4Addr.Port = uint16(b.N)
 		_, err := AcquireID(logger, addr, 0)
 		require.NoError(b, err)
