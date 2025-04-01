@@ -285,7 +285,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@0caa9e5cbfe3a80a1fd6bbc1f5f9926da35b0373 # v0.18.2
+        uses: cilium/cilium-cli@9d070509ab3c53936e79418abca1979c42dc4900 # https://github.com/cilium/cilium-cli/pull/2997
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -293,6 +293,7 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+          kubeconfig-mount-path: '/home/nonroot/.kube/config'
 
       - name: Create IPsec key
         if: ${{ matrix.ipsec == true }}
