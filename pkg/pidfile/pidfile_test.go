@@ -23,7 +23,7 @@ func TestWrite(t *testing.T) {
 
 	content, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.Equal(t, content, []byte(fmt.Sprintf("%d\n", os.Getpid())))
+	require.Equal(t, content, fmt.Appendf(nil, "%d\n", os.Getpid()))
 }
 
 func TestKill(t *testing.T) {

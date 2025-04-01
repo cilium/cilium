@@ -74,7 +74,7 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(mgr.Close)
 
 	dir := t.TempDir()
-	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+	etcdConfig := fmt.Appendf(nil, "endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
 
 	// cluster3 doesn't have cluster configuration on kvstore.
 	// We should not be able to establish a connection in this case.

@@ -87,7 +87,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				if err != nil {
 					require.NoError(t, err)
 				}
-				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+				patchWanted := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
 				patchReceived := action.(k8stesting.PatchAction).GetPatch()
 				require.Equal(t, string(patchWanted), string(patchReceived))
@@ -144,7 +144,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				if err != nil {
 					require.NoError(t, err)
 				}
-				patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+				patchWanted := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
 				patchReceived := action.(k8stesting.PatchAction).GetPatch()
 				require.Equal(t, string(patchWanted), string(patchReceived))

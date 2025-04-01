@@ -36,7 +36,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+var etcdConfig = fmt.Appendf(nil, "endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
 
 func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(tb testing.TB, clusterID uint32, backendIP, portName string, port uint16) (string, string) {
 	tb.Helper()

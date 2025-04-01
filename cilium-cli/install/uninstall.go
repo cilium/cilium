@@ -91,7 +91,7 @@ func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *ac
 }
 
 func (k *K8sUninstaller) undoAwsNodeNodeSelector(ctx context.Context) error {
-	bytes := []byte(fmt.Sprintf(`[{"op":"remove","path":"/spec/template/spec/nodeSelector/%s"}]`, strings.ReplaceAll(AwsNodeDaemonSetNodeSelectorKey, "/", "~1")))
+	bytes := fmt.Appendf(nil, `[{"op":"remove","path":"/spec/template/spec/nodeSelector/%s"}]`, strings.ReplaceAll(AwsNodeDaemonSetNodeSelectorKey, "/", "~1"))
 	k.Log("⏪ Undoing the changes to the %q DaemonSet...", AwsNodeDaemonSetName)
 	_, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.JSONPatchType, bytes, metav1.PatchOptions{})
 	if err != nil {
