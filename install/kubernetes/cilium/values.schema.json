@@ -1696,7 +1696,10 @@
       "type": "boolean"
     },
     "enableIPv4Masquerade": {
-      "type": "boolean"
+      "type": [
+        "null",
+        "boolean"
+      ]
     },
     "enableIPv6BIGTCP": {
       "type": "boolean"
