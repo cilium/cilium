@@ -405,7 +405,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state.pendingWatchCancel = cancel
 
 			requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-			go watcher.WatchResources(ctx, typeURL, nonce, nodeIP, req.GetResourceNames(), respCh)
+			go watcher.WatchResources(ctx, typeURL, nonce, versionInfo, nodeIP, req.GetResourceNames(), respCh)
 
 			firstRequest = false
 
