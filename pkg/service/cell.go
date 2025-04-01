@@ -58,7 +58,7 @@ func newServiceInternal(params serviceManagerParams) *Service {
 	}
 
 	svc := newService(params.Logger, params.MonitorAgent, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled(),
-		params.Config)
+		params.Config, params.SockTermFilter)
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))
 

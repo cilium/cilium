@@ -235,7 +235,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(ctx context.Context, lbmap datapathTypes.LBMap) {
-	m.svc = newService(m.logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(m.logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config, nil)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 	health, _ := cell.NewSimpleHealth()
 	go m.svc.handleHealthCheckEvent(ctx, health)
@@ -774,7 +774,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
 			logger := hivetest.Logger(t)
-			svc := newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config)
+			svc := newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config, nil)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -784,7 +784,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config)
+			svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config, nil)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -2370,7 +2370,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	require.Len(t, m.lbmap.BackendByID, len(backends)+4)
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	logger := hivetest.Logger(t)
-	m.svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config)
+	m.svc = newService(logger, &FakeMonitorAgent{}, lbmap, nil, nil, true, option.Config, nil)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()

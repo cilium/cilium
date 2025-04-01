@@ -12,8 +12,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -125,9 +125,33 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) error 
 
 // backendConnectionHandler is added for dependency injection in tests.
 type backendConnectionHandler struct {
-	logger *slog.Logger
+	sockets.SocketDestroyer
+	logger     *slog.Logger
+	useNetlink bool
+}
+
+func newBackendConnectionHandler(l *slog.Logger, sockTermFilter *filter.SockTermFilterMap) *backendConnectionHandler {
+	return &backendConnectionHandler{
+		SocketDestroyer: &sockets.BPFSocketDestroyer{
+			SockTermFilter: sockTermFilter,
+			Logger:         l,
+		},
+		logger: l,
+	}
 }
 
 func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(logging.DefaultSlogLogger, filter)
+	err := h.SocketDestroyer.Destroy(filter)
+	if err != nil && !h.useNetlink {
+		h.logger.Error("error while attempting to use the BPF socket destroyer. Is bpf_sock_destroy supported on the current kernel? "+
+			"Falling back to netlink-based socket destroyer",
+			logfields.Error, err)
+		h.useNetlink = true
+		h.SocketDestroyer = &sockets.NetlinkSocketDestroyer{
+			Logger: h.logger,
+		}
+		return h.Destroy(filter)
+	}
+
+	return err
 }
