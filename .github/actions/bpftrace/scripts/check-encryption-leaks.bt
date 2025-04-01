@@ -147,12 +147,13 @@ kprobe:br_forward
         if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, proxy: %d (masqueraded: %d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
             $time, $skb,
             ntop($ip4h->saddr),
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
             ntop($ip4h->daddr),
             ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
+            bswap($ip4h->tot_len),
             $ip4h->protocol,
             $ip4h->protocol == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
             $ip4h->protocol == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
@@ -161,6 +162,8 @@ kprobe:br_forward
             $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
+            $src_is_pod, $src_is_internal,
+            $dst_is_pod, $dst_is_internal,
             !!$pod_to_pod_via_proxy,
             $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
@@ -225,12 +228,13 @@ kprobe:br_forward
         if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
-          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, proxy: %d (masqueraded: %d))\n",
+          printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, TCP flags: %c%c%c%c, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
             $time, $skb,
             ntop($ip6h->saddr.in6_u.u6_addr8),
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
             ntop($ip6h->daddr.in6_u.u6_addr8),
             ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
+            bswap($ip6h->payload_len),
             $ip6h->nexthdr,
             $ip6h->nexthdr == PROTO_TCP && $tcph->syn ? CH_S : CH_DOT,
             $ip6h->nexthdr == PROTO_TCP && $tcph->ack ? CH_A : CH_DOT,
@@ -239,6 +243,8 @@ kprobe:br_forward
             $encap, $skb->encapsulation,
             $skb->dev->ifindex,
             $skb->dev->nd_net.net->ns.inum,
+            $src_is_pod, $src_is_internal,
+            $dst_is_pod, $dst_is_internal,
             !!$pod_to_pod_via_proxy,
             $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
