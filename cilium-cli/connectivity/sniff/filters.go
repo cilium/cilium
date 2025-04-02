@@ -3,13 +3,33 @@
 
 package sniff
 
-// TunnelFilter is a tcpdump filter which captures encapsulated packets.
+import (
+	"fmt"
+
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
+)
+
+// GetTunnelFilter returns a tcpdump filter which captures encapsulated packets.
 //
-// Some explanations:
-//   - "udp[8:2] = 0x0800" compares the first two bytes of an UDP payload
-//     against VXLAN commonly used flags. In addition we check against
-//     the default Cilium's VXLAN port (8472).
-//   - To catch Geneve traffic we cannot use the "geneve" filter, as it shifts
-//     offset of a filtered packet, which invalidates a filter matching on the
-//     outer headers. Thus this poor UDP/6081 check.
-const TunnelFilter = "(udp and (udp[8:2] = 0x0800 or dst port 8472 or dst port 6081))"
+// The filter `(udp and port tunnelPort)` leverages tunnelPort, which is retrieved from
+// the ConfigMap, and set to the default values in case `tunnel-port` is not specified.
+func GetTunnelFilter(ct *check.ConnectivityTest) (string, error) {
+	tunnelProtocol := ct.Features[features.Tunnel]
+	tunnelPort := ct.Features[features.TunnelPort]
+
+	if !tunnelProtocol.Enabled {
+		return "", fmt.Errorf("tunnel-protocol disabled")
+	}
+
+	if tunnelPort.Mode == "" {
+		return "", fmt.Errorf("empty tunnel-port for protocol %s", tunnelProtocol.Mode)
+	}
+
+	switch tunnelProtocol.Mode {
+	case "vxlan", "geneve":
+		return fmt.Sprintf("(udp and port %s)", tunnelPort.Mode), nil
+	}
+
+	return "", fmt.Errorf("unrecognized tunnel protocol %s", tunnelProtocol.Mode)
+}
