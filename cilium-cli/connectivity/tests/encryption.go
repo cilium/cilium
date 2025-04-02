@@ -131,6 +131,10 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 
 	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && tunnelEnabled && ok &&
 		enc.Enabled && enc.Mode == "wireguard" {
+		tunnelFilter, err := sniff.GetTunnelFilter(t.Context())
+		if err != nil {
+			t.Fatalf("Failed to build tunnel filter: %w", err)
+		}
 
 		// Captures the following:
 		// - Any VXLAN/Geneve pkt client host <-> server host. Such a pkt might
@@ -142,7 +146,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		//   to catch any regression in the DP which makes the pkt to bypass
 		//   the VXLAN tunnel.
 		filter := fmt.Sprintf("(%s and host %s and host %s) or (host %s and host %s and %s)",
-			sniff.TunnelFilter,
+			tunnelFilter,
 			clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4),
 			client.Address(ipFam), server.Address(ipFam), protoFilter)
 
