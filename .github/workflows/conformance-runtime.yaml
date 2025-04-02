@@ -215,7 +215,6 @@ jobs:
             cliFocus: "RuntimeAgent"
 
           ###
-          # RuntimeDatapathConntrackInVethModeTest Conntrack-related configuration options for endpoints
           # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --from
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --related-to
@@ -223,7 +222,7 @@ jobs:
           # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor event types
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
-            cliFocus: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
+            cliFocus: "RuntimeDatapathMonitorTest"
 
     timeout-minutes: 50
     steps:
