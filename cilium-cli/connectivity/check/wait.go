@@ -402,7 +402,7 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[st
 
 			for _, entry := range entries {
 				if !slices.ContainsFunc(targetEntries, entry.matches) {
-					return fmt.Errorf("untracked entry %+v in the egress gateway policy map", entry)
+					return fmt.Errorf("untracked entry %+v in the egress gateway policy maps", entry)
 				}
 			}
 		}
@@ -413,7 +413,7 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[st
 	for {
 		if err := ensureBpfPolicyEntries(); err != nil {
 			if err := w.Retry(err); err != nil {
-				return fmt.Errorf("failed to ensure egress gateway policy map is properly populated: %w", err)
+				return fmt.Errorf("failed to ensure egress gateway policy maps are properly populated: %w", err)
 			}
 
 			continue
