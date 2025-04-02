@@ -12,6 +12,7 @@ import (
 	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
 
+	ciliumdef "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -24,6 +25,7 @@ const (
 	PortRanges         Feature = "port-ranges"
 	L7PortRanges       Feature = "l7-port-ranges"
 	Tunnel             Feature = "tunnel"
+	TunnelPort         Feature = "tunnel-port"
 	EndpointRoutes     Feature = "endpoint-routes"
 
 	KPRMode                 Feature = "kpr-mode"
@@ -257,7 +259,7 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 // ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
 // ConfigMap.
 func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
-	fs[Tunnel] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
+	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
 	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
 	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
@@ -276,7 +278,21 @@ func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
 	}
 }
 
-func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) Status {
+func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) (Status, Status) {
+	getTunnelPortFeature := func(tunnelProtocol string) Status {
+		tunnelPort, ok := cm.Data["tunnel-port"]
+		switch {
+		case !ok && tunnelProtocol == "vxlan":
+			tunnelPort = fmt.Sprintf("%d", ciliumdef.TunnelPortVXLAN)
+		case !ok && tunnelProtocol == "geneve":
+			tunnelPort = fmt.Sprintf("%d", ciliumdef.TunnelPortGeneve)
+		}
+		return Status{
+			Enabled: ok,
+			Mode:    tunnelPort,
+		}
+	}
+
 	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
 		enabled, proto := true, "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
@@ -287,7 +303,7 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 		return Status{
 			Enabled: enabled,
 			Mode:    proto,
-		}
+		}, getTunnelPortFeature(proto)
 	}
 
 	mode := "tunnel"
@@ -303,7 +319,7 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 	return Status{
 		Enabled: mode != "native",
 		Mode:    tunnelProto,
-	}
+	}, getTunnelPortFeature(tunnelProto)
 }
 
 // ExtractFromConfigMap extracts features from the Cilium ConfigMap.
