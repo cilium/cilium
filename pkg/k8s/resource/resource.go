@@ -348,18 +348,12 @@ func (r *resource[T]) markNeeded() {
 }
 
 func (r *resource[T]) startWhenNeeded() {
-	defer r.wg.Done()
-
 	// Wait until we're needed before starting the informer.
 	select {
 	case <-r.ctx.Done():
+		r.wg.Done()
 		return
 	case <-r.needed:
-	}
-
-	// Short-circuit if we're being stopped.
-	if r.ctx.Err() != nil {
-		return
 	}
 
 	// Wait for CRDs to have synced before trying to access (Cilium) k8s resources
@@ -373,7 +367,6 @@ func (r *resource[T]) startWhenNeeded() {
 		release: r.release,
 	})
 
-	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 		informer.Run(merge(r.ctx.Done(), r.resetCtx.Done()))
