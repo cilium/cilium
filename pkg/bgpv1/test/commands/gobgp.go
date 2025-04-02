@@ -33,6 +33,9 @@ const (
 
 	timeoutFlag      = "timeout"
 	timeoutFlagShort = "t"
+
+	passwordFlag      = "password"
+	passwordFlagShort = "p"
 )
 
 type GoBGPCmdContext struct {
@@ -53,11 +56,12 @@ func (ctx *GoBGPCmdContext) Cleanup() {
 
 func GoBGPScriptCmds(ctx *GoBGPCmdContext) map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"gobgp/add-server": GoBGPAddServerCmd(ctx),
-		"gobgp/add-peer":   GoBGPAddPeerCmd(ctx),
-		"gobgp/wait-state": GoBGPWaitStateCmd(ctx),
-		"gobgp/peers":      GoBGPPeersCmd(ctx),
-		"gobgp/routes":     GoBGPRoutesCmd(ctx),
+		"gobgp/add-server":    GoBGPAddServerCmd(ctx),
+		"gobgp/delete-server": GoBGPDeleteServerCmd(ctx),
+		"gobgp/add-peer":      GoBGPAddPeerCmd(ctx),
+		"gobgp/wait-state":    GoBGPWaitStateCmd(ctx),
+		"gobgp/peers":         GoBGPPeersCmd(ctx),
+		"gobgp/routes":        GoBGPRoutesCmd(ctx),
 	}
 }
 
@@ -71,6 +75,7 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			},
 			Detail: []string{
 				"Add a new GoBGP server instance with the specified parameters.",
+				"The server will be stopped during the test cleanup, but can be also removed during the test with gobgp/delete-server command.",
 				"",
 				"'ASN' is the autonomous system number of this instance.",
 				"'ip' is the IP address on which the server listens for incoming connections.",
@@ -122,6 +127,38 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	)
 }
 
+func GoBGPDeleteServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Delete an existing GoBGP server instance",
+			Args:    "asn",
+			Detail: []string{
+				"Delete an existing GoBGP server instance during the test run.",
+				"",
+				"'ASN' is the autonomous system number of the instance to be removed.",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) < 1 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/delete-server asn'")
+			}
+			asn, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("could not parse asn: %w", err)
+			}
+
+			if gobgpServer, ok := cmdCtx.servers[uint32(asn)]; ok {
+				gobgpServer.Stop()
+				delete(cmdCtx.servers, uint32(asn))
+				s.Logf("Stopped GoBGP Server ASN: %d\n", asn)
+			} else {
+				return nil, fmt.Errorf("GoBGP Server with asn: %d not found", asn)
+			}
+			return nil, nil
+		},
+	)
+}
+
 func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
@@ -129,6 +166,7 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Args:    "ip remote-asn",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.Uint32P(serverASNFlag, serverASNFlagShort, 0, "ASN number of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.StringP(passwordFlag, passwordFlagShort, "", "Authentication password used for the peer.")
 			},
 			Detail: []string{
 				"Add a new peer with the given IP and remote ASN to the GoBGP server instance.",
@@ -172,17 +210,28 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 						},
 					},
 				},
+				GracefulRestart: &gobgpapi.GracefulRestart{
+					Enabled: true,
+				},
 			}
 			_, err = fmt.Sscanf(args[1], "%d", &peer.Conf.PeerAsn)
 			if err != nil {
 				return nil, fmt.Errorf("could not parse remote-asn: %w", err)
 			}
-			s.Logf("Added peer to GoBGP Server: %+v\n", peer)
+
+			password, err := s.Flags.GetString(passwordFlag)
+			if err != nil {
+				return nil, err
+			}
+			if password != "" {
+				peer.Conf.AuthPassword = password
+			}
 
 			err = gobgpServer.AddPeer(s.Context(), &gobgpapi.AddPeerRequest{Peer: peer})
 			if err != nil {
 				return nil, fmt.Errorf("error by adding peer to server: %w", err)
 			}
+			s.Logf("Added peer to GoBGP Server: %+v\n", peer)
 			return nil, nil
 		},
 	)
@@ -398,11 +447,12 @@ func getGoBGPServer(s *script.State, ctx *GoBGPCmdContext) (*server.BgpServer, e
 }
 
 func printPeerHeader(w *tabwriter.Writer) {
-	fmt.Fprintln(w, "PeerAddress\tPeerASN\tSessionState\tHoldTime")
+	fmt.Fprintln(w, "PeerAddress\tRouterID\tPeerASN\tSessionState\tKeepAlive\tHoldTime\tGracefulRestartTime")
 }
 
 func printPeer(w *tabwriter.Writer, peer *gobgpapi.Peer) {
-	fmt.Fprintf(w, "%s\t%d\t%s\t%d\n", peer.Conf.NeighborAddress, peer.State.PeerAsn, peer.State.SessionState, peer.Timers.State.NegotiatedHoldTime)
+	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d\n", peer.Conf.NeighborAddress, peer.State.RouterId, peer.State.PeerAsn, peer.State.SessionState,
+		peer.Timers.State.KeepaliveInterval, peer.Timers.State.NegotiatedHoldTime, peer.GracefulRestart.PeerRestartTime)
 }
 
 func printPathHeader(w *tabwriter.Writer) {
