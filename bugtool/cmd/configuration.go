@@ -238,15 +238,19 @@ func bpfCgroupCommands() []string {
 	return commands
 }
 
-func bpfMapDumpCommands(mapPaths []string) []string {
+func bpfMapDumpCommands(mapPathsPatterns []string) []string {
 	bpffsMountpoint := bpffsMountpoint()
 	if bpffsMountpoint == "" {
 		return nil
 	}
 
-	commands := make([]string, 0, len(mapPaths))
-	for _, mapPath := range mapPaths {
-		commands = append(commands, "bpftool map dump pinned "+filepath.Join(bpffsMountpoint, mapPath))
+	commands := make([]string, 0, len(mapPathsPatterns))
+	for _, pattern := range mapPathsPatterns {
+		if matches, err := filepath.Glob(filepath.Join(bpffsMountpoint, pattern)); err == nil {
+			for _, match := range matches {
+				commands = append(commands, "bpftool map dump pinned "+match)
+			}
+		}
 	}
 
 	return commands
