@@ -89,11 +89,11 @@ jobs:
 
       - name: Convert YAML to JSON
         run: |
-          work_dir=".github/actions/ipsec"
+          work_dir=".github/actions/e2e"
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
+          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/matrix.json"
 
       - name: Generate Matrix
         id: generate-matrix
