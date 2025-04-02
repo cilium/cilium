@@ -1,4 +1,4 @@
-name: K8s Network E2E tests
+name: K8s Network E2E tests and kube-apiserver HA
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -90,6 +90,7 @@ jobs:
             disableDefaultCNI: true
           nodes:
           - role: control-plane
+          - role: control-plane
           - role: worker
           - role: worker
           EOF
@@ -162,7 +163,16 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
+          getKubeApiServerAddress() {
+            nodev4=$(kubectl get node $1 -o json | jq -r '.status.addresses[] | select(.type=="InternalIP") | .address' | head -n 1)
+            echo $nodev4
+          }
+          node1=$(getKubeApiServerAddress ${{ env.cluster_name }}-control-plane)
+          node2=$(getKubeApiServerAddress ${{ env.cluster_name }}-control-plane2)
+
+          cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --helm-set kubeProxyReplacement=true \
+          --helm-set k8s.apiServerURLs="https://$node1:6443 https://$node2:6443"
 
       - name: Create LB IPAM pool
         run: |
@@ -222,6 +232,18 @@ jobs:
             --dump-logs-on-failure=true                   \
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
+
+      # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
+      - name: Test kube-apiserver high availability
+        run: |
+          pods=$(kubectl get pods -n kube-system -l component=kube-apiserver --no-headers | awk '{print $1}')
+          echo "kube-apiserver pods $pods"
+          for pod in $pods; do
+            kubectl delete pod -n kube-system "$pod"
+            sleep 120
+          done
+          cilium status --wait --wait-duration=5m
+          kubectl get pods -n kube-system
 
       - name: Features tested
         uses: ./.github/actions/feature-status
