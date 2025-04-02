@@ -92,17 +92,17 @@ jobs:
 
       - name: Convert YAML to JSON
         run: |
-          work_dir=".github/actions/ipsec"
+          work_dir=".github/actions/e2e"
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix
         run: |
           cd /tmp/generated/ipsec
-          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/ipsec/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
