@@ -171,3 +171,46 @@ Deploying a Simple Example Service using MCS-API
       kubectl exec -ti deployment/x-wing -- curl rebel-base-mcsapi.default.svc.clusterset.local
 
    You will see replies from pods in both clusters.
+
+Gateway-API
+###########
+
+Gateway-API has optional support for MCS-API via `GEP1748`_ by specifying a
+ServiceImport backend, for example:
+
+.. code-block:: yaml
+
+   apiVersion: gateway.networking.k8s.io/v1
+   kind: HTTPRoute
+   metadata:
+      name: rebel-base-mcsapi
+      namespace: default
+   spec:
+      parentRefs:
+      - group: gateway.networking.k8s.io
+         kind: Gateway
+         name: my-gateway
+         namespace: default
+      rules:
+      - backendRefs:
+         - group: multicluster.x-k8s.io
+            kind: ServiceImport
+            name: rebel-base-mcsapi
+            port: 80
+         matches:
+         - method: GET
+            path:
+            type: PathPrefix
+            value: /
+
+
+The Gateway API implementation of Cilium fully support its own MCS-API implementation.
+
+If you want to use another Gateway API implementation with the Cilium MCS-API implementation,
+the Gateway API implementation you are using should officially support MCS-API / `GEP1748`_.
+
+On the other hands, the Cilium Gateway API implementation only supports MCS-API
+implementations using an underlying Service associated with a ServiceImport, and with
+the annotation ``multicluster.kubernetes.io/derived-service`` on ServiceImport resources.
+
+.. _GEP1748: https://github.com/kubernetes/enhancements/blob/master/keps/sig-multicluster/1645-multi-cluster-services-api/README.md
