@@ -330,13 +330,15 @@ func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
-
 	if ipv4 {
-		// Set up IPv4 tunnel device if requested.
-		if _, err := ensureDevice(logger, sysctl, &netlink.Iptun{
-			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv4Device},
+		dev := &netlink.Iptun{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: defaults.IPIPv4Device,
+			},
 			FlowBased: true,
-		}); err != nil {
+		}
+
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("creating %s: %w", defaults.IPIPv4Device, err)
 		}
 
@@ -352,11 +354,14 @@ func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool
 	}
 
 	if ipv6 {
-		// Set up IPv6 tunnel device if requested.
-		if _, err := ensureDevice(logger, sysctl, &netlink.Ip6tnl{
-			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv6Device},
+		dev := &netlink.Ip6tnl{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: defaults.IPIPv6Device,
+			},
 			FlowBased: true,
-		}); err != nil {
+		}
+
+		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
 			return fmt.Errorf("creating %s: %w", defaults.IPIPv6Device, err)
 		}
 
