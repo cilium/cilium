@@ -1519,7 +1519,7 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) net.IP {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
 		return nil
@@ -1531,17 +1531,20 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) n
 		}
 
 		ip := net.ParseIP(addr.Address)
-		if ip == nil || ip.To4() == nil {
+		if ip == nil {
 			continue
 		}
 
-		return ip
+		isIPv6 := ip.To4() == nil
+		if isIPv6 == ipv6 {
+			return ip
+		}
 	}
 
 	return nil
 }
 
-func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context) ([]string, error) {
+func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context, ipv6Enabled bool) ([]string, error) {
 	var appLabels []string
 	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel))
 	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel))
@@ -1555,6 +1558,15 @@ func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.
 
 		for _, connDisruptPod := range connDisruptPods.Items {
 			podIPs = append(podIPs, connDisruptPod.Status.PodIP)
+
+			if ipv6Enabled {
+				for _, podIP := range connDisruptPod.Status.PodIPs {
+					if ip := net.ParseIP(podIP.IP); ip != nil && ip.To4() == nil {
+						podIPs = append(podIPs, podIP.IP)
+						break
+					}
+				}
+			}
 		}
 	}
 
@@ -1564,7 +1576,12 @@ func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.
 func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Context, ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
 	var targetEntries []BPFEgressGatewayPolicyEntry
 
-	podIPs, err := ct.getConnDisruptClientEgressGatewayPodIPs(ctx)
+	var ipv6Enabled bool
+	if status, ok := ct.Feature(features.EgressGateway6); ok && status.Enabled {
+		ipv6Enabled = true
+	}
+
+	podIPs, err := ct.getConnDisruptClientEgressGatewayPodIPs(ctx, ipv6Enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -1574,14 +1591,23 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 		return nil, err
 	}
 
-	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode)
+	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode, false)
 	if gatewayIP == nil {
+		return nil, nil
+	}
+
+	gatewayIPv6 := ct.GetGatewayNodeInternalIP(gatewayNode, true)
+	if ipv6Enabled && gatewayIPv6 == nil {
 		return nil, nil
 	}
 
 	egressIP := "0.0.0.0"
 	if ciliumPod.Pod.Spec.NodeName == gatewayNode {
 		egressIP = gatewayIP.String()
+	}
+	egressIPv6 := "::"
+	if ipv6Enabled && ciliumPod.Pod.Spec.NodeName == gatewayNode {
+		egressIPv6 = gatewayIPv6.String()
 	}
 
 	for _, podIP := range podIPs {
@@ -1592,6 +1618,16 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 				EgressIP:  egressIP,
 				GatewayIP: gatewayIP.String(),
 			})
+
+		if ipv6Enabled && net.ParseIP(podIP).To4() == nil {
+			targetEntries = append(targetEntries,
+				BPFEgressGatewayPolicyEntry{
+					SourceIP:  podIP,
+					DestCIDR:  "::/0",
+					EgressIP:  egressIPv6,
+					GatewayIP: gatewayIP.String(),
+				})
+		}
 	}
 
 	return targetEntries, nil
