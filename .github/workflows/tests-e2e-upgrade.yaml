@@ -176,19 +176,14 @@ jobs:
             EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
-            --collect-sysdump-on-failure \
-            --flush-ct \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --sysdump-hubble-flows-count=1000000 \
-            --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
-            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
-            ${EXTRA_CLI_FLAGS[@]}"
+          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[@]}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
+          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"
+          fi
+          echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -354,17 +349,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Start conn-disrupt-test
-        shell: bash
-        run: |
-          # Create pods which establish long lived connections. It will be used by
-          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-          # interruption in such flows.
-          cilium connectivity test --include-unsafe-tests --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+        uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Upgrade Cilium
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -384,15 +369,10 @@ jobs:
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -403,37 +383,26 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*,!pod-to-world.*"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}
+          tests: 'seq-.*,!pod-to-world.*'
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
-        shell: bash
-        run: |
-          TEST='--test "!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
-          fi
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test-concurrency=${{ env.test_concurrency }} \
-            $TEST
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup conn disrupt tests after a flush-ct Cilium tests
-        shell: bash
-        run: |
-          cilium connectivity test \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+      - name: Setup conn-disrupt-test before downgrading
+        uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
@@ -469,15 +438,10 @@ jobs:
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
@@ -489,22 +453,20 @@ jobs:
 
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*,!pod-to-world.*"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}
+          tests: 'seq-.*,!pod-to-world.*'
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          TEST='--test "!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
-          fi
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test-concurrency=${{ env.test_concurrency }} \
-            $TEST
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ matrix.encryption != '' }}
