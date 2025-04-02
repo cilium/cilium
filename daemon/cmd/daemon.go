@@ -149,8 +149,8 @@ type Daemon struct {
 	k8sWatcher  *watchers.K8sWatcher
 	k8sSvcCache k8s.ServiceCache
 
-	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
-	endpointMetadataFetcher endpointMetadataFetcher
+	// metadataResolver knows how to fetch Kubernetes metadata for endpoints.
+	metadataResolver endpoint.MetadataResolver
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -415,6 +415,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		explbConfig:       params.ExpLBConfig,
 		dnsProxy:          params.DNSProxy,
 		dnsRulesAPI:       params.DNSRulesAPI,
+		metadataResolver:  params.MetadataResolver,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -861,6 +862,6 @@ func (d *Daemon) Close() {
 }
 
 type endpointMetadataFetcher interface {
-	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
-	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
+	FetchNamespace(nsName string) (agentK8s.Namespace, bool)
+	FetchPod(nsName, podName string) (*slim_corev1.Pod, bool)
 }

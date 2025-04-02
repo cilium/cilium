@@ -1583,6 +1583,7 @@ type daemonParams struct {
 	ExpLBConfig         experimental.Config
 	DNSProxy            defaultdns.Proxy
 	DNSRulesAPI         fqdnRules.DNSRulesService
+	MetadataResolver    endpoint.MetadataResolver
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

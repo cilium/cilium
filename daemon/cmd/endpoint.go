@@ -28,15 +28,11 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -181,62 +177,6 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 	} else {
 		return NewGetEndpointIDOK().WithPayload(ep.GetModel())
 	}
-}
-
-// fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
-// endpoint metadata. It implements endpoint.MetadataResolverCB.
-// The returned pod is deepcopied which means the its fields can be written
-// into. Returns an error If a uid is given, and the uid of the retrieved
-// pod does not match it.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
-	p, err := d.endpointMetadataFetcher.FetchPod(nsName, podName)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if uid != "" && uid != string(p.GetUID()) {
-		return nil, nil, podStoreOutdatedErr
-	}
-
-	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
-	return p, metadata, err
-}
-
-func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
-	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	containerPorts, lbls := k8s.GetPodMetadata(logging.DefaultSlogLogger, ns, p)
-	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
-	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return &endpoint.K8sMetadata{
-		ContainerPorts: containerPorts,
-		IdentityLabels: identityLabels,
-		InfoLabels:     infoLabels,
-	}, nil
-}
-
-type cachedEndpointMetadataFetcher struct {
-	k8sWatcher *watchers.K8sWatcher
-}
-
-func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
-	// If network policies are disabled, labels are not needed, the namespace
-	// watcher is not running, and a namespace containing only the name is returned.
-	if !option.NetworkPolicyEnabled(option.Config) {
-		return &slim_corev1.Namespace{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name: nsName,
-			},
-		}, nil
-	}
-	return cemf.k8sWatcher.GetCachedNamespace(nsName)
-}
-
-func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
-	return cemf.k8sWatcher.GetCachedPod(nsName, podName)
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -463,15 +403,15 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		pod, k8sMetadata, err := d.handleOutdatedPodInformer(ctx, ep)
-		if errors.Is(err, podStoreOutdatedErr) {
+		if errors.Is(err, endpoint.ErrPodOutdated) {
 			log.WithFields(logrus.Fields{
 				logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
 				logfields.K8sUID:     ep.K8sUID,
 			}).Warn("Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.")
 
 			// Fetch the latest instance of the pod because
-			// fetchK8sMetadataForEndpoint() returned a stale pod from the
-			// store. If there's a mismatch in UIDs, this is an indication of a
+			// metadata resolver returned a stale pod from the local
+			// tables. If there's a mismatch in UIDs, this is an indication of a
 			// StatefulSet workload that was restarted on the local node and we
 			// must handle it as a special case. See GH-30409.
 			if newPod, err2 := d.clientset.Slim().CoreV1().Pods(ep.K8sNamespace).Get(
@@ -485,7 +425,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 				pod = newPod
 				// Clear the error so the code can proceed below, if the metadata
 				// retrieval succeeds correctly.
-				k8sMetadata, err = d.fetchK8sMetadataForEndpointFromPod(pod)
+				_, k8sMetadata, err = d.metadataResolver.GetPodMetadata(ep.K8sNamespace, ep.K8sPodName, "")
 			}
 		}
 
@@ -550,7 +490,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 		// in the endpoint manager. Thus, we will fetch the labels again
 		// and update the endpoint with these labels.
 		// Wait for the regeneration to be triggered before continuing.
-		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.bwManager, d.fetchK8sMetadataForEndpoint)
+		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.bwManager, d.metadataResolver)
 	} else {
 		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, identityLbls, infoLabels, true)
 	}
@@ -613,20 +553,20 @@ var handleOutdatedPodInformerRetryPeriod = 100 * time.Millisecond
 func (d *Daemon) handleOutdatedPodInformer(
 	ctx context.Context,
 	ep *endpoint.Endpoint,
-) (pod *slim_corev1.Pod, k8sMetadata *endpoint.K8sMetadata, err error) {
+) (pod *slim_corev1.Pod, k8sMetadata endpoint.K8sMetadata, err error) {
 	var once sync.Once
 
 	// Average attempt is every 100ms.
 	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
-		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
+		pod, k8sMetadata, err2 = d.metadataResolver.GetPodMetadata(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.
 			return true, err2
 		}
 
-		if errors.Is(err2, podStoreOutdatedErr) {
+		if errors.Is(err2, endpoint.ErrPodOutdated) {
 			once.Do(func() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
@@ -640,13 +580,11 @@ func (d *Daemon) handleOutdatedPodInformer(
 	})
 
 	if wait.Interrupted(err) {
-		return nil, nil, podStoreOutdatedErr
+		return nil, endpoint.K8sMetadata{}, endpoint.ErrPodOutdated
 	}
 
 	return pod, k8sMetadata, err
 }
-
-var podStoreOutdatedErr = errors.New("pod store outdated")
 
 func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middleware.Responder) {
 	if ep := params.Endpoint; ep != nil {

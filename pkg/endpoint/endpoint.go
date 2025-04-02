@@ -1791,7 +1791,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
 	bwm datapath.BandwidthManager,
-	resolveMetadata MetadataResolverCB,
+	resolveMetadata MetadataResolver,
 ) (regenTriggered bool, err error) {
 	if !e.K8sNamespaceAndPodNameIsSet() {
 		e.Logger(resolveLabels).Debug("Namespace and Pod are not set")
@@ -1804,7 +1804,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 
 	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 
-	pod, k8sMetadata, err := resolveMetadata(ns, podName, e.K8sUID)
+	pod, k8sMetadata, err := resolveMetadata.GetPodMetadata(ns, podName, e.K8sUID)
 	if err != nil {
 		if restoredEndpoint && k8sErrors.IsNotFound(err) {
 			e.Logger(resolveLabels).WithError(err).Info("Unable to resolve metadata during endpoint restoration. Is the pod still running?")
@@ -1865,10 +1865,6 @@ type K8sMetadata struct {
 	InfoLabels     labels.Labels
 }
 
-// MetadataResolverCB provides an implementation for resolving the endpoint
-// metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8sMetadata *K8sMetadata, err error)
-
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
 // endpoint and update the endpoint with the related. It stops resolving after
@@ -1893,7 +1889,7 @@ type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8s
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
+func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm datapath.BandwidthManager, resolveMetadata MetadataResolver) (regenTriggered bool) {
 	var regenTriggeredCh chan bool
 	callerBlocked := false
 	if blocking {
@@ -1952,7 +1948,7 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunRestoredMetadataResolver(bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) {
+func (e *Endpoint) RunRestoredMetadataResolver(bwm datapath.BandwidthManager, resolveMetadata MetadataResolver) {
 	e.RunMetadataResolver(true, false, nil, bwm, resolveMetadata)
 }
 
