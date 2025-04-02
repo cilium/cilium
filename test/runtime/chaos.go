@@ -25,9 +25,9 @@ var _ = Describe("RuntimeAgentChaos", func() {
 		Expect(err).Should(BeNil(), "Cilium failed to start")
 		ExpectCiliumReady(vm)
 
-		res := vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		res := vm.ContainerCreate(helpers.Client, constants.CurlImage, helpers.CiliumDockerNetwork, "-l id.client")
 		res.ExpectSuccess("failed to create client container")
-		res = vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		res = vm.ContainerCreate(helpers.Server, constants.CurlImage, helpers.CiliumDockerNetwork, "-l id.server")
 		res.ExpectSuccess("failed to create server container")
 	})
 

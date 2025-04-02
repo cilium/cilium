@@ -162,9 +162,9 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 		Httpd1: constants.HttpdImage,
 		Httpd2: constants.HttpdImage,
 		Httpd3: constants.HttpdImage,
-		App1:   constants.NetperfImage,
-		App2:   constants.NetperfImage,
-		App3:   constants.NetperfImage,
+		App1:   constants.CurlImage,
+		App2:   constants.CurlImage,
+		App3:   constants.CurlImage,
 	}
 
 	switch mode {
