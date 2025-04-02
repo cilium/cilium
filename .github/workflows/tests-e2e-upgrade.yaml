@@ -96,13 +96,15 @@ jobs:
           destination_directory="/tmp/generated/e2e"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+          cat ${work_dir}/* > "${destination_directory}/configs_merged.yaml"
+
+          yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -130,7 +132,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 32
+      max-parallel: 40
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
@@ -259,6 +261,18 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Setup bootid file
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        with:
+          provision: 'false'
+          cmd: |
+            set -ex
+            for container in \$(docker ps -q); do
+              docker exec \$container mkdir -p /var/run/cilium/
+              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+            done
+
       - name: Start Cilium KVStore
         id: kvstore
         if: matrix.kvstore == 'true'
@@ -308,10 +322,15 @@ jobs:
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
+          if ${{ matrix.encryption == 'ipsec' }}; then
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          fi
+
           if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           fi
 
           cilium status --wait --interactive=false
@@ -358,7 +377,8 @@ jobs:
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -426,7 +446,8 @@ jobs:
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
