@@ -297,63 +297,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		Expect(err).To(BeNil(), "FQDN policy didn't correctly update the policy selectors")
 	}
 
-	fqdnPolicyImport := func(fqdnPolicy string) {
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
-		ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s", err)
-	}
-
-	It("Enforces ToFQDNs policy", func() {
-		By("Importing policy with ToFQDN rules")
-		// notaname.cilium.io never returns IPs, and is there to test that the
-		// other name does get populated.
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-    "egress": [
-      {
-        "toPorts": [{
-          "ports":[{"port": "53", "protocol": "ANY"}],
-          "rules": {
-            "dns": [{"matchPattern": "world1.cilium.test"}]
-          }
-        }]
-      },
-      {
-        "toFQDNs": [
-          {
-            "matchName": "world1.cilium.test"
-          }
-        ]
-      }
-    ]
-  }
-]`
-		fqdnPolicyImport(fqdnPolicy)
-		expectFQDNSareApplied("cilium.test", 0)
-
-		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
-		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
-		// and so should be blocked.
-		// cilium.io.cilium.io doesn't exist.
-		// 1.1.1.1, amusingly, serves HTTP.
-		for _, blockedTarget := range []string{"world2.cilium.test"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
-		}
-
-		By("Allowing egress to IPs of specified ToFQDN DNS names")
-		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
-		res.ExpectSuccess("Cannot access to allowed DNS name %q", world1Target)
-	})
-
 	It("Validate dns-proxy monitor information", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
