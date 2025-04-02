@@ -423,7 +423,7 @@ func TestSetupIPIPDevices(t *testing.T) {
 	ns := netns.NewNetNS(t)
 
 	ns.Do(func() error {
-		err := setupIPIPDevices(logger, sysctl, true, true)
+		err := setupIPIPDevices(logger, sysctl, true, true, 1500)
 		require.NoError(t, err)
 
 		_, err = netlink.LinkByName(defaults.IPIPv4Device)
@@ -444,7 +444,7 @@ func TestSetupIPIPDevices(t *testing.T) {
 		_, err = netlink.LinkByName("ip6tnl0")
 		require.Error(t, err)
 
-		err = setupIPIPDevices(logger, sysctl, false, false)
+		err = setupIPIPDevices(logger, sysctl, false, false, 1500)
 		require.NoError(t, err)
 
 		_, err = netlink.LinkByName(defaults.IPIPv4Device)

@@ -326,14 +326,17 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 // taken control of the encapsulation stack on the node, as it currently doesn't
 // explicitly support sharing it with other tools/CNIs. Fallback devices are left
 // unused for production traffic. Only devices that were explicitly created are used.
-func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool) error {
+func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
 	if ipv4 {
+		// sizeof(struct iphdr) for the IPIP encap.
+		ipipOverhead := 20
 		dev := &netlink.Iptun{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: defaults.IPIPv4Device,
+				MTU:  mtu - ipipOverhead,
 			},
 			FlowBased: true,
 		}
@@ -354,9 +357,14 @@ func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool
 	}
 
 	if ipv6 {
+		// sizeof(struct ipv6hdr) + 8 for tunnel encap limit
+		// See kernel commit 381601e5bbae ("Make the ip6_tunnel reflect the
+		// true mtu.") for details.
+		ip6ip6Overhead := 48
 		dev := &netlink.Ip6tnl{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: defaults.IPIPv6Device,
+				MTU:  mtu - ip6ip6Overhead,
 			},
 			FlowBased: true,
 		}
