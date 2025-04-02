@@ -316,7 +316,7 @@ func hubbleClientCertFile(vp *viper.Viper) string {
 	return vp.GetString(keyTLSClientCertFile)
 }
 
-var relayVersionHeader = metadata.Pairs(defaults.GRPCMetadataRelayVersionKey, build.RelayVersion.String())
+var relayVersionHeader = metadata.Pairs(defaults.GRPCMetadataRelayVersionKey, build.RelayVersion.SemVer())
 
 func relayVersionUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {

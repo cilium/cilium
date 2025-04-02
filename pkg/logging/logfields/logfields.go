@@ -1444,4 +1444,8 @@ const (
 	GlobalConfiguration = "globalConfiguration"
 
 	Annotation = "annotation"
+
+	ServerVersion = "serverVersion"
+
+	RelayVersion = "relayVersion"
 )

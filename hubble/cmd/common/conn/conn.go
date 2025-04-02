@@ -6,17 +6,22 @@ package conn
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/timeout"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
 	"github.com/cilium/cilium/hubble/pkg/logger"
+	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
+	relaydefaults "github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/k8s/portforward"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -28,15 +33,101 @@ type GRPCOptionFunc func(vp *viper.Viper) (grpc.DialOption, error)
 var GRPCOptionFuncs []GRPCOptionFunc
 
 func init() {
-	GRPCOptionFuncs = append(
-		GRPCOptionFuncs,
-		grpcInterceptors,
+	GRPCOptionFuncs = append(GRPCOptionFuncs,
+		grpcUnaryInterceptors,
+		grpcStreamInterceptors,
 		grpcOptionTLS,
 	)
 }
 
-func grpcInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
-	return grpc.WithUnaryInterceptor(timeout.UnaryClientInterceptor(vp.GetDuration(config.KeyRequestTimeout))), nil
+func grpcUnaryInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
+	option := grpc.WithChainUnaryInterceptor(
+		timeout.UnaryClientInterceptor(vp.GetDuration(config.KeyRequestTimeout)),
+		logging.UnaryClientInterceptor(interceptorLogger(), logging.WithFieldsFromContext(logVersions)),
+		extractVersionsUnaryInterceptor(),
+	)
+	return option, nil
+}
+
+func grpcStreamInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
+	option := grpc.WithChainStreamInterceptor(
+		logging.StreamClientInterceptor(interceptorLogger(), logging.WithFieldsFromContext(logVersions)),
+		// extractVersionsStreamInterceptor(),
+	)
+	return option, nil
+}
+
+// interceptorLogger adapts slog logger to interceptor logger.
+// This code is simple enough to be copied and not imported.
+func interceptorLogger() logging.Logger {
+	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
+		logger.Logger.Log(ctx, slog.Level(lvl), msg, fields...)
+	})
+}
+
+func extractVersionsUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		// retrieve headers
+		var header metadata.MD
+		opts = append(opts, grpc.Header(&header))
+		ctx = context.WithValue(ctx, relaydefaults.GRPCMetadataRelayVersionKey, "testing")
+		if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
+			return err
+		}
+		ctx = extractVersionsIntoCtx(ctx, header)
+		return nil
+	}
+}
+
+func extractVersionsStreamInterceptor() grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		stream, err := streamer(ctx, desc, cc, method, opts...)
+		if err != nil {
+			return nil, err
+		}
+		// blocks until first response is received or sendHeader is called from server
+		header, _ := stream.Header()
+		ctx = extractVersionsIntoCtx(ctx, header)
+		return stream, nil
+	}
+}
+
+// extractVersionsIntoCtx extract version metadata from headers and store them in context.
+func extractVersionsIntoCtx(ctx context.Context, header metadata.MD) context.Context {
+	// We only see relay-version here with current setup.
+	// I think this is because we don't propagate headers obtained from peers
+	// and it makes sense because when you collect data from multiple peers
+	// how do you forward the server-version? For now seems like we can rely on
+	// relay-version because hopefully it matches cilium version?
+	logger.Logger.Debug("print headers", "headers", fmt.Sprintf("%+v", header))
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if values := header.Get(hubbledefaults.GRPCMetadataServerVersionKey); len(values) > 0 {
+		ctx = context.WithValue(ctx, hubbledefaults.GRPCMetadataServerVersionKey, values[0])
+	}
+	if values := header.Get(relaydefaults.GRPCMetadataRelayVersionKey); len(values) > 0 {
+		ctx = context.WithValue(ctx, relaydefaults.GRPCMetadataRelayVersionKey, values[0])
+	}
+	return ctx
+}
+
+// logVersions extracts version metadata from context for logging.
+func logVersions(ctx context.Context) logging.Fields {
+	var fields logging.Fields
+	if value, ok := ctx.Value(hubbledefaults.GRPCMetadataServerVersionKey).(string); ok {
+		fields = append(fields, logfields.ServerVersion, value)
+	}
+	if value, ok := ctx.Value(relaydefaults.GRPCMetadataRelayVersionKey).(string); ok {
+		fields = append(fields, logfields.RelayVersion, value)
+	}
+
+	logger.Logger.Debug("print ctx", "ctx", ctx)
+	logger.Logger.Debug("print fields", "fields", fmt.Sprintf("%+v", fields))
+	logger.Logger.Debug("ctx relay-version", "value", ctx.Value(relaydefaults.GRPCMetadataRelayVersionKey))
+
+	return fields
 }
 
 var grpcDialOptions []grpc.DialOption

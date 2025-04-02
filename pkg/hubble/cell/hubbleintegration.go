@@ -568,7 +568,7 @@ func getPort(addr string) (int, error) {
 	return portNum, nil
 }
 
-var serverVersionHeader = metadata.Pairs(defaults.GRPCMetadataServerVersionKey, build.ServerVersion.String())
+var serverVersionHeader = metadata.Pairs(defaults.GRPCMetadataServerVersionKey, build.ServerVersion.SemVer())
 
 func serverVersionUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
