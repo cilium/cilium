@@ -54,11 +54,11 @@ func NewServer(log *slog.Logger, options ...serveroption.Option) (*Server, error
 
 func (s *Server) newGRPCServer() *grpc.Server {
 	var opts []grpc.ServerOption
-	for _, interceptor := range s.opts.GRPCUnaryInterceptors {
-		opts = append(opts, grpc.UnaryInterceptor(interceptor))
+	if len(s.opts.GRPCUnaryInterceptors) > 0 {
+		opts = append(opts, grpc.ChainUnaryInterceptor(s.opts.GRPCUnaryInterceptors...))
 	}
-	for _, interceptor := range s.opts.GRPCStreamInterceptors {
-		opts = append(opts, grpc.StreamInterceptor(interceptor))
+	if len(s.opts.GRPCStreamInterceptors) > 0 {
+		opts = append(opts, grpc.ChainStreamInterceptor(s.opts.GRPCStreamInterceptors...))
 	}
 	if s.opts.ServerTLSConfig != nil {
 		// NOTE: gosec is unable to resolve the constant and warns about "TLS
