@@ -201,9 +201,6 @@ func (cfg *config) normalize() {
 }
 
 func getDefaultMonitorQueueSize(numCPU int) int {
-	monitorQueueSize := numCPU * ciliumDefaults.MonitorQueueSizePerCPU
-	if monitorQueueSize > ciliumDefaults.MonitorQueueSizePerCPUMaximum {
-		monitorQueueSize = ciliumDefaults.MonitorQueueSizePerCPUMaximum
-	}
+	monitorQueueSize := min(numCPU*ciliumDefaults.MonitorQueueSizePerCPU, ciliumDefaults.MonitorQueueSizePerCPUMaximum)
 	return monitorQueueSize
 }

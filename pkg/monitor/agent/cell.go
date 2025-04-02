@@ -79,10 +79,7 @@ func newMonitorAgent(params agentParams) Agent {
 						log.WithError(err).Error("failed to get number of possible CPUs")
 						return fmt.Errorf("failed to get number of possible CPUs: %w", err)
 					}
-					queueSize = possibleCPUs * defaults.MonitorQueueSizePerCPU
-					if queueSize > defaults.MonitorQueueSizePerCPUMaximum {
-						queueSize = defaults.MonitorQueueSizePerCPUMaximum
-					}
+					queueSize = min(possibleCPUs*defaults.MonitorQueueSizePerCPU, defaults.MonitorQueueSizePerCPUMaximum)
 				}
 
 				err = ServeMonitorAPI(ctx, agent, queueSize)
