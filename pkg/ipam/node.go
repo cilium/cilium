@@ -375,10 +375,7 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 	// interface restrictions, less than max-above-watermark may have been
 	// allocated but we never want to release IPs that have been allocated
 	// because of max-above-watermark.
-	excessIPs = availableIPs - usedIPs - preAllocate - maxAboveWatermark
-	if excessIPs < 0 {
-		excessIPs = 0
-	}
+	excessIPs = max(availableIPs-usedIPs-preAllocate-maxAboveWatermark, 0)
 
 	return
 }
