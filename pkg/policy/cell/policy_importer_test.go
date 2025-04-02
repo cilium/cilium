@@ -76,25 +76,13 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	ids := identity.IdentityMap{
 		100: labels.LabelArray{
-			{
-				Source: labels.LabelSourceK8s,
-				Key:    "id",
-				Value:  "100",
-			},
+			labels.NewLabel("id", "100", labels.LabelSourceK8s),
 		},
 		101: labels.LabelArray{
-			{
-				Source: labels.LabelSourceK8s,
-				Key:    "id",
-				Value:  "101",
-			},
+			labels.NewLabel("id", "101", labels.LabelSourceK8s),
 		},
 		102: labels.LabelArray{
-			{
-				Source: labels.LabelSourceK8s,
-				Key:    "id",
-				Value:  "102",
-			},
+			labels.NewLabel("id", "102", labels.LabelSourceK8s),
 		},
 	}
 

@@ -83,7 +83,7 @@ var (
 
 	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
-	endpointSelectorKubeAPIServer = NewESFromLabels(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer])
+	endpointSelectorKubeAPIServer = NewESFromLabels(labels.LabelKubeAPIServer.GetOrEmpty(labels.IDNameKubeAPIServer))
 
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors

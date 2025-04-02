@@ -116,9 +116,8 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	_, _, err := ds.d.createEndpoint(context.TODO(), ds.d.dnsRulesAPI, epTemplate)
 	require.NoError(t, err)
 
-	expectedLabels := labels.Labels{
-		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-	}
+	expectedLabels := labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
 	// Check that the endpoint has the reserved:init label.
 	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
 	require.NoError(t, err)
@@ -139,7 +138,7 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 
 func (ds *DaemonSuite) testUpdateSecLabels(t *testing.T) {
 	lbls := labels.NewLabelsFromModel([]string{"reserved:world"})
-	code, err := ds.d.modifyEndpointIdentityLabelsFromAPI("1", lbls, nil)
+	code, err := ds.d.modifyEndpointIdentityLabelsFromAPI("1", lbls, labels.Empty)
 	require.Error(t, err)
 	require.Equal(t, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode, code)
 }

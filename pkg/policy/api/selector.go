@@ -189,7 +189,7 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 	ml := map[string]string{}
 	for _, lbl := range lbls {
-		ml[lbl.GetExtendedKey()] = lbl.Value
+		ml[lbl.GetExtendedKey()] = lbl.Value()
 	}
 
 	return NewESFromMatchRequirements(ml, nil)

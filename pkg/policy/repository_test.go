@@ -1692,11 +1692,9 @@ func TestReplaceByResource(t *testing.T) {
 	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
 	for i := range numRules {
 		it := fmt.Sprintf("num-%d", i)
-		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
-			Source: labels.LabelSourceK8s,
-			Key:    "subject-pod",
-			Value:  it,
-		}}
+		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.NewLabel("subject-pod",
+			it, labels.LabelSourceK8s),
+		}
 		epSelector := api.NewESFromLabels(
 			labels.NewLabel(
 				"subject-pod",
@@ -1841,11 +1839,9 @@ func TestReplaceByLabels(t *testing.T) {
 	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
 	for i := range numRules {
 		it := fmt.Sprintf("num-%d", i)
-		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
-			Source: labels.LabelSourceK8s,
-			Key:    "subject-pod",
-			Value:  it,
-		}}
+		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.NewLabel("subject-pod",
+			it, labels.LabelSourceK8s),
+		}
 		epSelector := api.NewESFromLabels(
 			labels.NewLabel(
 				"subject-pod",

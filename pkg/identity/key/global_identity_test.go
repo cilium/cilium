@@ -24,9 +24,9 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 			labels: map[string]string{"source1:label1": "value1", "source2:label2": "value2", "irrelevant": "foo"},
 			source: "source1",
 			expected: &GlobalIdentity{LabelArray: []labels.Label{
-				{Key: "label1", Value: "value1", Source: "source1"},
-				{Key: "label2", Value: "value2", Source: "source1"},
-				{Key: "irrelevant", Value: "foo", Source: "source1"},
+				labels.NewLabel("label1", "value1", "source1"),
+				labels.NewLabel("label2", "value2", "source1"),
+				labels.NewLabel("irrelevant", "foo", "source1"),
 			}},
 		},
 		{
@@ -40,9 +40,9 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 			labels: map[string]string{"source1:foo1": "value1", "source2:foo2": "value2", "foo3": "value3"},
 			source: "",
 			expected: &GlobalIdentity{LabelArray: []labels.Label{
-				{Key: "foo1", Value: "value1", Source: "source1"},
-				{Key: "foo2", Value: "value2", Source: "source2"},
-				{Key: "foo3", Value: "value3", Source: labels.LabelSourceUnspec},
+				labels.NewLabel("foo1", "value1", "source1"),
+				labels.NewLabel("foo2", "value2", "source2"),
+				labels.NewLabel("foo3", "value3", labels.LabelSourceUnspec),
 			}},
 		},
 	}

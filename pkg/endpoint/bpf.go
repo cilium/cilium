@@ -149,10 +149,10 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
 	if e.SecurityIdentity != nil {
-		if len(e.SecurityIdentity.Labels) == 0 {
+		if e.SecurityIdentity.Labels.Len() == 0 {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
-			for _, v := range e.SecurityIdentity.Labels {
+			for v := range e.SecurityIdentity.Labels.All() {
 				fmt.Fprintf(fw, " * - %s\n", v.String())
 			}
 		}

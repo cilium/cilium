@@ -15,14 +15,12 @@ import (
 )
 
 func TestFilterLabels(t *testing.T) {
-	wanted := labels.Labels{
-		"id.lizards":                   labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
-		"id.lizards.k8s":               labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
-		"io.kubernetes.pod.namespace":  labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
-		"app.kubernetes.io":            labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
-		"foo2.lizards.k8s":             labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
-		"io.cilium.k8s.policy.cluster": labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer),
-	}
+	wanted := labels.NewLabels(labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
+		labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
+		labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
+		labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
+		labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer))
 
 	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
 	require.NoError(t, err)
@@ -51,36 +49,34 @@ func TestFilterLabels(t *testing.T) {
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 3)
-	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
-	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
+	allLabels = allLabels.Add(labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer))
+	allLabels = allLabels.Add(labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 5)
 	// Checking that it does not need to an exact match of "foo", but "foo2" also works since it's not a regex
-	allLabels["foo2.lizards.k8s"] = labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s)
+	allLabels = allLabels.Add(labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 6)
 	// Checking that "foo" only works if it's the prefix of a label
-	allLabels["lizards.foo.lizards.k8s"] = labels.NewLabel("lizards.foo.lizards.k8s", "web", labels.LabelSourceK8s)
+	allLabels = allLabels.Add(labels.NewLabel("lizards.foo.lizards.k8s", "web", labels.LabelSourceK8s))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 6)
 	require.EqualValues(t, wanted, filtered)
 	// Making sure we are deep copying the labels
-	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
+	allLabels = allLabels.Add(labels.NewLabel("id.lizards", "web", "I can change this and doesn't affect any one"))
 	require.EqualValues(t, wanted, filtered)
 }
 
 func TestDefaultFilterLabels(t *testing.T) {
-	wanted := labels.Labels{
-		"app.kubernetes.io":            labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
-		"id.lizards.k8s":               labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
-		"id.lizards":                   labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
-		"ignorE":                       labels.NewLabel("ignorE", "foo", labels.LabelSourceContainer),
-		"ignore":                       labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
-		"host":                         labels.NewLabel("host", "", labels.LabelSourceReserved),
-		"io.kubernetes.pod.namespace":  labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
-		"ioXkubernetes":                labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
-		"io.cilium.k8s.policy.cluster": labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer),
-	}
+	wanted := labels.NewLabels(labels.NewLabel("app.kubernetes.io", "my-nginx", labels.LabelSourceContainer),
+		labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
+		labels.NewLabel("ignorE", "foo", labels.LabelSourceContainer),
+		labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
+		labels.NewLabel("host", "", labels.LabelSourceReserved),
+		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
+		labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
+		labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceContainer))
 
 	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
 	require.NoError(t, err)
@@ -111,25 +107,23 @@ func TestDefaultFilterLabels(t *testing.T) {
 		"io.cilium.k8s.policy.cluster":                              "default",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
-	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
+	allLabels = allLabels.Add(labels.NewLabel("host", "", labels.LabelSourceReserved))
 	filtered, _ := dlpcfg.filterLabels(allLabels)
-	require.Len(t, filtered, len(wanted)-2) // -2 because we add two labels in the next lines
-	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
-	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
+	require.Len(t, filtered, wanted.Len()-2) // -2 because we add two labels in the next lines
+	allLabels = allLabels.Add(labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer))
+	allLabels = allLabels.Add(labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.EqualValues(t, wanted, filtered)
 }
 
 func TestFilterLabelsDocExample(t *testing.T) {
-	wanted := labels.Labels{
-		"k8s-app-team":                labels.NewLabel("k8s-app-team", "foo", labels.LabelSourceK8s),
-		"app-production":              labels.NewLabel("app-production", "foo", labels.LabelSourceK8s),
-		"name-defined":                labels.NewLabel("name-defined", "foo", labels.LabelSourceK8s),
-		"kind":                        labels.NewLabel("kind", "foo", labels.LabelSourceK8s),
-		"other":                       labels.NewLabel("other", "foo", labels.LabelSourceK8s),
-		"host":                        labels.NewLabel("host", "", labels.LabelSourceReserved),
-		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s),
-	}
+	wanted := labels.NewLabels(labels.NewLabel("k8s-app-team", "foo", labels.LabelSourceK8s),
+		labels.NewLabel("app-production", "foo", labels.LabelSourceK8s),
+		labels.NewLabel("name-defined", "foo", labels.LabelSourceK8s),
+		labels.NewLabel("kind", "foo", labels.LabelSourceK8s),
+		labels.NewLabel("other", "foo", labels.LabelSourceK8s),
+		labels.NewLabel("host", "", labels.LabelSourceReserved),
+		labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s))
 
 	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:kind", "k8s:other"}, []string{}, "")
 	require.NoError(t, err)
@@ -146,17 +140,17 @@ func TestFilterLabelsDocExample(t *testing.T) {
 	require.Len(t, filtered, 5)
 
 	// Reserved labels are included.
-	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
+	allLabels = allLabels.Add(labels.NewLabel("host", "", labels.LabelSourceReserved))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 6)
 
 	// io.kubernetes.pod.namespace=docker matches because the default list has k8s:io.kubernetes.pod.namespace.
-	allLabels["io.kubernetes.pod.namespace"] = labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s)
+	allLabels = allLabels.Add(labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 7)
 
 	// container:k8s-app-role=foo doesn't match because it doesn't have source k8s.
-	allLabels["k8s-app-role"] = labels.NewLabel("k8s-app-role", "foo", labels.LabelSourceContainer)
+	allLabels = allLabels.Add(labels.NewLabel("k8s-app-role", "foo", labels.LabelSourceContainer))
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 7)
 	require.EqualValues(t, wanted, filtered)

@@ -52,10 +52,8 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	binary.LittleEndian.PutUint16(b, id)
 
 	identity := &identity.Identity{
-		ID: secID,
-		Labels: labels.Labels{
-			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
-		},
+		ID:     secID,
+		Labels: labels.NewLabels(labels.NewLabel("foo"+strID, "", "")),
 	}
 	identity.Sanitize()
 

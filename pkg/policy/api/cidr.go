@@ -22,9 +22,9 @@ var (
 	ipv4All = CIDR("0.0.0.0/0")
 	ipv6All = CIDR("::/0")
 
-	worldLabelNonDualStack = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorld}
-	worldLabelV4           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv4}
-	worldLabelV6           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv6}
+	worldLabelNonDualStack = labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved)
+	worldLabelV4           = labels.NewLabel(labels.IDNameWorldIPv4, "", labels.LabelSourceReserved)
+	worldLabelV6           = labels.NewLabel(labels.IDNameWorldIPv6, "", labels.LabelSourceReserved)
 )
 
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside

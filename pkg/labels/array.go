@@ -10,6 +10,7 @@ import (
 )
 
 // LabelArray is an array of labels forming a set
+// +deepequal-gen=true
 type LabelArray []Label
 
 // Sort is an internal utility to return all LabelArrays in sorted
@@ -17,7 +18,7 @@ type LabelArray []Label
 // in-place, but also returns the sorted array for convenience.
 func (ls LabelArray) Sort() LabelArray {
 	sort.Slice(ls, func(i, j int) bool {
-		return ls[i].Key < ls[j].Key
+		return ls[i].Key() < ls[j].Key()
 	})
 	return ls
 }
@@ -55,7 +56,7 @@ func NewLabelArrayFromSortedList(list string) LabelArray {
 	base := strings.Split(list, ";")
 	array := make(LabelArray, 0, len(base))
 	for _, v := range base {
-		if lbl := ParseLabel(v); lbl.Key != "" {
+		if lbl := ParseLabel(v); lbl.Key() != "" {
 			array = append(array, lbl)
 		}
 	}
@@ -73,11 +74,7 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 
 // Labels returns the LabelArray as Labels
 func (ls LabelArray) Labels() Labels {
-	lbls := Labels{}
-	for _, l := range ls {
-		lbls[l.Key] = l
-	}
-	return lbls
+	return NewLabels(ls...)
 }
 
 // Contains returns true if all ls contains all the labels in needed. If
@@ -86,7 +83,7 @@ func (ls LabelArray) Contains(needed LabelArray) bool {
 nextLabel:
 	for i := range needed {
 		for l := range ls {
-			if ls[l].Has(&needed[i]) {
+			if ls[l].Has(needed[i]) {
 				continue nextLabel
 			}
 		}
@@ -105,7 +102,7 @@ nextLabel:
 func (ls LabelArray) Intersects(needed LabelArray) bool {
 	for _, l := range ls {
 		for _, n := range needed {
-			if l.Has(&n) {
+			if l.Has(n) {
 				return true
 			}
 		}
@@ -119,7 +116,7 @@ func (ls LabelArray) Lacks(needed LabelArray) LabelArray {
 nextLabel:
 	for i := range needed {
 		for l := range ls {
-			if ls[l].Has(&needed[l]) {
+			if ls[l].Has(needed[l]) {
 				continue nextLabel
 			}
 		}
@@ -145,9 +142,9 @@ nextLabel:
 // ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
-	keyLabel := parseSelectLabel(key, '.')
+	keyLabel := ParseSelectLabelWithDelim(key, '.')
 	for _, l := range ls {
-		if l.HasKey(&keyLabel) {
+		if l.HasKey(keyLabel) {
 			return true
 		}
 	}
@@ -168,10 +165,10 @@ func (ls LabelArray) Has(key string) bool {
 // ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
 // ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Get(key string) string {
-	keyLabel := parseSelectLabel(key, '.')
+	keyLabel := ParseSelectLabelWithDelim(key, '.')
 	for _, l := range ls {
-		if l.HasKey(&keyLabel) {
-			return l.Value
+		if l.HasKey(keyLabel) {
+			return l.Value()
 		}
 	}
 	return ""
@@ -251,7 +248,7 @@ func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
 func (ls LabelArray) StringMap() map[string]string {
 	o := map[string]string{}
 	for _, v := range ls {
-		o[v.Source+":"+v.Key] = v.Value
+		o[v.Source()+":"+v.Key()] = v.Value()
 	}
 	return o
 }
@@ -262,7 +259,7 @@ func (ls LabelArray) Equals(b LabelArray) bool {
 		return false
 	}
 	for l := range ls {
-		if !ls[l].Equals(&b[l]) {
+		if !ls[l].Equal(b[l]) {
 			return false
 		}
 	}
@@ -282,19 +279,19 @@ func (ls LabelArray) Less(b LabelArray) bool {
 	for i := 0; i < minLen; i++ {
 		switch {
 		// Key
-		case ls[i].Key < b[i].Key:
+		case ls[i].Key() < b[i].Key():
 			return true
-		case ls[i].Key > b[i].Key:
+		case ls[i].Key() > b[i].Key():
 			return false
 		// Value
-		case ls[i].Value < b[i].Value:
+		case ls[i].Value() < b[i].Value():
 			return true
-		case ls[i].Value > b[i].Value:
+		case ls[i].Value() > b[i].Value():
 			return false
 		// Source
-		case ls[i].Source < b[i].Source:
+		case ls[i].Source() < b[i].Source():
 			return true
-		case ls[i].Source > b[i].Source:
+		case ls[i].Source() > b[i].Source():
 			return false
 		}
 	}

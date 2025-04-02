@@ -279,11 +279,11 @@ func TestGetPrintableModel(t *testing.T) {
 		"k8s:foo=bar",
 		"reserved:remote-node",
 	})
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
+	cl = cl.Merge(GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
+	cl = cl.Merge(GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
+	cl = cl.Merge(GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
+	cl = cl.Merge(GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
+	cl = cl.Merge(GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
 	assert.Equal(t,
 		[]string{
 			"cidr:10.0.0.6/32",
@@ -317,12 +317,12 @@ func TestLabelToPrefix(t *testing.T) {
 		want = want.Masked()
 
 		label := maskedIPToLabel(want.Addr().String(), want.Bits())
-		have, err := LabelToPrefix(label.Key)
+		have, err := LabelToPrefix(label.Key())
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
 		if have != want {
-			t.Fatalf("prefixes did not match: want %s, have %s, label %s", want, have, label.Key)
+			t.Fatalf("prefixes did not match: want %s, have %s, label %s", want, have, label.Key())
 		}
 	}
 }

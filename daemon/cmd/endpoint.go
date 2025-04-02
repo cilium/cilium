@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"net"
 	"net/http"
 	"runtime"
@@ -443,13 +442,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 
 	infoLabels := labels.NewLabelsFromModel([]string{})
 
-	if len(apiLabels) > 0 {
-		if lbls := apiLabels.FindReserved(); lbls != nil {
+	if apiLabels.Len() > 0 {
+		if lbls := apiLabels.FindReserved(); lbls.IsEmpty() {
 			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 
 		apiLabels, _ = labelsfilter.Filter(apiLabels)
-		if len(apiLabels) == 0 {
+		if apiLabels.Len() == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
 	}
@@ -459,7 +458,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 	d.endpointCreations.NewCreateRequest(ep, cancel)
 	defer d.endpointCreations.EndCreateRequest(ep)
 
-	identityLbls := maps.Clone(apiLabels)
+	identityLbls := apiLabels
 
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		pod, k8sMetadata, err := d.handleOutdatedPodInformer(ctx, ep)
@@ -494,8 +493,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 		} else {
 			ep.SetPod(pod)
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
-			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
-			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
+			identityLbls = identityLbls.Merge(k8sMetadata.IdentityLabels)
+			infoLabels = infoLabels.Merge(k8sMetadata.InfoLabels)
 			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
@@ -524,13 +523,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, dnsRulesApi endpoint.DNSRul
 
 	// The following docs describe the cases where the init identity is used:
 	// http://docs.cilium.io/en/latest/policy/lifecycle/#init-identity
-	if len(identityLbls) == 0 {
+	if identityLbls.Len() == 0 {
 		// If the endpoint has no labels, give the endpoint a special identity with
 		// label reserved:init so we can generate a custom policy for it until we
 		// get its actual identity.
-		identityLbls = labels.Labels{
-			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-		}
+		identityLbls = labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
 	}
 
 	// e.ID assigned here
@@ -1050,9 +1048,9 @@ func getEndpointIDHealthzHandler(d *Daemon, params GetEndpointIDHealthzParams) m
 func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
 	addLabels, _ := labelsfilter.Filter(add)
 	delLabels, _ := labelsfilter.Filter(del)
-	if lbls := addLabels.FindReserved(); lbls != nil {
+	if lbls := addLabels.FindReserved(); lbls.IsEmpty() {
 		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
-	} else if lbls := delLabels.FindReserved(); lbls != nil {
+	} else if lbls := delLabels.FindReserved(); lbls.IsEmpty() {
 		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
 	}
 

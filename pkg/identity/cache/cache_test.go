@@ -80,34 +80,30 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		{
 			name: "fixed-identity",
 			args: args{
-				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore")},
+				lbls: labels.NewLabels(labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore")),
 			},
-			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+			want: identity.NewIdentity(ni, labels.NewLabels(labels.NewLabel("kvstore", "", labels.LabelSourceReserved))),
 		},
 		{
 			name: "fixed-identity+reserved-identity returns fixed",
 			args: args{
-				lbls: labels.Labels{
-					labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore"),
-					labels.IDNameHost:            labels.LabelHost[labels.IDNameHost],
-				},
+				lbls: labels.NewLabels(labels.ParseLabel(labels.LabelKeyFixedIdentity+"="+"kvstore"),
+					labels.LabelHost.GetOrEmpty(labels.IDNameHost)),
 			},
-			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+			want: identity.NewIdentity(ni, labels.NewLabels(labels.NewLabel("kvstore", "", labels.LabelSourceReserved))),
 		},
 		{
 			name: "reserved-identity+fixed-identity returns fixed",
 			args: args{
-				lbls: labels.Labels{
-					labels.IDNameHost:            labels.LabelHost[labels.IDNameHost],
-					labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore"),
-				},
+				lbls: labels.NewLabels(labels.LabelHost.GetOrEmpty(labels.IDNameHost),
+					labels.ParseLabel(labels.LabelKeyFixedIdentity+"="+"kvstore")),
 			},
-			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+			want: identity.NewIdentity(ni, labels.NewLabels(labels.NewLabel("kvstore", "", labels.LabelSourceReserved))),
 		},
 		{
 			name: "non-existing-fixed-identity",
 			args: args{
-				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kube-dns")},
+				lbls: labels.NewLabels(labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kube-dns")),
 			},
 			want: nil,
 		},
@@ -121,15 +117,11 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		{
 			name: "reserved-identity+other-labels",
 			args: args{
-				lbls: labels.Labels{
-					labels.IDNameHost: labels.LabelHost[labels.IDNameHost],
-					"id.foo":          labels.ParseLabel("id.foo"),
-				},
+				lbls: labels.NewLabels(labels.LabelHost.GetOrEmpty(labels.IDNameHost),
+					labels.ParseLabel("id.foo")),
 			},
-			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.Labels{
-				labels.IDNameHost: labels.LabelHost[labels.IDNameHost],
-				"id.foo":          labels.ParseLabel("id.foo"),
-			},
+			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabels(labels.LabelHost.GetOrEmpty(labels.IDNameHost),
+				labels.ParseLabel("id.foo")),
 			),
 		},
 		{
@@ -142,9 +134,7 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		{
 			name: "no fixed and reserved identities returns nil",
 			args: args{
-				lbls: labels.Labels{
-					"id.foo": labels.ParseLabel("id.foo"),
-				},
+				lbls: labels.NewLabels(labels.ParseLabel("id.foo")),
 			},
 			want: nil,
 		},

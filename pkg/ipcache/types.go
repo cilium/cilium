@@ -78,7 +78,7 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
 	switch info := info.(type) {
 	case labels.Labels:
 		changed = !info.DeepEqual(&m.labels)
-		m.labels = labels.NewFrom(info)
+		m.labels = info
 	case overrideIdentity:
 		changed = m.identityOverride != info
 		m.identityOverride = info
@@ -108,7 +108,7 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
 func (m *resourceInfo) unmerge(info IPMetadata) {
 	switch info.(type) {
 	case labels.Labels:
-		m.labels = nil
+		m.labels = labels.Empty
 	case overrideIdentity:
 		m.identityOverride = false
 	case ipcachetypes.TunnelPeer:
@@ -126,7 +126,7 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 }
 
 func (m *resourceInfo) isValid() bool {
-	if m.labels != nil {
+	if m.labels.IsEmpty() {
 		return true
 	}
 	if m.identityOverride {
@@ -149,7 +149,7 @@ func (m *resourceInfo) isValid() bool {
 
 func (m *resourceInfo) DeepCopy() *resourceInfo {
 	n := new(resourceInfo)
-	n.labels = labels.NewFrom(m.labels)
+	n.labels = m.labels
 	n.source = m.source
 	n.identityOverride = m.identityOverride
 	n.tunnelPeer = m.tunnelPeer
@@ -184,7 +184,7 @@ func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 func (s prefixInfo) ToLabels() labels.Labels {
 	l := labels.NewLabelsFromModel(nil)
 	for _, v := range s {
-		l.MergeLabels(v.labels)
+		l = l.Merge(v.labels)
 	}
 	return l
 }
@@ -244,14 +244,14 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 	for _, info := range s {
 		// We emit a warning in logConflicts if an identity override
 		// was requested without labels
-		if info.identityOverride && len(info.labels) > 0 {
+		if info.identityOverride && info.labels.Len() > 0 {
 			identities = append(identities, info.labels)
 		}
 	}
 
 	// No override identity present
 	if len(identities) == 0 {
-		return nil, false
+		return labels.Empty, false
 	}
 
 	// Conflict-resolution: We pick the labels with the alphabetically
@@ -294,7 +294,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 		info := s[resourceID]
 
 		if info.identityOverride {
-			if len(override) > 0 {
+			if override.Len() > 0 {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Identity:            override.String(),
 					logfields.Resource:            overrideResourceID,
@@ -304,7 +304,7 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 					"This may cause connectivity issues for this address.")
 			}
 
-			if len(info.labels) == 0 {
+			if info.labels.Len() == 0 {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Resource:    resourceID,
 					logfields.OldIdentity: s.ToLabels().String(),

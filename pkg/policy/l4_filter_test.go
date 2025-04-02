@@ -1037,7 +1037,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	}()
 	option.Config.EnableHostFirewall = true
 
-	idHost := identity.NewIdentity(identity.ReservedIdentityHost, labels.NewFrom(labels.LabelHost))
+	idHost := identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost)
 	td.withIDs(identity.IdentityMap{idHost.ID: idHost.LabelArray})
 	td.repo.mustAdd(egressRule)
 	_, err := td.repo.resolvePolicyLocked(idHost)

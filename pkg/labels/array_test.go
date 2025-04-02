@@ -133,7 +133,7 @@ func TestEquals(t *testing.T) {
 	require.True(t, lbls6.Equals(lbls6))
 }
 
-func TestLess(t *testing.T) {
+func TestLabelArray_Less(t *testing.T) {
 	// lbls1-lbls8 are defined in lexical order
 	lbls1 := LabelArray(nil)
 	lbls2 := LabelArray{

@@ -48,9 +48,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
-		lbls := labels.Labels{}
+		lbls := labels.Empty
 		for _, labelKey := range labelKeys {
-			lbls[labelKey] = labels.NewLabel("k8s:"+labelKey, "", "")
+			lbls = lbls.Add(labels.NewLabel("k8s:"+labelKey, "", ""))
 		}
 		id, _, err := fakeAllocator.AllocateIdentity(context.Background(), lbls, false, 0)
 		if err != nil {

@@ -233,7 +233,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
 }
 
-var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.NewLabels(labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)))
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache, then the caches for remote kvstores and

@@ -280,12 +280,12 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
-		return nil, fmt.Errorf("failed to wait for initial global identities: %w", err)
+		return labels.Empty, fmt.Errorf("failed to wait for initial global identities: %w", err)
 	}
 
 	identity := manager.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
 	if identity == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
+		return labels.Empty, fmt.Errorf("identity %d not found", securityIdentity)
 	}
 	return identity.Labels, nil
 }

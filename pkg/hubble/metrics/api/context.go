@@ -371,8 +371,8 @@ func getK8sAppFromLabels(labels []string) string {
 		for _, appLabel := range podAppLabels {
 			if strings.HasPrefix(label, appLabel+"=") {
 				l := ciliumLabels.ParseLabel(label)
-				if l.Value != "" {
-					return l.Value
+				if l.Value() != "" {
+					return l.Value()
 				}
 			}
 		}

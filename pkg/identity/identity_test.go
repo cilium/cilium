@@ -133,11 +133,10 @@ func TestNewIdentityFromLabelArray(t *testing.T) {
 	id := NewIdentityFromLabelArray(NumericIdentity(1001),
 		labels.NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
 
-	lbls := labels.Labels{
-		"a": labels.ParseLabel("a"),
-		"c": labels.ParseLabel("c=d"),
-		"b": labels.ParseLabel("b"),
-	}
+	lbls := labels.NewLabels(labels.ParseLabel("a"),
+		labels.ParseLabel("c=d"),
+		labels.ParseLabel("b"))
+
 	require.Equal(t, NumericIdentity(1001), id.ID)
 	require.EqualValues(t, lbls, id.Labels)
 	require.EqualValues(t, lbls.LabelArray(), id.LabelArray)
@@ -157,7 +156,7 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 	}{
 		{
 			name: "nil",
-			args: nil,
+			args: labels.Empty,
 			want: nil,
 		},
 		{

@@ -99,9 +99,9 @@ func (MockEndpoint) GetID() uint64 {
 }
 
 func (MockEndpoint) GetOpLabels() []string {
-	return labels.Labels{"label": labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
-		"label2": labels.NewLabel("key2", "value2", labels.LabelSourceUnspec),
-	}.GetModel()
+	return labels.NewLabels(labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
+		labels.NewLabel("key2", "value2", labels.LabelSourceUnspec)).
+		GetModel()
 }
 
 func (MockEndpoint) GetK8sPodName() string {
