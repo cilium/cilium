@@ -93,13 +93,15 @@ jobs:
           destination_directory="/tmp/generated/e2e"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+          cat ${work_dir}/* > "${destination_directory}/configs_merged.yaml"
+
+          yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -127,7 +129,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 31
+      max-parallel: 39
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
@@ -296,6 +298,11 @@ jobs:
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+
+          if ${{ matrix.encryption == 'ipsec' }}; then
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
             cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
