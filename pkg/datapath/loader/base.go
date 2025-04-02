@@ -427,7 +427,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 				Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true,
 			},
 		)
-		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled(), cfg.DeviceMTU); err != nil {
 			return fmt.Errorf("unable to create ipip devices: %w", err)
 		}
 	}
