@@ -1066,7 +1066,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 		VersionInfo:   "64",
 		Node:          nodes[node0],
 		ResourceNames: nil,
-		ResponseNonce: "64",
+		ResponseNonce: "",
 	}
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
