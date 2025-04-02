@@ -347,20 +347,22 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		}
 		features.Nat46X64.Service = svc
 	}
-	if option.Config.LoadBalancerAlgorithmAnnotation {
-		features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
+	if option.Config.EnableNodePort {
+		if option.Config.LoadBalancerAlgorithmAnnotation {
+			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
+		}
+		if option.Config.LoadBalancerModeAnnotation {
+			features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)
+		}
+		features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
+		features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
+		features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
+		features.Annotations = append(features.Annotations, annotation.ServiceProxyDelegation)
+		if option.Config.EnableSVCSourceRangeCheck {
+			features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
+		}
+		sort.Strings(features.Annotations)
 	}
-	if option.Config.LoadBalancerModeAnnotation {
-		features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)
-	}
-	features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
-	features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
-	features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
-	features.Annotations = append(features.Annotations, annotation.ServiceProxyDelegation)
-	if option.Config.EnableSVCSourceRangeCheck {
-		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
-	}
-	sort.Strings(features.Annotations)
 
 	var directRoutingDevice string
 	drd, _ := d.directRoutingDev.Get(context.TODO(), d.db.ReadTxn())
