@@ -159,7 +159,7 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 	assert.True(t, fs[IPv4].Enabled)
 	assert.True(t, fs[IPv6].Enabled)
 	assert.True(t, fs[AuthSpiffe].Enabled)
-	assert.True(t, fs[EgressGateway].Enabled)
+	assert.True(t, fs[EgressGateway4].Enabled)
 	assert.True(t, fs[IPsecEnabled].Enabled)
 	assert.True(t, fs[LocalRedirectPolicy].Enabled)
 	assert.True(t, fs[BPFLBExternalClusterIP].Enabled)

@@ -23,7 +23,7 @@ func (t egressGatewayExcludedCidrs) build(ct *check.ConnectivityTest, _ map[stri
 			ExcludedCIDRsConf: check.ExternalNodeExcludedCIDRs,
 		}).
 		WithFeatureRequirements(
-			features.RequireEnabled(features.EgressGateway),
+			features.RequireEnabled(features.EgressGateway4),
 			features.RequireEnabled(features.NodeWithoutCilium),
 		).
 		WithScenarios(tests.EgressGatewayExcludedCIDRs())
