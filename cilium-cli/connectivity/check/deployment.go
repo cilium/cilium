@@ -1551,7 +1551,7 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) net.IP {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
 		return nil
@@ -1563,11 +1563,14 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string) n
 		}
 
 		ip := net.ParseIP(addr.Address)
-		if ip == nil || ip.To4() == nil {
+		if ip == nil {
 			continue
 		}
 
-		return ip
+		isIPv6 := ip.To4() == nil
+		if isIPv6 == ipv6 {
+			return ip
+		}
 	}
 
 	return nil
@@ -1606,7 +1609,7 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 		return nil, err
 	}
 
-	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode)
+	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode, false)
 	if gatewayIP == nil {
 		return nil, nil
 	}

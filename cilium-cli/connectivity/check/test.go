@@ -553,6 +553,16 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 
 	pl.Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
 
+	var ipv6Enabled bool
+	if status, ok := t.ctx.Feature(features.IPv6); ok && status.Enabled && versioncheck.MustCompile(">=1.18.0")(t.ctx.CiliumVersion) {
+		ipv6Enabled = true
+	}
+
+	// If IPv6 egress policies are enabled, add the necessary destination CIDR
+	if ipv6Enabled {
+		pl.Spec.DestinationCIDRs = append(pl.Spec.DestinationCIDRs, "::/0")
+	}
+
 	// Set the excluded CIDRs
 	pl.Spec.ExcludedCIDRs = []ciliumv2.CIDR{}
 
@@ -560,6 +570,11 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 	case ExternalNodeExcludedCIDRs:
 		for _, nodeWithoutCiliumIP := range t.Context().params.NodesWithoutCiliumIPs {
 			if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
+				// If it is an IPv6 address, add the necessary excluded CIDR
+				if ipv6Enabled {
+					cidr := ciliumv2.CIDR(fmt.Sprintf("%s/128", nodeWithoutCiliumIP.IP))
+					pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
+				}
 				continue
 			}
 
