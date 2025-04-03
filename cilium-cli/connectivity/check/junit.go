@@ -5,7 +5,6 @@ package check
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 
@@ -60,6 +59,19 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 		j.testSuite.Tests++
 		j.testSuite.Time += test.Time
 
+		if ct.params.LogCodeOwners {
+			scenarios := t.Scenarios()
+			properties := make([]junit.Property, 0, len(scenarios)*2)
+			for _, s := range scenarios {
+				owners := ct.GetOwners(s)
+				properties = append(properties, junit.Property{
+					Name:  "owner",
+					Value: strings.Join(owners, ", "),
+				})
+			}
+			test.Properties = &junit.Properties{Properties: properties}
+		}
+
 		if t.skipped {
 			test.Status = "skipped"
 			test.Skipped = &junit.Skipped{Message: t.Name() + " skipped"}
@@ -71,8 +83,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			j.testSuite.Failures++
 			msgs := []string{}
 			for _, a := range t.failedActions() {
-				owners := ct.GetOwners(a.Scenario())
-				msgs = append(msgs, fmt.Sprintf("%s%sOwners: %s", a, MetadataDelimiter, strings.Join(owners, ", ")))
+				msgs = append(msgs, a.String())
 			}
 			test.Failure.Value = strings.Join(msgs, "\n")
 		}
