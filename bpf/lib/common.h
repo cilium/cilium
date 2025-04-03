@@ -1279,6 +1279,7 @@ struct skip_lb6_key {
 enum {
 	TRACE_FLAG_IPV6 = 0x1,
 	TRACE_FLAG_L3_DEV = 0x2,
+	TRACE_FLAG_ENCRYPTED = 0x4,
 };
 
 static __always_inline __u8 __get_common_trace_flags(struct __ctx_buff *ctx __maybe_unused)
