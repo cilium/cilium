@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -74,8 +75,13 @@ func newMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
 		return nil, fmt.Errorf("getting object info: %w", err1)
 	}
 
+	typ, err := MapTypeForPlatform(platform.Native, info.Type)
+	if err != nil {
+		return nil, fmt.Errorf("map type: %w", err)
+	}
+
 	mi := &MapInfo{
-		MapType(info.Type),
+		typ,
 		info.KeySize,
 		info.ValueSize,
 		info.MaxEntries,
@@ -105,8 +111,9 @@ func newMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
 // readMapInfoFromProc queries map information about the given fd from
 // /proc/self/fdinfo. It only writes data into fields that have a zero value.
 func readMapInfoFromProc(fd *sys.FD, mi *MapInfo) error {
-	return scanFdInfo(fd, map[string]interface{}{
-		"map_type":    &mi.Type,
+	var mapType uint32
+	err := scanFdInfo(fd, map[string]interface{}{
+		"map_type":    &mapType,
 		"map_id":      &mi.id,
 		"key_size":    &mi.KeySize,
 		"value_size":  &mi.ValueSize,
@@ -116,6 +123,18 @@ func readMapInfoFromProc(fd *sys.FD, mi *MapInfo) error {
 		"memlock":     &mi.memlock,
 		"frozen":      &mi.frozen,
 	})
+	if err != nil {
+		return err
+	}
+
+	if mi.Type == 0 {
+		mi.Type, err = MapTypeForPlatform(platform.Linux, mapType)
+		if err != nil {
+			return fmt.Errorf("map type: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // ID returns the map ID.
@@ -251,8 +270,13 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		return nil, err
 	}
 
+	typ, err := ProgramTypeForPlatform(platform.Native, info.Type)
+	if err != nil {
+		return nil, fmt.Errorf("program type: %w", err)
+	}
+
 	pi := ProgramInfo{
-		Type: ProgramType(info.Type),
+		Type: typ,
 		id:   ProgramID(info.Id),
 		Tag:  hex.EncodeToString(info.Tag[:]),
 		Name: unix.ByteSliceToString(info.Name[:]),
@@ -267,6 +291,11 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		verifiedInstructions: info.VerifiedInsns,
 	}
 
+	if platform.IsWindows && info.Tag == [8]uint8{} {
+		// Windows doesn't support the tag field, clear it for now.
+		pi.Tag = ""
+	}
+
 	// Start with a clean struct for the second call, otherwise we may get EFAULT.
 	var info2 sys.ProgInfo
 
@@ -275,7 +304,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	if info.NrMapIds > 0 {
 		pi.maps = make([]MapID, info.NrMapIds)
 		info2.NrMapIds = info.NrMapIds
-		info2.MapIds = sys.NewSlicePointer(pi.maps)
+		info2.MapIds = sys.SlicePointer(pi.maps)
 		makeSecondCall = true
 	} else if haveProgramInfoMapIDs() == nil {
 		// This program really has no associated maps.
@@ -286,7 +315,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	}
 
 	// createdByUID and NrMapIds were introduced in the same kernel version.
-	if pi.maps != nil {
+	if pi.maps != nil && platform.IsLinux {
 		pi.createdByUID = info.CreatedByUid
 		pi.haveCreatedByUID = true
 	}
@@ -294,13 +323,13 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	if info.XlatedProgLen > 0 {
 		pi.insns = make([]byte, info.XlatedProgLen)
 		info2.XlatedProgLen = info.XlatedProgLen
-		info2.XlatedProgInsns = sys.NewSlicePointer(pi.insns)
+		info2.XlatedProgInsns = sys.SlicePointer(pi.insns)
 		makeSecondCall = true
 	}
 
 	if info.NrLineInfo > 0 {
 		pi.lineInfos = make([]byte, btf.LineInfoSize*info.NrLineInfo)
-		info2.LineInfo = sys.NewSlicePointer(pi.lineInfos)
+		info2.LineInfo = sys.SlicePointer(pi.lineInfos)
 		info2.LineInfoRecSize = btf.LineInfoSize
 		info2.NrLineInfo = info.NrLineInfo
 		pi.numLineInfos = info.NrLineInfo
@@ -309,7 +338,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 
 	if info.NrFuncInfo > 0 {
 		pi.funcInfos = make([]byte, btf.FuncInfoSize*info.NrFuncInfo)
-		info2.FuncInfo = sys.NewSlicePointer(pi.funcInfos)
+		info2.FuncInfo = sys.SlicePointer(pi.funcInfos)
 		info2.FuncInfoRecSize = btf.FuncInfoSize
 		info2.NrFuncInfo = info.NrFuncInfo
 		pi.numFuncInfos = info.NrFuncInfo
@@ -321,7 +350,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		pi.jitedInfo.numInsns = info.JitedProgLen
 		pi.jitedInfo.insns = make([]byte, info.JitedProgLen)
 		info2.JitedProgLen = info.JitedProgLen
-		info2.JitedProgInsns = sys.NewSlicePointer(pi.jitedInfo.insns)
+		info2.JitedProgInsns = sys.SlicePointer(pi.jitedInfo.insns)
 		makeSecondCall = true
 	}
 
@@ -329,7 +358,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		pi.jitedInfo.numFuncLens = info.NrJitedFuncLens
 		pi.jitedInfo.funcLens = make([]uint32, info.NrJitedFuncLens)
 		info2.NrJitedFuncLens = info.NrJitedFuncLens
-		info2.JitedFuncLens = sys.NewSlicePointer(pi.jitedInfo.funcLens)
+		info2.JitedFuncLens = sys.SlicePointer(pi.jitedInfo.funcLens)
 		makeSecondCall = true
 	}
 
@@ -337,7 +366,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		pi.jitedInfo.numLineInfos = info.NrJitedLineInfo
 		pi.jitedInfo.lineInfos = make([]uint64, info.NrJitedLineInfo)
 		info2.NrJitedLineInfo = info.NrJitedLineInfo
-		info2.JitedLineInfo = sys.NewSlicePointer(pi.jitedInfo.lineInfos)
+		info2.JitedLineInfo = sys.SlicePointer(pi.jitedInfo.lineInfos)
 		info2.JitedLineInfoRecSize = info.JitedLineInfoRecSize
 		makeSecondCall = true
 	}
@@ -345,7 +374,7 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	if info.NrJitedKsyms > 0 {
 		pi.jitedInfo.numKsyms = info.NrJitedKsyms
 		pi.jitedInfo.ksyms = make([]uint64, info.NrJitedKsyms)
-		info2.JitedKsyms = sys.NewSlicePointer(pi.jitedInfo.ksyms)
+		info2.JitedKsyms = sys.SlicePointer(pi.jitedInfo.ksyms)
 		info2.NrJitedKsyms = info.NrJitedKsyms
 		makeSecondCall = true
 	}
@@ -361,11 +390,12 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 
 func newProgramInfoFromProc(fd *sys.FD) (*ProgramInfo, error) {
 	var info ProgramInfo
+	var progType uint32
 	err := scanFdInfo(fd, map[string]interface{}{
-		"prog_type": &info.Type,
+		"prog_type": &progType,
 		"prog_tag":  &info.Tag,
 	})
-	if errors.Is(err, ErrNotSupported) {
+	if errors.Is(err, ErrNotSupported) && !errors.Is(err, internal.ErrNotSupportedOnOS) {
 		return nil, &internal.UnsupportedFeatureError{
 			Name:           "reading program info from /proc/self/fdinfo",
 			MinimumVersion: internal.Version{4, 10, 0},
@@ -373,6 +403,11 @@ func newProgramInfoFromProc(fd *sys.FD) (*ProgramInfo, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	info.Type, err = ProgramTypeForPlatform(platform.Linux, progType)
+	if err != nil {
+		return nil, fmt.Errorf("program type: %w", err)
 	}
 
 	return &info, nil
@@ -507,6 +542,10 @@ func (pi *ProgramInfo) LineInfos() (btf.LineOffsets, error) {
 // Available from 4.13. Requires CAP_BPF or equivalent for plain instructions.
 // Requires CAP_SYS_ADMIN for instructions with metadata.
 func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
+	if platform.IsWindows && len(pi.insns) == 0 {
+		return nil, fmt.Errorf("read instructions: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	// If the calling process is not BPF-capable or if the kernel doesn't
 	// support getting xlated instructions, the field will be zero.
 	if len(pi.insns) == 0 {
@@ -514,8 +553,8 @@ func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
 	}
 
 	r := bytes.NewReader(pi.insns)
-	var insns asm.Instructions
-	if err := insns.Unmarshal(r, internal.NativeEndian); err != nil {
+	insns, err := asm.AppendInstructions(nil, r, internal.NativeEndian, platform.Native)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshaling instructions: %w", err)
 	}
 
@@ -705,6 +744,10 @@ func (pi *ProgramInfo) FuncInfos() (btf.FuncOffsets, error) {
 }
 
 func scanFdInfo(fd *sys.FD, fields map[string]interface{}) error {
+	if platform.IsWindows {
+		return fmt.Errorf("read fdinfo: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	fh, err := os.Open(fmt.Sprintf("/proc/self/fdinfo/%d", fd.Int()))
 	if err != nil {
 		return err
@@ -785,6 +828,11 @@ func EnableStats(which uint32) (io.Closer, error) {
 }
 
 var haveProgramInfoMapIDs = internal.NewFeatureTest("map IDs in program info", func() error {
+	if platform.IsWindows {
+		// We only support efW versions which have this feature, no need to probe.
+		return nil
+	}
+
 	prog, err := progLoad(asm.Instructions{
 		asm.LoadImm(asm.R0, 0, asm.DWord),
 		asm.Return(),
@@ -809,4 +857,4 @@ var haveProgramInfoMapIDs = internal.NewFeatureTest("map IDs in program info", f
 	}
 
 	return err
-}, "4.15")
+}, "4.15", "windows:0.20.0")

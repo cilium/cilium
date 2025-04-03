@@ -781,8 +781,17 @@ func (s *BgpServer) prePolicyFilterpath(peer *peer, path, old *table.Path) (*tab
 
 	peer.fsm.lock.RLock()
 	options := &table.PolicyOptions{
-		Info:       peer.fsm.peerInfo,
-		OldNextHop: path.GetNexthop(),
+		Info: peer.fsm.peerInfo,
+	}
+	if path.IsLocal() && path.GetNexthop().IsUnspecified() {
+		// We need a special treatment for the locally-originated path
+		// with unspecified nexthop (0.0.0.0 or ::). In this case, the
+		// OldNextHop option should be set to the local address.
+		// Otherwise, we advertise the unspecified nexthop as is when
+		// nexthop-unchanged is configured.
+		options.OldNextHop = peer.fsm.peerInfo.LocalAddress
+	} else {
+		options.OldNextHop = path.GetNexthop()
 	}
 	path = table.UpdatePathAttrs(peer.fsm.logger, peer.fsm.gConf, peer.fsm.pConf, peer.fsm.peerInfo, path)
 	peer.fsm.lock.RUnlock()
@@ -1313,8 +1322,15 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 					// Ignore duplicate Membership announcements
 					membershipsForSource := s.globalRib.GetPathListWithSource(table.GLOBAL_RIB_NAME, []bgp.RouteFamily{bgp.RF_RTC_UC}, path.GetSource())
 					found := false
+					equalRT := func(a, b bgp.ExtendedCommunityInterface) bool {
+						if a == nil && b == nil {
+							return true
+						}
+						return a != nil && b != nil && a.String() == b.String()
+					}
 					for _, membership := range membershipsForSource {
-						if membership.GetNlri().(*bgp.RouteTargetMembershipNLRI).RouteTarget.String() == rt.String() {
+						mrt := membership.GetNlri().(*bgp.RouteTargetMembershipNLRI).RouteTarget
+						if equalRT(mrt, rt) {
 							found = true
 							break
 						}
