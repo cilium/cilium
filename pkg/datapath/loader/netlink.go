@@ -325,7 +325,8 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 // renamed to cilium_ip6tnl. This is to communicate to the user that Cilium has
 // taken control of the encapsulation stack on the node, as it currently doesn't
 // explicitly support sharing it with other tools/CNIs. Fallback devices are left
-// unused for production traffic. Only devices that were explicitly created are used.
+// unused for production traffic. Only devices that were explicitly created are
+// used. As of Cilium 1.18, cilium_tunl and cilium_ip6tnl are not created anymore.
 func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
