@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -68,6 +69,8 @@ const (
 	secctxFromIpcacheDisabled = iota + 1
 	secctxFromIpcacheEnabled
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.

@@ -45,7 +45,7 @@ const (
 
 func (l *loader) writeNetdevHeader(dir string) error {
 	headerPath := filepath.Join(dir, netdevHeaderFileName)
-	l.logger.Debug("writing configuration", logfields.Path, headerPath)
+	logging.DefaultSlogLogger.Debug("writing configuration", logfields.Path, headerPath)
 
 	f, err := os.Create(headerPath)
 	if err != nil {
@@ -77,7 +77,7 @@ func (l *loader) writeNodeConfigHeader(cfg *datapath.LocalNodeConfiguration) err
 // Must be called with option.Config.EnablePolicyMU locked.
 func writePreFilterHeader(logger *slog.Logger, preFilter datapath.PreFilter, dir string, devices []string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
-	logger.Debug("writing configuration", logfields.Path, headerPath)
+	logging.DefaultSlogLogger.Debug("writing configuration", logfields.Path, headerPath)
 
 	f, err := os.Create(headerPath)
 	if err != nil {
@@ -116,7 +116,7 @@ func addENIRules(logger *slog.Logger, sysSettings []tables.Sysctl) ([]tables.Sys
 		return sysSettings, nil
 	}
 
-	iface, err := route.NodeDeviceWithDefaultRoute(logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+	iface, err := route.NodeDeviceWithDefaultRoute(logging.DefaultSlogLogger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
 	}
@@ -157,7 +157,7 @@ func cleanIngressQdisc(logger *slog.Logger, devices []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to delete ingress qdisc of link %s: %w", iface, err)
 			} else {
-				logger.Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded", logfields.Device, iface)
+				logging.DefaultSlogLogger.Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded", logfields.Device, iface)
 			}
 		}
 	}
@@ -229,7 +229,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 			continue
 		}
 
-		if err := attachSKBProgram(l.logger, device, obj.FromNetwork, symbolFromNetwork,
+		if err := attachSKBProgram(logging.DefaultSlogLogger, device, obj.FromNetwork, symbolFromNetwork,
 			bpffsDeviceLinksDir(bpf.CiliumPath(), device), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 
 			// Collect errors, keep attaching to other interfaces.
@@ -237,7 +237,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 			continue
 		}
 
-		l.logger.Info("Encryption network program (re)loaded", logfields.Interface, iface)
+		logging.DefaultSlogLogger.Info("Encryption network program (re)loaded", logfields.Interface, iface)
 	}
 
 	if errs != nil {
@@ -270,7 +270,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
 	}
 
-	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
+	if err := replaceOverlayDatapath(ctx, logging.DefaultSlogLogger, lnc, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
@@ -287,7 +287,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	if err := replaceWireguardDatapath(ctx, logger, lnc, link); err != nil {
+	if err := replaceWireguardDatapath(ctx, logging.DefaultSlogLogger, lnc, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
@@ -295,6 +295,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 
 func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, extraCArgs []string, devices []string) error {
 	xdpConfig := lnc.XDPConfig
+	maybeUnloadObsoleteXDPPrograms(logging.DefaultSlogLogger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
 		return nil
 	}
@@ -307,9 +308,9 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, logging.DefaultSlogLogger, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
-				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
+				logging.DefaultSlogLogger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
 					logfields.Device, dev,
 				)
@@ -330,11 +331,11 @@ func (l *loader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeCon
 	defer l.compilationLock.Unlock()
 	devices := lnc.DeviceNames()
 
-	return reinitializeXDPLocked(ctx, l.logger, lnc, extraCArgs, devices)
+	return reinitializeXDPLocked(ctx, logging.DefaultSlogLogger, lnc, extraCArgs, devices)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
-	_, _, err := setupBaseDevice(l.logger, l.sysctl, mtu)
+	_, _, err := setupBaseDevice(logging.DefaultSlogLogger, l.sysctl, mtu)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
@@ -382,7 +383,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := setupBaseDevice(l.logger, l.sysctl, lnc.DeviceMTU)
+	hostDev1, _, err := setupBaseDevice(logging.DefaultSlogLogger, l.sysctl, lnc.DeviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
@@ -394,19 +395,19 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 				Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true,
 			},
 		)
-		if err := setupIPIPDevices(l.logger, l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+		if err := setupIPIPDevices(logging.DefaultSlogLogger, l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
 			return fmt.Errorf("unable to create ipip devices: %w", err)
 		}
 	}
 
-	if err := setupTunnelDevice(l.logger, l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
+	if err := setupTunnelDevice(logging.DefaultSlogLogger, l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
 		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), lnc.DeviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.EncapProtocol(), err)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
-		if sysSettings, err = addENIRules(l.logger, sysSettings); err != nil {
+		if sysSettings, err = addENIRules(logging.DefaultSlogLogger, sysSettings); err != nil {
 			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 		}
 	}
@@ -423,24 +424,24 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 
 	devices := lnc.DeviceNames()
 
-	if err := cleanIngressQdisc(l.logger, devices); err != nil {
-		l.logger.Warn("Unable to clean up ingress qdiscs", logfields.Error, err)
+	if err := cleanIngressQdisc(logging.DefaultSlogLogger, devices); err != nil {
+		logging.DefaultSlogLogger.Warn("Unable to clean up ingress qdiscs", logfields.Error, err)
 		return err
 	}
 
 	if err := l.writeNodeConfigHeader(lnc); err != nil {
-		l.logger.Error("Unable to write node config header", logfields.Error, err)
+		logging.DefaultSlogLogger.Error("Unable to write node config header", logfields.Error, err)
 		return err
 	}
 
 	if err := l.writeNetdevHeader("./"); err != nil {
-		l.logger.Warn("Unable to write netdev header", logfields.Error, err)
+		logging.DefaultSlogLogger.Warn("Unable to write netdev header", logfields.Error, err)
 		return err
 	}
 
 	if option.Config.EnableXDPPrefilter {
-		if err := writePreFilterHeader(l.logger, l.prefilter, "./", devices); err != nil {
-			l.logger.Warn("Unable to write prefilter header",
+		if err := writePreFilterHeader(logging.DefaultSlogLogger, l.prefilter, "./", devices); err != nil {
+			logging.DefaultSlogLogger.Warn("Unable to write prefilter header",
 				logfields.Error, err,
 				logfields.Devices, devices,
 			)
@@ -453,8 +454,8 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
-			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
+		if err := compileWithOptions(ctx, logging.DefaultSlogLogger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
+			logging.Fatal(logging.DefaultSlogLogger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
 		if err := socketlb.Enable(l.sysctl); err != nil {
 			return err
@@ -466,23 +467,23 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := reinitializeXDPLocked(ctx, l.logger, lnc, extraArgs, devices); err != nil {
-		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
+	if err := reinitializeXDPLocked(ctx, logging.DefaultSlogLogger, lnc, extraArgs, devices); err != nil {
+		logging.Fatal(logging.DefaultSlogLogger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
 	// Compile alignchecker program
-	if err := compileDefault(ctx, l.logger, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
-		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
+	if err := compileDefault(ctx, logging.DefaultSlogLogger, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+		logging.Fatal(logging.DefaultSlogLogger, "alignchecker compile failed", logfields.Error, err)
 	}
 	// Validate alignments of C and Go equivalent structs
 	alignchecker.RegisterLbStructsToCheck(option.Config.LoadBalancerAlgorithmAnnotation)
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
-		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
+		logging.Fatal(logging.DefaultSlogLogger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
 	if option.Config.EnableIPSec {
-		if err := compileNetwork(ctx, l.logger); err != nil {
-			logging.Fatal(l.logger, "failed to compile encryption programs", logfields.Error, err)
+		if err := compileNetwork(ctx, logging.DefaultSlogLogger); err != nil {
+			logging.Fatal(logging.DefaultSlogLogger, "failed to compile encryption programs", logfields.Error, err)
 		}
 
 		if err := l.reinitializeIPSec(lnc); err != nil {
@@ -490,11 +491,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, logging.DefaultSlogLogger, lnc, tunnelConfig); err != nil {
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
+	if err := reinitializeWireguard(ctx, logging.DefaultSlogLogger, lnc); err != nil {
 		return err
 	}
 
