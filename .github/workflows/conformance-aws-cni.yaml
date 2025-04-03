@@ -56,7 +56,7 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.206.0
+  eksctl_version: v0.207.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.32.3
 

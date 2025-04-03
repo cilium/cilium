@@ -59,7 +59,7 @@ env:
   CILIUM_CLI_MODE: helm
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 515.0.0
+  gcloud_version: 517.0.0
 
 jobs:
   echo-inputs:
