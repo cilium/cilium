@@ -799,6 +799,17 @@ func (t *Test) NewGenericAction(s Scenario, name string) *Action {
 	return t.NewAction(s, name, nil, nil, features.IPFamilyAny)
 }
 
+// Scenarios returns a slice of all Scenarios belonging to the Test.
+func (t *Test) Scenarios() []Scenario {
+	var out []Scenario
+
+	for s := range t.scenarios {
+		out = append(out, s)
+	}
+
+	return out
+}
+
 // failedActions returns a list of failed Actions in the Test.
 func (t *Test) failedActions() []*Action {
 	var out []*Action
