@@ -246,6 +246,9 @@ func (c *Client) addOperationCopyImageMiddlewares(stack *middleware.Stack, optio
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
+	if err = addIdempotencyToken_opCopyImageMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCopyImageValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -280,6 +283,39 @@ func (c *Client) addOperationCopyImageMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	return nil
+}
+
+type idempotencyToken_initializeOpCopyImage struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpCopyImage) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpCopyImage) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*CopyImageInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CopyImageInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opCopyImageMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCopyImage{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
 func newServiceMetadataMiddleware_opCopyImage(region string) *awsmiddleware.RegisterServiceMetadata {
