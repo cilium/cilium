@@ -384,12 +384,13 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	if option.Config.EnableHealthDatapath || option.Config.EnableIPIPTermination {
-		sysSettings = append(
-			sysSettings,
-			tables.Sysctl{
-				Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true,
-			},
-		)
+		// This setting needs to be applied before creating the IPIP devices.
+		sysIPIP := []tables.Sysctl{
+			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},
+		}
+		if err := l.sysctl.ApplySettings(sysIPIP); err != nil {
+			return err
+		}
 		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled(), lnc.DeviceMTU); err != nil {
 			return fmt.Errorf("unable to create ipip devices: %w", err)
 		}
