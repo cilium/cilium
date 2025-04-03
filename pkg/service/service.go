@@ -25,6 +25,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -302,7 +303,7 @@ type Service struct {
 }
 
 // newService creates a new instance of the service handler.
-func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
+func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool, sockTermFilter *filter.SockTermFilterMap) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New(logger)
@@ -319,7 +320,7 @@ func newService(logger *slog.Logger, monitorAgent monitorAgent.Agent, lbmap data
 		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
-		backendConnectionHandler: backendConnectionHandler{logger: logger},
+		backendConnectionHandler: newBackendConnectionHandler(logger, sockTermFilter),
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
