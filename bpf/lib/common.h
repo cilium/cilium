@@ -1297,5 +1297,10 @@ static __always_inline __u8 __get_common_trace_flags(struct __ctx_buff *ctx __ma
 	}
 #endif
 
+#if defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD)
+	if (ctx_mark_is_wireguard(ctx))
+		flags = flags | TRACE_FLAG_ENCRYPTED;
+#endif
+
 	return flags;
 }

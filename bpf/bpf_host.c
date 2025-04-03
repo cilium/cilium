@@ -1634,8 +1634,6 @@ skip_egress_gateway:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.flags = trace.flags | TRACE_FLAG_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
