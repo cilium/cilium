@@ -27,6 +27,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "dbg.h"
 
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
@@ -1967,6 +1968,8 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	__be32 addr;
 	__be16 port;
 
+	printk2("xxx %d len:%d\n", __LINE__, (unsigned int)ctx_full_len(ctx));
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -2003,8 +2006,11 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+	printk2("xxx %d fib\n", __LINE__);
 	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
+		printk2("xxx %d oif:%d ret:%d\n", __LINE__, oif, ret);
+		printk2("xxx %d len:%d\n", __LINE__, (unsigned int)ctx_full_len(ctx));
 		cilium_capture_out(ctx);
 		return ret;
 	}

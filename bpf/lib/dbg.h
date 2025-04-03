@@ -164,6 +164,14 @@ struct debug_capture_msg {
 	__u32		arg2;
 };
 
+# define printk2(fmt, ...)					\
+		({						\
+			const char ____fmt[] = fmt;		\
+			trace_printk(____fmt, sizeof(____fmt),	\
+				     ##__VA_ARGS__);		\
+		})
+
+
 #ifdef DEBUG
 #include "common.h"
 #include "utils.h"
