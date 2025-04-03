@@ -221,3 +221,40 @@ func TestWaitForTermination(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestTriggerController(t *testing.T) {
+	mngr := NewManager()
+
+	ctrl := mngr.updateController("test", ControllerParams{
+		DoFunc: func(ctx context.Context) error {
+			return nil
+		},
+		RunInterval:        time.Duration(10) * time.Second, // A long interval to avoid interference
+		MinTriggerInterval: time.Duration(2) * time.Second,
+	})
+
+	var firstTimeStamp time.Time
+	var secondTimeStamp time.Time
+	for n := 0; ctrl.GetSuccessCount() < 3; n++ {
+		if n > 100 {
+			t.Fatalf("time out while waiting for controller to succeed, last error: %s", ctrl.GetLastError())
+		}
+		mngr.TriggerController("test")
+		if ctrl.GetSuccessCount() == 1 {
+			firstTimeStamp = ctrl.lastSuccessStamp
+			mngr.TriggerController("test")
+		}
+
+		if ctrl.GetSuccessCount() == 2 {
+			secondTimeStamp = ctrl.lastSuccessStamp
+			timeDiff := secondTimeStamp.Sub(firstTimeStamp)
+			require.Less(t, timeDiff, time.Duration(2100)*time.Millisecond)
+			require.Greater(t, timeDiff, time.Duration(1900)*time.Millisecond)
+		}
+
+		time.Sleep(time.Duration(100) * time.Millisecond) // To make sure the timestamp is updated before the next check
+	}
+
+	require.NoError(t, ctrl.GetLastError())
+	require.NoError(t, mngr.RemoveController("test"))
+}

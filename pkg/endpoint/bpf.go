@@ -530,10 +530,10 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
-	// Initialize (if not done yet) the DNS history trigger to allow DNS proxy to trigger
+	// Initialize (if not done yet) the EndpointSync Controller to allow DNS proxy to trigger
 	// updates to endpoint headers. The initialization happens here as at this point
 	// datapath is ready to process the trigger.
-	e.initDNSHistoryTrigger()
+	e.initEndpointSyncController(option.Config.EndpointHeaderFileSyncInterval)
 
 	return datapathRegenCtxt.epInfoCache.revision, err
 }

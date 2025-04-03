@@ -16,7 +16,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 func Test_updateCEPUID(t *testing.T) {
@@ -28,7 +31,8 @@ func Test_updateCEPUID(t *testing.T) {
 		}
 	}
 	epWithUID := func(uid string, pod *slim_corev1.Pod) *endpoint.Endpoint {
-		ep := &endpoint.Endpoint{}
+		s := setupEndpointManagerSuite(t)
+		ep := endpoint.NewTestEndpointWithState(s, nil, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 2, endpoint.StateReady)
 		ep.SetPod(pod)
 		ep.SetCiliumEndpointUID(types.UID(uid))
 		return ep
