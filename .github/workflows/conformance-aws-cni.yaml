@@ -213,7 +213,8 @@ jobs:
           if [ "${{ matrix.wireguard }}" == "true" ]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true \
                                       --helm-set=encryption.type=wireguard \
-                                      --helm-set=cni.enableRouteMTUForCNIChaining=true"
+                                      --helm-set=cni.enableRouteMTUForCNIChaining=true \
+                                      --helm-set=extraArgs={--enable-identity-mark=false}"
           fi
 
           # L7 policies are not supported in chaining mode.
