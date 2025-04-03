@@ -7538,6 +7538,9 @@ const (
 	ResourceTypeVerifiedAccessTrustProvider                            ResourceType = "verified-access-trust-provider"
 	ResourceTypeVpnConnectionDeviceType                                ResourceType = "vpn-connection-device-type"
 	ResourceTypeVpcBlockPublicAccessExclusion                          ResourceType = "vpc-block-public-access-exclusion"
+	ResourceTypeRouteServer                                            ResourceType = "route-server"
+	ResourceTypeRouteServerEndpoint                                    ResourceType = "route-server-endpoint"
+	ResourceTypeRouteServerPeer                                        ResourceType = "route-server-peer"
 	ResourceTypeIpamResourceDiscovery                                  ResourceType = "ipam-resource-discovery"
 	ResourceTypeIpamResourceDiscoveryAssociation                       ResourceType = "ipam-resource-discovery-association"
 	ResourceTypeInstanceConnectEndpoint                                ResourceType = "instance-connect-endpoint"
@@ -7635,6 +7638,9 @@ func (ResourceType) Values() []ResourceType {
 		"verified-access-trust-provider",
 		"vpn-connection-device-type",
 		"vpc-block-public-access-exclusion",
+		"route-server",
+		"route-server-endpoint",
+		"route-server-peer",
 		"ipam-resource-discovery",
 		"ipam-resource-discovery-association",
 		"instance-connect-endpoint",
@@ -7703,6 +7709,275 @@ func (RouteOrigin) Values() []RouteOrigin {
 		"CreateRouteTable",
 		"CreateRoute",
 		"EnableVgwRoutePropagation",
+	}
+}
+
+type RouteServerAssociationState string
+
+// Enum values for RouteServerAssociationState
+const (
+	RouteServerAssociationStateAssociating    RouteServerAssociationState = "associating"
+	RouteServerAssociationStateAssociated     RouteServerAssociationState = "associated"
+	RouteServerAssociationStateDisassociating RouteServerAssociationState = "disassociating"
+)
+
+// Values returns all known values for RouteServerAssociationState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerAssociationState) Values() []RouteServerAssociationState {
+	return []RouteServerAssociationState{
+		"associating",
+		"associated",
+		"disassociating",
+	}
+}
+
+type RouteServerBfdState string
+
+// Enum values for RouteServerBfdState
+const (
+	RouteServerBfdStateUp   RouteServerBfdState = "up"
+	RouteServerBfdStateDown RouteServerBfdState = "down"
+)
+
+// Values returns all known values for RouteServerBfdState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerBfdState) Values() []RouteServerBfdState {
+	return []RouteServerBfdState{
+		"up",
+		"down",
+	}
+}
+
+type RouteServerBgpState string
+
+// Enum values for RouteServerBgpState
+const (
+	RouteServerBgpStateUp   RouteServerBgpState = "up"
+	RouteServerBgpStateDown RouteServerBgpState = "down"
+)
+
+// Values returns all known values for RouteServerBgpState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerBgpState) Values() []RouteServerBgpState {
+	return []RouteServerBgpState{
+		"up",
+		"down",
+	}
+}
+
+type RouteServerEndpointState string
+
+// Enum values for RouteServerEndpointState
+const (
+	RouteServerEndpointStatePending      RouteServerEndpointState = "pending"
+	RouteServerEndpointStateAvailable    RouteServerEndpointState = "available"
+	RouteServerEndpointStateDeleting     RouteServerEndpointState = "deleting"
+	RouteServerEndpointStateDeleted      RouteServerEndpointState = "deleted"
+	RouteServerEndpointStateFailing      RouteServerEndpointState = "failing"
+	RouteServerEndpointStateFailed       RouteServerEndpointState = "failed"
+	RouteServerEndpointStateDeleteFailed RouteServerEndpointState = "delete-failed"
+)
+
+// Values returns all known values for RouteServerEndpointState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerEndpointState) Values() []RouteServerEndpointState {
+	return []RouteServerEndpointState{
+		"pending",
+		"available",
+		"deleting",
+		"deleted",
+		"failing",
+		"failed",
+		"delete-failed",
+	}
+}
+
+type RouteServerPeerLivenessMode string
+
+// Enum values for RouteServerPeerLivenessMode
+const (
+	RouteServerPeerLivenessModeBfd          RouteServerPeerLivenessMode = "bfd"
+	RouteServerPeerLivenessModeBgpKeepalive RouteServerPeerLivenessMode = "bgp-keepalive"
+)
+
+// Values returns all known values for RouteServerPeerLivenessMode. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerPeerLivenessMode) Values() []RouteServerPeerLivenessMode {
+	return []RouteServerPeerLivenessMode{
+		"bfd",
+		"bgp-keepalive",
+	}
+}
+
+type RouteServerPeerState string
+
+// Enum values for RouteServerPeerState
+const (
+	RouteServerPeerStatePending   RouteServerPeerState = "pending"
+	RouteServerPeerStateAvailable RouteServerPeerState = "available"
+	RouteServerPeerStateDeleting  RouteServerPeerState = "deleting"
+	RouteServerPeerStateDeleted   RouteServerPeerState = "deleted"
+	RouteServerPeerStateFailing   RouteServerPeerState = "failing"
+	RouteServerPeerStateFailed    RouteServerPeerState = "failed"
+)
+
+// Values returns all known values for RouteServerPeerState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerPeerState) Values() []RouteServerPeerState {
+	return []RouteServerPeerState{
+		"pending",
+		"available",
+		"deleting",
+		"deleted",
+		"failing",
+		"failed",
+	}
+}
+
+type RouteServerPersistRoutesAction string
+
+// Enum values for RouteServerPersistRoutesAction
+const (
+	RouteServerPersistRoutesActionEnable  RouteServerPersistRoutesAction = "enable"
+	RouteServerPersistRoutesActionDisable RouteServerPersistRoutesAction = "disable"
+	RouteServerPersistRoutesActionReset   RouteServerPersistRoutesAction = "reset"
+)
+
+// Values returns all known values for RouteServerPersistRoutesAction. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerPersistRoutesAction) Values() []RouteServerPersistRoutesAction {
+	return []RouteServerPersistRoutesAction{
+		"enable",
+		"disable",
+		"reset",
+	}
+}
+
+type RouteServerPersistRoutesState string
+
+// Enum values for RouteServerPersistRoutesState
+const (
+	RouteServerPersistRoutesStateEnabling  RouteServerPersistRoutesState = "enabling"
+	RouteServerPersistRoutesStateEnabled   RouteServerPersistRoutesState = "enabled"
+	RouteServerPersistRoutesStateResetting RouteServerPersistRoutesState = "resetting"
+	RouteServerPersistRoutesStateDisabling RouteServerPersistRoutesState = "disabling"
+	RouteServerPersistRoutesStateDisabled  RouteServerPersistRoutesState = "disabled"
+	RouteServerPersistRoutesStateModifying RouteServerPersistRoutesState = "modifying"
+)
+
+// Values returns all known values for RouteServerPersistRoutesState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerPersistRoutesState) Values() []RouteServerPersistRoutesState {
+	return []RouteServerPersistRoutesState{
+		"enabling",
+		"enabled",
+		"resetting",
+		"disabling",
+		"disabled",
+		"modifying",
+	}
+}
+
+type RouteServerPropagationState string
+
+// Enum values for RouteServerPropagationState
+const (
+	RouteServerPropagationStatePending   RouteServerPropagationState = "pending"
+	RouteServerPropagationStateAvailable RouteServerPropagationState = "available"
+	RouteServerPropagationStateDeleting  RouteServerPropagationState = "deleting"
+)
+
+// Values returns all known values for RouteServerPropagationState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerPropagationState) Values() []RouteServerPropagationState {
+	return []RouteServerPropagationState{
+		"pending",
+		"available",
+		"deleting",
+	}
+}
+
+type RouteServerRouteInstallationStatus string
+
+// Enum values for RouteServerRouteInstallationStatus
+const (
+	RouteServerRouteInstallationStatusInstalled RouteServerRouteInstallationStatus = "installed"
+	RouteServerRouteInstallationStatusRejected  RouteServerRouteInstallationStatus = "rejected"
+)
+
+// Values returns all known values for RouteServerRouteInstallationStatus. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerRouteInstallationStatus) Values() []RouteServerRouteInstallationStatus {
+	return []RouteServerRouteInstallationStatus{
+		"installed",
+		"rejected",
+	}
+}
+
+type RouteServerRouteStatus string
+
+// Enum values for RouteServerRouteStatus
+const (
+	RouteServerRouteStatusInRib RouteServerRouteStatus = "in-rib"
+	RouteServerRouteStatusInFib RouteServerRouteStatus = "in-fib"
+)
+
+// Values returns all known values for RouteServerRouteStatus. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerRouteStatus) Values() []RouteServerRouteStatus {
+	return []RouteServerRouteStatus{
+		"in-rib",
+		"in-fib",
+	}
+}
+
+type RouteServerState string
+
+// Enum values for RouteServerState
+const (
+	RouteServerStatePending   RouteServerState = "pending"
+	RouteServerStateAvailable RouteServerState = "available"
+	RouteServerStateModifying RouteServerState = "modifying"
+	RouteServerStateDeleting  RouteServerState = "deleting"
+	RouteServerStateDeleted   RouteServerState = "deleted"
+)
+
+// Values returns all known values for RouteServerState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (RouteServerState) Values() []RouteServerState {
+	return []RouteServerState{
+		"pending",
+		"available",
+		"modifying",
+		"deleting",
+		"deleted",
 	}
 }
 
@@ -9763,6 +10038,8 @@ const (
 	VpcEncryptionControlStateDeleting          VpcEncryptionControlState = "deleting"
 	VpcEncryptionControlStateDeleted           VpcEncryptionControlState = "deleted"
 	VpcEncryptionControlStateAvailable         VpcEncryptionControlState = "available"
+	VpcEncryptionControlStateCreating          VpcEncryptionControlState = "creating"
+	VpcEncryptionControlStateDeleteFailed      VpcEncryptionControlState = "delete-failed"
 )
 
 // Values returns all known values for VpcEncryptionControlState. Note that this
@@ -9778,6 +10055,8 @@ func (VpcEncryptionControlState) Values() []VpcEncryptionControlState {
 		"deleting",
 		"deleted",
 		"available",
+		"creating",
+		"delete-failed",
 	}
 }
 

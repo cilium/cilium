@@ -1,3 +1,7 @@
+# v1.211.0 (2025-03-31)
+
+* **Feature**: Release VPC Route Server, a new feature allowing dynamic routing in VPCs.
+
 # v1.210.1 (2025-03-19)
 
 * **Documentation**: Doc-only updates for EC2 for March 2025.
