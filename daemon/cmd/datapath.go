@@ -185,17 +185,6 @@ func (d *Daemon) initMaps() error {
 		ep.InitMap()
 	}
 
-	for _, ep := range d.endpointManager.GetEndpoints() {
-		if !ep.ConntrackLocal() {
-			continue
-		}
-		for _, m := range ctmap.LocalMaps(ep, option.Config.EnableIPv4,
-			option.Config.EnableIPv6) {
-			if err := m.Create(); err != nil {
-				return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
-			}
-		}
-	}
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {

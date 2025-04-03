@@ -37,7 +37,6 @@ type endpointManager interface {
 	EndpointExists(endpointID uint16) bool
 	RemoveDatapathMapping(endpointID uint16) error
 	RemoveMapPath(path string)
-	HasGlobalCT() bool
 }
 
 // MapSweeper is responsible for checking stale map paths on the filesystem
@@ -77,15 +76,6 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 	}
 }
 
-func (ms *MapSweeper) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := ms.HasGlobalCT() || option.Config.EnableNodePort ||
-		!option.Config.InstallIptRules && option.Config.MasqueradingEnabled()
-
-	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		ms.RemoveMapPath(path)
-	}
-}
-
 func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
@@ -98,8 +88,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		callsmap.MapName,
 		callsmap.CustomCallsMapName,
 	}
-
-	ms.checkStaleGlobalMap(path, filename)
 
 	for _, m := range mapPrefix {
 		if strings.HasPrefix(filename, m) {

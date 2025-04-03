@@ -82,7 +82,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "options": {
         "Conntrack": "Enabled",
         "ConntrackAccounting": "Enabled",
-        "ConntrackLocal": "Disabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
         "DebugPolicy": "Enabled",
@@ -271,7 +270,6 @@ func TestExpandNestedJSON(t *testing.T) {
         "options": {
           "Conntrack": "Enabled",
           "ConntrackAccounting": "Enabled",
-          "ConntrackLocal": "Disabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
           "DebugPolicy": "Enabled",
@@ -294,7 +292,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "options": {
         "Conntrack": "Enabled",
         "ConntrackAccounting": "Enabled",
-        "ConntrackLocal": "Disabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
         "DebugPolicy": "Enabled",
@@ -513,7 +510,6 @@ func TestExpandNestedJSON(t *testing.T) {
         "options": {
           "Conntrack": "Enabled",
           "ConntrackAccounting": "Enabled",
-          "ConntrackLocal": "Disabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
           "DebugPolicy": "Enabled",

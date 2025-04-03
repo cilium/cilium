@@ -25,8 +25,6 @@ func (m *ProxyUpdaterMock) GetIPv6Address() string { return m.Ipv6 }
 
 func (m *ProxyUpdaterMock) GetNamedPort(bool, string, u8proto.U8proto) uint16 { return 0 }
 
-func (m *ProxyUpdaterMock) ConntrackNameLocked() string { return "global" }
-
 func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 
 func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool,
