@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/linux"
+	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
@@ -113,7 +114,7 @@ func sanitizeTracefsPath(path ...string) (string, error) {
 // but may be also be available at /sys/kernel/debug/tracing if debugfs is mounted.
 // The available tracefs paths will depends on distribution choices.
 var getTracefsPath = sync.OnceValues(func() (string, error) {
-	if !internal.OnLinux {
+	if !platform.IsLinux {
 		return "", fmt.Errorf("tracefs: %w", internal.ErrNotSupportedOnOS)
 	}
 
@@ -305,7 +306,11 @@ func NewEvent(args ProbeArgs) (*Event, error) {
 		if err := removeEvent(args.Type, event); err != nil {
 			return nil, fmt.Errorf("failed to remove spurious maxactive event: %s", err)
 		}
-		return nil, fmt.Errorf("create trace event with non-default maxactive: %w", internal.ErrNotSupported)
+
+		return nil, &internal.UnsupportedFeatureError{
+			MinimumVersion: internal.Version{4, 12},
+			Name:           "trace event with non-default maxactive",
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get trace event id: %w", err)

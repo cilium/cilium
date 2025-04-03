@@ -537,7 +537,7 @@ func (s *Spec) Copy() *Spec {
 	}
 
 	return &Spec{
-		s.mutableTypes.copy(),
+		s.copy(),
 		s.strings,
 	}
 }
@@ -579,7 +579,7 @@ func (s *Spec) TypeByID(id TypeID) (Type, error) {
 //
 // Returns an error wrapping [ErrNotFound] if the type isn't part of the Spec.
 func (s *Spec) TypeID(typ Type) (TypeID, error) {
-	return s.mutableTypes.typeID(typ)
+	return s.typeID(typ)
 }
 
 // AnyTypesByName returns a list of BTF Types with the given name.
@@ -590,7 +590,7 @@ func (s *Spec) TypeID(typ Type) (TypeID, error) {
 //
 // Returns an error wrapping ErrNotFound if no matching Type exists in the Spec.
 func (s *Spec) AnyTypesByName(name string) ([]Type, error) {
-	return s.mutableTypes.anyTypesByName(name)
+	return s.anyTypesByName(name)
 }
 
 // AnyTypeByName returns a Type with the given name.

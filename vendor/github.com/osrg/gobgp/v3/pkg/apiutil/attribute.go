@@ -786,6 +786,34 @@ func MarshalLsPrefixV6NLRI(n *bgp.LsPrefixV6NLRI) (*apb.Any, error) {
 	return a, nil
 }
 
+func MarshalLsSRv6SIDNLRI(n *bgp.LsSrv6SIDNLRI) (*apb.Any, error) {
+	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	if err != nil {
+		return nil, err
+	}
+	srv6Info, ok := n.Srv6SIDInfo.(*bgp.LsTLVSrv6SIDInfo)
+	if !ok {
+		return nil, fmt.Errorf("invalid SRv6 SID info type")
+	}
+	ssi, err := MarshalLsTLVSrv6SIDInfo(srv6Info)
+	if err != nil {
+		return nil, err
+	}
+	mti, err := MarshalLsTLVMultiTopoID(n.MultiTopoID.(*bgp.LsTLVMultiTopoID))
+	if err != nil {
+		return nil, err
+	}
+
+	srv6sid := &api.LsSrv6SIDNLRI{
+		LocalNode:          ln,
+		Srv6SidInformation: ssi,
+		MultiTopoId:        mti,
+	}
+	a, _ := apb.New(srv6sid)
+
+	return a, nil
+}
+
 func MarshalLsBgpPeerSegmentSid(n *bgp.LsBgpPeerSegmentSID) (*api.LsBgpPeerSegmentSID, error) {
 	flags := &api.LsBgpPeerSegmentSIDFlags{
 		Value:      n.Flags.Value,
@@ -876,6 +904,64 @@ func UnmarshalPrefixDescriptor(pd *api.LsPrefixDescriptor) (*bgp.LsPrefixDescrip
 
 func UnmarshalLsPrefixDescriptor(*api.LsPrefixDescriptor) (*bgp.LsPrefixDescriptor, error) {
 	return nil, nil
+}
+
+func StringToNetIPLsTLVSrv6SIDInfo(s []string) ([]net.IP, uint16) {
+	sids := []net.IP{}
+	var ssiLen uint16
+	for _, sid := range s {
+		sids = append(sids, net.ParseIP(sid))
+		ssiLen += 16
+	}
+	return sids, ssiLen
+}
+
+func UnmarshalLsTLVSrv6SIDInfo(ssi *api.LsSrv6SIDInformation) (*bgp.LsTLVSrv6SIDInfo, error) {
+	sids, ssiLen := StringToNetIPLsTLVSrv6SIDInfo(ssi.Sids)
+	return &bgp.LsTLVSrv6SIDInfo{
+		LsTLV: bgp.LsTLV{
+			Type:   bgp.LS_TLV_SRV6_SID_INFO,
+			Length: ssiLen,
+		},
+		SIDs: sids,
+	}, nil
+}
+
+func MarshalLsTLVSrv6SIDInfo(info *bgp.LsTLVSrv6SIDInfo) (*api.LsSrv6SIDInformation, error) {
+	sids := make([]string, len(info.SIDs))
+	for i, ip := range info.SIDs {
+		sids[i] = ip.String()
+	}
+	return &api.LsSrv6SIDInformation{
+		Sids: sids,
+	}, nil
+}
+
+func UnmarshalLsTLVMultiTopoID(mti *api.LsMultiTopologyIdentifier) (*bgp.LsTLVMultiTopoID, error) {
+	multiTopoIDs := make([]uint16, len(mti.MultiTopoIds))
+	var mtiLen uint16
+	for i, v := range mti.MultiTopoIds {
+		multiTopoIDs[i] = uint16(v)
+		mtiLen += 2
+	}
+
+	return &bgp.LsTLVMultiTopoID{
+		LsTLV: bgp.LsTLV{
+			Type:   bgp.LS_TLV_MULTI_TOPO_ID,
+			Length: mtiLen,
+		},
+		MultiTopoIDs: multiTopoIDs,
+	}, nil
+}
+
+func MarshalLsTLVMultiTopoID(mti *bgp.LsTLVMultiTopoID) (*api.LsMultiTopologyIdentifier, error) {
+	multiTopoIds := make([]uint32, len(mti.MultiTopoIDs))
+	for i, v := range mti.MultiTopoIDs {
+		multiTopoIds[i] = uint32(v)
+	}
+	return &api.LsMultiTopologyIdentifier{
+		MultiTopoIds: multiTopoIds,
+	}, nil
 }
 
 func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
@@ -1196,7 +1282,12 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			Prefix:    v.Prefix.String(),
 		}
 	case *bgp.RouteTargetMembershipNLRI:
-		rt, err := MarshalRT(v.RouteTarget)
+		rt, err := func() (*apb.Any, error) {
+			if v.RouteTarget == nil {
+				return nil, nil
+			}
+			return MarshalRT(v.RouteTarget)
+		}()
 		if err != nil {
 			return nil, err
 		}
@@ -1259,6 +1350,11 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			Rd:    rd,
 			Rules: rules,
 		}
+	case *bgp.OpaqueNLRI:
+		nlri = &api.OpaqueNLRI{
+			Key:   v.Key,
+			Value: v.Value,
+		}
 	case *bgp.LsAddrPrefix:
 		switch n := v.NLRI.(type) {
 		case *bgp.LsNodeNLRI:
@@ -1309,6 +1405,18 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 				Type:       api.LsNLRIType_LS_NLRI_PREFIX_V6,
 				Nlri:       node,
 				Length:     uint32(n.Length),
+				ProtocolId: api.LsProtocolID(n.ProtocolID),
+				Identifier: n.Identifier,
+			}
+		case *bgp.LsSrv6SIDNLRI:
+			srv6, err := MarshalLsSRv6SIDNLRI(n)
+			if err != nil {
+				return nil, err
+			}
+			nlri = &api.LsAddrPrefix{
+				Type:       api.LsNLRIType_LS_NLRI_SRV6_SID,
+				Nlri:       srv6,
+				Length:     uint32(v.Length),
 				ProtocolId: api.LsProtocolID(n.ProtocolID),
 				Identifier: n.Identifier,
 			}
@@ -1517,7 +1625,12 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 			nlri = bgp.NewLabeledVPNIPv6AddrPrefix(uint8(v.PrefixLen), v.Prefix, *bgp.NewMPLSLabelStack(v.Labels...), rd)
 		}
 	case *api.RouteTargetMembershipNLRI:
-		rt, err := UnmarshalRT(v.Rt)
+		rt, err := func() (bgp.ExtendedCommunityInterface, error) {
+			if v.Rt == nil {
+				return nil, nil
+			}
+			return UnmarshalRT(v.Rt)
+		}()
 		if err != nil {
 			return nil, err
 		}
@@ -1550,6 +1663,8 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		case bgp.RF_FS_L2_VPN:
 			nlri = bgp.NewFlowSpecL2VPN(rd, rules)
 		}
+	case *api.OpaqueNLRI:
+		nlri = bgp.NewOpaqueNLRI(v.Key, v.Value)
 	case *api.MUPInterworkSegmentDiscoveryRoute:
 		rd, err := UnmarshalRD(v.Rd)
 		if err != nil {
@@ -1697,7 +1812,6 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 					},
 				},
 			}
-
 		case *api.LsPrefixV6NLRI:
 			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
 			if err != nil {
@@ -1725,6 +1839,38 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 					},
 				},
 			}
+		case *api.LsSrv6SIDNLRI:
+			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			if err != nil {
+				return nil, err
+			}
+			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
+
+			mtiTLV, err := UnmarshalLsTLVMultiTopoID(tp.MultiTopoId)
+			if err != nil {
+				return nil, err
+			}
+
+			ssiTLV, err := UnmarshalLsTLVSrv6SIDInfo(tp.Srv6SidInformation)
+			if err != nil {
+				return nil, err
+			}
+
+			nlri = &bgp.LsAddrPrefix{
+				Type:   bgp.LS_NLRI_TYPE_SRV6_SID,
+				Length: uint16(v.Length),
+				NLRI: &bgp.LsSrv6SIDNLRI{
+					LocalNodeDesc: &lndTLV,
+					MultiTopoID:   mtiTLV,
+					Srv6SIDInfo:   ssiTLV,
+					LsNLRI: bgp.LsNLRI{
+						NLRIType:   bgp.LsNLRIType(v.Type),
+						Length:     uint16(v.Length),
+						ProtocolID: bgp.LsProtocolID(v.ProtocolId),
+						Identifier: v.Identifier,
+					},
+				},
+			}
 
 		default:
 			return nil, fmt.Errorf("unknown LS prefix type %v", tp)
@@ -1734,7 +1880,6 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 	if nlri == nil {
 		return nil, fmt.Errorf("invalid nlri for %s family: %s", rf.String(), value)
 	}
-
 	return nlri, nil
 }
 

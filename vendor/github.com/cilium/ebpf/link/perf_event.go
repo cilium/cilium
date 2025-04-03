@@ -1,3 +1,5 @@
+//go:build !windows
+
 package link
 
 import (
@@ -132,7 +134,7 @@ func (pl *perfEventLink) PerfEvent() (*os.File, error) {
 		return nil, err
 	}
 
-	return fd.File("perf-event"), nil
+	return fd.File("perf-event")
 }
 
 func (pl *perfEventLink) Info() (*Info, error) {
@@ -209,7 +211,7 @@ func (pi *perfEventIoctl) PerfEvent() (*os.File, error) {
 		return nil, err
 	}
 
-	return fd.File("perf-event"), nil
+	return fd.File("perf-event")
 }
 
 // attach the given eBPF prog to the perf event stored in pe.
