@@ -178,16 +178,6 @@
       ]
     },
     {
-      // Disabling updating quay.io/lvh-images/kind until issue https://github.com/cilium/cilium/issues/38058 is fixed.
-      "matchDepNames": [
-        "quay.io/lvh-images/kind",
-      ],
-      "paths": [
-        ".github/workflows/conformance-runtime.yaml",
-      ],
-      "enabled": false
-    },
-    {
       // Avoid updating patch releases of golang in go.mod
       "enabled": "false",
       "matchFiles": [

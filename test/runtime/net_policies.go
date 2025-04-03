@@ -533,7 +533,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 		})
 
 		createEndpoint := func(cmdArgs ...string) (endpointID string, endpointIP *models.AddressPair) {
-			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", cmdArgs...)
+			res := vm.ContainerCreate(initContainer, constants.CurlImage, helpers.CiliumDockerNetwork, "-l somelabel", cmdArgs...)
 			res.ExpectSuccess("Failed to create container")
 
 			By("Waiting for newly added endpoint to be ready")
@@ -714,7 +714,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res := vm.ContainerCreate(initContainer, constants.CurlImage, helpers.CiliumDockerNetwork, "-l somelabel")
 			res.ExpectSuccess("Failed to create container")
 
 			By("Waiting for newly added endpoint to be ready")
@@ -759,7 +759,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res := vm.ContainerCreate(initContainer, constants.CurlImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
 			res.ExpectSuccess("Failed to create container")
 
 			By("Waiting for newly added endpoint to be ready")
