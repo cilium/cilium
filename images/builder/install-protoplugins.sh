@@ -23,7 +23,7 @@ go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 
 BUF_BIN="buf"
 # renovate: datasource=github-release-attachments depName=bufbuild/buf
-BUF_VERSION=v1.50.1
+BUF_VERSION=v1.51.0
 BUF_VARIANT="Linux-$(uname --machine)"
 
 curl --fail --show-error --silent --location \
