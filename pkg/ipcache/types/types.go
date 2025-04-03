@@ -20,8 +20,8 @@ type PolicyHandler interface {
 	UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool)
 }
 
-// PolicyUpdater is responsible for triggering regeneration of all endpoints.
-// See pkg/policy/trigger.go for more details.
+// PolicyUpdater is responsible for forcing policy computation and
+// regenerating all endpoints.
 type PolicyUpdater interface {
 	TriggerPolicyUpdates(reason string)
 }

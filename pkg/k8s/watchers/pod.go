@@ -58,7 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
+	policyCell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
@@ -83,7 +83,7 @@ type k8sPodWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 	EndpointManager   endpointmanager.EndpointManager
-	PolicyUpdater     *policy.Updater
+	PolicyUpdater     policyCell.PolicyUpdater
 	IPCache           *ipcache.IPCache
 	ServiceManager    service.ServiceManager
 	DB                *statedb.DB
@@ -131,7 +131,7 @@ type K8sPodWatcher struct {
 	// and may be disabled while the agent runs.
 	k8sAPIGroups          *k8sSynced.APIGroups
 	endpointManager       endpointManager
-	policyManager         policyManager
+	policyManager         policyCell.PolicyUpdater
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	ipcache               ipcacheManager
