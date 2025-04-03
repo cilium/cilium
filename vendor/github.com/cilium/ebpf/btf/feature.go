@@ -146,7 +146,7 @@ func probeBTF(typ Type) error {
 	}
 
 	fd, err := sys.BtfLoad(&sys.BtfLoadAttr{
-		Btf:     sys.NewSlicePointer(buf),
+		Btf:     sys.SlicePointer(buf),
 		BtfSize: uint32(len(buf)),
 	})
 

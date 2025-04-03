@@ -20,7 +20,7 @@ import (
 // unsafe.Pointer.
 func marshalMapSyscallInput(data any, length int) (sys.Pointer, error) {
 	if ptr, ok := data.(unsafe.Pointer); ok {
-		return sys.NewPointer(ptr), nil
+		return sys.UnsafePointer(ptr), nil
 	}
 
 	buf, err := sysenc.Marshal(data, length)
@@ -96,7 +96,7 @@ func marshalPerCPUValue(slice any, elemLength int) (sys.Pointer, error) {
 		return sys.Pointer{}, err
 	}
 
-	return sys.NewSlicePointer(buf), nil
+	return sys.UnsafeSlicePointer(buf), nil
 }
 
 // marshalBatchPerCPUValue encodes a batch-sized slice of slices containing

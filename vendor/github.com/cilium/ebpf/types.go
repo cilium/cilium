@@ -1,6 +1,7 @@
 package ebpf
 
 import (
+	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
 )
 
@@ -12,7 +13,7 @@ type MapType uint32
 
 // All the various map types that can be created
 const (
-	UnspecifiedMap MapType = iota
+	UnspecifiedMap MapType = MapType(platform.LinuxTag | iota)
 	// Hash is a hash map
 	Hash
 	// Array is an array map
@@ -104,9 +105,40 @@ const (
 	Arena
 )
 
+// Map types (Windows).
+const (
+	WindowsHash MapType = MapType(platform.WindowsTag | iota + 1)
+	WindowsArray
+	WindowsProgramArray
+	WindowsPerCPUHash
+	WindowsPerCPUArray
+	WindowsHashOfMaps
+	WindowsArrayOfMaps
+	WindowsLRUHash
+	WindowsLPMTrie
+	WindowsQueue
+	WindowsLRUCPUHash
+	WindowsStack
+	WindowsRingBuf
+)
+
+// MapTypeForPlatform returns a platform specific map type.
+//
+// Use this if the library doesn't provide a constant yet.
+func MapTypeForPlatform(plat string, typ uint32) (MapType, error) {
+	return platform.EncodeConstant[MapType](plat, typ)
+}
+
 // hasPerCPUValue returns true if the Map stores a value per CPU.
 func (mt MapType) hasPerCPUValue() bool {
-	return mt == PerCPUHash || mt == PerCPUArray || mt == LRUCPUHash || mt == PerCPUCGroupStorage
+	switch mt {
+	case PerCPUHash, PerCPUArray, LRUCPUHash, PerCPUCGroupStorage:
+		return true
+	case WindowsPerCPUHash, WindowsPerCPUArray, WindowsLRUCPUHash:
+		return true
+	default:
+		return false
+	}
 }
 
 // canStoreMapOrProgram returns true if the Map stores references to another Map
@@ -118,13 +150,13 @@ func (mt MapType) canStoreMapOrProgram() bool {
 // canStoreMap returns true if the map type accepts a map fd
 // for update and returns a map id for lookup.
 func (mt MapType) canStoreMap() bool {
-	return mt == ArrayOfMaps || mt == HashOfMaps
+	return mt == ArrayOfMaps || mt == HashOfMaps || mt == WindowsArrayOfMaps || mt == WindowsHashOfMaps
 }
 
 // canStoreProgram returns true if the map type accepts a program fd
 // for update and returns a program id for lookup.
 func (mt MapType) canStoreProgram() bool {
-	return mt == ProgramArray
+	return mt == ProgramArray || mt == WindowsProgramArray
 }
 
 // canHaveValueSize returns true if the map type supports setting a value size.
@@ -145,7 +177,7 @@ func (mt MapType) canHaveValueSize() bool {
 // ProgramType of the eBPF program
 type ProgramType uint32
 
-// eBPF program types
+// eBPF program types (Linux).
 const (
 	UnspecifiedProgram    = ProgramType(sys.BPF_PROG_TYPE_UNSPEC)
 	SocketFilter          = ProgramType(sys.BPF_PROG_TYPE_SOCKET_FILTER)
@@ -182,6 +214,25 @@ const (
 	Netfilter             = ProgramType(sys.BPF_PROG_TYPE_NETFILTER)
 )
 
+// eBPF program types (Windows).
+//
+// See https://github.com/microsoft/ebpf-for-windows/blob/main/include/ebpf_structs.h#L170
+const (
+	WindowsXDP ProgramType = ProgramType(platform.WindowsTag) | (iota + 1)
+	WindowsBind
+	WindowsCGroupSockAddr
+	WindowsSockOps
+	WindowsXDPTest ProgramType = ProgramType(platform.WindowsTag) | 998
+	WindowsSample  ProgramType = ProgramType(platform.WindowsTag) | 999
+)
+
+// ProgramTypeForPlatform returns a platform specific program type.
+//
+// Use this if the library doesn't provide a constant yet.
+func ProgramTypeForPlatform(plat string, value uint32) (ProgramType, error) {
+	return platform.EncodeConstant[ProgramType](plat, value)
+}
+
 // AttachType of the eBPF program, needed to differentiate allowed context accesses in
 // some newer program types like CGroupSockAddr. Should be set to AttachNone if not required.
 // Will cause invalid argument (EINVAL) at program load time if set incorrectly.
@@ -192,6 +243,7 @@ type AttachType uint32
 // AttachNone is an alias for AttachCGroupInetIngress for readability reasons.
 const AttachNone AttachType = 0
 
+// Attach types (Linux).
 const (
 	AttachCGroupInetIngress          = AttachType(sys.BPF_CGROUP_INET_INGRESS)
 	AttachCGroupInetEgress           = AttachType(sys.BPF_CGROUP_INET_EGRESS)
@@ -251,6 +303,28 @@ const (
 	AttachNetkitPrimary              = AttachType(sys.BPF_NETKIT_PRIMARY)
 	AttachNetkitPeer                 = AttachType(sys.BPF_NETKIT_PEER)
 )
+
+// Attach types (Windows).
+//
+// See https://github.com/microsoft/ebpf-for-windows/blob/main/include/ebpf_structs.h#L260
+const (
+	AttachWindowsXDP = AttachType(platform.WindowsTag | iota + 1)
+	AttachWindowsBind
+	AttachWindowsCGroupInet4Connect
+	AttachWindowsCGroupInet6Connect
+	AttachWindowsCgroupInet4RecvAccept
+	AttachWindowsCgroupInet6RecvAccept
+	AttachWindowsCGroupSockOps
+	AttachWindowsSample
+	AttachWindowsXDPTest
+)
+
+// AttachTypeForPlatform returns a platform specific attach type.
+//
+// Use this if the library doesn't provide a constant yet.
+func AttachTypeForPlatform(plat string, value uint32) (AttachType, error) {
+	return platform.EncodeConstant[AttachType](plat, value)
+}
 
 // AttachFlags of the eBPF program used in BPF_PROG_ATTACH command
 type AttachFlags uint32

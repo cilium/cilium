@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -43,12 +44,16 @@ func NewHandle(b *Builder) (*Handle, error) {
 func NewHandleFromRawBTF(btf []byte) (*Handle, error) {
 	const minLogSize = 64 * 1024
 
+	if platform.IsWindows {
+		return nil, fmt.Errorf("btf: handle: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	if uint64(len(btf)) > math.MaxUint32 {
 		return nil, errors.New("BTF exceeds the maximum size")
 	}
 
 	attr := &sys.BtfLoadAttr{
-		Btf:     sys.NewSlicePointer(btf),
+		Btf:     sys.SlicePointer(btf),
 		BtfSize: uint32(len(btf)),
 	}
 
@@ -91,7 +96,7 @@ func NewHandleFromRawBTF(btf []byte) (*Handle, error) {
 
 		logBuf = make([]byte, logSize)
 		attr.BtfLogSize = logSize
-		attr.BtfLogBuf = sys.NewSlicePointer(logBuf)
+		attr.BtfLogBuf = sys.SlicePointer(logBuf)
 		attr.BtfLogLevel = 1
 	}
 
@@ -110,6 +115,10 @@ func NewHandleFromRawBTF(btf []byte) (*Handle, error) {
 //
 // Requires CAP_SYS_ADMIN.
 func NewHandleFromID(id ID) (*Handle, error) {
+	if platform.IsWindows {
+		return nil, fmt.Errorf("btf: handle: %w", internal.ErrNotSupportedOnOS)
+	}
+
 	fd, err := sys.BtfGetFdById(&sys.BtfGetFdByIdAttr{
 		Id: uint32(id),
 	})
@@ -133,7 +142,8 @@ func NewHandleFromID(id ID) (*Handle, error) {
 func (h *Handle) Spec(base *Spec) (*Spec, error) {
 	var btfInfo sys.BtfInfo
 	btfBuffer := make([]byte, h.size)
-	btfInfo.Btf, btfInfo.BtfSize = sys.NewSlicePointerLen(btfBuffer)
+	btfInfo.Btf = sys.SlicePointer(btfBuffer)
+	btfInfo.BtfSize = uint32(len(btfBuffer))
 
 	if err := sys.ObjInfo(h.fd, &btfInfo); err != nil {
 		return nil, err
@@ -204,7 +214,8 @@ func newHandleInfoFromFD(fd *sys.FD) (*HandleInfo, error) {
 	btfInfo.BtfSize = 0
 
 	nameBuffer := make([]byte, btfInfo.NameLen)
-	btfInfo.Name, btfInfo.NameLen = sys.NewSlicePointerLen(nameBuffer)
+	btfInfo.Name = sys.SlicePointer(nameBuffer)
+	btfInfo.NameLen = uint32(len(nameBuffer))
 	if err := sys.ObjInfo(fd, &btfInfo); err != nil {
 		return nil, err
 	}
@@ -242,6 +253,11 @@ type HandleIterator struct {
 // Returns true if another BTF object was found. Call [HandleIterator.Err] after
 // the function returns false.
 func (it *HandleIterator) Next() bool {
+	if platform.IsWindows {
+		it.err = fmt.Errorf("btf: %w", internal.ErrNotSupportedOnOS)
+		return false
+	}
+
 	id := it.ID
 	for {
 		attr := &sys.BtfGetNextIdAttr{Id: id}

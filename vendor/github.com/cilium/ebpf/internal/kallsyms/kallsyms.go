@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/platform"
 )
 
 var errAmbiguousKsym = errors.New("multiple kernel symbols with the same name")
@@ -49,7 +50,7 @@ func Module(name string) (string, error) {
 // Any symbols missing in the kernel are ignored. Returns an error if multiple
 // symbols with a given name were found.
 func AssignModules(symbols map[string]string) error {
-	if !internal.OnLinux {
+	if !platform.IsLinux {
 		return fmt.Errorf("read /proc/kallsyms: %w", internal.ErrNotSupportedOnOS)
 	}
 
@@ -168,7 +169,7 @@ func Address(symbol string) (uint64, error) {
 // Any symbols missing in the kernel are ignored. Returns an error if multiple
 // addresses were found for a symbol.
 func AssignAddresses(symbols map[string]uint64) error {
-	if !internal.OnLinux {
+	if !platform.IsLinux {
 		return fmt.Errorf("read /proc/kallsyms: %w", internal.ErrNotSupportedOnOS)
 	}
 
@@ -281,7 +282,7 @@ func parseSymbol(r *reader, types []rune) (s ksym, err error, skip bool) {
 			s.mod = strings.Trim(r.Text(), "[]")
 		// Ignore any future fields.
 		default:
-			break
+			return
 		}
 	}
 

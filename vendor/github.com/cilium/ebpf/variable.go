@@ -199,6 +199,10 @@ func (v *Variable) Set(in any) error {
 		return fmt.Errorf("variable %s: %w", v.name, ErrReadOnly)
 	}
 
+	if !v.mm.bounds(v.offset, v.size) {
+		return fmt.Errorf("variable %s: access out of bounds: %w", v.name, io.EOF)
+	}
+
 	buf, err := sysenc.Marshal(in, int(v.size))
 	if err != nil {
 		return fmt.Errorf("marshaling value %s: %w", v.name, err)

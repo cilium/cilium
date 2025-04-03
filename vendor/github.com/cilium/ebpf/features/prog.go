@@ -1,5 +1,3 @@
-//go:build linux
-
 package features
 
 import (
@@ -192,6 +190,15 @@ var haveProgramTypeMatrix = internal.FeatureMatrix[ebpf.ProgramType]{
 			})
 		},
 	},
+	ebpf.Netfilter: {
+		Version: "6.4",
+		Fn: func() error {
+			return probeProgram(&ebpf.ProgramSpec{
+				Type:       ebpf.Netfilter,
+				AttachType: ebpf.AttachNetfilter,
+			})
+		},
+	},
 }
 
 func init() {
@@ -263,6 +270,8 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 		spec.AttachType = ebpf.AttachSkLookup
 	case ebpf.Syscall:
 		spec.Flags = sys.BPF_F_SLEEPABLE
+	case ebpf.Netfilter:
+		spec.AttachType = ebpf.AttachNetfilter
 	}
 
 	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{

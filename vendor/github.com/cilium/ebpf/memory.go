@@ -89,7 +89,10 @@ func (mm *Memory) ReadOnly() bool {
 
 // bounds returns true if an access at off of the given size is within bounds.
 func (mm *Memory) bounds(off uint64, size uint64) bool {
-	return off+size < uint64(len(mm.b))
+	if off+size < off {
+		return false
+	}
+	return off+size <= uint64(len(mm.b))
 }
 
 // ReadAt implements [io.ReaderAt]. Useful for creating a new [io.OffsetWriter].

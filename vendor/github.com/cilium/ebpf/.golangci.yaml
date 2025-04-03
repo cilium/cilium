@@ -1,31 +1,38 @@
----
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - goimports
-    - gosimple
+    - depguard
     - govet
     - ineffassign
     - misspell
     - staticcheck
-    - typecheck
     - unused
+  settings:
+    staticcheck:
+      checks:
+        [
+          # Defaults
+          "all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022",
+          # Convert slice of bytes to string when printing it.
+          "-QF1010",
+        ]
+    depguard:
+      rules:
+        no-x-sys-unix:
+          files:
+            - '!**/internal/unix/*.go'
+            - '!**/examples/**/*.go'
+            - '!**/docs/**/*.go'
+          deny:
+            - pkg: golang.org/x/sys/unix
+              desc: use internal/unix instead
+
+formatters:
+  enable:
     - gofmt
-    - depguard
-linters-settings:
-  goimports:
-    # A comma-separated list of prefixes, which, if set, checks import paths
-    # with the given prefixes are grouped after 3rd-party packages.
-    # Default: ""
-    local-prefixes: github.com/cilium/ebpf
-  depguard:
-    rules:
-      no-x-sys-unix:
-        files:
-          # Filenames are matched against absolute paths, include **/ at the start.
-          - '!**/internal/unix/*.go'
-          - '!**/examples/**/*.go'
-          - '!**/docs/**/*.go'
-        deny:
-          - pkg: golang.org/x/sys/unix
-            desc: use internal/unix instead
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/cilium/ebpf

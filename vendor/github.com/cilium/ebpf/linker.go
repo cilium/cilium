@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/kallsyms"
+	"github.com/cilium/ebpf/internal/platform"
 )
 
 // handles stores handle objects to avoid gc cleanup
@@ -272,9 +273,11 @@ func fixupAndValidate(insns asm.Instructions) error {
 	return nil
 }
 
-// POISON_CALL_KFUNC_BASE in libbpf.
-// https://github.com/libbpf/libbpf/blob/2778cbce609aa1e2747a69349f7f46a2f94f0522/src/libbpf.c#L5767
-const kfuncCallPoisonBase = 2002000000
+// A constant used to poison calls to non-existent kfuncs.
+//
+// Similar POISON_CALL_KFUNC_BASE in libbpf, except that we use a value lower
+// than 2^28 to fit into a tagged constant.
+const kfuncCallPoisonBase = 0xdedc0de
 
 // fixupKfuncs loops over all instructions in search for kfunc calls.
 // If at least one is found, the current kernels BTF and module BTFis are searched to set Instruction.Constant
@@ -329,10 +332,12 @@ fixups:
 		if kfm.Binding == elf.STB_WEAK && errors.Is(err, btf.ErrNotFound) {
 			if ins.IsKfuncCall() {
 				// If the kfunc call is weak and not found, poison the call. Use a recognizable constant
-				// to make it easier to debug. And set src to zero so the verifier doesn't complain
-				// about the invalid imm/offset values before dead-code elimination.
-				ins.Constant = kfuncCallPoisonBase
-				ins.Src = 0
+				// to make it easier to debug.
+				fn, err := asm.BuiltinFuncForPlatform(platform.Native, kfuncCallPoisonBase)
+				if err != nil {
+					return nil, err
+				}
+				*ins = fn.Call()
 			} else if ins.OpCode.IsDWordLoad() {
 				// If the kfunc DWordLoad is weak and not found, set its address to 0.
 				ins.Constant = 0
