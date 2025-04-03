@@ -817,17 +817,6 @@ func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
 }
 
-// ConntrackNameLocked returns the name suffix for the endpoint-specific bpf
-// conntrack map, which is a 5-digit endpoint ID, or "global" when the
-// global map should be used.
-// Must be called with the endpoint locked.
-func (e *Endpoint) ConntrackNameLocked() string {
-	if e.ConntrackLocalLocked() {
-		return fmt.Sprintf("%05d", int(e.ID))
-	}
-	return "global"
-}
-
 // StringID returns the endpoint's ID in a string.
 func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
@@ -922,26 +911,6 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 		e.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
 	}
 	e.UpdateLogger(nil)
-}
-
-// ConntrackLocal determines whether this endpoint is currently using a local
-// table to handle connection tracking (true), or the global table (false).
-func (e *Endpoint) ConntrackLocal() bool {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	return e.ConntrackLocalLocked()
-}
-
-// ConntrackLocalLocked is the same as ConntrackLocal, but assumes that the
-// endpoint is already locked for reading.
-func (e *Endpoint) ConntrackLocalLocked() bool {
-	if e.SecurityIdentity == nil || e.Options == nil ||
-		!e.Options.IsEnabled(option.ConntrackLocal) {
-		return false
-	}
-
-	return true
 }
 
 // base64 returns the endpoint in a base64 format.
@@ -1326,9 +1295,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 		trigger.Shutdown()
 	}
 
-	if e.ConntrackLocalLocked() {
-		ctmap.CloseLocalMaps(e.ConntrackNameLocked())
-	} else if !e.isProperty(PropertyFakeEndpoint) {
+	if !e.isProperty(PropertyFakeEndpoint) {
 		e.scrubIPsInConntrackTableLocked()
 	}
 

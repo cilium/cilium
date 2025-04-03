@@ -23,10 +23,9 @@ import (
 // bpfCtListCmd represents the bpf_ct_list command
 var (
 	bpfCtListCmd = &cobra.Command{
-		Use:     "list ( global | endpoint | cluster ) [identifier]",
+		Use:     "list ( global | cluster <identifier> )",
 		Aliases: []string{"ls"},
 		Short:   "List connection tracking entries",
-		PreRun:  requireEndpointIDorGlobal,
 		Run: func(cmd *cobra.Command, args []string) {
 			t, id, err := parseArgs(args)
 			if err != nil {
@@ -60,15 +59,6 @@ func parseArgs(args []string) (string, uint32, error) {
 	switch t {
 	case "global":
 		return t, 0, nil
-	case "endpoint":
-		if len(args) != 2 {
-			return "", 0, fmt.Errorf("missing endpointID")
-		}
-		id, err := strconv.ParseUint(args[1], 10, 32)
-		if err != nil {
-			return "", 0, fmt.Errorf("invalid endpointID: %w", err)
-		}
-		return t, uint32(id), nil
 	case "cluster":
 		if len(args) != 2 {
 			return "", 0, fmt.Errorf("missing clusterID")
@@ -92,9 +82,6 @@ func getMaps(t string, id uint32) []ctmap.CtMap {
 	ipv4, ipv6 := getIpEnableStatuses()
 	if t == "global" {
 		m = ctmap.GlobalMaps(ipv4, ipv6)
-	}
-	if t == "endpoint" {
-		m = ctmap.LocalMaps(&dummyEndpoint{ID: int(id)}, true, true)
 	}
 	if t == "cluster" {
 		// Ignoring the error, as we already validated the cluster ID.

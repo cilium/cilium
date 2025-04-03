@@ -194,9 +194,6 @@ type EndpointManager interface {
 	// manager as policy.Endpoint interface set for the map key.
 	GetPolicyEndpoints() map[policy.Endpoint]struct{}
 
-	// HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
-	HasGlobalCT() bool
-
 	// CallbackForEndpointsAtPolicyRev registers a callback on all endpoints that
 	// exist when invoked. It is similar to WaitForEndpointsAtPolicyRevision but
 	// each endpoint that reaches the desired revision calls 'done' independently.

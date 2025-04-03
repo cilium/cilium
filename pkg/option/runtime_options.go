@@ -6,7 +6,6 @@ package option
 const (
 	PolicyTracing        = "PolicyTracing"
 	ConntrackAccounting  = "ConntrackAccounting"
-	ConntrackLocal       = "ConntrackLocal"
 	Debug                = "Debug"
 	DebugLB              = "DebugLB"
 	DebugPolicy          = "DebugPolicy"
@@ -28,13 +27,6 @@ var (
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
 		Requires:    nil,
-	}
-
-	specConntrackLocal = Option{
-		Define:      "CONNTRACK_LOCAL",
-		Description: "Use endpoint dedicated tracking table instead of global one",
-		Requires:    nil,
-		Deprecated:  true,
 	}
 
 	specDebug = Option{

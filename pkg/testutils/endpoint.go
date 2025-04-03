@@ -57,8 +57,6 @@ func NewTestHostEndpoint() TestEndpoint {
 	}
 }
 
-func (e *TestEndpoint) ConntrackLocalLocked() bool { return false }
-
 func (e *TestEndpoint) RequireARPPassthrough() bool { return false }
 
 func (e *TestEndpoint) RequireEgressProg() bool { return false }

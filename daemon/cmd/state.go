@@ -290,7 +290,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 
 	// Before regenerating, check whether the CT map has properties that
 	// match this Cilium userspace instance. If not, it must be removed
-	ctmap.DeleteIfUpgradeNeeded(nil)
+	ctmap.DeleteIfUpgradeNeeded()
 
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
@@ -305,11 +305,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	// endpoint list.
 	for i := len(state.restored) - 1; i >= 0; i-- {
 		ep := state.restored[i]
-		// If the endpoint has local conntrack option enabled, then
-		// check whether the CT map needs upgrading (and do so).
-		if ep.Options.IsEnabled(option.ConntrackLocal) {
-			ctmap.DeleteIfUpgradeNeeded(ep)
-		}
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,

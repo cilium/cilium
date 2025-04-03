@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -757,69 +756,6 @@ func TestRemove(t *testing.T) {
 		mgr.RemoveAll(t)
 		require.Empty(t, mgr.endpoints, "Test Name: %s", tt.name)
 		require.Empty(t, mgr.endpointsAux, "Test Name: %s", tt.name)
-		tt.postTestRun()
-	}
-}
-
-func TestHasGlobalCT(t *testing.T) {
-	s := setupEndpointManagerSuite(t)
-
-	mgr := New(&dummyEpSyncher{}, nil, nil, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
-	type want struct {
-		result bool
-	}
-	tests := []struct {
-		name        string
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
-	}{
-		{
-			name: "Endpoint with Conntrack global",
-			preTestRun: func() {
-				ep.ID = 1
-				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				require.NoError(t, mgr.expose(ep))
-			},
-			setupWant: func() want {
-				return want{
-					result: true,
-				}
-			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
-				ep.ID = 0
-				ep.Options = nil
-			},
-		},
-		{
-			name: "Endpoint with Conntrack local",
-			preTestRun: func() {
-				ep.ID = 1
-				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				ep.Options.SetIfUnset(option.ConntrackLocal, option.OptionEnabled)
-				require.NoError(t, mgr.expose(ep))
-			},
-			setupWant: func() want {
-				return want{
-					result: false,
-				}
-			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
-				ep.ID = 0
-				ep.Options = nil
-			},
-		},
-	}
-	for _, tt := range tests {
-		tt.preTestRun()
-		want := tt.setupWant()
-		got := mgr.HasGlobalCT()
-		require.Equal(t, want.result, got, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }

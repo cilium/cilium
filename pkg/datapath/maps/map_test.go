@@ -24,10 +24,6 @@ func (tm *testEPManager) EndpointExists(id uint16) bool {
 	return exists
 }
 
-func (tm *testEPManager) HasGlobalCT() bool {
-	return false
-}
-
 func (tm *testEPManager) RemoveDatapathMapping(id uint16) error {
 	tm.removedMappings = append(tm.removedMappings, int(id))
 	return nil

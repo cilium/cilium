@@ -626,17 +626,6 @@ func (mgr *endpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	}
 }
 
-// HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
-func (mgr *endpointManager) HasGlobalCT() bool {
-	eps := mgr.GetEndpoints()
-	for _, e := range eps {
-		if !e.Options.IsEnabled(option.ConntrackLocal) {
-			return true
-		}
-	}
-	return false
-}
-
 // GetEndpoints returns a slice of all endpoints present in endpoint manager.
 func (mgr *endpointManager) GetEndpoints() []*endpoint.Endpoint {
 	mgr.mutex.RLock()

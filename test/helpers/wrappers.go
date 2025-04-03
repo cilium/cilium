@@ -36,35 +36,10 @@ const (
 	UDP_RR = PerfTest("UDP_RR")
 )
 
-// PingWithCount returns the string representing the ping command to ping the
-// specified endpoint, and takes a custom number of requests to send.
-func PingWithCount(endpoint string, count uint) string {
-	return fmt.Sprintf("ping -W %d -c %d %s", PingTimeout, count, endpoint)
-}
-
 // Ping returns the string representing the ping command to ping the specified
 // endpoint.
 func Ping(endpoint string) string {
-	return PingWithCount(endpoint, PingCount)
-}
-
-// Ping6 returns the string representing the ping6 command to ping6 the
-// specified endpoint.
-func Ping6(endpoint string) string {
-	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
-}
-
-func Ping6WithID(endpoint string, icmpID uint16) string {
-	return fmt.Sprintf("xping -6 -W %d -c %d -x %d %s", PingTimeout, PingCount, icmpID, endpoint)
-}
-
-func PingWithID(endpoint string, icmpID uint16) string {
-	return fmt.Sprintf("xping -W %d -c %d -x %d %s", PingTimeout, PingCount, icmpID, endpoint)
-}
-
-// Wrk runs a standard wrk test for http
-func Wrk(endpoint string) string {
-	return fmt.Sprintf("wrk -t2 -c100 -d30s -R2000 http://%s", endpoint)
+	return fmt.Sprintf("ping -W %d -c %d %s", PingTimeout, PingCount, endpoint)
 }
 
 // CurlFail returns the string representing the curl command with `-s` and
@@ -144,27 +119,10 @@ func CurlTimeout(endpoint string, timeout time.Duration, optionalValues ...inter
 		timeout, timeout, endpoint, statsInfo)
 }
 
-// Netperf returns the string representing the netperf command to use when testing
-// connectivity between endpoints.
-func Netperf(endpoint string, perfTest PerfTest, options string) string {
-	return fmt.Sprintf("netperf -l 3 -t %s -H %s %s", perfTest, endpoint, options)
-}
-
 // SuperNetperf returns the string representing the super_netperf command to use when
 // testing connectivity between endpoints.
 func SuperNetperf(sessions int, endpoint string, perfTest PerfTest, options string) string {
 	return fmt.Sprintf("super_netperf %d -t %s -H %s %s", sessions, perfTest, endpoint, options)
-}
-
-// Netcat returns the string representing the netcat command to the specified
-// endpoint. It takes a variadic optionalValues arguments, This is passed to
-// fmt.Sprintf uses in the netcat message. See note about optionalValues on
-// CurlFail().
-func Netcat(endpoint string, optionalValues ...interface{}) string {
-	if len(optionalValues) > 0 {
-		endpoint = fmt.Sprintf(endpoint, optionalValues...)
-	}
-	return fmt.Sprintf("nc -w 4 %s", endpoint)
 }
 
 // PythonBind returns the string representing a python3 command which will try

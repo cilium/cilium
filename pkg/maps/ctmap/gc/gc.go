@@ -4,7 +4,6 @@
 package gc
 
 import (
-	"fmt"
 	"net/netip"
 	"os"
 	stdtime "time"
@@ -174,15 +173,7 @@ func (gc *GC) Enable() {
 
 			if len(eps) > 0 || initialScan {
 				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, gcFilter)
-			}
-			for _, e := range eps {
-				if !e.ConntrackLocal() {
-					// Skip because GC was handled above.
-					continue
-				}
-				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, gcFilter)
-				success = success && epSuccess
+				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
@@ -270,28 +261,19 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 	return gc.observable6
 }
 
-// runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
-// the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
-// map. `filter` represents the filter type to be used while looping all CT
-// entries.
+// runGC run CT's garbage collector for the global map.
 //
-// The provided endpoint is optional; if it is provided, then its map will be
-// garbage collected and any failures will be logged to the endpoint log.
-// Otherwise it will garbage-collect the global map and use the global log.
-func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
-	var maps []*ctmap.Map
+// If `isIPv6` is set specifies that is the IPv6 map. `filter` represents the
+// filter type to be used while looping all CT entries.
+func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	success = true
 
-	if e == nil {
-		maps = ctmap.GlobalMaps(ipv4, ipv6)
+	maps := ctmap.GlobalMaps(ipv4, ipv6)
 
-		// We treat per-cluster CT Maps as global maps. When we don't enable
-		// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
-		if gc.perClusterCTMapsRetriever != nil {
-			maps = append(maps, gc.perClusterCTMapsRetriever()...)
-		}
-	} else {
-		maps = ctmap.LocalMaps(e, ipv4, ipv6)
+	// We treat per-cluster CT Maps as global maps. When we don't enable
+	// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
+	if gc.perClusterCTMapsRetriever != nil {
+		maps = append(maps, gc.perClusterCTMapsRetriever()...)
 	}
 	for _, m := range maps {
 		path, err := ctmap.OpenCTMap(m)
@@ -303,9 +285,6 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 				scopedLog.Debug(msg)
 			} else {
 				scopedLog.Warn(msg)
-			}
-			if e != nil {
-				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("%s: %s", msg, err))
 			}
 			continue
 		}
@@ -329,7 +308,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		}
 	}
 
-	if e == nil && triggeredBySignal {
+	if triggeredBySignal {
 		vsns := []ctmap.CTMapIPVersion{}
 		if ipv4 {
 			vsns = append(vsns, ctmap.CTMapIPv4)
