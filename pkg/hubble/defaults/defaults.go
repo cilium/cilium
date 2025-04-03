@@ -16,6 +16,9 @@ const (
 	// GRPCServiceName is the name of the Hubble gRPC service.
 	GRPCServiceName = "hubble-grpc"
 
+	// GRPCMetadataServerVersionKey is the name of the server version metadata key.
+	GRPCMetadataServerVersionKey = "server-version"
+
 	// DomainName specifies the domain name to use when constructing the server
 	// name for peer change notifications.
 	DomainName = "cilium.io"

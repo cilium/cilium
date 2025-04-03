@@ -41,6 +41,9 @@ const (
 	// PeerUpdateInterval is the time interval in which relay is checking for
 	// newly joined peers for long running requests
 	PeerUpdateInterval = 2 * time.Second
+
+	// GRPCMetadataRelayVersionKey is the name of the relay version metadata key.
+	GRPCMetadataRelayVersionKey = "relay-version"
 )
 
 var (
