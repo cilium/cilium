@@ -58,8 +58,8 @@ ifeq ($(DOCKER_IMAGE_TAG),)
 endif
 
 # renovate: datasource=docker depName=gcr.io/etcd-development/etcd
-ETCD_IMAGE_VERSION = v3.5.20
-ETCD_IMAGE_SHA = sha256:343b75e5cecd4e9a7471d74f89d72d1c491dc209b2c1fe9a5e827e9b3449603c
+ETCD_IMAGE_VERSION = v3.5.21
+ETCD_IMAGE_SHA = sha256:fd158fbe55240e252947bbd2e8dddc217997ff43978071fac2bd202b6ad15c03
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
 CONSUL_IMAGE=consul:1.7.2
