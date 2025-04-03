@@ -139,12 +139,6 @@ func InitMapInfo(v4, v6, nodeport bool) {
 	}
 }
 
-// CtEndpoint represents an endpoint for the functions required to manage
-// conntrack maps for the endpoint.
-type CtEndpoint interface {
-	GetID() uint64
-}
-
 // Map represents an instance of a BPF connection tracking map.
 // It also implements the CtMap interface.
 type Map struct {
@@ -158,8 +152,6 @@ type Map struct {
 }
 
 // GCFilter contains the necessary fields to filter the CT maps.
-// Filtering by endpoint requires both EndpointID to be > 0 and
-// EndpointIP to be not nil.
 type GCFilter struct {
 	// RemoveExpired enables removal of all entries that have expired
 	RemoveExpired bool
@@ -639,8 +631,8 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 // removed from the filesystem. The old map will only be completely cleaned up
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
-func DeleteIfUpgradeNeeded(e CtEndpoint) {
-	for _, newMap := range maps(e, true, true) {
+func DeleteIfUpgradeNeeded() {
+	for _, newMap := range maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
 			log.WithError(err).Warning("Failed to get path for CT map")
@@ -663,43 +655,19 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 	}
 }
 
-// maps returns all connecting tracking maps associated with endpoint 'e' (or
-// the global maps if 'e' is nil).
-func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
+// maps returns the global connection tracking maps.
+// protocol will not be returned.
+func maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
-	if e == nil {
-		if ipv4 {
-			result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
-			result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
-		}
-		if ipv6 {
-			result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
-			result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
-		}
-	} else {
-		if ipv4 {
-			result = append(result, newMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
-				mapTypeIPv4TCPLocal))
-			result = append(result, newMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
-				mapTypeIPv4AnyLocal))
-		}
-		if ipv6 {
-			result = append(result, newMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
-				mapTypeIPv6TCPLocal))
-			result = append(result, newMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
-				mapTypeIPv6AnyLocal))
-		}
+	if ipv4 {
+		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
+		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
+	}
+	if ipv6 {
+		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
+		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
 	}
 	return result
-}
-
-// LocalMaps returns a slice of CT maps for the endpoint, which are local to
-// the endpoint and not shared with other endpoints. If ipv4 or ipv6 are false,
-// the maps for that protocol will not be returned.
-//
-// The returned maps are not yet opened.
-func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
-	return maps(e, ipv4, ipv6)
 }
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
@@ -708,25 +676,14 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(nil, ipv4, ipv6)
+	return maps(ipv4, ipv6)
 }
 
-// NameIsGlobal returns true if the specified filename (basename) denotes a
-// global conntrack map.
-func NameIsGlobal(filename string) bool {
-	switch filename {
-	case MapNameTCP4Global, MapNameAny4Global, MapNameTCP6Global, MapNameAny6Global:
-		return true
-	}
-	return false
-}
-
-// WriteBPFMacros writes the map names for conntrack maps into the specified
-// writer, defining usage of the global map or local maps depending on whether
-// the specified CtEndpoint is nil.
-func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
+// WriteBPFMacros writes the map names for the global conntrack maps into the
+// specified writer.
+func WriteBPFMacros(fw io.Writer) {
 	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range maps(e, true, true) {
+	for _, m := range maps(true, true) {
 		if m.mapType.isTCP() {
 			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
@@ -737,12 +694,11 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
 }
 
-// Exists returns false if the CT maps for the specified endpoint (or global
-// maps if nil) are not pinned to the filesystem, or true if they exist or
-// an internal error occurs.
-func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
+// Exists returns false if the global CT maps are not pinned to the filesystem,
+// or true if they exist or an internal error occurs.
+func Exists(ipv4, ipv6 bool) bool {
 	result := true
-	for _, m := range maps(e, ipv4, ipv6) {
+	for _, m := range maps(ipv4, ipv6) {
 		path, err := m.Path()
 		if err != nil {
 			// Catch this error early

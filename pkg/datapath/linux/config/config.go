@@ -620,7 +620,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	ctmap.WriteBPFMacros(fw, nil)
+	ctmap.WriteBPFMacros(fw)
 
 	if option.Config.AllowICMPFragNeeded {
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"

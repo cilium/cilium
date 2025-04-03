@@ -5,7 +5,7 @@
 Flush all connection tracking entries
 
 ```
-cilium-dbg bpf ct flush ( <endpoint identifier> | global ) [flags]
+cilium-dbg bpf ct flush global [flags]
 ```
 
 ### Options
