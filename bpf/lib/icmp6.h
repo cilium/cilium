@@ -95,7 +95,7 @@ int icmp6_ndisc_adv_addopt(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u64 *opt;
 
-	if (ctx_change_tail(ctx, ctx_full_len(ctx) + ICMP6_ND_OPT_LEN, 0) < 0)
+	if (ctx_change_tail(ctx, (__u32)(ctx_full_len(ctx) + ICMP6_ND_OPT_LEN), 0) < 0)
 		return DROP_INVALID;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
