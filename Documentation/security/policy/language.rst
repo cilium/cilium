@@ -1046,6 +1046,10 @@ latter rule will have no effect.
           When Envoy is embedded in the agent pod, Layer 7 traffic targeted by policies
           will therefore depend on the availability of the Cilium agent pod.
 
+.. note:: :ref:`EnableDefaultDeny <policy_mode_default>` does not apply to layer-7 rules.
+   If using a layer 7 rule in concert with ``EnableDefaultDeny``, the rule should
+   allow all layer-7 traffic.
+
 HTTP
 ----
 
