@@ -85,7 +85,7 @@ vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
 	if (udp->check) {
 		csum_l4_offset_and_flags(IPPROTO_UDP, &csum);
 		if (csum_l4_replace(ctx, l4_off, &csum, old_vni, vx->vx_vni,
-				    BPF_F_PSEUDO_HDR | sizeof(__u16)) < 0)
+				    sizeof(__u16)) < 0)
 			return false;
 	}
 
