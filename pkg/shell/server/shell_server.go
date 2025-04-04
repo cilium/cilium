@@ -82,8 +82,9 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 		}
 		sh.jg.Add(job.OneShot(
 			fmt.Sprintf("shell-%d", connCount),
-			func(ctx context.Context, _ cell.Health) error {
+			func(ctx context.Context, h cell.Health) error {
 				sh.handleConn(ctx, conn)
+				h.Close() // remove from health list
 				sh.log.Info("exited")
 				return nil
 			}))
