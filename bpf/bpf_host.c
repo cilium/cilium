@@ -1986,7 +1986,8 @@ int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
 		if (IS_ERR(ret))
 			goto drop_err;
 
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+		local_delivery_fill_meta(ctx, src_sec_identity, false,
+					 true, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
 
 drop_err:
