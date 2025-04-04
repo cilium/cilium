@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium.
 /// Prevent passing 0 as a value for monitor to send_trace_notify() when
-/// reason is TRACE_REASON_ENCRYPTED, because encrypted packets cannot be
+/// flag is TRACE_FLAG_ENCRYPTED, because encrypted packets cannot be
 /// aggregated due to a lack of connection tracking information.
 // Confidence: Medium
 // Comments:
@@ -20,17 +20,10 @@ expression m != 0;
 position p;
 @@
 
-(
-  send_trace_notify@f(e1, e2, e3, e4, e5, e6,
-  TRACE_REASON_ENCRYPTED,
-- m@p);
-+ 0);
-|
-  \(send_trace_notify4@f\|send_trace_notify6@f\)(e1, e2, e3, e4, e5, e6, e7,
-  TRACE_REASON_ENCRYPTED,
-- m@p);
-+ 0);
-)
+send_trace_notify_with_flags@f(e1, e2, e3, e4, e5, e6, e7,
+- m@p,
++ 0,
+  TRACE_FLAG_ENCRYPTED);
 
 
 @script:python@
@@ -39,7 +32,7 @@ f << pass_monitor.f;
 m << pass_monitor.m;
 @@
 
-print("* file %s: %s() has non-zero value as monitor argument for TRACE_REASON_ENCRYPTED on line %s, zero instead" % (p[0].file, f, p[0].line))
+print("* file %s: %s() has non-zero value as monitor argument for TRACE_FLAG_ENCRYPTED on line %s, zero instead" % (p[0].file, f, p[0].line))
 cnt += 1
 
 
@@ -51,23 +44,23 @@ position p;
 
 (
   struct trace_ctx tc = {
-    .reason = TRACE_REASON_ENCRYPTED,
 -   .monitor = m@p,
 +   .monitor = 0,
+    .flags = TRACE_FLAG_ENCRYPTED,
     ...
   };
 |
   struct trace_ctx tc = ...;
   ... when != return ...;
-  tc.reason = TRACE_REASON_ENCRYPTED;
 - tc.monitor = m@p;
 + tc.monitor = 0;
+  tc.flags = TRACE_FLAG_ENCRYPTED;
 |
   struct trace_ctx *tc;
   ... when != return ...;
-  tc->reason = TRACE_REASON_ENCRYPTED;
 - tc->monitor = m@p;
 + tc->monitor = 0;
+  tc->flags = TRACE_FLAG_ENCRYPTED;
 )
 
 
@@ -77,7 +70,7 @@ tc << declare_ctx.tc;
 m << declare_ctx.m;
 @@
 
-print("* file %s: '%s' gets 'TRACE_REASON_ENCRYPTED' as trace reason and '%s' as monitor on line %s, use zero for monitor instead" % (p[0].file, tc, m, p[0].line))
+print("* file %s: '%s' gets 'TRACE_FLAG_ENCRYPTED' as trace flag and '%s' as monitor on line %s, use zero for monitor instead" % (p[0].file, tc, m, p[0].line))
 cnt += 1
 
 

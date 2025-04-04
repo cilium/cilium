@@ -34,6 +34,9 @@ const (
 	// TraceNotifyFlagIsL3Device is set in TraceNotify.Flags when the
 	// notification refers to a L3 device.
 	TraceNotifyFlagIsL3Device
+	// TraceNotifyFlagIsEncrypted is set in TraceNotify.Flags when the
+	// notification refers to an encrypted network packet.
+	TraceNotifyFlagIsEncrypted
 )
 
 const (
@@ -90,13 +93,13 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 // IsEncrypted returns true when the notification has the encrypt flag set,
 // false otherwise.
 func (n *TraceNotifyV0) IsEncrypted() bool {
-	return (n.Reason & TraceReasonEncryptMask) != 0
+	return (n.Flags & TraceNotifyFlagIsEncrypted) != 0
 }
 
 // TraceReason returns the trace reason for this notification, see the
 // TraceReason* constants.
 func (n *TraceNotifyV0) TraceReason() uint8 {
-	return n.Reason & ^TraceReasonEncryptMask
+	return n.Reason
 }
 
 // TraceReasonIsKnown returns false when the trace reason is unknown, true
@@ -176,8 +179,6 @@ const (
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
 	TraceReasonEncryptOverlay
-	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
-	TraceReasonEncryptMask = uint8(0x80)
 )
 
 /* keep in sync with api/v1/flow/flow.proto */

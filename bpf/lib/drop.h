@@ -32,9 +32,7 @@ struct drop_notify {
 	__u8		file;
 	__s8		ext_error;
 	__u32		ifindex;
-	__u8		ipv6:1;
-	__u8		l3_dev:1;
-	__u8		pad1:6;
+	__u8		flags;
 	__u8		pad2[3];
 };
 
@@ -47,7 +45,7 @@ struct drop_notify {
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |                       Destination Label                       |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |  Error Code   | Extended Error|            Unused             |
+ *     |  Error Code   | Extended Error|      Flags     |    Unused    |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |             Designated Destination Endpoint ID                |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -59,7 +57,6 @@ struct drop_notify {
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
-	bool l3_dev = false, ipv6 = false;
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -83,13 +80,6 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
-#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
-		l3_dev = true;
-		ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
-	}
-#endif
-
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
@@ -100,8 +90,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
-		.ipv6           = ipv6,
-		.l3_dev         = l3_dev,
+		.flags          = (__u8)(error >> 16),
 	};
 
 	ctx_event_output(ctx, &cilium_events,
@@ -193,6 +182,11 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
 
+#define __DROP_REASON_EXT_FLAGS(err, ext_err, ctx, flags) ({ \
+	flags = ((__u8)(flags) | __get_common_trace_flags(ctx)); \
+	__DROP_REASON_EXT(err, ext_err) | (flags << 16); \
+})
+
 #define send_drop_notify(ctx, src, dst, dst_id, reason, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
 			  __DROP_REASON(reason), CTX_ACT_DROP, direction)
@@ -209,6 +203,7 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), CTX_ACT_DROP, direction)
 
-#define send_drop_notify_error_with_exitcode_ext(ctx, src, reason, ext_err, exitcode, direction) \
+#define send_drop_notify_error_with_exitcode_ext_flags(ctx, src, reason, ext_err, \
+				exitcode, direction, flags) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+			  __DROP_REASON_EXT_FLAGS(reason, ext_err, ctx, flags), exitcode, direction)
