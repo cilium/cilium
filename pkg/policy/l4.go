@@ -963,7 +963,7 @@ func createL4Filter(logger *slog.Logger, policyCtx PolicyContext, peerEndpoints 
 	pr := rule.GetPortRule()
 	if pr != nil {
 		rules = pr.Rules
-		sni = pr.ServerNames
+		sni = pr.GetServerNames()
 
 		// Get TLS contexts, if any
 		var err error

@@ -21,6 +21,21 @@ func Render(temp string, data any) (string, error) {
 				return ipString + "/32" // otherwise assume IPv4
 			}
 		},
+		"wildcardPrefix": func(in string, times int) string {
+			if times <= 0 {
+				return in
+			}
+			labels := strings.Split(in, ".")
+			res := make([]string, len(labels))
+			for i := range labels {
+				if i < times {
+					res[i] = "*"
+				} else {
+					res[i] = labels[i]
+				}
+			}
+			return strings.Join(res, ".")
+		},
 	}
 
 	tm, err := template.New("template").Funcs(fns).Parse(temp)

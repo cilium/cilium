@@ -49,6 +49,31 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			}
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
+
+	yamlFile = templates["clientEgressTLSSNIWildcardPolicyYAML"]
+	newTest(fmt.Sprintf("%s-wildcard", testName), ct).
+		WithCiliumVersion(">=1.18.0").
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+		WithScenarios(tests.PodToWorld()).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Port() == 443 {
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	yamlFile = templates["clientEgressTLSSNIWildcardPolicyYAML"]
+	newTest(fmt.Sprintf("%s-wildcard-denied", testName), ct).
+		WithCiliumVersion(">=1.18.0").
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+		WithScenarios(tests.PodToWorld2()).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
 }
 
 func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]string) {
