@@ -145,7 +145,7 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute,HTTPRouteRequestPercentageMirror"
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
           if [ "${{ matrix.crd-channel }}" == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
@@ -299,7 +299,6 @@ jobs:
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
               --all-features \
-              --exempt-features "HTTPRouteRequestPercentageMirror" \
               --skip-tests "${{ steps.vars.outputs.skipped_tests }}" \
               --allow-crds-mismatch \
               --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
