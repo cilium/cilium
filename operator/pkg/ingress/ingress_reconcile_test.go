@@ -428,7 +428,7 @@ func TestReconcile(t *testing.T) {
 		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
-	t.Run("Reconcile of non Cilium Ingress will cleanup any potentially existing resources (dedicated and shared) and reset the Ingress status", func(t *testing.T) {
+	t.Run("Reconcile of non Cilium Ingress will cleanup any potentially existing resources (dedicated and shared)", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(testScheme()).
 			WithObjects(
@@ -524,7 +524,7 @@ func TestReconcile(t *testing.T) {
 		ingress := networkingv1.Ingress{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "test"}, &ingress)
 		require.NoError(t, err)
-		require.Empty(t, ingress.Status.LoadBalancer.Ingress, "Loadbalancer status of Ingress should be reset")
+		require.NotEmpty(t, ingress.Status.LoadBalancer.Ingress, "Loadbalancer status of Ingress should not be changed (its up to the new owning Ingress Controller to update it accordingly)")
 	})
 
 	t.Run("Reconcile of dedicated Cilium Ingress with loadbalancer class will create the dedicated loadbalancer service with the specified class", func(t *testing.T) {

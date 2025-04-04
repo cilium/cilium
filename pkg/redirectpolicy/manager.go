@@ -601,9 +601,9 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 				continue
 			}
 			if config.skipRedirectFromBackend {
-				if be.AddrCluster.Is4() {
+				if be.AddrCluster.Is4() && option.Config.EnableIPv4 {
 					rpm.skipLBMap.DeleteLB4ByNetnsCookie(be.podNetnsCookie)
-				} else {
+				} else if option.Config.EnableIPv6 {
 					rpm.skipLBMap.DeleteLB6ByNetnsCookie(be.podNetnsCookie)
 				}
 			}
@@ -628,9 +628,9 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 	if config.skipRedirectFromBackend {
 		// Delete skip_lb map entries.
 		addr := frontend.AddrCluster
-		if addr.Is4() {
+		if addr.Is4() && option.Config.EnableIPv4 {
 			rpm.skipLBMap.DeleteLB4ByAddrPort(addr.AsNetIP(), frontend.Port)
-		} else {
+		} else if option.Config.EnableIPv6 {
 			rpm.skipLBMap.DeleteLB6ByAddrPort(addr.AsNetIP(), frontend.Port)
 		}
 	}
@@ -717,11 +717,11 @@ func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
 			return fmt.Errorf("no valid pod netns cookie")
 		}
 		addr := mapping.feAddr
-		if addr.AddrCluster.Is4() {
+		if addr.AddrCluster.Is4() && option.Config.EnableIPv4 {
 			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb4 map: %w", err)
 			}
-		} else {
+		} else if option.Config.EnableIPv6 {
 			if err := rpm.skipLBMap.AddLB6(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb6 map: %w", err)
 			}

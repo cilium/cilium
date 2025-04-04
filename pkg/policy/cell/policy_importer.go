@@ -339,14 +339,8 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 		idsToRegen.Merge(*regen)
 
 		// Report that the policy has been inserted in to the repository.
-		// Paranoia: only do so if this will never block.
 		if upd.DoneChan != nil {
-			select {
-			case upd.DoneChan <- endRevision:
-			default:
-				// should never happen
-				i.log.Warn("BUG: failed to deliver policy apply update notification")
-			}
+			upd.DoneChan <- endRevision
 		}
 
 		// Send a policy update notification

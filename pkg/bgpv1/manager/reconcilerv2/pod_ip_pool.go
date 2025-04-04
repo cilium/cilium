@@ -263,7 +263,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicies(p ReconcileParams, pool *v2al
 		for family, adverts := range afAdverts {
 			fam := types.ToAgentFamily(family)
 			for _, advert := range adverts {
-				policy, err := r.getPodIPPoolPolicy(p, peer, fam, pool, advert, lp)
+				policy, err := r.getPodIPPoolPolicy(peer, fam, pool, advert, lp)
 				if err != nil {
 					return nil, err
 				}
@@ -349,14 +349,13 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 	return desiredFamilyAdverts, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2alpha1.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
-	// get the peer address
-	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer address: %w", err)
-	}
-	if !peerAddrExists {
+func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2alpha1.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
+	if peer.Address == "" {
 		return nil, nil
+	}
+	peerAddr, err := netip.ParseAddr(peer.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse peer address: %w", err)
 	}
 
 	// check if the pool selector matches the advertisement
@@ -403,7 +402,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string,
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, pool.Name)
+	policyName := PolicyName(peer.Name, family.Afi.String(), advert.AdvertisementType, pool.Name)
 	return CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 }
 
