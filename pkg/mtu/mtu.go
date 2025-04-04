@@ -62,6 +62,17 @@ const (
 	//                                 ---
 	//      Total extra bytes:         80B
 	WireguardOverhead = 80
+
+	// IPIPv4Overhead is the overhead for the IPv4 header used in IPIP devices.
+	// sizeof(struct iphdr)
+	IPIPv4Overhead = 20
+
+	// IPIPv6Overhead is the overhead for the IPv6 header (40B) as well as tunnel
+	// encap limit option used in IP6IP6 devices.
+	// sizeof(struct ipv6hdr) + 8
+	// See kernel commit 381601e5bbae ("Make the ip6_tunnel reflect the true mtu.")
+	// for details.
+	IPIPv6Overhead = 48
 )
 
 // Configuration is an MTU configuration as returned by NewConfiguration
@@ -109,6 +120,9 @@ func (c *Configuration) getRoutePostEncryptMTU(baseMTU int) int {
 // GetRouteMTU returns the MTU to be used on the network. When running in
 // tunneling mode and/or with encryption enabled, this will have tunnel and
 // encryption overhead accounted for.
+//
+// Note that IPIPv4Overhead and IPIPv6Overhead is not considered in getRouteMTU
+// today since Pod E/W traffic does not go through these devices today.
 func (c *Configuration) getRouteMTU(baseMTU int) int {
 	if c.wireguardEnabled {
 		if c.encapEnabled {
