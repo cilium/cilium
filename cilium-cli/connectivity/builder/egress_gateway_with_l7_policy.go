@@ -39,7 +39,7 @@ func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates m
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithFeatureRequirements(
-			features.RequireEnabled(features.EgressGateway),
+			features.RequireEnabled(features.EgressGateway4),
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.NodeWithoutCilium),
 		).
