@@ -12,6 +12,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -45,6 +46,7 @@ type proxyParams struct {
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
+	SDPPolicyUpdater      *service.FQDNDataServer
 }
 
 func newProxy(params proxyParams) *Proxy {
@@ -56,7 +58,7 @@ func newProxy(params proxyParams) *Proxy {
 		return nil
 	}
 
-	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.SDPPolicyUpdater)
 
 	triggerDone := make(chan struct{})
 

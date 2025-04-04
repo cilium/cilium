@@ -436,9 +436,6 @@ const (
 	// EnableStandaloneDNSProxy is the name of the option to enable standalone DNS proxy
 	EnableStandaloneDNSProxy = "enable-standalone-dns-proxy"
 
-	// EnableEmbeddedDNSProxy is the name of the option to enable/disable embedded DNS proxy
-	EnableEmbeddedDNSProxy = "enable-embedded-dns-proxy"
-
 	// ToFQDNsServerPort is the port on which the standalone DNS proxy gRPC server should listen.
 	ToFQDNsServerPort = "tofqdns-server-port"
 
@@ -1549,12 +1546,6 @@ type DaemonConfig struct {
 	// EnableNat46X64Gateway is true when L3 based NAT46 and NAT64 translation is enabled
 	EnableNat46X64Gateway bool
 
-	// EnableStandaloneDNSProxy is the option to enable standalone DNS proxy
-	EnableStandaloneDNSProxy bool
-
-	// EnableEmbeddedDNSProxy is the option to enable the embedded DNS proxy in cilium agent
-	EnableEmbeddedDNSProxy bool
-
 	// EnableIPv6NDP is true when NDP is enabled for IPv6
 	EnableIPv6NDP bool
 
@@ -1709,9 +1700,6 @@ type DaemonConfig struct {
 	// is 0 a random port will be assigned, and can be obtained from
 	// DefaultDNSProxy below.
 	ToFQDNsProxyPort int
-
-	// ToFQDNsServerPort is the user-configured global, Standalone DNS proxy gRPC server port
-	ToFQDNsServerPort int
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
@@ -2958,8 +2946,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
-	c.EnableStandaloneDNSProxy = vp.GetBool(EnableStandaloneDNSProxy)
-	c.EnableEmbeddedDNSProxy = vp.GetBool(EnableEmbeddedDNSProxy)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
@@ -3124,10 +3110,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ClockSource = ClockSourceKtime
 	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
 
-	if !c.EnableEmbeddedDNSProxy && !c.EnableL7Proxy {
-		log.Info("L7 proxy is not enabled. Disabling embedded DNS proxy has no effect")
-	}
-
 	// toFQDNs options
 	c.DNSMaxIPsPerRestoredRule = vp.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
@@ -3146,7 +3128,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.ToFQDNsMinTTL = defaults.ToFQDNsMinTTL
 	}
 	c.ToFQDNsProxyPort = vp.GetInt(ToFQDNsProxyPort)
-	c.ToFQDNsServerPort = vp.GetInt(ToFQDNsServerPort)
 	c.ToFQDNsPreCache = vp.GetString(ToFQDNsPreCache)
 	c.ToFQDNsEnableDNSCompression = vp.GetBool(ToFQDNsEnableDNSCompression)
 	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
@@ -3159,15 +3140,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
 	c.DNSProxySocketLingerTimeout = vp.GetInt(DNSProxySocketLingerTimeout)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
-	if c.EnableStandaloneDNSProxy {
-		if !c.EnableL7Proxy {
-			log.Fatalf("Standalone DNS proxy requires L7 proxy to be enabled")
-		}
-
-		if c.ToFQDNsProxyPort == 0 {
-			log.Fatalf("Standalone DNS proxy requires a valid port number to be set")
-		}
-	}
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(vp.GetStringSlice(IPv4PodSubnets))

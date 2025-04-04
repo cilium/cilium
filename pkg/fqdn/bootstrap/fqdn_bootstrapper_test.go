@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
@@ -82,12 +83,13 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d.nameManager = ns
 	d.nameManager.CompleteBootstrap()
 	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
-	d.dnsRequestHandler = &dnsRequestHandler{
-		logger:            hivetest.Logger(tb),
-		nameManager:       ns,
-		proxyInstance:     nil,
-		proxyAccessLogger: accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
-	}
+	d.dnsRequestHandler = messagehandler.NewDNSRequestHandler(
+		messagehandler.DNSRequestHandlerParams{
+			Logger:            hivetest.Logger(tb),
+			NameManager:       ns,
+			ProxyInstance:     nil,
+			ProxyAccessLogger: accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
+		})
 
 	ds.d = d
 
