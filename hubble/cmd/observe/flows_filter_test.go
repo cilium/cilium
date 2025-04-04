@@ -1144,3 +1144,25 @@ func TestCELExpression(t *testing.T) {
 		})
 	}
 }
+
+func TestNodeLabels(t *testing.T) {
+	f := newFlowFilter()
+	cmd := newFlowsCmdWithFilter(viper.New(), f)
+
+	err := cmd.Flags().Parse([]string{
+		"--node-label", "io.cilium.egress-gateway",
+		"--from-node-labels", "k8s-role=worker",
+		"--to-node-labels", "env=prod",
+	})
+	require.NoError(t, err)
+	if diff := cmp.Diff(
+		[]*flowpb.FlowFilter{
+			{NodeLabels: []string{"io.cilium.egress-gateway"}, SourceNodeLabels: []string{"k8s-role=worker"}, DestinationNodeLabels: []string{"env=prod"}},
+		},
+		f.whitelist.flowFilters(),
+		cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
+	); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+	assert.Nil(t, f.blacklist)
+}

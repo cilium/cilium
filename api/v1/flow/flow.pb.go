@@ -3145,6 +3145,12 @@ type FlowFilter struct {
 	// node_labels filters on a list of node label selectors. Selectors support
 	// the full Kubernetes label selector syntax.
 	NodeLabels []string `protobuf:"bytes,36,rep,name=node_labels,json=nodeLabels,proto3" json:"node_labels,omitempty"`
+	// source_node_labels filters flows originating from nodes matching label selectors.
+	// Selectors support the full Kubernetes label selector syntax.
+	SourceNodeLabels []string `protobuf:"bytes,39,rep,name=source_node_labels,json=sourceNodeLabels,proto3" json:"source_node_labels,omitempty"`
+	// destination_node_labels filters flows destined to nodes matching label selectors.
+	// Selectors support the full Kubernetes label selector syntax.
+	DestinationNodeLabels []string `protobuf:"bytes,40,rep,name=destination_node_labels,json=destinationNodeLabels,proto3" json:"destination_node_labels,omitempty"`
 	// filter based on IP version (ipv4 or ipv6)
 	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty"`
 	// trace_id filters flows by trace ID
@@ -3434,6 +3440,20 @@ func (x *FlowFilter) GetNodeName() []string {
 func (x *FlowFilter) GetNodeLabels() []string {
 	if x != nil {
 		return x.NodeLabels
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetSourceNodeLabels() []string {
+	if x != nil {
+		return x.SourceNodeLabels
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetDestinationNodeLabels() []string {
+	if x != nil {
+		return x.DestinationNodeLabels
 	}
 	return nil
 }
@@ -5033,7 +5053,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\bsub_type\x18\x03 \x01(\x05R\asubType\"@\n" +
 	"\x0fCiliumEventType\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x05R\x04type\x12\x19\n" +
-	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\xa4\r\n" +
+	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\x8a\x0e\n" +
 	"\n" +
 	"FlowFilter\x12\x12\n" +
 	"\x04uuid\x18\x1d \x03(\tR\x04uuid\x12\x1b\n" +
@@ -5079,7 +5099,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\ttcp_flags\x18\x17 \x03(\v2\x0e.flow.TCPFlagsR\btcpFlags\x12\x1b\n" +
 	"\tnode_name\x18\x18 \x03(\tR\bnodeName\x12\x1f\n" +
 	"\vnode_labels\x18$ \x03(\tR\n" +
-	"nodeLabels\x12.\n" +
+	"nodeLabels\x12,\n" +
+	"\x12source_node_labels\x18' \x03(\tR\x10sourceNodeLabels\x126\n" +
+	"\x17destination_node_labels\x18( \x03(\tR\x15destinationNodeLabels\x12.\n" +
 	"\n" +
 	"ip_version\x18\x19 \x03(\x0e2\x0f.flow.IPVersionR\tipVersion\x12\x19\n" +
 	"\btrace_id\x18\x1c \x03(\tR\atraceId\x12B\n" +
