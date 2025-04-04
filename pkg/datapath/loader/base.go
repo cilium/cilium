@@ -164,6 +164,20 @@ func cleanIngressQdisc(devices []string) error {
 	return nil
 }
 
+// cleanCallsMaps is used to remove any pinned map matching mapNamePattern from bpf.TCGlobalsPath().
+func cleanCallsMaps(mapNamePattern string) error {
+	matches, err := filepath.Glob(filepath.Join(bpf.TCGlobalsPath(), mapNamePattern))
+	if err != nil {
+		return fmt.Errorf("failed to list maps with mapNamePattern %s: %w", mapNamePattern, err)
+	}
+
+	for _, match := range matches {
+		err = errors.Join(err, os.RemoveAll(match))
+	}
+
+	return err
+}
+
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *loader) reinitializeIPSec() error {
 	// We need to take care not to load bpf_network and bpf_host onto the same
@@ -254,6 +268,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
+		cleanCallsMaps("cilium_calls_overlay*")
 		return nil
 	}
 
@@ -289,6 +304,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 
 func reinitializeWireguard(ctx context.Context) (err error) {
 	if !option.Config.EnableWireguard {
+		cleanCallsMaps("cilium_calls_wireguard*")
 		return
 	}
 
