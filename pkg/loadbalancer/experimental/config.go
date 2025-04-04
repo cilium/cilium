@@ -11,9 +11,10 @@ import (
 )
 
 type Config struct {
-	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
-	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
-	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
+	EnableExperimentalLB      bool          `mapstructure:"enable-experimental-lb"`
+	LBPressureMetricsInterval time.Duration `mapstructure:"lb-pressure-metrics-interval"`
+	RetryBackoffMin           time.Duration `mapstructure:"lb-retry-backoff-min"`
+	RetryBackoffMax           time.Duration `mapstructure:"lb-retry-backoff-max"`
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -25,12 +26,17 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration("lb-retry-backoff-max", def.RetryBackoffMin, "Maximum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-max")
+
+	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
+	flags.MarkHidden("lb-pressure-metrics-interval")
+
 }
 
 var DefaultConfig = Config{
-	EnableExperimentalLB: false,
-	RetryBackoffMin:      50 * time.Millisecond,
-	RetryBackoffMax:      time.Minute,
+	EnableExperimentalLB:      false,
+	LBPressureMetricsInterval: 5 * time.Minute,
+	RetryBackoffMin:           50 * time.Millisecond,
+	RetryBackoffMax:           time.Minute,
 }
 
 // TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.

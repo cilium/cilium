@@ -44,9 +44,14 @@ var Cell = cell.Module(
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
-	// Register a background job to re-reconcile NodePort and HostPort frontends when
-	// the node addresses change.
-	cell.Invoke(registerNodePortAddressReconciler),
+	cell.Invoke(
+		// Register a background job to re-reconcile NodePort and HostPort frontends when
+		// the node addresses change.
+		registerNodePortAddressReconciler,
+
+		// Register a background job to update the BPF map pressure metrics.
+		registerPressureMetricsReporter,
+	),
 
 	// Register a background job to watch for node zone label changes.
 	cell.Invoke(registerNodeZoneWatcher),
