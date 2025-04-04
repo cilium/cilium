@@ -183,10 +183,6 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = HOST_ID;
 	} else if (magic == MARK_MAGIC_ENCRYPT) {
 		*identity = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-#if defined(ENABLE_L7_LB)
-	} else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		*identity = get_epid(ctx); /* endpoint identity, not security identity! */
-#endif
 	} else {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 		__u16 proto = ctx_get_protocol(ctx);
@@ -205,13 +201,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 	/* Reset packet mark to avoid hitting routing rules again */
 	ctx->mark = 0;
 
-#if defined(ENABLE_L7_LB)
-	/* Caller tail calls back to source endpoint egress in this case,
-	 * do not log the (world) identity.
-	 */
-	if (magic != MARK_MAGIC_PROXY_EGRESS_EPID)
-#endif
-		cilium_dbg(ctx, DBG_INHERIT_IDENTITY, *identity, 0);
+	cilium_dbg(ctx, DBG_INHERIT_IDENTITY, *identity, 0);
 
 	return magic;
 }
