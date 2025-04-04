@@ -618,6 +618,7 @@ Makefile* @cilium/build
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/shell @cilium/sig-foundations
 /pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations

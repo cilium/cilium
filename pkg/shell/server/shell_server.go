@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package shell
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"sync"
 
-	upstreamHive "github.com/cilium/hive"
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var shellCell = cell.Module(
+var Cell = cell.Module(
 	"shell",
 	"Cilium debug shell",
 	cell.Invoke(registerShell),
@@ -35,7 +35,7 @@ var defaultCmdsToInclude = []string{
 	"cat", "exec", "help",
 }
 
-func registerShell(in upstreamHive.ScriptCmds, log *slog.Logger, jg job.Group) {
+func registerShell(in hive.ScriptCmds, log *slog.Logger, jg job.Group) {
 	cmds := in.Map()
 	defCmds := script.DefaultCmds()
 	for _, name := range defaultCmdsToInclude {
@@ -55,7 +55,7 @@ type shell struct {
 }
 
 func (sh shell) listener(ctx context.Context, health cell.Health) error {
-	// Remove any old UNIX sock file from previous agent run.
+	// Remove any old UNIX sock file from previous runs.
 	os.Remove(defaults.ShellSockPath)
 
 	var lc net.ListenConfig
@@ -109,7 +109,7 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 	defer wg.Wait()
 	defer cancel()
 
-	// Catch panics to make sure the script commands can't bring the agent down.
+	// Catch panics to make sure the script commands can't bring the runtime down.
 	defer func() {
 		if err := recover(); err != nil {
 			// Log the panic and also write it to cilium-dbg. We keep processing
