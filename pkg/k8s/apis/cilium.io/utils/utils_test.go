@@ -26,8 +26,11 @@ func Test_namespacesAreValid(t *testing.T) {
 }
 
 func Test_ParseToCiliumRule(t *testing.T) {
-	role := fmt.Sprintf("%s.role", labels.LabelSourceAny)
-	namespace := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
+	role := "role"
+	roleSourceK8s := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, role)
+	namespace := k8sConst.PodNamespaceLabel
+	namespaceSourceK8s := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
+
 	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace      string
@@ -60,8 +63,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:      "backend",
-						namespace: "default",
+						roleSourceK8s:      "backend",
+						namespaceSourceK8s: "default",
 					},
 					nil,
 				),
@@ -110,8 +113,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:      "backend",
-						namespace: "default",
+						roleSourceK8s:      "backend",
+						namespaceSourceK8s: "default",
 					},
 					nil,
 				),
@@ -159,8 +162,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:       "backend",
-						podInitLbl: "",
+						roleSourceK8s: "backend",
+						labels.LabelSourceK8sKeyPrefix + podInitLbl: "",
 						// No namespace because it's init.
 						// namespace: "default",
 					},
@@ -219,11 +222,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						namespace: "default",
+						namespaceSourceK8s: "default",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "reserved.init",
+							Key:      "k8s.reserved.init",
 							Operator: slim_metav1.LabelSelectorOpDoesNotExist,
 						},
 					},
@@ -301,8 +304,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:      "backend",
-						namespace: "default",
+						roleSourceK8s:      "backend",
+						namespaceSourceK8s: "default",
 					},
 					nil,
 				),
@@ -381,8 +384,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:      "backend",
-						namespace: "default",
+						roleSourceK8s:      "backend",
+						namespaceSourceK8s: "default",
 					},
 					nil,
 				),
@@ -459,7 +462,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role: "backend",
+						roleSourceK8s: "backend",
 					},
 					nil,
 				),
@@ -536,8 +539,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			want: api.NewRule().WithEndpointSelector(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						role:      "backend",
-						namespace: "default",
+						roleSourceK8s:      "backend",
+						namespaceSourceK8s: "default",
 					},
 					nil,
 				),

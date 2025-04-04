@@ -5,7 +5,7 @@ metadata:
 specs:
   - endpointSelector:
       matchLabels:
-        "reserved:init": ""
+        "reserved.init": ""
     ingress:
     - fromEntities:
       - host

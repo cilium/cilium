@@ -2,7 +2,7 @@
    {
       "endpointSelector" :  {
          "matchLabels": {
-            "k8s:io.kubernetes.pod.namespace": "public"
+            "k8s.io.kubernetes.pod.namespace": "public"
          }
      },
       "egress" : [
@@ -10,7 +10,7 @@
             "toEndpoints" : [
                {
                   "matchLabels" : {
-                     "k8s:io.kubernetes.pod.namespace" : "kube-system",
+                     "k8s.io.kubernetes.pod.namespace" : "kube-system",
                      "k8s-app" : "kube-dns"
                   }
                }
