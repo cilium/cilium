@@ -50,6 +50,7 @@ func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cached
 }
 
 // GetPolicySnapshot returns a snapshot of the current policy cache.
+// The policy snapshot has the lock order as: Repository.Mutex before policyCache.Mutex.
 func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]SelectorPolicy {
 	cache.Lock()
 	defer cache.Unlock()
