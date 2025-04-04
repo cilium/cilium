@@ -16,7 +16,7 @@
 #include "lib/proxy.h"
 
 static __always_inline int
-wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
+wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	struct remote_endpoint_info *dst = NULL;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
@@ -24,7 +24,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	bool from_tunnel __maybe_unused = false;
 	__u32 magic __maybe_unused = 0;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -57,7 +56,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		}
 #endif
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 #endif
 #ifdef ENABLE_IPV4
@@ -83,37 +89,24 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 				break;
 			}
 
-			if (dport == bpf_htons(TUNNEL_PORT)) {
-				from_tunnel = true;
-				break;
-			}
+			if (dport == bpf_htons(TUNNEL_PORT))
+				goto encrypt;
 		}
 # endif /* TUNNEL_MODE */
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+
+		if (src_sec_identity == UNKNOWN_ID) {
+			src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+			if (!src)
+				return CTX_ACT_OK;
+
+			src_sec_identity = src->sec_identity;
+		}
 		break;
 #endif
 	default:
 		goto out;
 	}
-
-	/* Redirect to the WireGuard tunnel device if the encryption is
-	 * required.
-	 *
-	 * After the packet has been encrypted, the WG tunnel device
-	 * will set the MARK_MAGIC_WG_ENCRYPTED skb mark. So, to avoid
-	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
-	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
-	 * encrypted WireGuard UDP packets), we check whether the mark
-	 * is set before the redirect.
-	 */
-	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED)
-		goto out;
-
-#if defined(TUNNEL_MODE)
-	if (from_tunnel)
-		goto encrypt;
-#endif /* TUNNEL_MODE */
 
 #ifndef ENABLE_NODE_ENCRYPTION
 	/* A pkt coming from L7 proxy (i.e., Envoy or the DNS proxy on behalf of
@@ -139,7 +132,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * This means that the packet won't be encrypted. This is fine,
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
-	if (!src || src->sec_identity == HOST_ID)
+	if (src_sec_identity == HOST_ID)
 		goto out;
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
@@ -149,7 +142,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * reply traffic arrives from the cluster-external server and goes to
 	 * the client pod.
 	 */
-	if (!src || !identity_is_cluster(src->sec_identity))
+	if (!identity_is_cluster(src_sec_identity))
 		goto out;
 
 maybe_encrypt: __maybe_unused

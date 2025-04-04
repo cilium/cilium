@@ -515,6 +515,14 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			return ret;
 	}
 
+	/* The code below only cares about host-originating yes/no,
+	 * and currently breaks when being passed a fine-grained pod src_sec_identity.
+	 *
+	 * Restore old behavior for now, and clean it up once we have tests.
+	 */
+	if (src_sec_identity != HOST_ID)
+		src_sec_identity = 0;
+
 	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
 				   &ipcache_srcid, true);
 
@@ -962,6 +970,14 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	/* The code below only cares about host-originating yes/no,
+	 * and currently breaks when being passed a fine-grained pod src_sec_identity.
+	 *
+	 * Restore old behavior for now, and clean it up once we have tests.
+	 */
+	if (src_sec_identity != HOST_ID)
+		src_sec_identity = 0;
+
 	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
 				    &ipcache_srcid, true);
 
@@ -1334,8 +1350,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u16 proto = 0;
 #endif
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY)
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
 		src_sec_identity = HOST_ID;
+	else if (magic == MARK_MAGIC_IDENTITY)
+		src_sec_identity = get_identity(ctx);
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1428,13 +1446,24 @@ skip_host_firewall:
 	 * Once the assumption is no longer true, we will need to recirculate
 	 * the packet back to the "to-netdev" section for the SNAT instead of
 	 * returning TC_ACT_REDIRECT.
+	 *
+	 * Skip redirect to the WireGuard tunnel device if the pkt has been
+	 * already encrypted.
+	 * After the packet has been encrypted, the WG tunnel device
+	 * will set the MARK_MAGIC_WG_ENCRYPTED skb mark. So, to avoid
+	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
+	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
+	 * encrypted WireGuard UDP packets), we check whether the mark
+	 * is set before the redirect.
 	 */
-	ret = wg_maybe_redirect_to_encrypt(ctx);
-	if (ret == CTX_ACT_REDIRECT)
-		return ret;
-	else if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_sec_identity, ret,
-					      CTX_ACT_DROP, METRIC_EGRESS);
+	if (!ctx_mark_is_wireguard(ctx)) {
+		ret = wg_maybe_redirect_to_encrypt(ctx, src_sec_identity);
+		if (ret == CTX_ACT_REDIRECT)
+			return ret;
+		else if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, src_sec_identity, ret,
+						      CTX_ACT_DROP, METRIC_EGRESS);
+	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx))
@@ -1451,7 +1480,7 @@ skip_host_firewall:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_wireguard(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.

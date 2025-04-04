@@ -451,6 +451,9 @@ not_esp:
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
+
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+
 	return ipv4_host_delivery(ctx, ip4);
 }
 
