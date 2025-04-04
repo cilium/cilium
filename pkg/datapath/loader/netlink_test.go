@@ -423,11 +423,13 @@ func TestSetupIPIPDevices(t *testing.T) {
 		err := setupIPIPDevices(sysctl, true, true, 1500)
 		require.NoError(t, err)
 
-		_, err = netlink.LinkByName(defaults.IPIPv4Device)
+		dev4, err := netlink.LinkByName(defaults.IPIPv4Device)
 		require.NoError(t, err)
+		require.EqualValues(t, dev4.Attrs().MTU, 1480)
 
-		_, err = netlink.LinkByName(defaults.IPIPv6Device)
+		dev6, err := netlink.LinkByName(defaults.IPIPv6Device)
 		require.NoError(t, err)
+		require.EqualValues(t, dev6.Attrs().MTU, 1452)
 
 		_, err = netlink.LinkByName("cilium_tunl")
 		require.NoError(t, err)
@@ -442,6 +444,26 @@ func TestSetupIPIPDevices(t *testing.T) {
 		require.Error(t, err)
 
 		err = setupIPIPDevices(sysctl, false, false, 1500)
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv4Device)
+		require.Error(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv6Device)
+		require.Error(t, err)
+
+		err = setupIPIPDevices(sysctl, true, true, 1480)
+		require.NoError(t, err)
+
+		dev4, err = netlink.LinkByName(defaults.IPIPv4Device)
+		require.NoError(t, err)
+		require.EqualValues(t, dev4.Attrs().MTU, 1460)
+
+		dev6, err = netlink.LinkByName(defaults.IPIPv6Device)
+		require.NoError(t, err)
+		require.EqualValues(t, dev6.Attrs().MTU, 1432)
+
+		err = setupIPIPDevices(sysctl, false, false, 1480)
 		require.NoError(t, err)
 
 		_, err = netlink.LinkByName(defaults.IPIPv4Device)
