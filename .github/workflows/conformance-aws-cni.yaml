@@ -207,6 +207,7 @@ jobs:
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
+            --helm-set=extraArgs={--enable-identity-mark=false} \
             --wait=false"
 
           if [ "${{ matrix.wireguard }}" == "true" ]; then
