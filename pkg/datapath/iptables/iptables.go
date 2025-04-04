@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -277,6 +278,8 @@ type Manager struct {
 	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
 	cniConfigManager     cni.CNIConfigManager
+	haveTunnel           bool
+	tunnelPort           uint16
 }
 
 type reconcilerParams struct {
@@ -305,6 +308,8 @@ type params struct {
 	JobGroup job.Group
 	DB       *statedb.DB
 	Devices  statedb.Table[*tables.Device]
+
+	TunnelConfig tunnel.Config
 }
 
 func newIptablesManager(p params) datapath.IptablesManager {
@@ -325,6 +330,8 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
+		haveTunnel:       p.TunnelConfig.Protocol() != tunnel.Disabled,
+		tunnelPort:       p.TunnelConfig.Port(),
 	}
 
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
@@ -1582,6 +1589,13 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
+	if m.haveTunnel {
+		// TODO only install these when needed, uninstall otherwise
+		if err := m.addCiliumNoTrackOverlayRules(); err != nil {
+			return fmt.Errorf("cannot install overlay rules: %w", err)
+		}
+	}
+
 	podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
 	if m.sharedCfg.InstallNoConntrackIptRules && podsCIDR != "" {
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
@@ -1634,6 +1648,29 @@ func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) e
 			"-j", "CT", "--notrack"}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (m *Manager) ciliumNoTrackOverlayRules(prog iptablesInterface, input string) error {
+	matchOverlay := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkOverlay, linux_defaults.MagicMarkHostMask)
+	overlayPort := fmt.Sprintf("%d", m.tunnelPort)
+
+	if err := prog.runProg([]string{
+		"-t", "raw", input, ciliumPreRawChain,
+		"-p", "udp",
+		"--dport", overlayPort,
+		"-m", "comment", "--comment", "cilium overlay ingress",
+		"-j", "CT", "--notrack"}); err != nil {
+		return err
+	}
+
+	if err := prog.runProg([]string{
+		"-t", "raw", input, ciliumOutputRawChain,
+		"-m", "mark", "--mark", matchOverlay,
+		"-m", "comment", "--comment", "cilium overlay egress",
+		"-j", "CT", "--notrack"}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1697,6 +1734,16 @@ func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
 	}
 	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackXfrmRules(ip6tables, "-I")
+	}
+	return nil
+}
+
+func (m *Manager) addCiliumNoTrackOverlayRules() (err error) {
+	// TODO respect underlay address family, once IPv6 support lands
+	if m.sharedCfg.EnableIPv4 {
+		if err = m.ciliumNoTrackOverlayRules(ip4tables, "-I"); err != nil {
+			return
+		}
 	}
 	return nil
 }
