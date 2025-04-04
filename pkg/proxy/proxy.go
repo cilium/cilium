@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -48,6 +49,9 @@ type Proxy struct {
 	envoyIntegration *envoyProxyIntegration
 	dnsIntegration   *dnsProxyIntegration
 
+	//PolicyUpdater is the interface to update the policy rules for standalone DNS proxy
+	policyUpdater service.PolicyUpdater
+
 	// proxyPorts manages proxy port allocation
 	proxyPorts *proxyports.ProxyPorts
 }
@@ -57,6 +61,7 @@ func createProxy(
 	proxyPorts *proxyports.ProxyPorts,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
+	policyUpdater service.PolicyUpdater,
 ) *Proxy {
 	return &Proxy{
 		logger:           logger,
@@ -64,6 +69,7 @@ func createProxy(
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
 		proxyPorts:       proxyPorts,
+		policyUpdater:    policyUpdater,
 	}
 }
 
@@ -167,13 +173,9 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 }
 
 func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
-	if GlobalStandaloneDNSProxy == nil {
-		return
-	}
-
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	GlobalStandaloneDNSProxy.UpdatePolicyRulesLocked(rules, true)
+	p.policyUpdater.UpdatePolicyRulesLocked(rules, true)
 }
 
 func (p *Proxy) createNewRedirect(

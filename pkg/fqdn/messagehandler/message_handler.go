@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package bootstrap
+package messagehandler
 
 import (
 	"context"
@@ -43,6 +43,10 @@ const (
 )
 
 type DNSRequestHandler interface {
+	// NotifyOnDNSMsg handles DNS data when the inbuilt DNS proxy sees a
+	// DNS message. It emits monitor events, proxy metrics and stores DNS
+	// data in the DNS cache. To update the DNS cache, it will call
+	// UpdateOnDNSMsg() if the DNS message is a response.
 	NotifyOnDNSMsg(lookupTime time.Time,
 		ep *endpoint.Endpoint,
 		epIPPort string,
@@ -53,7 +57,18 @@ type DNSRequestHandler interface {
 		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
 	) error
-	UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error
+
+	// UpdateOnDNSMsg updates the DNS cache with the DNS message data.
+	// It is called when the DNS message is a response. It is called by
+	// NotifyOnDNSMsg() to update the DNS cache and standalone DNS
+	// proxy grpc server with the DNS message data.
+	UpdateOnDNSMsg(lookupTime time.Time,
+		ep *endpoint.Endpoint,
+		qname string,
+		responseIPs []netip.Addr,
+		TTL int,
+		stat *dnsproxy.ProxyRequestContext,
+	) error
 }
 
 type dnsRequestHandler struct {
@@ -62,6 +77,7 @@ type dnsRequestHandler struct {
 	nameManager       namemanager.NameManager
 	proxyInstance     defaultdns.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
+	DNSRequestHandler DNSRequestHandler
 }
 
 var _ DNSRequestHandler = &dnsRequestHandler{}
@@ -82,7 +98,7 @@ var _ DNSRequestHandler = &dnsRequestHandler{}
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (b *dnsRequestHandler) NotifyOnDNSMsg(
+func (h *dnsRequestHandler) NotifyOnDNSMsg(
 	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
@@ -100,7 +116,6 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 	stat.ProcessingTime.Start()
 
 	endMetric := func() {
-		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
 		stat.TotalTime.End(true)
 		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
@@ -176,7 +191,7 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
-		b.logger.Error("cannot extract DNS message details",
+		h.logger.Error("cannot extract DNS message details",
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
@@ -184,8 +199,8 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 	}
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		if err := b.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat); err != nil {
-			b.logger.Error("failed to update DNS message",
+		if err := h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat); err != nil {
+			h.logger.Error("failed to update DNS message",
 				logfields.Error, err,
 				logfields.DNSName, qname,
 				logfields.IPAddrs, responseIPs,
@@ -197,7 +212,7 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 	stat.ProcessingTime.End(true)
 
 	bindPort := uint16(0)
-	if dnsProxy := b.proxyInstance.Get(); dnsProxy != nil {
+	if dnsProxy := h.proxyInstance.Get(); dnsProxy != nil {
 		bindPort = dnsProxy.GetBindPort()
 	}
 	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), bindPort, false, !msg.Response, verdict)
@@ -207,9 +222,9 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 	//
 	// Restrict label enrichment time to 10ms; we don't want to block DNS
 	// requests because an identity isn't in the local cache yet.
-	logContext, lcncl := context.WithTimeout(b.ctx, 10*time.Millisecond)
+	logContext, lcncl := context.WithTimeout(h.ctx, 10*time.Millisecond)
 	defer lcncl()
-	record := b.proxyAccessLogger.NewLogRecord(flowType, false,
+	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -226,15 +241,15 @@ func (b *dnsRequestHandler) NotifyOnDNSMsg(
 			AnswerTypes:       recordTypes,
 		}),
 	)
-	b.proxyAccessLogger.Log(record)
+	h.proxyAccessLogger.Log(record)
 
 	return nil
 }
 
-func (b *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error {
-	if stat != nil {
-		stat.PolicyGenerationTime.Start()
-	}
+func (h *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error {
+	defer stat.DataplaneTime.End(true)
+
+	stat.PolicyGenerationTime.Start()
 
 	// Create a critical section especially for when multiple DNS requests
 	// are in-flight for the same name (i.e. cilium.io).
@@ -272,17 +287,17 @@ func (b *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	// We do not do a `defer unlock()` here, as we should release the lock before
 	// doing final bookkeeping.
 	mutexAcquireStart := time.Now()
-	b.nameManager.LockName(qname)
+	h.nameManager.LockName(qname)
 
 	if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-		b.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
+		h.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
 			logfields.DNSName, qname,
 			logfields.Duration, d,
 			logfields.Expected, option.Config.DNSProxyLockTimeout,
 		)
 	}
 
-	b.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
+	h.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
 
 	// This must happen before the NameManager update below, to ensure that
 	// this data is included in the serialized Endpoint object.
@@ -296,34 +311,32 @@ func (b *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		ep.SyncEndpointHeaderFile()
 	}
 
-	b.logger.Debug("Updating DNS name in cache from response to query",
+	h.logger.Debug("Updating DNS name in cache from response to query",
 		logfields.DNSName, qname,
 		logfields.IPAddrs, responseIPs,
 	)
 
-	updateCtx, updateCancel := context.WithTimeout(b.ctx, option.Config.FQDNProxyResponseMaxDelay)
+	updateCtx, updateCancel := context.WithTimeout(h.ctx, option.Config.FQDNProxyResponseMaxDelay)
 	defer updateCancel()
 	updateStart := time.Now()
 
-	dpUpdates := b.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
+	dpUpdates := h.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
 		IPs: responseIPs,
 		TTL: int(TTL),
 	})
 
-	if stat != nil {
-		stat.PolicyGenerationTime.End(true)
-		stat.DataplaneTime.Start()
-	}
+	stat.PolicyGenerationTime.End(true)
+	stat.DataplaneTime.Start()
 
 	if err := <-dpUpdates; err != nil {
-		b.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
+		h.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 		metrics.ProxyDatapathUpdateTimeout.Inc()
 	}
 
 	// Policy updates for this name have been pushed out; we can release the lock.
-	b.nameManager.UnlockName(qname)
+	h.nameManager.UnlockName(qname)
 
-	b.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
+	h.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
 		logfields.Duration, time.Since(updateStart),
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
