@@ -50,6 +50,19 @@ jobs:
         with:
           image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Create kind cluster
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+
       - name: Set up job variables
         id: vars
         run: |
@@ -68,19 +81,16 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false --collect-sysdump-on-failure"
+            --hubble=false --collect-sysdump-on-failure" \
+            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
+            --external-cidr=${{ steps.external_targets.outputs.ipv4_external_cidr }} \
+            --external-ip=${{ steps.external_targets.outputs.ipv4_external_target }} \
+            --external-other-ip=${{ steps.external_targets.outputs.ipv4_other_external_target }}
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
-
-      - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-        with:
-          version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
-          kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ${{ env.kind_config }}
-          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@0caa9e5cbfe3a80a1fd6bbc1f5f9926da35b0373 # v0.18.2

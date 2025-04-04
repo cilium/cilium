@@ -1,0 +1,36 @@
+name: Add external targets to kind cluster
+description: |
+  Add additional containers to the kind network which can be 
+  used as external targets for cilium-cli connectivity tests.
+outputs:
+  ipv4_external_cidr:
+    description: "IPv4 CIDR in which the external targets are created"
+    value: ${{ steps.add_targets.outputs.ipv4_external_cidr }}
+  ipv4_external_target:
+    description: "IPv4 address of the first external target"
+    value: ${{ steps.add_targets.outputs.ipv4_external_target }}
+  ipv4_other_external_target:
+    description: "IPv4 address of the second external target"
+    value: ${{ steps.add_targets.outputs.ipv4_other_external_target }}
+  ipv6_external_cidr:
+    description: "IPv6 CIDR in which the external targets are created"
+    value: ${{ steps.add_targets.outputs.ipv6_external_cidr }}
+  ipv6_external_target:
+    description: "IPv6 address of the first external target"
+    value: ${{ steps.add_targets.outputs.ipv6_external_target }}
+  ipv6_other_external_target:
+    description: "IPv6 address of the second external target"
+    value: ${{ steps.add_targets.outputs.ipv6_other_external_target }}
+  external_target_name:
+    description: "Domain name of the first external target"
+    value: "external-service.cilium"
+  other_external_target_name:
+    description: "Domain name of the second external target"
+    value: "other-external-service.cilium"
+runs:
+  using: composite
+  steps:
+    - id: add_targets
+      shell: bash
+      run: bash action.such
+
