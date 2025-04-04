@@ -5,24 +5,54 @@ package fswatcher
 
 import (
 	"errors"
-	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
+	"testing"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fswatcher")
+// Event closely resembles what fsnotify.Event provided
+type Event struct {
+	// Path to the file or directory.
+	//
+	// Paths are relative to the input; for example with Add("dir") the Name
+	// will be set to "dir/file" if you create that file, but if you use
+	// Add("/path/to/dir") it will be "/path/to/dir/file".
+	Name string
 
-// Event currently wraps fsnotify.Event
-type Event fsnotify.Event
+	// File operation that triggered the event.
+	//
+	// This is a bitmask and some systems may send multiple operations at once.
+	// Use the Event.Has() method instead of comparing with ==.
+	Op Op
+}
 
-// Watcher is a wrapper around fsnotify.Watcher which can track non-existing
+// Op describes a set of file operations.
+type Op uint32
+
+// Subset from fsnotify
+const (
+	// A new pathname was created.
+	Create Op = 1 << iota
+
+	// The pathname was written to; this does *not* mean the write has finished,
+	// and a write can be followed by more writes.
+	Write
+
+	// The path was removed; any watches on it will be removed. Some "remove"
+	// operations may trigger a Rename if the file is actually moved (for
+	// example "remove to trash" is often a rename).
+	Remove
+)
+
+// Has reports if this operation has the given operation.
+func (o Op) Has(h Op) bool { return o&h != 0 }
+
+// Has reports if this event has the given operation.
+func (e Event) Has(op Op) bool { return e.Op.Has(op) }
+
+// Watcher implements a file polling mechanism which can track non-existing
 // files and emit creation events for them. All files which are supposed to be
 // tracked need to passed to the New constructor.
 //  1. If the file already exists, the watcher will emit write, chmod, remove
@@ -49,12 +79,6 @@ type Event fsnotify.Event
 // itself does not emit an event. Only if the target of the symlink observes
 // an event is the symlink re-evaluated.
 type Watcher struct {
-	watcher *fsnotify.Watcher
-
-	// Internally, we distinguish between
-	watchedPathCount     counter.Counter[string]
-	trackedToWatchedPath map[string]string
-
 	// Events is used to signal changes to any of the tracked files. It is
 	// guaranteed that Event.Name will always match one of the file paths
 	// passed in trackedFiles to the constructor. This channel is unbuffered
@@ -64,37 +88,65 @@ type Watcher struct {
 	// is unbuffered and must be read by the consumer to avoid deadlocks.
 	Errors chan error
 
+	tracked map[string]state // tracking state
+
+	// control the interval at which the watcher checks for changes
+	interval time.Duration
+	ticker   <-chan time.Time
+
 	// stop channel used to indicate shutdown
 	stop chan struct{}
 }
 
+type state struct {
+	path string      // tracked path as asked by the user
+	info os.FileInfo // lstat info of _this_ path, even if symlink
+
+	target     string      // target path, only applicable to symlinks
+	targetInfo os.FileInfo // target info, only applicable to symlinks
+}
+
+// Option to configure the Watcher
+type Option func(*Watcher)
+
+// WithInterval sets the interval at which the Watcher checks for changes
+func WithInterval(d time.Duration) Option {
+	return func(w *Watcher) {
+		w.interval = d
+	}
+}
+
 // New creates a new Watcher which watches all trackedFile paths (they do not
 // need to exist yet).
-func New(trackedFiles []string) (*Watcher, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
+func New(trackedFiles []string, options ...Option) (*Watcher, error) {
+	// sane default that is configurable via WithInterval depending on the use case
+	defaultInterval := 5 * time.Second
+	if testing.Testing() {
+		// in a testing situation, refresh info much much faster to speed things up
+		defaultInterval = 10 * time.Millisecond
 	}
 
 	w := &Watcher{
-		watcher:              watcher,
-		watchedPathCount:     counter.Counter[string]{},
-		trackedToWatchedPath: map[string]string{},
-		Events:               make(chan Event),
-		Errors:               make(chan error),
-		stop:                 make(chan struct{}),
+		Events:   make(chan Event),
+		Errors:   make(chan error),
+		stop:     make(chan struct{}),
+		interval: defaultInterval,
 	}
 
-	// We add all paths in the constructor avoid the need for additional
-	// synchronization, as the loop goroutine below will call updateWatchedPath
-	// concurrently
+	// make a map of tracked files and assign them all empty state at the start
+	tracked := make(map[string]state, len(trackedFiles))
 	for _, f := range trackedFiles {
-		err := w.updateWatchedPath(f)
-		if err != nil {
-			return nil, err
-		}
+		tracked[f] = state{path: f}
+	}
+	w.tracked = tracked
+
+	for _, option := range options {
+		option(w)
 	}
 
+	if w.interval != 0 {
+		w.ticker = time.Tick(w.interval)
+	}
 	go w.loop()
 
 	return w, nil
@@ -104,245 +156,117 @@ func (w *Watcher) Close() {
 	close(w.stop)
 }
 
-func (w *Watcher) updateWatchedPath(trackedPath string) error {
-	trackedPath = filepath.Clean(trackedPath)
-
-	// Remove old watchedPath
-	oldWatchedPath, ok := w.trackedToWatchedPath[trackedPath]
-	if ok {
-		w.stopWatching(oldWatchedPath)
-	}
-
-	// Finds and watches the new watchedPath
-	watchedPath, err := w.startWatching(trackedPath)
-	if err != nil {
-		return fmt.Errorf("failed to add fsnotify watcher for %q (parent of %q): %w",
-			watchedPath, trackedPath, err)
-	}
-
-	// Update the mapping
-	w.trackedToWatchedPath[trackedPath] = watchedPath
-	return nil
-}
-
-func (w *Watcher) startWatching(path string) (string, error) {
-	// If the path is already watched, we do not want to add it to fsnotify
-	// again, thus the check on the refcount first.
-	// Note: If we already watchedPath has been invalidated recently,
-	// this if statement will be false (because invalidateWatch resets the
-	// count)
-	if w.watchedPathCount[path] > 0 {
-		w.watchedPathCount.Add(path)
-		return path, nil
-	}
-
-	// Adds the file to fsnotify. Important note: If path is a symlink, this
-	// will watch the *target* of the symlink. So any event we will observe,
-	// will be valid for the target, not for the symlink itself. The reported
-	// path in the events however will remain the path of the symlink.
-	err := w.watcher.Add(path)
-	if err != nil {
-		// if the path does not exist, try to watch its parent instead
-		if errors.Is(err, os.ErrNotExist) {
-			parent := filepath.Dir(path)
-			if parent != path {
-				return w.startWatching(parent)
-			}
-		}
-
-		return "", err
-	}
-
-	// Start counting the references for the watched path.
-	// The following is identical to `w.watchedPathCount[path] = 1`, because
-	// w.watchedPathCount[path] was zero when we entered the function
-	w.watchedPathCount.Add(path)
-	return path, nil
-}
-
-func (w *Watcher) stopWatching(path string) {
-	// Decrease the refcount for the old watchedPath. If this was the last
-	// use of this watchedPath, we remove it from the underlying fsnotify
-	// watcher.
-	if w.watchedPathCount.Delete(path) {
-		_ = w.watcher.Remove(path)
-	}
-}
-
-func (w *Watcher) invalidateWatch(path string) {
-	if w.watchedPathCount[path] > 0 {
-		delete(w.watchedPathCount, path)
-		// The result is ignored because fsnotify removes deleted paths by
-		// itself, in which case it will complain about a non-existing path
-		// being removed.
-		_ = w.watcher.Remove(path)
-	}
-}
-
-// hasParent returns true if path is a child or equal to parent
-func hasParent(path, parent string) bool {
-	path = filepath.Clean(path)
-	parent = filepath.Clean(parent)
-	if path == parent {
-		return true
-	}
-
-	for {
-		pathParent := filepath.Dir(path)
-		if pathParent == parent {
-			return true
-		}
-
-		// reached the root
-		if pathParent == path {
-			return false
-		}
-
-		path = pathParent
-	}
-}
-
-// loop filters and processes fsnoity events. It may generate artificial
-// `Create` events in case observes that files which did not exist before now
-// exist. This exits after w.Close() is called
 func (w *Watcher) loop() {
 	for {
 		select {
-		case event := <-w.watcher.Events:
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.Path: event.Name,
-				"operation":    event.Op,
-			})
-			scopedLog.Debug("Received fsnotify event")
-
-			eventPath := event.Name
-			removed := event.Has(fsnotify.Remove)
-			renamed := event.Has(fsnotify.Rename)
-			created := event.Has(fsnotify.Create)
-			written := event.Has(fsnotify.Write)
-
-			// If a the eventPath has been removed or renamed, it can no longer
-			// be a valid watchPath. This is needed such that each trackedPath
-			// is updated with a new valid watchPath in the call
-			// to updateWatchedPath below.
-			eventPathInvalidated := removed || renamed
-			if eventPathInvalidated {
-				w.invalidateWatch(eventPath)
-			}
-
-			// We iterate over all tracked files here, checking either if
-			// the event affects the trackedPath (in which case we want to
-			// forward it) and to check if the event affects the watchedPath,
-			// in which case we likely need to update the watchedPath
-			for trackedPath, watchedPath := range w.trackedToWatchedPath {
-				// If the event happened on a tracked path, we can forward
-				// it in all cases
-				if eventPath == trackedPath {
-					w.sendEvent(Event{
-						Name: trackedPath,
-						Op:   event.Op,
-					})
-				}
-
-				// If the event path has been invalidated (i.e. removed or
-				// renamed), we need to update the watchedPath for this file
-				if eventPathInvalidated && eventPath == watchedPath {
-					// In this case, the watchedPath has been invalidated. There
-					// are multiple cases which are handled by the call to
-					// updateWatchedPath below:
-					// - watchedPath == trackedPath:
-					//   - trackedPath is a regular file:
-					//      In this case, the tracked file has been deleted or
-					//      moved away. This means updateWatchedPath will start
-					//      watching a parent folder of trackedPath to pick up
-					//      the creation event.
-					//  - trackedPath is a symlink:
-					//      This means the target of the symlink has been deleted.
-					//      If the symlink already points to a new valid target
-					//      (this e.g. happens in Kubernetes volume mounts. In,
-					//      that case the new target of the symlink will be the
-					//      new watchedPath.
-					// - watchedPath was a parent of trackedPath
-					//    In this case we will start watching a parent of
-					//     the old watchedPath.
-					err := w.updateWatchedPath(trackedPath)
-					if err != nil {
-						w.sendError(err)
-					}
-
-					// If trackedPath is a symlink, it can happen that the old
-					// symlink target was deleted, but symlink itself has been
-					// redirected to a new target. We can detect this, if
-					// after the call to `updateWatchedPath` above, the
-					// tracked and watched path are identical. In such a
-					// case, we emit a create event for the symlink.
-					newWatchedPath := w.trackedToWatchedPath[trackedPath]
-					if newWatchedPath == trackedPath {
-						w.sendEvent(Event{
-							Name: trackedPath,
-							Op:   fsnotify.Create,
-						})
-					}
-				}
-
-				if created || written {
-					// If a new eventPath been created or written to, we need
-					// to check if the new eventPath should be watched. There
-					// are two conditions (both have to be true):
-					// - eventPath is a parent of trackedPath. If it is not,
-					//   then it is unrelated to the file we are trying to track.
-					parentOfTrackedPath := hasParent(trackedPath, eventPath)
-					// - eventPath is a child of the current watchedPath. In
-					//   other words, eventPath is a better candidate to watch
-					//   than our current watchedPath.
-					childOfWatchedPath := hasParent(eventPath, watchedPath)
-					// Example:
-					// 	watchedPath:  /tmp           (we are watching this)
-					// 	eventPath:    /tmp/foo       (this was just created, it should become the new watchedPath)
-					// 	trackedPath:  /tmp/foo/bar   (we want emit an event if is created)
-					if childOfWatchedPath && parentOfTrackedPath {
-						// The event happened on a child of the watchedPath
-						// and a parent of the trackedPath. This means that
-						// we have found a better watched path.
-						err := w.updateWatchedPath(trackedPath)
-						if err != nil {
-							w.sendError(err)
-						}
-
-						// This checks if the new watchedPath after the call
-						// to `updateWatchedPath` is now equal to the trackedPath.
-						// This implies that the creation of a parent of the
-						// trackedPath has also led to the trackedPath itself
-						// existing now. This can happen e.g. if the parent was
-						// a symlink.
-						newWatchedPath := w.trackedToWatchedPath[trackedPath]
-						if newWatchedPath == trackedPath {
-							// The check for `eventPath != trackedPath` is to
-							// avoid a duplicate creation event (because at the
-							// top of the loop body, we forward any event on
-							// the  trackedPath unconditionally)
-							if eventPath != trackedPath {
-								w.sendEvent(Event{
-									Name: trackedPath,
-									Op:   fsnotify.Create,
-								})
-							}
-						}
-					}
-				}
-			}
-		case err := <-w.watcher.Errors:
-			log.WithError(err).Debug("Received fsnotify error while watching")
-			w.sendError(err)
+		case <-w.ticker:
+			w.tick()
 		case <-w.stop:
-			err := w.watcher.Close()
-			if err != nil {
-				log.WithError(err).Warn("Received fsnotify error on close")
-			}
-			close(w.Events)
-			close(w.Errors)
 			return
 		}
+	}
+}
+
+func (w *Watcher) tick() {
+	for _, oldState := range w.tracked {
+		path := oldState.path
+		oldInfo := oldState.info
+		newState := state{path: oldState.path}
+
+		// os.Stat follows symlinks, os.Lstat doesn't
+		info, err := os.Lstat(path)
+		newState.info = info
+
+		if os.IsNotExist(err) {
+			// if the path does not exist, check if it existed before because if it
+			// did -- issue a deletion event
+			if oldState.info != nil {
+				// this file was deleted
+				w.sendEvent(Event{
+					Name: path,
+					Op:   Remove,
+				})
+			}
+
+			// the path doesn't exist, and it didn't exist before -- ignore for now
+			continue
+		}
+
+		// some other type of error encountered while doing Lstat
+		if err != nil {
+			w.sendError(err)
+			continue
+		}
+
+		// symlinks are handled a little bit differntly
+		if info != nil && info.Mode()&os.ModeSymlink != 0 {
+			target, err := os.Readlink(oldState.path)
+
+			// unclear if symlink target resolution error is ok to swallow here
+			if err != nil {
+				continue
+			}
+
+			// NOTE: unclear if Stat or Lstat should be used here. Using stat to deal
+			// with cascading symlinks but as more test cases are added, perhaps this
+			// will need to be changed.
+			targetInfo, err := os.Stat(target)
+
+			// os.Stat on a symlink returns fs.PathError and not an os.ErrNotExist
+			var pathError *fs.PathError
+			if errors.As(err, &pathError) {
+				if oldState.targetInfo != nil {
+					w.sendEvent(Event{
+						Name: path,
+						Op:   Remove,
+					})
+				}
+			} else if err != nil {
+				w.sendError(err)
+			}
+
+			// haven't seen info for this track path before -- issue a creation
+			if oldState.targetInfo == nil {
+				op := Create
+
+				// issue Create&Write if the file has data
+				if info.Size() > 0 {
+					op |= Write
+				}
+
+				w.sendEvent(Event{
+					Name: path, // note event uses symlink name, not target
+					Op:   op,
+				})
+			}
+
+			// update info on the symlink target
+			newState.target = target
+			newState.targetInfo = targetInfo
+		} else {
+			// haven't seen info for this track path before -- issue a creation
+			if oldState.info == nil {
+				op := Create
+
+				// issue Create&Write if the file has data
+				if info.Size() > 0 {
+					op |= Write
+				}
+
+				// this is a new file
+				w.sendEvent(Event{
+					Name: path,
+					Op:   op,
+				})
+			} else if info.ModTime() != oldInfo.ModTime() || info.Size() != oldInfo.Size() {
+				w.sendEvent(Event{
+					Name: path,
+					Op:   Write,
+				})
+			}
+		}
+
+		w.tracked[oldState.path] = newState
 	}
 }
 
