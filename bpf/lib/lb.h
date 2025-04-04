@@ -518,7 +518,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
 	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, 0) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
