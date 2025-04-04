@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
@@ -124,6 +125,7 @@ func TestBPF(t *testing.T) {
 }
 
 func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cover.Profile {
+	logger := hivetest.Logger(t)
 	elfPath := path.Join(*testPath, entry.Name())
 
 	if instrLog != nil {
@@ -157,7 +159,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	}
 
 	if !collectCoverage {
-		coll, _, err = bpf.LoadCollection(spec, nil)
+		coll, _, err = bpf.LoadCollection(logger, spec, nil)
 	} else {
 		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{}, instrLog)
 	}
@@ -273,7 +275,8 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	spec, err := bpf.LoadCollectionSpec(elfPath)
+	logger := hivetest.Logger(t)
+	spec, err := bpf.LoadCollectionSpec(logger, elfPath)
 	if err != nil {
 		t.Fatalf("load spec %s: %v", elfPath, err)
 	}

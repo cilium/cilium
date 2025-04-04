@@ -5,6 +5,7 @@ package policymap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
 )
@@ -36,8 +37,8 @@ func (k *PlumbingValue) New() bpf.MapValue { return &PlumbingValue{} }
 
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
 // the BPF policy program for that endpoint.
-func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
-	gpm, err := OpenCallMap(PolicyCallMapName)
+func RemoveGlobalMapping(logger *slog.Logger, id uint32, haveEgressCallMap bool) error {
+	gpm, err := OpenCallMap(logger, PolicyCallMapName)
 	if err == nil {
 		k := PlumbingKey{
 			Key: id,
@@ -46,7 +47,7 @@ func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
 		gpm.Close()
 	}
 	if haveEgressCallMap {
-		gpm, err2 := OpenCallMap(PolicyEgressCallMapName)
+		gpm, err2 := OpenCallMap(logger, PolicyEgressCallMapName)
 		if err2 == nil {
 			k := PlumbingKey{
 				Key: id,
@@ -65,8 +66,8 @@ func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
 // OpenCallMap opens the map that maps endpoint IDs to program file
 // descriptors, which allows tail calling into the policy datapath code from
 // other BPF programs.
-func OpenCallMap(name string) (*PolicyPlumbingMap, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(name), &PlumbingKey{}, &PlumbingValue{})
+func OpenCallMap(logger *slog.Logger, name string) (*PolicyPlumbingMap, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, name), &PlumbingKey{}, &PlumbingValue{})
 	if err != nil {
 		return nil, err
 	}

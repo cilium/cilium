@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/cilium/ebpf"
@@ -61,6 +62,8 @@ type Agent interface {
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
 type agent struct {
+	logger *slog.Logger
+
 	lock.Mutex
 	models.MonitorStatus
 
@@ -87,9 +90,10 @@ type agent struct {
 // goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func newAgent(ctx context.Context) *agent {
+func newAgent(ctx context.Context, logger *slog.Logger) *agent {
 	return &agent{
 		ctx:              ctx,
+		logger:           logger,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		consumers:        make(map[consumer.MonitorConsumer]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
@@ -108,7 +112,7 @@ func (a *agent) AttachToEventsMap(nPages int) error {
 	}
 
 	// assert that we can actually connect the monitor
-	path := oldBPF.MapPath(eventsmap.MapName)
+	path := oldBPF.MapPath(a.logger, eventsmap.MapName)
 	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return err

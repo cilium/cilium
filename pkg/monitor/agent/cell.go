@@ -6,10 +6,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -48,14 +48,14 @@ type agentParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Log       logrus.FieldLogger
+	Log       *slog.Logger
 	Config    AgentConfig
 	EventsMap eventsmap.Map `optional:"true"`
 }
 
 func newMonitorAgent(params agentParams) Agent {
 	ctx, cancel := context.WithCancel(context.Background())
-	agent := newAgent(ctx)
+	agent := newAgent(ctx, params.Log)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {

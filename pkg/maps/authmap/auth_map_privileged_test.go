@@ -19,7 +19,7 @@ import (
 func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(hivetest.Logger(tb), "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }

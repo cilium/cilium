@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/fake"
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,8 +31,9 @@ func init() {
 
 func setupCTMap(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
+	logger := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logger, "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
