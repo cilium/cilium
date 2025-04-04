@@ -28,6 +28,7 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #define SOURCE_MAC mac_one
 #define DST_MAC mac_two
 #define SOURCE_IP v4_pod_one
+#define SOURCE_IDENTITY 0xAB
 #define DST_IP v4_pod_two
 #define DST_NODE_ID 0x08b9
 #define TARGET_SPI 2

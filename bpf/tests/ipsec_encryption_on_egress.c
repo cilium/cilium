@@ -24,7 +24,8 @@
 bool hook_reached;
 
 int mock_ipsec_maybe_redirect_to_encrypt(__maybe_unused struct __ctx_buff *ctx,
-					 __maybe_unused __be16 proto)
+					 __maybe_unused __be16 proto,
+					 __maybe_unused __u32 src_sec_identity)
 {
 	hook_reached = true;
 	return CTX_ACT_REDIRECT;
