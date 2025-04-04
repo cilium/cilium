@@ -269,9 +269,9 @@ func testGetIdentityCache(t *testing.T, testConfig testConfig) {
 
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	cl := kvstore.SetupDummy(t, "etcd")
 	testAllocator(t)
-	testAllocatorOperatorIDManagement(t)
+	testAllocatorOperatorIDManagement(t, kvstoreClient{cl})
 }
 
 func testAllocator(t *testing.T) {
@@ -373,7 +373,7 @@ func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
 	}
 }
 
-func testAllocatorOperatorIDManagement(t *testing.T) {
+func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 	const testNamePrefix = "operator_id_management"
 
 	type testCase struct {
@@ -429,11 +429,11 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			var err2 error
 			switch option.Config.IdentityAllocationMode {
 			case option.IdentityAllocationModeKVstore:
-				err = addIDKVStore(ctx, id.Name, lbls1)
+				err = cl.addIDKVStore(ctx, id.Name, lbls1)
 			case option.IdentityAllocationModeCRD:
 				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
 			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
-				err2 = addIDKVStore(ctx, id.Name, lbls1)
+				err2 = cl.addIDKVStore(ctx, id.Name, lbls1)
 				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
 			}
 			require.NoError(t, err)
@@ -465,11 +465,11 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 			switch option.Config.IdentityAllocationMode {
 			case option.IdentityAllocationModeKVstore:
-				err = removeIDKVStore(ctx, id.Name)
+				err = cl.removeIDKVStore(ctx, id.Name)
 			case option.IdentityAllocationModeCRD:
 				err = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
 			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
-				err = removeIDKVStore(ctx, id.Name)
+				err = cl.removeIDKVStore(ctx, id.Name)
 				err2 = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
 			}
 			require.NoError(t, err)
@@ -493,22 +493,23 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 }
 
-func addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
-	kvStoreClient := kvstore.Client()
+type kvstoreClient struct{ kvstore.BackendOperations }
+
+func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
 	idPrefix := path.Join(IdentitiesPath, "id")
 	keyPath := path.Join(idPrefix, id)
-	success, err := kvStoreClient.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
+	success, err := c.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
 	if err != nil || !success {
 		return fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
 	}
 	return nil
 }
 
-func removeIDKVStore(ctx context.Context, id string) error {
+func (c *kvstoreClient) removeIDKVStore(ctx context.Context, id string) error {
 	prefix := path.Join(IdentitiesPath, "id")
 	key := path.Join(prefix, id)
-	return kvstore.Client().Delete(ctx, key)
+	return c.Delete(ctx, key)
 }
 
 func TestLocalAllocation(t *testing.T) {
