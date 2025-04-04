@@ -59,6 +59,13 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 	return CTX_ACT_OK;
 }
 
+/* Defines the calling convention for bpf_lxc's ingress policy tail-call.
+ * Note that skb->tc_index is also passed through.
+ *
+ * As the callers (from-overlay, from-netdev, ...) are re-generated independently
+ * from the policy tail-call of the inidividual endpoints, any change to this code
+ * needs to be introduced with compatibility in mind.
+ */
 static __always_inline void
 local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 			 bool delivery_redirect, bool from_host,
