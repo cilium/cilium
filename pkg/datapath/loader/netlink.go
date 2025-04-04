@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
+	mtuconst "github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -322,12 +323,10 @@ func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
 	if ipv4 {
-		// sizeof(struct iphdr) for the IPIP encap.
-		ipipOverhead := 20
 		dev := &netlink.Iptun{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: defaults.IPIPv4Device,
-				MTU:  mtu - ipipOverhead,
+				MTU:  mtu - mtuconst.IPIPv4Overhead,
 			},
 			FlowBased: true,
 		}
@@ -348,14 +347,10 @@ func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
 	}
 
 	if ipv6 {
-		// sizeof(struct ipv6hdr) + 8 for tunnel encap limit
-		// See kernel commit 381601e5bbae ("Make the ip6_tunnel reflect the
-		// true mtu.") for details.
-		ip6ip6Overhead := 48
 		dev := &netlink.Ip6tnl{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: defaults.IPIPv6Device,
-				MTU:  mtu - ip6ip6Overhead,
+				MTU:  mtu - mtuconst.IPIPv6Overhead,
 			},
 			FlowBased: true,
 		}
