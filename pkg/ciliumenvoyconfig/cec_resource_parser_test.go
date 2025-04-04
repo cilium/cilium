@@ -896,6 +896,9 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.False(t, lf.IsL7Lb)
 
+	// TCP listener has no SO_LINGER config
+	assert.Nil(t, lf.OriginalSourceSoLingerTime)
+
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
 	assert.Len(t, chain.Filters, 2)
@@ -1036,6 +1039,10 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.False(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
+
+	// HTTP listener has zero SO_LINGER config
+	assert.NotNil(t, lf.OriginalSourceSoLingerTime)
+	assert.Zero(t, *lf.OriginalSourceSoLingerTime)
 
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
