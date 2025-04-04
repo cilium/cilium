@@ -71,6 +71,7 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -122,6 +123,9 @@ var (
 				EnableMetrics: operatorCfg.EnableMetrics,
 			}
 		}),
+
+		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
+		shell.Cell,
 	)
 
 	// ControlPlane implements the control functions.
