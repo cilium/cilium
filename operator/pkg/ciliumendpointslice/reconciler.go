@@ -8,27 +8,38 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
+	"strconv"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/api/v1/models"
+	op_k8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
+	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
-	logger     *slog.Logger
-	client     clientset.CiliumV2alpha1Interface
-	context    context.Context
-	cesManager operations
-	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
-	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
-	metrics    *Metrics
+	logger          *slog.Logger
+	client          clientset.CiliumV2alpha1Interface
+	context         context.Context
+	cesManager      operations
+	podStore        resource.Store[*slim_corev1.Pod]
+	cesStore        resource.Store[*cilium_v2a1.CiliumEndpointSlice]
+	ciliumNodeStore resource.Store[*cilium_v2.CiliumNode]
+	namespaceStore  resource.Store[*slim_corev1.Namespace]
+	cidStore        resource.Store[*cilium_v2.CiliumIdentity]
+	metrics         *Metrics
 }
 
 // newReconciler creates and initializes a new reconciler.
@@ -37,20 +48,29 @@ func newReconciler(
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr operations,
 	logger *slog.Logger,
-	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
+	pods resource.Resource[*slim_corev1.Pod],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+	ciliumNode resource.Resource[*cilium_v2.CiliumNode],
+	namespace resource.Resource[*slim_corev1.Namespace],
+	ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity],
 	metrics *Metrics,
 ) *reconciler {
-	cepStore, _ := ciliumEndpoint.Store(ctx)
+	podStore, _ := pods.Store(ctx)
 	cesStore, _ := ciliumEndpointSlice.Store(ctx)
+	ciliumNodeStore, _ := ciliumNode.Store(ctx)
+	nsStore, _ := namespace.Store(ctx)
+	cidStore, _ := ciliumIdentity.Store(ctx)
 	return &reconciler{
-		context:    ctx,
-		logger:     logger,
-		client:     client,
-		cesManager: cesMgr,
-		cepStore:   cepStore,
-		cesStore:   cesStore,
-		metrics:    metrics,
+		context:         ctx,
+		logger:          logger,
+		client:          client,
+		cesManager:      cesMgr,
+		podStore:        podStore,
+		cesStore:        cesStore,
+		ciliumNodeStore: ciliumNodeStore,
+		cidStore:        cidStore,
+		namespaceStore:  nsStore,
+		metrics:         metrics,
 	}
 }
 
@@ -196,13 +216,149 @@ func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (e
 }
 
 func (r *reconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
-	cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
+	podObj, exists, err := r.podStore.GetByKey(cepName.key())
 	if err == nil && exists {
-		return k8s.ConvertCEPToCoreCEP(cepObj)
+		return r.convertPodToCoreCEP(podObj)
 	}
-	r.logger.Debug(fmt.Sprintf("Couldn't get CEP from Store (err=%v, exists=%v)",
+	r.logger.Debug(fmt.Sprintf("Couldn't get Pod from Store (err=%v, exists=%v)",
 		err, exists),
 		logfields.CEPName, cepName.string(),
 	)
 	return nil
+}
+
+// Converts a Pod to a CoreCiliumEndpoint object. Returns nil if no CID has been assigned
+// to the pod.
+func (r *reconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.CoreCiliumEndpoint {
+	identityId, err := r.getPodIdentityID(pod)
+	if err != nil {
+		r.logger.Debug("Could not get pod identity",
+			logfields.K8sPodName, pod.GetName(),
+			logfields.K8sNamespace, pod.Namespace,
+			logfields.Error, err,
+		)
+		return nil
+	}
+
+	networking, err := GetPodEndpointNetworking(pod, r.logger)
+	if err != nil {
+		r.logger.Debug("Could not get pod's endpoint networking",
+			logfields.K8sPodName, pod.GetName(),
+			logfields.K8sNamespace, pod.Namespace,
+			logfields.Error, err,
+		)
+		return nil
+	}
+
+	ciliumNode, err := r.ciliumNodeStore.ByIndex(op_k8s.CiliumNodeIPIndex, pod.GetHostIP())
+	if err != nil || ciliumNode == nil || len(ciliumNode) == 0 {
+		r.logger.Debug("Pod's host node has no associated CiliumNode",
+			logfields.K8sPodName, pod.GetName(),
+			logfields.K8sNamespace, pod.Namespace,
+			logfields.HostIP, pod.GetHostIP(),
+		)
+		return nil
+	}
+
+	namedPorts := make(models.NamedPorts, 0)
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name == "" {
+				continue
+			}
+
+			proto, err := getProtocolString(port.Protocol)
+			if err != nil {
+				continue
+			}
+
+			p := &models.Port{
+				Name:     port.Name,
+				Protocol: proto,
+				Port:     uint16(port.ContainerPort),
+			}
+			namedPorts = append(namedPorts, p)
+		}
+	}
+
+	return &cilium_v2a1.CoreCiliumEndpoint{
+		Name:       pod.GetName(),
+		IdentityID: identityId,
+		Networking: networking,
+		Encryption: ciliumNode[0].Spec.Encryption,
+		NamedPorts: namedPorts,
+	}
+}
+
+// Convert a slim_corev1.Protocol to models.PortProtocol format.
+func getProtocolString(p slim_corev1.Protocol) (string, error) {
+	switch p {
+	case slim_corev1.ProtocolTCP:
+		return models.PortProtocolTCP, nil
+	case slim_corev1.ProtocolUDP:
+		return models.PortProtocolUDP, nil
+	case slim_corev1.ProtocolSCTP:
+		return models.PortProtocolSCTP, nil
+	default:
+		return "", fmt.Errorf("unknown protocol: %s", p)
+	}
+}
+
+// Constructs an EndpointNetworking object for a given pod.
+func GetPodEndpointNetworking(pod *slim_corev1.Pod, logger *slog.Logger) (*cilium_v2.EndpointNetworking, error) {
+	addressPair := &cilium_v2.AddressPair{}
+
+	if len(pod.Status.PodIPs) == 0 {
+		return nil, fmt.Errorf("no IPs allocated to pod yet: %s", pod.GetName())
+	}
+
+	for _, podIP := range pod.Status.PodIPs {
+		ip, err := netip.ParseAddr(podIP.IP)
+		if err != nil {
+			logger.Debug("podIP error",
+				logfields.K8sPodName, pod.GetName(),
+				logfields.K8sNamespace, pod.Namespace,
+				logfields.IPAddr, podIP.IP,
+				logfields.Error, err,
+			)
+			return nil, err
+		}
+
+		if ip.Is4() {
+			addressPair.IPV4 = ip.String()
+		} else if ip.Is6() {
+			addressPair.IPV6 = ip.String()
+		}
+	}
+
+	if pod.GetHostIP() == "" {
+		return nil, fmt.Errorf("no hostIP for pod yet: %s", pod.GetName())
+	}
+
+	networking := &cilium_v2.EndpointNetworking{
+		Addressing: cilium_v2.AddressPairList{
+			addressPair,
+		},
+		NodeIP: pod.GetHostIP(),
+	}
+	return networking, nil
+}
+
+// Get the identity ID for a given pod.
+func (r *reconciler) getPodIdentityID(pod *slim_corev1.Pod) (int64, error) {
+	k8sLabels, err := ciliumidentity.GetRelevantLabelsForPod(r.logger, pod, r.namespaceStore)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get relevant labels for pod: %w", err)
+	}
+	cidKey := key.GetCIDKeyFromLabels(k8sLabels, labels.LabelSourceK8s)
+
+	storeCIDs, err := r.cidStore.ByIndex(k8s.ByKeyIndex, cidKey.GetKey())
+	if err != nil || storeCIDs == nil || len(storeCIDs) == 0 {
+		return 0, fmt.Errorf("failed to get CID from store: %w", err)
+	}
+	identityId, err := strconv.ParseInt(storeCIDs[0].Name, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse CID name: %w", err)
+	}
+	return identityId, nil
 }
