@@ -28,7 +28,13 @@ func TestEndpointLogFormat(t *testing.T) {
 
 	// Default log format is text
 	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep := NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+
+	model := newTestEndpointModel(12345, StateReady)
+	ep, err := NewEndpointFromChangeModel(t.Context(), nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
 
 	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
 	require.True(t, ok)
@@ -39,7 +45,12 @@ func TestEndpointLogFormat(t *testing.T) {
 		logging.SetLogFormat(logging.LogFormatText)
 	}()
 	do = &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep = NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+
+	ep, err = NewEndpointFromChangeModel(t.Context(), nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
 
 	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
 	require.True(t, ok)
@@ -49,7 +60,13 @@ func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)
 
 	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-	ep := NewTestEndpointWithState(nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 12345, StateReady)
+
+	model := newTestEndpointModel(12345, StateReady)
+	ep, err := NewEndpointFromChangeModel(t.Context(), nil, nil, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	require.NoError(t, err)
+
+	ep.Start(uint16(model.ID))
+	t.Cleanup(ep.Stop)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()

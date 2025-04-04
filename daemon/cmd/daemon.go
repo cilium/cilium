@@ -36,9 +36,9 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	fqdnRules "github.com/cilium/cilium/pkg/fqdn/rules"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -86,15 +86,14 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx          context.Context
-	logger       *slog.Logger
-	clientset    k8sClient.Clientset
-	db           *statedb.DB
-	epBuildQueue endpoint.EndpointBuildQueue
-	l7Proxy      *proxy.Proxy
-	svc          service.ServiceManager
-	policy       policy.PolicyRepository
-	idmgr        identitymanager.IDManager
+	ctx       context.Context
+	logger    *slog.Logger
+	clientset k8sClient.Clientset
+	db        *statedb.DB
+	l7Proxy   *proxy.Proxy
+	svc       service.ServiceManager
+	policy    policy.PolicyRepository
+	idmgr     identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -107,10 +106,6 @@ type Daemon struct {
 	routes           statedb.Table[*datapathTables.Route]
 	devices          statedb.Table[*datapathTables.Device]
 	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
-
-	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
-	// programs.
-	compilationLock datapath.CompilationLock
 
 	clusterInfo cmtypes.ClusterInfo
 	clustermesh *clustermesh.ClusterMesh
@@ -130,6 +125,7 @@ type Daemon struct {
 
 	policyMapFactory policymap.Factory
 
+	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
 
 	endpointRestoreComplete       chan struct{}
@@ -178,18 +174,15 @@ type Daemon struct {
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
 
-	wireguardAgent  *wireguard.Agent
-	orchestrator    datapath.Orchestrator
-	iptablesManager datapath.IptablesManager
-	hubble          hubblecell.HubbleIntegration
+	wireguardAgent *wireguard.Agent
+	orchestrator   datapath.Orchestrator
+	hubble         hubblecell.HubbleIntegration
 
 	lrpManager   *redirectpolicy.Manager
 	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
 
 	explbConfig experimental.Config
-
-	dnsRulesAPI fqdnRules.DNSRulesService
 }
 
 func (d *Daemon) init() error {
@@ -357,8 +350,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		logger:            params.Logger,
 		clientset:         params.Clientset,
 		db:                params.DB,
-		epBuildQueue:      params.EndpointBuildQueue,
-		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		directRoutingDev:  params.DirectRoutingDevice,
 		loader:            params.Loader,
@@ -391,19 +382,18 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
 		policyMapFactory:  params.PolicyMapFactory,
+		endpointCreator:   params.EndpointCreator,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
-		iptablesManager:   params.IPTablesManager,
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
 		explbConfig:       params.ExpLBConfig,
-		dnsRulesAPI:       params.DNSRulesAPI,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
