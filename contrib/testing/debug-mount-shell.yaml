@@ -1,0 +1,9 @@
+# Can be used to connect to the Cilium debug shell from a k8s debugging container
+# e.g. for the Cilium Operator
+#
+# kubectl -n kube-system debug cilium-operator-7dcff8d46c-79sp6 -it --image=localhost:5000/cilium/cilium-dev:local --custom=contrib/testing/debug-mount-shell.yaml --profile=general -- bash
+#
+volumeMounts:
+  - mountPath: /var/run/cilium/shell/sockets
+    name: shell-sockets
+    readOnly: true

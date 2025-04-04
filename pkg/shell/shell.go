@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package shell
 
 import (
 	"bufio"
@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var shellCell = cell.Module(
+var Cell = cell.Module(
 	"shell",
 	"Cilium debug shell",
 	cell.Invoke(registerShell),
@@ -55,7 +55,7 @@ type shell struct {
 }
 
 func (sh shell) listener(ctx context.Context, health cell.Health) error {
-	// Remove any old UNIX sock file from previous agent run.
+	// Remove any old UNIX sock file from previous runs.
 	os.Remove(defaults.ShellSockPath)
 
 	var lc net.ListenConfig
@@ -82,8 +82,9 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 		}
 		sh.jg.Add(job.OneShot(
 			fmt.Sprintf("shell-%d", connCount),
-			func(ctx context.Context, _ cell.Health) error {
+			func(ctx context.Context, h cell.Health) error {
 				sh.handleConn(ctx, conn)
+				h.Close() // remove from health list
 				sh.log.Info("exited")
 				return nil
 			}))
@@ -109,7 +110,7 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 	defer wg.Wait()
 	defer cancel()
 
-	// Catch panics to make sure the script commands can't bring the agent down.
+	// Catch panics to make sure the script commands can't bring the runtime down.
 	defer func() {
 		if err := recover(); err != nil {
 			// Log the panic and also write it to cilium-dbg. We keep processing

@@ -309,6 +309,10 @@ spec:
           mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
         {{- end }}
+        # accessing debug shell socket from k8s debug containers
+        - name: shell-sockets
+          mountPath: /var/run/cilium/shell/sockets
+          readOnly: false
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
         # to have write access
@@ -885,6 +889,10 @@ spec:
           path: "{{ .Values.daemon.runPath }}/envoy/sockets"
           type: DirectoryOrCreate
       {{- end }}
+      # accessing debug shell socket from k8s debug containers
+      - name: shell-sockets
+        emptyDir:
+          medium: Memory
       {{- if .Values.kubeConfigPath }}
       - name: kube-config
         hostPath:
