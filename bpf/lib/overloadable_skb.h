@@ -70,9 +70,9 @@ get_identity(const struct __sk_buff *ctx)
 }
 
 /**
- * get_epid - returns source endpoint identity from the mark field
+ * get_epid - returns endpoint identifier from the mark field
  */
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u16
 get_epid(const struct __sk_buff *ctx)
 {
 	return ctx->mark >> 16;
