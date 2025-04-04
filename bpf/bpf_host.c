@@ -1407,8 +1407,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
 		src_sec_identity = HOST_ID;
+#ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
