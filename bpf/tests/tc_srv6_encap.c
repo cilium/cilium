@@ -234,19 +234,27 @@ int srv6_encap_from_pod_ipv6_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_srv6_encap_from_pod_ipv6")
 int srv6_encap_from_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 {
-	struct srv6_vrf_key6 vrf_key = {
-		.lpm = {SRV6_VRF_STATIC_PREFIX6, {} },
+	/*
+	 * struct srv6_vrf_key6 has misaligned packed v6addr fields as its ast members, that can not
+	 * be memcpy'd into on the stack. Force 8-byte alignment on the v6addr fields by using two
+	 * of keys so the 2nd one has 8-byte aligned v6addr fields.
+	 */
+	struct srv6_vrf_key6 vrf_key[2] __align_stack_8 = {
+		{},
+		{
+			.lpm = {SRV6_VRF_STATIC_PREFIX6, {} }
+		},
 	};
-	struct srv6_policy_key6 policy_key = {
+	struct srv6_policy_key6 policy_key __align_stack_8 = {
 		.lpm = {SRV6_POLICY_STATIC_PREFIX6 + 128, {} },
 		.vrf_id = 1,
 	};
 	union v6addr sid;
 	__u32 vrf_id = 1;
 
-	memcpy(&vrf_key.src_ip, (const void *)POD_IPV6, sizeof(union v6addr));
-	memset(&vrf_key.dst_cidr, 0, sizeof(union v6addr));
-	map_update_elem(&cilium_srv6_vrf_v6, &vrf_key, &vrf_id, 0);
+	memcpy(&vrf_key[1].src_ip, (const void *)POD_IPV6, sizeof(union v6addr));
+	memset(&vrf_key[1].dst_cidr, 0, sizeof(union v6addr));
+	map_update_elem(&cilium_srv6_vrf_v6, &vrf_key[1], &vrf_id, 0);
 
 	memcpy(&policy_key.dst_cidr, (const void *)EXT_IPV6, sizeof(union v6addr));
 	memcpy(&sid, (const void *)SID, sizeof(sid));
