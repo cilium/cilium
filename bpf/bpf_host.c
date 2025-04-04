@@ -1983,20 +1983,23 @@ int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
-	__u32 lxc_id;
-	int ret;
-	__s8 ext_err = 0;
 
 	if (from_host) {
+		__u32 lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
+		__u32 src_sec_identity = HOST_ID;
+		__s8 ext_err = 0;
+		int ret;
+
 		ret = from_host_to_lxc(ctx, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error_ext(ctx, HOST_ID, ret, ext_err,
-							  METRIC_EGRESS);
+			goto drop_err;
 
-		lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
-		ctx_store_meta(ctx, CB_SRC_LABEL, HOST_ID);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
-		return send_drop_notify_error(ctx, HOST_ID, ret, METRIC_EGRESS);
+
+drop_err:
+		return send_drop_notify_error_ext(ctx, src_sec_identity,
+						  ret, ext_err, METRIC_EGRESS);
 	}
 
 	return to_host_from_lxc(ctx);
