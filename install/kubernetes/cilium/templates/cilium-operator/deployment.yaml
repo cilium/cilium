@@ -211,6 +211,9 @@ spec:
         - name: cilium-config-path
           mountPath: /tmp/cilium/config-map
           readOnly: true
+        - name: shell-sockets
+          mountPath: /var/run/cilium/shell/sockets
+          readOnly: false
         {{- if .Values.etcd.enabled }}
         - name: etcd-config-path
           mountPath: /var/lib/etcd-config
@@ -304,6 +307,9 @@ spec:
       - name: cilium-config-path
         configMap:
           name: cilium-config
+      - name: shell-sockets
+        emptyDir:
+          medium: Memory
       {{- if .Values.etcd.enabled }}
       # To read the etcd config stored in config maps
       - name: etcd-config-path
