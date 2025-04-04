@@ -9,6 +9,7 @@
     - [CiliumEventType](#flow-CiliumEventType)
     - [DNS](#flow-DNS)
     - [DebugEvent](#flow-DebugEvent)
+    - [Encapsulation](#flow-Encapsulation)
     - [Endpoint](#flow-Endpoint)
     - [EndpointRegenNotification](#flow-EndpointRegenNotification)
     - [EndpointUpdateNotification](#flow-EndpointUpdateNotification)
@@ -49,6 +50,7 @@
     - [DebugCapturePoint](#flow-DebugCapturePoint)
     - [DebugEventType](#flow-DebugEventType)
     - [DropReason](#flow-DropReason)
+    - [Encapsulation.Protocol](#flow-Encapsulation-Protocol)
     - [EventType](#flow-EventType)
     - [FlowType](#flow-FlowType)
     - [IPVersion](#flow-IPVersion)
@@ -164,6 +166,23 @@ DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](htt
 | arg3 | [google.protobuf.UInt32Value](#google-protobuf-UInt32Value) |  |  |
 | message | [string](#string) |  |  |
 | cpu | [google.protobuf.Int32Value](#google-protobuf-Int32Value) |  |  |
+
+
+
+
+
+
+<a name="flow-Encapsulation"></a>
+
+### Encapsulation
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| protocol | [Encapsulation.Protocol](#flow-Encapsulation-Protocol) |  |  |
+| IP | [IP](#flow-IP) |  |  |
+| l4 | [Layer4](#flow-Layer4) |  |  |
 
 
 
@@ -292,6 +311,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
 | IP | [IP](#flow-IP) |  | l3 |
 | l4 | [Layer4](#flow-Layer4) |  | l4 |
+| capsule | [Encapsulation](#flow-Encapsulation) |  |  |
 | source | [Endpoint](#flow-Endpoint) |  |  |
 | destination | [Endpoint](#flow-Endpoint) |  |  |
 | Type | [FlowType](#flow-FlowType) |  |  |
@@ -1059,6 +1079,19 @@ here.
 | DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in cilium_call_policy, but the program is not available. |
 | DROP_NO_EGRESS_IP | 204 | An Egress Gateway node matched a packet against an Egress Gateway policy that didn&#39;t select a valid Egress IP. |
 | DROP_PUNT_PROXY | 205 | Punt packet to a user space proxy. |
+
+
+
+<a name="flow-Encapsulation-Protocol"></a>
+
+### Encapsulation.Protocol
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| NONE | 0 |  |
+| VXLAN | 1 |  |
+| GENEVE | 2 |  |
 
 
 
