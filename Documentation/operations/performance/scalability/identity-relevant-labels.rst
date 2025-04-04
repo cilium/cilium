@@ -51,15 +51,16 @@ for identities. Additionally, when at least one inclusive label pattern is
 configured, the following inclusive label patterns are automatically added to
 the configuration:
 
-========================================== =====================================================
-Label                                      Description
------------------------------------------- -----------------------------------------------------
-``reserved:.*``                            Include all ``reserved:`` labels
-``io\.kubernetes\.pod\.namespace``         Include all ``io.kubernetes.pod.namespace`` labels
-``io\.cilium\.k8s\.namespace\.labels``     Include all ``io.cilium.k8s.namespace.labels`` labels
-``io\.cilium\.k8s\.policy\.cluster``       Include all ``io.cilium.k8s.policy.cluster`` labels
-``app\.kubernetes\.io``                    Include all ``app.kubernetes.io`` labels
-========================================== =====================================================
+=================================================== =========================================================
+Label                                               Description
+--------------------------------------------------- ---------------------------------------------------------
+``reserved:.*``                                     Include all ``reserved:`` labels
+``io\.kubernetes\.pod\.namespace``                  Include all ``io.kubernetes.pod.namespace`` labels
+``io\.cilium\.k8s\.namespace\.labels``              Include all ``io.cilium.k8s.namespace.labels`` labels
+``io\.cilium\.k8s\.policy\.cluster``                Include all ``io.cilium.k8s.policy.cluster`` labels
+``io\.cilium\.k8s\.policy\.serviceaccount``         Include all ``io.cilium.k8s.policy.serviceaccount`` labels
+``app\.kubernetes\.io``                             Include all ``app.kubernetes.io`` labels
+=================================================== =========================================================
 
 
 
@@ -147,6 +148,7 @@ evaluating Cilium identities:
 - io\.kubernetes\.pod\.namespace
 - io\.cilium\.k8s.namespace\.labels
 - io\.cilium\.k8s\.policy\.cluster
+- io\.cilium\.k8s\.policy\.serviceaccount
 - app\.kubernetes\.io
 
 Note that ``io.kubernetes.pod.namespace`` is already included in default
