@@ -10,6 +10,8 @@ on:
     branches:
       - main
       - ft/main/**
+      # only for testing
+      - pr/ha-test
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -257,7 +259,6 @@ jobs:
           job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
 
       - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
@@ -266,7 +267,6 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
-        if: ${{ !success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: "cilium-sysdumps-${{ matrix.ipFamily }}"
