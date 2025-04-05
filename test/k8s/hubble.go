@@ -245,7 +245,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 
 		It("Test FQDN Policy with Relay", func() {
 			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
-			fqdnTarget := "vagrant-cache.ci.cilium.io"
+			fqdnTarget := "nginx-ci.cilium.rocks"
 
 			_, err := kubectl.CiliumPolicyAction(
 				namespaceForTest, fqdnProxyPolicy,
