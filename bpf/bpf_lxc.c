@@ -705,20 +705,6 @@ ct_recreate6:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
-		struct tunnel_key key = {};
-		union v6addr *daddr = (union v6addr *)&ip6->daddr;
-
-		/* Lookup the destination prefix in the list of known
-		 * destination prefixes. If there is a match, the packet will
-		 * be encapsulated to that node and then routed by the agent on
-		 * the remote node.
-		 *
-		 * IPv6 lookup key: daddr/96
-		 */
-		ipv6_addr_copy(&key.ip6, daddr);
-		key.ip6.p4 = 0;
-		key.family = ENDPOINT_KEY_IPV6;
-
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/* See comment in handle_ipv4_from_lxc(). */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
@@ -1241,14 +1227,8 @@ skip_vtep:
 	 * destination's `skip_tunnel` flag.
 	 */
 	if (ct_state->from_tunnel || !skip_tunnel) {
-		struct tunnel_key key = {};
-
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
-
-		key.ip4 = ip4->daddr & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-		key.cluster_id = (__u16)cluster_id;
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/*
