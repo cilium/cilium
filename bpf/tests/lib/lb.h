@@ -3,8 +3,8 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		     __u16 rev_nat_index)
+__lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		       __u16 rev_nat_index, bool session_affinity, __u32 affinity_timeout)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
@@ -17,6 +17,12 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 		.flags = SVC_FLAG_ROUTABLE,
 		.rev_nat_index = rev_nat_index,
 	};
+	if (session_affinity) {
+		/* 0 indicates the svc frontend */
+		svc_key.backend_slot = 0;
+		svc_value.flags |= SVC_FLAG_AFFINITY;
+		svc_value.affinity_timeout = affinity_timeout;
+	}
 	map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
 	/* Register with both scopes: */
 	svc_key.scope = LB_LOOKUP_SCOPE_INT;
@@ -24,11 +30,19 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 }
 
 static __always_inline void
-lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		  __u16 rev_nat_index)
+lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto,
+		     __u16 backend_count, __u16 rev_nat_index)
+{
+	__lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index, false, 0);
+}
+
+static __always_inline void
+__lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		    __u16 rev_nat_index, bool session_affinity, __u32 affinity_timeout)
 {
 	/* Register with both scopes: */
-	lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index);
+	__lb_v4_upsert_service(addr, port, proto, backend_count, rev_nat_index,
+			       session_affinity, affinity_timeout);
 
 	/* Insert a reverse NAT entry for the above service */
 	struct lb4_reverse_nat revnat_value = {
@@ -36,6 +50,13 @@ lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 		.port = port,
 	};
 	map_update_elem(&cilium_lb4_reverse_nat, &rev_nat_index, &revnat_value, BPF_ANY);
+}
+
+static __always_inline void
+lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
+		  __u16 rev_nat_index)
+{
+	__lb_v4_add_service(addr, port, proto, backend_count, rev_nat_index, false, 0);
 }
 
 static __always_inline void
@@ -76,9 +97,9 @@ lb_v4_upsert_backend(__u32 backend_id, __be32 backend_addr, __be16 backend_port,
 }
 
 static __always_inline void
-lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
-		  __u32 backend_id, __be32 backend_addr, __be16 backend_port,
-		  __u8 backend_proto, __u8 cluster_id)
+__lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot, __u32 backend_id,
+		    __be32 backend_addr, __be16 backend_port, __u8 backend_proto, __u8 cluster_id,
+		    bool session_affinity)
 {
 	/* Create the actual backend: */
 	lb_v4_upsert_backend(backend_id, backend_addr, backend_port,
@@ -95,8 +116,18 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 		.backend_id = backend_id,
 		.flags = SVC_FLAG_ROUTABLE,
 	};
+	if (session_affinity)
+		svc_value.flags |= SVC_FLAG_AFFINITY;
 	/* Point the service's backend_slot at the created backend: */
 	map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
+}
+
+static __always_inline void
+lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot, __u32 backend_id,
+		  __be32 backend_addr, __be16 backend_port, __u8 backend_proto,	__u8 cluster_id)
+{
+	__lb_v4_add_backend(svc_addr, svc_port, backend_slot, backend_id, backend_addr,
+			    backend_port, backend_proto, cluster_id, false);
 }
 #endif
 

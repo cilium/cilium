@@ -173,6 +173,7 @@ struct {
 #endif
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
+#ifndef LB_MAGLEV_EXTERNAL
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -188,6 +189,7 @@ struct {
 		__uint(max_entries, 1);
 	});
 } cilium_lb4_maglev __section_maps_btf;
+#endif /* LB_MAGLEV_EXTERNAL */
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
