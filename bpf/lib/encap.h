@@ -90,19 +90,6 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 						trace);
 }
 
-/* __encap_and_redirect_lxc() is a variant of encap_and_redirect_lxc()
- * that requires a valid tunnel_endpoint.
- */
-static __always_inline int
-__encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key, __u32 seclabel, __u32 dstid,
-			 const struct trace_ctx *trace)
-{
-	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-					      encrypt_key, seclabel, dstid,
-					      trace);
-}
-
 #if defined(TUNNEL_MODE)
 /* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
  * so that it can be passed to the IP stack. Without IPSec the packet is
@@ -114,17 +101,16 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * CTX_ACT_REDIRECT.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx __maybe_unused,
-		       __be32 tunnel_endpoint, __u8 encrypt_key __maybe_unused,
-		       __u32 seclabel __maybe_unused, __u32 dstid __maybe_unused,
-		       const struct trace_ctx *trace __maybe_unused)
+encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
+		       __u8 encrypt_key, __u32 seclabel, __u32 dstid,
+		       const struct trace_ctx *trace)
 {
 	if (!tunnel_endpoint)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
-					encrypt_key, seclabel, dstid,
-					trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+					      encrypt_key, seclabel, dstid,
+					      trace);
 }
 #endif /* TUNNEL_MODE */
 
