@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -41,7 +42,7 @@ type fqdnProxyBootstrapper struct {
 	policyRepo        policy.PolicyRepository
 	ipcache           *ipcache.IPCache
 	endpointManager   endpointmanager.EndpointManager
-	dnsRequestHandler DNSRequestHandler
+	dnsRequestHandler messagehandler.DNSRequestHandler
 }
 
 var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
