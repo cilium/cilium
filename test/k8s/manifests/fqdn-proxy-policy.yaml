@@ -16,4 +16,4 @@ spec:
         dns:
         - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "vagrant-cache.ci.cilium.io"
+    - matchPattern: "nginx-ci.cilium.rocks"
