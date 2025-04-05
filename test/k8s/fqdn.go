@@ -26,8 +26,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		appPods map[string]string
 
 		// The IPs are updated in BeforeAll
-		worldTarget          = "vagrant-cache.ci.cilium.io"
-		worldTargetIP        = "147.75.38.95"
+		worldTarget          = "nginx-ci.cilium.rocks"
+		worldTargetIP        = "3.227.177.40"
 		worldInvalidTarget   = "cilium.io"
 		worldInvalidTargetIP = "104.198.14.52"
 	)
