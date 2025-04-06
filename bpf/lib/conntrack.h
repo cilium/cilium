@@ -303,12 +303,6 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-		/* For backward-compatibility we need to update reverse NAT
-		 * index in the CT_SERVICE entry for old connections.
-		 */
-		if (dir == CT_SERVICE && entry->rev_nat_index == 0)
-			entry->rev_nat_index = ct_state->rev_nat_index;
-
 #ifdef CONNTRACK_ACCOUNTING
 		__sync_fetch_and_add(&entry->packets, 1);
 		__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
