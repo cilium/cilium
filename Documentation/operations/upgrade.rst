@@ -305,6 +305,9 @@ communicating via the proxy must reconnect to re-establish connections.
   on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops. If you would like 
   to disable this new behavior, you can add ``!io\.cilium\.k8s\.policy\.serviceaccount`` to your identity-relevant labels to 
   exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
+* If using IPsec encryption the upgrade from v1.17 to v1.18 requires special attention.
+  Please reference :ref:`encryption_ipsec`
+
 
 
 Removed Options
