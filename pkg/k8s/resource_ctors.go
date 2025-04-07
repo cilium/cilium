@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/spf13/pflag"
@@ -281,7 +282,10 @@ func transformEndpoint(obj any) (any, error) {
 		return ParseEndpointSliceV1(obj), nil
 	case *slim_discoveryv1beta1.EndpointSlice:
 		return ParseEndpointSliceV1Beta1(obj), nil
+	case cache.DeletedFinalStateUnknown:
+		return obj, nil
 	default:
+		log.WithField("name", reflect.TypeOf(obj)).Error("Unknown endpoint or endpoint slice object")
 		return nil, fmt.Errorf("%T not a known endpoint or endpoint slice object", obj)
 	}
 }
