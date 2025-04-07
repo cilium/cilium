@@ -13,6 +13,12 @@ import (
 
 type FakeOrchestrator struct{}
 
+func (f *FakeOrchestrator) DatapathInitialized() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
