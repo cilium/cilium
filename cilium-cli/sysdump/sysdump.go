@@ -642,10 +642,12 @@ func (c *Collector) Run() error {
 
 					p, err := c.Client.ListPods(ctx, namespace.Name, metav1.ListOptions{})
 					if err != nil {
-						return fmt.Errorf("failed to get logs from Hubble certgen pods")
+						return fmt.Errorf("failed to get logs from crashloop/restarted pods: %w", err)
 					}
-					if err := c.SubmitLogsTasks(filterCrashedPods(p, 0), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
-						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
+					if err := c.SubmitLogsTasks(append(
+						filterCrashedPods(p, 0),
+						filterRestartedContainersPods(p, 0)...), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+						return fmt.Errorf("failed to collect logs from crashloop/restarted pods: %w", err)
 					}
 				}
 				return nil
