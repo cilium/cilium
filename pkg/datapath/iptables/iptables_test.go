@@ -794,3 +794,62 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 		assert.Equal(t, tt.expected, actual)
 	}
 }
+
+func TestVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: true,
+		},
+	}
+
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	expected := "-t raw -A %s -p udp --dport 8472 -m comment --comment cilium: NOTRACK for VXLAN traffic -j CT --notrack"
+
+	mockIp4tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw")},
+		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw")},
+	}
+	mockIp6tables.expectations = mockIp4tables.expectations
+
+	if err := mockManager.installVxlanNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+	if err := mockIp6tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestVxlanNoTrackRulesTunnelingDisabled(t *testing.T) {
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: false,
+		},
+	}
+
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
+	// rules to be added, so leave `mockIp6tables.expectations` empty.
+
+	if err := mockManager.installVxlanNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+	if err := mockIp6tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+}
