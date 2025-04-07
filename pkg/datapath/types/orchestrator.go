@@ -13,6 +13,7 @@ import (
 type Orchestrator interface {
 	Reinitialize(ctx context.Context) error
 
+	DatapathInitialized() <-chan struct{}
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) (string, error)
 	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
