@@ -1411,6 +1411,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	else if (magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
 #endif
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
+	else if (magic == MARK_MAGIC_EGW_DONE)
+		src_sec_identity = get_identity(ctx);
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
