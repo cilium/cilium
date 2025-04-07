@@ -165,8 +165,8 @@ kind-build-image-agent: ## Build cilium-dev docker image
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: .SHELLFLAGS=-c
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
-		$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
+	$(QUIET)for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
+		kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
 	done
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
@@ -176,8 +176,8 @@ kind-build-image-operator: ## Build cilium-operator-dev docker image
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: .SHELLFLAGS=-c
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
-		$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
+	$(QUIET)for node in $(shell kind -n $(KIND_CLUSTER_NAME) get nodes); do \
+		kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME) --nodes $$node; \
 	done
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
@@ -207,9 +207,9 @@ kind-install-cilium-fast: .SHELLFLAGS=-c
 kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
 	docker pull quay.io/cilium/cilium-ci:latest
-	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+	$(QUIET)for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node in $(shell kind -n "$$cluster_name" get nodes); do \
-			$(QUIET)kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
+			kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
 		done; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
