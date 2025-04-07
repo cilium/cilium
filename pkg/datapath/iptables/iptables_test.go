@@ -794,3 +794,71 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 		assert.Equal(t, tt.expected, actual)
 	}
 }
+
+func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: true,
+			TunnelPort:       port,
+		},
+	}
+
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	expected := "-t raw -A %s -p udp --dport %d -m comment --comment cilium: NOTRACK for tunnel traffic -j CT --notrack"
+
+	mockIp4tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw", port)},
+		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw", port)},
+	}
+	mockIp6tables.expectations = mockIp4tables.expectations
+
+	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+	if err := mockIp6tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTunnelVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
+	testTunnelNoTrackRulesTunnelingEnabled(t, 8472)
+}
+
+func TestTunnelGeneveNoTrackRulesTunnelingEnabled(t *testing.T) {
+	testTunnelNoTrackRulesTunnelingEnabled(t, 6081)
+}
+
+func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: false,
+		},
+	}
+
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
+	// rules to be added, so leave `mockIp6tables.expectations` empty.
+
+	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockIp4tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+	if err := mockIp6tables.checkExpectations(); err != nil {
+		t.Error(err)
+	}
+}
