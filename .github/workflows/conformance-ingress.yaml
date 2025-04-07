@@ -63,7 +63,7 @@ env:
 
 jobs:
   echo-inputs:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -72,6 +72,8 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -81,6 +83,8 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   wait-for-images:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -98,6 +102,8 @@ jobs:
           images: cilium-ci operator-generic-ci
 
   ingress-conformance-test:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Ingress Conformance Test
     env:
       job_name: "Ingress Conformance Test"

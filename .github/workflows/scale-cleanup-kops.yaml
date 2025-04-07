@@ -30,6 +30,8 @@ env:
 
 jobs:
   cleanup-kops-clusters:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     name: Cleanup kops clusters
     timeout-minutes: 30

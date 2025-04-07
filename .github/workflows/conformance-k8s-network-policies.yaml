@@ -18,6 +18,8 @@ env:
 
 jobs:
   preflight-clusterrole:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Preflight Clusterrole Check
     runs-on: ubuntu-24.04
     steps:
@@ -39,6 +41,8 @@ jobs:
              cilium-preflight/clusterrole.yaml
 
   cyclonus-test:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Cyclonus Test
     env:
       job_name: "Cyclonus Test"

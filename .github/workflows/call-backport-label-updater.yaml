@@ -11,6 +11,7 @@
     call-backport-label-updater:
       name: Update backport labels for upstream PR
       if: |
+        always() && vars.ENABLE_CILIUM_CI == 'true' &&
         github.event.pull_request.merged == true &&
         contains(github.event.pull_request.body, 'upstream-prs') &&
         contains(join(github.event.pull_request.labels.*.name, ', '), 'backport/')
