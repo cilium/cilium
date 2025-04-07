@@ -58,6 +58,12 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 	// Remove any old UNIX sock file from previous runs.
 	os.Remove(defaults.ShellSockPath)
 
+	if _, err := os.Stat(defaults.RuntimePath); os.IsNotExist(err) {
+		if err := os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights); err != nil {
+			return fmt.Errorf("could not create default runtime directory: %w", err)
+		}
+	}
+
 	var lc net.ListenConfig
 	l, err := lc.Listen(ctx, "unix", defaults.ShellSockPath)
 	if err != nil {
