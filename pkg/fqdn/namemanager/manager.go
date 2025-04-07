@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -109,6 +111,10 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 		if metrics.FQDNSelectors.IsEnabled() {
 			metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
 		}
+		// Required to be asynchronous to avoid a deadlock. The selectorcache calls
+		// namemanager while being locked, and allocating an identity with notifyOwner calls
+		// into the selector cache.
+		go n.allocateIdentity(selector)
 	}
 
 	// The newly added FQDN selector could match DNS Names in the cache. If
@@ -135,6 +141,10 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 	// Re-compute labels for affected names and IPs
 	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
 	n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
+	// Required to be asynchronous to avoid a deadlock. The selectorcache calls
+	// namemanager while being locked, and allocating an identity with notifyOwner calls
+	// into the selector cache.
+	go n.deallocateIdentity(selector)
 }
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
@@ -466,4 +476,48 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 // prepareMatchName ensures a ToFQDNs.matchName field is used consistently.
 func prepareMatchName(matchName string) string {
 	return dns.FQDN(matchName)
+}
+
+func (n *manager) allocateIdentity(sel api.FQDNSelector) {
+	// The assumption is that this context is never used, since these are
+	// locally-scoped identities.
+	ctx := context.Background()
+	lbls := identityLabels(sel)
+	for _, ls := range lbls {
+		_, _, err := n.params.IdentityAllocator.AllocateIdentity(ctx, ls, true, identity.InvalidIdentity)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Selector, sel).Error("Failed to pre-allocate identity for FQDN selector.")
+		}
+	}
+}
+
+func (n *manager) deallocateIdentity(sel api.FQDNSelector) {
+	// The assumption is that this context is never used, since these are
+	// locally-scoped identities.
+	ctx := context.Background()
+	lbls := identityLabels(sel)
+	for _, ls := range lbls {
+		id := n.params.IdentityAllocator.LookupIdentity(ctx, ls)
+		if id != nil {
+			n.params.IdentityAllocator.Release(ctx, id, true)
+		}
+	}
+
+}
+
+func identityLabels(sel api.FQDNSelector) []labels.Labels {
+	il := sel.IdentityLabel()
+	// If we are in dualstack mode, we need to allocate a corresponding identity
+	// for both IPv4 and IPv6.
+	if option.Config.IsDualStack() {
+		v4 := labels.NewFrom(labels.LabelWorldIPv4)
+		v4[il.Key] = il
+		v6 := labels.NewFrom(labels.LabelWorldIPv6)
+		v6[il.Key] = il
+		return []labels.Labels{v4, v6}
+	}
+
+	lbls := labels.NewFrom(labels.LabelWorld)
+	lbls[il.Key] = il
+	return []labels.Labels{lbls}
 }
