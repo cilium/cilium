@@ -581,6 +581,49 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 	return prog.runProg(rule)
 }
 
+func (m *Manager) installVxlanNoTrackRules(ip4tables, ip6tables runnable) error {
+	if !m.sharedCfg.TunnelingEnabled {
+		return nil
+	}
+
+	input := []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(defaults.TunnelPortVXLAN)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for VXLAN traffic",
+		"-j", "CT", "--notrack",
+	}
+	output := []string{
+		"-t", "raw",
+		"-A", ciliumOutputRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(defaults.TunnelPortVXLAN)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for VXLAN traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	if m.sharedCfg.EnableIPv4 && ip4tables != nil {
+		if err := ip4tables.runProg(input); err != nil {
+			return err
+		}
+		if err := ip4tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 && ip6tables != nil {
+		if err := ip6tables.runProg(input); err != nil {
+			return err
+		}
+		if err := ip6tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) installStaticProxyRules() error {
 	// match traffic to a proxy (upper 16 bits has the proxy port, which is masked out)
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
@@ -1518,6 +1561,10 @@ func (m *Manager) installRules(state desiredState) error {
 
 			return fmt.Errorf("cannot add custom chain %s: %w", c.name, err)
 		}
+	}
+
+	if err := m.installVxlanNoTrackRules(ip4tables, ip6tables); err != nil {
+		return fmt.Errorf("cannot install VXLAN no track rules: %w", err)
 	}
 
 	if err := m.installStaticProxyRules(); err != nil {
