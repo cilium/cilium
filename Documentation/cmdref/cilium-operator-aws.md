@@ -150,6 +150,7 @@ cilium-operator-aws [flags]
 * [cilium-operator-aws completion](cilium-operator-aws_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-aws hive](cilium-operator-aws_hive.md)	 - Inspect the hive
 * [cilium-operator-aws metrics](cilium-operator-aws_metrics.md)	 - Access metric status of the operator
+* [cilium-operator-aws shell](cilium-operator-aws_shell.md)	 - Connect to the Cilium shell
 * [cilium-operator-aws status](cilium-operator-aws_status.md)	 - Display status of operator
 * [cilium-operator-aws troubleshoot](cilium-operator-aws_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 

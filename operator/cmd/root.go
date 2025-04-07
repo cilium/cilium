@@ -71,6 +71,7 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	shellclient "github.com/cilium/cilium/pkg/shell/client"
 	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -321,6 +322,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
+		shellclient.ShellCmd,
 		h.Command(),
 	)
 
