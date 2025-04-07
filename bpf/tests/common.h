@@ -106,27 +106,31 @@ struct {
  *      **%li**, **%lu**, **%lx**, **%lld**, **%lli**, **%llu**, **%llx**,
  *      **%p**. No modifier (size of field, padding with zeroes, etc.)
  *      is available
+ * Each log message is automatically prefixed with the source file name and
+ * line number in the format "file:line: " to help with identifying the exact
+ * origin of the log entry in the source code. This information is particularly
+ * useful for debugging and tracing test execution flow.
  */
-#define test_log(fmt, args...)						\
-({									\
-	static const char ____fmt[] = fmt;				\
-	if (test_result_cursor) {					\
-		*(suite_result_cursor++) = MKR_TEST_LOG;		\
-	} else {							\
-		*(suite_result_cursor++) = MKR_SUITE_LOG;		\
-	}								\
-	*(suite_result_cursor++) = 2 + sizeof(____fmt) +		\
-		___bpf_narg(args) +					\
-		(___bpf_narg(args) * sizeof(unsigned long long));	\
-	*(suite_result_cursor++) = MKR_LOG_FMT;			\
-	*(suite_result_cursor++) = sizeof(____fmt);			\
-	memcpy(suite_result_cursor, ____fmt, sizeof(____fmt));		\
-	suite_result_cursor += sizeof(____fmt);			\
-									\
-									\
-	if (___bpf_narg(args) > 0) {					\
-		__bpf_log_arg(suite_result_cursor, args);		\
-	}								\
+#define test_log(fmt, args...)								\
+({											\
+	static const char ____fileline[] = __FILE__ ":" LINE_STRING  ": ";		\
+	static const char ____fmt[] = fmt;						\
+	if (test_result_cursor) {							\
+		*(suite_result_cursor++) = MKR_TEST_LOG;				\
+	} else {									\
+		*(suite_result_cursor++) = MKR_SUITE_LOG;				\
+	}										\
+	*(suite_result_cursor++) = 2 + sizeof(____fileline) - 1 + sizeof(____fmt) +	\
+		___bpf_narg(args) + (___bpf_narg(args) * sizeof(unsigned long long));	\
+	*(suite_result_cursor++) = MKR_LOG_FMT;						\
+	*(suite_result_cursor++) = sizeof(____fileline) - 1 + sizeof(____fmt);		\
+	memcpy(suite_result_cursor, ____fileline, sizeof(____fileline) - 1);		\
+	suite_result_cursor += sizeof(____fileline) - 1;				\
+	memcpy(suite_result_cursor, ____fmt, sizeof(____fmt));				\
+	suite_result_cursor += sizeof(____fmt);						\
+	if (___bpf_narg(args) > 0) {							\
+		__bpf_log_arg(suite_result_cursor, args);				\
+	}										\
 })
 
 /* This is a hack to allow us to convert the integer produced by __LINE__ */
