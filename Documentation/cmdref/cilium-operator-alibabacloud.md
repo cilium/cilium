@@ -143,6 +143,7 @@ cilium-operator-alibabacloud [flags]
 * [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-alibabacloud hive](cilium-operator-alibabacloud_hive.md)	 - Inspect the hive
 * [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.md)	 - Access metric status of the operator
+* [cilium-operator-alibabacloud shell](cilium-operator-alibabacloud_shell.md)	 - Connect to the Cilium shell
 * [cilium-operator-alibabacloud status](cilium-operator-alibabacloud_status.md)	 - Display status of operator
 * [cilium-operator-alibabacloud troubleshoot](cilium-operator-alibabacloud_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 
