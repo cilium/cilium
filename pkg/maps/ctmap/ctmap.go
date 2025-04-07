@@ -461,7 +461,8 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Key, ctKey.String()).Error("Unable to delete CT entry")
+				log.WithError(err).WithField(logfields.Key, ctKey.ToHost().String()).
+					Error("Unable to delete CT entry")
 			} else {
 				stats.deleted++
 			}
