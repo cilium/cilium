@@ -126,11 +126,37 @@ type CiliumBGPPeer struct {
 	// +kubebuilder:default=0
 	PeerASN *int64 `json:"peerASN,omitempty"`
 
+	// AutoDiscovery is the configuration for auto-discovery of the peer address.
+	//
+	// +kubebuilder:validation:Optional
+	AutoDiscovery *AutoDiscovery `json:"autoDiscovery,omitempty"`
+
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.
 	//
 	// +kubebuilder:validation:Optional
 	PeerConfigRef *PeerConfigReference `json:"peerConfigRef,omitempty"`
+}
+
+// AutoDiscovery is the configuration for auto-discovery of the peer address.
+type AutoDiscovery struct {
+	// mode is the mode of the auto-discovery.
+	//
+	// +kubebuilder:validation:Enum=default-gateway
+	Mode string `json:"mode"`
+
+	// defaultGateway is the configuration for auto-discovery of the default gateway.
+	//
+	// +kubebuilder:validation:Optional
+	DefaultGateway *DefaultGateway `json:"defaultGateway,omitempty"`
+}
+
+// DefaultGateway is the configuration for auto-discovery of the default gateway.
+type DefaultGateway struct {
+	// addressFamily is the address family of the default gateway.
+	//
+	// +kubebuilder:validation:Enum=ipv4;ipv6
+	AddressFamily string `json:"addressFamily"`
 }
 
 // PeerConfigReference is a reference to a peer configuration resource.

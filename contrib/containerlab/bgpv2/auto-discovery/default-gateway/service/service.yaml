@@ -1,0 +1,83 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-blue
+  namespace: tenant-blue
+  labels:
+    bgp: blue
+spec:
+  type: NodePort
+  ipFamilyPolicy: PreferDualStack
+  ports:
+    - port: 1234
+  selector:
+    app: curl-blue
+  externalIPs:
+    - 192.168.100.10
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-red
+  namespace: tenant-red
+  labels:
+    bgp: red
+spec:
+  type: NodePort
+  ipFamilyPolicy: PreferDualStack
+  ports:
+    - port: 1236
+  selector:
+    app: curl-red
+  externalIPs:
+    - 192.168.200.10
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-blue
+  namespace: tenant-blue
+  labels:
+    app: curl-blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-blue
+  template:
+    metadata:
+      labels:
+        app: curl-blue
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl
+          command: ["sleep", "infinit"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-red
+  namespace: tenant-red
+  labels:
+    app: curl-red
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-red
+  template:
+    metadata:
+      labels:
+        app: curl-red
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl
+          command: ["sleep", "infinit"]

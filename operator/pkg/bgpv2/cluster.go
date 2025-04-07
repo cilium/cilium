@@ -329,6 +329,7 @@ func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPIn
 				PeerAddress:   clusterBGPInstancePeer.PeerAddress,
 				PeerASN:       clusterBGPInstancePeer.PeerASN,
 				PeerConfigRef: clusterBGPInstancePeer.PeerConfigRef,
+				AutoDiscovery: clusterBGPInstancePeer.AutoDiscovery,
 			}
 
 			// find BGPResourceManager Peer override for this instance

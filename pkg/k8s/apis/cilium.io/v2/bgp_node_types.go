@@ -119,6 +119,11 @@ type CiliumBGPNodePeer struct {
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN *int64 `json:"peerASN,omitempty"`
 
+	// AutoDiscovery is the configuration for auto-discovery of the peer address.
+	//
+	// +kubebuilder:validation:Optional
+	AutoDiscovery *AutoDiscovery `json:"autoDiscovery,omitempty"`
+
 	// LocalAddress is the IP address of the local interface to use for the peering session.
 	// This configuration is derived from CiliumBGPNodeConfigOverride resource. If not specified, the local address will be used for setting up peering.
 	//
