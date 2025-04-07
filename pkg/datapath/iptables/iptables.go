@@ -1467,6 +1467,10 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 
 	// Make sure we have no old "backups"
 	if err := m.removeRules(oldCiliumPrefix); err != nil {
+		// We could fail if netfilter was compiled out from the kernel
+		if !state.installRules {
+			return nil
+		}
 		return fmt.Errorf("failed to remove old backup rules: %w", err)
 	}
 
