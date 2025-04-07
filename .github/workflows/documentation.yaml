@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   check_changes:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Deduce required tests from code changes
     runs-on: ubuntu-24.04
     outputs:
@@ -53,7 +55,7 @@ jobs:
   # should be unaffected otherwise.
   build-html:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.docs-tree == 'true' }}
+    if: needs.check_changes.outputs.docs-tree == 'true' && always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Validate & Build HTML
     runs-on: ubuntu-24.04
     steps:
@@ -71,7 +73,7 @@ jobs:
 
   check-generated-documentation:
     name: Check generated documentation
-    if: ${{ github.event_name != 'merge_group' }}
+    if: github.event_name != 'merge_group' && always() && vars.ENABLE_CILIUM_CI == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

@@ -8,6 +8,8 @@ on:
 
 jobs:
   validate:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Validate Renovate configuration
     runs-on: ubuntu-24.04
     steps:
