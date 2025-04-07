@@ -25,6 +25,8 @@ permissions:
 jobs:
   summary_report:
     name: "Summary Report"
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     env:
       job_name: "Summary Report"
     runs-on: ubuntu-24.04

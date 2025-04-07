@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   build-cilium-cli-binaries:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Build Cilium CLI binaries
     runs-on: ubuntu-24.04
     steps:
