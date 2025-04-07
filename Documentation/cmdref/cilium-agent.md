@@ -405,4 +405,5 @@ cilium-agent [flags]
 
 * [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-agent hive](cilium-agent_hive.md)	 - Inspect the hive
+* [cilium-agent shell](cilium-agent_shell.md)	 - Connect to the Cilium shell
 

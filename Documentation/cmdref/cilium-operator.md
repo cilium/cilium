@@ -155,6 +155,7 @@ cilium-operator [flags]
 * [cilium-operator completion](cilium-operator_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator hive](cilium-operator_hive.md)	 - Inspect the hive
 * [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
+* [cilium-operator shell](cilium-operator_shell.md)	 - Connect to the Cilium shell
 * [cilium-operator status](cilium-operator_status.md)	 - Display status of operator
 * [cilium-operator troubleshoot](cilium-operator_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 
