@@ -241,6 +241,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	}
 }
 
+func (o *orchestrator) DatapathInitialized() <-chan struct{} {
+	return o.dpInitialized
+}
+
 func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	errChan := make(chan error)
 	o.trigger <- reinitializeRequest{

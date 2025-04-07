@@ -384,6 +384,13 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// Wait for the datapath to be initialized before we take the compilation read lock.
+	// If we take the read lock before the datapath is initialized, we end up blocking
+	// the datapath initialization which needs the write lock on `e.compilationLock`.
+	// Yet, we will be blocked while waiting for the initialization to finish, thus causing
+	// a deadlock.
+	<-e.owner.Orchestrator().DatapathInitialized()
+
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
 	e.owner.GetCompilationLock().RLock()
