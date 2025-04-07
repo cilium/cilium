@@ -138,6 +138,18 @@ var (
 			Ports:       commonPorts,
 			AddressType: discoveryv1.AddressTypeIPv4,
 		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "full",
+				},
+			},
+			Endpoints:   commonEndpoints,
+			Ports:       commonPorts,
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
 
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -284,7 +296,7 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 	err = r.List(context.Background(), &epSliceList, &client.ListOptions{LabelSelector: selector})
 	require.NoError(t, err)
 
-	require.Len(t, epSliceList.Items, 6)
+	require.Len(t, epSliceList.Items, 7)
 
 	for _, suffix := range []string{"keep", "update-1", "update-2", "update-3", "update-4", "update-5"} {
 		t.Run(fmt.Sprintf("Check mirrored Endpoint %s", suffix), func(t *testing.T) {
@@ -298,4 +310,9 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.Equal(t, discoveryv1.AddressTypeIPv4, epSlice.AddressType)
 		})
 	}
+
+	t.Run("Check very long mirrored Endpoint", func(t *testing.T) {
+		epSlice := getEndpointSliceFromList(commonDerivedName+"-um-dolor-sit-amet-consectetur-adipiscing", epSliceList)
+		require.NotNil(t, epSlice)
+	})
 }

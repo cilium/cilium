@@ -297,7 +297,13 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) SetupWithManager(mgr ctrl.Manager)
 
 // getSuffix return the name of the EndpointSlice trimmed by its generatedName
 func getSuffix(endpointSlice *discoveryv1.EndpointSlice) string {
-	return strings.TrimPrefix(endpointSlice.Name, endpointSlice.GenerateName)
+	suffix := strings.TrimPrefix(endpointSlice.Name, endpointSlice.GenerateName)
+	// We also attempt to trim the prefix via the Service name in case the EndpointSlice
+	// was not created via kube-controller-manager and make sure it is within a reasonable length
+	suffix = strings.TrimPrefix(suffix, endpointSlice.Labels[discoveryv1.LabelServiceName])
+	suffixLen := min(40, len(suffix))
+	suffix = strings.TrimPrefix(suffix[len(suffix)-suffixLen:], "-")
+	return suffix
 }
 
 // getSuffixMap return a map with the keys being the name of the EndpointSlice trimmed by its generatedName
