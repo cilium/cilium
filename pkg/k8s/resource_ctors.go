@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -393,7 +394,10 @@ func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
 		return ParseEndpointSliceV1(logger, obj), nil
 	case *slim_discoveryv1beta1.EndpointSlice:
 		return ParseEndpointSliceV1Beta1(obj), nil
+	case cache.DeletedFinalStateUnknown:
+		return obj, nil
 	default:
+		logger.Error("Unknown endpoint or endpoint slice object", logfields.Name, reflect.TypeOf(obj))
 		return nil, fmt.Errorf("%T not a known endpoint or endpoint slice object", obj)
 	}
 }
