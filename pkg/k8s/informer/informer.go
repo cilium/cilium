@@ -73,7 +73,7 @@ func NewInformerWithStore(
 	// This will hold incoming changes. Note how we pass clientState in as a
 	// KeyLister, that way resync operations will result in the correct set
 	// of update/delete deltas.
-	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
+	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState, EmitDeltaTypeReplaced: true}
 	fifo := cache.NewDeltaFIFOWithOptions(opts)
 
 	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", objType))
@@ -107,7 +107,7 @@ func NewInformerWithStore(
 				cacheMutationDetector.AddObject(obj)
 
 				switch d.Type {
-				case cache.Sync, cache.Added, cache.Updated:
+				case cache.Sync, cache.Added, cache.Updated, cache.Replaced:
 					if old, exists, err := clientState.Get(obj); err == nil && exists {
 						if err := clientState.Update(obj); err != nil {
 							return err
