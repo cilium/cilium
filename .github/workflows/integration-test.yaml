@@ -61,7 +61,7 @@ concurrency:
 
 jobs:
   echo-inputs:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: github.event_name == 'workflow_dispatch' && always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
@@ -70,6 +70,8 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -79,6 +81,8 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   integration-test:
+    # Skip running workflow on forks using variable Kill Switch
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: Integration Test
     env:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have

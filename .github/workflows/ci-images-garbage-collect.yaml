@@ -9,7 +9,7 @@ permissions: read-all
 
 jobs:
   scruffy:
-    if: github.repository_owner == 'cilium'
+    if: always() && vars.ENABLE_CILIUM_CI == 'true'
     name: scruffy
     runs-on: ubuntu-24.04
     steps:
