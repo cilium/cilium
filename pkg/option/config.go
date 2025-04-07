@@ -3478,26 +3478,30 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	for _, enc := range vp.GetStringSlice(HubbleExportAllowlist) {
 		dec := json.NewDecoder(strings.NewReader(enc))
-		var result flowpb.FlowFilter
-		if err := dec.Decode(&result); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
+		for {
+			var result flowpb.FlowFilter
+			if err := dec.Decode(&result); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				log.Fatalf("failed to decode hubble-export-allowlist '%v': %s", enc, err)
 			}
-			log.Fatalf("failed to decode hubble-export-allowlist '%v': %s", enc, err)
+			c.HubbleExportAllowlist = append(c.HubbleExportAllowlist, &result)
 		}
-		c.HubbleExportAllowlist = append(c.HubbleExportAllowlist, &result)
 	}
 
 	for _, enc := range vp.GetStringSlice(HubbleExportDenylist) {
 		dec := json.NewDecoder(strings.NewReader(enc))
-		var result flowpb.FlowFilter
-		if err := dec.Decode(&result); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
+		for {
+			var result flowpb.FlowFilter
+			if err := dec.Decode(&result); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				log.Fatalf("failed to decode hubble-export-denylist '%v': %s", enc, err)
 			}
-			log.Fatalf("failed to decode hubble-export-denylist '%v': %s", enc, err)
+			c.HubbleExportDenylist = append(c.HubbleExportDenylist, &result)
 		}
-		c.HubbleExportDenylist = append(c.HubbleExportDenylist, &result)
 	}
 
 	if fm := vp.GetStringSlice(HubbleExportFieldmask); len(fm) > 0 {
