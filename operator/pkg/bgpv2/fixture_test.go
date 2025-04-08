@@ -41,7 +41,7 @@ type fixture struct {
 	bgpnClient cilium_client_v2.CiliumBGPNodeConfigInterface
 }
 
-func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enableStatusReport bool) (*fixture, func()) {
+func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *option.DaemonConfig) (*fixture, func()) {
 	rws := map[string]*struct {
 		once    sync.Once
 		watchCh chan any
@@ -132,12 +132,7 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enab
 		}),
 
 		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{
-				EnableBGPControlPlane:             true,
-				Debug:                             true,
-				BGPSecretsNamespace:               "kube-system",
-				EnableBGPControlPlaneStatusReport: enableStatusReport,
-			}
+			return dc
 		}),
 
 		cell.Provide(func() k8s_client.Clientset {
