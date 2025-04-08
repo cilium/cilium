@@ -13,9 +13,10 @@ import (
 
 // Describes one or more route server peers.
 //
-// A route server peer is a network appliance or function deployed in Amazon Web
-// Services, such as firewall appliances and other network security functions, that
-// meet these requirements:
+// A route server peer is a session between a route server endpoint and the device
+// deployed in Amazon Web Services (such as a firewall appliance or other network
+// security function running on an EC2 instance). The device must meet these
+// requirements:
 //
 //   - Have an elastic network interface in the VPC
 //
@@ -25,7 +26,7 @@ import (
 //
 // For more information see [Dynamic routing in your VPC with VPC Route Server] in the Amazon VPC User Guide.
 //
-// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access.html
+// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/vpc/latest/userguide/dynamic-routing-route-server.html
 func (c *Client) DescribeRouteServerPeers(ctx context.Context, params *DescribeRouteServerPeersInput, optFns ...func(*Options)) (*DescribeRouteServerPeersOutput, error) {
 	if params == nil {
 		params = &DescribeRouteServerPeersInput{}

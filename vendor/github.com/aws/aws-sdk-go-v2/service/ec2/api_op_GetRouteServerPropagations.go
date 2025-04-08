@@ -19,7 +19,7 @@ import (
 //
 // Amazon VPC Route Server simplifies routing for traffic between workloads that
 // are deployed within a VPC and its internet gateways. With this feature, VPC
-// Route Server dynamically updates VPC and gateway route tables with your
+// Route Server dynamically updates VPC and internet gateway route tables with your
 // preferred IPv4 or IPv6 routes to achieve routing fault tolerance for those
 // workloads. This enables you to automatically reroute traffic within a VPC, which
 // increases the manageability of VPC routing and interoperability with third-party
@@ -27,7 +27,7 @@ import (
 //
 // Route server supports the follow route table types:
 //
-//   - VPC route tables
+//   - VPC route tables not associated with subnets
 //
 //   - Subnet route tables
 //
