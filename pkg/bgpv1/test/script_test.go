@@ -36,13 +36,22 @@ import (
 )
 
 const (
-	testTimeout  = 60 * time.Second
-	testLinkName = "cilium-bgp-test"
+	testTimeout = 60 * time.Second
+
+	// test resource names
+	testNodeName         = "test-node"
+	testSecretsNamespace = "kube-system"
+	testLinkName         = "cilium-bgp-test"
+
+	// test arguments
+	testPeeringIPsFlag = "test-peering-ips"
+	ipamFlag           = "ipam"
+	probeTCPMD5Flag    = "probe-tcp-md5"
 )
 
 func TestScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	slog.SetLogLoggerLevel(slog.LevelInfo)
+	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
 	// setup test link
 	dummy := &netlink.Dummy{
@@ -59,6 +68,21 @@ func TestScript(t *testing.T) {
 		var err error
 		var bgpMgr agent.BGPRouterManager
 
+		// parse the shebang arguments in the script
+		flags := pflag.NewFlagSet("test-flags", pflag.ContinueOnError)
+		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
+		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
+		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		require.NoError(t, flags.Parse(args), "Error parsing test flags")
+
+		if *probeTCPMD5 {
+			available, err := TCPMD5SigAvailable()
+			require.NoError(t, err)
+			if !available {
+				t.Skip("TCP_MD5SIG socket option is not available")
+			}
+		}
+
 		h := ciliumhive.New(
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
@@ -69,15 +93,15 @@ func TestScript(t *testing.T) {
 				// BGP Manager uses the global variable option.Config so we need to set it there as well
 				option.Config = &option.DaemonConfig{
 					EnableBGPControlPlane:     true,
-					BGPSecretsNamespace:       "bgp-secrets",
+					BGPSecretsNamespace:       testSecretsNamespace,
 					BGPRouterIDAllocationMode: defaults.BGPRouterIDAllocationMode,
-					IPAM:                      ipamOption.IPAMKubernetes,
+					IPAM:                      *ipam,
 				}
 				return option.Config
 			}),
 
 			cell.Invoke(func() {
-				types.SetName("test-node")
+				types.SetName(testNodeName)
 			}),
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				bgpMgr = m
@@ -88,11 +112,6 @@ func TestScript(t *testing.T) {
 		t.Cleanup(func() {
 			assert.NoError(t, h.Stop(hiveLog, context.TODO()))
 		})
-
-		// parse the shebang arguments in the script.
-		flags := pflag.NewFlagSet("test-flags", pflag.ContinueOnError)
-		peeringIPs := flags.StringSlice("test-peering-ips", nil, "List of IPs used for peering in the test")
-		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		// setup test peering IPs
 		l, err := netlink.LinkByName(testLinkName)
