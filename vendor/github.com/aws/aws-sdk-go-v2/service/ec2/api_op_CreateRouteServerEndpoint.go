@@ -14,8 +14,13 @@ import (
 // Creates a new endpoint for a route server in a specified subnet.
 //
 // A route server endpoint is an Amazon Web Services-managed component inside a
-// subnet that facilitates BGP (Border Gateway Protocol) connections between your
-// route server and your BGP peers. Create two endpoints per subnet for redundancy.
+// subnet that facilitates [BGP (Border Gateway Protocol)]connections between your route server and your BGP
+// peers.
+//
+// For more information see [Dynamic routing in your VPC with VPC Route Server] in the Amazon VPC User Guide.
+//
+// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/vpc/latest/userguide/dynamic-routing-route-server.html
+// [BGP (Border Gateway Protocol)]: https://en.wikipedia.org/wiki/Border_Gateway_Protocol
 func (c *Client) CreateRouteServerEndpoint(ctx context.Context, params *CreateRouteServerEndpointInput, optFns ...func(*Options)) (*CreateRouteServerEndpointOutput, error) {
 	if params == nil {
 		params = &CreateRouteServerEndpointInput{}

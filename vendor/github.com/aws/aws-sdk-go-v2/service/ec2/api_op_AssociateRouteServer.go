@@ -14,12 +14,11 @@ import (
 // Associates a route server with a VPC to enable dynamic route updates.
 //
 // A route server association is the connection established between a route server
-// and a VPC. This is a fundamental configuration step that enables the route
-// server to work with appliances in your VPC.
+// and a VPC.
 //
 // For more information see [Dynamic routing in your VPC with VPC Route Server] in the Amazon VPC User Guide.
 //
-// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access.html
+// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/vpc/latest/userguide/dynamic-routing-route-server.html
 func (c *Client) AssociateRouteServer(ctx context.Context, params *AssociateRouteServerInput, optFns ...func(*Options)) (*AssociateRouteServerOutput, error) {
 	if params == nil {
 		params = &AssociateRouteServerInput{}

@@ -19,7 +19,7 @@ import (
 //
 // For more information see [Dynamic routing in your VPC with VPC Route Server] in the Amazon VPC User Guide.
 //
-// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access.html
+// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/vpc/latest/userguide/dynamic-routing-route-server.html
 func (c *Client) EnableRouteServerPropagation(ctx context.Context, params *EnableRouteServerPropagationInput, optFns ...func(*Options)) (*EnableRouteServerPropagationOutput, error) {
 	if params == nil {
 		params = &EnableRouteServerPropagationInput{}

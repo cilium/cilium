@@ -14,8 +14,10 @@ import (
 // Deletes the specified route server endpoint.
 //
 // A route server endpoint is an Amazon Web Services-managed component inside a
-// subnet that facilitates BGP (Border Gateway Protocol) connections between your
-// route server and your BGP peers. Create two endpoints per subnet for redundancy.
+// subnet that facilitates [BGP (Border Gateway Protocol)]connections between your route server and your BGP
+// peers.
+//
+// [BGP (Border Gateway Protocol)]: https://en.wikipedia.org/wiki/Border_Gateway_Protocol
 func (c *Client) DeleteRouteServerEndpoint(ctx context.Context, params *DeleteRouteServerEndpointInput, optFns ...func(*Options)) (*DeleteRouteServerEndpointOutput, error) {
 	if params == nil {
 		params = &DeleteRouteServerEndpointInput{}

@@ -13,9 +13,10 @@ import (
 
 // Deletes the specified BGP peer from a route server.
 //
-// A route server peer is a network appliance or function deployed in Amazon Web
-// Services, such as firewall appliances and other network security functions, that
-// meet these requirements:
+// A route server peer is a session between a route server endpoint and the device
+// deployed in Amazon Web Services (such as a firewall appliance or other network
+// security function running on an EC2 instance). The device must meet these
+// requirements:
 //
 //   - Have an elastic network interface in the VPC
 //

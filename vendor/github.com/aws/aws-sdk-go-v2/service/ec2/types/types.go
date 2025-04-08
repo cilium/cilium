@@ -11399,11 +11399,12 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	// A description for the network interface.
 	Description *string
 
-	// The device index for the network interface attachment. Each network interface
-	// requires a device index. If you create a launch template that includes secondary
-	// network interfaces but not a primary network interface, then you must add a
-	// primary network interface as a launch parameter when you launch an instance from
-	// the template.
+	// The device index for the network interface attachment. The primary network
+	// interface has a device index of 0. Each network interface is of type interface ,
+	// you must specify a device index. If you create a launch template that includes
+	// secondary network interfaces but not a primary network interface, then you must
+	// add a primary network interface as a launch parameter when you launch an
+	// instance from the template.
 	DeviceIndex *int32
 
 	// Configure ENA Express settings for your launch template.
@@ -16102,7 +16103,7 @@ type Route struct {
 //
 // Amazon VPC Route Server simplifies routing for traffic between workloads that
 // are deployed within a VPC and its internet gateways. With this feature, VPC
-// Route Server dynamically updates VPC and gateway route tables with your
+// Route Server dynamically updates VPC and internet gateway route tables with your
 // preferred IPv4 or IPv6 routes to achieve routing fault tolerance for those
 // workloads. This enables you to automatically reroute traffic within a VPC, which
 // increases the manageability of VPC routing and interoperability with third-party
@@ -16110,7 +16111,7 @@ type Route struct {
 //
 // Route server supports the follow route table types:
 //
-//   - VPC route tables
+//   - VPC route tables not associated with subnets
 //
 //   - Subnet route tables
 //
@@ -16166,8 +16167,7 @@ type RouteServer struct {
 // Describes the association between a route server and a VPC.
 //
 // A route server association is the connection established between a route server
-// and a VPC. This is a fundamental configuration step that enables the route
-// server to work with appliances in your VPC.
+// and a VPC.
 type RouteServerAssociation struct {
 
 	// The ID of the associated route server.
@@ -16259,8 +16259,10 @@ type RouteServerBgpStatus struct {
 // Describes a route server endpoint and its properties.
 //
 // A route server endpoint is an Amazon Web Services-managed component inside a
-// subnet that facilitates BGP (Border Gateway Protocol) connections between your
-// route server and your BGP peers. Create two endpoints per subnet for redundancy.
+// subnet that facilitates [BGP (Border Gateway Protocol)]connections between your route server and your BGP
+// peers.
+//
+// [BGP (Border Gateway Protocol)]: https://en.wikipedia.org/wiki/Border_Gateway_Protocol
 type RouteServerEndpoint struct {
 
 	// The IP address of the Elastic network interface for the endpoint.
@@ -16295,9 +16297,10 @@ type RouteServerEndpoint struct {
 
 // Describes a BGP peer configuration for a route server endpoint.
 //
-// A route server peer is a network appliance or function deployed in Amazon Web
-// Services, such as firewall appliances and other network security functions, that
-// meet these requirements:
+// A route server peer is a session between a route server endpoint and the device
+// deployed in Amazon Web Services (such as a firewall appliance or other network
+// security function running on an EC2 instance). The device must meet these
+// requirements:
 //
 //   - Have an elastic network interface in the VPC
 //
@@ -16325,7 +16328,7 @@ type RouteServerPeer struct {
 	// The reason for any failure in peer creation or operation.
 	FailureReason *string
 
-	// The IPv4 address of the peer.
+	// The IPv4 address of the peer device.
 	PeerAddress *string
 
 	// The ID of the route server endpoint associated with this peer.
@@ -16408,7 +16411,7 @@ type RouteServerRoute struct {
 	//
 	// The [Forwarding Information Base (FIB)] serves as a forwarding table for what route server has determined are the
 	// best-path routes in the RIB after evaluating all available routing information
-	// and policies. The FIB routes that are installed on the route tables. The FIB is
+	// and policies. The FIB routes are installed on the route tables. The FIB is
 	// recomputed whenever there are changes to the RIB.
 	//
 	// [Routing Information Base (RIB)]: https://en.wikipedia.org/wiki/Routing_table
