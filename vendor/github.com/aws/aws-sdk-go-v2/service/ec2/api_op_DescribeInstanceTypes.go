@@ -50,6 +50,9 @@ type DescribeInstanceTypesInput struct {
 	//   - current-generation - Indicates whether this instance type is the latest
 	//   generation instance type of an instance family ( true | false ).
 	//
+	//   - dedicated-hosts-supported - Indicates whether the instance type supports
+	//   Dedicated Hosts. ( true | false )
+	//
 	//   - ebs-info.ebs-optimized-info.baseline-bandwidth-in-mbps - The baseline
 	//   bandwidth performance for an EBS-optimized instance type, in Mbps.
 	//

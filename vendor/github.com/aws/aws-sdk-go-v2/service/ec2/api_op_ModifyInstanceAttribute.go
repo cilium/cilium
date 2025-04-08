@@ -48,6 +48,11 @@ type ModifyInstanceAttributeInput struct {
 
 	// The name of the attribute to modify.
 	//
+	// When changing the instance type: If the original instance type is configured
+	// for configurable bandwidth, and the desired instance type doesn't support
+	// configurable bandwidth, first set the existing bandwidth configuration to
+	// default using the ModifyInstanceNetworkPerformanceOptions operation.
+	//
 	// You can modify the following attributes only: disableApiTermination |
 	// instanceType | kernel | ramdisk | instanceInitiatedShutdownBehavior |
 	// blockDeviceMapping | userData | sourceDestCheck | groupSet | ebsOptimized |

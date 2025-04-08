@@ -14,12 +14,11 @@ import (
 // Disassociates a route server from a VPC.
 //
 // A route server association is the connection established between a route server
-// and a VPC. This is a fundamental configuration step that enables the route
-// server to work with appliances in your VPC.
+// and a VPC.
 //
 // For more information see [Dynamic routing in your VPC with VPC Route Server] in the Amazon VPC User Guide.
 //
-// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access.html
+// [Dynamic routing in your VPC with VPC Route Server]: https://docs.aws.amazon.com/vpc/latest/userguide/dynamic-routing-route-server.html
 func (c *Client) DisassociateRouteServer(ctx context.Context, params *DisassociateRouteServerInput, optFns ...func(*Options)) (*DisassociateRouteServerOutput, error) {
 	if params == nil {
 		params = &DisassociateRouteServerInput{}
