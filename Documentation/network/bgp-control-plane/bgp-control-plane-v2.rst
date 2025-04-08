@@ -87,23 +87,23 @@ and two peers configured under this BGP instance.
             name: "cilium-peer"
 
 Auto-Discovery
--------------
+--------------
 
-Cilium BGP Control Plane supports automatic discovery of BGP peers if a specific peer address cannot be defined.
+Cilium BGP Control Plane supports automatic discovery of BGP peers.
 
-Large networks with thousands of Kubernetes nodes cannot feasibly manage the peer IP addresses of all ToR switches within numerous BGP cluster configurations.
-Allowing Cilium to automatically discover the peer simplifies BGP session creation, reducing operational overhead and configuration complexity.
+When enabled, the auto-discovery feature self-configures the BGP peer's IP address automatically. Selection of the specific address is dependent on the ``mode`` enabled.
 
-Cilium BGP Control Plane currently supports default-gateway mode for auto-discovery under ``AutoDiscovery`` field in ``CiliumBGPClusterConfig``
+Cilium BGP Control Plane currently supports ``default-gateway`` mode for auto-discovery under ``autoDiscovery`` field in ``CiliumBGPClusterConfig``
 
 Default Gateway Auto-Discovery
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The default gateway auto-discovery mode allows Cilium to automatically discover and establish BGP session with the default gateway (typically a Top-of-Rack switch) for a specified address family.
 
 To enable default gateway auto-discovery, configure the ``autoDiscovery`` field in the peer configuration:
 
 .. code-block:: yaml
+
     peers:
     - name: "tor-switch"
       peerASN: 65000
@@ -114,16 +114,14 @@ To enable default gateway auto-discovery, configure the ``autoDiscovery`` field 
       peerConfigRef:
         name: "cilium-peer"
 
-ToR Switch BGP Configuration Requirements:
+Following are the ToR Switch BGP Configuration Requirements:
 
-1. ToR switches must be configured with "bgp listen range" to support dynamic BGP neighbors. This configuration enables the ToR switch to accept BGP sessions from Cilium nodes by listening for
-connections from a specific IP prefix range, eliminating the need to know the exact peer address of each Cilium node.
+* ToR switches must be configured with "bgp listen range" to support dynamic BGP neighbors. This configuration enables the ToR switch to accept BGP sessions from Cilium nodes by listening for connections from a specific IP prefix range, eliminating the need to know the exact peer address of each Cilium node.
 
-2. Additionally, each ToR switch must be configured with a local ASN (Autonomous System Number). This local ASN should be used consistently as the peer ASN in your Cilium BGP configuration to
-ensure proper BGP communication between the ToR switches and Cilium nodes.
+* Additionally, each ToR switch must be configured with a local ASN (Autonomous System Number). This local ASN should be used consistently as the peer ASN in your Cilium BGP configuration to ensure proper BGP communication between the ToR switches and Cilium nodes.
 
 .. code-block:: shell
-  
+
   router bgp 65100
     neighbor CILIUM peer-group
     neighbor CILIUM local-as 65000 no-prepend replace-as
@@ -132,12 +130,12 @@ ensure proper BGP communication between the ToR switches and Cilium nodes.
 
 When configured with the above configuration, Cilium will:
 
-1. Determine the default gateway for the specified address family on each node
-2. Automatically establish a BGP session with the discovered gateway
-3. Use the peer configuration referenced by ``peerConfigRef`` for session parameters
+* Determine the default gateway for the specified address family on each node
+* Automatically establish a BGP session with the discovered gateway
+* Use the peer configuration referenced by ``peerConfigRef`` for session parameters
 
 Multi-homing with Default Gateway Auto-Discovery
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In multi-homing setups, cilium node will be connected to two different Top-of-Rack switches. It will discover both the default gateways, but it will
 choose the default route with the lower metric to establish the BGP session. It's important to note that it will create only one bgp session per address family
@@ -147,6 +145,7 @@ of the other default route.
 Example configuration:
 
 .. code-block:: yaml
+
     bgpInstances:
     - name: "65001"
       localASN: 65001
@@ -159,19 +158,21 @@ Example configuration:
             addressFamily: ipv6
         peerConfigRef:
           name: "cilium-peer"
+
 Verification
 ~~~~~~~~~~~
 
 To verify that BGP sessions are established with the auto-discovered peers, use the ``cilium bgp peers`` command:
 
 .. code-block:: shell
+
     $ cilium bgp peers
     Local AS   Peer AS   Peer Address         Session       Uptime   Family         Received   Advertised
     65001      65000     fd00:10:0:1::1:179   established   21m55s   ipv4/unicast   2          2    
-                                                            ipv6/unicast   2          2
+                                                                      ipv6/unicast   2          2
 Limitations
 ~~~~~~~~~~~
-Auto Discovery with default gateway mode in multi-homing setup can not be used to create multiple BGP sessions for the same address family.
+Auto Discovery with ``default-gateway`` mode in multi-homing setup can not be used to create multiple BGP sessions for the same address family.
 Currently, the only workaround is to configure the peer address manually for each peer.
 
 .. _bgp_peer_configuration:
