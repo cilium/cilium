@@ -274,8 +274,9 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	return containers
 }
 
-func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
+func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
 	uniqueFailures := make(map[string]int)
+	exampleLogLine := make(map[string]string)
 	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -288,22 +289,42 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
 					}
 				}
 				if !ok {
-					count := uniqueFailures[msg]
-					uniqueFailures[msg] = count + 1
+					justMsg := extractValueFromLog(msg, "msg")
+					if justMsg == "" {
+						// Matching didn't work, fallback to previous behaviour
+						justMsg = msg
+					}
+					count := uniqueFailures[justMsg]
+					uniqueFailures[justMsg] = count + 1
+					exampleLogLine[justMsg] = msg
 				}
 			}
 		}
 	}
-	return uniqueFailures
+	return uniqueFailures, exampleLogLine
+}
+
+func extractValueFromLog(log string, key string) string {
+	// Capture key="something" or key=something
+	pattern := fmt.Sprintf(`\b%s=("[^"]*"|[^\s]*)`, key)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return ""
+	}
+	matches := re.FindStringSubmatch(log)
+	if len(matches) > 1 {
+		return strings.Trim(matches[1], `"`)
+	}
+	return ""
 }
 
 func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
-	uniqueFailures := n.findUniqueFailures(logs)
+	uniqueFailures, exampleLogLine := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
 		for f, c := range uniqueFailures {
 			failures.WriteRune('\n')
-			failures.WriteString(f)
+			failures.WriteString(exampleLogLine[f])
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
 		}
 		a.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
