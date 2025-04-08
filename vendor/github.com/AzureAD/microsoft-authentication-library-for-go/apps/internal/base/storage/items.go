@@ -72,6 +72,7 @@ type AccessToken struct {
 	ClientID          string            `json:"client_id,omitempty"`
 	Secret            string            `json:"secret,omitempty"`
 	Scopes            string            `json:"target,omitempty"`
+	RefreshOn         internalTime.Unix `json:"refresh_on,omitempty"`
 	ExpiresOn         internalTime.Unix `json:"expires_on,omitempty"`
 	ExtendedExpiresOn internalTime.Unix `json:"extended_expires_on,omitempty"`
 	CachedAt          internalTime.Unix `json:"cached_at,omitempty"`
@@ -83,7 +84,7 @@ type AccessToken struct {
 }
 
 // NewAccessToken is the constructor for AccessToken.
-func NewAccessToken(homeID, env, realm, clientID string, cachedAt, expiresOn, extendedExpiresOn time.Time, scopes, token, tokenType, authnSchemeKeyID string) AccessToken {
+func NewAccessToken(homeID, env, realm, clientID string, cachedAt, refreshOn, expiresOn, extendedExpiresOn time.Time, scopes, token, tokenType, authnSchemeKeyID string) AccessToken {
 	return AccessToken{
 		HomeAccountID:     homeID,
 		Environment:       env,
@@ -93,6 +94,7 @@ func NewAccessToken(homeID, env, realm, clientID string, cachedAt, expiresOn, ex
 		Secret:            token,
 		Scopes:            scopes,
 		CachedAt:          internalTime.Unix{T: cachedAt.UTC()},
+		RefreshOn:         internalTime.Unix{T: refreshOn.UTC()},
 		ExpiresOn:         internalTime.Unix{T: expiresOn.UTC()},
 		ExtendedExpiresOn: internalTime.Unix{T: extendedExpiresOn.UTC()},
 		TokenType:         tokenType,

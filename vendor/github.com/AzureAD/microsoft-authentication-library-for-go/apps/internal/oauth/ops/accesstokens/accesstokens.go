@@ -17,6 +17,7 @@ import (
 
 	/* #nosec */
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -112,19 +113,31 @@ func (c *Credential) JWT(ctx context.Context, authParams authority.AuthParams) (
 		}
 		return c.AssertionCallback(ctx, options)
 	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	claims := jwt.MapClaims{
 		"aud": authParams.Endpoints.TokenEndpoint,
 		"exp": json.Number(strconv.FormatInt(time.Now().Add(10*time.Minute).Unix(), 10)),
 		"iss": authParams.ClientID,
 		"jti": uuid.New().String(),
 		"nbf": json.Number(strconv.FormatInt(time.Now().Unix(), 10)),
 		"sub": authParams.ClientID,
-	})
+	}
+
+	isADFSorDSTS := authParams.AuthorityInfo.AuthorityType == authority.ADFS ||
+		authParams.AuthorityInfo.AuthorityType == authority.DSTS
+
+	var signingMethod jwt.SigningMethod = jwt.SigningMethodPS256
+	thumbprintKey := "x5t#S256"
+
+	if isADFSorDSTS {
+		signingMethod = jwt.SigningMethodRS256
+		thumbprintKey = "x5t"
+	}
+
+	token := jwt.NewWithClaims(signingMethod, claims)
 	token.Header = map[string]interface{}{
-		"alg": "RS256",
-		"typ": "JWT",
-		"x5t": base64.StdEncoding.EncodeToString(thumbprint(c.Cert)),
+		"alg":         signingMethod.Alg(),
+		"typ":         "JWT",
+		thumbprintKey: base64.StdEncoding.EncodeToString(thumbprint(c.Cert, signingMethod.Alg())),
 	}
 
 	if authParams.SendX5C {
@@ -133,17 +146,23 @@ func (c *Credential) JWT(ctx context.Context, authParams authority.AuthParams) (
 
 	assertion, err := token.SignedString(c.Key)
 	if err != nil {
-		return "", fmt.Errorf("unable to sign a JWT token using private key: %w", err)
+		return "", fmt.Errorf("unable to sign JWT token: %w", err)
 	}
+
 	return assertion, nil
 }
 
 // thumbprint runs the asn1.Der bytes through sha1 for use in the x5t parameter of JWT.
 // https://tools.ietf.org/html/rfc7517#section-4.8
-func thumbprint(cert *x509.Certificate) []byte {
-	/* #nosec */
-	a := sha1.Sum(cert.Raw)
-	return a[:]
+func thumbprint(cert *x509.Certificate, alg string) []byte {
+	switch alg {
+	case jwt.SigningMethodRS256.Name: // identity providers like ADFS don't support SHA256 assertions, so need to support this
+		hash := sha1.Sum(cert.Raw) /* #nosec */
+		return hash[:]
+	default:
+		hash := sha256.Sum256(cert.Raw)
+		return hash[:]
+	}
 }
 
 // Client represents the REST calls to get tokens from token generator backends.

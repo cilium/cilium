@@ -174,6 +174,7 @@ type TokenResponse struct {
 	FamilyID       string                    `json:"foci"`
 	IDToken        IDToken                   `json:"id_token"`
 	ClientInfo     ClientInfo                `json:"client_info"`
+	RefreshOn      internalTime.DurationTime `json:"refresh_in,omitempty"`
 	ExpiresOn      time.Time                 `json:"-"`
 	ExtExpiresOn   internalTime.DurationTime `json:"ext_expires_in"`
 	GrantedScopes  Scopes                    `json:"scope"`
