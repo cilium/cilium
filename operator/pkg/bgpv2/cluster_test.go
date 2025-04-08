@@ -23,6 +23,7 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -127,6 +128,12 @@ var (
 				},
 			},
 		},
+	}
+	defaultDaemonConfig = &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: true,
 	}
 )
 
@@ -296,7 +303,7 @@ func Test_NodeLabels(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
 
-			f, watcherReady := newFixture(t, ctx, req, true)
+			f, watcherReady := newFixture(t, ctx, req, defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -611,7 +618,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t), true)
+	f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -834,7 +841,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), true)
+			f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -1072,7 +1079,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), true)
+			f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -1180,7 +1187,13 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t), false)
+	daemonConfigStatusFalse := &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: false,
+	}
+	f, watchersReady := newFixture(t, ctx, require.New(t), daemonConfigStatusFalse)
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -1218,6 +1231,304 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 
 		assert.Empty(ct, cc.Status.Conditions, "Conditions are not cleared")
 	}, time.Second*3, time.Millisecond*100)
+}
+
+func TestRouterIDAllocation(t *testing.T) {
+	daemonConfigBGPRouterID := &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: true,
+		BGPRouterIDAllocationMode:         option.BGPRouterIDAllocationModeIPPool,
+		BGPRouterIDAllocationIPPool:       "10.0.0.0/24",
+	}
+	tests := []struct {
+		name                       string
+		ipPool                     string
+		routerID                   string
+		nodes                      []*v2.CiliumNode
+		InitClusterConfigs         []*v2.CiliumBGPClusterConfig
+		InitExpectedRouterIDs      map[string]struct{}
+		nodeOverride               *v2.CiliumBGPNodeConfigOverride
+		FinalClusterConfigs        []*v2.CiliumBGPClusterConfig
+		FinalExpectedNodeInstances map[string][]string
+	}{
+		{
+			name: "single node and cleanup cluster config",
+			nodes: []*v2.CiliumNode{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-1",
+						Labels: map[string]string{"bgp": "rack1"},
+					},
+				},
+			},
+			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-single"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "rack1"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+			},
+			InitExpectedRouterIDs: map[string]struct{}{
+				"10.0.0.0": {},
+			},
+			FinalClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-single"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "nomatch"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+			},
+			FinalExpectedNodeInstances: map[string][]string{},
+		},
+
+		{
+			name: "multiple nodes and multiple instances with single cluster configs and cleanup the 2 instances in the cluster config",
+			nodes: []*v2.CiliumNode{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-1",
+						Labels: map[string]string{"bgp": "rack1"},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-2",
+						Labels: map[string]string{"bgp": "rack1"},
+					},
+				},
+			},
+			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-multi-node"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "rack1"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+							{Name: "test-instance-2", LocalASN: ptr.To(int64(65002))},
+							{Name: "test-instance-3", LocalASN: ptr.To(int64(65003))},
+						},
+					},
+				},
+			},
+			InitExpectedRouterIDs: map[string]struct{}{
+				"10.0.0.0": {},
+				"10.0.0.1": {},
+				"10.0.0.2": {},
+				"10.0.0.3": {},
+				"10.0.0.4": {},
+				"10.0.0.5": {},
+			},
+			FinalClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-multi-node"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "rack1"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+							{Name: "test-instance-2", LocalASN: ptr.To(int64(65002))},
+						},
+					},
+				},
+			},
+			FinalExpectedNodeInstances: map[string][]string{
+				"test-node-1": {"test-instance-1", "test-instance-2"},
+				"test-node-2": {"test-instance-1", "test-instance-2"},
+			},
+		},
+
+		{
+			name: "multiple nodes and multiple instances with multiple cluster config and clean up the one cluster, one node and one instance",
+			nodes: []*v2.CiliumNode{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-1",
+						Labels: map[string]string{"bgp": "cluster1"},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-2",
+						Labels: map[string]string{"bgp": "cluster2"},
+					},
+				},
+			},
+			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster1-config"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster1"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+							{Name: "test-instance-2", LocalASN: ptr.To(int64(65002))},
+						},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "cluster2-config"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster2"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+							{Name: "test-instance-2", LocalASN: ptr.To(int64(65002))},
+						},
+					},
+				},
+			},
+			InitExpectedRouterIDs: map[string]struct{}{
+				"10.0.0.0": {},
+				"10.0.0.1": {},
+				"10.0.0.2": {},
+				"10.0.0.3": {},
+			},
+			FinalClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-multi-node"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "cluster2"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-2", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+			},
+			FinalExpectedNodeInstances: map[string][]string{
+				"test-node-2": {"test-instance-2"},
+			},
+		},
+
+		{
+			name: "router ID override takes precedence",
+			nodes: []*v2.CiliumNode{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name:   "test-node-1",
+						Labels: map[string]string{"bgp": "rack-override"},
+					},
+				},
+			},
+			InitClusterConfigs: []*v2.CiliumBGPClusterConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{Name: "test-cc-override"},
+					Spec: v2.CiliumBGPClusterConfigSpec{
+						NodeSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"bgp": "rack-override"}},
+						BGPInstances: []v2.CiliumBGPInstance{
+							{Name: "test-instance-1", LocalASN: ptr.To(int64(65001))},
+						},
+					},
+				},
+			},
+
+			InitExpectedRouterIDs: map[string]struct{}{"10.10.10.10": {}},
+			nodeOverride: &v2.CiliumBGPNodeConfigOverride{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "test-node-1",
+				},
+				Spec: v2.CiliumBGPNodeConfigOverrideSpec{
+					BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
+						{
+							Name:     "test-instance-1",
+							RouterID: ptr.To("10.10.10.10"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			f, watchersReady := newFixture(t, ctx, require.New(t), daemonConfigBGPRouterID)
+
+			tlog := hivetest.Logger(t)
+			f.hive.Start(tlog, ctx)
+			defer f.hive.Stop(tlog, ctx)
+
+			watchersReady()
+
+			for _, node := range tt.nodes {
+				n := node
+				upsertNode(req, ctx, f, n)
+			}
+			for _, clusterConfig := range tt.InitClusterConfigs {
+				config := clusterConfig
+				upsertBGPCC(req, ctx, f, config)
+			}
+
+			if tt.nodeOverride != nil {
+				upsertNodeOverrides(req, ctx, f, tt.nodeOverride)
+			}
+
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				// collect all router IDs from all nodes and compare with the expected router IDs
+				// we can't guarantee the order of the router IDs so we use a map to compare
+				InitNodesRouterIDs := make(map[string]struct{})
+				for _, node := range tt.nodes {
+					nodeConfig, err := f.bgpnClient.Get(ctx, node.Name, meta_v1.GetOptions{})
+					// to make sure the node configs are created for all nodes
+					if err != nil {
+						return
+					}
+
+					assert.NotNil(c, nodeConfig)
+					assert.NotEmpty(c, nodeConfig.Spec.BGPInstances)
+
+					for i := range nodeConfig.Spec.BGPInstances {
+						instance := &nodeConfig.Spec.BGPInstances[i]
+						InitNodesRouterIDs[*instance.RouterID] = struct{}{}
+					}
+				}
+				assert.Equal(c, tt.InitExpectedRouterIDs, InitNodesRouterIDs)
+			}, TestTimeout, 100*time.Millisecond)
+			// cleanup the cluster configs
+			if tt.FinalClusterConfigs != nil {
+				for _, clusterConfig := range tt.FinalClusterConfigs {
+					config := clusterConfig
+					upsertBGPCC(req, ctx, f, config)
+				}
+			}
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+
+				NodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
+				if err != nil {
+					return
+				}
+				if len(NodeConfigs.Items) != len(tt.FinalExpectedNodeInstances) {
+					return
+				}
+				// If the nodeConfig is empty, the assertion will not be executed. However, the length comparison
+				// between len(NodeConfigs.Items) and len(tt.FinalExpectedNodeInstances) will allow the test to
+				// pass, since both are of length 0.
+				for _, nodeConfig := range NodeConfigs.Items {
+					if len(nodeConfig.Spec.BGPInstances) != len(tt.FinalExpectedNodeInstances[nodeConfig.Name]) {
+						return
+					}
+					assert.Len(c, tt.FinalExpectedNodeInstances[nodeConfig.Name], len(nodeConfig.Spec.BGPInstances))
+					for index, instance := range nodeConfig.Spec.BGPInstances {
+						assert.Equal(c, tt.FinalExpectedNodeInstances[nodeConfig.Name][index], instance.Name)
+						// We dont have the control which router IDs are used.
+						// we only know that the final Router IDS are part of InitExpectedRouterIDs.
+						assert.Contains(c, tt.InitExpectedRouterIDs, *(instance.RouterID))
+					}
+
+				}
+			}, TestTimeout, 100*time.Millisecond)
+		})
+	}
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *v2.CiliumNode) {
