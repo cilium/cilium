@@ -65,7 +65,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 		})
 
 	newTest("pod-to-ingress-service-deny-source-egress-other-node", ct).
-		WithCiliumVersion(">1.17.1 >1.16.7 >1.15.14").
+		WithCiliumVersion(">1.17.1 || >1.16.7 <1.17.0 || >1.15.14 <1.16.0").
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyIngressSourceEgressOtherNodePolicyYML).
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
