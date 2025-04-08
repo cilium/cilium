@@ -18,7 +18,6 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
-#define IPV4_LOOPBACK 0
 
 #define TO_NETDEV 0
 

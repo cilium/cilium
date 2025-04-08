@@ -12,6 +12,10 @@ import (
 func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	node := *config.NewNode()
 
+	if option.Config.EnableIPv4 && lnc.ServiceLoopbackIPv4 != nil {
+		node.ServiceLoopbackIPv4 = ([4]byte)(lnc.ServiceLoopbackIPv4)
+	}
+
 	if option.Config.EnableIPv6 && lnc.CiliumInternalIPv6 != nil {
 		node.RouterIPv6 = ([16]byte)(lnc.CiliumInternalIPv6)
 	}
