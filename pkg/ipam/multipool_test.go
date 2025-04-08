@@ -215,8 +215,8 @@ func Test_MultiPoolManager(t *testing.T) {
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
 	assert.Equal(t, "upsert", <-events)
 
-	c.waitForPool(context.TODO(), IPv4, "jupiter")
-	c.waitForPool(context.TODO(), IPv6, "jupiter")
+	c.waitForPool(t.Context(), IPv4, "jupiter")
+	c.waitForPool(t.Context(), IPv6, "jupiter")
 
 	// Allocations should now succeed
 	jupiterIP0 := net.ParseIP("192.168.1.1")

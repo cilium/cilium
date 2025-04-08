@@ -4,7 +4,6 @@
 package eni
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -66,7 +65,7 @@ func TestCreateInterface(t *testing.T) {
 	setup(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(context.TODO())
+	instances.Resync(t.Context())
 
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
@@ -96,7 +95,7 @@ func TestCreateInterface(t *testing.T) {
 		return nil
 	})
 
-	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
+	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
 		IPv4: ipam.IPAllocationAction{
 			MaxIPsToAllocate: 10,
 		},
@@ -105,7 +104,7 @@ func TestCreateInterface(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, toAlloc)
 
-	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
+	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
 		IPv4: ipam.IPAllocationAction{
 			MaxIPsToAllocate: 11,
 		},
@@ -119,7 +118,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	setup(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(context.TODO())
+	instances.Resync(t.Context())
 
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
@@ -150,7 +149,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	setup(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(context.TODO())
+	instances.Resync(t.Context())
 
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
@@ -163,7 +162,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 
 	// create one eni
-	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
+	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(t.Context(), &ipam.AllocationAction{
 		IPv4: ipam.IPAllocationAction{
 			MaxIPsToAllocate: 10,
 		},
