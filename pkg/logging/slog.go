@@ -50,6 +50,9 @@ func slogLevel(l logrus.Level) slog.Level {
 func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = slogLevel(logOpts.GetLogLevel())
+	if opts.Level == slog.LevelDebug {
+		opts.AddSource = true
+	}
 
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
