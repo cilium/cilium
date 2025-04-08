@@ -1915,7 +1915,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * to make it appear from an outside address.
 		 */
 	#ifdef USE_LOOPBACK_LB
-		new_saddr = IPV4_LOOPBACK;
+		new_saddr = CONFIG(service_loopback_ipv4).be32;
 		state->loopback = 1;
 	#endif
 	}

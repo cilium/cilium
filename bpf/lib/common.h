@@ -80,6 +80,11 @@ enum {
 
 typedef __u64 mac_t;
 
+union v4addr {
+	__be32 be32;
+	__u8 addr[4];
+};
+
 union v6addr {
 	struct {
 		__u32 p1;
