@@ -61,7 +61,7 @@ cilium-operator-aws [flags]
       --enable-node-ipam                                     Enable Node IPAM
       --enable-node-selector-labels                          Enable use of node label based identity
       --enable-policy string                                 Enable policy enforcement (default "default")
-      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)
+      --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --eni-gc-interval duration                             Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
       --eni-gc-tags map                                      Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
