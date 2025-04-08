@@ -190,7 +190,6 @@ jobs:
           # RuntimeAgentFQDNPolicies CNAME follow
           # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
           # RuntimeAgentFQDNPolicies Enforces L3 policy even when no IPs are inserted
-          # RuntimeAgentFQDNPolicies Enforces ToFQDNs policy
           # RuntimeAgentFQDNPolicies Implements matchPattern: *
           # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
           # RuntimeAgentFQDNPolicies Roundrobin DNS
