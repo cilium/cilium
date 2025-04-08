@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/onsi/ginkgo"
-
 	"github.com/cilium/cilium/test/helpers/constants"
 )
 
@@ -43,9 +41,6 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string, cmdParams ..
 	cmdOnStart := ""
 	if len(cmdParams) > 0 {
 		cmdOnStart = strings.Join(cmdParams, " ")
-	}
-	if _, ok := constants.AllImages[image]; !ok {
-		ginkgo.Fail(fmt.Sprintf("Image %s is not in the set of pre-pulled Docker images; add this image to `AllImages` in `test/helpers/constants/images.go` and / or update the VM image to pull this image if necessary", image), 1)
 	}
 
 	cmd := fmt.Sprintf(
