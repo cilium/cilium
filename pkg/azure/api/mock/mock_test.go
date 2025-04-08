@@ -4,7 +4,6 @@
 package mock
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -20,11 +19,11 @@ func TestMock(t *testing.T) {
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	require.NotNil(t, api)
 
-	instances, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
+	instances, err := api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 	require.Equal(t, 0, instances.NumInstances())
 
-	vnets, subnets, err := api.GetVpcsAndSubnets(context.Background())
+	vnets, subnets, err := api.GetVpcsAndSubnets(t.Context())
 	require.NoError(t, err)
 	require.Len(t, vnets, 1)
 	require.Equal(t, &ipamTypes.VirtualNetwork{ID: "v-1"}, vnets["v-1"])
@@ -39,7 +38,7 @@ func TestMock(t *testing.T) {
 		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(instances)
-	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
+	instances, err = api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 	require.Equal(t, 1, instances.NumInstances())
 	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
@@ -48,9 +47,9 @@ func TestMock(t *testing.T) {
 		return nil
 	})
 
-	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
+	err = api.AssignPrivateIpAddressesVMSS(t.Context(), "vm1", "vmss1", "s-1", "eth0", 2)
 	require.NoError(t, err)
-	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
+	instances, err = api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 	require.Equal(t, 1, instances.NumInstances())
 	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
@@ -87,15 +86,15 @@ func TestSetMockError(t *testing.T) {
 	mockError := errors.New("error")
 
 	api.SetMockError(GetInstances, mockError)
-	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
+	_, err := api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.ErrorIs(t, err, mockError)
 
 	api.SetMockError(GetVpcsAndSubnets, mockError)
-	_, _, err = api.GetVpcsAndSubnets(context.Background())
+	_, _, err = api.GetVpcsAndSubnets(t.Context())
 	require.ErrorIs(t, err, mockError)
 
 	api.SetMockError(AssignPrivateIpAddressesVMSS, mockError)
-	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vmss1", "i-1", "s-1", "eth0", 0)
+	err = api.AssignPrivateIpAddressesVMSS(t.Context(), "vmss1", "i-1", "s-1", "eth0", 0)
 	require.ErrorIs(t, err, mockError)
 }
 
@@ -105,6 +104,6 @@ func TestSetLimiter(t *testing.T) {
 	require.NotNil(t, api)
 
 	api.SetLimiter(10.0, 2)
-	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
+	_, err := api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 }

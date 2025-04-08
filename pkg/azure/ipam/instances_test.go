@@ -4,7 +4,6 @@
 package ipam
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -69,7 +68,7 @@ var (
 	}
 )
 
-func iteration1(api *apimock.API, mngr *InstancesManager) {
+func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 	instances := ipamTypes.NewInstanceMap()
 
 	resource := &types.AzureInterface{
@@ -105,10 +104,10 @@ func iteration1(api *apimock.API, mngr *InstancesManager) {
 	})
 
 	api.UpdateInstances(instances)
-	mngr.Resync(context.Background())
+	mngr.Resync(t.Context())
 }
 
-func iteration2(api *apimock.API, mngr *InstancesManager) {
+func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 	api.UpdateSubnets(subnets2)
 
 	instances := ipamTypes.NewInstanceMap()
@@ -162,7 +161,7 @@ func iteration2(api *apimock.API, mngr *InstancesManager) {
 	})
 
 	api.UpdateInstances(instances)
-	mngr.Resync(context.TODO())
+	mngr.Resync(t.Context())
 }
 
 func TestGetVpcsAndSubnets(t *testing.T) {
@@ -176,13 +175,13 @@ func TestGetVpcsAndSubnets(t *testing.T) {
 	require.Nil(t, mngr.subnets["subnet-2"])
 	require.Nil(t, mngr.subnets["subnet-3"])
 
-	iteration1(api, mngr)
+	iteration1(t, api, mngr)
 
 	require.NotNil(t, mngr.subnets["subnet-1"])
 	require.NotNil(t, mngr.subnets["subnet-2"])
 	require.Nil(t, mngr.subnets["subnet-3"])
 
-	iteration2(api, mngr)
+	iteration2(t, api, mngr)
 
 	require.NotNil(t, mngr.subnets["subnet-1"])
 	require.NotNil(t, mngr.subnets["subnet-2"])

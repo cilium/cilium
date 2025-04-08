@@ -52,15 +52,15 @@ func TestStartENIGarbageCollector(t *testing.T) {
 
 	untaggedENIs := map[string]bool{}
 	for range 8 {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "subnet-1", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-1", "desc", []string{"sg-1", "sg-2"}, false)
 		require.NoError(t, err)
 		untaggedENIs[eniID] = true
 	}
 
 	createTaggedENI := func() string {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "subnet-2", "desc", []string{"sg-1", "sg-2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "subnet-2", "desc", []string{"sg-1", "sg-2"}, false)
 		require.NoError(t, err)
-		err = ec2api.TagENI(context.TODO(), eniID, tags)
+		err = ec2api.TagENI(t.Context(), eniID, tags)
 		require.NoError(t, err)
 		return eniID
 	}
@@ -77,7 +77,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	waitForControllerRun(t, controllerManager, gcENIControllerName, 1)
 
 	// after the first run, no ENIs should have been deleted
-	enis, err := ec2api.GetDetachedNetworkInterfaces(context.TODO(), nil, 25)
+	enis, err := ec2api.GetDetachedNetworkInterfaces(t.Context(), nil, 25)
 	require.NoError(t, err)
 	require.Len(t, enis, 16)
 
@@ -85,7 +85,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	controllerManager.TriggerController(gcENIControllerName)
 	waitForControllerRun(t, controllerManager, gcENIControllerName, 2)
 
-	enis, err = ec2api.GetDetachedNetworkInterfaces(context.TODO(), nil, 25)
+	enis, err = ec2api.GetDetachedNetworkInterfaces(t.Context(), nil, 25)
 	require.NoError(t, err)
 	require.Len(t, enis, 12)
 
@@ -97,7 +97,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	waitForControllerRun(t, controllerManager, gcENIControllerName, 3)
 
 	// Now 8 untagged and 1 newENI should be the only ENIs left
-	enis, err = ec2api.GetDetachedNetworkInterfaces(context.TODO(), nil, 25)
+	enis, err = ec2api.GetDetachedNetworkInterfaces(t.Context(), nil, 25)
 	require.NoError(t, err)
 	require.Len(t, enis, 9)
 	for _, eni := range enis {
@@ -107,14 +107,14 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	}
 
 	// Attach newENI, this means it can no longer be garbage collected
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, "i-1", newENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, "i-1", newENI)
 	require.NoError(t, err)
 
 	controllerManager.TriggerController(gcENIControllerName)
 	waitForControllerRun(t, controllerManager, gcENIControllerName, 4)
 
 	// All remaining ENIs should be unattached ones
-	enis, err = ec2api.GetDetachedNetworkInterfaces(context.TODO(), nil, 25)
+	enis, err = ec2api.GetDetachedNetworkInterfaces(t.Context(), nil, 25)
 	require.NoError(t, err)
 	require.Len(t, enis, 8)
 	for _, eni := range enis {
@@ -124,6 +124,6 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	}
 
 	// Check the attached ENI still exists
-	ec2api.TagENI(context.TODO(), newENI, tags)
+	ec2api.TagENI(t.Context(), newENI, tags)
 	require.NoError(t, err)
 }
