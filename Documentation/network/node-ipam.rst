@@ -39,6 +39,12 @@ all the Pods selected by the Service (via their EndpointSlices) as candidates.
     If they don't, check if the matching EndpointSlices look correct and/or
     try setting ``.spec.externalTrafficPolicy`` to ``Cluster``.
 
+Node IPAM honors the Node label ``node.kubernetes.io/exclude-from-external-load-balancers``
+and the Node taint ``ToBeDeletedByClusterAutoscaler``. Node IPAM **doesn't**
+consider a node as a candidate for load balancing if the label
+``node.kubernetes.io/exclude-from-external-load-balancers`` or the taint
+``ToBeDeletedByClusterAutoscaler`` is present.
+
 To restrict the Nodes that should listen for incoming traffic, add annotation
 ``io.cilium.nodeipam/match-node-labels`` to the Service. The value of the
 annotation is a
