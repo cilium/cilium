@@ -33,22 +33,24 @@ var SecretSyncCell = cell.Module(
 	"netpol-secretsync-watcher",
 	"Watches network policy updates for TLS secrets to sync",
 
-	cell.Config(networkPolicyConfig{
-		EnablePolicySecretsSync: false,
-		PolicySecretsNamespace:  "cilium-secrets",
-	}),
+	cell.Config(secretSyncDefaultConfig),
 	cell.Provide(registerCNPSecretSync),
 	cell.Provide(registerCCNPSecretSync),
 )
 
-type networkPolicyConfig struct {
+type SecretSyncConfig struct {
 	EnablePolicySecretsSync bool
 	PolicySecretsNamespace  string
 }
 
-func (r networkPolicyConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-policy-secrets-sync", r.EnablePolicySecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by tls-interception-secrets-namespace flag)")
-	flags.String("policy-secrets-namespace", r.PolicySecretsNamespace, "Namespace where secrets used in TLS Interception will be synced to.")
+var secretSyncDefaultConfig = SecretSyncConfig{
+	EnablePolicySecretsSync: false,
+	PolicySecretsNamespace:  "cilium-secrets",
+}
+
+func (def SecretSyncConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-policy-secrets-sync", def.EnablePolicySecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)")
+	flags.String("policy-secrets-namespace", def.PolicySecretsNamespace, "Namespace where secrets used in TLS Interception will be synced to.")
 }
 
 type networkPolicyParams struct {
@@ -61,7 +63,7 @@ type networkPolicyParams struct {
 
 	AgentConfig         *option.DaemonConfig
 	OperatorConfig      *operatorOption.OperatorConfig
-	NetworkPolicyConfig networkPolicyConfig
+	NetworkPolicyConfig SecretSyncConfig
 }
 
 // registerCNPSecretSync registers the Network Policy controllers for secret synchronization based on TLS secrets referenced
