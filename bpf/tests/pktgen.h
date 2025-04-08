@@ -68,6 +68,8 @@ volatile const __u8 mac_v6mcast_base[] = mac_v6mcast_base_addr;
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
+#define v4_svc_loopback	IPV4(10, 245, 255, 31)
+
 #define v4_all	IPV4(0, 0, 0, 0)
 
 /* IPv6 mcast base address */
