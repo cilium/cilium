@@ -139,7 +139,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			rpm.epManager.Subscribe(rpm)
 			if rpm.skipLBMap == nil {
 				var err error
-				rpm.skipLBMap, err = lbmap.NewSkipLBMap()
+				rpm.skipLBMap, err = lbmap.NewSkipLBMap(logging.DefaultSlogLogger)
 				if err == nil {
 					err = rpm.skipLBMap.OpenOrCreate()
 				}

@@ -8,12 +8,12 @@ import (
 	"net"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -161,11 +161,12 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, en
 
 	val := newTunnelValue(endpoint, encryptKey)
 
-	log.WithFields(logrus.Fields{
-		fieldPrefix:   prefix,
-		fieldEndpoint: endpoint,
-		fieldKey:      encryptKey,
-	}).Debug("Updating tunnel map entry")
+	m.Logger.Debug(
+		"Updating tunnel map entry",
+		logfields.Prefix, prefix,
+		logfields.Endpoint, endpoint,
+		logfields.Key, encryptKey,
+	)
 
 	return m.Update(key, val)
 }
@@ -191,7 +192,7 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
+	m.Logger.Debug("Deleting tunnel map entry", logfields.Prefix, prefix)
 	return m.Delete(key)
 }
 
@@ -202,7 +203,7 @@ func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
+	m.Logger.Debug("Silently deleting tunnel map entry", logfields.Prefix, prefix)
 	_, err = m.SilentDelete(key)
 	return err
 }

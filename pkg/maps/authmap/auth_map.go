@@ -5,6 +5,7 @@ package authmap
 
 import (
 	"fmt"
+	"log/slog"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -44,9 +45,9 @@ type authMap struct {
 	bpfMap *ebpf.Map
 }
 
-func newMap(maxEntries int) *authMap {
+func newMap(logger *slog.Logger, maxEntries int) *authMap {
 	return &authMap{
-		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
+		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       MapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(AuthKey{})),
@@ -61,8 +62,8 @@ func newMap(maxEntries int) *authMap {
 // LoadAuthMap loads the pre-initialized auth map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
-func LoadAuthMap() (Map, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(MapName)
+func LoadAuthMap(logger *slog.Logger) (Map, error) {
+	bpfMap, err := ebpf.LoadRegisterMap(logger, MapName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bpf map: %w", err)
 	}

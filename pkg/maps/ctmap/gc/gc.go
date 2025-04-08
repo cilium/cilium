@@ -4,6 +4,7 @@
 package gc
 
 import (
+	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
@@ -11,7 +12,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -39,7 +39,7 @@ type parameters struct {
 	cell.In
 
 	Lifecycle       cell.Lifecycle
-	Logger          logrus.FieldLogger
+	Logger          *slog.Logger
 	DB              *statedb.DB
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
@@ -51,7 +51,7 @@ type parameters struct {
 }
 
 type GC struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	ipv4 bool
 	ipv6 bool
@@ -177,7 +177,7 @@ func (gc *GC) Enable() {
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
-			interval := ctmap.GetInterval(gcInterval, maxDeleteRatio)
+			interval := ctmap.GetInterval(gc.logger, gcInterval, maxDeleteRatio)
 			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
 				for _, e := range eps {
 					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
@@ -187,8 +187,9 @@ func (gc *GC) Enable() {
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
-				gc.logger.WithField("duration", time.Since(gcStart)).
-					Info("initial gc of ct and nat maps completed")
+				gc.logger.Info("initial gc of ct and nat maps completed",
+					logfields.Duration, time.Since(gcStart),
+				)
 			}
 
 			triggeredBySignal = false
@@ -280,11 +281,16 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 		if err != nil {
 			success = false
 			msg := "Skipping CT garbage collection"
-			scopedLog := gc.logger.WithError(err).WithField(logfields.Path, path)
 			if os.IsNotExist(err) {
-				scopedLog.Debug(msg)
+				gc.logger.Debug(msg,
+					logfields.Path, path,
+					logfields.Error, err,
+				)
 			} else {
-				scopedLog.Warn(msg)
+				gc.logger.Warn(msg,
+					logfields.Path, path,
+					logfields.Error, err,
+				)
 			}
 			continue
 		}
@@ -292,7 +298,9 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 
 		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
 		if err != nil {
-			gc.logger.WithError(err).Error("failed to perform CT garbage collection")
+			gc.logger.Error("failed to perform CT garbage collection",
+				logfields.Error, err,
+			)
 			success = false
 		}
 
@@ -301,10 +309,10 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			if ratio > maxDeleteRatio {
 				maxDeleteRatio = ratio
 			}
-			gc.logger.WithFields(logrus.Fields{
-				logfields.Path: path,
-				"count":        deleted,
-			}).Debug("Deleted filtered entries from map")
+			gc.logger.Debug("Deleted filtered entries from map",
+				logfields.Path, path,
+				logfields.Count, deleted,
+			)
 		}
 	}
 
@@ -322,14 +330,15 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
-				gc.logger.WithFields(logrus.Fields{
-					"ingressDeleted": stats.IngressDeleted,
-					"egressDeleted":  stats.EgressDeleted,
-					"ingressAlive":   stats.IngressAlive,
-					"egressAlive":    stats.EgressAlive,
-					"ctMapIPVersion": vsn,
-					"duration":       time.Since(startTime),
-				}).Info("Deleted orphan SNAT entries from map")
+				gc.logger.Info(
+					"Deleted orphan SNAT entries from map",
+					logfields.IngressDeleted, stats.IngressDeleted,
+					logfields.EgressDeleted, stats.EgressDeleted,
+					logfields.IngressAlive, stats.IngressAlive,
+					logfields.EgressAlive, stats.EgressAlive,
+					logfields.CTMapIPVersion, vsn,
+					logfields.Duration, time.Since(startTime),
+				)
 			}
 		}
 	}
