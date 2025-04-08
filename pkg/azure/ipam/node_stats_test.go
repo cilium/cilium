@@ -4,7 +4,6 @@
 package ipam
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -48,7 +47,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), hivetest.Logger(t))
+	_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
 	assert.Equal(255, stats.NodeCapacity)
 }

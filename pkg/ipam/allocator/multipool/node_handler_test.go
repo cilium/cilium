@@ -4,7 +4,6 @@
 package multipool
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -123,7 +122,7 @@ func TestNodeHandler(t *testing.T) {
 		t.Fatal("Update should not have be called before Resync")
 	default:
 	}
-	nh.Resync(context.TODO(), time.Time{})
+	nh.Resync(t.Context(), time.Time{})
 
 	node1Update := <-onUpdateArgs
 	assert.Equal(t, "node1", node1Update.newNode.Name)

@@ -4,7 +4,6 @@
 package podcidr
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/netip"
@@ -294,7 +293,7 @@ func TestNodesPodCIDRManager_Resync(t *testing.T) {
 			logger:    hivetest.Logger(t),
 			k8sReSync: tt.fields.k8sReSync,
 		}
-		n.Resync(context.Background(), time.Time{})
+		n.Resync(t.Context(), time.Time{})
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)

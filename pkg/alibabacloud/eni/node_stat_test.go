@@ -4,7 +4,6 @@
 package eni
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -51,7 +50,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), n.logger)
+	_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), n.logger)
 	assert.NoError(err)
 	// 3 ENIs, 10 IPs per ENI, 1 primary IP and one ENI is primary.
 	assert.Equal(19, stats.NodeCapacity)
