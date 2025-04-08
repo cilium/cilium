@@ -73,9 +73,9 @@ and two peers configured under this BGP instance.
       bgpInstances:
       - name: "instance-65000"
         localASN: 65000
+        localPort: 179
         peers:
         - name: "peer-65000-tor1"
-          localPort: 179
           peerASN: 65000
           peerAddress: fd00:10:0:0::1
           peerConfigRef:
