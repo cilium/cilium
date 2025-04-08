@@ -117,10 +117,10 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 
 	var errs error
 	if pol.Spec != nil {
-		errs = errors.Join(pol.Spec.Sanitize())
+		errs = errors.Join(errs, pol.Spec.Sanitize())
 	}
 	for _, r := range pol.Specs {
-		errs = errors.Join(r.Sanitize())
+		errs = errors.Join(errs, r.Sanitize())
 	}
 
 	newPol := pol.DeepCopy()
@@ -164,10 +164,10 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 
 	var errs error
 	if pol.Spec != nil {
-		errs = errors.Join(pol.Spec.Sanitize())
+		errs = errors.Join(errs, pol.Spec.Sanitize())
 	}
 	for _, r := range pol.Specs {
-		errs = errors.Join(r.Sanitize())
+		errs = errors.Join(errs, r.Sanitize())
 	}
 
 	newPol := pol.DeepCopy()
