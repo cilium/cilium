@@ -364,6 +364,9 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (!dst)
 		return CTX_ACT_OK;
 
+	if (!dst->tunnel_endpoint)
+		return CTX_ACT_OK;
+
 	if (!ipsec_redirect_sec_id_ok(src_sec_identity, dst->sec_identity,
 				      ip_proto))
 		return CTX_ACT_OK;
