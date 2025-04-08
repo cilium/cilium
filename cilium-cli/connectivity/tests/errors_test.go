@@ -12,36 +12,44 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/container/set"
 )
 
 func TestErrorExceptionMatching(t *testing.T) {
-	errs := `level=error msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
-		level=info msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
-level=info msg="foo"
-level=error msg="bar"
-level=error error="Failed to update lock:..."
-level=warning msg="baz"
-level=error msg="bar"
+	errs := `time=2025-04-08T14:27:03Z level=error msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
+		time=2025-04-08T14:27:04Z level=info msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
+time="2025-04-08T14:27:03.089560116Z" level=info msg="foo"
+time="2025-04-08T14:27:03.095898735Z" level=error msg=bar serviceID=1
+time=2025-04-08T14:27:05Z level=error error="Failed to update lock:..."
+time=2025-04-08T14:27:07Z level=warning msg="baz"
+time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2
 [debug][admin] request complete: path: /server_info
 [error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()
 [critical][backtrace] Caught Aborted, suspect faulting address 0xd
 `
 
 	for _, tt := range []struct {
-		levels        []string
-		version       semver.Version
-		wantLen       int
-		wantLogsCount map[string]int
+		levels         []string
+		version        semver.Version
+		wantLen        int
+		wantLogsCount  map[string]int
+		wantExampleLog map[string]set.Set[string]
 	}{
 		{
 			levels:  defaults.LogCheckLevels,
 			version: semver.MustParse("1.17.0"),
 			wantLen: 4,
 			wantLogsCount: map[string]int{
-				`level=error msg="bar"`:   2,
-				`level=warning msg="baz"`: 1,
+				`bar`: 2,
+				`baz`: 1,
 				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
 				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
+			},
+			wantExampleLog: map[string]set.Set[string]{
+				"bar": set.NewSet(
+					`time="2025-04-08T14:27:03.095898735Z" level=error msg=bar serviceID=1`,
+					`time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2`,
+				),
 			},
 		},
 		{
@@ -49,7 +57,7 @@ level=error msg="bar"
 			version: semver.MustParse("1.16.99"),
 			wantLen: 3,
 			wantLogsCount: map[string]int{
-				`level=error msg="bar"`: 2,
+				`bar`: 2,
 				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
 				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
@@ -59,7 +67,7 @@ level=error msg="bar"
 			version: semver.MustParse("1.17.0"),
 			wantLen: 3,
 			wantLogsCount: map[string]int{
-				`level=error msg="bar"`: 2,
+				`bar`: 2,
 				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
 				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
@@ -75,11 +83,17 @@ level=error msg="bar"
 		},
 	} {
 		s := NoErrorsInLogs(tt.version, tt.levels, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
-		fails := s.findUniqueFailures([]byte(errs))
+		fails, example := s.findUniqueFailures([]byte(errs))
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {
 			assert.Contains(t, fails, wantMsg)
 			assert.Equal(t, wantCount, fails[wantMsg])
+			if tt.wantExampleLog != nil {
+				if wantExample, ok := tt.wantExampleLog[wantMsg]; ok {
+					assert.True(t, wantExample.Has(example[wantMsg]),
+						"Expected example log to contain one of %q, but got: %v", wantExample, example[wantMsg])
+				}
+			}
 		}
 	}
 }
