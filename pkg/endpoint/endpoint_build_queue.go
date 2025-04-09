@@ -71,3 +71,11 @@ func numWorkerThreads() int {
 	}
 	return ncpu
 }
+
+type MockEndpointBuildQueue struct{}
+
+var _ EndpointBuildQueue = &MockEndpointBuildQueue{}
+
+func (m *MockEndpointBuildQueue) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	return nil, nil
+}
