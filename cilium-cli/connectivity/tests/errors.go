@@ -146,6 +146,8 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	}
 
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
+	prevOpts := opts
+	prevOpts.Previous = true
 	for pod, info := range pods {
 		client := info.client
 		for container, restarts := range info.containers {
@@ -167,16 +169,24 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// the startup probe, let's just accept one possible restart here.
 				ignore = ignore || (restarts == 1 && container == "hubble-relay")
 
-				if restarts > 0 && !ignore {
-					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
-				}
-
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs.Bytes(), a)
+				n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
+
+				if restarts > 0 && !ignore {
+					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
+
+					logs = bytes.Buffer{}
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
+					if err == nil {
+						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+					} else {
+						a.Failf("Error reading Cilium logs: %s", err)
+					}
+				}
 			})
 		}
 	}
@@ -369,7 +379,7 @@ func extractPackageFromLog(log string) string {
 	return filepath.Clean(result)
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action, opts *corev1.PodLogOptions) {
 	uniqueFailures, exampleLogLine := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
@@ -379,7 +389,11 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
 
 		}
-		a.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
+		previous := ""
+		if opts.Previous {
+			previous = " from before pod restart"
+		}
+		a.Failf("Found %d logs in %s%s matching list of errors that must be investigated:%s", len(uniqueFailures), id, previous, failures.String())
 	}
 }
 
