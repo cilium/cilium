@@ -13,6 +13,8 @@
 "bpf/progtypes.rst" "reference-guides/bpf/progtypes.rst"
 "bpf/resources.rst" "reference-guides/bpf/resources.rst"
 "bpf/toolchain.rst" "reference-guides/bpf/toolchain.rst"
+"cmdref/cilium-dbg_bpf_tunnel.md" "cmdref/cilium-dbg_bpf_ipcache.md"
+"cmdref/cilium-dbg_bpf_tunnel_list.md" "cmdref/cilium-dbg_bpf_ipcache_list.md"
 "cmdref/cilium-dbg_statedb_bandwidth-edts.md" "cmdref/cilium-dbg_statedb.md"
 "cmdref/cilium-dbg_statedb_bandwidth-qdiscs.md" "cmdref/cilium-dbg_statedb.md"
 "cmdref/cilium-dbg_statedb_devices.md" "cmdref/cilium-dbg_statedb.md"
