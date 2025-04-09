@@ -191,7 +191,7 @@ type controller struct {
 
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
-	update  chan ControllerParams
+	update  chan struct{}
 	trigger chan struct{}
 
 	// terminated is closed by the controller goroutine when it terminates
@@ -298,12 +298,14 @@ func (c *controller) GetLastErrorTimestamp() time.Time {
 	return c.lastErrorStamp
 }
 
-func (c *controller) runController(params ControllerParams) {
+func (c *controller) runController() {
+	params := c.Params()
 	errorRetries := 1
 
 	for {
 		var err error
 
+		params = c.Params()
 		interval := params.RunInterval
 
 		start := time.Now()
@@ -379,7 +381,7 @@ func (c *controller) runController(params ControllerParams) {
 		case <-c.stop:
 			goto shutdown
 
-		case params = <-c.update:
+		case <-c.update:
 			// update channel is never closed
 		case <-stdtime.After(interval):
 			// timer channel is not yet closed

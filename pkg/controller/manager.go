@@ -47,6 +47,11 @@ func GetGlobalStatus() models.ControllerStatuses {
 //
 // Updating a controller will cause the DoFunc to be run immediately regardless
 // of any previous conditions. It will also cause any statistics to be reset.
+//
+// If multiple callers make an UpdateController call within a short period,
+// then this function may elide intermediate updates, depending on how long it
+// takes to complete DoFunc. The final parameters update will be applied and
+// run when the controller catches up.
 func (m *Manager) UpdateController(name string, params ControllerParams) {
 	m.updateController(name, params)
 }
@@ -73,12 +78,10 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		ctrl.SetParams(params)
 
 		// Notify the goroutine of the params update.
-		ctrl.mutex.RLock()
 		select {
-		case ctrl.update <- ctrl.params:
+		case ctrl.update <- struct{}{}:
 		default:
 		}
-		ctrl.mutex.RUnlock()
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
@@ -95,7 +98,7 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 			group:      params.Group,
 			uuid:       uuid.New().String(),
 			stop:       make(chan struct{}),
-			update:     make(chan ControllerParams, 1),
+			update:     make(chan struct{}, 1),
 			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
 		},
@@ -109,7 +112,7 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 	globalStatus.controllers[ctrl.uuid] = ctrl
 	globalStatus.mutex.Unlock()
 
-	go ctrl.runController(ctrl.params)
+	go ctrl.runController()
 	return ctrl
 }
 
