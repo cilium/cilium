@@ -46,7 +46,7 @@ var (
 			cecListerWatchers,
 		),
 		cell.Invoke(
-			registerCECReflector,
+			registerCECK8sReflector,
 			registerEnvoyReconciler,
 		),
 	)
