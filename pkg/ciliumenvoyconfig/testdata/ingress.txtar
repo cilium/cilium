@@ -31,6 +31,9 @@ lb/maps-dump maps.actual
 ! grep '10.96.171.236:443/TCP.*L7Proxy=1000' maps.actual
 ! grep '0.0.0.0:30979/TCP.*L7Proxy=1000' maps.actual
 
+# Validate the resources sent to Envoy
+* envoy/cmp envoy.expected
+
 ###
 
 -- services.table --
@@ -54,8 +57,11 @@ Address               Instances                  NodeName
 10.244.1.243:9080/TCP default/productpage (http) kind-worker
 
 -- envoy.table --
-Name                                          Listeners                                              Endpoints                                                                   Status   Error
-default/cilium-ingress-default-basic-ingress  default/cilium-ingress-default-basic-ingress/listener  default/details:9080: 10.244.1.197, default/productpage:9080: 10.244.1.243  Done
+Name                                                    Listeners                                              Endpoints                                 Status   Error
+backendsync:default/cilium-ingress-basic-ingress                                                                                                         Done
+backendsync:default/details                                                                                    default/details:9080: 10.244.1.197        Done
+backendsync:default/productpage                                                                                default/productpage:9080: 10.244.1.243    Done
+cec:default/cilium-ingress-default-basic-ingress        default/cilium-ingress-default-basic-ingress/listener                                            Done
 
 -- cec.table --
 Name                                          Services                              BackendServices
@@ -284,7 +290,6 @@ spec:
     ports:
     - 80
 
-
 -- svc-details.yaml --
 apiVersion: v1
 kind: Service
@@ -443,20 +448,357 @@ ports:
   port: 9080
   protocol: TCP
 
--- maps.expected --
-BE: ADDR=10.244.1.197:9080/TCP STATE=active
-BE: ADDR=10.244.1.243:9080/TCP STATE=active
-REV: ADDR=0.0.0.0:30979
-REV: ADDR=0.0.0.0:31988
-REV: ADDR=10.96.171.236:80
-REV: ADDR=10.96.171.236:443
-REV: ADDR=10.96.252.74:9080
-REV: ADDR=10.96.44.54:9080
-SVC: ADDR=0.0.0.0:30979/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
-SVC: ADDR=0.0.0.0:31988/TCP SLOT=0 L7Proxy=1000 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
-SVC: ADDR=10.96.171.236:80/TCP SLOT=0 L7Proxy=1000 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
-SVC: ADDR=10.96.171.236:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ADDR=10.96.252.74:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ADDR=10.96.252.74:9080/TCP SLOT=1 BECOUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ADDR=10.96.44.54:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ADDR=10.96.44.54:9080/TCP SLOT=1 BECOUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- envoy.expected --
+policy-trigger-count:
+  1
+clusters:default/cilium-ingress-default-basic-ingress/default:details:9080:
+  name:  "default/cilium-ingress-default-basic-ingress/default:details:9080"
+  type:  EDS
+  eds_cluster_config:  {
+    eds_config:  {
+      api_config_source:  {
+        api_type:  GRPC
+        transport_api_version:  V3
+        grpc_services:  {
+          envoy_grpc:  {
+            cluster_name:  "xds-grpc-cilium"
+          }
+        }
+        set_node_on_first_message_only:  true
+      }
+      initial_fetch_timeout:  {
+        seconds:  30
+      }
+      resource_api_version:  V3
+    }
+    service_name:  "default/details:9080"
+  }
+  connect_timeout:  {
+    seconds:  5
+  }
+  circuit_breakers:  {
+    thresholds:  {
+      max_retries:  {
+        value:  128
+      }
+    }
+  }
+  typed_extension_protocol_options:  {
+    key:  "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+    value:  {
+      [type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions]:  {
+        common_http_protocol_options:  {
+          idle_timeout:  {
+            seconds:  60
+          }
+        }
+        use_downstream_protocol_config:  {
+          http2_protocol_options:  {}
+        }
+        http_filters:  {
+          name:  "cilium.l7policy"
+          typed_config:  {
+            [type.googleapis.com/cilium.L7Policy]:  {
+              access_log_path:  "envoy/sockets/access_log.sock"
+            }
+          }
+        }
+        http_filters:  {
+          name:  "envoy.filters.http.upstream_codec"
+          typed_config:  {
+            [type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec]:  {}
+          }
+        }
+      }
+    }
+  }
+  outlier_detection:  {
+    split_external_local_origin_errors:  true
+  }
+  
+clusters:default/cilium-ingress-default-basic-ingress/default:productpage:9080:
+  name:  "default/cilium-ingress-default-basic-ingress/default:productpage:9080"
+  type:  EDS
+  eds_cluster_config:  {
+    eds_config:  {
+      api_config_source:  {
+        api_type:  GRPC
+        transport_api_version:  V3
+        grpc_services:  {
+          envoy_grpc:  {
+            cluster_name:  "xds-grpc-cilium"
+          }
+        }
+        set_node_on_first_message_only:  true
+      }
+      initial_fetch_timeout:  {
+        seconds:  30
+      }
+      resource_api_version:  V3
+    }
+    service_name:  "default/productpage:9080"
+  }
+  connect_timeout:  {
+    seconds:  5
+  }
+  circuit_breakers:  {
+    thresholds:  {
+      max_retries:  {
+        value:  128
+      }
+    }
+  }
+  typed_extension_protocol_options:  {
+    key:  "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+    value:  {
+      [type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions]:  {
+        common_http_protocol_options:  {
+          idle_timeout:  {
+            seconds:  60
+          }
+        }
+        use_downstream_protocol_config:  {
+          http2_protocol_options:  {}
+        }
+        http_filters:  {
+          name:  "cilium.l7policy"
+          typed_config:  {
+            [type.googleapis.com/cilium.L7Policy]:  {
+              access_log_path:  "envoy/sockets/access_log.sock"
+            }
+          }
+        }
+        http_filters:  {
+          name:  "envoy.filters.http.upstream_codec"
+          typed_config:  {
+            [type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec]:  {}
+          }
+        }
+      }
+    }
+  }
+  outlier_detection:  {
+    split_external_local_origin_errors:  true
+  }
+  
+endpoints:default/details:9080:
+  cluster_name:  "default/details:9080"
+  endpoints:  {
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "10.244.1.197"
+            port_value:  9080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:default/productpage:9080:
+  cluster_name:  "default/productpage:9080"
+  endpoints:  {
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "10.244.1.243"
+            port_value:  9080
+          }
+        }
+      }
+    }
+  }
+  
+listener:default/cilium-ingress-default-basic-ingress/listener:
+  name:  "default/cilium-ingress-default-basic-ingress/listener"
+  address:  {
+    socket_address:  {
+      address:  "127.0.0.1"
+      port_value:  1000
+    }
+  }
+  additional_addresses:  {
+    address:  {
+      socket_address:  {
+        address:  "::1"
+        port_value:  1000
+      }
+    }
+  }
+  filter_chains:  {
+    filter_chain_match:  {
+      transport_protocol:  "raw_buffer"
+    }
+    filters:  {
+      name:  "cilium.network"
+      typed_config:  {
+        [type.googleapis.com/cilium.NetworkFilter]:  {}
+      }
+    }
+    filters:  {
+      name:  "envoy.filters.network.http_connection_manager"
+      typed_config:  {
+        [type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager]:  {
+          stat_prefix:  "listener-insecure"
+          rds:  {
+            config_source:  {
+              api_config_source:  {
+                api_type:  GRPC
+                transport_api_version:  V3
+                grpc_services:  {
+                  envoy_grpc:  {
+                    cluster_name:  "xds-grpc-cilium"
+                  }
+                }
+                set_node_on_first_message_only:  true
+              }
+              initial_fetch_timeout:  {
+                seconds:  30
+              }
+              resource_api_version:  V3
+            }
+            route_config_name:  "default/cilium-ingress-default-basic-ingress/listener-insecure"
+          }
+          http_filters:  {
+            name:  "envoy.filters.http.grpc_web"
+            typed_config:  {
+              [type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb]:  {}
+            }
+          }
+          http_filters:  {
+            name:  "envoy.filters.http.grpc_stats"
+            typed_config:  {
+              [type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig]:  {
+                emit_filter_state:  true
+                enable_upstream_stats:  true
+              }
+            }
+          }
+          http_filters:  {
+            name:  "cilium.l7policy"
+            typed_config:  {
+              [type.googleapis.com/cilium.L7Policy]:  {
+                access_log_path:  "envoy/sockets/access_log.sock"
+              }
+            }
+          }
+          http_filters:  {
+            name:  "envoy.filters.http.router"
+            typed_config:  {
+              [type.googleapis.com/envoy.extensions.filters.http.router.v3.Router]:  {}
+            }
+          }
+          common_http_protocol_options:  {
+            max_stream_duration:  {}
+          }
+          stream_idle_timeout:  {
+            seconds:  300
+          }
+          use_remote_address:  {
+            value:  true
+          }
+          internal_address_config:  {
+            cidr_ranges:  {
+              address_prefix:  "10.0.0.0"
+              prefix_len:  {
+                value:  8
+              }
+            }
+            cidr_ranges:  {
+              address_prefix:  "172.16.0.0"
+              prefix_len:  {
+                value:  12
+              }
+            }
+            cidr_ranges:  {
+              address_prefix:  "192.168.0.0"
+              prefix_len:  {
+                value:  16
+              }
+            }
+            cidr_ranges:  {
+              address_prefix:  "127.0.0.1"
+              prefix_len:  {
+                value:  32
+              }
+            }
+          }
+          upgrade_configs:  {
+            upgrade_type:  "websocket"
+          }
+        }
+      }
+    }
+  }
+  listener_filters:  {
+    name:  "envoy.filters.listener.tls_inspector"
+    typed_config:  {
+      [type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector]:  {}
+    }
+  }
+  listener_filters:  {
+    name:  "cilium.bpf_metadata"
+    typed_config:  {
+      [type.googleapis.com/cilium.BpfMetadata]:  {
+        bpf_root:  "/sys/fs/bpf"
+        is_l7lb:  true
+        proxy_id:  1000
+      }
+    }
+  }
+  socket_options:  {
+    description:  "Enable TCP keep-alive (default to enabled)"
+    level:  1
+    name:  9
+    int_value:  1
+  }
+  socket_options:  {
+    description:  "TCP keep-alive idle time (in seconds) (defaults to 10s)"
+    level:  6
+    name:  4
+    int_value:  10
+  }
+  socket_options:  {
+    description:  "TCP keep-alive probe intervals (in seconds) (defaults to 5s)"
+    level:  6
+    name:  5
+    int_value:  5
+  }
+  socket_options:  {
+    description:  "TCP keep-alive probe max failures."
+    level:  6
+    name:  6
+    int_value:  10
+  }
+  
+route:default/cilium-ingress-default-basic-ingress/listener-insecure:
+  name:  "default/cilium-ingress-default-basic-ingress/listener-insecure"
+  virtual_hosts:  {
+    name:  "default/cilium-ingress-default-basic-ingress/*"
+    domains:  "*"
+    routes:  {
+      match:  {
+        path_separated_prefix:  "/details"
+      }
+      route:  {
+        cluster:  "default/cilium-ingress-default-basic-ingress/default:details:9080"
+        max_stream_duration:  {
+          max_stream_duration:  {}
+        }
+      }
+    }
+    routes:  {
+      match:  {
+        prefix:  "/"
+      }
+      route:  {
+        cluster:  "default/cilium-ingress-default-basic-ingress/default:productpage:9080"
+        max_stream_duration:  {
+          max_stream_duration:  {}
+        }
+      }
+    }
+  }
+  
