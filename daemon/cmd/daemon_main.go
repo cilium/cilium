@@ -27,8 +27,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
-	healthApi "github.com/cilium/cilium/api/v1/health/server"
-	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
@@ -60,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
+	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1517,7 +1516,6 @@ type daemonParams struct {
 	Lifecycle           cell.Lifecycle
 	Health              cell.Health
 	Clientset           k8sClient.Clientset
-	Loader              datapath.Loader
 	WGAgent             *wireguard.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	Shutdowner          hive.Shutdowner
@@ -1542,9 +1540,7 @@ type daemonParams struct {
 	IPCache             *ipcache.IPCache
 	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
 	CNIConfigManager    cni.CNIConfigManager
-	SwaggerSpec         *server.Spec
-	HealthAPISpec       *healthApi.Spec
-	ServiceCache        k8s.ServiceCache
+	CiliumHealth        health.CiliumHealthManager
 	ClusterMesh         *clustermesh.ClusterMesh
 	MonitorAgent        monitorAgent.Agent
 	L2Announcer         *l2announcer.L2Announcer
@@ -1811,7 +1807,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		d.initHealth(params.HealthAPISpec, cleaner, params.Sysctl)
+		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting); err != nil {
+			return fmt.Errorf("failed to initialize cilium health: %w", err)
+		}
 	}
 	bootstrapStats.healthCheck.End(true)
 
