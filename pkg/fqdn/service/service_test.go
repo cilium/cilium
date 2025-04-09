@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"testing"
 
@@ -192,7 +191,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	server.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
 	ips := server.currentIdentityToIp[dummyIdentity.ID]
 	require.Len(t, ips, 1)
-	require.Equal(t, net.ParseIP("1.2.3.4").To4(), ips[0])
+	require.Equal(t, "1.2.3.4/32", ips[0])
 
 	// Call OnIPIdentityCacheChange with Upsert with identity change(1->2) for same ip: 1.2.3.4/32.
 	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32]}
@@ -200,7 +199,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	server.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, &dummyIdentity, dummyIdentity2, 0, nil, 0)
 	ips = server.currentIdentityToIp[dummyIdentity2.ID]
 	require.Len(t, ips, 1)
-	require.Equal(t, net.ParseIP("1.2.3.4").To4(), ips[0])
+	require.Equal(t, "1.2.3.4/32", ips[0])
 	require.Empty(t, server.currentIdentityToIp[dummyIdentity.ID])
 
 	// Call OnIPIdentityCacheChange with Upsert with identity 2 for ip: 4.5.6.7/32.
@@ -212,26 +211,46 @@ func TestHandleIPUpsert(t *testing.T) {
 	require.Len(t, ips, 2)
 
 	// Call OnIPIdentityCacheChange with Upsert with identity 2 for ip: 8.9.10.11/24.
-	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32, 4.5.6.7/32]}
+	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32, 4.5.6.7/32, 8.9.10.11/24]}
 	prefix3 := netip.MustParsePrefix("8.9.10.11/24")
 	validCIDR3 := types.NewPrefixCluster(prefix3, 0)
 	server.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR3, nil, nil, nil, dummyIdentity2, 0, nil, 0)
 	ips = server.currentIdentityToIp[dummyIdentity2.ID]
-	require.Len(t, ips, 2) // We expect 2 IPs for the same identity as /24 CIDR is not added.
+	require.Len(t, ips, 3)
+	_, ipv4 := server.prefixLengths.ToBPFData()
+	require.Len(t, ipv4, 3) // [32 24 0]
+
+	// Call OnIPIdentityCacheChange with Delete for identity 2 and ip: 10.10.10.10/24.
+	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32, 4.5.6.7/32]}
+	prefix4 := netip.MustParsePrefix("10.10.10.10/24")
+	validCIDR4 := types.NewPrefixCluster(prefix4, 0)
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR4, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	ips = server.currentIdentityToIp[dummyIdentity2.ID]
+	require.Len(t, ips, 3)
+	_, ipv4 = server.prefixLengths.ToBPFData()
+	require.Len(t, ipv4, 3) // [32 24  0]
+
+	// Call OnIPIdentityCacheChange with Delete for identity 2 and ip: 8.9.10.11/24.
+	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32, 4.5.6.7/32]}
+	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR3, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
+	ips = server.currentIdentityToIp[dummyIdentity2.ID]
+	require.Len(t, ips, 2)
+	_, ipv4 = server.prefixLengths.ToBPFData()
+	require.Len(t, ipv4, 2) // [32  0]
 
 	// Call OnIPIdentityCacheChange with Delete for identity 2 and ip: 4.5.6.7/32.
 	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32]}
 	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
 	ips = server.currentIdentityToIp[dummyIdentity2.ID]
 	require.Len(t, ips, 1)
-	require.Equal(t, net.ParseIP("1.2.3.4").To4(), ips[0])
+	require.Equal(t, "1.2.3.4/32", ips[0])
 
 	// Call again OnIPIdentityCacheChange with Delete for identity 2 and ip: 4.5.6.7/32.
 	// Expectation: currentIdentityToIp:{2: [1.2.3.4/32]}
 	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR2, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
 	ips = server.currentIdentityToIp[dummyIdentity2.ID]
 	require.Len(t, ips, 1)
-	require.Equal(t, net.ParseIP("1.2.3.4").To4(), ips[0])
+	require.Equal(t, "1.2.3.4/32", ips[0])
 
 	// Call again OnIPIdentityCacheChange with Delete for identity 2 and ip: 1.2.3.4/32.
 	// Expectation: currentIdentityToIp:{}

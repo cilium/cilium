@@ -4,7 +4,6 @@
 package messagehandler
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -36,22 +35,12 @@ type DNSMessageHandlerParams struct {
 }
 
 func NewDNSMessageHandler(params DNSMessageHandlerParams) DNSMessageHandler {
-	ctx, cancelCtx := context.WithCancel(context.Background())
-
 	handler := &dnsMessageHandler{
-		ctx:               ctx,
 		logger:            params.Logger,
 		nameManager:       params.NameManager,
 		proxyInstance:     params.ProxyInstance,
 		proxyAccessLogger: params.ProxyAccessLogger,
 	}
-
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hookContext cell.HookContext) error {
-			cancelCtx()
-			return nil
-		},
-	})
 
 	return handler
 }

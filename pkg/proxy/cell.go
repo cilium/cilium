@@ -46,7 +46,6 @@ type proxyParams struct {
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
-	SDPPolicyUpdater      *service.FQDNDataServer
 }
 
 func newProxy(params proxyParams) *Proxy {
@@ -58,7 +57,7 @@ func newProxy(params proxyParams) *Proxy {
 		return nil
 	}
 
-	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.SDPPolicyUpdater)
+	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
 	triggerDone := make(chan struct{})
 
@@ -118,12 +117,13 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 	}
 }
 
-func newDNSProxyIntegration(dnsProxy defaultdns.Proxy) *dnsProxyIntegration {
+func newDNSProxyIntegration(dnsProxy defaultdns.Proxy, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
 	if !option.Config.EnableL7Proxy {
 		return nil
 	}
 
 	return &dnsProxyIntegration{
-		dnsProxy: dnsProxy,
+		dnsProxy:         dnsProxy,
+		sdpPolicyUpdater: sdpPolicyUpdater,
 	}
 }
