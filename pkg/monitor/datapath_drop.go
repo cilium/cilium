@@ -80,16 +80,32 @@ func DecodeDropNotify(data []byte, dn *DropNotify) error {
 
 func (n *DropNotify) decodeDropNotify(data []byte) error {
 	if l := len(data); l < dropNotifyV1Len {
-		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV1Len, l)
+		return fmt.Errorf("unexpected DropNotify data length, expected at least %d but got %d", dropNotifyV1Len, l)
 	}
 
+	version := byteorder.Native.Uint16(data[14:16])
+
+	// Check against max version.
+	if version > DropNotifyVersion2 {
+		return fmt.Errorf("Unrecognized drop event (version %d)", version)
+	}
+
+	// Decode logic for version >= v2.
+	if version >= DropNotifyVersion2 {
+		if l := len(data); l < dropNotifyV2Len {
+			return fmt.Errorf("unexpected DropNotify data length (version %d), expected at least %d but got %d", version, dropNotifyV2Len, l)
+		}
+		n.Flags = data[36]
+	}
+
+	// Decode logic for version >= v0/v1.
 	n.Type = data[0]
 	n.SubType = data[1]
 	n.Source = byteorder.Native.Uint16(data[2:4])
 	n.Hash = byteorder.Native.Uint32(data[4:8])
 	n.OrigLen = byteorder.Native.Uint32(data[8:12])
 	n.CapLen = byteorder.Native.Uint16(data[12:14])
-	n.Version = byteorder.Native.Uint16(data[14:16])
+	n.Version = version
 	n.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	n.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
 	n.DstID = byteorder.Native.Uint32(data[24:28])
@@ -97,14 +113,6 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	n.File = data[30]
 	n.ExtError = int8(data[31])
 	n.Ifindex = byteorder.Native.Uint32(data[32:36])
-
-	switch n.Version {
-	case DropNotifyVersion2:
-		if l := len(data); l < dropNotifyV2Len {
-			return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV2Len, l)
-		}
-		n.Flags = data[36]
-	}
 
 	return nil
 }
