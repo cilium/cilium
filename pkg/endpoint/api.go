@@ -44,16 +44,16 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 		return nil, err
 	}
 	spec := &models.LabelConfigurationSpec{
-		User: e.OpLabels.Custom.GetModel(),
+		User: e.labels.Custom.GetModel(),
 	}
 
 	cfg := models.LabelConfiguration{
 		Spec: spec,
 		Status: &models.LabelConfigurationStatus{
 			Realized:         spec,
-			SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
-			Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:         e.OpLabels.Disabled.GetModel(),
+			SecurityRelevant: e.labels.OrchestrationIdentity.GetModel(),
+			Derived:          e.labels.OrchestrationInfo.GetModel(),
+			Disabled:         e.labels.Disabled.GetModel(),
 		},
 	}
 	e.runlock()
@@ -152,8 +152,8 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 	if model.Labels != nil {
 		lbls := labels.NewLabelsFromModel(model.Labels)
 		identityLabels, infoLabels := labelsfilter.Filter(lbls)
-		ep.OpLabels.OrchestrationIdentity = identityLabels
-		ep.OpLabels.OrchestrationInfo = infoLabels
+		ep.labels.OrchestrationIdentity = identityLabels
+		ep.labels.OrchestrationInfo = infoLabels
 	}
 
 	if model.State != nil {
@@ -225,7 +225,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
-	lblMdl := model.NewModel(&e.OpLabels)
+	lblMdl := model.NewModel(&e.labels)
 
 	// Sort these slices since they come out in random orders. This allows
 	// reflect.DeepEqual to succeed.
@@ -566,8 +566,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		// no need to set changed here
 	}
 
-	e.replaceInformationLabels(labels.LabelSourceAny, newEp.OpLabels.OrchestrationInfo)
-	rev := e.replaceIdentityLabels(labels.LabelSourceAny, newEp.OpLabels.IdentityLabels())
+	e.replaceInformationLabels(labels.LabelSourceAny, newEp.labels.OrchestrationInfo)
+	rev := e.replaceIdentityLabels(labels.LabelSourceAny, newEp.labels.IdentityLabels())
 	if rev != 0 {
 		// Run as a goroutine since the runIdentityResolver needs to get the lock
 		go e.runIdentityResolver(e.aliveCtx, false)
@@ -617,7 +617,7 @@ func (e *Endpoint) GetConfigurationStatus() *models.EndpointConfigurationStatus 
 	return &models.EndpointConfigurationStatus{
 		Realized: &models.EndpointConfigurationSpec{
 			LabelConfiguration: &models.LabelConfigurationSpec{
-				User: e.OpLabels.Custom.GetModel(),
+				User: e.labels.Custom.GetModel(),
 			},
 			Options: *e.Options.GetMutableModel(),
 		},
@@ -633,7 +633,7 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 		return nil, nil, err
 	}
 	defer e.runlock()
-	add, del = e.OpLabels.SplitUserLabelChanges(lbls)
+	add, del = e.labels.SplitUserLabelChanges(lbls)
 	return
 }
 

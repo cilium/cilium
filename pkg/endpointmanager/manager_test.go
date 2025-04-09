@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
@@ -1002,6 +1001,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			name: "Update labels",
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
+				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
 				ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
 				require.NoError(t, err)
 
@@ -1010,7 +1010,6 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
-				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
 				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
@@ -1035,6 +1034,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			name: "Ignore labels",
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
+				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
 				ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
 				ep.SetIsHost(true)
 				require.NoError(t, err)
@@ -1043,7 +1043,6 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				t.Cleanup(ep.Stop)
 
 				ep.ID = hostEPID
-				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
 				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
