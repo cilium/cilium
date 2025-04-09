@@ -12,7 +12,7 @@
 # define CLASSIFIERS_FROM_NETDEV
 #endif
 
-#if __ctx_is == __ctx_skb && defined(ENABLE_WIREGUARD)
+#if __ctx_is == __ctx_skb && (defined(ENABLE_WIREGUARD) || defined(HAVE_ENCAP))
 # define CLASSIFIERS_TO_NETDEV
 #endif
 
@@ -27,6 +27,8 @@ enum classifiers {
 	CLS_FLAG_L3_DEV    = (1 << 1),
 	CLS_FLAG_IPSEC     = (1 << 2),
 	CLS_FLAG_WIREGUARD = (1 << 3),
+	CLS_FLAG_VXLAN     = (1 << 4),
+	CLS_FLAG_GENEVE    = (1 << 5),
 };
 
 #define NULL_CLASSIFIERS ((cls_t)0)
@@ -129,6 +131,20 @@ ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
 #ifdef ENABLE_WIREGUARD
 	if (ctx_is_wireguard(ctx))
 		flags |= CLS_FLAG_WIREGUARD;
+#endif
+
+#ifdef HAVE_ENCAP
+	if (ctx_is_overlay(ctx))
+		switch (TUNNEL_PROTOCOL) {
+		case TUNNEL_PROTOCOL_VXLAN:
+			flags |= CLS_FLAG_VXLAN;
+			break;
+		case TUNNEL_PROTOCOL_GENEVE:
+			flags |= CLS_FLAG_GENEVE;
+			break;
+		default:
+			__throw_build_bug();
+		}
 #endif
 
 	return flags;
