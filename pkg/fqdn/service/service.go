@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"slices"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/identity"
@@ -46,8 +48,12 @@ type FQDNDataServer struct {
 	// identityToIPMutex is a mutex to protect the current state of the identity to Ip mapping
 	identityToIPMutex lock.Mutex
 
-	// currentIdentityToIp is a map of the identity to list of Ips
-	currentIdentityToIp map[identity.NumericIdentity][]net.IP
+	// currentIdentityToIp is a map of the identity to list of IPs
+	currentIdentityToIp map[identity.NumericIdentity][]string
+
+	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
+	// IPv6 addresses in order to optimize longest prefix match lookups.
+	prefixLengths *counter.PrefixLengthCounter
 
 	// log is the logger for the FQDNDataServer
 	log *slog.Logger
@@ -92,8 +98,9 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 		port:                port,
 		endpointManager:     endpointManager,
 		updateOnDNSMsg:      updateOnDNSMsg,
-		currentIdentityToIp: make(map[identity.NumericIdentity][]net.IP),
+		currentIdentityToIp: make(map[identity.NumericIdentity][]string),
 		log:                 logger,
+		prefixLengths:       counter.DefaultPrefixLengthCounter(),
 	}
 }
 
@@ -103,19 +110,19 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	defer s.identityToIPMutex.Unlock()
 
 	ipNet := cidr.AsIPNet()
-
-	if cidr.ClusterID() == 0 && cidr.IsSingleIP() {
+	prefix := cidr.AsPrefix()
+	if cidr.ClusterID() == 0 {
 		switch modType {
 		case ipcache.Upsert:
 			if oldID != nil {
 				// Remove from the old identity
-				s.deleteFromIdentityToIPLocked(oldID, ipNet.IP)
+				s.deleteFromIdentityToIPLocked(oldID, ipNet.String(), prefix)
 			}
-			s.currentIdentityToIp[newID.ID] = append(s.currentIdentityToIp[newID.ID], ipNet.IP)
-
+			s.currentIdentityToIp[newID.ID] = append(s.currentIdentityToIp[newID.ID], ipNet.String())
+			s.prefixLengths.Add([]netip.Prefix{prefix})
 		case ipcache.Delete:
 			if oldID != nil {
-				s.deleteFromIdentityToIPLocked(oldID, ipNet.IP)
+				s.deleteFromIdentityToIPLocked(oldID, ipNet.String(), prefix)
 			}
 		}
 	}
@@ -124,15 +131,20 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 // deleteFromIdentityToIPLocked deletes the given IP from the identity to IP mapping
 // It is called when the IP identity cache changes and the IP is deleted from the mapping
 // It is also called when the IP is upserted with a new identity
+// It removes the prefix from the prefixLengths map
 // It is called with the identityToIpMutex lock held
-func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity, ip net.IP) error {
+func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity, cidr string, prefix netip.Prefix) error {
 	if identity == nil {
 		return fmt.Errorf("identity is nil")
 	}
 
 	if ips, ok := s.currentIdentityToIp[identity.ID]; ok {
-		newIps := slices.DeleteFunc(ips, func(existing net.IP) bool {
-			return existing.Equal(ip)
+		newIps := slices.DeleteFunc(ips, func(existing string) bool {
+			if existing == cidr {
+				s.prefixLengths.Delete([]netip.Prefix{prefix})
+				return true
+			}
+			return false
 		})
 		if len(newIps) == 0 {
 			delete(s.currentIdentityToIp, identity.ID)

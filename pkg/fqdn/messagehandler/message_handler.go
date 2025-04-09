@@ -72,7 +72,6 @@ type DNSMessageHandler interface {
 }
 
 type dnsMessageHandler struct {
-	ctx               context.Context
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
 	proxyInstance     defaultdns.Proxy
@@ -216,7 +215,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	//
 	// Restrict label enrichment time to 10ms; we don't want to block DNS
 	// requests because an identity isn't in the local cache yet.
-	logContext, lcncl := context.WithTimeout(h.ctx, 10*time.Millisecond)
+	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
 	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
@@ -308,7 +307,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.IPAddrs, responseIPs,
 	)
 
-	updateCtx, updateCancel := context.WithTimeout(h.ctx, option.Config.FQDNProxyResponseMaxDelay)
+	updateCtx, updateCancel := context.WithTimeout(context.Background(), option.Config.FQDNProxyResponseMaxDelay)
 	defer updateCancel()
 	updateStart := time.Now()
 
