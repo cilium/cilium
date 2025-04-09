@@ -26,11 +26,12 @@ func decodeHex(s string) []byte {
 
 func TestCreateL3L4Payload(t *testing.T) {
 	// These contain TraceNotify headers plus the ethernet header of the packet
+	// - IPv4: test with TraceNotifyVersion0
+	// - IPv6: test with TraceNotifyVersion1 (additional [16]bytes for empty OrigIP)
 	packetv4Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a080045000054bfe900003f019ae2")
 	packetv4802Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a81000202080045000054bfe900003f019ae2")
-	packetv6Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff")
-	packetv6802Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff")
-
+	packetv6Prefix := decodeHex("0405a80b5f16f2b8560000005600010068000000000000000000000000000000000000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff")
+	packetv6802Prefix := decodeHex("0405a80b5f16f2b8560000005600010068000000000000000000000000000000000000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff")
 	// ICMPv4/v6 packets (with reversed src/dst IPs)
 	packetICMPv4 := decodeHex("010101010a107e4000003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637")
 	packetICMPv6Req := decodeHex("f00d0000000000000a10000000009195ff0200000000000000000001ff00b3e58700507500000000f00d0000000000000a1000000000b3e50101129106e2221a")
@@ -38,7 +39,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 	packetICMPv6Rev := decodeHex("ff0200000000000000000001ff00b3e5f00d0000000000000a100000000091958700507500000000f00d0000000000000a1000000000b3e50101129106e2221a")
 
 	// The following structs are decoded pieces of the above packets
-	traceNotifyIPv4 := monitor.TraceNotifyV0{
+	traceNotifyIPv4 := monitor.TraceNotify{
 		Type:     monitorAPI.MessageTypeTrace,
 		ObsPoint: monitorAPI.TraceToStack,
 		Source:   0xba8,
@@ -48,8 +49,9 @@ func TestCreateL3L4Payload(t *testing.T) {
 		SrcLabel: 0x68,
 		DstLabel: 0x1,
 		Reason:   monitor.TraceReasonCtReply,
+		Version:  monitor.TraceNotifyVersion0,
 	}
-	traceNotifyIPv6 := monitor.TraceNotifyV0{
+	traceNotifyIPv6 := monitor.TraceNotify{
 		Type:     monitorAPI.MessageTypeTrace,
 		ObsPoint: monitorAPI.TraceFromLxc,
 		Source:   0xba8,
@@ -59,6 +61,7 @@ func TestCreateL3L4Payload(t *testing.T) {
 		SrcLabel: 0x68,
 		DstLabel: 0x0,
 		Reason:   monitor.TraceReasonPolicy,
+		Version:  monitor.TraceNotifyVersion1,
 	}
 
 	etherIPv4 := &layers.Ethernet{
