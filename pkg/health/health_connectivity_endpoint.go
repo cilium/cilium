@@ -61,7 +61,7 @@ const (
 	LaunchTime = 30 * time.Second
 )
 
-func getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]route.Route, error) {
+func (h *ciliumHealthManager) getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]route.Route, error) {
 	routes := []route.Route{}
 
 	if option.Config.EnableIPv4 {
@@ -69,7 +69,7 @@ func getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]ro
 		if err == nil {
 			routes = append(routes, v4Routes...)
 		} else {
-			log.Debugf("Couldn't get IPv4 routes for health routing")
+			h.logger.Debug("Couldn't get IPv4 routes for health routing")
 		}
 	}
 
@@ -85,7 +85,7 @@ func getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]ro
 }
 
 // configureHealthRouting is meant to be run inside the health service netns
-func configureHealthRouting(routes []route.Route, dev string) error {
+func (h *ciliumHealthManager) configureHealthRouting(routes []route.Route, dev string) error {
 	for _, rt := range routes {
 		cmd := rt.ToIPCommand(dev)
 		if len(cmd) < 2 {
@@ -93,10 +93,13 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 		}
 		prog := cmd[0]
 		args := cmd[1:]
-		log.Debugf("Running \"%s %+v\"", prog, args)
+		h.logger.Debug(fmt.Sprintf("Running \"%s %+v\"", prog, args))
 		out, err := exec.Command(prog, args...).CombinedOutput()
 		if err == nil && len(out) > 0 {
-			log.WithField("prog", prog).WithField("args", args).Warn(out)
+			h.logger.Warn(string(out),
+				logfields.Prog, prog,
+				logfields.Args, args,
+			)
 		} else if err != nil {
 			return fmt.Errorf("error running %q with args %q: %w", prog, args, err)
 		}
@@ -105,7 +108,7 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 }
 
 // configureHealthInterface is meant to be run inside the health service netns
-func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error {
+func (h *ciliumHealthManager) configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error {
 	link, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		return err
@@ -158,7 +161,7 @@ func (c *Client) PingEndpoint() error {
 	return probe.GetHello(c.host)
 }
 
-// KillEndpoint attempts to kill any existing cilium-health endpoint if it
+// killEndpoint attempts to kill any existing cilium-health endpoint if it
 // exists.
 //
 // This is intended to be invoked in multiple situations:
@@ -166,24 +169,24 @@ func (c *Client) PingEndpoint() error {
 //   - The health endpoint was run during a previous run of the Cilium agent
 //   - The health endpoint crashed during the current run of the Cilium agent
 //     and needs to be cleaned up before it is restarted.
-func KillEndpoint() {
+func (h *ciliumHealthManager) killEndpoint() {
 	path := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
-	scopedLog := log.WithField(logfields.PIDFile, path)
+	scopedLog := h.logger.With(logfields.PIDFile, path)
 	scopedLog.Debug("Killing old health endpoint process")
 	pid, err := pidfile.Kill(path)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed to kill cilium-health-responder")
+		scopedLog.Warn("Failed to kill cilium-health-responder", logfields.Error, err)
 	} else if pid != 0 {
-		scopedLog.WithField(logfields.PID, pid).Debug("Killed endpoint process")
+		scopedLog.Debug("Killed endpoint process", logfields.PID, pid)
 	}
 }
 
-// CleanupEndpoint cleans up remaining resources associated with the health
+// cleanupEndpoint cleans up remaining resources associated with the health
 // endpoint.
 //
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
-func CleanupEndpoint() {
+func (h *ciliumHealthManager) cleanupEndpoint() {
 	// Removes the interfaces used for the endpoint process.
 	//
 	// Explicit removal is performed to ensure that everything referencing the network namespace
@@ -191,27 +194,29 @@ func CleanupEndpoint() {
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		for _, iface := range []string{legacyHealthName, healthName} {
-			scopedLog := log.WithField(logfields.Interface, iface)
+			scopedLog := h.logger.With(logfields.Interface, iface)
 			if link, err := safenetlink.LinkByName(iface); err == nil {
 				err = netlink.LinkDel(link)
 				if err != nil {
-					scopedLog.WithError(err).Infof("Couldn't delete cilium-health %s device",
-						option.Config.DatapathMode)
+					scopedLog.Info("Couldn't delete cilium-health device",
+						logfields.DatapathMode, option.Config.DatapathMode,
+						logfields.Error, err,
+					)
 				}
 			} else {
-				scopedLog.WithError(err).Debug("Didn't find existing device")
+				scopedLog.Debug("Didn't find existing device", logfields.Error, err)
 			}
 		}
 	}
 }
 
-// LaunchAsEndpoint launches the cilium-health agent in a nested network
+// launchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint, but
 // with special reserved labels.
 //
-// CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
+// cleanupEndpoint() must be called before calling launchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
+func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -278,7 +283,7 @@ func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.E
 	}
 
 	if err := ns.Do(func() error {
-		return configureHealthInterface(epIfaceName, ip4Address, ip6Address)
+		return h.configureHealthInterface(epIfaceName, ip4Address, ip6Address)
 	}); err != nil {
 		return nil, fmt.Errorf("failed configure health interface %q: %w", epIfaceName, err)
 	}
@@ -287,7 +292,10 @@ func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.E
 	args := []string{"--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
 	cmd.SetTarget(binaryName)
 	cmd.SetArgs(args)
-	log.Debugf("Spawning health endpoint with command %q %q", binaryName, args)
+	h.logger.Debug("Spawning health endpoint with command",
+		logfields.Prog, binaryName,
+		logfields.Args, args,
+	)
 
 	// Run the health binary inside a netnamespace. Since `Do()` implicitly does
 	// `runtime.LockOSThread` the exec'd binary is guaranteed to inherit the
@@ -308,7 +316,7 @@ func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.E
 	deadline := time.Now().Add(1 * time.Minute)
 	for {
 		if _, err := os.Stat(pidfile); err == nil {
-			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
+			h.logger.Debug("cilium-health agent running", logfields.PIDFile, pidfile)
 			break
 		} else if time.Now().After(deadline) {
 			return nil, fmt.Errorf("Endpoint failed to run: %w", err)
@@ -318,13 +326,13 @@ func LaunchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.E
 	}
 
 	// Set up the endpoint routes.
-	routes, err := getHealthRoutes(node.GetNodeAddressing(), mtuConfig)
+	routes, err := h.getHealthRoutes(node.GetNodeAddressing(), mtuConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting routes for containername %q: %w", info.ContainerName, err)
 	}
 
 	err = ns.Do(func() error {
-		return configureHealthRouting(routes, epIfaceName)
+		return h.configureHealthRouting(routes, epIfaceName)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Error while configuring routes: %w", err)
