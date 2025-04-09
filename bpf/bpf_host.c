@@ -1370,6 +1370,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = ctx_to_netdev_classifiers(ctx),
 	};
 	__be16 __maybe_unused proto = 0;
 	__u32 vlan_id;
@@ -1644,8 +1645,6 @@ skip_egress_gateway:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.flags |= CLS_FLAG_WIREGUARD;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
@@ -1680,9 +1679,9 @@ exit:
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN,
-			  THIS_INTERFACE_IFINDEX, trace.reason, trace.monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
+				TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				trace.reason, trace.monitor, trace.flags);
 
 	return ret;
 

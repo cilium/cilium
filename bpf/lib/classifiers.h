@@ -12,6 +12,10 @@
 # define CLASSIFIERS_FROM_NETDEV
 #endif
 
+#if __ctx_is == __ctx_skb && defined(ENABLE_WIREGUARD)
+# define CLASSIFIERS_TO_NETDEV
+#endif
+
 #if defined(IS_BPF_WIREGUARD) || (defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD))
 # define CLASSIFIERS_BASE
 #endif
@@ -112,3 +116,23 @@ ctx_from_netdev_classifiers6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 #define ctx_from_netdev_classifiers4(ctx, ip4) NULL_CLASSIFIERS
 #define ctx_from_netdev_classifiers6(ctx, ip6) NULL_CLASSIFIERS
 #endif /* CLASSIFIERS_FROM_NETDEV */
+
+#ifdef CLASSIFIERS_TO_NETDEV
+/* Compute to_netdev classifiers upon processing an egress network packet:
+ * - CLS_FLAG_WIREGUARD, in case of a WireGuard packet (MARK_MAGIC_WG_ENCRYPTED)
+ */
+static __always_inline cls_t
+ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
+{
+	cls_t flags = 0;
+
+#ifdef ENABLE_WIREGUARD
+	if (ctx_mark_is_wireguard(ctx))
+		flags |= CLS_FLAG_WIREGUARD;
+#endif
+
+	return flags;
+}
+#else
+#define ctx_to_netdev_classifiers(ctx) NULL_CLASSIFIERS
+#endif /* CLASSIFIERS_TO_NETDEV */

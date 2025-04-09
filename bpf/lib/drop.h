@@ -208,6 +208,12 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), CTX_ACT_DROP, direction)
 
+#define send_drop_notify_error_ext_flags(ctx, src, reason, ext_err, direction, flags) \
+	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
+			  __DROP_REASON_EXT_FLAGS(reason, ext_err, \
+						ctx_base_classifiers(ctx) | (cls_t)(flags)), \
+			  CTX_ACT_DROP, direction)
+
 #define send_drop_notify_error_with_exitcode_ext_flags(ctx, src, \
 			  reason, ext_err, exitcode, direction, flags) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
