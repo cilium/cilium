@@ -295,14 +295,26 @@ func AutoComplete(directRoutingDevice string) error {
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit() error {
-	if option.Config.EnableIPv4 || option.Config.TunnelingEnabled() {
-		if GetIPv4() == nil {
-			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
+	if option.Config.EnableIPv4 && GetIPv4() == nil {
+		return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
+	}
+
+	if option.Config.EnableIPv6 && GetIPv6() == nil {
+		return fmt.Errorf("external IPv6 node address could not be derived, please configure via --ipv6-node")
+	}
+
+	if option.Config.TunnelingEnabled() {
+		if GetIPv4() == nil && GetIPv6() == nil {
+			return fmt.Errorf("external IPv4 and IPv6 node addresses could not be derived, please configure via --ipv4-node or --ipv6-node")
 		}
 	}
 
 	if option.Config.EnableIPv4 && GetInternalIPv4Router() == nil {
 		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
+	}
+
+	if option.Config.EnableIPv6 && GetIPv6Router() == nil {
+		return fmt.Errorf("BUG: Internal IPv6 node address was not configured")
 	}
 
 	return nil
