@@ -23,9 +23,7 @@ func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer
 	case monitor.DebugCapture,
 		monitor.DropNotify,
 		monitor.PolicyVerdictNotify,
-		monitor.TraceNotify,
-		monitor.TraceNotifyV0,
-		monitor.TraceNotifyV1:
+		monitor.TraceNotify:
 		if err := binary.Write(buf, byteorder.Native, message); err != nil {
 			return nil, err
 		}
@@ -42,6 +40,8 @@ func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer
 	// versions of events in tests, which would be otherwise serialized with the maximum size of the
 	// respective data structure (ex. DropNotifyV1 -> DropNotifyV2 + zero bytes of padding).
 	switch messageType := message.(type) {
+	case monitor.TraceNotify:
+		buf.Truncate(int(messageType.DataOffset()))
 	case monitor.DropNotify:
 		buf.Truncate(int(messageType.DataOffset()))
 	}
