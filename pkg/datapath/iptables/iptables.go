@@ -1029,11 +1029,9 @@ func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 }
 
 func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
-	if m.haveBPFSocketAssign {
-		m.logger.Debug(
-			"Skipping proxy rule install due to BPF support",
-			logfields.Port, proxyPort,
-		)
+	// We could fail if netfilter was compiled out from the kernel, so bail
+	// out without error in this case, too.
+	if m.haveBPFSocketAssign || !m.sharedCfg.InstallIptRules {
 		return nil
 	}
 
@@ -1743,9 +1741,13 @@ func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
 	return nil
 }
 
-// skipPodTrafficConntrack returns true if it's possible to install iptables
-// `-j CT --notrack` rules to skip tracking pod traffic.
+// skipPodTrafficConntrack returns true if i) it's possible to install iptables
+// `-j CT --notrack` rules to skip tracking pod traffic, ii) if rule installation
+// was disabled completely.
 func (m *Manager) skipPodTrafficConntrack(addr netip.Addr) bool {
+	if !m.sharedCfg.InstallIptRules {
+		return true
+	}
 	if addr.Is4() && m.sharedCfg.InstallNoConntrackIptRules {
 		return true
 	}
