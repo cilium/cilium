@@ -123,31 +123,15 @@ func TestDecodeTraceNotifyErrors(t *testing.T) {
 	require.Equal(t, "Unrecognized trace event (version 255)", err.Error())
 }
 
-func TestIsEncrypted(t *testing.T) {
-	tt := []struct {
-		name      string
-		reason    uint8
-		encrypted bool
-	}{
-		{
-			name:      "unknown",
-			reason:    TraceReasonUnknown,
-			encrypted: false,
-		},
-		{
-			name:      "unknown encrypted",
-			reason:    TraceReasonUnknown | TraceReasonEncryptMask,
-			encrypted: true,
+func TestTraceFlags(t *testing.T) {
+	tn := &TraceNotify{
+		TraceNotifyV0: TraceNotifyV0{
+			Flags: 0x07,
 		},
 	}
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
-				Reason: tc.reason,
-			}
-			require.Equal(t, tc.encrypted, tn.IsEncrypted())
-		})
-	}
+	require.True(t, tn.IsIPv6())
+	require.True(t, tn.IsL3Device())
+	require.True(t, tn.IsEncrypted())
 }
 
 func TestTraceReason(t *testing.T) {
@@ -159,11 +143,6 @@ func TestTraceReason(t *testing.T) {
 		{
 			name:   "unknown",
 			reason: TraceReasonUnknown,
-			want:   TraceReasonUnknown,
-		},
-		{
-			name:   "unknown encrypted",
-			reason: TraceReasonUnknown | TraceReasonEncryptMask,
 			want:   TraceReasonUnknown,
 		},
 	}
@@ -189,18 +168,8 @@ func TestTraceReasonIsKnown(t *testing.T) {
 			known:  false,
 		},
 		{
-			name:   "unknown encrypted",
-			reason: TraceReasonUnknown | TraceReasonEncryptMask,
-			known:  false,
-		},
-		{
 			name:   "established",
 			reason: TraceReasonCtEstablished,
-			known:  true,
-		},
-		{
-			name:   "established encrypted",
-			reason: TraceReasonCtEstablished | TraceReasonEncryptMask,
 			known:  true,
 		},
 	}
@@ -226,18 +195,8 @@ func TestTraceReasonIsReply(t *testing.T) {
 			reply:  false,
 		},
 		{
-			name:   "unknown encrypted",
-			reason: TraceReasonUnknown | TraceReasonEncryptMask,
-			reply:  false,
-		},
-		{
 			name:   "reply",
 			reason: TraceReasonCtReply,
-			reply:  true,
-		},
-		{
-			name:   "reply encrypted",
-			reason: TraceReasonCtReply | TraceReasonEncryptMask,
 			reply:  true,
 		},
 	}
@@ -263,28 +222,13 @@ func TestTraceReasonIsEncap(t *testing.T) {
 			encap:  false,
 		},
 		{
-			name:   "unknown encrypted",
-			reason: TraceReasonUnknown | TraceReasonEncryptMask,
-			encap:  false,
-		},
-		{
 			name:   "srv6-encap",
 			reason: TraceReasonSRv6Encap,
 			encap:  true,
 		},
 		{
-			name:   "srv6-encap encrypted",
-			reason: TraceReasonSRv6Encap | TraceReasonEncryptMask,
-			encap:  true,
-		},
-		{
 			name:   "srv6-decap",
 			reason: TraceReasonSRv6Decap,
-			encap:  false,
-		},
-		{
-			name:   "srv6-decap encrypted",
-			reason: TraceReasonSRv6Decap | TraceReasonEncryptMask,
 			encap:  false,
 		},
 	}
@@ -310,28 +254,13 @@ func TestTraceReasonIsDecap(t *testing.T) {
 			decap:  false,
 		},
 		{
-			name:   "unknown encrypted",
-			reason: TraceReasonUnknown | TraceReasonEncryptMask,
-			decap:  false,
-		},
-		{
 			name:   "srv6-encap",
 			reason: TraceReasonSRv6Encap,
 			decap:  false,
 		},
 		{
-			name:   "srv6-encap encrypted",
-			reason: TraceReasonSRv6Encap | TraceReasonEncryptMask,
-			decap:  false,
-		},
-		{
 			name:   "srv6-decap",
 			reason: TraceReasonSRv6Decap,
-			decap:  true,
-		},
-		{
-			name:   "srv6-decap encrypted",
-			reason: TraceReasonSRv6Decap | TraceReasonEncryptMask,
 			decap:  true,
 		},
 	}

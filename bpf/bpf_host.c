@@ -999,8 +999,9 @@ static __always_inline int
 do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 {
 	struct trace_ctx trace = {
-		.reason = TRACE_REASON_ENCRYPTED,
+		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = CLS_FLAG_ENCRYPTED,
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1135,7 +1136,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
 			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
+				trace.flags |= CLS_FLAG_ENCRYPTED;
 		}
 # endif /* ENABLE_WIREGUARD */
 
@@ -1179,7 +1180,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
+				trace.flags |= CLS_FLAG_ENCRYPTED;
 		}
 #endif /* ENABLE_WIREGUARD */
 
@@ -1355,9 +1356,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_ENCRYPT) {
 		ret = CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_flags(ctx, TRACE_FROM_STACK, identity,
+					UNKNOWN_ID, TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					TRACE_REASON_UNKNOWN, 0, CLS_FLAG_ENCRYPTED);
 
 # ifdef TUNNEL_MODE
 		ret = do_netdev_encrypt_encap(ctx, proto, identity);
@@ -1659,7 +1660,7 @@ skip_egress_gateway:
 		else if (IS_ERR(ret))
 			goto drop_err;
 	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
+		trace.flags |= CLS_FLAG_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)

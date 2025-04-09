@@ -26,7 +26,8 @@ static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni,
-		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
+		    enum trace_reason ct_reason, __u32 monitor,
+			cls_t flags, int *ifindex)
 {
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -43,8 +44,8 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	*ifindex = 0;
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
-			  *ifindex, ct_reason, monitor);
+	send_trace_notify_flags(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
+				*ifindex, ct_reason, monitor, flags);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
 				  NULL, 0);
@@ -60,8 +61,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 	int ret = 0;
 
 	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
-				  vni, trace->reason, trace->monitor,
-				  &ifindex);
+				  vni, trace->reason, trace->monitor, trace->flags, &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 
