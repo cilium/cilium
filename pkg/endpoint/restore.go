@@ -248,7 +248,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
+	l, _ := labelsfilter.Filter(e.labels.AllLabels())
 	e.runlock()
 
 	// Getting the ep's identity while we are restoring should block the
@@ -414,7 +414,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IfIndex:                  e.ifIndex,
 		ContainerIfName:          e.containerIfName,
 		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
-		OpLabels:                 e.OpLabels,
+		Labels:                   e.labels,
 		LXCMAC:                   e.mac,
 		IPv6:                     e.IPv6,
 		IPv6IPAMPool:             e.IPv6IPAMPool,
@@ -479,10 +479,8 @@ type serializableEndpoint struct {
 	// (container name, container id, pod name) for this endpoint.
 	DisableLegacyIdentifiers bool
 
-	// OpLabels is the endpoint's label configuration
-	//
-	// FIXME: Rename this field to Labels
-	OpLabels labels.OpLabels
+	// Labels is the endpoint's label configuration
+	Labels labels.OpLabels `json:"OpLabels"`
 
 	// mac is the MAC address of the endpoint
 	//
@@ -560,7 +558,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	// We may have to populate structures in the Endpoint manually to do the
 	// translation from serializableEndpoint --> Endpoint.
 	restoredEp := &serializableEndpoint{
-		OpLabels:   labels.NewOpLabels(),
+		Labels:     labels.NewOpLabels(),
 		Options:    option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
@@ -590,7 +588,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ifIndex = r.IfIndex
 	ep.containerIfName = r.ContainerIfName
 	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
-	ep.OpLabels = r.OpLabels
+	ep.labels = r.Labels
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv6IPAMPool = r.IPv6IPAMPool
