@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 )
@@ -115,8 +114,7 @@ type bpfCleanup struct{}
 
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
-		fmt.Sprintf("all BPF maps in %s containing '%s' and '%s'",
-			bpf.TCGlobalsPath(), ciliumLinkPrefix, tunnel.MapName),
+		fmt.Sprintf("all BPF maps in %s containing '%s'", bpf.TCGlobalsPath(), ciliumLinkPrefix),
 		fmt.Sprintf("mounted bpffs at %s", bpf.BPFFSRoot()),
 	}
 }
@@ -432,7 +430,7 @@ func removeAllMaps() error {
 	for _, m := range maps {
 		name := m.Name()
 		// Skip non Cilium looking maps
-		if !strings.HasPrefix(name, ciliumLinkPrefix) && name != tunnel.MapName {
+		if !strings.HasPrefix(name, ciliumLinkPrefix) {
 			continue
 		}
 		if err = os.Remove(filepath.Join(mapDir, name)); err != nil {
