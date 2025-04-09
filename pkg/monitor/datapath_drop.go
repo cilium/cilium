@@ -32,6 +32,10 @@ const (
 	DropNotifyFlagIsIPv6 uint8 = 1 << iota
 	// DropNotifyFlagIsL3Device is set in DropNotify.Flags when it refers to a L3 device.
 	DropNotifyFlagIsL3Device
+	// DropNotifyFlagIsIPSec is set in DropNotify.Flags when it refers to an encrypted IPSec packet.
+	DropNotifyFlagIsIPSec
+	// DropNotifyFlagIsWireguard is set in DropNotify.Flags when it refers to an encrypted Wireguard packet.
+	DropNotifyFlagIsWireguard
 )
 
 var (
@@ -107,6 +111,21 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	}
 
 	return nil
+}
+
+// IsIPSec returns true if the trace refers to an encrypted IPSec packet.
+func (n *DropNotify) IsIPSec() bool {
+	return n.Flags&DropNotifyFlagIsIPSec != 0
+}
+
+// IsWireguard returns true if the trace refers to an encrypted Wireguard packet.
+func (n *DropNotify) IsWireguard() bool {
+	return n.Flags&DropNotifyFlagIsWireguard != 0
+}
+
+// IsEncrypted returns true if the trace refers to an encrypted network packet.
+func (n *DropNotify) IsEncrypted() bool {
+	return n.IsIPSec() || n.IsWireguard()
 }
 
 // IsL3Device returns true if the trace comes from an L3 device.
