@@ -221,10 +221,8 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	disableLegacyIdentifiers bool
 
-	// OpLabels is the endpoint's label configuration
-	//
-	// FIXME: Rename this field to Labels
-	OpLabels labels.OpLabels
+	// labels is the endpoint's label configuration
+	labels labels.OpLabels
 
 	// identityRevision is incremented each time the identity label
 	// information of the endpoint has changed
@@ -598,7 +596,7 @@ func createEndpoint(dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, lo
 		createdAt:        time.Now(),
 		proxy:            proxy,
 		ifName:           ifName,
-		OpLabels:         labels.NewOpLabels(),
+		labels:           labels.NewOpLabels(),
 		Options:          option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSRules:         nil,
 		DNSRulesV2:       nil,
@@ -746,7 +744,7 @@ func (e *Endpoint) HostInterface() string {
 func (e *Endpoint) GetOpLabels() []string {
 	e.unconditionalRLock()
 	defer e.runlock()
-	return e.OpLabels.IdentityLabels().GetModel()
+	return e.labels.IdentityLabels().GetModel()
 }
 
 // GetOptions returns the datapath configuration options of the endpoint.
@@ -1146,7 +1144,7 @@ func (e *Endpoint) HasLabels(l labels.Labels) bool {
 // return 'false' if any label in l is not in the endpoint's labels.
 // e.mutex must be RLock()ed.
 func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
-	allEpLabels := e.OpLabels.AllLabels()
+	allEpLabels := e.labels.AllLabels()
 
 	for _, v := range l {
 		found := false
@@ -1173,7 +1171,7 @@ func (e *Endpoint) replaceInformationLabels(sourceFilter string, l labels.Labels
 	if l == nil {
 		return
 	}
-	e.OpLabels.ReplaceInformationLabels(sourceFilter, l, e.getLogger())
+	e.labels.ReplaceInformationLabels(sourceFilter, l, e.getLogger())
 }
 
 // replaceIdentityLabels replaces the identity labels of the endpoint for the
@@ -1189,7 +1187,7 @@ func (e *Endpoint) replaceIdentityLabels(sourceFilter string, l labels.Labels) i
 		return e.identityRevision
 	}
 
-	changed := e.OpLabels.ReplaceIdentityLabels(sourceFilter, l, e.getLogger())
+	changed := e.labels.ReplaceIdentityLabels(sourceFilter, l, e.getLogger())
 	rev := 0
 	if changed {
 		e.identityRevision++
@@ -1684,7 +1682,7 @@ func APICanModify(e *Endpoint) error {
 	if e.IsInit() {
 		return nil
 	}
-	if e.OpLabels.OrchestrationIdentity.IsReserved() {
+	if e.labels.OrchestrationIdentity.IsReserved() {
 		return fmt.Errorf("endpoint may not be associated reserved labels")
 	}
 	return nil
@@ -1693,7 +1691,7 @@ func APICanModify(e *Endpoint) error {
 // APICanModifyConfig determines whether API requests from users are allowed to
 // modify the configuration of the endpoint.
 func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
-	if !e.OpLabels.OrchestrationIdentity.IsReserved() {
+	if !e.labels.OrchestrationIdentity.IsReserved() {
 		return nil
 	}
 	for config, val := range n {
@@ -1907,7 +1905,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 		return err
 	}
 
-	changed, err := e.OpLabels.ModifyIdentityLabels(addLabels, delLabels)
+	changed, err := e.labels.ModifyIdentityLabels(addLabels, delLabels)
 	if err != nil {
 		e.unlock()
 		return err
@@ -1919,7 +1917,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	// to remove endpoints in 'init' state if the containers were not
 	// started with any label.
 	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
-		idLabls := e.OpLabels.IdentityLabels()
+		idLabls := e.labels.IdentityLabels()
 		delete(idLabls, labels.IDNameInit)
 		e.replaceIdentityLabels(source, idLabls)
 		changed = true
@@ -1943,7 +1941,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 // IsInit returns true if the endpoint still hasn't received identity labels,
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
-	init, found := e.OpLabels.GetIdentityLabel(labels.IDNameInit)
+	init, found := e.labels.GetIdentityLabel(labels.IDNameInit)
 	return found && init.Source == labels.LabelSourceReserved
 }
 
@@ -2044,7 +2042,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 		!identityLabels.HasInitLabel() &&
 		e.IsInit() {
 
-		idLabls := e.OpLabels.IdentityLabels()
+		idLabls := e.labels.IdentityLabels()
 		delete(idLabls, labels.IDNameInit)
 		rev = e.replaceIdentityLabels(labels.LabelSourceAny, idLabls)
 	}
@@ -2097,7 +2095,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (rege
 		e.getLogger().WithError(err).Info("Cannot run labels resolver")
 		return false
 	}
-	newLabels := e.OpLabels.IdentityLabels()
+	newLabels := e.labels.IdentityLabels()
 	e.runlock()
 	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
 
@@ -2144,7 +2142,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	if err := e.lockAlive(); err != nil {
 		return false, err
 	}
-	newLabels := e.OpLabels.IdentityLabels()
+	newLabels := e.labels.IdentityLabels()
 	myChangeRev := e.identityRevision
 	elog := e.getLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,

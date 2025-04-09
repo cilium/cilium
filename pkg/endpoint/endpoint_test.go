@@ -210,37 +210,37 @@ func TestEndpointUpdateLabels(t *testing.T) {
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	require.NotEqual(t, 0, rev)
-	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.OpLabels.OrchestrationIdentity.SortedList()))
+	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.labels.OrchestrationIdentity.SortedList()))
 	// Test that nothing changes
 	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	require.Equal(t, 0, rev)
-	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.OpLabels.OrchestrationIdentity.SortedList()))
+	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.labels.OrchestrationIdentity.SortedList()))
 	// Remove one label, change the source and value of the other.
 	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "cilium"))
 	require.NotEqual(t, 0, rev)
-	require.Equal(t, "cilium:foo=zop;", string(e.OpLabels.OrchestrationIdentity.SortedList()))
+	require.Equal(t, "cilium:foo=zop;", string(e.labels.OrchestrationIdentity.SortedList()))
 
 	// Test that inserting information labels works
 	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
-	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.OpLabels.OrchestrationInfo.SortedList()))
+	require.Equal(t, "cilium:foo=bar;cilium:zip=zop;", string(e.labels.OrchestrationInfo.SortedList()))
 
 	// Test that inserting a new nginx will also keep the previous cilium label
 	e.replaceInformationLabels("nginx", labels.Map2Labels(map[string]string{"foo2": "zop2", "zip": "zop2"}, "nginx"))
-	require.Equal(t, "cilium:foo=bar;nginx:foo2=zop2;cilium:zip=zop;", string(e.OpLabels.OrchestrationInfo.SortedList()))
+	require.Equal(t, "cilium:foo=bar;nginx:foo2=zop2;cilium:zip=zop;", string(e.labels.OrchestrationInfo.SortedList()))
 
 	// Test that we will keep the 'nginx' label because we only want to add
 	// Cilium labels.
 	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo2": "bar2", "zip2": "zop2"}, "cilium"))
-	require.Equal(t, "nginx:foo2=zop2;cilium:zip2=zop2;", string(e.OpLabels.OrchestrationInfo.SortedList()))
+	require.Equal(t, "nginx:foo2=zop2;cilium:zip2=zop2;", string(e.labels.OrchestrationInfo.SortedList()))
 
 	// Test that we will keep the 'nginx' label because we only want to update
 	// Cilium labels.
 	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo3": "bar3"}, "cilium"))
-	require.Equal(t, "nginx:foo2=zop2;cilium:foo3=bar3;", string(e.OpLabels.OrchestrationInfo.SortedList()))
+	require.Equal(t, "nginx:foo2=zop2;cilium:foo3=bar3;", string(e.labels.OrchestrationInfo.SortedList()))
 
 	// Test that we will not replace labels from other sources if the key is the same.
 	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo2": "bar2"}, "cilium"))
-	require.Equal(t, "nginx:foo2=zop2;", string(e.OpLabels.OrchestrationInfo.SortedList()))
+	require.Equal(t, "nginx:foo2=zop2;", string(e.labels.OrchestrationInfo.SortedList()))
 }
 
 func TestEndpointState(t *testing.T) {
@@ -538,50 +538,41 @@ func TestProxyID(t *testing.T) {
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
-	type fields struct {
-		OpLabels labels.OpLabels
-	}
 	tests := []struct {
 		name   string
-		fields fields
+		labels labels.OpLabels
 		want   labels.Labels
 	}{
 		{
 			name: "has all k8s labels",
-			fields: fields{
-				OpLabels: labels.OpLabels{
-					OrchestrationInfo: labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s),
-				},
+			labels: labels.OpLabels{
+				OrchestrationInfo: labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s),
 			},
 			want: labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s),
 		},
 		{
 			name: "the namespace labels, service account and namespace should be ignored as they don't belong to pod labels",
-			fields: fields{
-				OpLabels: labels.OpLabels{
-					OrchestrationInfo: labels.Map2Labels(map[string]string{
-						"foo":                                    "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-						ciliumio.PolicyLabelServiceAccount:       "default",
-						ciliumio.PodNamespaceLabel:               "default",
-					}, labels.LabelSourceK8s),
-				},
+			labels: labels.OpLabels{
+				OrchestrationInfo: labels.Map2Labels(map[string]string{
+					"foo":                                    "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod",
+					ciliumio.PolicyLabelServiceAccount:       "default",
+					ciliumio.PodNamespaceLabel:               "default",
+				}, labels.LabelSourceK8s),
 			},
 			want: labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s),
 		},
 		{
 			name: "labels with other source than k8s should also be ignored",
-			fields: fields{
-				OpLabels: labels.OpLabels{
-					OrchestrationInfo: labels.Map2Labels(map[string]string{
-						"foo":                                    "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-					}, labels.LabelSourceK8s),
-					OrchestrationIdentity: labels.Map2Labels(map[string]string{
-						"foo2":                                   "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
-					}, labels.LabelSourceAny),
-				},
+			labels: labels.OpLabels{
+				OrchestrationInfo: labels.Map2Labels(map[string]string{
+					"foo":                                    "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod",
+				}, labels.LabelSourceK8s),
+				OrchestrationIdentity: labels.Map2Labels(map[string]string{
+					"foo2":                                   "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
+				}, labels.LabelSourceAny),
 			},
 			want: labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s),
 		},
@@ -589,8 +580,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Endpoint{
-				mutex:    lock.RWMutex{},
-				OpLabels: tt.fields.OpLabels,
+				mutex:  lock.RWMutex{},
+				labels: tt.labels,
 			}
 			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
@@ -746,7 +737,7 @@ func BenchmarkEndpointGetModel(b *testing.B) {
 func (e *Endpoint) getK8sPodLabels() labels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
-	allLabels := e.OpLabels.AllLabels()
+	allLabels := e.labels.AllLabels()
 	if allLabels == nil {
 		return nil
 	}
