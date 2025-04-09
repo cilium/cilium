@@ -45,7 +45,7 @@ func (c *icmpConn) SetMark(mark uint) error {
 // SetMark sets the SO_MARK socket option on outgoing ICMP packets.
 // Setting this option requires CAP_NET_ADMIN.
 func (c *icmpv4Conn) SetMark(mark uint) error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (c *icmpv4Conn) SetMark(mark uint) error {
 // SetMark sets the SO_MARK socket option on outgoing ICMP packets.
 // Setting this option requires CAP_NET_ADMIN.
 func (c *icmpV6Conn) SetMark(mark uint) error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (c *icmpConn) SetDoNotFragment() error {
 
 // SetDoNotFragment sets the do-not-fragment bit in the IP header of outgoing ICMP packets.
 func (c *icmpv4Conn) SetDoNotFragment() error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (c *icmpv4Conn) SetDoNotFragment() error {
 
 // SetDoNotFragment sets the do-not-fragment bit in the IPv6 header of outgoing ICMPv6 packets.
 func (c *icmpV6Conn) SetDoNotFragment() error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (c *icmpConn) SetBroadcastFlag() error {
 }
 
 func (c *icmpv4Conn) SetBroadcastFlag() error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (c *icmpv4Conn) SetBroadcastFlag() error {
 }
 
 func (c *icmpV6Conn) SetBroadcastFlag() error {
-	fd, err := getFD(c.icmpConn.c)
+	fd, err := getFD(c.c)
 	if err != nil {
 		return err
 	}
