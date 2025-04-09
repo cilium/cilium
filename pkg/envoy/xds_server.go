@@ -912,7 +912,6 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
-		PolicyUpdateWarningLimit: durationpb.New(option.Config.FQDNProxyResponseMaxDelay),
 	}
 
 	return &envoy_config_listener.ListenerFilter{
