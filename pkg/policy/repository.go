@@ -58,6 +58,12 @@ type PolicyContext interface {
 	// SetDeny sets the Deny field of the PolicyContext and returns the old
 	// value stored.
 	SetDeny(newValue bool) (oldValue bool)
+
+	// DefaultDenyIngress returns true if default deny is enabled for ingress
+	DefaultDenyIngress() bool
+
+	// DefaultDenyEgress returns true if default deny is enabled for egress
+	DefaultDenyEgress() bool
 }
 
 type policyContext struct {
@@ -66,6 +72,9 @@ type policyContext struct {
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny bool
+
+	defaultDenyIngress bool
+	defaultDenyEgress  bool
 }
 
 // GetNamespace() returns the namespace for the policy rule being resolved
@@ -103,6 +112,16 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	oldDeny := p.isDeny
 	p.isDeny = deny
 	return oldDeny
+}
+
+// DefaultDenyIngress returns true if default deny is enabled for ingress
+func (p *policyContext) DefaultDenyIngress() bool {
+	return p.defaultDenyIngress
+}
+
+// DefaultDenyEgress returns true if default deny is enabled for egress
+func (p *policyContext) DefaultDenyEgress() bool {
+	return p.defaultDenyEgress
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -277,6 +296,9 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 	policyCtx := policyContext{
 		repo: p,
 		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+
+		defaultDenyIngress: true,
+		defaultDenyEgress:  true,
 	}
 	rules := make(ruleSlice, 0, len(p.rules))
 	for _, rule := range p.rules {
@@ -308,6 +330,9 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 	policyCtx := policyContext{
 		repo: p,
 		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+
+		defaultDenyIngress: true,
+		defaultDenyEgress:  true,
 	}
 	rules := make(ruleSlice, 0, len(p.rules))
 	for _, rule := range p.rules {
@@ -703,8 +728,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled,
-		matchingRules :=
-		p.computePolicyEnforcementAndRules(securityIdentity)
+		hasIngressDefaultDeny, hasEgressDefaultDeny,
+		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
@@ -733,6 +758,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	policyCtx := policyContext{
 		repo: p,
 		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+
+		defaultDenyIngress: hasIngressDefaultDeny,
+		defaultDenyEgress:  hasEgressDefaultDeny,
 	}
 
 	if ingressEnabled {
@@ -763,14 +791,14 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
-	ingress, egress bool,
+	ingress, egress, hasIngressDefaultDeny, hasEgressDefaultDeny bool,
 	matchingRules ruleSlice,
 ) {
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.
 	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
-		return false, false, nil
+		return false, false, false, false, nil
 	}
 
 	policyMode := GetPolicyEnabled()
@@ -778,7 +806,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// enforcement for the endpoint. We don't care about returning any
 	// rules that match.
 	if policyMode == option.NeverEnforce {
-		return false, false, nil
+		return false, false, false, false, nil
 	}
 
 	matchingRules = []*rule{}
@@ -793,7 +821,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
 	// received any labels, always enforce policy (default deny).
 	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
-		return true, true, matchingRules
+		return true, true, true, true, matchingRules
 	}
 
 	// Determine the default policy for each direction.
@@ -802,7 +830,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If any rules select the endpoint, then the endpoint switches to a
 	// default-deny mode (same as traffic being enabled), per-direction.
 	//
-	// Rules, however, can optionally be configure to not enable default deny mode.
+	// Rules, however, can optionally be configured to not enable default deny mode.
 	// If no rules enable default-deny, then all traffic is allowed except that explicitly
 	// denied by a Deny rule.
 	//
@@ -812,8 +840,6 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must insert
 	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
 	//    rules may have additional effects such as enabling L7 proxy.
-	hasIngressDefaultDeny := false
-	hasEgressDefaultDeny := false
 	for _, r := range matchingRules {
 		if !ingress || !hasIngressDefaultDeny { // short-circuit len()
 			if len(r.Ingress) > 0 || len(r.IngressDeny) > 0 {

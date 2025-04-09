@@ -15,6 +15,8 @@ import (
 	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -426,6 +428,91 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 		return a, nil
 	}
 	return ParserTypeNone, fmt.Errorf("cannot merge conflicting L7 parsers (%s/%s)", a, b)
+}
+
+// hasWildcard checks if the L7Rules contains a wildcard rule for the given parser type.
+func hasWildcard(rules *api.L7Rules, parserType L7ParserType) bool {
+	if rules == nil {
+		return false
+	}
+
+	switch {
+	case parserType == ParserTypeDNS:
+		for _, rule := range rules.DNS {
+			if rule.MatchPattern == "*" {
+				return true
+			}
+		}
+	case parserType == ParserTypeHTTP:
+		for _, rule := range rules.HTTP {
+			if rule.Path == "" && rule.Method == "" && rule.Host == "" &&
+				len(rule.Headers) == 0 && len(rule.HeaderMatches) == 0 {
+				return true
+			}
+		}
+	case parserType == ParserTypeKafka:
+		for _, rule := range rules.Kafka {
+			if rule.Topic == "" {
+				return true
+			}
+		}
+	case rules.L7Proto != "":
+		// For custom L7 rules
+		for _, rule := range rules.L7 {
+			if len(rule) == 0 {
+				return true
+			}
+		}
+	default:
+		// Unsupported parser type
+	}
+
+	return false
+}
+
+// addWildcard adds a wildcard rule to the L7Rules for the given parser type.
+// It returns a copy of the rules with the wildcard rule added.
+func addWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
+	rulesCopy := *rules
+	result := &rulesCopy
+
+	switch {
+	case parserType == ParserTypeDNS:
+		if len(rules.DNS) > 0 {
+			result.DNS = append(result.DNS, api.PortRuleDNS{MatchPattern: "*"})
+		}
+	case parserType == ParserTypeHTTP:
+		if len(rules.HTTP) > 0 {
+			result.HTTP = append(result.HTTP, api.PortRuleHTTP{})
+		}
+	case parserType == ParserTypeKafka:
+		if len(rules.Kafka) > 0 {
+			result.Kafka = append(result.Kafka, kafka.PortRule{})
+		}
+	case rules.L7Proto != "":
+		// For custom L7 rules with L7Proto
+		if len(rules.L7) > 0 {
+			result.L7 = append(result.L7, api.PortRuleL7{})
+		}
+	default:
+		// Unsupported parser type
+	}
+
+	return result
+}
+
+// ensureWildcard ensures that the L7Rules contains a wildcard rule for the given parser type.
+// It returns a copy of the rules with the wildcard rule added if it wasn't already present.
+func ensureWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
+	if rules == nil {
+		return nil
+	}
+
+	if hasWildcard(rules, parserType) {
+		return rules
+	}
+
+	return addWildcard(rules, parserType)
 }
 
 // L4Filter represents the policy (allowed remote sources / destinations of
@@ -910,7 +997,28 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	if l4.L7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
-		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
+		modifiedRules := rules
+
+		// If we have L7 rules and default deny is disabled (EnableDefaultDeny=false), we should ensure those rules
+		// don't cause other L7 traffic to be denied.
+		// Special handling for L7 rules is applied when:
+		// 1. We have L7 rules
+		// 2. Default deny is disabled for this direction
+		// 3. This is a positive policy (not a deny policy)
+		hasL7Rules := !rules.IsEmpty()
+		isDefaultDenyDisabled := (ingress && !policyCtx.DefaultDenyIngress()) || (!ingress && !policyCtx.DefaultDenyEgress())
+		isAllowPolicy := !policyCtx.IsDeny()
+
+		if hasL7Rules && isDefaultDenyDisabled && isAllowPolicy {
+			log.WithFields(logrus.Fields{
+				logfields.L7Parser: l4.L7Parser,
+				logfields.Ingress:  ingress,
+			}).Debug("Adding wildcard L7 rules for default-allow policy")
+
+			modifiedRules = ensureWildcard(rules, l4.L7Parser)
+		}
+
+		l4.PerSelectorPolicies.addPolicyForSelector(modifiedRules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
 	}
 
 	for cs := range l4.PerSelectorPolicies {
