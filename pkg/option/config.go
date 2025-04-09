@@ -433,12 +433,6 @@ const (
 	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
 	ToFQDNsProxyPort = "tofqdns-proxy-port"
 
-	// EnableStandaloneDNSProxy is the name of the option to enable standalone DNS proxy
-	EnableStandaloneDNSProxy = "enable-standalone-dns-proxy"
-
-	// ToFQDNsServerPort is the port on which the standalone DNS proxy gRPC server should listen.
-	ToFQDNsServerPort = "tofqdns-server-port"
-
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"

@@ -41,13 +41,10 @@ type FQDNDataServer struct {
 	endpointManager endpointmanager.EndpointManager
 
 	// updateOnDNSMsg is a function to update the DNS message in the cilium agent on receiving the FQDN mapping
-	updateOnDNSMsg messagehandler.DNSRequestHandler
+	updateOnDNSMsg messagehandler.DNSMessageHandler
 
-	// snapshotMutex is a mutex to protect the current state of the DNS rules
-	snapshotMutex lock.Mutex
-
-	// identityToIpMutex is a mutex to protect the current state of the identity to Ip mapping
-	identityToIpMutex lock.Mutex
+	// identityToIPMutex is a mutex to protect the current state of the identity to Ip mapping
+	identityToIPMutex lock.Mutex
 
 	// currentIdentityToIp is a map of the identity to list of Ips
 	currentIdentityToIp map[identity.NumericIdentity][]net.IP
@@ -67,7 +64,11 @@ var (
 )
 
 type PolicyUpdater interface {
-	UpdatePolicyRulesLocked(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
+	// UpdatePolicyRules is used to update the current state of the policy rules at the
+	// gRPC server. These rules are sent to the standalone DNS proxy.
+	// This is currently being called whenever there is a policy regeneration event
+	// for an endpoint.
+	UpdatePolicyRules(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
 }
 
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
@@ -78,29 +79,28 @@ type PolicyUpdater interface {
 // 2. Start a goroutine to receive the DNS policies ACKs for that particular client.
 // 3. Send the current state of the DNS rules to the client (We store the current state fo DNS rules during the endpoint regeneration see UpdatePolicyRulesLocked)
 // 4. Wait for the context to be done
+// Note: this method is left empty on purpose and will be update with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateServer) error {
-	stream.Send(&pb.PolicyState{})
+	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
+	stream.Send(&pb.PolicyState{RequestId: "test"})
 	return nil
 }
 
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service
-func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSRequestHandler, port int, logger *slog.Logger) *FQDNDataServer {
-
-	s := &FQDNDataServer{
+func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger) *FQDNDataServer {
+	return &FQDNDataServer{
 		port:                port,
 		endpointManager:     endpointManager,
 		updateOnDNSMsg:      updateOnDNSMsg,
 		currentIdentityToIp: make(map[identity.NumericIdentity][]net.IP),
-		log:                 logger.With(logfields.LogSubsys, "fqdn/server"),
+		log:                 logger,
 	}
-
-	return s
 }
 
 // OnIPIdentityCacheChange is a method to receive the IP identity cache change events
 func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr types.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
-	s.identityToIpMutex.Lock()
-	defer s.identityToIpMutex.Unlock()
+	s.identityToIPMutex.Lock()
+	defer s.identityToIPMutex.Unlock()
 
 	ipNet := cidr.AsIPNet()
 
@@ -143,17 +143,14 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity
 	return nil
 }
 
-// UpdatePolicyRulesLocked updates the current state of the DNS rules with the given policies and sends the current state of the DNS rules to the client
+// UpdatePolicyRules updates the current state of the DNS rules with the given policies and sends the current state of the DNS rules to the client
 // This method is called:
 // 1. when the DNS rules are updated during the endpoint regeneration, we store the state of the DNS rules with flag rulesUpdate as true
 // 2. when the client subscribes to DNS policies, we send the current state of the DNS rules to the client(flag rulesUpdate as false)
 // 3. when the IP identity cache changes, we update the current state of the identity to IP mapping and send the current state of the DNS rules to
 // the client(flag rulesUpdate as false)
-// The UpdatePolicyRulesLocked method is called with the proxy.mutex lock held
-func (s *FQDNDataServer) UpdatePolicyRulesLocked(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
-	s.snapshotMutex.Lock()
-	defer s.snapshotMutex.Unlock()
-
+// Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
+func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
 	return nil
 }
 
@@ -163,19 +160,20 @@ func (s *FQDNDataServer) UpdatePolicyRulesLocked(policies map[identity.NumericId
 // 1. Get the endpoint from the IP
 // 2. If the endpoint is not found, return an error
 // 3. If the IPs are not empty, update the cilium agent with the mapping
+// Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.FQDNMapping) (*pb.UpdateMappingResponse, error) {
 	return &pb.UpdateMappingResponse{
 		Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 	}, nil
 }
 
-// Starts the Standalone DNS Proxy grpc server on the given port
-func (s *FQDNDataServer) Start() error {
+// ListenAndServe starts the Standalone DNS Proxy gRPC server on the given port
+func (s *FQDNDataServer) ListenAndServe() error {
 	address := fmt.Sprintf("localhost:%d", s.port)
-	s.log.Info("Starting Standalone DNS Proxy server on: ", logfields.Address, address)
+	s.log.Info("Starting Standalone DNS Proxy server on", logfields.Address, address)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		s.log.Error("Failed to listen: ", logfields.Error, err)
+		s.log.Error("Failed to listen", logfields.Error, err)
 		return err
 	}
 	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
@@ -184,7 +182,7 @@ func (s *FQDNDataServer) Start() error {
 	pb.RegisterFQDNDataServer(grpcServer, s)
 
 	if err := s.grpcServer.Serve(lis); err != nil {
-		s.log.Error("Failed to serve: ", logfields.Error, err)
+		s.log.Error("Failed to serve", logfields.Error, err)
 		return err
 	}
 
@@ -193,10 +191,8 @@ func (s *FQDNDataServer) Start() error {
 
 func (s *FQDNDataServer) Stop() {
 	if s.grpcServer == nil {
-		s.log.Error("GRPC server is nil, cannot stop")
 		return
 	}
-	s.log.Info("Stopping Standalone DNS Proxy server")
 	// Stop the grpc server
 	s.grpcServer.GracefulStop()
 }

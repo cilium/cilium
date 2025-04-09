@@ -15,14 +15,17 @@ import (
 )
 
 // Cell provides the FQDN Message handler functionality
+// It is responsible for handling DNS messages(requests and responses)
+// sent by the proxy and updating the DNS cache, metrics and policy rules
+// accordingly using the DNSMessageHandler.
 var Cell = cell.Module(
 	"fqdn-msg-handler",
 	"FQDN Message handler functionality",
 
-	cell.Provide(NewDNSRequestHandler),
+	cell.Provide(NewDNSMessageHandler),
 )
 
-type DNSRequestHandlerParams struct {
+type DNSMessageHandlerParams struct {
 	cell.In
 
 	Lifecycle         cell.Lifecycle
@@ -32,10 +35,10 @@ type DNSRequestHandlerParams struct {
 	ProxyAccessLogger accesslog.ProxyAccessLogger
 }
 
-func NewDNSRequestHandler(params DNSRequestHandlerParams) DNSRequestHandler {
+func NewDNSMessageHandler(params DNSMessageHandlerParams) DNSMessageHandler {
 	ctx, cancelCtx := context.WithCancel(context.Background())
 
-	handler := &dnsRequestHandler{
+	handler := &dnsMessageHandler{
 		ctx:               ctx,
 		logger:            params.Logger,
 		nameManager:       params.NameManager,

@@ -37,7 +37,7 @@ type fqdnProxyBootstrapperParams struct {
 	PolicyRepo        policy.PolicyRepository
 	IPCache           *ipcache.IPCache
 	EndpointManager   endpointmanager.EndpointManager
-	DNSRequestHandler messagehandler.DNSRequestHandler
+	DNSRequestHandler messagehandler.DNSMessageHandler
 }
 
 func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBootstrapper {
@@ -52,7 +52,7 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 		policyRepo:        params.PolicyRepo,
 		ipcache:           params.IPCache,
 		endpointManager:   params.EndpointManager,
-		dnsRequestHandler: params.DNSRequestHandler,
+		dnsMessageHandler: params.DNSRequestHandler,
 	}
 
 	params.Lifecycle.Append(cell.Hook{
