@@ -53,6 +53,10 @@ type APIMeta struct {
 	Actions []string `json:"actions,omitempty"`
 
 	// An array of IP addresses in CIDR format specifying the IP addresses
+	// GitHub Action macOS runner will originate from.
+	ActionsMacos []string `json:"actions_macos,omitempty"`
+
+	// An array of IP addresses in CIDR format specifying the IP addresses
 	// Dependabot will originate from.
 	Dependabot []string `json:"dependabot,omitempty"`
 

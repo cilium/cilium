@@ -22,7 +22,7 @@ type createOrgRequest struct {
 // Note that only a subset of the org fields are used and org must
 // not be nil.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/orgs#create-an-organization
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/orgs#create-an-organization
 //
 //meta:operation POST /admin/organizations
 func (s *AdminService) CreateOrg(ctx context.Context, org *Organization, admin string) (*Organization, *Response, error) {
@@ -61,7 +61,7 @@ type RenameOrgResponse struct {
 
 // RenameOrg renames an organization in GitHub Enterprise.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/orgs#update-an-organization-name
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/orgs#update-an-organization-name
 //
 //meta:operation PATCH /admin/organizations/{org}
 func (s *AdminService) RenameOrg(ctx context.Context, org *Organization, newName string) (*RenameOrgResponse, *Response, error) {
@@ -70,7 +70,7 @@ func (s *AdminService) RenameOrg(ctx context.Context, org *Organization, newName
 
 // RenameOrgByName renames an organization in GitHub Enterprise using its current name.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/orgs#update-an-organization-name
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/orgs#update-an-organization-name
 //
 //meta:operation PATCH /admin/organizations/{org}
 func (s *AdminService) RenameOrgByName(ctx context.Context, org, newName string) (*RenameOrgResponse, *Response, error) {

@@ -20,7 +20,7 @@ type CreateUserRequest struct {
 
 // CreateUser creates a new user in GitHub Enterprise.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/users#create-a-user
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/users#create-a-user
 //
 //meta:operation POST /admin/users
 func (s *AdminService) CreateUser(ctx context.Context, userReq CreateUserRequest) (*User, *Response, error) {
@@ -42,7 +42,7 @@ func (s *AdminService) CreateUser(ctx context.Context, userReq CreateUserRequest
 
 // DeleteUser deletes a user in GitHub Enterprise.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/users#delete-a-user
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/users#delete-a-user
 //
 //meta:operation DELETE /admin/users/{username}
 func (s *AdminService) DeleteUser(ctx context.Context, username string) (*Response, error) {
@@ -95,7 +95,7 @@ type UserAuthorization struct {
 
 // CreateUserImpersonation creates an impersonation OAuth token.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/users#create-an-impersonation-oauth-token
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/users#create-an-impersonation-oauth-token
 //
 //meta:operation POST /admin/users/{username}/authorizations
 func (s *AdminService) CreateUserImpersonation(ctx context.Context, username string, opts *ImpersonateUserOptions) (*UserAuthorization, *Response, error) {
@@ -117,7 +117,7 @@ func (s *AdminService) CreateUserImpersonation(ctx context.Context, username str
 
 // DeleteUserImpersonation deletes an impersonation OAuth token.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/users#delete-an-impersonation-oauth-token
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/users#delete-an-impersonation-oauth-token
 //
 //meta:operation DELETE /admin/users/{username}/authorizations
 func (s *AdminService) DeleteUserImpersonation(ctx context.Context, username string) (*Response, error) {
