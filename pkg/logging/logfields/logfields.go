@@ -829,4 +829,7 @@ const (
 
 	// Target identifies a target value
 	Target = "target"
+
+	// L7Parser is the L7 parser used for L7 network traffic
+	L7Parser = "l7parser"
 )
