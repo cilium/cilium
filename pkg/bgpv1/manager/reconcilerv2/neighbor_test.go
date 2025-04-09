@@ -229,6 +229,49 @@ var (
 			},
 		},
 	}
+
+	peer4 = PeerData{
+		Peer: &v2.CiliumBGPNodePeer{
+			Name: "peer-4",
+			AutoDiscovery: &v2.AutoDiscovery{
+				Mode: "default-gateway",
+				DefaultGateway: &v2.DefaultGateway{
+					AddressFamily: "ipv6",
+				},
+			},
+			PeerASN: ptr.To[int64](64124),
+			PeerConfigRef: &v2.PeerConfigReference{
+				Name: "peer-config",
+			},
+		},
+		Config: &v2.CiliumBGPPeerConfigSpec{
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+			},
+		},
+	}
+
+	expectedPeer4 = PeerData{
+		Peer: &v2.CiliumBGPNodePeer{
+			Name:        "peer-4",
+			PeerAddress: ptr.To[string]("fd00:10:0:1::1"),
+			AutoDiscovery: &v2.AutoDiscovery{
+				Mode: "default-gateway",
+				DefaultGateway: &v2.DefaultGateway{
+					AddressFamily: "ipv6",
+				},
+			},
+			PeerASN: ptr.To[int64](64124),
+			PeerConfigRef: &v2.PeerConfigReference{
+				Name: "peer-config",
+			},
+		},
+		Config: &v2.CiliumBGPPeerConfigSpec{
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
+			},
+		},
+	}
 )
 
 // TestNeighborReconciler_StaticPeer confirms the `neighborReconciler` function configures
@@ -382,6 +425,12 @@ func TestNeighborReconciler_DefaultGateway(t *testing.T) {
 			LinkIndex: 124,
 			Priority:  200,
 		},
+		{
+			Dst:       netip.MustParsePrefix("::/0"),
+			Gw:        netip.MustParseAddr("fd00:10:0:1::1"),
+			LinkIndex: 124,
+			Priority:  200,
+		},
 	}
 	table := []struct {
 		name                 string
@@ -404,12 +453,21 @@ func TestNeighborReconciler_DefaultGateway(t *testing.T) {
 			err:                  nil,
 		},
 		{
-			name:                 "add default gateway peer",
+			name:                 "add ipv4 default gateway peer",
 			routes:               defaultRouteTable,
 			neighbors:            []PeerData{peer1},
 			expectedNeighbors:    []PeerData{peer1},
 			newNeighbors:         []PeerData{peer3},
 			expectedNewNeighbors: []PeerData{expectedPeer3},
+			err:                  nil,
+		},
+		{
+			name:                 "add ipv6 default gateway peer",
+			routes:               defaultRouteTable,
+			neighbors:            []PeerData{peer2},
+			expectedNeighbors:    []PeerData{peer2},
+			newNeighbors:         []PeerData{peer4},
+			expectedNewNeighbors: []PeerData{expectedPeer4},
 			err:                  nil,
 		},
 		{

@@ -118,7 +118,7 @@ Following are the ToR Switch BGP Configuration Requirements:
 
 * ToR switches must be configured with "bgp listen range" to support dynamic BGP neighbors. This configuration enables the ToR switch to accept BGP sessions from Cilium nodes by listening for connections from a specific IP prefix range, eliminating the need to know the exact peer address of each Cilium node.
 
-* Additionally, each ToR switch must be configured with a local ASN (Autonomous System Number). This local ASN should be used consistently as the peer ASN in your Cilium BGP configuration to ensure proper BGP communication between the ToR switches and Cilium nodes.
+* To simply configuration using a single Cilium configuration across the cluster's nodes, each ToR switch should be configured using the same local ASN (Autonomous System Number).
 
 .. code-block:: shell
 
