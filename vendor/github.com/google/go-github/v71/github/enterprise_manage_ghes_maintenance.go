@@ -46,7 +46,7 @@ type MaintenanceOptions struct {
 
 // GetMaintenanceStatus gets the status of maintenance mode for all nodes.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-the-status-of-maintenance-mode
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-the-status-of-maintenance-mode
 //
 //meta:operation GET /manage/v1/maintenance
 func (s *EnterpriseService) GetMaintenanceStatus(ctx context.Context, opts *NodeQueryOptions) ([]*MaintenanceStatus, *Response, error) {
@@ -71,7 +71,7 @@ func (s *EnterpriseService) GetMaintenanceStatus(ctx context.Context, opts *Node
 // CreateMaintenance sets the maintenance mode for the instance.
 // With the enable parameter we can control to put instance into maintenance mode or not. With false we can disable the maintenance mode.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#set-the-status-of-maintenance-mode
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#set-the-status-of-maintenance-mode
 //
 //meta:operation POST /manage/v1/maintenance
 func (s *EnterpriseService) CreateMaintenance(ctx context.Context, enable bool, opts *MaintenanceOptions) ([]*MaintenanceOperationStatus, *Response, error) {

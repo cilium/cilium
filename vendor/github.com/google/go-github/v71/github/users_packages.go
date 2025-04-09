@@ -8,6 +8,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // ListPackages lists the packages for a user. Passing the empty string for "user" will
@@ -55,9 +56,9 @@ func (s *UsersService) ListPackages(ctx context.Context, user string, opts *Pack
 func (s *UsersService) GetPackage(ctx context.Context, user, packageType, packageName string) (*Package, *Response, error) {
 	var u string
 	if user != "" {
-		u = fmt.Sprintf("users/%v/packages/%v/%v", user, packageType, packageName)
+		u = fmt.Sprintf("users/%v/packages/%v/%v", user, packageType, url.PathEscape(packageName))
 	} else {
-		u = fmt.Sprintf("user/packages/%v/%v", packageType, packageName)
+		u = fmt.Sprintf("user/packages/%v/%v", packageType, url.PathEscape(packageName))
 	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
