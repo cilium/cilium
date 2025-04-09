@@ -53,7 +53,7 @@ func Test_ParserDispatch(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test L3/L4 record
-	tn := monitor.TraceNotifyV0{
+	tn := monitor.TraceNotify{
 		Type: byte(api.MessageTypeTrace),
 	}
 	data, err := testutils.CreateL3L4Payload(tn)
