@@ -52,6 +52,22 @@ vxlan_get_inner_ipv4(const void *data, const void *data_end, __u32 l4_off,
 }
 
 /*
+ * IPv6 variant of vxlan_get_inner_ipv4.
+ */
+static __always_inline bool
+vxlan_get_inner_ipv6(const void *data, const void *data_end, __u32 l4_off,
+		     struct ipv6hdr **inner) {
+	if (data + l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+	    sizeof(struct ethhdr) + sizeof(struct ipv6hdr) > data_end)
+		return false;
+
+	*inner = (struct ipv6hdr *)(data + l4_off + sizeof(struct udphdr) +
+		  sizeof(struct vxlanhdr) + sizeof(struct ethhdr));
+
+	return true;
+}
+
+/*
  * Rewrites the current VNI in the VXLan header to the provided and updates
  * the l4 checksum if necessary.
  *

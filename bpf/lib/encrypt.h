@@ -242,7 +242,10 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	struct iphdr __maybe_unused *ip4_inner;
 	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr __maybe_unused *ip6_inner;
+	struct ethhdr __maybe_unused *eth_inner;
 	__u32 l4_off __maybe_unused = 0;
+	__u32 l2_inner_off __maybe_unused = 0;
 	__u32 magic __maybe_unused = 0;
 	int ip_proto = 0;
 	int ret = 0;
@@ -291,18 +294,48 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			 * large with no additional options for Geneve.
 			 */
 			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-			if (!vxlan_get_inner_ipv4(data, data_end, l4_off,
-						  &ip4_inner))
-					return CTX_ACT_OK;
+			l2_inner_off = l4_off + sizeof(struct udphdr) +
+				       sizeof(struct vxlanhdr);
 
-			/* if this is already encrypted, just pass it to stack */
-			if (ip4_inner->protocol == IPPROTO_ESP)
+			if (data + l2_inner_off + sizeof(struct ethhdr) >
+			    data_end)
 				return CTX_ACT_OK;
+
+			eth_inner = (struct ethhdr *)(data + l2_inner_off);
+			switch (eth_inner->h_proto) {
+			case bpf_htons(ETH_P_IP):
+				if (!vxlan_get_inner_ipv4(data, data_end, l4_off,
+							  &ip4_inner))
+					return CTX_ACT_OK;
+				/*
+				 * if this is already encrypted, just pass it
+				 * to stack
+				 */
+				if (ip4_inner->protocol == IPPROTO_ESP)
+					return CTX_ACT_OK;
+				dst = lookup_ip4_remote_endpoint(ip4_inner->daddr,
+								 0);
+				break;
+			case bpf_htons(ETH_P_IPV6):
+				if (!vxlan_get_inner_ipv6(data, data_end, l4_off,
+							  &ip6_inner))
+					return CTX_ACT_OK;
+				/*
+				 * if this is already encrypted, just pass it
+				 * to stack
+				 */
+				if (ip6_inner->nexthdr == IPPROTO_ESP)
+					return CTX_ACT_OK;
+				dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6_inner->daddr,
+								 0);
+				break;
+			default:
+				return CTX_ACT_OK;
+			}
 
 			/* determine if we need should encrypt the non-ESP
 			 * tunnel traffic per v1.17 rules
 			 */
-			dst = lookup_ip4_remote_endpoint(ip4_inner->daddr, 0);
 			src_sec_identity = get_identity(ctx);
 
 			if (!dst)
