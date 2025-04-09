@@ -42,6 +42,5 @@ Direct access to local BPF maps
 * [cilium-dbg bpf recorder](cilium-dbg_bpf_recorder.md)	 - PCAP recorder
 * [cilium-dbg bpf sha](cilium-dbg_bpf_sha.md)	 - Manage compiled BPF template objects
 * [cilium-dbg bpf srv6](cilium-dbg_bpf_srv6.md)	 - Manage the SRv6 routing rules
-* [cilium-dbg bpf tunnel](cilium-dbg_bpf_tunnel.md)	 - Tunnel endpoint map
 * [cilium-dbg bpf vtep](cilium-dbg_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
 
