@@ -4,7 +4,6 @@
 #pragma once
 
 #include "common.h"
-#include "ipv6.h"
 #include "ids.h"
 
 #include "bpf/compiler.h"
