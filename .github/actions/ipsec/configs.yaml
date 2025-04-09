@@ -1,6 +1,6 @@
 - name: '1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'rhel8.6-20250319.212144'
+  kernel: 'rhel8.6-20250409.090442'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -8,7 +8,7 @@
   key-two: 'gcm(aes)'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250319.212144'
+  kernel: '5.4-20250409.090442'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -16,7 +16,7 @@
   key-two: 'cbc(aes)'
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250319.212144'
+  kernel: '5.10-20250409.090442'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -26,7 +26,7 @@
   kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250319.212144'
+  kernel: '6.12-20250409.090442'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -36,7 +36,7 @@
   kvstore: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.4-20250319.212144'
+  kernel: '5.4-20250409.090442'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'disabled'
@@ -44,7 +44,7 @@
   key-two: 'cbc(aes)'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250319.212144'
+  kernel: '5.10-20250409.090442'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'disabled'
@@ -55,7 +55,7 @@
   key-two: 'gcm(aes)'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250319.212144'
+  kernel: '5.15-20250409.090442'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -63,7 +63,7 @@
   key-two: 'gcm(aes)'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250319.212144'
+  kernel: '6.12-20250409.090442'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'vxlan'
