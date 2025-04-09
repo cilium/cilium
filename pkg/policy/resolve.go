@@ -55,6 +55,12 @@ type PolicyContext interface {
 	// value stored.
 	SetDeny(newValue bool) (oldValue bool)
 
+	// DefaultDenyIngress returns true if default deny is enabled for ingress
+	DefaultDenyIngress() bool
+
+	// DefaultDenyEgress returns true if default deny is enabled for egress
+	DefaultDenyEgress() bool
+
 	GetLogger() *slog.Logger
 
 	PolicyTrace(format string, a ...any)
@@ -65,7 +71,9 @@ type policyContext struct {
 	ns   string
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
-	isDeny bool
+	isDeny             bool
+	defaultDenyIngress bool
+	defaultDenyEgress  bool
 
 	logger       *slog.Logger
 	traceEnabled bool
@@ -108,6 +116,16 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	oldDeny := p.isDeny
 	p.isDeny = deny
 	return oldDeny
+}
+
+// DefaultDenyIngress returns true if default deny is enabled for ingress
+func (p *policyContext) DefaultDenyIngress() bool {
+	return p.defaultDenyIngress
+}
+
+// DefaultDenyEgress returns true if default deny is enabled for egress
+func (p *policyContext) DefaultDenyEgress() bool {
+	return p.defaultDenyEgress
 }
 
 func (p *policyContext) GetLogger() *slog.Logger {
