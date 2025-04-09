@@ -74,7 +74,7 @@ type ReleaseVersion struct {
 
 // CheckSystemRequirements checks if GHES system nodes meet the system requirements.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-the-system-requirement-check-results-for-configured-cluster-nodes
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-the-system-requirement-check-results-for-configured-cluster-nodes
 //
 //meta:operation GET /manage/v1/checks/system-requirements
 func (s *EnterpriseService) CheckSystemRequirements(ctx context.Context) (*SystemRequirements, *Response, error) {
@@ -95,7 +95,7 @@ func (s *EnterpriseService) CheckSystemRequirements(ctx context.Context) (*Syste
 
 // ClusterStatus gets the status of all services running on each cluster node.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-the-status-of-services-running-on-all-cluster-nodes
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-the-status-of-services-running-on-all-cluster-nodes
 //
 //meta:operation GET /manage/v1/cluster/status
 func (s *EnterpriseService) ClusterStatus(ctx context.Context) (*ClusterStatus, *Response, error) {
@@ -116,7 +116,7 @@ func (s *EnterpriseService) ClusterStatus(ctx context.Context) (*ClusterStatus, 
 
 // ReplicationStatus gets the status of all services running on each replica node.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-the-status-of-services-running-on-all-replica-nodes
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-the-status-of-services-running-on-all-replica-nodes
 //
 //meta:operation GET /manage/v1/replication/status
 func (s *EnterpriseService) ReplicationStatus(ctx context.Context, opts *NodeQueryOptions) (*ClusterStatus, *Response, error) {
@@ -140,7 +140,7 @@ func (s *EnterpriseService) ReplicationStatus(ctx context.Context, opts *NodeQue
 
 // GetNodeReleaseVersions gets the version information deployed to each node.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-all-ghes-release-versions-for-all-nodes
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-all-ghes-release-versions-for-all-nodes
 //
 //meta:operation GET /manage/v1/version
 func (s *EnterpriseService) GetNodeReleaseVersions(ctx context.Context, opts *NodeQueryOptions) ([]*NodeReleaseVersion, *Response, error) {
