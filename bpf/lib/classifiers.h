@@ -127,7 +127,7 @@ ctx_to_netdev_classifiers(struct __ctx_buff *ctx)
 	cls_t flags = 0;
 
 #ifdef ENABLE_WIREGUARD
-	if (ctx_mark_is_wireguard(ctx))
+	if (ctx_is_wireguard(ctx))
 		flags |= CLS_FLAG_WIREGUARD;
 #endif
 
