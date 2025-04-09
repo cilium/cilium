@@ -146,11 +146,11 @@ rollOutCiliumPods: false
 image:
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.15.15"
+  tag: "v1.15.16"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: "sha256:d389a21c8ceefbb86e7f1a15b18a5a6a5b372431b2528314fa456133a7617e7a"
-  useDigest: true
+  digest: ""
+  useDigest: false
 
 # -- Affinity for cilium-agent.
 affinity:
@@ -1236,10 +1236,10 @@ hubble:
     image:
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.15.15"
+      tag: "v1.15.16"
        # hubble-relay-digest
-      digest: "sha256:2dd532b06f802303634515172c40592d79e06cfad579c98411ad976879a0c099"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
 
     # -- Specifies the resources for the hubble-relay pods
@@ -2503,16 +2503,16 @@ operator:
   image:
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.15.15"
+    tag: "v1.15.16"
     # operator-generic-digest
-    genericDigest: "sha256:6f107958d9028a5a43efa7aaef941b3ae7f7e8f479ff9e4408b116a5eda56abe"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:e34a52ca2503ef9168a2710431c341b780c55303aabea7d4183bc619d4ce0ed9"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:fdffd54ba7d2ded8d893b14d37c4afdf29bf2c6404f2da3d1eba0bab788972fc"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:023a341d0b873321a952dc3526be791db212a261e3de8e5c38064cc4a17da096"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
     suffix: ""
 
@@ -2804,10 +2804,10 @@ preflight:
   image:
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.15.15"
+    tag: "v1.15.16"
     # cilium-digest
-    digest: "sha256:d389a21c8ceefbb86e7f1a15b18a5a6a5b372431b2528314fa456133a7617e7a"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for the preflight pod.
@@ -2966,10 +2966,10 @@ clustermesh:
     image:
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.15.15"
+      tag: "v1.15.16"
       # clustermesh-apiserver-digest
-      digest: "sha256:cec3446d019af240d99ae14f8550fb7f59c02066535130f4b609fadb5b63f79b"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
 
     etcd:
