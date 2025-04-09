@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -19,8 +18,6 @@ import (
 )
 
 const (
-	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
-	traceNotifyCommonLen = 16
 	// traceNotifyV0Len is the amount of packet data provided in a trace notification v0.
 	traceNotifyV0Len = 32
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
@@ -41,10 +38,8 @@ const (
 	TraceNotifyVersion1
 )
 
-// TraceNotifyV0 is the common message format for versions 0 and 1.
-// This struct needs to be kept in sync with the decodeTraceNotifyVersion0
-// func.
-type TraceNotifyV0 struct {
+// TraceNotify is the message format of a trace notification in the BPF ring buffer
+type TraceNotify struct {
 	Type     uint8
 	ObsPoint uint8
 	Source   uint16
@@ -58,25 +53,39 @@ type TraceNotifyV0 struct {
 	Reason   uint8
 	Flags    uint8
 	Ifindex  uint32
+	OrigIP   types.IPv6
 	// data
 }
 
-// decodeTraceNotifyVersion0 decodes the trace notify message in 'data' into
-// the struct. This function needs to be kept in sync with the TraceNotifyV0
-// struct.
-func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
-	// This eliminates the bounds check in the accesses to `data` below.
+// decodeTraceNotify decodes the trace notify message in 'data' into the struct.
+func (tn *TraceNotify) decodeTraceNotify(data []byte) error {
 	if l := len(data); l < traceNotifyV0Len {
-		return fmt.Errorf("unexpected TraceNotifyV0 data length, expected %d but got %d", traceNotifyV0Len, l)
+		return fmt.Errorf("unexpected TraceNotify data length, expected at least %d but got %d", traceNotifyV0Len, l)
 	}
 
+	version := byteorder.Native.Uint16(data[14:16])
+
+	// Check against max version.
+	if version > TraceNotifyVersion1 {
+		return fmt.Errorf("Unrecognized trace event (version %d)", version)
+	}
+
+	// Decode logic for version >= v1.
+	if version >= TraceNotifyVersion1 {
+		if l := len(data); l < traceNotifyV1Len {
+			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV1Len, l)
+		}
+		copy(tn.OrigIP[:], data[32:48])
+	}
+
+	// Decode logic for version >= v0.
 	tn.Type = data[0]
 	tn.ObsPoint = data[1]
 	tn.Source = byteorder.Native.Uint16(data[2:4])
 	tn.Hash = byteorder.Native.Uint32(data[4:8])
 	tn.OrigLen = byteorder.Native.Uint32(data[8:12])
 	tn.CapLen = byteorder.Native.Uint16(data[12:14])
-	tn.Version = byteorder.Native.Uint16(data[14:16])
+	tn.Version = version
 	tn.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	tn.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
 	tn.DstID = byteorder.Native.Uint16(data[24:26])
@@ -89,31 +98,31 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 
 // IsEncrypted returns true when the notification has the encrypt flag set,
 // false otherwise.
-func (n *TraceNotifyV0) IsEncrypted() bool {
+func (n *TraceNotify) IsEncrypted() bool {
 	return (n.Reason & TraceReasonEncryptMask) != 0
 }
 
 // TraceReason returns the trace reason for this notification, see the
 // TraceReason* constants.
-func (n *TraceNotifyV0) TraceReason() uint8 {
+func (n *TraceNotify) TraceReason() uint8 {
 	return n.Reason & ^TraceReasonEncryptMask
 }
 
 // TraceReasonIsKnown returns false when the trace reason is unknown, true
 // otherwise.
-func (n *TraceNotifyV0) TraceReasonIsKnown() bool {
+func (n *TraceNotify) TraceReasonIsKnown() bool {
 	return n.TraceReason() != TraceReasonUnknown
 }
 
 // TraceReasonIsReply returns true when the trace reason is TraceReasonCtReply,
 // false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsReply() bool {
+func (n *TraceNotify) TraceReasonIsReply() bool {
 	return n.TraceReason() == TraceReasonCtReply
 }
 
 // TraceReasonIsEncap returns true when the trace reason is encapsulation
 // related, false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsEncap() bool {
+func (n *TraceNotify) TraceReasonIsEncap() bool {
 	switch n.TraceReason() {
 	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
 		return true
@@ -123,40 +132,13 @@ func (n *TraceNotifyV0) TraceReasonIsEncap() bool {
 
 // TraceReasonIsDecap returns true when the trace reason is decapsulation
 // related, false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsDecap() bool {
+func (n *TraceNotify) TraceReasonIsDecap() bool {
 	switch n.TraceReason() {
 	case TraceReasonSRv6Decap:
 		return true
 	}
 	return false
 }
-
-// TraceNotifyV1 is the version 1 message format. This struct needs to be kept
-// in sync with the decodeTraceNotifyVersion1 func.
-type TraceNotifyV1 struct {
-	TraceNotifyV0
-	OrigIP types.IPv6
-	// data
-}
-
-// decodeTraceNotifyVersion1 decodes the trace notify message in 'data' into
-// the struct. This function needs to be kept in sync with the TraceNotifyV1
-// struct.
-func (tn *TraceNotifyV1) decodeTraceNotifyVersion1(data []byte) error {
-	if l := len(data); l < traceNotifyV1Len {
-		return fmt.Errorf("unexpected TraceNotifyV1 data length, expected %d but got %d", traceNotifyV1Len, l)
-	}
-
-	if err := tn.decodeTraceNotifyVersion0(data); err != nil {
-		return err
-	}
-
-	copy(tn.OrigIP[:], data[32:48])
-	return nil
-}
-
-// TraceNotify is the message format of a trace notification in the BPF ring buffer
-type TraceNotify TraceNotifyV1
 
 var (
 	traceNotifyLength = map[uint16]uint{
@@ -195,21 +177,7 @@ var traceReasons = map[uint8]string{
 
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
 func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
-	if len(data) < traceNotifyCommonLen {
-		return fmt.Errorf("Unknown trace event")
-	}
-
-	offset := unsafe.Offsetof(tn.Version)
-	length := unsafe.Sizeof(tn.Version)
-	version := byteorder.Native.Uint16(data[offset : offset+length])
-
-	switch version {
-	case TraceNotifyVersion0:
-		return tn.decodeTraceNotifyVersion0(data)
-	case TraceNotifyVersion1:
-		return ((*TraceNotifyV1)(tn)).decodeTraceNotifyVersion1(data)
-	}
-	return fmt.Errorf("Unrecognized trace event (version %d)", version)
+	return tn.decodeTraceNotify(data)
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or

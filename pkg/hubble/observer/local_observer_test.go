@@ -230,7 +230,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	input := make([]*observerpb.Flow, numFlows)
 
 	for i := range numFlows {
-		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		macOnly := func(mac string) net.HardwareAddr {
 			m, _ := net.ParseMAC(mac)
 			return m
@@ -424,7 +424,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 
 	generateFlows := func(from, to int, m chan<- *observerTypes.MonitorEvent) {
 		for i := from; i < to; i++ {
-			tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+			tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 			data := testutils.MustCreateL3L4Payload(tn)
 			m <- &observerTypes.MonitorEvent{
 				Timestamp: time.Unix(int64(i), 0),
@@ -525,7 +525,7 @@ func TestHooks(t *testing.T) {
 
 	m := s.GetEventsChannel()
 	for i := range numFlows {
-		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
@@ -580,7 +580,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 
 	m := s.GetEventsChannel()
 	for i := range numFlows {
-		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
@@ -644,7 +644,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 
 	m := s.GetEventsChannel()
 	for i := range numFlows {
-		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		m <- &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
@@ -718,7 +718,7 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 
 	// simulate a new monitor event.
 	m := s.GetEventsChannel()
-	tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+	tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 	data := testutils.MustCreateL3L4Payload(tn)
 	// NOTE: we need to send an extra event into Hubble's ring buffer to see
 	// the first one sent.
