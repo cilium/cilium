@@ -62,6 +62,26 @@ rtt min/avg/max/mdev = 5.780/5.895/6.010/0.115 ms`,
 			},
 			want: false,
 		},
+		{
+			name: "IPv6 ping header only",
+			args: args{
+				output: `PING 2606:4700:4700::1111(2606:4700:4700::1111) 56 data bytes`,
+			},
+			want: true,
+		},
+		{
+			name: "IPv6 full ping output",
+			args: args{
+				output: `PING 2606:4700:4700::1111(2606:4700:4700::1111) 56 data bytes
+64 bytes from 2606:4700:4700::1111: icmp_seq=1 ttl=58 time=4.57 ms
+64 bytes from 2606:4700:4700::1111: icmp_seq=2 ttl=58 time=5.42 ms
+
+--- 2606:4700:4700::1111 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 4.572/4.994/5.417/0.422 ms`,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

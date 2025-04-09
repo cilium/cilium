@@ -62,7 +62,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, nil, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -78,7 +78,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity
-	ep.OpLabels = labels.NewOpLabels()
+	ep.labels = labels.NewOpLabels()
 	ep.NetNsCookie = 1234
 	return ep
 }

@@ -4,7 +4,6 @@
 package ipam
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -172,7 +171,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	})
 	api.UpdateInstances(m)
 
-	instances.Resync(context.TODO())
+	instances.Resync(t.Context())
 
 	k8sapi := newK8sMock()
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
@@ -235,7 +234,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	})
 	api.UpdateInstances(m)
 
-	instances.Resync(context.TODO())
+	instances.Resync(t.Context())
 
 	k8sapi := newK8sMock()
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
@@ -322,7 +321,7 @@ func TestIpamManyNodes(t *testing.T) {
 			}
 
 			api.UpdateInstances(allInstances)
-			instances.Resync(context.TODO())
+			instances.Resync(t.Context())
 
 			for i := range state {
 				state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}
@@ -345,7 +344,7 @@ func TestIpamManyNodes(t *testing.T) {
 			// The above check returns as soon as the address requirements are met.
 			// The metrics may still be outdated, resync all nodes to update
 			// metrics.
-			mngr.Resync(context.TODO(), time.Now())
+			mngr.Resync(t.Context(), time.Now())
 			require.Equal(t, numNodes, metrics.Nodes("total"))
 			require.Equal(t, 0, metrics.Nodes("in-deficit"))
 			require.Equal(t, 0, metrics.Nodes("at-capacity"))
@@ -399,7 +398,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	}
 
 	api.UpdateInstances(allInstances)
-	instances.Resync(context.Background())
+	instances.Resync(b.Context())
 
 	for i := range state {
 		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}

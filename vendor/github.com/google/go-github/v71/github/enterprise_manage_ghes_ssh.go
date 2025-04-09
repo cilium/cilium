@@ -31,7 +31,7 @@ type ClusterSSHKey struct {
 
 // DeleteSSHKey deletes the SSH key from the instance.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#delete-a-ssh-key
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#delete-a-ssh-key
 //
 //meta:operation DELETE /manage/v1/access/ssh
 func (s *EnterpriseService) DeleteSSHKey(ctx context.Context, key string) ([]*SSHKeyStatus, *Response, error) {
@@ -55,7 +55,7 @@ func (s *EnterpriseService) DeleteSSHKey(ctx context.Context, key string) ([]*SS
 
 // GetSSHKey gets the SSH keys configured for the instance.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#get-the-configured-ssh-keys
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#get-the-configured-ssh-keys
 //
 //meta:operation GET /manage/v1/access/ssh
 func (s *EnterpriseService) GetSSHKey(ctx context.Context) ([]*ClusterSSHKey, *Response, error) {
@@ -76,7 +76,7 @@ func (s *EnterpriseService) GetSSHKey(ctx context.Context) ([]*ClusterSSHKey, *R
 
 // CreateSSHKey adds a new SSH key to the instance.
 //
-// GitHub API docs: https://docs.github.com/enterprise-server@3.15/rest/enterprise-admin/manage-ghes#set-a-new-ssh-key
+// GitHub API docs: https://docs.github.com/enterprise-server@3.16/rest/enterprise-admin/manage-ghes#set-a-new-ssh-key
 //
 //meta:operation POST /manage/v1/access/ssh
 func (s *EnterpriseService) CreateSSHKey(ctx context.Context, key string) ([]*SSHKeyStatus, *Response, error) {

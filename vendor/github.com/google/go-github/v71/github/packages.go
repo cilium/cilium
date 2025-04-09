@@ -11,14 +11,15 @@ import (
 
 // Package represents a GitHub package.
 type Package struct {
-	ID          *int64     `json:"id,omitempty"`
-	Name        *string    `json:"name,omitempty"`
-	PackageType *string    `json:"package_type,omitempty"` // One of "npm", "maven", "rubygems", "docker", "nuget", "container". For webhook events "container" is "CONTAINER"
-	HTMLURL     *string    `json:"html_url,omitempty"`
-	Visibility  *string    `json:"visibility,omitempty"`
-	Owner       *User      `json:"owner,omitempty"`
-	CreatedAt   *Timestamp `json:"created_at,omitempty"`
-	UpdatedAt   *Timestamp `json:"updated_at,omitempty"`
+	ID          *int64      `json:"id,omitempty"`
+	Name        *string     `json:"name,omitempty"`
+	PackageType *string     `json:"package_type,omitempty"` // One of "npm", "maven", "rubygems", "docker", "nuget", "container". For webhook events "container" is "CONTAINER"
+	HTMLURL     *string     `json:"html_url,omitempty"`
+	Visibility  *string     `json:"visibility,omitempty"`
+	Owner       *User       `json:"owner,omitempty"`
+	Repository  *Repository `json:"repository,omitempty"`
+	CreatedAt   *Timestamp  `json:"created_at,omitempty"`
+	UpdatedAt   *Timestamp  `json:"updated_at,omitempty"`
 
 	// The following are only populated for webhook events
 	Namespace      *string          `json:"namespace,omitempty"`

@@ -390,19 +390,23 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 
 	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
 		if err := ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.Warn("iptables table is not available on this system",
-				logfields.Error, err,
-				logfields.Table, table,
-			)
+			if m.sharedCfg.InstallIptRules {
+				m.logger.Warn("iptables table is not available on this system",
+					logfields.Error, err,
+					logfields.Table, table,
+				)
+			}
 		}
 	}
 
 	for _, table := range []string{"mangle", "raw", "filter"} {
 		if err := ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.Debug("ip6tables table is not available on this system",
-				logfields.Error, err,
-				logfields.Table, table,
-			)
+			if m.sharedCfg.InstallIptRules {
+				m.logger.Debug("ip6tables table is not available on this system",
+					logfields.Error, err,
+					logfields.Table, table,
+				)
+			}
 			m.haveIp6tables = false
 		}
 	}
@@ -430,8 +434,9 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
-		m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
-
+		if m.sharedCfg.InstallIptRules {
+			m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
+		}
 		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
@@ -1029,11 +1034,9 @@ func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 }
 
 func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
-	if m.haveBPFSocketAssign {
-		m.logger.Debug(
-			"Skipping proxy rule install due to BPF support",
-			logfields.Port, proxyPort,
-		)
+	// We could fail if netfilter was compiled out from the kernel, so bail
+	// out without error in this case, too.
+	if m.haveBPFSocketAssign || !m.sharedCfg.InstallIptRules {
 		return nil
 	}
 
@@ -1743,9 +1746,13 @@ func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
 	return nil
 }
 
-// skipPodTrafficConntrack returns true if it's possible to install iptables
-// `-j CT --notrack` rules to skip tracking pod traffic.
+// skipPodTrafficConntrack returns true if i) it's possible to install iptables
+// `-j CT --notrack` rules to skip tracking pod traffic, ii) if rule installation
+// was disabled completely.
 func (m *Manager) skipPodTrafficConntrack(addr netip.Addr) bool {
+	if !m.sharedCfg.InstallIptRules {
+		return true
+	}
 	if addr.Is4() && m.sharedCfg.InstallNoConntrackIptRules {
 		return true
 	}

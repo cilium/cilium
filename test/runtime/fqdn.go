@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -41,14 +40,9 @@ world1.cilium.test. IN A %[1]s
 world2.cilium.test. IN A %[2]s
 world3.cilium.test. IN A %[3]s
 
-roundrobin.cilium.test.    1   IN   A %[1]s
-roundrobin.cilium.test.    1   IN   A %[2]s
-roundrobin.cilium.test.    1   IN   A %[3]s
-
 level1CNAME.cilium.test. 1 IN CNAME world1
 level2CNAME.cilium.test. 1 IN CNAME level1CNAME.cilium.test.
 level3CNAME.cilium.test. 1 IN CNAME level2CNAME.cilium.test.
-
 
 world1CNAME.cilium.test. 1 IN CNAME world1
 world2CNAME.cilium.test. 1 IN CNAME world2
@@ -298,63 +292,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		Expect(err).To(BeNil(), "FQDN policy didn't correctly update the policy selectors")
 	}
 
-	fqdnPolicyImport := func(fqdnPolicy string) {
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
-		ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s", err)
-	}
-
-	It("Enforces ToFQDNs policy", func() {
-		By("Importing policy with ToFQDN rules")
-		// notaname.cilium.io never returns IPs, and is there to test that the
-		// other name does get populated.
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-    "egress": [
-      {
-        "toPorts": [{
-          "ports":[{"port": "53", "protocol": "ANY"}],
-          "rules": {
-            "dns": [{"matchPattern": "world1.cilium.test"}]
-          }
-        }]
-      },
-      {
-        "toFQDNs": [
-          {
-            "matchName": "world1.cilium.test"
-          }
-        ]
-      }
-    ]
-  }
-]`
-		fqdnPolicyImport(fqdnPolicy)
-		expectFQDNSareApplied("cilium.test", 0)
-
-		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
-		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
-		// and so should be blocked.
-		// cilium.io.cilium.io doesn't exist.
-		// 1.1.1.1, amusingly, serves HTTP.
-		for _, blockedTarget := range []string{"world2.cilium.test"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
-		}
-
-		By("Allowing egress to IPs of specified ToFQDN DNS names")
-		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
-		res.ExpectSuccess("Cannot access to allowed DNS name %q", world1Target)
-	})
-
 	It("Validate dns-proxy monitor information", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -467,66 +404,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world2.outside.test"))
 		res.ExpectFail("Connectivity to outside domain successfully when it should be block")
 
-	})
-
-	It("Roundrobin DNS", func() {
-		numberOfTries := 5
-		target := "roundrobin.cilium.test"
-		policy := `
-[
-	{
-		"labels": [{
-			"key": "FQDN test - interaction with other toCIDRSet rules"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:app": "test"
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "roundrobin.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "roundrobin.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).To(BeNil(), "Endpoints can't be retrieved")
-
-		for _, container := range []string{helpers.App1, helpers.App2} {
-			Expect(endpoints).To(HaveKey(container),
-				"Container %q is not present in the endpoints list", container)
-			ep := vm.EndpointGet(endpoints[container])
-			Expect(ep).ShouldNot(BeNil(),
-				"Endpoint for container %q cannot be retrieved", container)
-			Expect(ep.Status.Policy.Realized.PolicyEnabled).To(
-				Equal(models.EndpointPolicyEnabledEgress),
-				"Endpoint %q does not have policy applied", container)
-		}
-
-		By("Testing %q and %q containers are allow to work with roundrobin dns", helpers.App1, helpers.App2)
-		for range numberOfTries {
-			for _, container := range []string{helpers.App1, helpers.App2} {
-				By("Testing connectivity to Cilium.test domain")
-				res := vm.ContainerExec(container, helpers.CurlFail(target))
-				res.ExpectSuccess("Container %q cannot access to %q when should work", container, target)
-			}
-		}
 	})
 
 	It("Can update L7 DNS policy rules", func() {
