@@ -4,6 +4,13 @@
 #pragma once
 
 #include "lib/common.h"
+#include "lib/l4.h"
+#include "lib/ipv4.h"
+#include "lib/ipv6.h"
+
+#if __ctx_is == __ctx_skb && defined(ENABLE_WIREGUARD)
+# define CLASSIFIERS_FROM_NETDEV
+#endif
 
 #if defined(IS_BPF_WIREGUARD) || (defined(IS_BPF_HOST) && defined(ENABLE_WIREGUARD))
 # define CLASSIFIERS_BASE
@@ -50,3 +57,58 @@ ctx_base_classifiers(const struct __ctx_buff *ctx)
 #define ctx_base_classifiers4(ctx) NULL_CLASSIFIERS
 #define ctx_base_classifiers6(ctx) NULL_CLASSIFIERS
 #endif /* CLASSIFIERS_BASE */
+
+#ifdef CLASSIFIERS_FROM_NETDEV
+/* Compute from_netdev classifiers upon receiving an ingress network packet:
+ * - CLS_FLAG_WIREGUARD, in case of a WireGuard packet (l4 WG_PORT)
+ */
+static __always_inline cls_t
+ctx_from_netdev_classifiers(struct __ctx_buff *ctx, int l4_off, __u8 protocol)
+{
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4;
+	cls_t flags = 0;
+
+	if (protocol != IPPROTO_UDP)
+		goto out;
+
+	if (l4_load_ports(ctx, l4_off + UDP_SPORT_OFF, &l4.sport) < 0)
+		goto out;
+
+#ifdef ENABLE_WIREGUARD
+	if (l4.sport == bpf_htons(WG_PORT) || l4.dport == bpf_htons(WG_PORT))
+		flags |= CLS_FLAG_WIREGUARD;
+#endif
+
+out:
+	return flags;
+}
+
+static __always_inline cls_t
+ctx_from_netdev_classifiers4(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	__u8 next_proto = ip4->protocol;
+	int hdrlen = ipv4_hdrlen(ip4);
+
+	return ctx_from_netdev_classifiers(ctx, ETH_HLEN + hdrlen, next_proto);
+}
+
+static __always_inline cls_t
+ctx_from_netdev_classifiers6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
+{
+	__u8 next_proto = ip6->nexthdr;
+	int hdrlen = ipv6_hdrlen(ctx, &next_proto);
+	cls_t flags = CLS_FLAG_IPV6;
+
+	if (likely(hdrlen > 0))
+		flags |= ctx_from_netdev_classifiers(ctx, ETH_HLEN + hdrlen, next_proto);
+
+	return flags;
+}
+#else
+#define ctx_from_netdev_classifiers(ctx, l4_off, protocol) NULL_CLASSIFIERS
+#define ctx_from_netdev_classifiers4(ctx, ip4) NULL_CLASSIFIERS
+#define ctx_from_netdev_classifiers6(ctx, ip6) NULL_CLASSIFIERS
+#endif /* CLASSIFIERS_FROM_NETDEV */

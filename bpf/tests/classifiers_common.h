@@ -28,7 +28,7 @@ adjust_l2(struct __ctx_buff *ctx __maybe_unused)
 }
 
 static __always_inline int
-pktgen(struct __ctx_buff *ctx, bool is_ipv4)
+pktgen(struct __ctx_buff *ctx, bool is_ipv4, __be16 source, __be16 dest)
 {
 	struct pktgen builder;
 	struct udphdr *l4;
@@ -41,16 +41,16 @@ pktgen(struct __ctx_buff *ctx, bool is_ipv4)
 						  (__u8 *)mac_two,
 						  v4_node_one,
 						  v4_node_two,
-						  tcp_src_one,
-						  tcp_src_two);
+						  source,
+						  dest);
 	else
 		l4 = pktgen__push_ipv6_udp_packet(&builder,
 						  (__u8 *)mac_one,
 						  (__u8 *)mac_two,
 						  (__u8 *)v6_node_one,
 						  (__u8 *)v6_node_two,
-						  tcp_src_one,
-						  tcp_src_two);
+						  source,
+						  dest);
 
 	if (!l4)
 		return TEST_ERROR;
@@ -63,7 +63,7 @@ pktgen(struct __ctx_buff *ctx, bool is_ipv4)
 PKTGEN("tc", "ctx_base_classifiers")
 static __always_inline int
 ctx_base_classifiers_pktgen(struct __ctx_buff *ctx) {
-	return pktgen(ctx, true);
+	return pktgen(ctx, true, tcp_src_one, tcp_src_two);
 }
 
 CHECK("tc", "ctx_base_classifiers")
@@ -86,6 +86,60 @@ int ctx_base_classifiers_check(struct __ctx_buff *ctx)
 	assert((flags6 & ~CLS_FLAG_IPV6) == flags);
 
 	assert(!!(flags & CLS_FLAG_L3_DEV) == expected_l3);
+
+	test_finish();
+}
+
+PKTGEN("tc", "ctx_from_netdev_classifiers4")
+static __always_inline int
+ctx_from_netdev_classifiers4_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, true, bpf_htons(WG_PORT), tcp_src_two);
+}
+
+CHECK("tc", "ctx_from_netdev_classifiers4")
+int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	adjust_l2(ctx);
+
+	void *data, *data_end;
+	struct iphdr *ip4;
+	cls_t flags;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+
+	flags = ctx_from_netdev_classifiers4(ctx, ip4);
+
+	assert(!!(flags & CLS_FLAG_WIREGUARD));
+
+	test_finish();
+}
+
+PKTGEN("tc", "ctx_from_netdev_classifiers6")
+static __always_inline int
+ctx_from_netdev_classifiers6_pktgen(struct __ctx_buff *ctx) {
+	return pktgen(ctx, false, bpf_htons(WG_PORT), tcp_src_two);
+}
+
+CHECK("tc", "ctx_from_netdev_classifiers6")
+int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	adjust_l2(ctx);
+
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	cls_t flags;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip6));
+
+	flags = ctx_from_netdev_classifiers6(ctx, ip6);
+
+	assert(!!(flags & CLS_FLAG_WIREGUARD));
+
+	assert(!!(flags & CLS_FLAG_IPV6));
 
 	test_finish();
 }
