@@ -390,19 +390,23 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 
 	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
 		if err := ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.Warn("iptables table is not available on this system",
-				logfields.Error, err,
-				logfields.Table, table,
-			)
+			if m.sharedCfg.InstallIptRules {
+				m.logger.Warn("iptables table is not available on this system",
+					logfields.Error, err,
+					logfields.Table, table,
+				)
+			}
 		}
 	}
 
 	for _, table := range []string{"mangle", "raw", "filter"} {
 		if err := ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
-			m.logger.Debug("ip6tables table is not available on this system",
-				logfields.Error, err,
-				logfields.Table, table,
-			)
+			if m.sharedCfg.InstallIptRules {
+				m.logger.Debug("ip6tables table is not available on this system",
+					logfields.Error, err,
+					logfields.Table, table,
+				)
+			}
 			m.haveIp6tables = false
 		}
 	}
@@ -430,8 +434,9 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
-		m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
-
+		if m.sharedCfg.InstallIptRules {
+			m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
+		}
 		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
