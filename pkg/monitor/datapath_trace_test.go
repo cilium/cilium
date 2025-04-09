@@ -15,69 +15,25 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-func TestDecodeTraceNotifyV0(t *testing.T) {
+func TestDecodeTraceNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 32, traceNotifyV0Len)
+	require.Equal(t, 48, traceNotifyV1Len)
 
-	input := TraceNotifyV0{
+	in := TraceNotify{
 		Type:     0x00,
 		ObsPoint: 0x02,
 		Source:   0x03_04,
 		Hash:     0x05_06_07_08,
 		OrigLen:  0x09_0a_0b_0c,
 		CapLen:   0x0d_0e,
-		Version:  TraceNotifyVersion0,
+		Version:  TraceNotifyVersion1,
 		SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
 		DstLabel: identity.NumericIdentity(0x_15_16_17_18),
 		DstID:    0x19_1a,
 		Reason:   0x1b,
 		Flags:    0x1c,
 		Ifindex:  0x1d_1e_1f_20,
-	}
-	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, byteorder.Native, input)
-	require.NoError(t, err)
-
-	output := TraceNotify{}
-	err = DecodeTraceNotify(buf.Bytes(), &output)
-	require.NoError(t, err)
-	require.Equal(t, input.Type, output.Type)
-	require.Equal(t, input.ObsPoint, output.ObsPoint)
-	require.Equal(t, input.Source, output.Source)
-	require.Equal(t, input.Hash, output.Hash)
-	require.Equal(t, input.OrigLen, output.OrigLen)
-	require.Equal(t, input.CapLen, output.CapLen)
-	require.Equal(t, input.Version, output.Version)
-	require.Equal(t, input.SrcLabel, output.SrcLabel)
-	require.Equal(t, input.DstLabel, output.DstLabel)
-	require.Equal(t, input.DstID, output.DstID)
-	require.Equal(t, input.Reason, output.Reason)
-	require.Equal(t, input.Flags, output.Flags)
-	require.Equal(t, input.Ifindex, output.Ifindex)
-}
-
-func TestDecodeTraceNotifyV1(t *testing.T) {
-	// This check on the struct length constant is there to ensure that this
-	// test is updated when the struct changes.
-	require.Equal(t, 48, traceNotifyV1Len)
-
-	in := TraceNotifyV1{
-		TraceNotifyV0: TraceNotifyV0{
-			Type:     0x00,
-			ObsPoint: 0x02,
-			Source:   0x03_04,
-			Hash:     0x05_06_07_08,
-			OrigLen:  0x09_0a_0b_0c,
-			CapLen:   0x0d_0e,
-			Version:  TraceNotifyVersion1,
-			SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
-			DstLabel: identity.NumericIdentity(0x_15_16_17_18),
-			DstID:    0x19_1a,
-			Reason:   0x1b,
-			Flags:    0x1c,
-			Ifindex:  0x1d_1e_1f_20,
-		},
 		OrigIP: types.IPv6{
 			0x21, 0x22,
 			0x23, 0x24,
@@ -113,7 +69,7 @@ func TestDecodeTraceNotifyErrors(t *testing.T) {
 	tn := TraceNotify{}
 	err := DecodeTraceNotify([]byte{}, &tn)
 	require.Error(t, err)
-	require.Equal(t, "Unknown trace event", err.Error())
+	require.Equal(t, "unexpected TraceNotify data length, expected at least 32 but got 0", err.Error())
 
 	// invalid version
 	ev := make([]byte, traceNotifyV1Len)
@@ -142,7 +98,7 @@ func TestIsEncrypted(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.encrypted, tn.IsEncrypted())
@@ -169,7 +125,7 @@ func TestTraceReason(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.want, tn.TraceReason())
@@ -206,7 +162,7 @@ func TestTraceReasonIsKnown(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.known, tn.TraceReasonIsKnown())
@@ -243,7 +199,7 @@ func TestTraceReasonIsReply(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.reply, tn.TraceReasonIsReply())
@@ -290,7 +246,7 @@ func TestTraceReasonIsEncap(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.encap, tn.TraceReasonIsEncap())
@@ -337,7 +293,7 @@ func TestTraceReasonIsDecap(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			tn := &TraceNotifyV0{
+			tn := &TraceNotify{
 				Reason: tc.reason,
 			}
 			require.Equal(t, tc.decap, tn.TraceReasonIsDecap())
@@ -346,7 +302,7 @@ func TestTraceReasonIsDecap(t *testing.T) {
 }
 
 func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
-	input := TraceNotifyV0{}
+	input := TraceNotify{}
 	buf := bytes.NewBuffer(nil)
 
 	if err := binary.Write(buf, byteorder.Native, input); err != nil {
@@ -356,15 +312,15 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		tn := &TraceNotifyV0{}
-		if err := tn.decodeTraceNotifyVersion0(buf.Bytes()); err != nil {
+		tn := &TraceNotify{}
+		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
-	input := TraceNotifyV1{}
+	input := TraceNotify{Version: TraceNotifyVersion1}
 	buf := bytes.NewBuffer(nil)
 
 	if err := binary.Write(buf, byteorder.Native, input); err != nil {
@@ -374,8 +330,8 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		tn := &TraceNotifyV1{}
-		if err := tn.decodeTraceNotifyVersion1(buf.Bytes()); err != nil {
+		tn := &TraceNotify{Version: TraceNotifyVersion1}
+		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
