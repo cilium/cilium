@@ -659,7 +659,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// We need to send the snapshot of the policyRules to SDP.
 	if !e.isProperty(PropertyFakeEndpoint) && !e.IsProxyDisabled() {
 		repo := e.policyRepo
-		log.Debugf("Updating Stndalone dns proxy with policy rules")
+		log.Debugf("Updating standalone DNS proxy with policy rules")
 		policyRules := repo.GetPolicySnapshot()
 		e.proxy.UpdateSDP(policyRules)
 	}

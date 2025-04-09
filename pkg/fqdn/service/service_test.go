@@ -13,8 +13,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -26,9 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
-	health "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -40,7 +36,6 @@ import (
 )
 
 func TestFQDNDataServer(t *testing.T) {
-	// testutils.PrivilegedTest(t)
 
 	test := map[string]struct {
 		port                     int
@@ -68,63 +63,64 @@ func TestFQDNDataServer(t *testing.T) {
 	for scenario, tt := range test {
 		t.Run(scenario, func(t *testing.T) {
 
-			em := endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil, nil)
-			pr := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-			ipc := ipcache.NewIPCache(&ipcache.Configuration{
-				Context:           context.TODO(),
-				IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-				PolicyHandler:     pr.GetSelectorCache(),
-				DatapathHandler:   em,
-			})
-			nm := namemanager.New(namemanager.ManagerParams{
-				Config: namemanager.NameManagerConfig{
-					MinTTL:            1,
-					DNSProxyLockCount: defaults.DNSProxyLockCount,
-					StateDir:          defaults.StateDir,
-				},
-				IPCache: ipc,
-			})
+			h := hive.New(
+				cell.Module(
+					"test-fqdn-grpc-server",
+					"Test FQDN gRPC server",
+					cell.Config(defaultConfig),
+					cell.Provide(
+						func() endpointmanager.EndpointManager {
+							return endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil, nil)
+						},
 
-			hive := hive.New(
-				Cell,
-				cell.Provide(func() *ipcache.IPCache {
-					return ipc
-				}),
-				cell.Provide(func() endpointmanager.EndpointManager {
-					return em
-				}),
-				cell.Provide(func() namemanager.NameManager { return nm }),
-				cell.Provide(func(lc cell.Lifecycle, p health.Provider, jr job.Registry) job.Group {
-					h := p.ForModule(cell.FullModuleID{"test"})
-					jg := jr.NewGroup(h)
-					lc.Append(jg)
-					return jg
-				}),
-				cell.Provide(func(lc cell.Lifecycle) messagehandler.DNSRequestHandler {
-					return messagehandler.NewDNSRequestHandler(
-						messagehandler.DNSRequestHandlerParams{
-							Lifecycle:         lc,
-							Logger:            hivetest.Logger(t),
-							NameManager:       nm,
-							ProxyInstance:     nil,
-							ProxyAccessLogger: nil,
-						})
-				}),
-				cell.Invoke(newServer),
-			)
+						func(em endpointmanager.EndpointManager) *ipcache.IPCache {
+							pr := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+							return ipcache.NewIPCache(&ipcache.Configuration{
+								Context:           context.TODO(),
+								IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+								PolicyHandler:     pr.GetSelectorCache(),
+								DatapathHandler:   em,
+							})
+						},
+						func(ipc *ipcache.IPCache) namemanager.NameManager {
+							return namemanager.New(namemanager.ManagerParams{
+								Config: namemanager.NameManagerConfig{
+									MinTTL:            1,
+									DNSProxyLockCount: defaults.DNSProxyLockCount,
+									StateDir:          defaults.StateDir,
+								},
+								IPCache: ipc,
+							})
+						},
+						func(lc cell.Lifecycle) messagehandler.DNSMessageHandler {
+							return messagehandler.NewDNSMessageHandler(
+								messagehandler.DNSMessageHandlerParams{
+									Lifecycle:         lc,
+									Logger:            hivetest.Logger(t),
+									NameManager:       nil,
+									ProxyInstance:     nil,
+									ProxyAccessLogger: nil,
+								})
+						},
+						func() *option.DaemonConfig {
+							return &option.DaemonConfig{
+								EnableL7Proxy:    tt.enableL7Proxy,
+								ToFQDNsProxyPort: tt.port,
+							}
+						},
+						newServer,
+					)),
+				cell.Invoke(func(_ *FQDNDataServer) {}))
 
-			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-			hive.RegisterFlags(flags)
-			// Set the flags for the fqdn server
-			flags.Set("enable-standalone-dns-proxy", fmt.Sprintf("%t", tt.enableStandaloneDNSProxy))
-			flags.Set("to-fqdns-server-port", fmt.Sprintf("%d", tt.serverPort))
-
-			// Set the flags for the l7 proxy(from cilium agent)
-			option.Config.EnableL7Proxy = tt.enableL7Proxy
-			option.Config.ToFQDNsProxyPort = tt.port
+			hive.AddConfigOverride(
+				h,
+				func(cfg *FQDNConfig) {
+					cfg.EnableStandaloneDNSProxy = tt.enableStandaloneDNSProxy
+					cfg.StandaloneDNSProxyServerPort = tt.serverPort
+				})
 
 			tlog := hivetest.Logger(t)
-			if err := hive.Start(tlog, context.Background()); err != nil {
+			if err := h.Start(tlog, context.Background()); err != nil {
 				t.Fatalf("failed to start: %s", err)
 			}
 
@@ -134,16 +130,12 @@ func TestFQDNDataServer(t *testing.T) {
 			// If the server is running, we will get a response from the server.
 			conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", tt.serverPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			require.NoError(t, err)
-			defer conn.Close()
 
 			c := pb.NewFQDNDataClient(conn)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
 			connected := false
 			testutils.WaitUntil(func() bool {
-				stream, err := c.StreamPolicyState(ctx)
+				stream, err := c.StreamPolicyState(context.Background())
 				if err != nil {
 					return false
 				}
@@ -151,22 +143,27 @@ func TestFQDNDataServer(t *testing.T) {
 				if err != nil {
 					return false
 				}
-				if response == nil {
+				t.Log("response:", response)
+				if response.GetRequestId() == "" {
 					return false
 				} else {
-					// Check if the response is not empty
 					connected = true
 					return true
 				}
-			}, 2*time.Second)
+			}, 5*time.Second)
+
 			if !connected && tt.err == nil {
 				t.Fatalf("failed to connect to server")
 			}
 
-			hive.Stop(tlog, context.Background())
-			if err != nil {
-				t.Fatalf("failed to stop: %s", err)
-			}
+			t.Cleanup(func() {
+				//Stop the client
+				conn.Close()
+				// Stop the server
+				if err := h.Stop(tlog, context.Background()); err != nil {
+					t.Fatalf("failed to stop: %s", err)
+				}
+			})
 		})
 	}
 }
@@ -183,7 +180,7 @@ func TestHandleIPUpsert(t *testing.T) {
 	endptMgr := endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil, nil)
 
 	// create a new server instance
-	server := NewServer(endptMgr, nil, 1234, logging.DefaultSlogLogger)
+	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t))
 
 	// Prepare a valid IPv4 (1.2.3.4/32).
 	prefix := netip.MustParsePrefix("1.2.3.4/32")

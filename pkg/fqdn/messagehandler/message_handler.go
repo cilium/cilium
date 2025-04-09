@@ -42,8 +42,8 @@ const (
 	metricErrorAllow   = "allow"
 )
 
-type DNSRequestHandler interface {
-	// NotifyOnDNSMsg handles DNS data when the inbuilt DNS proxy sees a
+type DNSMessageHandler interface {
+	// NotifyOnDNSMsg handles DNS data when the in-agent DNS proxy sees a
 	// DNS message. It emits monitor events, proxy metrics and stores DNS
 	// data in the DNS cache. To update the DNS cache, it will call
 	// UpdateOnDNSMsg() if the DNS message is a response.
@@ -68,19 +68,19 @@ type DNSRequestHandler interface {
 		responseIPs []netip.Addr,
 		TTL int,
 		stat *dnsproxy.ProxyRequestContext,
-	) error
+	)
 }
 
-type dnsRequestHandler struct {
+type dnsMessageHandler struct {
 	ctx               context.Context
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
 	proxyInstance     defaultdns.Proxy
 	proxyAccessLogger accesslog.ProxyAccessLogger
-	DNSRequestHandler DNSRequestHandler
+	DNSRequestHandler DNSMessageHandler
 }
 
-var _ DNSRequestHandler = &dnsRequestHandler{}
+var _ DNSMessageHandler = &dnsMessageHandler{}
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
@@ -98,7 +98,7 @@ var _ DNSRequestHandler = &dnsRequestHandler{}
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (h *dnsRequestHandler) NotifyOnDNSMsg(
+func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
@@ -199,13 +199,7 @@ func (h *dnsRequestHandler) NotifyOnDNSMsg(
 	}
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		if err := h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat); err != nil {
-			h.logger.Error("failed to update DNS message",
-				logfields.Error, err,
-				logfields.DNSName, qname,
-				logfields.IPAddrs, responseIPs,
-			)
-		}
+		h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat)
 		endMetric()
 	}
 
@@ -246,9 +240,7 @@ func (h *dnsRequestHandler) NotifyOnDNSMsg(
 	return nil
 }
 
-func (h *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) error {
-	defer stat.DataplaneTime.End(true)
-
+func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) {
 	stat.PolicyGenerationTime.Start()
 
 	// Create a critical section especially for when multiple DNS requests
@@ -327,6 +319,7 @@ func (h *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 
 	stat.PolicyGenerationTime.End(true)
 	stat.DataplaneTime.Start()
+	defer stat.DataplaneTime.End(true)
 
 	if err := <-dpUpdates; err != nil {
 		h.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
@@ -341,6 +334,4 @@ func (h *dnsRequestHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
 	)
-
-	return nil
 }

@@ -42,7 +42,7 @@ type fqdnProxyBootstrapper struct {
 	policyRepo        policy.PolicyRepository
 	ipcache           *ipcache.IPCache
 	endpointManager   endpointmanager.EndpointManager
-	dnsRequestHandler messagehandler.DNSRequestHandler
+	dnsMessageHandler messagehandler.DNSMessageHandler
 }
 
 var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
@@ -93,7 +93,7 @@ func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endp
 		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
 		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
 	}
-	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsRequestHandler.NotifyOnDNSMsg)
+	dnsProxy := dnsproxy.NewDNSProxy(dnsProxyConfig, b.lookupEPByIP, b.ipcache.LookupSecIDByIP, b.ipcache.LookupByIdentity, b.dnsMessageHandler.NotifyOnDNSMsg)
 	b.proxyInstance.Set(dnsProxy)
 
 	if err := dnsProxy.Listen(); err != nil {
