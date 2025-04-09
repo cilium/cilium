@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -205,6 +206,64 @@ type controller struct {
 	lastError         error
 	lastErrorStamp    time.Time
 	lastDuration      time.Duration
+
+	// Manipulated by the Manager, read by the controller.
+	paramMutex   lock.Mutex
+	params       ControllerParams
+	cancelDoFunc context.CancelFunc
+}
+
+func (c *controller) Params() ControllerParams {
+	c.paramMutex.Lock()
+	defer c.paramMutex.Unlock()
+	return c.params
+}
+
+// updateParams sanitizes and sets the controller's parameters.
+//
+// If the RunInterval exceeds ControllerMaxInterval, it will be capped.
+//
+// Manager's mutex must be held; controller.mutex must not be held
+func (c *controller) SetParams(params ControllerParams) {
+	c.paramMutex.Lock()
+	defer c.paramMutex.Unlock()
+
+	// ensure the callbacks are valid
+	if params.DoFunc == nil {
+		params.DoFunc = func(ctx context.Context) error {
+			return undefinedDoFunc(c.name)
+		}
+	}
+	if params.StopFunc == nil {
+		params.StopFunc = NoopFunc
+	}
+
+	// Enforce max controller interval
+	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
+	if maxInterval > 0 && params.RunInterval > maxInterval {
+		c.getLogger().Infof("Limiting interval to %s", maxInterval)
+		params.RunInterval = maxInterval
+	}
+
+	// Save current context on update if not canceling
+	ctx := c.params.Context
+	// Check if the current context needs to be cancelled
+	if c.params.CancelDoFuncOnUpdate && c.cancelDoFunc != nil {
+		c.cancelDoFunc()
+		c.params.Context = nil
+	}
+
+	// (re)set the context as the previous might have been cancelled
+	if c.params.Context == nil {
+		if params.Context == nil {
+			ctx, c.cancelDoFunc = context.WithCancel(context.Background())
+		} else {
+			ctx, c.cancelDoFunc = context.WithCancel(params.Context)
+		}
+	}
+
+	c.params = params
+	c.params.Context = ctx
 }
 
 // GetSuccessCount returns the number of successful controller runs
