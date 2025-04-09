@@ -26,7 +26,7 @@ require (
 	github.com/cilium/hive v0.0.0-20250121145729-e67f66eb0375
 	github.com/cilium/linters v0.1.0
 	github.com/cilium/lumberjack/v2 v2.4.1
-	github.com/cilium/proxy v0.0.0-20250305113347-723568176820
+	github.com/cilium/proxy v0.0.0-20250408103314-d3be7c547203
 	github.com/cilium/statedb v0.3.6
 	github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744
 	github.com/cilium/workerpool v1.2.0
@@ -106,14 +106,14 @@ require (
 	golang.org/x/mod v0.22.0
 	golang.org/x/net v0.38.0
 	golang.org/x/sync v0.12.0
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.32.0
 	golang.org/x/term v0.30.0
 	golang.org/x/time v0.8.0
 	golang.org/x/tools v0.28.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
-	google.golang.org/grpc v1.71.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250407143221-ac9807e6c755
+	google.golang.org/grpc v1.71.1
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.32.0
@@ -159,7 +159,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba // indirect
-	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42 // indirect
+	github.com/cncf/xds/go v0.0.0-20250326154945-ae57f3c0d45f // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
@@ -259,7 +259,7 @@ require (
 	golang.org/x/text v0.23.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250407143221-ac9807e6c755 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

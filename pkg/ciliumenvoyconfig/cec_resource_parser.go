@@ -24,7 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -535,7 +534,6 @@ func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
-		PolicyUpdateWarningLimit: durationpb.New(option.Config.FQDNProxyResponseMaxDelay),
 	}
 
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when

@@ -102,6 +102,12 @@ func (m *BpfMetadata) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for L7LbPolicyName
+
+	if m.OriginalSourceSoLingerTime != nil {
+		// no validation rules for OriginalSourceSoLingerTime
+	}
+
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}
