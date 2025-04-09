@@ -303,6 +303,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4_inner;
 	struct ipv6hdr __maybe_unused *ip6;
 	__u32 l4_off __maybe_unused = 0;
+	__u8 l4_proto __maybe_unused = 0;
 	__u32 magic __maybe_unused = 0;
 	int ip_proto = 0;
 	int ret = 0;
@@ -351,18 +352,17 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			 * large with no additional options for Geneve.
 			 */
 			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-			if (!vxlan_get_inner_ipv4(data, data_end, l4_off,
-						  &ip4_inner))
-					return CTX_ACT_OK;
+			ret = encrypt_handle_vxlan_inner_packet(ctx, data,
+								data_end,
+								&l4_off,
+								&l4_proto,
+								&dst);
+			if (ret != true)
+				return ret;
 
-			/* if this is already encrypted, just pass it to stack */
-			if (ip4_inner->protocol == IPPROTO_ESP)
-				return CTX_ACT_OK;
-
-			/* determine if we need should encrypt the non-ESP
-			 * tunnel traffic per v1.17 rules
+			/* determine if we should encrypt the non-ESP tunnel
+			 * traffic per v1.17 rules
 			 */
-			dst = lookup_ip4_remote_endpoint(ip4_inner->daddr, 0);
 			src_sec_identity = get_identity(ctx);
 
 			if (!dst)

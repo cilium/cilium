@@ -55,7 +55,7 @@ int ipsec_redirect_check(__maybe_unused struct __ctx_buff *ctx)
 	 * The tunnel_endpoint is used in the IPsec hook under test below to
 	 * find the associated NodeID for an egress packet
 	 */
-	ipcache_v4_add_entry(DST_IP, 0, 0xAC, DST_IP, TARGET_SPI);
+	ipcache_v4_add_entry(DST_IP, 0, DST_IDENTITY, DST_IP, TARGET_SPI);
 
 	ret = ipsec_maybe_redirect_to_encrypt(ctx, bpf_htons(ETH_P_IP),
 					      SOURCE_IDENTITY);
