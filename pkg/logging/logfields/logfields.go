@@ -1528,4 +1528,10 @@ const (
 	Args = "args"
 
 	Candidates = "candidates"
+
+	HubbleCLIVersion = "hubble-cli-version"
+
+	HubbleRelayVersion = "hubble-relay-version"
+
+	HubbleServerVersion = "hubble-server-version"
 )
