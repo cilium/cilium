@@ -11,6 +11,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -89,6 +90,7 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
+	TunnelConf  tunnel.Config
 	Lifecycle   cell.Lifecycle
 	IPCache     *ipcache.IPCache
 	IPSetMgr    ipset.Manager
@@ -100,7 +102,7 @@ func newAllNodeManager(in struct {
 	Devices     statedb.Table[*tables.Device]
 },
 ) (NodeManager, error) {
-	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
+	mngr, err := New(option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
 	if err != nil {
 		return nil, err
 	}
