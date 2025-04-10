@@ -746,9 +746,13 @@ func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
 		}
 	}()
 
+	// The timeout for this test case is set longer than the default
+	// timeout (5s). This is because the test itself makes a stress
+	// to the CI environment and it can take longer to complete. Please
+	// see https://github.com/cilium/cilium/issues/37385 for the context.
 	c.Assert(testutils.WaitUntil(func() bool {
 		return completed.Load() == uint32(nGoRoutines)
-	}, 5*time.Second), check.IsNil)
+	}, 60*time.Second), check.IsNil)
 
 	log.Infof("%+v", a)
 	log.Infof("Total retries: %v", retries.Load())
