@@ -6,6 +6,8 @@ package ctmap
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -19,6 +21,10 @@ type gcStats struct {
 
 	// deleted is the number of keys deleted
 	deleted uint32
+
+	// entries that where marked for deletion but skipped (i.e. due to
+	// LRU evictions, etc).
+	skipped uint32
 
 	// family is the address family
 	family gcFamily
@@ -107,6 +113,14 @@ func (s *gcStats) finish() {
 		}
 		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
 	}
+
+	log.WithFields(logrus.Fields{
+		"family":       s.family,
+		"proto":        s.proto,
+		"deleted":      s.deleted,
+		"skipped":      s.skipped,
+		"aliveEntries": s.aliveEntries,
+	}).Info("completed ctmap gc pass")
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
