@@ -35,6 +35,7 @@
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/l3.h"
+#include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/nodeport.h"

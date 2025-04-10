@@ -11,6 +11,7 @@
 #include "dbg.h"
 #include "trace.h"
 #include "csum.h"
+#include "l3.h"
 #include "l4.h"
 
 /** Redirect to the proxy by hairpinning the packet out the incoming

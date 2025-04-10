@@ -29,6 +29,7 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
+#include "lib/local_delivery.h"
 #include "lib/lxc.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
