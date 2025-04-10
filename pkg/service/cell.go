@@ -39,8 +39,9 @@ type serviceManagerParams struct {
 	MonitorAgent monitorAgent.Agent
 
 	HealthCheckers []HealthChecker `group:"healthCheckers"`
-	Clientset      k8sClient.Clientset
 	NodeNeighbors  types.NodeNeighbors
+
+	Clientset k8sClient.Clientset
 
 	Config *option.DaemonConfig
 }
@@ -57,6 +58,10 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		params.Config)
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))
+
+	if !params.Clientset.IsEnabled() {
+		svc.UpsertAPIService()
+	}
 
 	return svc
 }
