@@ -41,13 +41,14 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 }
 
 var params = check.Parameters{
-	ExternalDeploymentPort: 8080,
-	EchoServerHostPort:     4000,
-	JunitProperties:        make(map[string]string),
-	NamespaceLabels:        make(map[string]string),
-	NamespaceAnnotations:   make(map[string]string),
-	NodeSelector:           make(map[string]string),
-	Writer:                 os.Stdout,
+	ExternalDeploymentPort:  8080,
+	EchoServerHostPort:      4000,
+	EchoServerHostNetNsPort: 5000,
+	JunitProperties:         make(map[string]string),
+	NamespaceLabels:         make(map[string]string),
+	NamespaceAnnotations:    make(map[string]string),
+	NodeSelector:            make(map[string]string),
+	Writer:                  os.Stdout,
 	SysdumpOptions: sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
 		LargeSysdumpThreshold:    sysdump.DefaultLargeSysdumpThreshold,
@@ -331,6 +332,7 @@ func newConnectivityTests(
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
+		params.EchoServerHostNetNsPort += i
 		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, logger, owners)
 		if err != nil {
 			return nil, err

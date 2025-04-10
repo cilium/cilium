@@ -253,6 +253,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clusterMeshEndpointSliceSync{},
 		health{},
 		northSouthLoadbalancing{},
+		northSouthLoadbalancingWithHostNetNs{},
 		podToPodEncryption{},
 		podToPodEncryptionV2{},
 		nodeToNodeEncryption{},
