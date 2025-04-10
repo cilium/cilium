@@ -344,8 +344,8 @@ const (
 	// LogOpt sets log driver options for cilium
 	LogOpt = "log-opt"
 
-	// EnableRemoteNodeSnat SNAT IPv4 packets from endpoints leaving the host destined to a remote node node in BPF routing mode. This option requires to set enable-bpf-masquerade to true.
-	EnableRemoteNodeSnat = "enable-remote-node-snat"
+	// EnableRemoteNodeMasquerade Masquerade packets from endpoints leaving the host destined to a remote node node in BPF routing mode. This option requires to set enable-bpf-masquerade to true.
+	EnableRemoteNodeMasquerade = "enable-remote-node-masquerade"
 
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
