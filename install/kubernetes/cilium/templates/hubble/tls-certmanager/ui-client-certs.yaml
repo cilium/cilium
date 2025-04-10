@@ -1,4 +1,5 @@
 {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "certmanager") .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+{{- $cn := default "hubble-ui.cilium.io" .Values.hubble.ui.tls.client.commonName }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -17,9 +18,18 @@ spec:
   issuerRef:
     {{- toYaml .Values.hubble.tls.auto.certManagerIssuerRef | nindent 4 }}
   secretName: hubble-ui-client-certs
-  commonName: "*.hubble-ui.cilium.io"
+  commonName: {{ $cn | quote }}
   dnsNames:
-  - "*.hubble-ui.cilium.io"
+  - {{ $cn | quote }}
+  {{- range $dns := .Values.hubble.ui.tls.client.extraDnsNames }}
+  - {{ $dns | quote }}
+  {{- end }}
+  {{- if .Values.hubble.ui.tls.client.extraIpAddresses }}
+  ipAddresses:
+  {{- range $ip := .Values.hubble.ui.tls.client.extraIpAddresses }}
+  - {{ $ip | quote }}
+  {{- end }}
+  {{- end }}
   duration: {{ printf "%dh0m0s" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
   privateKey:
     rotationPolicy: Always
