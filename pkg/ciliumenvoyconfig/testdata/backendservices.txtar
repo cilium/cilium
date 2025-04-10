@@ -366,6 +366,7 @@ listener:test/ingress/listener:
         use_original_source_address:  true
         is_l7lb:  true
         proxy_id:  1000
+        ipcache_name:  "cilium_ipcache"
       }
     }
   }
