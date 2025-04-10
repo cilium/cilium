@@ -488,6 +488,7 @@ func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 	globalDeleteLock[m.mapType].Lock()
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 	globalDeleteLock[m.mapType].Unlock()
+
 	return stats
 }
 
@@ -564,7 +565,13 @@ func doGC4(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 			case deleteEntry:
 				err := purgeCtEntry4(m, currentKey4Global, entry, natMap, next)
 				if err != nil {
-					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
+					log := log.WithField(logfields.Key, currentKey4Global.ToHost().String())
+					if errors.Is(err, ebpf.ErrKeyNotExist) {
+						log.Debug("key is missing, likely due to lru eviction - skipping")
+						stats.skipped++
+					} else {
+						log.WithError(err).Error("Unable to delete CT entry")
+					}
 				} else {
 					stats.deleted++
 				}
@@ -584,7 +591,13 @@ func doGC4(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 			case deleteEntry:
 				err := purgeCtEntry4(m, currentKey4, entry, natMap, next)
 				if err != nil {
-					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
+					log := log.WithField(logfields.Key, currentKey4.ToHost().String())
+					if errors.Is(err, ebpf.ErrKeyNotExist) {
+						log.Debug("key is missing, likely due to lru eviction - skipping")
+						stats.skipped++
+					} else {
+						log.WithError(err).Error("Unable to delete CT entry")
+					}
 				} else {
 					stats.deleted++
 				}
