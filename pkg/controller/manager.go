@@ -4,7 +4,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"maps"
 
@@ -13,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -49,6 +47,11 @@ func GetGlobalStatus() models.ControllerStatuses {
 //
 // Updating a controller will cause the DoFunc to be run immediately regardless
 // of any previous conditions. It will also cause any statistics to be reset.
+//
+// If multiple callers make an UpdateController call within a short period,
+// then this function may elide intermediate updates, depending on how long it
+// takes to complete DoFunc. The final parameters update will be applied and
+// run when the controller catches up.
 func (m *Manager) UpdateController(name string, params ControllerParams) {
 	m.updateController(name, params)
 }
@@ -71,18 +74,14 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 
 	ctrl := m.lookupLocked(name)
 	if ctrl != nil {
-		ctrl.mutex.Lock()
 		ctrl.getLogger().Debug("Updating existing controller")
-		ctrl.updateParamsLocked(params)
-		ctrl.mutex.Unlock()
-		ctrl.mutex.RLock()
+		ctrl.SetParams(params)
 
 		// Notify the goroutine of the params update.
 		select {
-		case ctrl.update <- ctrl.params:
+		case ctrl.update <- struct{}{}:
 		default:
 		}
-		ctrl.mutex.RUnlock()
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
@@ -99,12 +98,12 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 			group:      params.Group,
 			uuid:       uuid.New().String(),
 			stop:       make(chan struct{}),
-			update:     make(chan ControllerParams, 1),
+			update:     make(chan struct{}, 1),
 			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
 		},
 	}
-	ctrl.updateParamsLocked(params)
+	ctrl.SetParams(params)
 	ctrl.getLogger().Debug("Starting new controller")
 
 	m.controllers[ctrl.name] = ctrl
@@ -113,7 +112,7 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 	globalStatus.controllers[ctrl.uuid] = ctrl
 	globalStatus.mutex.Unlock()
 
-	go ctrl.runController(ctrl.params)
+	go ctrl.runController()
 	return ctrl
 }
 
@@ -260,53 +259,6 @@ func (m *Manager) TriggerController(name string) {
 
 type managedController struct {
 	controller
-
-	params       ControllerParams
-	cancelDoFunc context.CancelFunc
-}
-
-// updateParamsLocked sanitizes and sets the controller's parameters.
-//
-// If the RunInterval exceeds ControllerMaxInterval, it will be capped.
-//
-// Manager's mutex must be held
-func (c *managedController) updateParamsLocked(params ControllerParams) {
-	// ensure the callbacks are valid
-	if params.DoFunc == nil {
-		params.DoFunc = func(ctx context.Context) error {
-			return undefinedDoFunc(c.name)
-		}
-	}
-	if params.StopFunc == nil {
-		params.StopFunc = NoopFunc
-	}
-
-	// Enforce max controller interval
-	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
-	if maxInterval > 0 && params.RunInterval > maxInterval {
-		c.getLogger().Infof("Limiting interval to %s", maxInterval)
-		params.RunInterval = maxInterval
-	}
-
-	// Save current context on update if not canceling
-	ctx := c.params.Context
-	// Check if the current context needs to be cancelled
-	if c.params.CancelDoFuncOnUpdate && c.cancelDoFunc != nil {
-		c.cancelDoFunc()
-		c.params.Context = nil
-	}
-
-	// (re)set the context as the previous might have been cancelled
-	if c.params.Context == nil {
-		if params.Context == nil {
-			ctx, c.cancelDoFunc = context.WithCancel(context.Background())
-		} else {
-			ctx, c.cancelDoFunc = context.WithCancel(params.Context)
-		}
-	}
-
-	c.params = params
-	c.params.Context = ctx
 }
 
 func (c *managedController) stopController() {
@@ -320,6 +272,8 @@ func (c *managedController) stopController() {
 // GetStatusModel returns a models.ControllerStatus representing the
 // controller's configuration & status
 func (c *managedController) GetStatusModel() *models.ControllerStatus {
+	params := c.Params()
+
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -327,9 +281,9 @@ func (c *managedController) GetStatusModel() *models.ControllerStatus {
 		Name: c.name,
 		UUID: strfmt.UUID(c.uuid),
 		Configuration: &models.ControllerStatusConfiguration{
-			ErrorRetry:     !c.params.NoErrorRetry,
-			ErrorRetryBase: strfmt.Duration(c.params.ErrorRetryBaseDuration),
-			Interval:       strfmt.Duration(c.params.RunInterval),
+			ErrorRetry:     !params.NoErrorRetry,
+			ErrorRetryBase: strfmt.Duration(params.ErrorRetryBaseDuration),
+			Interval:       strfmt.Duration(params.RunInterval),
 		},
 		Status: &models.ControllerStatusStatus{
 			SuccessCount:            int64(c.successCount),
