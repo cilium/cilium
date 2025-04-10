@@ -758,9 +758,13 @@ func testStressRateLimiter(t *testing.T, nGoRoutines int) {
 		}
 	}()
 
+	// The timeout for this test case is set longer than the default
+	// timeout (5s). This is because the test itself makes a stress
+	// to the CI environment and it can take longer to complete. Please
+	// see https://github.com/cilium/cilium/issues/37385 for the context.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, uint32(nGoRoutines), completed.Load())
-	}, timeout, tick, "Expected all requests to complete")
+	}, time.Second*60, tick, "Expected all requests to complete")
 
 	log.Infof("%+v", a)
 	log.Infof("Total retries: %v", retries.Load())
