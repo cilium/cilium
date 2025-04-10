@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cilium-apiserver-lb
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    k8s-app: cilium-apiserver-lb
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  hostNetwork: true
+  containers:
+    - name: cilium-apiserver-lb
+      image: {{ include "cilium.image" .Values.image | quote }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext:
+        capabilities:
+          add:
+            - CHOWN
+            - KILL
+            - NET_ADMIN
+            - NET_RAW
+            - IPC_LOCK
+            - SYS_MODULE
+            - SYS_ADMIN
+            - SYS_RESOURCE
+            - DAC_OVERRIDE
+            - FOWNER
+            - SETGID
+            - SETUID
+          drop:
+            - ALL
+        seLinuxOptions:
+          level: s0
+          type: spc_t
+      command:
+        - cilium-agent
+      args:
+        - --enable-k8s=false
+        - --enable-ipv4=true
+        - --enable-ipv6=false
+        - --install-iptables-rules=false
+        - --enable-l7-proxy=false
+        - --k8s-api-server-urls="https://172.21.0.4:6443 https://172.21.0.5:6443 https://172.21.0.6:6443"
+      volumeMounts:
+        {{- if not .Values.securityContext.privileged }}
+        # Unprivileged containers need to mount /proc/sys/net from the host
+        # to have write access
+        - mountPath: /host/proc/sys/net
+          name: host-proc-sys-net
+        # Unprivileged containers need to mount /proc/sys/kernel from the host
+        # to have write access
+        - mountPath: /host/proc/sys/kernel
+          name: host-proc-sys-kernel
+        {{- end}}
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+          {{- if .Values.securityContext.privileged }}
+          mountPropagation: Bidirectional
+          {{- else }}
+          # Unprivileged containers can't set mount propagation to bidirectional
+          # in this case we will mount the bpf fs from an init container that
+          # is privileged and set the mount propagation from host to container
+          # in Cilium.
+          mountPropagation: HostToContainer
+          {{- end}}
+        {{- if not (contains "/run/cilium/cgroupv2" .Values.cgroup.hostRoot) }}
+        # Check for duplicate mounts before mounting
+        - name: cilium-cgroup
+          mountPath: {{ .Values.cgroup.hostRoot }}
+        {{- end}}
+        - name: cilium-run
+          mountPath: /var/run/cilium
+        - name: cilium-netns
+          mountPath: /var/run/cilium/netns
+          mountPropagation: HostToContainer
+  volumes:
+    # To keep state between restarts / upgrades
+    - name: cilium-run
+      hostPath:
+        path: {{ .Values.daemon.runPath }}
+        type: DirectoryOrCreate
+      # To exec into pod network namespaces
+    - name: cilium-netns
+      hostPath:
+        path: /var/run/netns
+        type: DirectoryOrCreate
+      # To keep state between restarts / upgrades for bpf maps
+    - name: bpf-maps
+      hostPath:
+        path: /sys/fs/bpf
+        type: DirectoryOrCreate
+      {{- if or .Values.cgroup.autoMount.enabled .Values.sysctlfix.enabled }}
+    # To mount cgroup2 filesystem on the host or apply sysctlfix
+    - name: hostproc
+      hostPath:
+        path: /proc
+        type: Directory
+      {{- end }}
+    # To keep state between restarts / upgrades for cgroup2 filesystem
+    - name: cilium-cgroup
+      hostPath:
+        path: {{ .Values.cgroup.hostRoot}}
+        type: DirectoryOrCreate
+      # To be able to load kernel modules
+    - name: lib-modules
+      hostPath:
+        path: /lib/modules
+      # To access iptables concurrently with other processes (e.g. kube-proxy)
+    - name: xtables-lock
+      hostPath:
+        path: /run/xtables.lock
+        type: FileOrCreate
+    {{- if not .Values.securityContext.privileged }}
+    - name: host-proc-sys-net
+      hostPath:
+        path: /proc/sys/net
+        type: Directory
+    - name: host-proc-sys-kernel
+      hostPath:
+        path: /proc/sys/kernel
+        type: Directory
+    {{- end }}

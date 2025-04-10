@@ -58,5 +58,13 @@ func newServiceInternal(params serviceManagerParams) *Service {
 
 	params.JG.Add(job.OneShot("health-check-event-watcher", svc.handleHealthCheckEvent))
 
+	clientsetConfig := params.Clientset.Config()
+	if !params.Clientset.IsEnabled() && len(clientsetConfig.K8sAPIServerURLs) != 0 {
+		if err := svc.UpsertAPIService(clientsetConfig); err != nil {
+			svc.logger.Error("error while setting up apiserver-lb %w", err)
+			return nil
+		}
+	}
+
 	return svc
 }
