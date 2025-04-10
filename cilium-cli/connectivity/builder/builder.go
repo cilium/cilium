@@ -72,6 +72,12 @@ var (
 	//go:embed manifests/client-egress-tls-sni.yaml
 	clientEgressTLSSNIPolicyYAML string
 
+	//go:embed manifests/client-egress-tls-sni-wildcard.yaml
+	clientEgressTLSSNIWildcardPolicyYAML string
+
+	//go:embed manifests/client-egress-tls-sni-double-wildcard.yaml
+	clientEgressTLSSNIDoubleWildcardPolicyYAML string
+
 	//go:embed manifests/client-egress-tls-sni-other.yaml
 	clientEgressTLSSNIOtherPolicyYAML string
 
@@ -311,6 +317,8 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 		"clientEgressL7HTTPNamedPortPolicyYAML":              clientEgressL7HTTPNamedPortPolicyYAML,
 		"clientEgressToFQDNsPolicyYAML":                      clientEgressToFQDNsPolicyYAML,
 		"clientEgressTLSSNIPolicyYAML":                       clientEgressTLSSNIPolicyYAML,
+		"clientEgressTLSSNIWildcardPolicyYAML":               clientEgressTLSSNIWildcardPolicyYAML,
+		"clientEgressTLSSNIDoubleWildcardPolicyYAML":         clientEgressTLSSNIDoubleWildcardPolicyYAML,
 		"clientEgressTLSSNIOtherPolicyYAML":                  clientEgressTLSSNIOtherPolicyYAML,
 		"clientEgressL7TLSSNIPolicyYAML":                     clientEgressL7TLSSNIPolicyYAML,
 		"clientEgressL7TLSOtherSNIPolicyYAML":                clientEgressL7TLSOtherSNIPolicyYAML,

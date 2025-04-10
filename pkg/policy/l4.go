@@ -966,7 +966,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	pr := rule.GetPortRule()
 	if pr != nil {
 		rules = pr.Rules
-		sni = pr.ServerNames
+		sni = pr.GetServerNames()
 
 		// Get TLS contexts, if any
 		var err error

@@ -1,19 +1,33 @@
----
+version: "2"
 linters:
   enable:
-  - misspell
-  - revive
-
-issues:
-  exclude-rules:
-  - path: _test.go
-    linters:
-    - errcheck
-
-linters-settings:
-  revive:
+    - misspell
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: unused-parameter
+          severity: warning
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unused-parameter
-      - name: unused-parameter
-        severity: warning
-        disabled: true
+      - linters:
+          - errcheck
+        path: _test.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

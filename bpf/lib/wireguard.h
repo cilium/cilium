@@ -80,6 +80,9 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * which resulted in neigh entry not being created due to
 		 * IFF_POINTOPOINT | IFF_NOARP set on cilium_wg0. Therefore,
 		 * NA should not be sent over WG.
+		 *
+		 * Note: We account for this in connectivity tests leak checks
+		 * by filtering out icmpv6 NA.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
 			__u8 icmp_type;
