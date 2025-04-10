@@ -1251,6 +1251,8 @@ hubble:
         # -- base64 encoded PEM values for the Hubble metrics server key (deprecated).
         # Use existingSecret instead.
         key: ""
+        # -- DNS name to build the certificate for
+        commonName: ""
         # -- Extra DNS names added to certificate when it's auto generated
         extraDnsNames: []
         # -- Extra IP addresses added to certificate when it's auto generated
@@ -1486,6 +1488,8 @@ hubble:
       # -- base64 encoded PEM values for the Hubble server key (deprecated).
       # Use existingSecret instead.
       key: ""
+      # -- DNS name to build the certificate for
+      commonName: ""
       # -- Extra DNS names added to certificate when it's auto generated
       extraDnsNames: []
       # -- Extra IP addresses added to certificate when it's auto generated
@@ -1613,6 +1617,12 @@ hubble:
         # -- base64 encoded PEM values for the Hubble relay client key (deprecated).
         # Use existingSecret instead.
         key: ""
+        # -- DNS name to build the certificate for
+        commonName: ""
+        # -- extra DNS names added to certificate when its auto gen
+        extraDnsNames: []
+        # -- extra IP addresses added to certificate when its auto gen
+        extraIpAddresses: []
       # -- The hubble-relay server certificate and private key
       server:
         # When set to true, enable TLS on for Hubble Relay server
@@ -1631,6 +1641,8 @@ hubble:
         # -- base64 encoded PEM values for the Hubble relay server key (deprecated).
         # Use existingSecret instead.
         key: ""
+        # -- DNS name to build the certificate for
+        commonName: ""
         # -- extra DNS names added to certificate when its auto gen
         extraDnsNames: []
         # -- extra IP addresses added to certificate when its auto gen
@@ -1746,6 +1758,12 @@ hubble:
         # -- base64 encoded PEM values for the Hubble UI client key (deprecated).
         # Use existingSecret instead.
         key: ""
+        # -- DNS name to build the certificate for
+        commonName: ""
+        # -- extra DNS names added to certificate when its auto gen
+        extraDnsNames: []
+        # -- extra IP addresses added to certificate when its auto gen
+        extraIpAddresses: []
     backend:
       # -- Hubble-ui backend image.
       image:
