@@ -358,6 +358,7 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 func newCNIRoute(r route.Route) *cniTypes.Route {
 	rt := &cniTypes.Route{
 		Dst: r.Prefix,
+		MTU: r.MTU,
 	}
 	if r.Nexthop != nil {
 		rt.GW = *r.Nexthop
