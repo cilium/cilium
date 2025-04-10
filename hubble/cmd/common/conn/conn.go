@@ -11,12 +11,16 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/timeout"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
 	"github.com/cilium/cilium/hubble/pkg/logger"
+	"github.com/cilium/cilium/pkg/hubble/build"
+	serverdefaults "github.com/cilium/cilium/pkg/hubble/defaults"
+	relaydefaults "github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/k8s/portforward"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -30,13 +34,100 @@ var GRPCOptionFuncs []GRPCOptionFunc
 func init() {
 	GRPCOptionFuncs = append(
 		GRPCOptionFuncs,
-		grpcInterceptors,
+		grpcUnaryInterceptors,
+		grpcStreamInterceptors,
 		grpcOptionTLS,
 	)
 }
 
-func grpcInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
-	return grpc.WithUnaryInterceptor(timeout.UnaryClientInterceptor(vp.GetDuration(config.KeyRequestTimeout))), nil
+func grpcUnaryInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
+	option := grpc.WithChainUnaryInterceptor(
+		timeout.UnaryClientInterceptor(vp.GetDuration(config.KeyRequestTimeout)),
+		logVersionMismatchUnaryInterceptor(),
+	)
+	return option, nil
+}
+
+func grpcStreamInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
+	option := grpc.WithChainStreamInterceptor(
+		logVersionMismatchStreamInterceptor(),
+	)
+	return option, nil
+}
+
+func logVersionMismatchUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		var header metadata.MD
+		opts = append(opts, grpc.Header(&header))
+		if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
+			return err
+		}
+		logVersionMismatch(header)
+		return nil
+	}
+}
+
+func logVersionMismatchStreamInterceptor() grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		stream, err := streamer(ctx, desc, cc, method, opts...)
+		if err != nil {
+			return nil, err
+		}
+		// stream.Header() blocks until metadata is ready to read.
+		// This could be forever if no metadata is ever sent, after
+		// the first read from the stream or after an explicit call
+		// to SendHeader() server-side.
+		go func() {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			header, err := stream.Header()
+			if err == nil {
+				logVersionMismatch(header)
+			}
+		}()
+		return stream, nil
+	}
+}
+
+func logVersionMismatch(header metadata.MD) {
+	var relayVersion string
+	relayVersionHeaders := header.Get(relaydefaults.GRPCMetadataRelayVersionKey)
+	if len(relayVersionHeaders) > 0 {
+		relayVersion = relayVersionHeaders[0]
+	}
+	var serverVersion string
+	serverVersionHeaders := header.Get(serverdefaults.GRPCMetadataServerVersionKey)
+	if len(serverVersionHeaders) > 0 {
+		serverVersion = serverVersionHeaders[0]
+	}
+
+	relayVersionMissing := relayVersion == ""
+	relayVersionMismatch := relayVersion != build.RelayVersion.SemVer()
+	serverVersionMissing := serverVersion == ""
+	serverVersionMismatch := serverVersion != build.ServerVersion.SemVer()
+
+	if relayVersionMissing && serverVersionMissing {
+		logger.Logger.With(
+			logfields.HubbleCLIVersion, build.ServerVersion.SemVer(),
+		).Debug("Version mismatch detected between Hubble CLI and Hubble Server, no version information received from server")
+		return
+	}
+
+	if !relayVersionMissing && relayVersionMismatch {
+		logger.Logger.With(
+			logfields.HubbleCLIVersion, build.RelayVersion.SemVer(),
+			logfields.HubbleRelayVersion, relayVersion,
+		).Debug("Version mismatch detected between Hubble CLI and Hubble Relay")
+	}
+	if !serverVersionMissing && serverVersionMismatch {
+		logger.Logger.With(
+			logfields.HubbleCLIVersion, build.ServerVersion.SemVer(),
+			logfields.HubbleServerVersion, serverVersion,
+		).Debug("Version mismatch detected between Hubble CLI and Hubble Server")
+	}
 }
 
 var grpcDialOptions []grpc.DialOption
