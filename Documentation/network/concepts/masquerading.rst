@@ -182,11 +182,10 @@ when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfa
 it takes precedence over ``devices`` to choose which network interface should perform masquerading.
 You can set ``egress-masquerade-interfaces`` to match multiple interfaces like this: ``eth+ ens+``.
 
-SNAT traffic to Remote Node
+Masquerade traffic to Remote Nodes
 ****************************
 
-To SNAT traffic to the remote node in BPF routing mode, a feature flag has been introduced. 
-It can be enabled via the option ``enable-remote-node-snat: "true"``. 
+To masquerade traffic to remote nodes in BPF routing mode, use the option ``enable-remote-node-masquerade: "true"``. 
 This option requires ``enable-bpf-masquerade: "true"`` and also either 
 ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively.
 
