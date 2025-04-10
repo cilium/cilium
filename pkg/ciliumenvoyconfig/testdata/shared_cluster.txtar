@@ -314,6 +314,7 @@ listener:test/listener-a/listener
         use_original_source_address:  true
         is_l7lb:  true
         proxy_id:  1000
+        ipcache_name:  "cilium_ipcache"
       }
     }
   }
@@ -341,6 +342,7 @@ listener:test/listener-b/listener:
         bpf_root:  "/sys/fs/bpf"
         use_original_source_address:  true
         proxy_id:  1000
+        ipcache_name:  "cilium_ipcache"
       }
     }
   }
@@ -402,6 +404,7 @@ listener:test/listener-b/listener:
         bpf_root:  "/sys/fs/bpf"
         use_original_source_address:  true
         proxy_id:  1000
+        ipcache_name:  "cilium_ipcache"
       }
     }
   }

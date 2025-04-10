@@ -155,7 +155,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6Ac="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiDmNpbGl1bV9pcGNhY2hl"
               }
             }
           }
@@ -300,7 +300,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6Ac="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiDmNpbGl1bV9pcGNhY2hl"
               }
             }
           }
@@ -347,7 +347,7 @@ spec:
             "ConfigType": {
               "TypedConfig": {
                 "type_url": "type.googleapis.com/cilium.BpfMetadata",
-                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6Ac="
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiDmNpbGl1bV9pcGNhY2hl"
               }
             }
           }
