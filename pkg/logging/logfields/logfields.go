@@ -1559,6 +1559,12 @@ const (
 
 	CEPUIDOld = "old-" + CEPUID
 
+	HubbleCLIVersion = "hubble-cli-version"
+
+	HubbleRelayVersion = "hubble-relay-version"
+
+	HubbleServerVersion = "hubble-server-version"
+
 	Resources = "resources"
 
 	LastModifiedVersion = "lastModifiedVersion"
