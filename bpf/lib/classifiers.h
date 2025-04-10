@@ -8,11 +8,8 @@
 #include "lib/ipv4.h"
 #include "lib/ipv6.h"
 
-#if __ctx_is == __ctx_skb && defined(ENABLE_WIREGUARD)
-# define CLASSIFIERS_FROM_NETDEV
-#endif
-
 #if __ctx_is == __ctx_skb && (defined(ENABLE_WIREGUARD) || defined(HAVE_ENCAP))
+# define CLASSIFIERS_FROM_NETDEV
 # define CLASSIFIERS_TO_NETDEV
 #endif
 
@@ -86,6 +83,20 @@ ctx_from_netdev_classifiers(struct __ctx_buff *ctx, int l4_off, __u8 protocol)
 #ifdef ENABLE_WIREGUARD
 	if (l4.sport == bpf_htons(WG_PORT) || l4.dport == bpf_htons(WG_PORT))
 		flags |= CLS_FLAG_WIREGUARD;
+#endif
+
+#ifdef HAVE_ENCAP
+	if (l4.sport == bpf_htons(TUNNEL_PORT) || l4.dport == bpf_htons(TUNNEL_PORT))
+		switch (TUNNEL_PROTOCOL) {
+		case TUNNEL_PROTOCOL_GENEVE:
+			flags |= CLS_FLAG_GENEVE;
+			break;
+		case TUNNEL_PROTOCOL_VXLAN:
+			flags |= CLS_FLAG_VXLAN;
+			break;
+		default:
+			__throw_build_bug();
+		}
 #endif
 
 out:

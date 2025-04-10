@@ -95,7 +95,7 @@ int ctx_base_classifiers_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "ctx_from_netdev_classifiers4")
 static __always_inline int
 ctx_from_netdev_classifiers4_pktgen(struct __ctx_buff *ctx) {
-	return pktgen(ctx, true, bpf_htons(WG_PORT), tcp_src_two);
+	return pktgen(ctx, true, bpf_htons(WG_PORT), bpf_htons(TUNNEL_PORT));
 }
 
 CHECK("tc", "ctx_from_netdev_classifiers4")
@@ -115,13 +115,15 @@ int ctx_from_netdev_classifiers4_check(struct __ctx_buff *ctx)
 
 	assert(!!(flags & CLS_FLAG_WIREGUARD));
 
+	assert(!!(flags & CLS_FLAG_VXLAN));
+
 	test_finish();
 }
 
 PKTGEN("tc", "ctx_from_netdev_classifiers6")
 static __always_inline int
 ctx_from_netdev_classifiers6_pktgen(struct __ctx_buff *ctx) {
-	return pktgen(ctx, false, bpf_htons(WG_PORT), tcp_src_two);
+	return pktgen(ctx, false, bpf_htons(WG_PORT), bpf_htons(TUNNEL_PORT));
 }
 
 CHECK("tc", "ctx_from_netdev_classifiers6")
@@ -142,6 +144,8 @@ int ctx_from_netdev_classifiers6_check(struct __ctx_buff *ctx)
 	assert(!!(flags & CLS_FLAG_WIREGUARD));
 
 	assert(!!(flags & CLS_FLAG_IPV6));
+
+	assert(!!(flags & CLS_FLAG_VXLAN));
 
 	test_finish();
 }
