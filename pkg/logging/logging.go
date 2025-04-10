@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -259,16 +260,17 @@ func (o LogOptions) GetLogFormat() LogFormat {
 // SetLogLevel updates the DefaultLogger with a new logrus.Level
 func SetLogLevel(logLevel logrus.Level) {
 	DefaultLogger.SetLevel(logLevel)
+	DefaultLogger.SetReportCaller(logLevel == logrus.DebugLevel)
 }
 
 // SetDefaultLogLevel updates the DefaultLogger with the DefaultLogLevel
 func SetDefaultLogLevel() {
-	DefaultLogger.SetLevel(DefaultLogLevel)
+	SetLogLevel(DefaultLogLevel)
 }
 
 // SetLogLevelToDebug updates the DefaultLogger with the logrus.DebugLevel
 func SetLogLevelToDebug() {
-	DefaultLogger.SetLevel(logrus.DebugLevel)
+	SetLogLevel(logrus.DebugLevel)
 }
 
 // SetLogFormat updates the DefaultLogger with a new LogFormat
@@ -344,12 +346,26 @@ func GetFormatter(format LogFormat) logrus.Formatter {
 		return &logrus.TextFormatter{
 			DisableTimestamp: true,
 			DisableColors:    true,
+			FieldMap: logrus.FieldMap{
+				logrus.FieldKeyFile: "source",
+			},
+			CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+				file = fmt.Sprintf("%s:%d", f.File, f.Line)
+				return
+			},
 		}
 	case LogFormatTextTimestamp:
 		return &logrus.TextFormatter{
 			DisableTimestamp: false,
 			TimestampFormat:  time.RFC3339Nano,
 			DisableColors:    true,
+			FieldMap: logrus.FieldMap{
+				logrus.FieldKeyFile: "source",
+			},
+			CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+				file = fmt.Sprintf("%s:%d", f.File, f.Line)
+				return
+			},
 		}
 	case LogFormatJSON:
 		return &logrus.JSONFormatter{
