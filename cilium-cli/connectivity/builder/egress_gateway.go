@@ -25,7 +25,7 @@ func (t egressGateway) build(ct *check.ConnectivityTest, _ map[string]string) {
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithFeatureRequirements(
-			features.RequireEnabled(features.EgressGateway),
+			features.RequireEnabled(features.EgressGateway4),
 			features.RequireEnabled(features.NodeWithoutCilium),
 		).
 		WithScenarios(tests.EgressGateway())
