@@ -826,7 +826,8 @@ func TestDecodeTraceReason(t *testing.T) {
 		t.Run(tc.name+" encrypted", func(t *testing.T) {
 			tn := monitor.TraceNotifyV0{
 				Type:   byte(monitorAPI.MessageTypeTrace),
-				Reason: tc.reason | monitor.TraceReasonEncryptMask,
+				Reason: tc.reason,
+				Flags:  monitor.TraceNotifyFlagIsEncrypted,
 			}
 			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
 			assert.Equal(t, tc.want, f.GetTraceReason())
@@ -1011,7 +1012,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
 		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		Reason:   monitor.TraceReasonUnknown,
+		Flags:    monitor.TraceNotifyFlagIsEncrypted,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -1130,7 +1132,8 @@ func TestDecodeIsReply(t *testing.T) {
 	tn = monitor.TraceNotifyV0{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		Reason:   monitor.TraceReasonUnknown,
+		Flags:    monitor.TraceNotifyFlagIsEncrypted,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1152,7 +1155,8 @@ func TestDecodeIsReply(t *testing.T) {
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   hostEP,
 		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap | monitor.TraceReasonEncryptMask,
+		Reason:   monitor.TraceReasonSRv6Decap,
+		Flags:    monitor.TraceNotifyFlagIsEncrypted,
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1174,7 +1178,8 @@ func TestDecodeIsReply(t *testing.T) {
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
 		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
+		Reason:   monitor.TraceReasonSRv6Encap,
+		Flags:    monitor.TraceNotifyFlagIsEncrypted,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1963,7 +1968,8 @@ func TestDecode_TraceNotify(t *testing.T) {
 				Type:     byte(monitorAPI.MessageTypeTrace),
 				Source:   localEP,
 				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+				Reason:   monitor.TraceReasonUnknown,
+				Flags:    monitor.TraceNotifyFlagIsEncrypted,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{

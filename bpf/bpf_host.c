@@ -999,8 +999,9 @@ static __always_inline int
 do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 {
 	struct trace_ctx trace = {
-		.reason = TRACE_REASON_ENCRYPTED,
+		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
+		.flags = TRACE_FLAG_ENCRYPTED
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1134,19 +1135,20 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
 			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
+				trace.flags = trace.flags | TRACE_FLAG_ENCRYPTED;
 		}
 # endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_with_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					     TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					     trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
 							  CILIUM_CALL_IPV6_FROM_NETDEV,
 					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity, ret,
+						ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1177,12 +1179,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
-				trace.reason = TRACE_REASON_ENCRYPTED;
+				trace.flags = trace.flags | TRACE_FLAG_ENCRYPTED;
 		}
 #endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor);
+		send_trace_notify_with_flags(ctx, obs_point, ipcache_srcid, UNKNOWN_ID,
+					     TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					     trace.reason, trace.monitor, trace.flags);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
 							  CILIUM_CALL_IPV4_FROM_NETDEV,
@@ -1193,8 +1196,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
-								CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_with_exitcode_ext_flags(ctx, identity, ret,
+						ext_err, CTX_ACT_OK, METRIC_INGRESS, trace.flags);
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
@@ -1352,9 +1355,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_ENCRYPT) {
 		ret = CTX_ACT_OK;
 
-		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+		send_trace_notify_with_flags(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
+					     TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+					     TRACE_REASON_UNKNOWN, 0, TRACE_FLAG_ENCRYPTED);
 
 # ifdef TUNNEL_MODE
 		ret = do_netdev_encrypt_encap(ctx, proto, identity);
@@ -1655,8 +1658,6 @@ skip_egress_gateway:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
