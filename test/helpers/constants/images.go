@@ -12,9 +12,6 @@ const (
 	// HttpdImage is the image used for starting an HTTP server.
 	HttpdImage = "quay.io/cilium/demo-httpd:1.0"
 
-	// DNSSECContainerImage is the image used for starting a DNSSec client.
-	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.2"
-
 	// BindContainerImage is the image used for DNS binding testing.
 	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
 )
