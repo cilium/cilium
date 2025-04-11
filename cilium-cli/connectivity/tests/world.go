@@ -25,7 +25,7 @@ import (
 
 // PodToWorld sends multiple HTTP(S) requests to ExternalTarget
 // from each client Pods.
-func PodToWorld(opts ...RetryOption) check.Scenario {
+func PodToWorld(ipv6 bool, opts ...RetryOption) check.Scenario {
 	cond := &retryCondition{}
 	for _, op := range opts {
 		op(cond)
@@ -33,6 +33,7 @@ func PodToWorld(opts ...RetryOption) check.Scenario {
 	return &podToWorld{
 		ScenarioBase: check.NewScenarioBase(),
 		rc:           cond,
+		ipv6:         ipv6,
 	}
 }
 
@@ -40,7 +41,8 @@ func PodToWorld(opts ...RetryOption) check.Scenario {
 type podToWorld struct {
 	check.ScenarioBase
 
-	rc *retryCondition
+	rc   *retryCondition
+	ipv6 bool
 }
 
 func (s *podToWorld) Name() string {
@@ -63,10 +65,9 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
-			// TODO: Reenable the test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			// and when IPv6 external connectivity starts working in the CI.
-			if ipFam == features.IPFamilyV6 {
+			// IPv6 to world may not be supported in all environments, even though IPv6 is enabled
+			// and working in the cluster internally.
+			if ipFam == features.IPFamilyV6 && !s.ipv6 {
 				return
 			}
 
@@ -98,15 +99,17 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 // PodToWorld2 sends an HTTPS request to ExternalOtherTarget from random client
 // Pods.
-func PodToWorld2() check.Scenario {
+func PodToWorld2(ipv6 bool) check.Scenario {
 	return &podToWorld2{
 		ScenarioBase: check.NewScenarioBase(),
+		ipv6:         ipv6,
 	}
 }
 
 // podToWorld2 implements a Scenario.
 type podToWorld2 struct {
 	check.ScenarioBase
+	ipv6 bool
 }
 
 func (s *podToWorld2) Name() string {
@@ -127,10 +130,9 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
-			// TODO: Reenable the test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			// and when IPv6 external connectivity starts working in the CI.
-			if ipFam == features.IPFamilyV6 {
+			// IPv6 to world may not be supported in all environments, even though IPv6 is enabled
+			// and working in the cluster internally.
+			if ipFam == features.IPFamilyV6 && !s.ipv6 {
 				return
 			}
 
