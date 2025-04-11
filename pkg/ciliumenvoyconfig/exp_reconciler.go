@@ -7,7 +7,6 @@ import (
 	"context"
 	"iter"
 	"log/slog"
-	"maps"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -27,11 +26,11 @@ type envoyOps struct {
 
 // Delete implements reconciler.Operations.
 func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, res *EnvoyResource) error {
-	if len(res.Redirects) > 0 {
+	if res.Redirects.Len() > 0 {
 		// Remove redirects from services no longer selected by the CEC
 		wtxn := ops.writer.WriteTxn()
 		defer wtxn.Abort()
-		for name := range res.ReconciledRedirects {
+		for name := range res.ReconciledRedirects.All() {
 			svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
 			if found {
 				svc = svc.Clone()
@@ -68,6 +67,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 	if res.ReconciledResources != nil {
 		prevResources = *res.ReconciledResources
 	}
+
 	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 	if err == nil {
 		if prevResources.ListenersAddedOrDeleted(&resources) {
@@ -76,9 +76,9 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 
 		// With the envoy resources successfully pushed to Envoy, set the proxy redirections
 		// for the associated services.
-		if len(res.Redirects) > 0 || len(res.ReconciledRedirects) > 0 {
+		if res.Redirects.Len() > 0 || res.ReconciledRedirects.Len() > 0 {
 			wtxn := ops.writer.WriteTxn()
-			for name, redirect := range res.Redirects {
+			for name, redirect := range res.Redirects.All() {
 				svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
 				if found && !svc.ProxyRedirect.Equal(redirect) {
 					svc = svc.Clone()
@@ -86,8 +86,8 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 					ops.writer.UpsertService(wtxn, svc)
 				}
 			}
-			for name := range res.ReconciledRedirects {
-				if _, found := res.Redirects[name]; !found {
+			for name := range res.ReconciledRedirects.All() {
+				if _, found := res.Redirects.Get(name); !found {
 					svc, _, found := ops.writer.Services().Get(wtxn, experimental.ServiceByName(name))
 					if found {
 						svc = svc.Clone()
@@ -97,7 +97,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, res *Envoy
 				}
 			}
 			wtxn.Commit()
-			res.ReconciledRedirects = maps.Clone(res.Redirects)
+			res.ReconciledRedirects = res.Redirects
 		}
 
 		res.ReconciledResources = &resources
