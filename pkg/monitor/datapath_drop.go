@@ -80,7 +80,7 @@ func DecodeDropNotify(data []byte, dn *DropNotify) error {
 
 func (n *DropNotify) decodeDropNotify(data []byte) error {
 	if l := len(data); l < dropNotifyV1Len {
-		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV1Len, l)
+		return fmt.Errorf("unexpected DropNotifyV1 data length, expected %d but got %d", dropNotifyV1Len, l)
 	}
 
 	n.Type = data[0]
@@ -99,11 +99,14 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	n.Ifindex = byteorder.Native.Uint32(data[32:36])
 
 	switch n.Version {
+	case DropNotifyVersion0, DropNotifyVersion1:
 	case DropNotifyVersion2:
 		if l := len(data); l < dropNotifyV2Len {
-			return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV2Len, l)
+			return fmt.Errorf("unexpected DropNotifyV2 data length, expected %d but got %d", dropNotifyV2Len, l)
 		}
 		n.Flags = data[36]
+	default:
+		return fmt.Errorf("Unrecognized drop event (version %d)", n.Version)
 	}
 
 	return nil
