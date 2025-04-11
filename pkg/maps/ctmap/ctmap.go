@@ -379,6 +379,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		}
 	}
 	globalDeleteLock[m.mapType].Unlock()
+
 	return stats
 }
 
@@ -461,8 +462,13 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Key, ctKey.ToHost().String()).
-					Error("Unable to delete CT entry")
+				log := log.WithField(logfields.Key, ctKey.ToHost().String())
+				if errors.Is(err, ebpf.ErrKeyNotExist) {
+					log.Debug("key is missing, likely due to lru eviction - skipping")
+					stats.skipped++
+				} else {
+					log.WithError(err).Error("Unable to delete CT entry")
+				}
 			} else {
 				stats.deleted++
 			}
