@@ -390,7 +390,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If any rules select the endpoint, then the endpoint switches to a
 	// default-deny mode (same as traffic being enabled), per-direction.
 	//
-	// Rules, however, can optionally be configure to not enable default deny mode.
+	// Rules, however, can optionally be configured to not enable default deny mode.
 	// If no rules enable default-deny, then all traffic is allowed except that explicitly
 	// denied by a Deny rule.
 	//
@@ -450,6 +450,21 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 				IngressCommonRule: api.IngressCommonRule{
 					FromEntities: []api.Entity{api.EntityAll},
 				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{Port: "0", Protocol: api.ProtoAny},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{},
+							},
+							DNS: []api.PortRuleDNS{
+								{MatchPattern: "*"},
+							},
+						},
+					},
+				},
 			},
 		}
 	} else {
@@ -457,6 +472,21 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 			{
 				EgressCommonRule: api.EgressCommonRule{
 					ToEntities: []api.Entity{api.EntityAll},
+				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{Port: "0", Protocol: api.ProtoAny},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{},
+							},
+							DNS: []api.PortRuleDNS{
+								{MatchPattern: "*"},
+							},
+						},
+					},
 				},
 			},
 		}

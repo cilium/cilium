@@ -41,7 +41,6 @@ func (p *Repository) mustAdd(r api.Rule) (uint64, map[uint16]struct{}, error) {
 }
 
 func TestComputePolicyEnforcementAndRules(t *testing.T) {
-
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -1938,4 +1937,83 @@ func TestReplaceByLabels(t *testing.T) {
 	assert.Len(t, repo.rules, 1)
 	assert.Len(t, sc.selectors, 1)
 
+}
+
+// TestDefaultAllowWildcardContent verifies that the synthesized wildcard rule created
+// when EnableDefaultDeny: false is used contains the expected L7 allow-all rules.
+func TestDefaultAllowWildcardContent(t *testing.T) {
+	td := newTestData(hivetest.Logger(t))
+	td.addIdentity(fooIdentity)
+	repo := td.repo
+	fooSelectLabel := labels.ParseSelectLabel("foo")
+
+	// Egress rule with EnableDefaultDeny: false and a specific DNS rule
+	egressDefaultAllowDNSRule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		Labels:           labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, "egress-default-allow-dns", labels.LabelSourceAny)},
+		Egress: []api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEndpoints: []api.EndpointSelector{api.NewESFromLabels(labels.ParseSelectLabel("bar"))},
+			},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "53", Protocol: api.ProtoUDP}},
+				Rules: &api.L7Rules{
+					DNS: []api.PortRuleDNS{{MatchPattern: "specific.example.com"}},
+				},
+			}},
+		}},
+	}
+	denyEgress := false
+	egressDefaultAllowDNSRule.EnableDefaultDeny.Egress = &denyEgress
+	require.NoError(t, egressDefaultAllowDNSRule.Sanitize())
+
+	// Add the rule
+	_, _, err := repo.mustAdd(egressDefaultAllowDNSRule)
+	require.NoError(t, err, "unable to add rule to policy repository")
+
+	// Compute policy
+	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+	require.False(t, ing, "ingress should not be enabled")
+	require.True(t, egr, "egress should be enabled")
+	require.Len(t, matchingRules, 2, "should have original rule + synthesized wildcard rule")
+
+	// Find the original rule by its policy label
+	var originalRule *rule
+	for _, r := range matchingRules {
+		if r.Labels.Contains(labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, "egress-default-allow-dns", labels.LabelSourceAny)}) {
+			originalRule = r
+			break
+		}
+	}
+	require.NotNil(t, originalRule, "could not find original rule")
+
+	// The other rule must be the synthesized wildcard rule
+	var synthesizedRule *rule
+	for _, r := range matchingRules {
+		if r != originalRule {
+			synthesizedRule = r
+			break
+		}
+	}
+	require.NotNil(t, synthesizedRule, "could not find synthesized wildcard rule")
+
+	// Verify the content of the synthesized egress wildcard rule
+	require.Len(t, synthesizedRule.Egress, 1, "synthesized rule should have 1 egress entry")
+	require.Len(t, synthesizedRule.Egress[0].ToPorts, 1, "synthesized egress rule should have 1 ToPorts entry")
+	egressPortRule := synthesizedRule.Egress[0].ToPorts[0]
+
+	// Check wildcard L3/L4
+	require.Len(t, egressPortRule.Ports, 1, "synthesized ToPorts should have 1 PortProtocol entry")
+	require.Equal(t, "0", egressPortRule.Ports[0].Port)
+	require.Equal(t, api.ProtoAny, egressPortRule.Ports[0].Protocol)
+
+	// Check L7 rules
+	require.NotNil(t, egressPortRule.Rules, "synthesized ToPorts should have L7 rules")
+	require.Len(t, egressPortRule.Rules.HTTP, 1, "synthesized L7 rules should have 1 HTTP entry")
+	require.Equal(t, api.PortRuleHTTP{}, egressPortRule.Rules.HTTP[0], "synthesized HTTP rule should be empty (allow-all)")
+	require.Len(t, egressPortRule.Rules.DNS, 1, "synthesized L7 rules should have 1 DNS entry")
+	require.Equal(t, api.PortRuleDNS{MatchPattern: "*"}, egressPortRule.Rules.DNS[0], "synthesized DNS rule should be wildcard match")
+	require.Empty(t, egressPortRule.Rules.Kafka, "synthesized L7 rules should have no Kafka entries")
+	require.Empty(t, egressPortRule.Rules.L7Proto, "synthesized L7 rules should have no L7Proto entry")
+	require.Empty(t, egressPortRule.Rules.L7, "synthesized L7 rules should have no L7 entries")
 }
