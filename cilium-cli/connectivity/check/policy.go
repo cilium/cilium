@@ -245,7 +245,13 @@ var policyApplyDeleteLock = lock.Mutex{}
 
 // isPolicy returns true if the object is a network policy, and thus
 // should bump the policy revision.
+//
+// This is true if the object is a known policy type (CNP / CCNP / KNP)
+// or if the object has the annotation cli.cilium.io/bump-policy
 func isPolicy(obj k8s.Object) bool {
+	if _, ok := obj.GetAnnotations()["cli.cilium.io/bump-policy"]; ok {
+		return true
+	}
 	gk := obj.GetObjectKind().GroupVersionKind().GroupKind()
 	return (gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CNPKindDefinition} ||
 		gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CCNPKindDefinition} ||
