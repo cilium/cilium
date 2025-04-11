@@ -11,7 +11,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
@@ -27,11 +26,9 @@ type ExecParameters struct {
 }
 
 func newExecutor(config *rest.Config, url *url.URL) (remotecommand.Executor, error) {
-	var errWebsocket, errSPDY error
-
 	// We cannot control if errors from these constructors are due to lack of server support.
 	// In the case of such errors, ignore them and later chose which executor to return.
-	execWebsocket, errWebsocket := remotecommand.NewWebSocketExecutor(config, "GET", url.String())
+	//execWebsocket, errWebsocket := remotecommand.NewWebSocketExecutor(config, "GET", url.String())
 	execSPDY, errSPDY := remotecommand.NewSPDYExecutor(config, "POST", url)
 
 	// NewFallBackExecutor returns a remotecommand.Executor which attempts
@@ -40,25 +37,8 @@ func newExecutor(config *rest.Config, url *url.URL) (remotecommand.Executor, err
 	// secondary executors passed to it. This means that both of them must
 	// not be nil if we want to avoid a crash. Therefore, if one of them
 	// encountered an error, return the other one.
-	if errSPDY != nil && errWebsocket == nil {
-		return execWebsocket, nil
-	}
-	if errWebsocket != nil && errSPDY == nil {
-		return execSPDY, nil
-	}
 
-	if errSPDY != nil && errWebsocket != nil {
-		return nil, fmt.Errorf("Error while creating k8s executor: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
-	}
-
-	execFallback, errFallback := remotecommand.NewFallbackExecutor(execWebsocket, execSPDY, func(err error) bool {
-		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	})
-	if errFallback != nil {
-		return nil, fmt.Errorf("Error while creating k8s executor: %w", errFallback)
-	}
-
-	return execFallback, nil
+	return execSPDY, errSPDY
 }
 
 func (c *Client) execInPodWithWriters(connCtx, killCmdCtx context.Context, p ExecParameters, stdout, stderr io.Writer) error {
