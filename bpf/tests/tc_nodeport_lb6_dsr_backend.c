@@ -58,8 +58,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
