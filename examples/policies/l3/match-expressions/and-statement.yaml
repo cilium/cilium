@@ -7,7 +7,7 @@ spec:
   ingress:
   - fromEndpoints:
     - matchExpressions:
-      - key: "k8s:io.kubernetes.pod.namespace"
+      - key: "k8s.io.kubernetes.pod.namespace"
         operator: "in"
         values:
         - "production"

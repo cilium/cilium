@@ -40,7 +40,7 @@ spec:
   # kube-api server access for kube-dns
   - fromEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: kube-dns
     toPorts:
     - ports:
@@ -84,7 +84,7 @@ spec:
   # DNS traffic to kube-dns
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: kube-dns
     toPorts:
     - ports:

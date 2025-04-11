@@ -11,7 +11,7 @@ spec:
   egress:
   - toEndpoints:
     - matchExpressions:
-      - key: "k8s:io.kubernetes.pod.namespace"
+      - key: "k8s.io.kubernetes.pod.namespace"
         operator: "Exists"
       - key: "k8s:io.cilium.k8s.policy.cluster"
         operator: "In"

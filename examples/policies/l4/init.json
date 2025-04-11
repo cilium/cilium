@@ -1,6 +1,6 @@
 [{
   "labels": [{"key": "name", "value": "init"}],
-  "endpointSelector": {"matchLabels":{"reserved:init":""}},
+  "endpointSelector": {"matchLabels":{"reserved.init":""}},
   "ingress": [{
     "fromEntities": ["host"]
   }],

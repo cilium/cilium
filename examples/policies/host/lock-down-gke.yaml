@@ -43,7 +43,7 @@ spec:
   # Aggregator of resource usages on GKE.
   - fromEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: metrics-server
     toPorts:
     - ports:
@@ -62,7 +62,7 @@ spec:
   # Requests from Heapster service to kube-proxy.
   - fromEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: heapster
     toPorts:
     - ports:
@@ -117,7 +117,7 @@ spec:
   # Traffic to GKE's L7 LB
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: glbc
     toPorts:
     - ports:
@@ -127,7 +127,7 @@ spec:
   # Konnectivity service
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: konnectivity-agent
     toPorts:
     - ports:
@@ -137,7 +137,7 @@ spec:
   # DNS traffic to kube-dns
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: kube-dns
     toPorts:
     - ports:
@@ -155,7 +155,7 @@ spec:
   # Aggregator of resource usages on GKE.
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: metrics-server
     toPorts:
     - ports:
@@ -165,7 +165,7 @@ spec:
   # K8s Heapster service.
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s-app: heapster
     toPorts:
     - ports:

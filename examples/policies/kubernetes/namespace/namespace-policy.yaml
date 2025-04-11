@@ -10,5 +10,5 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: ns2
+        k8s.io.kubernetes.pod.namespace: ns2
         name: luke

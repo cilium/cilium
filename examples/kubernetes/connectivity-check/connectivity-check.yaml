@@ -957,10 +957,10 @@ spec:
         protocol: ANY
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
@@ -968,7 +968,7 @@ spec:
         protocol: UDP
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s.io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -1000,10 +1000,10 @@ spec:
         protocol: ANY
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
@@ -1011,7 +1011,7 @@ spec:
         protocol: UDP
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s.io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -1041,10 +1041,10 @@ spec:
         - matchPattern: '*'
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: kube-dns
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s.io.kubernetes.pod.namespace: kube-system
         k8s:k8s-app: node-local-dns
   - toPorts:
     - ports:
@@ -1055,7 +1055,7 @@ spec:
         - matchPattern: '*'
     toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s.io.kubernetes.pod.namespace: openshift-dns
         k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
