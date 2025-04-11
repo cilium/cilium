@@ -364,6 +364,9 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 	if err := ct.validateDeployment(ctx); err != nil {
 		return err
 	}
+	if err := ct.patchDeployment(ctx); err != nil {
+		return err
+	}
 	if ct.params.Hubble {
 		if err := ct.enableHubbleClient(ctx); err != nil {
 			return fmt.Errorf("unable to create hubble client: %w", err)
