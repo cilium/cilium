@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -140,7 +141,7 @@ var (
 		k8sSynced.CRDSyncCell,
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
-		shellCell,
+		shell.Cell,
 
 		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
 		// packages.

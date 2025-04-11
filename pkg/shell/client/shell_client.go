@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package shell
 
 import (
 	"bufio"
@@ -12,20 +12,20 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/cilium/hive/script"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
 
-var shellCmd = &cobra.Command{
+var ShellCmd = &cobra.Command{
 	Use:   "shell [command] [args]...",
 	Short: "Connect to the Cilium shell",
-	Run:   shell,
+	Run:   executeShell,
 }
 
 var stdReadWriter = struct {
@@ -34,10 +34,6 @@ var stdReadWriter = struct {
 }{
 	Reader: os.Stdin,
 	Writer: os.Stdout,
-}
-
-func init() {
-	RootCmd.AddCommand(shellCmd)
 }
 
 func dialShell(w io.Writer) (net.Conn, error) {
@@ -51,7 +47,7 @@ func dialShell(w io.Writer) (net.Conn, error) {
 		if err == nil {
 			break
 		}
-		// Dialing failed. Agent might not be fully up yet. Wait a bit and retry.
+		// Dialing failed. Server might not be fully up yet. Wait a bit and retry.
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("dialing timed out: %w", err)
@@ -62,7 +58,7 @@ func dialShell(w io.Writer) (net.Conn, error) {
 	return conn, nil
 }
 
-func shellExchange(w io.Writer, format string, args ...any) error {
+func ShellExchange(w io.Writer, format string, args ...any) error {
 	conn, err := dialShell(os.Stderr)
 	if err != nil {
 		return err
@@ -101,9 +97,9 @@ func shellExchange(w io.Writer, format string, args ...any) error {
 	}
 }
 
-func shell(_ *cobra.Command, args []string) {
+func executeShell(_ *cobra.Command, args []string) {
 	if len(args) > 0 {
-		err := shellExchange(os.Stdout, "%s", strings.Join(args, " "))
+		err := ShellExchange(os.Stdout, "%s", strings.Join(args, " "))
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "error: %s\n", err)
 		}
@@ -141,9 +137,9 @@ func interactiveShell() {
 	printShellGreeting(console)
 
 	for {
-		// Try to dial the shell.sock. Since it takes a moment for the agent to come up and this
+		// Try to dial the shell.sock. Since it takes a moment for the server to come up and this
 		// is meant for interactive use we'll try to be helpful and retry the dialing until
-		// agent comes up.
+		// server comes up.
 		conn, err := dialShell(console)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -163,7 +159,7 @@ func interactiveShell() {
 
 		bio := bufio.NewReader(conn)
 
-		// Read commands from the console and send them to the agent for execution.
+		// Read commands from the console and send them to the server for execution.
 		// Stop on errors reading from the connection and redial. This allows interrupting
 		// long running commands with ctrl-c.
 		closed := false
@@ -174,7 +170,7 @@ func interactiveShell() {
 				return
 			}
 
-			// Send the command to the agent.
+			// Send the command to the server.
 			if _, err = fmt.Fprintln(conn, line); err != nil {
 				close(stop)
 				return

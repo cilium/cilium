@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	shell "github.com/cilium/cilium/pkg/shell/client"
 )
 
 var (
@@ -61,6 +62,7 @@ func init() {
 	RootCmd.AddCommand(cmdref.NewCmd(RootCmd))
 	RootCmd.AddCommand(newCmdCompletion(os.Stdout))
 	RootCmd.AddCommand(troubleshoot.Cmd)
+	RootCmd.AddCommand(shell.ShellCmd)
 	RootCmd.SetOut(os.Stdout)
 	RootCmd.SetErr(os.Stderr)
 }

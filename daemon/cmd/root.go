@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
+	shell "github.com/cilium/cilium/pkg/shell/client"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -51,6 +52,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	rootCmd.AddCommand(
 		cmdref.NewCmd(rootCmd),
+		shell.ShellCmd,
 		h.Command(),
 	)
 
@@ -68,6 +70,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	return rootCmd
 }
+
 func Execute(cmd *cobra.Command) {
 	if err := cmd.Execute(); err != nil {
 		fmt.Println(err)
