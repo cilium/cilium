@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/lock"
 )
 
@@ -80,7 +81,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
 		err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
-			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, io.Discard)
+			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, k8s.StderrAsError)
 		if err != nil {
 			sniffer.exited <- err
 		}
