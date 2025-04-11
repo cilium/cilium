@@ -255,7 +255,23 @@ which are in the initial network namespace (hostns). BBR also needs eBPF Host-Ro
 in order to retain the network packet's socket association all the way until the
 packet hits the FQ queueing discipline on the physical device in the host namespace.
 (Without eBPF Host-Routing the packet's socket association would otherwise be orphaned
-inside the host stacks forwarding/routing layer.)
+inside the host stacks forwarding/routing layer.). By default, Cilium will not start
+up if you try to use BBR with legacy routing, but users who must use legacy routing
+can override this and enable BBR for pods in the host network namespace (``hostNetwork: true``)
+by adding the ``bandwidthManager.bbrHostNamespaceOnly`` option:
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
+     --set bandwidthManager.enabled=true \\
+     --set bandwidthManager.bbr=true
+     --set bandwidthManager.bbrHostNamespaceOnly=true
+   kubectl -n kube-system rollout restart ds/cilium
+
+With ``bandwidthManager.bbrHostNamespaceOnly``, only pods in the host network namespace
+will use BBR; others will use CUBIC.
 
 In order to verify whether the bandwidth manager with BBR has been enabled in Cilium,
 the ``cilium status`` CLI command provides visibility again through the ``BandwidthManager``

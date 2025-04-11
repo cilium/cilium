@@ -8,6 +8,7 @@ import "github.com/spf13/pflag"
 const (
 	EnableBandwidthManagerFlag = "enable-bandwidth-manager"
 	EnableBBRFlag              = "enable-bbr"
+	EnableBBRHostnsOnlyFlag    = "enable-bbr-hostns-only"
 )
 
 type BandwidthConfig struct {
@@ -16,16 +17,21 @@ type BandwidthConfig struct {
 
 	// EnableBBR enables BBR TCP congestion control for the node including Pods
 	EnableBBR bool
+
+	// EnableBBRHostnsOnly enables BBR TCP congestion control for the node excluding Pods
+	EnableBBRHostnsOnly bool
 }
 
 func (def BandwidthConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableBandwidthManagerFlag, def.EnableBandwidthManager, "Enable BPF bandwidth manager")
 	flags.Bool(EnableBBRFlag, def.EnableBBR, "Enable BBR for the bandwidth manager")
+	flags.Bool(EnableBBRHostnsOnlyFlag, def.EnableBBRHostnsOnly, "Enable BBR only in the host network namespace.")
 }
 
 var DefaultBandwidthConfig = BandwidthConfig{
 	EnableBandwidthManager: false,
 	EnableBBR:              false,
+	EnableBBRHostnsOnly:    false,
 }
 
 type BandwidthManager interface {
