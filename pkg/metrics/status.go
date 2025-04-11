@@ -53,7 +53,7 @@ func newStatusCollectorWithClients(d daemonHealthGetter, c connectivityStatusGet
 		unreachableNodesDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "unreachable_nodes"),
 			"Number of nodes that cannot be reached",
-			nil, nil,
+			[]string{"name"}, nil,
 		),
 		unreachableHealthEndpointsDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "", "unreachable_health_endpoints"),
@@ -126,16 +126,18 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// Nodes and endpoints healthStatusResponse
-	var (
-		unreachableNodes     int
-		unreachableEndpoints int
-	)
+	// Endpoints healthStatusResponse
+	var unreachableEndpoints int
 
 	for _, nodeStatus := range healthStatusResponse.Payload.Nodes {
 		for _, addr := range healthClientPkg.GetAllHostAddresses(nodeStatus) {
 			if healthClientPkg.GetPathConnectivityStatusType(addr) == healthClientPkg.ConnStatusUnreachable {
-				unreachableNodes++
+				ch <- prometheus.MustNewConstMetric(
+					s.unreachableNodesDesc,
+					prometheus.GaugeValue,
+					1,
+					nodeStatus.Name,
+				)
 				break
 			}
 		}
@@ -147,12 +149,6 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 	}
-
-	ch <- prometheus.MustNewConstMetric(
-		s.unreachableNodesDesc,
-		prometheus.GaugeValue,
-		float64(unreachableNodes),
-	)
 
 	ch <- prometheus.MustNewConstMetric(
 		s.unreachableHealthEndpointsDesc,
