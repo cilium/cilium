@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -64,16 +62,9 @@ func newServer(params serverParams) *FQDNDataServer {
 
 	params.IPCache.AddListener(srv)
 
-	params.JobGroup.Add(job.OneShot("sdp-grpc-server", func(ctx context.Context, health cell.Health) error {
-		health.OK(fmt.Sprintf("Serving at %d", params.Config.StandaloneDNSProxyServerPort))
-		go srv.ListenAndServe()
-		<-ctx.Done()
-		srv.Stop()
-		return nil
-	},
+	params.JobGroup.Add(job.OneShot("sdp-grpc-server", srv.ListenAndServe,
 		job.WithRetry(3, &job.ExponentialBackoff{Min: 1 * time.Second, Max: 5 * time.Second}),
-		job.WithShutdown()),
-	)
+		job.WithShutdown()))
 
 	return srv
 }

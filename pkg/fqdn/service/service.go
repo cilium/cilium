@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/hive/cell"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
@@ -48,8 +49,8 @@ type FQDNDataServer struct {
 	// identityToIPMutex is a mutex to protect the current state of the identity to Ip mapping
 	identityToIPMutex lock.Mutex
 
-	// currentIdentityToIp is a map of the identity to list of IPs
-	currentIdentityToIp map[identity.NumericIdentity][]string
+	// currentIdentityToIP is a map of the identity to list of IPs
+	currentIdentityToIP map[identity.NumericIdentity][]net.IPNet
 
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
@@ -94,14 +95,19 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service
 func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg messagehandler.DNSMessageHandler, port int, logger *slog.Logger) *FQDNDataServer {
-	return &FQDNDataServer{
+	fqdnDataServer := &FQDNDataServer{
 		port:                port,
 		endpointManager:     endpointManager,
 		updateOnDNSMsg:      updateOnDNSMsg,
-		currentIdentityToIp: make(map[identity.NumericIdentity][]string),
+		currentIdentityToIP: make(map[identity.NumericIdentity][]net.IPNet),
 		log:                 logger,
 		prefixLengths:       counter.DefaultPrefixLengthCounter(),
 	}
+
+	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
+	fqdnDataServer.grpcServer = grpcServer
+	pb.RegisterFQDNDataServer(grpcServer, fqdnDataServer)
+	return fqdnDataServer
 }
 
 // OnIPIdentityCacheChange is a method to receive the IP identity cache change events
@@ -109,6 +115,9 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	s.identityToIPMutex.Lock()
 	defer s.identityToIPMutex.Unlock()
 
+	if cidr.ClusterID() != 0 {
+		return
+	}
 	ipNet := cidr.AsIPNet()
 	prefix := cidr.AsPrefix()
 	if cidr.ClusterID() == 0 {
@@ -116,13 +125,13 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		case ipcache.Upsert:
 			if oldID != nil {
 				// Remove from the old identity
-				s.deleteFromIdentityToIPLocked(oldID, ipNet.String(), prefix)
+				s.deleteFromIdentityToIPLocked(oldID, ipNet, prefix)
 			}
-			s.currentIdentityToIp[newID.ID] = append(s.currentIdentityToIp[newID.ID], ipNet.String())
+			s.currentIdentityToIP[newID.ID] = append(s.currentIdentityToIP[newID.ID], ipNet)
 			s.prefixLengths.Add([]netip.Prefix{prefix})
 		case ipcache.Delete:
 			if oldID != nil {
-				s.deleteFromIdentityToIPLocked(oldID, ipNet.String(), prefix)
+				s.deleteFromIdentityToIPLocked(oldID, ipNet, prefix)
 			}
 		}
 	}
@@ -133,23 +142,23 @@ func (s *FQDNDataServer) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 // It is also called when the IP is upserted with a new identity
 // It removes the prefix from the prefixLengths map
 // It is called with the identityToIpMutex lock held
-func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity, cidr string, prefix netip.Prefix) error {
+func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity, cidr net.IPNet, prefix netip.Prefix) error {
 	if identity == nil {
 		return fmt.Errorf("identity is nil")
 	}
 
-	if ips, ok := s.currentIdentityToIp[identity.ID]; ok {
-		newIps := slices.DeleteFunc(ips, func(existing string) bool {
-			if existing == cidr {
+	if ips, ok := s.currentIdentityToIP[identity.ID]; ok {
+		newIPs := slices.DeleteFunc(ips, func(existing net.IPNet) bool {
+			if existing.String() == cidr.String() {
 				s.prefixLengths.Delete([]netip.Prefix{prefix})
 				return true
 			}
 			return false
 		})
-		if len(newIps) == 0 {
-			delete(s.currentIdentityToIp, identity.ID)
+		if len(newIPs) == 0 {
+			delete(s.currentIdentityToIP, identity.ID)
 		} else {
-			s.currentIdentityToIp[identity.ID] = newIps
+			s.currentIdentityToIP[identity.ID] = newIPs
 		}
 	}
 	return nil
@@ -180,25 +189,35 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 }
 
 // ListenAndServe starts the Standalone DNS Proxy gRPC server on the given port
-func (s *FQDNDataServer) ListenAndServe() error {
-	address := fmt.Sprintf("localhost:%d", s.port)
-	s.log.Info("Starting Standalone DNS Proxy server on", logfields.Address, address)
-	lis, err := net.Listen("tcp", address)
-	if err != nil {
-		s.log.Error("Failed to listen", logfields.Error, err)
+func (s *FQDNDataServer) ListenAndServe(ctx context.Context, health cell.Health) error {
+	listenErrs := make(chan error)
+	go func() {
+		defer close(listenErrs)
+
+		address := fmt.Sprintf("localhost:%d", s.port)
+		s.log.Info("Starting Standalone DNS Proxy server on", logfields.Address, address)
+		lis, err := net.Listen("tcp", address)
+		if err != nil {
+			s.log.Error("Failed to listen", logfields.Error, err)
+			listenErrs <- err
+		}
+
+		if err := s.grpcServer.Serve(lis); err != nil {
+			s.log.Error("Failed to serve the standalone DNS Proxy gRPC server", logfields.Error, err)
+			listenErrs <- err
+		}
+	}()
+
+	health.OK(fmt.Sprintf("Serving at %d", s.port))
+
+	select {
+	case err := <-listenErrs:
 		return err
+	case <-ctx.Done():
+		s.Stop()
+		<-listenErrs
+		return nil
 	}
-	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
-	s.grpcServer = grpcServer
-
-	pb.RegisterFQDNDataServer(grpcServer, s)
-
-	if err := s.grpcServer.Serve(lis); err != nil {
-		s.log.Error("Failed to serve", logfields.Error, err)
-		return err
-	}
-
-	return nil
 }
 
 func (s *FQDNDataServer) Stop() {
