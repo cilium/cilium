@@ -895,7 +895,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
 				  &tuple, ipfrag_has_l4_header(fraginfo),
-				  CT_EGRESS);
+				  CT_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
