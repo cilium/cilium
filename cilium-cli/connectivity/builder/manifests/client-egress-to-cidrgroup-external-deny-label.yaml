@@ -1,6 +1,7 @@
-# This policy denies packets towards {{.ExternalOtherIP}}, but not {{.ExternalIP}}
+# This policy denies packets towards {{.ExternalOtherIPv4}} and {{.ExternalOtherIPv6}}, but 
+# not {{.ExternalIPv4}} and {{.ExternalIPv6}}
 # Please note that if there is no other allowed rule, the policy
-# will be automatically denied {{.ExternalIP}} as well.
+# will be automatically denied {{.ExternalIPv4}} and {{.ExternalIPv6}} as well.
 
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumCIDRGroup
@@ -10,7 +11,8 @@ metadata:
     destination: external
 spec:
   externalCIDRs:
-    - "{{.ExternalCIDR}}"
+    - "{{.ExternalCIDRv4}}"
+    - "{{.ExternalCIDRv6}}"
 
 ---
 
@@ -28,4 +30,5 @@ spec:
         matchLabels:
           destination: external
       except:
-        - "{{.ExternalIP}}/32"
+        - "{{.ExternalIPv4}}/32"
+        - "{{.ExternalIPv6}}/128"

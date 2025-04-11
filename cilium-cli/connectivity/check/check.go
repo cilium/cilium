@@ -100,10 +100,13 @@ type Parameters struct {
 	ExternalTargetIPv6Capable bool
 	ExternalTarget            string
 	ExternalOtherTarget       string
-	ExternalCIDR              string
-	ExternalIP                string
+	ExternalCIDRv4            string
+	ExternalCIDRv6            string
+	ExternalIPv4              string
+	ExternalIPv6              string
 	ExternalDeploymentPort    int
-	ExternalOtherIP           string
+	ExternalOtherIPv4         string
+	ExternalOtherIPv6         string
 	ServiceType               string
 	EchoServerHostPort        int
 	PodCIDRs                  []podCIDRs

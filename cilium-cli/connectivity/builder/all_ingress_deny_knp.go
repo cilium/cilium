@@ -30,9 +30,16 @@ func (t allIngressDenyKnp) build(ct *check.ConnectivityTest, _ map[string]string
 			tests.PodToCIDR(tests.WithRetryAll()),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
-				a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
-				return check.ResultOK, check.ResultNone
+			allowed := []string{
+				ct.Params().ExternalIPv4,
+				ct.Params().ExternalIPv6,
+				ct.Params().ExternalOtherIPv4,
+				ct.Params().ExternalOtherIPv6,
+			}
+			for _, addr := range allowed {
+				if a.Destination().Address(features.GetIPFamily(addr)) == addr {
+					return check.ResultOK, check.ResultNone
+				}
 			}
 			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 		})

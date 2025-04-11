@@ -17,10 +17,11 @@ func (t toCidrExternal) build(ct *check.ConnectivityTest, templates map[string]s
 	newTest("to-cidr-external", ct).
 		WithCiliumPolicy(templates["clientEgressToCIDRExternalPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIP)),
+			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIPv4)),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(features.IPFamilyV4) == ct.Params().ExternalOtherIP {
+			if a.Destination().Address(features.IPFamilyV4) == ct.Params().ExternalOtherIPv4 ||
+				a.Destination().Address(features.IPFamilyV6) == ct.Params().ExternalOtherIPv6 {
 				// Expect packets for ExternalOtherIP to be dropped.
 				return check.ResultDropCurlTimeout, check.ResultNone
 			}
