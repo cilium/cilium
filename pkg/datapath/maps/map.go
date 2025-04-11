@@ -113,7 +113,7 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // been disabled. The maps may still be in use in which case they will continue
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
-	maps := []string{}
+	maps := []string{"cilium_proxy4", "cilium_proxy6"}
 
 	if !option.Config.EnableIPv6 {
 		maps = append(maps, []string{
@@ -127,7 +127,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends_v2",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
-			"cilium_proxy6",
 			recorder.MapNameWcard6,
 			lbmap.MaglevOuter6MapName,
 			lbmap.Affinity6MapName,
@@ -151,7 +150,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends_v2",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
-			"cilium_proxy4",
 			recorder.MapNameWcard4,
 			lbmap.MaglevOuter4MapName,
 			lbmap.Affinity4MapName,
