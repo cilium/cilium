@@ -4,7 +4,6 @@
 package gateway_api
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -336,7 +335,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 	}
 
 	t.Run("non-existent gateway", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Namespace: "default",
 				Name:      "non-existent-gateway",
@@ -352,7 +351,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			Namespace: "default",
 			Name:      "gateway-with-non-existent-gateway-class",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -365,18 +364,18 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			Namespace: "default",
 			Name:      "valid-gateway",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 
 		// First reconcile should wait for LB status before writing addresses into Ingress status
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
 		gw := &gatewayv1.Gateway{}
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 
 		// Check that the gateway status has been updated
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 
 		require.Len(t, gw.Status.Conditions, 2)
@@ -409,20 +408,20 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			Namespace: "long-name-test",
 			Name:      "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 
 		// First reconcile should wait for LB status before writing addresses into Ingress status
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
 		gw := &gatewayv1.Gateway{}
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 		require.Empty(t, gw.Status.Addresses)
 
 		// Simulate LB service update
 		lb := &corev1.Service{}
-		err = c.Get(context.Background(), client.ObjectKey{Namespace: "long-name-test", Name: "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6"}, lb)
+		err = c.Get(t.Context(), client.ObjectKey{Namespace: "long-name-test", Name: "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6"}, lb)
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
 		require.Equal(t, "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht", lb.Labels["io.cilium.gateway/owning-gateway"])
@@ -440,16 +439,16 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 				},
 			},
 		}
-		err = c.Status().Update(context.Background(), lb)
+		err = c.Status().Update(t.Context(), lb)
 		require.NoError(t, err)
 
 		// Perform second reconciliation
-		result, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		result, err = r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
 		// Check that the gateway status has been updated
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 
 		require.Len(t, gw.Status.Conditions, 2)
@@ -482,20 +481,20 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			Namespace: "default",
 			Name:      "valid-tlsroute-gateway",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 
 		// First reconcile should wait for LB status before writing addresses into Ingress status
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
 		gw := &gatewayv1.Gateway{}
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 		require.Empty(t, gw.Status.Addresses)
 
 		// Simulate LB service update
 		lb := &corev1.Service{}
-		err = c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "cilium-gateway-valid-tlsroute-gateway"}, lb)
+		err = c.Get(t.Context(), client.ObjectKey{Namespace: "default", Name: "cilium-gateway-valid-tlsroute-gateway"}, lb)
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
 		require.Equal(t, "valid-tlsroute-gateway", lb.Labels["io.cilium.gateway/owning-gateway"])
@@ -512,16 +511,16 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 				},
 			},
 		}
-		err = c.Status().Update(context.Background(), lb)
+		err = c.Status().Update(t.Context(), lb)
 		require.NoError(t, err)
 
 		// Perform second reconciliation
-		result, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		result, err = r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
 		// Check that the gateway status has been updated
-		err = c.Get(context.Background(), key, gw)
+		err = c.Get(t.Context(), key, gw)
 		require.NoError(t, err)
 
 		require.Len(t, gw.Status.Conditions, 2)

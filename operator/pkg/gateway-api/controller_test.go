@@ -4,7 +4,6 @@
 package gateway_api
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -254,7 +253,7 @@ var namespaceFixtures = []client.Object{
 func Test_hasMatchingController(t *testing.T) {
 	logger := hivetest.Logger(t)
 	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
-	fn := hasMatchingController(context.Background(), c, "io.cilium/gateway-controller", logger)
+	fn := hasMatchingController(t.Context(), c, "io.cilium/gateway-controller", logger)
 
 	t.Run("invalid object", func(t *testing.T) {
 		res := fn(&corev1.Pod{})
@@ -285,7 +284,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	t.Run("secret is used in gateway", func(t *testing.T) {
-		gwList := getGatewaysForSecret(context.Background(), c, &corev1.Secret{
+		gwList := getGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tls-secret",
 				Namespace: "default",
@@ -297,7 +296,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 	})
 
 	t.Run("secret is not used in gateway", func(t *testing.T) {
-		gwList := getGatewaysForSecret(context.Background(), c, &corev1.Secret{
+		gwList := getGatewaysForSecret(t.Context(), c, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tls-secret-not-used",
 				Namespace: "default",
@@ -348,7 +347,7 @@ func Test_getGatewaysForNamespace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gwList := getGatewaysForNamespace(context.Background(), c, &corev1.Namespace{
+			gwList := getGatewaysForNamespace(t.Context(), c, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: tt.args.namespace,
 				},

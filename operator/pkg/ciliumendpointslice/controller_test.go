@@ -4,7 +4,6 @@
 package ciliumendpointslice
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -73,16 +72,16 @@ func TestRegisterController(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
-	cesCreated, err := createCEPandVerifyCESCreated(fakeClient, ciliumEndpoint, ciliumEndpointSlice)
+	cesCreated, err := createCEPandVerifyCESCreated(t, fakeClient, ciliumEndpoint, ciliumEndpointSlice)
 	if err != nil {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
 	// Verify CES is created when CES features is enabled
 	assert.True(t, cesCreated)
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -132,30 +131,30 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	if err := h.Start(tlog, context.Background()); err != nil {
+	if err := h.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
-	cesCreated, err := createCEPandVerifyCESCreated(fakeClient, ciliumEndpoint, ciliumEndpointSlice)
+	cesCreated, err := createCEPandVerifyCESCreated(t, fakeClient, ciliumEndpoint, ciliumEndpointSlice)
 	if err != nil {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
 	// Verify CES is NOT created when CES features is disabled
 	assert.False(t, cesCreated)
-	if err = h.Stop(tlog, context.Background()); err != nil {
+	if err = h.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
 
-func createCEPandVerifyCESCreated(fakeClient k8sClient.Clientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
+func createCEPandVerifyCESCreated(t *testing.T, fakeClient k8sClient.Clientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
 	cep := tu.CreateStoreEndpoint("cep1", "ns", 1)
-	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cep, meta_v1.CreateOptions{})
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
+	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cep, meta_v1.CreateOptions{})
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	if err := testutils.WaitUntil(func() bool {
 		return len(cepStore.List()) > 0
 	}, time.Second); err != nil {
 		return false, fmt.Errorf("failed to get CEP: %w", err)
 	}
-	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 
 	err := testutils.WaitUntil(func() bool {
 		return len(cesStore.List()) > 0

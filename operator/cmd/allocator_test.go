@@ -41,7 +41,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Create a new CIDR allocator

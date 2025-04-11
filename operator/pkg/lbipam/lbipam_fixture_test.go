@@ -173,7 +173,7 @@ func (nf *newFixture) GetPool(name string) *cilium_api_v2alpha1.CiliumLoadBalanc
 func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) {
 	key := resource.Key{Name: pool.Name}
 	nf.poolClient.resources[key] = pool
-	nf.lbipam.handlePoolEvent(context.Background(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
+	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
 		Kind:   resource.Upsert,
 		Key:    key,
 		Object: pool,
@@ -188,7 +188,7 @@ func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2alpha1.CiliumL
 func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) {
 	key := resource.Key{Name: pool.Name}
 	delete(nf.poolClient.resources, key)
-	nf.lbipam.handlePoolEvent(context.Background(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
+	nf.lbipam.handlePoolEvent(t.Context(), resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]{
 		Kind:   resource.Delete,
 		Key:    key,
 		Object: pool,
@@ -203,7 +203,7 @@ func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2alpha1.CiliumL
 func (nf *newFixture) UpsertSvc(t *testing.T, svc *slim_core_v1.Service) {
 	key := resource.Key{Name: svc.Name, Namespace: svc.Namespace}
 	nf.svcClient.resources[key] = svc
-	nf.lbipam.handleServiceEvent(context.Background(), resource.Event[*slim_core_v1.Service]{
+	nf.lbipam.handleServiceEvent(t.Context(), resource.Event[*slim_core_v1.Service]{
 		Kind:   resource.Upsert,
 		Key:    key,
 		Object: svc,
@@ -219,7 +219,7 @@ func (nf *newFixture) UpsertSvc(t *testing.T, svc *slim_core_v1.Service) {
 func (nf *newFixture) DeleteSvc(t *testing.T, svc *slim_core_v1.Service) {
 	key := resource.Key{Name: svc.Name, Namespace: svc.Namespace}
 	delete(nf.svcClient.resources, key)
-	nf.lbipam.handleServiceEvent(context.Background(), resource.Event[*slim_core_v1.Service]{
+	nf.lbipam.handleServiceEvent(t.Context(), resource.Event[*slim_core_v1.Service]{
 		Kind:   resource.Delete,
 		Key:    key,
 		Object: svc,

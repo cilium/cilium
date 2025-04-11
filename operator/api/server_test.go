@@ -62,7 +62,7 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -84,7 +84,7 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 		t.Fatalf("failed to query endpoint: %s", err)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -127,7 +127,7 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -149,13 +149,13 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 		t.Fatalf("failed to query endpoint: %s", err)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
 
 func testEndpoint(t *testing.T, port int, path string, statusCode int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(

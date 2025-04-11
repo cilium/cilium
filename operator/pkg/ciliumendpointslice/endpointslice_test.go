@@ -52,9 +52,9 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
-	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	hive.Start(tlog, t.Context())
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &Controller{
@@ -81,7 +81,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	ces2 := tu.CreateStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 	cesStore.CacheStore().Add(ces2)
 
-	cesController.syncCESsInLocalCache(context.Background())
+	cesController.syncCESsInLocalCache(t.Context())
 
 	mapping := m.mapping
 
@@ -95,7 +95,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 
 	cesController.fastQueue.ShutDown()
 	cesController.standardQueue.ShutDown()
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }
 
 func TestDifferentSpeedQueues(t *testing.T) {
@@ -124,9 +124,9 @@ func TestDifferentSpeedQueues(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
+	hive.Start(tlog, t.Context())
 
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -144,7 +144,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 		syncDelay:           0,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
-	cesController.context, cesController.contextCancel = context.WithCancel(context.Background())
+	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.priorityNamespaces["FastNamespace"] = struct{}{}
 	cesController.initializeQueue()
 	var ns string = "NotSoImportant"
@@ -197,7 +197,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 
 	cesController.fastQueue.ShutDown()
 	cesController.standardQueue.ShutDown()
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }
 
 func TestCESManagement(t *testing.T) {
@@ -226,9 +226,9 @@ func TestCESManagement(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
+	hive.Start(tlog, t.Context())
 
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -246,7 +246,7 @@ func TestCESManagement(t *testing.T) {
 		syncDelay:           0,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
-	cesController.context, cesController.contextCancel = context.WithCancel(context.Background())
+	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.initializeQueue()
 	var ns string = "ns"
 
@@ -274,5 +274,5 @@ func TestCESManagement(t *testing.T) {
 
 	cesController.fastQueue.ShutDown()
 	cesController.standardQueue.ShutDown()
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }

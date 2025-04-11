@@ -289,7 +289,7 @@ func Test_NodeLabels(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	defer cancel()
 
 	for _, tt := range tests {
@@ -608,7 +608,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	defer cancel()
 
 	f, watchersReady := newFixture(t, ctx, require.New(t), true)
@@ -831,7 +831,7 @@ func TestClusterConfigConditions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 			defer cancel()
 
 			f, watchersReady := newFixture(t, ctx, require.New(t), true)
@@ -1069,7 +1069,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 			defer cancel()
 
 			f, watchersReady := newFixture(t, ctx, require.New(t), true)
@@ -1177,7 +1177,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 func TestDisableClusterConfigStatusReport(t *testing.T) {
 	req := require.New(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	defer cancel()
 
 	f, watchersReady := newFixture(t, ctx, require.New(t), false)
