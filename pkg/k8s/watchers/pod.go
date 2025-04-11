@@ -403,7 +403,9 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 			}
 
 			// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
-			updateCiliumEndpointLabels(k.logger, k.clientset, podEP, newK8sPod.Labels)
+			if !option.Config.DisableCiliumEndpointCRD {
+				updateCiliumEndpointLabels(k.logger, k.clientset, podEP, newK8sPod.Labels)
+			}
 		}
 
 		if annotationsChanged {
