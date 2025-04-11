@@ -985,6 +985,7 @@ data:
   hubble-metrics-server-tls-client-ca-files: /var/lib/cilium/tls/hubble-metrics/client-ca.crt
   {{- end }}
   {{- end }}
+  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 {{- if .Values.hubble.metrics.enabled }}
   # A space separated list of metrics to enable. See [0] for available metrics.
@@ -993,10 +994,10 @@ data:
   hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
     {{.}}
   {{- end}}
+{{- end }}
+
 {{- if .Values.hubble.metrics.dynamic.enabled }}
   hubble-dynamic-metrics-config-path: /dynamic-metrics-config/dynamic-metrics.yaml
-{{- end }}
-  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 
 {{- if hasKey .Values.hubble.networkPolicyCorrelation "enabled" }}
