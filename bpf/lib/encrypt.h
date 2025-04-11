@@ -206,6 +206,66 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #endif /* ENABLE_ROUTING */
 }
 
+static __always_inline int
+encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
+				  void *data, void *data_end, __u32 *l4_off, __u8 *l4_proto,
+				  struct remote_endpoint_info __maybe_unused **dst)
+{
+	struct ipv6hdr __maybe_unused *inner_ip6;
+	struct iphdr __maybe_unused *inner_ip4;
+	__u16 inner_l3_proto;
+	__u32 __maybe_unused inner_l3_off;
+	__u32 __maybe_unused ipv6_off;
+	int ret;
+
+	inner_l3_proto = vxlan_get_inner_proto(data, data_end, *l4_off);
+	switch (inner_l3_proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = vxlan_get_inner_ipv6(data, data_end, *l4_off, &inner_ip6);
+		if (!ret)
+			return DROP_INVALID;
+		if (!inner_ip6)
+			return DROP_INVALID;
+
+		*dst = lookup_ip6_remote_endpoint((union v6addr *)&inner_ip6->daddr, 0);
+
+		*l4_proto = inner_ip6->nexthdr;
+		/* calculate offset of inner ip packet */
+		inner_l3_off = *l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+					   sizeof(struct ethhdr);
+
+		/* with the offset of the inner ip packet, calculate length of inner ipv6 header */
+		ipv6_off = ipv6_hdrlen_offset(ctx, l4_proto, inner_l3_off);
+		if (ipv6_off < 0)
+			return ipv6_off;
+
+		*l4_off = inner_l3_off + ipv6_off;
+		break;
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = vxlan_get_inner_ipv4(data, data_end, *l4_off, &inner_ip4);
+		if (!ret)
+			return DROP_INVALID;
+		if (!inner_ip4)
+			return DROP_INVALID;
+
+		*dst = lookup_ip4_remote_endpoint(inner_ip4->daddr, 0);
+
+		*l4_proto = inner_ip4->protocol;
+
+		*l4_off = *l4_off + sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+					 sizeof(struct ethhdr) + ipv4_hdrlen(inner_ip4);
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		return CTX_ACT_OK;
+	}
+
+	return 1;
+}
+
 /* checks whether a IPsec redirect should be performed for the security id
  * we do not IPsec encrypt:
  * 1. Host-to-Host or Pod-to-Host traffic
