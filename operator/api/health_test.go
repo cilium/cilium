@@ -4,7 +4,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -60,7 +59,7 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -68,7 +67,7 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 		t.Fatalf("expected http status code %d, got %d", http.StatusNotImplemented, rr.Result().StatusCode)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
@@ -110,7 +109,7 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -128,7 +127,7 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 		t.Fatalf("expected response body %q, got: %q", "ok", string(body))
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }

@@ -4,7 +4,6 @@
 package lbipam
 
 import (
-	"context"
 	"net"
 	"net/netip"
 	"strings"
@@ -479,7 +478,7 @@ func TestSharingKey(t *testing.T) {
 
 	svcIP2 := svcC.Status.LoadBalancer.Ingress[0].IP
 
-	err := fixture.svcClient.Services("default").Delete(context.Background(), "service-a", meta_v1.DeleteOptions{})
+	err := fixture.svcClient.Services("default").Delete(t.Context(), "service-a", meta_v1.DeleteOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

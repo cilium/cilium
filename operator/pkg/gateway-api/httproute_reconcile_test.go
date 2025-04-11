@@ -4,7 +4,6 @@
 package gateway_api
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -1093,7 +1092,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	r := &httpRouteReconciler{Client: c, logger: hivetest.Logger(t)}
 
 	t.Run("no http route", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "non-existing-http-route",
 				Namespace: "default",
@@ -1104,7 +1103,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	})
 
 	t.Run("http route exists but being deleted", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "deleting-http-route",
 				Namespace: "default",
@@ -1121,7 +1120,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 				Name:      "valid-http-route-" + name,
 				Namespace: "default",
 			}
-			result, err := r.Reconcile(context.Background(), ctrl.Request{
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
 			})
 
@@ -1129,7 +1128,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			route := &gatewayv1.HTTPRoute{}
-			err = c.Get(context.Background(), key, route)
+			err = c.Get(t.Context(), key, route)
 
 			require.NoError(t, err)
 			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1149,7 +1148,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 				Name:      "valid-http-route-hostname-" + name,
 				Namespace: "default",
 			}
-			result, err := r.Reconcile(context.Background(), ctrl.Request{
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
 			})
 
@@ -1157,7 +1156,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			route := &gatewayv1.HTTPRoute{}
-			err = c.Get(context.Background(), key, route)
+			err = c.Get(t.Context(), key, route)
 
 			require.NoError(t, err)
 			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1178,7 +1177,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-hostnames-and-cross-namespace-listener",
 			Namespace: "another-namespace",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1186,7 +1185,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1207,7 +1206,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 				Name:      "http-route-with-nonexistent-" + name,
 				Namespace: "default",
 			}
-			result, err := r.Reconcile(context.Background(), ctrl.Request{
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
 			})
 
@@ -1215,7 +1214,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			route := &gatewayv1.HTTPRoute{}
-			err = c.Get(context.Background(), key, route)
+			err = c.Get(t.Context(), key, route)
 
 			require.NoError(t, err)
 			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1234,7 +1233,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-nonexistent-gateway",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1242,7 +1241,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
@@ -1253,7 +1252,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "gamma-parentref-only",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1261,7 +1260,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
@@ -1272,7 +1271,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "both-parentrefs",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1280,7 +1279,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1298,7 +1297,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "otherimpl-parentref",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1306,7 +1305,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Empty(t, route.Status.RouteStatus.Parents, "Should have 0 parents")
@@ -1317,7 +1316,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "oneofeach-gateway-parentrefs",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1325,7 +1324,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1343,7 +1342,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-not-allowed-gateway",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1351,7 +1350,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1371,7 +1370,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-non-matching-hostname",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1379,7 +1378,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1400,7 +1399,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 				Name:      "http-route-with-cross-namespace-" + name,
 				Namespace: "default",
 			}
-			result, err := r.Reconcile(context.Background(), ctrl.Request{
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
 			})
 
@@ -1408,7 +1407,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			route := &gatewayv1.HTTPRoute{}
-			err = c.Get(context.Background(), key, route)
+			err = c.Get(t.Context(), key, route)
 
 			require.NoError(t, err)
 			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1429,7 +1428,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-cross-namespace-listener",
 			Namespace: "another-namespace",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1437,7 +1436,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1455,7 +1454,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-cross-namespace-backend-with-grant",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1463,7 +1462,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1481,7 +1480,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			Name:      "http-route-with-unsupported-backend",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1489,7 +1488,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1510,7 +1509,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 				Name:      "http-route-missing-port-for-backend-" + name,
 				Namespace: "default",
 			}
-			result, err := r.Reconcile(context.Background(), ctrl.Request{
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
 				NamespacedName: key,
 			})
 
@@ -1518,7 +1517,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 			route := &gatewayv1.HTTPRoute{}
-			err = c.Get(context.Background(), key, route)
+			err = c.Get(t.Context(), key, route)
 
 			require.NoError(t, err)
 			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1549,7 +1548,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 			Name:      "valid-http-route-service",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1557,7 +1556,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
@@ -1575,7 +1574,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 			Name:      "valid-http-route-serviceimport",
 			Namespace: "default",
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: key,
 		})
 
@@ -1583,7 +1582,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
 		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
+		err = c.Get(t.Context(), key, route)
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
