@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -106,6 +108,19 @@ type noErrorsInLogs struct {
 
 	errorMsgsWithExceptions map[string][]logMatcher
 	ciliumVersion           semver.Version
+	mostCommonFailureLog    string
+	mostCommonFailureCount  int
+}
+
+func (n *noErrorsInLogs) FilePath() string {
+	extractedPath := extractPathFromLog(n.mostCommonFailureLog)
+	if extractedPath != "" {
+		return extractedPath
+	}
+	// In case log did not contain the path,
+	// we return the path of the test file.
+	return n.ScenarioBase.FilePath()
+
 }
 
 func (n *noErrorsInLogs) Name() string {
@@ -274,8 +289,9 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	return containers
 }
 
-func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
+func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
 	uniqueFailures := make(map[string]int)
+	exampleLogLine := make(map[string]string)
 	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -288,23 +304,66 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
 					}
 				}
 				if !ok {
-					count := uniqueFailures[msg]
-					uniqueFailures[msg] = count + 1
+					justMsg := extractValueFromLog(msg, "msg")
+					if justMsg == "" {
+						// Matching didn't work, fallback to previous behaviour
+						justMsg = msg
+					}
+					count := uniqueFailures[justMsg]
+					uniqueFailures[justMsg] = count + 1
+					exampleLogLine[justMsg] = msg
 				}
 			}
 		}
 	}
-	return uniqueFailures
+	for f, c := range uniqueFailures {
+		if c > n.mostCommonFailureCount {
+			n.mostCommonFailureCount = c
+			n.mostCommonFailureLog = exampleLogLine[f]
+		}
+	}
+	return uniqueFailures, exampleLogLine
+}
+
+func extractValueFromLog(log string, key string) string {
+	// Capture key="something" or key=something
+	pattern := fmt.Sprintf(`\b%s=("[^"]*"|[^\s]*)`, key)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return ""
+	}
+	matches := re.FindStringSubmatch(log)
+	if len(matches) > 1 {
+		return strings.Trim(matches[1], `"`)
+	}
+	return ""
+}
+
+func extractPathFromLog(log string) string {
+	source := extractValueFromLog(log, "source")
+	parts := strings.Split(source, ":")
+	if len(parts) < 2 {
+		return ""
+	}
+	source = strings.Split(source, ":")[0]
+	_, thisPath, _, _ := runtime.Caller(0)
+	repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
+	// We trim twice for cases when cilium and cilium-cli are built in a different ways.
+	// For example, when cilium is built with make kind-image in Docker, but cilium-cli is built
+	// on the local host.
+	result := strings.TrimPrefix(source, repoDir+string(filepath.Separator))
+	return strings.TrimPrefix(result, "/go/src/github.com/cilium/cilium/")
 }
 
 func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
-	uniqueFailures := n.findUniqueFailures(logs)
+	uniqueFailures, exampleLogLine := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
 		for f, c := range uniqueFailures {
 			failures.WriteRune('\n')
-			failures.WriteString(f)
+			failures.WriteString(exampleLogLine[f])
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
+
 		}
 		a.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
 	}
