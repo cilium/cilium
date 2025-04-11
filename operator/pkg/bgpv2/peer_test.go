@@ -186,7 +186,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 			t.Cleanup(func() {
 				cancel()
 			})
@@ -237,7 +237,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 }
 
 func TestDisablePeerConfigStatusReport(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 	t.Cleanup(func() {
 		cancel()
 	})

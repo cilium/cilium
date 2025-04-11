@@ -4,7 +4,6 @@
 package secretsync_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -218,7 +217,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 	})
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "synced-secret-no-source",
@@ -228,14 +227,14 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-source"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-source"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-no-source\" not found")
 	})
 
 	t.Run("delete synced secret if source secret isn't referenced by a CIlium Gateway resource", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "synced-secret-no-reference",
@@ -245,14 +244,14 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-reference"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-reference"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-no-reference\" not found")
 	})
 
 	t.Run("keep synced secret if source secret exists and is referenced by a Gateway resource", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "synced-secret-with-source-and-ref",
@@ -262,12 +261,12 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-with-source-and-ref"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-with-source-and-ref"}, secret)
 		require.NoError(t, err)
 	})
 
 	t.Run("don't create synced secret for source secret that is referenced by a non Cilium Gateway resource", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "secret-with-non-cilium-ref",
@@ -277,14 +276,14 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-non-cilium-ref"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-non-cilium-ref"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-non-cilium-ref\" not found")
 	})
 
 	t.Run("create synced secret for source secret that is referenced by a Cilium Gateway resource", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "secret-with-ref-not-synced",
@@ -294,12 +293,12 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
 		require.NoError(t, err)
 	})
 
 	t.Run("create synced secret in multiple namespaces for source secret that is referenced by a Gateway and Ingress", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "secret-shared-not-synced",
@@ -308,10 +307,10 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.NoError(t, err)
 
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.NoError(t, err)
 	})
 
@@ -324,10 +323,10 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		}
 
 		var err error
-		err = c.Delete(context.Background(), &ingress)
+		err = c.Delete(t.Context(), &ingress)
 		require.NoError(t, err)
 
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "secret-shared-not-synced",
@@ -336,10 +335,10 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
 
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.NoError(t, err)
 
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.True(t, k8sErrors.IsNotFound(err))
 	})
 }
@@ -374,7 +373,7 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 	})
 
 	t.Run("create synced secret for source secret that is the default secret and therefore doesn't need to be referenced by any Cilium Gateway resource", func(t *testing.T) {
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
 				Name:      "unsynced-secret-no-reference",
@@ -384,7 +383,7 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-unsynced-secret-no-reference"}, secret)
+		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-unsynced-secret-no-reference"}, secret)
 		require.NoError(t, err)
 	})
 }
