@@ -106,7 +106,7 @@ spec:
                               mode:
                                 description: mode is the mode of the auto-discovery.
                                 enum:
-                                - default-gateway
+                                - DefaultGateway
                                 type: string
                             required:
                             - mode

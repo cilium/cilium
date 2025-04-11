@@ -25,7 +25,7 @@ spec:
     - name: "65000"
       peerASN: 65000
       autoDiscovery:
-        mode: "default-gateway"
+        mode: "DefaultGateway"
         defaultGateway:
           addressFamily: ipv6
       peerConfigRef:

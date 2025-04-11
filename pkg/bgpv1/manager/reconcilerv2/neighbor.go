@@ -7,11 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iter"
 	"log/slog"
 	"net/netip"
 	"sort"
-	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -180,10 +178,10 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		if n.PeerAddress == nil {
 			// future auto-discovery modes can be added here to get the peer address
 			switch n.AutoDiscovery.Mode {
-			case "default-gateway":
+			case string(v2.BGPDefaultGatewayMode):
 				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
 				if err != nil {
-					r.logger.Error("failed to get default gateway", "error", err)
+					r.logger.Debug("failed to get default gateway", "error", err)
 					continue
 				}
 				newNeigh[i].PeerAddress = &defaultGateway
@@ -308,71 +306,44 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 // getDefaultGateway returns the default gateway address with lower priority using route and device
 // statedb tables and the provided default gateway configuration.
 func (r *NeighborReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway) (string, error) {
-	var defaultRoute string
+	var defaultRoute netip.Prefix
 	switch defaultGateway.AddressFamily {
 	case "ipv4":
-		defaultRoute = netip.PrefixFrom(netip.IPv4Unspecified(), 0).String()
+		defaultRoute = netip.PrefixFrom(netip.IPv4Unspecified(), 0)
 	case "ipv6":
-		defaultRoute = netip.PrefixFrom(netip.IPv6Unspecified(), 0).String()
+		defaultRoute = netip.PrefixFrom(netip.IPv6Unspecified(), 0)
 	default:
 		return "", fmt.Errorf("invalid address family %s", defaultGateway.AddressFamily)
 	}
 	// get routes from statedb route table
 	txn := r.DB.ReadTxn()
-	routeMeta := r.DB.GetTable(txn, "routes")
-	routeTbl := statedb.AnyTable{Meta: routeMeta}
-	routeObjs := routeTbl.All(txn)
-	header := routeTbl.TableHeader()
-	// extract indexes of required columns
-	routeColumns := []string{"Destination", "Source", "Gateway", "LinkIndex", "Priority"}
-	routeIdxs, err := getColumnIndexes(routeColumns, header)
-	if err != nil {
-		return "", fmt.Errorf("failed to get column indexes for route table: %w", err)
-	}
+	routeTbl := r.DB.GetTable(txn, "routes").(statedb.Table[*tables.Route])
+	routes := routeTbl.All(txn)
 
 	// get links from statedb device table
-	deviceMeta := r.DB.GetTable(txn, "devices")
-	deviceTbl := statedb.AnyTable{Meta: deviceMeta}
-	deviceObjs := deviceTbl.All(txn)
-	deviceHeader := deviceTbl.TableHeader()
-	// extract indexes of required columns
-	deviceColumns := []string{"Index", "OperStatus"}
-	deviceIdxs, err := getColumnIndexes(deviceColumns, deviceHeader)
-	if err != nil {
-		return "", fmt.Errorf("failed to get column indexes for device table: %w", err)
-	}
-
-	defaultRoutes := [][]string{}
-	for routeObj := range routeObjs {
-		ro := routeObj.(statedb.TableWritable).TableRow()
-		if ro[routeIdxs["Gateway"]] == "" || ro[routeIdxs["Destination"]] == "" {
+	deviceTbl := r.DB.GetTable(txn, "devices").(statedb.Table[*tables.Device])
+	devices := deviceTbl.All(txn)
+	defaultRoutesFrmStateDB := []*tables.Route{}
+	for route := range routes {
+		if !route.Gw.IsValid() || route.Dst != defaultRoute {
 			continue
 		}
-		if ro[routeIdxs["Destination"]] == defaultRoute {
-			matched := validDefaultRoute(ro, routeIdxs, deviceObjs, deviceIdxs)
-			if !matched {
-				continue
+		for device := range devices {
+			if device.Index == route.LinkIndex && device.OperStatus == "up" {
+				r.logger.Debug("default gateway found", "gateway", route.Gw)
+				defaultRoutesFrmStateDB = append(defaultRoutesFrmStateDB, route)
 			}
-			r.logger.Debug("default gateway found", "gateway", ro[routeIdxs["Gateway"]])
-			defaultRoutes = append(defaultRoutes, ro)
 		}
 	}
-	if len(defaultRoutes) == 0 {
+	if len(defaultRoutesFrmStateDB) == 0 {
 		return "", fmt.Errorf("failed to get default gateways from route table")
 	}
 	// sort the default routes by priority
-	sort.Slice(defaultRoutes, func(i, j int) bool {
-		iPriority := defaultRoutes[i][routeIdxs["Priority"]]
-		jPriority := defaultRoutes[j][routeIdxs["Priority"]]
-		// compare length of strings
-		if len(iPriority) != len(jPriority) {
-			return len(iPriority) < len(jPriority)
-		}
-		// if length of strings is same, compare lexicographically
-		return iPriority < jPriority
+	sort.Slice(defaultRoutesFrmStateDB, func(i, j int) bool {
+		return defaultRoutesFrmStateDB[i].Priority < defaultRoutesFrmStateDB[j].Priority
 	})
 	// return the gateway address with lowest priority
-	return defaultRoutes[0][routeIdxs["Gateway"]], nil
+	return defaultRoutesFrmStateDB[0].Gw.String(), nil
 }
 
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
@@ -449,33 +420,4 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 func (r *NeighborReconciler) neighborID(n *v2.CiliumBGPNodePeer) string {
 	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
-}
-
-// getColumnIndexes returns a map of column names to their indexes in the header
-func getColumnIndexes(names []string, header []string) (map[string]int, error) {
-	columnIndexes := make(map[string]int)
-loop:
-	for _, name := range names {
-		for i, name2 := range header {
-			if strings.EqualFold(name, name2) {
-				columnIndexes[name] = i
-				continue loop
-			}
-		}
-		return nil, fmt.Errorf("column %q not part of %v", name, header)
-	}
-	return columnIndexes, nil
-}
-
-// validDefaultRoute checks if the interface through which the default route is reachable is up
-func validDefaultRoute(ro []string, routeIdxs map[string]int, deviceObjs iter.Seq2[any, statedb.Revision], deviceIdxs map[string]int) bool {
-	for deviceObj := range deviceObjs {
-		do := deviceObj.(statedb.TableWritable).TableRow()
-		if do[deviceIdxs["Index"]] == ro[routeIdxs["LinkIndex"]] {
-			if do[deviceIdxs["OperStatus"]] == "up" {
-				return true
-			}
-		}
-	}
-	return false
 }

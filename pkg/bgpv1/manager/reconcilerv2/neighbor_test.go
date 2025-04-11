@@ -152,8 +152,8 @@ var (
 	peer3 = PeerData{
 		Peer: &v2.CiliumBGPNodePeer{
 			Name: "peer-3",
-			AutoDiscovery: &v2.AutoDiscovery{
-				Mode: "default-gateway",
+			AutoDiscovery: &v2.BGPAutoDiscovery{
+				Mode: "DefaultGateway",
 				DefaultGateway: &v2.DefaultGateway{
 					AddressFamily: "ipv4",
 				},
@@ -174,8 +174,8 @@ var (
 		Peer: &v2.CiliumBGPNodePeer{
 			Name:        "peer-3",
 			PeerAddress: ptr.To[string]("192.168.0.3"),
-			AutoDiscovery: &v2.AutoDiscovery{
-				Mode: "default-gateway",
+			AutoDiscovery: &v2.BGPAutoDiscovery{
+				Mode: "DefaultGateway",
 				DefaultGateway: &v2.DefaultGateway{
 					AddressFamily: "ipv4",
 				},
@@ -196,8 +196,8 @@ var (
 		Peer: &v2.CiliumBGPNodePeer{
 			Name:        "peer-4",
 			PeerAddress: ptr.To[string]("192.168.0.4"),
-			AutoDiscovery: &v2.AutoDiscovery{
-				Mode: "default-gateway",
+			AutoDiscovery: &v2.BGPAutoDiscovery{
+				Mode: "DefaultGateway",
 				DefaultGateway: &v2.DefaultGateway{
 					AddressFamily: "ipv4",
 				},
@@ -233,8 +233,8 @@ var (
 	peer4 = PeerData{
 		Peer: &v2.CiliumBGPNodePeer{
 			Name: "peer-4",
-			AutoDiscovery: &v2.AutoDiscovery{
-				Mode: "default-gateway",
+			AutoDiscovery: &v2.BGPAutoDiscovery{
+				Mode: "DefaultGateway",
 				DefaultGateway: &v2.DefaultGateway{
 					AddressFamily: "ipv6",
 				},
@@ -255,8 +255,8 @@ var (
 		Peer: &v2.CiliumBGPNodePeer{
 			Name:        "peer-4",
 			PeerAddress: ptr.To[string]("fd00:10:0:1::1"),
-			AutoDiscovery: &v2.AutoDiscovery{
-				Mode: "default-gateway",
+			AutoDiscovery: &v2.BGPAutoDiscovery{
+				Mode: "DefaultGateway",
 				DefaultGateway: &v2.DefaultGateway{
 					AddressFamily: "ipv6",
 				},
