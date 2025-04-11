@@ -25,6 +25,8 @@ env:
 
 jobs:
   kubernetes-e2e-net:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: K8s Network Policy E2E tests
     runs-on: ubuntu-24.04
     timeout-minutes: 45

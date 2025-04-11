@@ -84,6 +84,8 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Generate Matrix
     runs-on: ubuntu-24.04
     outputs:

@@ -18,6 +18,8 @@ env:
 
 jobs:
   preflight-clusterrole:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Preflight Clusterrole Check
     runs-on: ubuntu-24.04
     steps:
@@ -39,6 +41,8 @@ jobs:
              cilium-preflight/clusterrole.yaml
 
   cyclonus-test:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Cyclonus Test
     env:
       job_name: "Cyclonus Test"

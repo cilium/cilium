@@ -30,6 +30,8 @@ concurrency:
 
 jobs:
   setup-charts:
+    # Skip running workflow on forks
+    if: github.repository_owner == 'cilium'
     name: Setup Charts
     runs-on: ubuntu-24.04
     outputs:
