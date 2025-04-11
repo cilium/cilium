@@ -69,6 +69,8 @@ add_type(struct edt_id);
 add_type(struct edt_info);
 add_type(struct egress_gw_policy_key);
 add_type(struct egress_gw_policy_entry);
+add_type(struct egress_gw_policy_key6);
+add_type(struct egress_gw_policy_entry6);
 add_type(struct vtep_key);
 add_type(struct vtep_value);
 add_type(struct capture4_wcard);
