@@ -10,12 +10,13 @@
 Installation on OpenShift OKD
 *****************************
 
-Cilium can be installed on OpenShift by using vendor maintained OLM images.
+There is currently no community-maintained installation of Cilium on OpenShift.
+However, Cilium can be installed on OpenShift by using vendor-maintained OLM images.
 These images, and the relevant installation instructions for them, can be
 found on the Red Hat Ecosystem Catalog:
 
-* `Cilium Software Page <https://catalog.redhat.com/software/container-stacks/detail/60423ec2c00b1279ffe35a68>`__
-* `Certified Cilium OLM container images <https://catalog.redhat.com/software/containers/search?gs&q=cilium%20olm>`__
+* `Isovalent Enterprise for Cilium Software Page <https://catalog.redhat.com/software/container-stacks/detail/61a80a18b1610a914eccb3c2>`__
+* `Certified Isovalent Enterprise for Cilium OLM container images <https://catalog.redhat.com/search?q=isovalent&searchType=containers&partnerName=Isovalent&p=1&product_listings_names=Isovalent%20Enterprise%20for%20Cilium>`__
 
 .. admonition:: Video
   :class: attention
