@@ -629,7 +629,7 @@ ct_recreate6:
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
 					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT,
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
 #endif /* ENABLE_NODEPORT */

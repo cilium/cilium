@@ -843,8 +843,8 @@ drop_err:
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
 static __always_inline int
-nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
-		       __s8 *ext_err)
+nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir __maybe_unused,
+		       struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -978,9 +978,8 @@ fib_redirect:
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 static __always_inline
-int tail_nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx)
+int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -989,7 +988,7 @@ int tail_nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret = 0;
 
-	ret = nodeport_rev_dnat_ipv6(ctx, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ipv6(ctx, dir, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
 
@@ -1012,6 +1011,27 @@ int tail_nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx)
 drop:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 					  METRIC_EGRESS);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS)
+static __always_inline
+int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
+{
+	return __nodeport_rev_dnat_ipv6(ctx, CT_INGRESS);
+}
+
+static __always_inline
+int nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx,
+				   struct trace_ctx *trace, __s8 *ext_err)
+{
+	return nodeport_rev_dnat_ipv6(ctx, CT_INGRESS, trace, ext_err);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS)
+static __always_inline
+int tail_nodeport_rev_dnat_egress_ipv6(struct __ctx_buff *ctx)
+{
+	return __nodeport_rev_dnat_ipv6(ctx, CT_EGRESS);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
@@ -1068,8 +1088,8 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 						   is_defined(IS_BPF_HOST)),
 					     __and(is_defined(ENABLE_IPV6_FRAGMENTS),
 						   is_defined(IS_BPF_XDP))),
-					CILIUM_CALL_IPV6_NODEPORT_REVNAT,
-					nodeport_rev_dnat_ipv6,
+					CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
+					nodeport_rev_dnat_ingress_ipv6,
 					&trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
