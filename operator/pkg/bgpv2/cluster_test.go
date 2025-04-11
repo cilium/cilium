@@ -5,6 +5,7 @@ package bgpv2
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"regexp"
 	"slices"
@@ -23,6 +24,7 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -127,6 +129,12 @@ var (
 				},
 			},
 		},
+	}
+	defaultDaemonConfig = &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: true,
 	}
 )
 
@@ -296,7 +304,7 @@ func Test_NodeLabels(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
 
-			f, watcherReady := newFixture(t, ctx, req, true)
+			f, watcherReady := newFixture(t, ctx, req, defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -611,7 +619,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t), true)
+	f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -834,7 +842,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), true)
+			f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -1072,7 +1080,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(t, ctx, require.New(t), true)
+			f, watchersReady := newFixture(t, ctx, require.New(t), defaultDaemonConfig)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -1180,7 +1188,13 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(t, ctx, require.New(t), false)
+	daemonConfigStatusFalse := &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: false,
+	}
+	f, watchersReady := newFixture(t, ctx, require.New(t), daemonConfigStatusFalse)
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -1218,6 +1232,124 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 
 		assert.Empty(ct, cc.Status.Conditions, "Conditions are not cleared")
 	}, time.Second*3, time.Millisecond*100)
+}
+
+func TestRouterIDAllocation(t *testing.T) {
+
+	daemonConfigBGPRouterID := &option.DaemonConfig{
+		EnableBGPControlPlane:             true,
+		Debug:                             true,
+		BGPSecretsNamespace:               "kube-system",
+		EnableBGPControlPlaneStatusReport: true,
+		BGPRouterIDAllocationMode:         option.BGPRouterIDAllocationModeIPPool,
+		BGPRouterIDAllocationIPPool:       "10.0.0.0/24",
+	}
+	tests := []struct {
+		name             string
+		ipPool           string
+		routerID         string
+		expectedError    bool
+		expectedRouterID string
+		nodeOverride     *v2.CiliumBGPNodeConfigOverride
+	}{
+		{
+			name:             "valid IPv4 router ID within pool",
+			expectedError:    false,
+			expectedRouterID: "10.0.0.0",
+		},
+		{
+			name:             "router ID override takes precedence",
+			expectedError:    false,
+			expectedRouterID: "10.10.10.10",
+			nodeOverride: &v2.CiliumBGPNodeConfigOverride{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "test-node",
+				},
+				Spec: v2.CiliumBGPNodeConfigOverrideSpec{
+					BGPInstances: []v2.CiliumBGPNodeConfigInstanceOverride{
+						{
+							Name:     "test-instance",
+							RouterID: ptr.To("10.10.10.10"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			f, watchersReady := newFixture(t, ctx, require.New(t), daemonConfigBGPRouterID)
+
+			tlog := hivetest.Logger(t)
+			f.hive.Start(tlog, ctx)
+			defer f.hive.Stop(tlog, ctx)
+
+			watchersReady()
+
+			// Create a BGP cluster config with the specified router ID
+			clusterConfig := &v2.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "test-cluster-config",
+				},
+				Spec: v2.CiliumBGPClusterConfigSpec{
+					NodeSelector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bgp": "rack1",
+						},
+					},
+					BGPInstances: []v2.CiliumBGPInstance{
+						{
+							Name:      "test-instance",
+							LocalASN:  ptr.To(int64(65001)),
+							LocalPort: ptr.To(int32(1179)),
+						},
+					},
+				},
+			}
+
+			// Create a node that matches the selector
+			node := &v2.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "test-node",
+					Labels: map[string]string{
+						"bgp": "rack1",
+					},
+				},
+			}
+
+			// Upsert the node and cluster config
+			upsertNode(req, ctx, f, node)
+			upsertBGPCC(req, ctx, f, clusterConfig)
+
+			// If there's a node override, apply it
+			if tt.nodeOverride != nil {
+				upsertNodeOverrides(req, ctx, f, tt.nodeOverride)
+			}
+
+			// Wait for the reconciliation to complete
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				nodeConfig, err := f.bgpnClient.Get(ctx, node.Name, meta_v1.GetOptions{})
+				if tt.expectedError {
+					if err == nil {
+						assert.Error(c, fmt.Errorf("expected error but got none"))
+					}
+					return
+				}
+
+				assert.NoError(c, err)
+				assert.NotNil(c, nodeConfig)
+				if assert.NotEmpty(c, nodeConfig.Spec.BGPInstances) {
+					assert.Equal(c, tt.expectedRouterID, *nodeConfig.Spec.BGPInstances[0].RouterID)
+				}
+			}, TestTimeout, 100*time.Millisecond)
+		})
+	}
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *v2.CiliumNode) {
