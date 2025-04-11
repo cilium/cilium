@@ -7,13 +7,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
+	"net/netip"
+	"sort"
+	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -24,6 +32,7 @@ import (
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
 	logger       *slog.Logger
+	DB           *statedb.DB
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
@@ -42,14 +51,35 @@ type NeighborReconcilerIn struct {
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
+
+	DB         *statedb.DB
+	JobGroup   job.Group
+	Signaler   *signaler.BGPCPSignaler
+	RouteTable statedb.Table[*tables.Route]
 }
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 	logger := params.Logger.With(types.ReconcilerLogField, "Neighbor")
 
+	// add observer for default gateway changes
+	params.JobGroup.Add(
+		job.Observer("default-gateway-tracker", func(ctx context.Context, event statedb.Change[*tables.Route]) error {
+			route := event.Object
+			// check for default route change
+			if route.Dst.String() == netip.PrefixFrom(netip.IPv4Unspecified(), 0).String() ||
+				route.Dst.String() == netip.PrefixFrom(netip.IPv6Unspecified(), 0).String() {
+				// trigger reconciliation for default route changes
+				params.Signaler.Event(struct{}{})
+				params.Logger.Debug("Default gateway change detected, triggering BGP reconciliation")
+			}
+			return nil
+		}, statedb.Observable(params.DB, params.RouteTable)),
+	)
+
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
 			logger:       logger,
+			DB:           params.DB,
 			SecretStore:  params.SecretStore,
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
@@ -148,12 +178,23 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		if n.PeerAddress == nil {
-			r.logger.Debug("Peer does not have PeerAddress configured, skipping", types.PeerLogField, n.Name)
-			continue
+			// future auto-discovery modes can be added here to get the peer address
+			switch n.AutoDiscovery.Mode {
+			case "default-gateway":
+				defaultGateway, err := r.getDefaultGateway(n.AutoDiscovery.DefaultGateway)
+				if err != nil {
+					r.logger.Error("failed to get default gateway", "error", err)
+					continue
+				}
+				newNeigh[i].PeerAddress = &defaultGateway
+			default:
+				r.logger.Debug("Peer does not have PeerAddress configured, skipping", types.PeerLogField, n.Name)
+				continue
+			}
 		}
 
 		var (
-			key = r.neighborID(&n)
+			key = r.neighborID(&newNeigh[i])
 			h   *member
 			ok  bool
 		)
@@ -264,6 +305,76 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	return nil
 }
 
+// getDefaultGateway returns the default gateway address with lower priority using route and device
+// statedb tables and the provided default gateway configuration.
+func (r *NeighborReconciler) getDefaultGateway(defaultGateway *v2.DefaultGateway) (string, error) {
+	var defaultRoute string
+	switch defaultGateway.AddressFamily {
+	case "ipv4":
+		defaultRoute = netip.PrefixFrom(netip.IPv4Unspecified(), 0).String()
+	case "ipv6":
+		defaultRoute = netip.PrefixFrom(netip.IPv6Unspecified(), 0).String()
+	default:
+		return "", fmt.Errorf("invalid address family %s", defaultGateway.AddressFamily)
+	}
+	// get routes from statedb route table
+	txn := r.DB.ReadTxn()
+	routeMeta := r.DB.GetTable(txn, "routes")
+	routeTbl := statedb.AnyTable{Meta: routeMeta}
+	routeObjs := routeTbl.All(txn)
+	header := routeTbl.TableHeader()
+	// extract indexes of required columns
+	routeColumns := []string{"Destination", "Source", "Gateway", "LinkIndex", "Priority"}
+	routeIdxs, err := getColumnIndexes(routeColumns, header)
+	if err != nil {
+		return "", fmt.Errorf("failed to get column indexes for route table: %w", err)
+	}
+
+	// get links from statedb device table
+	deviceMeta := r.DB.GetTable(txn, "devices")
+	deviceTbl := statedb.AnyTable{Meta: deviceMeta}
+	deviceObjs := deviceTbl.All(txn)
+	deviceHeader := deviceTbl.TableHeader()
+	// extract indexes of required columns
+	deviceColumns := []string{"Index", "OperStatus"}
+	deviceIdxs, err := getColumnIndexes(deviceColumns, deviceHeader)
+	if err != nil {
+		return "", fmt.Errorf("failed to get column indexes for device table: %w", err)
+	}
+
+	defaultRoutes := [][]string{}
+	for routeObj := range routeObjs {
+		ro := routeObj.(statedb.TableWritable).TableRow()
+		if ro[routeIdxs["Gateway"]] == "" || ro[routeIdxs["Destination"]] == "" {
+			continue
+		}
+		if ro[routeIdxs["Destination"]] == defaultRoute {
+			matched := validDefaultRoute(ro, routeIdxs, deviceObjs, deviceIdxs)
+			if !matched {
+				continue
+			}
+			r.logger.Debug("default gateway found", "gateway", ro[routeIdxs["Gateway"]])
+			defaultRoutes = append(defaultRoutes, ro)
+		}
+	}
+	if len(defaultRoutes) == 0 {
+		return "", fmt.Errorf("failed to get default gateways from route table")
+	}
+	// sort the default routes by priority
+	sort.Slice(defaultRoutes, func(i, j int) bool {
+		iPriority := defaultRoutes[i][routeIdxs["Priority"]]
+		jPriority := defaultRoutes[j][routeIdxs["Priority"]]
+		// compare length of strings
+		if len(iPriority) != len(jPriority) {
+			return len(iPriority) < len(jPriority)
+		}
+		// if length of strings is same, compare lexicographically
+		return iPriority < jPriority
+	})
+	// return the gateway address with lowest priority
+	return defaultRoutes[0][routeIdxs["Gateway"]], nil
+}
+
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
 // If peerConfig is not specified, returns the default config.
 // If the referenced peerConfig does not exist, exists returns false.
@@ -338,4 +449,33 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 func (r *NeighborReconciler) neighborID(n *v2.CiliumBGPNodePeer) string {
 	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
+}
+
+// getColumnIndexes returns a map of column names to their indexes in the header
+func getColumnIndexes(names []string, header []string) (map[string]int, error) {
+	columnIndexes := make(map[string]int)
+loop:
+	for _, name := range names {
+		for i, name2 := range header {
+			if strings.EqualFold(name, name2) {
+				columnIndexes[name] = i
+				continue loop
+			}
+		}
+		return nil, fmt.Errorf("column %q not part of %v", name, header)
+	}
+	return columnIndexes, nil
+}
+
+// validDefaultRoute checks if the interface through which the default route is reachable is up
+func validDefaultRoute(ro []string, routeIdxs map[string]int, deviceObjs iter.Seq2[any, statedb.Revision], deviceIdxs map[string]int) bool {
+	for deviceObj := range deviceObjs {
+		do := deviceObj.(statedb.TableWritable).TableRow()
+		if do[deviceIdxs["Index"]] == ro[routeIdxs["LinkIndex"]] {
+			if do[deviceIdxs["OperStatus"]] == "up" {
+				return true
+			}
+		}
+	}
+	return false
 }

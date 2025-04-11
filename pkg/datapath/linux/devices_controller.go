@@ -442,6 +442,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 	d.RawFlags = a.RawFlags
 	d.MasterIndex = a.MasterIndex
 	d.Type = link.Type()
+	d.OperStatus = a.OperState.String()
 }
 
 // processBatch processes a batch of address, link and route updates.
@@ -494,6 +495,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					LinkIndex: index,
 					Scope:     uint8(u.Scope),
 					Dst:       ipnetToPrefix(u.Family, u.Dst),
+					Priority:  u.Priority,
 				}
 				r.Src, _ = netip.AddrFromSlice(u.Src)
 				r.Gw, _ = netip.AddrFromSlice(u.Gw)
