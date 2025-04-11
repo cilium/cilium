@@ -337,6 +337,8 @@ communicating via the proxy must reconnect to re-establish connections.
 * Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
 * Layer 7 policy support for Cassandra and Memcached have been deprecated and
   their getting started guides have been removed.
+* The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe.
+  This can be turned back on by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
 * TLS Visibility can now pass secrets to Envoy via SDS instead of inline via NPDS. This comes with
   some configuration changes:
 
@@ -354,7 +356,6 @@ communicating via the proxy must reconnect to re-establish connections.
     and ``tls.secretSync.enabled: true``
   * The defaults for **upgraded** clusters (where ``upgradeCompatibility`` is ``v1.16``) do not enable 
     SDS. They are: ``tls.readSecretsOnlyFromSecretsNamespace: true`` and ``tls.secretSync.enabled: false``
-
 
 Removed Options
 ~~~~~~~~~~~~~~~
