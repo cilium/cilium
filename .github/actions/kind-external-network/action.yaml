@@ -1,0 +1,33 @@
+name: Create a docker network for kind and external targets
+description: |
+  Create a docker network which will be used by both kind and
+  external targets added in a later step.
+outputs:
+  ipv4_external_cidr:
+    description: "IPv4 CIDR in which the external targets are created"
+    value: ${{ steps.make_network.outputs.ipv4_external_cidr }}
+  ipv4_external_target:
+    description: "IPv4 address of the first external target"
+    value: ${{ steps.make_network.outputs.ipv4_external_target }}
+  ipv4_other_external_target:
+    description: "IPv4 address of the second external target"
+    value: ${{ steps.make_network.outputs.ipv4_other_external_target }}
+  ipv6_external_cidr:
+    description: "IPv6 CIDR in which the external targets are created"
+    value: ${{ steps.make_network.outputs.ipv6_external_cidr }}
+  ipv6_external_target:
+    description: "IPv6 address of the first external target"
+    value: ${{ steps.make_network.outputs.ipv6_external_target }}
+  ipv6_other_external_target:
+    description: "IPv6 address of the second external target"
+    value: ${{ steps.make_network.outputs.ipv6_other_external_target }}
+  kind_network:
+    description: "Name of the docker network created for kind"
+    value: ${{ steps.make_network.outputs.kind_network }}
+runs:
+  using: composite
+  steps:
+    - id: make_network
+      shell: bash
+      run: |
+        bash ./.github/actions/kind-external-network/action.sh

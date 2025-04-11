@@ -1,0 +1,39 @@
+name: Add external targets to kind cluster
+description: |
+  Add additional containers to the kind network which can be
+  used as external targets for cilium-cli connectivity tests.
+inputs:
+  kind_network:
+    description: "Name of the docker network created for kind"
+    required: true
+  ipv4_external_target:
+    description: "IPv4 address of the first external target"
+    required: true
+  ipv4_other_external_target:
+    description: "IPv4 address of the second external target"
+    required: true
+  ipv6_external_target:
+    description: "IPv6 address of the first external target"
+    required: true
+  ipv6_other_external_target:
+    description: "IPv6 address of the second external target"
+    required: true
+outputs:
+  external_target_name:
+    description: "Domain name of the first external target"
+    value: ${{ steps.add_targets.outputs.external_target_name }}
+  other_external_target_name:
+    description: "Domain name of the second external target"
+    value: ${{ steps.add_targets.outputs.other_external_target_name }}
+runs:
+  using: composite
+  steps:
+    - id: add_targets
+      shell: bash
+      run: |
+        bash ./.github/actions/kind-external-targets/action.sh \
+          ${{ inputs.kind_network }} \
+          ${{ inputs.ipv4_external_target }} \
+          ${{ inputs.ipv4_other_external_target }} \
+          ${{ inputs.ipv6_external_target }} \
+          ${{ inputs.ipv6_other_external_target }}
