@@ -189,7 +189,6 @@ jobs:
           # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
           # RuntimeAgentFQDNPolicies CNAME follow
           # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
-          # RuntimeAgentFQDNPolicies Enforces L3 policy even when no IPs are inserted
           # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) L3-dependent L7/HTTP with toFQDN updates proxy policy
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
