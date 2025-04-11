@@ -92,10 +92,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
-	if err := r.Client.List(ctx, tlsRouteList); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	var tlsRouteList *gatewayv1alpha2.TLSRouteList
+	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+		tlsRouteList = &gatewayv1alpha2.TLSRouteList{}
+		if err := r.Client.List(ctx, tlsRouteList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
+	} else {
+		// TLSRoute CRD is not installed, use an empty list
+		tlsRouteList = &gatewayv1alpha2.TLSRouteList{}
+		scopedLog.Debug("TLSRoute CRD is not installed, skipping TLSRoute processing")
 	}
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
@@ -125,7 +132,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
-	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
+
+	// Only filter TLSRoutes if the CRD is installed
+	var tlsRoutes []gatewayv1alpha2.TLSRoute
+	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+		tlsRoutes = r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
+	}
+
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items)
 
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
@@ -538,7 +551,11 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 		var attachedRoutes int32
 		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items)))
-		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
+
+		// Only process TLSRoutes if the CRD is installed
+		if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+			attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
+		}
 
 		found := false
 		for i := range gw.Status.Listeners {
