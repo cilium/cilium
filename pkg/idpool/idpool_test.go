@@ -241,6 +241,29 @@ func TestOperationsOnUnavailableIDs(t *testing.T) {
 	leaseAllIDs(p4, minID, minID-1, t)
 }
 
+func TestLeaseIDSeeded(t *testing.T) {
+	minID, maxID := 1, 5
+	p := NewIDPool(ID(minID), ID(maxID))
+	expected := make([]int, 0)
+	actual := make([]int, 0)
+	for i := minID; i <= maxID; i++ {
+		id := p.LeaseRandomID(uint64(i))
+		require.NotEqual(t, NoID, id)
+		actual = append(actual, int(id))
+		expected = append(expected, i)
+	}
+	// We should be out of IDs.
+	id := p.LeaseAvailableID()
+	require.Equal(t, NoID, id)
+
+	// We should be out of IDs.
+	id = p.LeaseRandomID(1234)
+	require.Equal(t, NoID, id)
+
+	// Unique ids must have been leased.
+	require.ElementsMatch(t, actual, expected)
+}
+
 func leaseAllIDs(p *IDPool, minID int, maxID int, t *testing.T) {
 	expected := make([]int, 0)
 	actual := make([]int, 0)
@@ -312,7 +335,7 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 		allocators.Add(1)
 		go func() {
 			for i := 1; i <= maxID; i++ {
-				id := p.AllocateID()
+				id := p.AllocateRandomID(uint64(i))
 				if id == NoID {
 					t.Error("ID expected to be allocated")
 				}
