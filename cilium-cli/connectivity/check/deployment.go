@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"maps"
@@ -1270,6 +1271,37 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create daemonset %s: %w", socatServerDaemonsetName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
+	if ct.Params().ExternalTargetCAName != "cabundle" && ct.Params().ExternalTargetCANamespace != ct.Params().TestNamespace {
+		caSecret, err := ct.client.GetSecret(ctx, ct.Params().ExternalTargetCANamespace, ct.Params().ExternalTargetCAName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to get CA secret %s/%s: %w", ct.Params().ExternalTargetCANamespace, ct.Params().ExternalTargetCAName, err)
+		}
+		ct.Logf("✨ [%s] Adding %s external target CA to client root CAs...", ct.clients.src.ClusterName(), caSecret.Name)
+
+		cert, found := caSecret.Data["ca.crt"]
+		if !found {
+			return fmt.Errorf("unable to find ca.crt in secret %s", ct.Params().ExternalTargetCAName)
+		}
+		encodedCert := base64.StdEncoding.EncodeToString(cert)
+
+		clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
+		if err != nil {
+			return fmt.Errorf("unable to list client pods: %w", err)
+		}
+
+		for _, pod := range clientPods.Items {
+			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, "",
+				[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)})
+			if err != nil {
+				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
 			}
 		}
 	}
