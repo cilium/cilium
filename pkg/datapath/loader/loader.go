@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/netip"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -469,7 +468,7 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 				log.WithField("device", device).Error(err)
 			}
 			// Cleanup also calls map from v1.18 after downgrade.
-			os.RemoveAll(filepath.Join(bpf.TCGlobalsPath(), fmt.Sprintf("cilium_calls_wireguard_%d", iface.Attrs().Index)))
+			cleanCallsMaps(fmt.Sprintf("cilium_calls_wireguard_%d", iface.Attrs().Index))
 		}
 
 		if option.Config.AreDevicesRequired() {
@@ -677,7 +676,7 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 			log.WithField("device", device).Error(err)
 		}
 		// Cleanup also calls map from v1.18 after downgrade.
-		os.RemoveAll(filepath.Join(bpf.TCGlobalsPath(), fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index)))
+		cleanCallsMaps(fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index))
 	}
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
