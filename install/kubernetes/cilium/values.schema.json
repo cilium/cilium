@@ -2652,29 +2652,7 @@
                       "type": "string"
                     },
                     "content": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "properties": {
-                              "contextOptions": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "excludeFilters": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "includeFilters": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "name": {
-                                "type": "string"
-                              }
-                            }
-                          }
-                        ]
-                      },
+                      "items": {},
                       "type": "array"
                     },
                     "createConfigMap": {
