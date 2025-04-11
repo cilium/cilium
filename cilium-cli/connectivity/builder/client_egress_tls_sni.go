@@ -73,6 +73,10 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToWorld2()).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Port() == 443 {
+				// SSL error as another external target (e.g. cilium.io) SNI is not allowed
+				return check.ResultCurlSSLError, check.ResultNone
+			}
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -101,6 +105,10 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 			WithScenarios(tests.PodToWorld2()).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				if a.Destination().Port() == 443 {
+					// SSL error as another external target (e.g. cilium.io) SNI is not allowed
+					return check.ResultCurlSSLError, check.ResultNone
+				}
 				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			})
 	}
