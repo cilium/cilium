@@ -1,5 +1,88 @@
 # Changelog
 
+## v1.16.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Reject IPSec key rotation with mismatching key lengths to prevent IPv6 disruptions. (Backport PR cilium/cilium#38400, Upstream PR cilium/cilium#37936, @smagnani96)
+* Skip WireGuard traffic in the BPF SNAT processing, slightly reducing pressure on the BPF Connection tracking and NAT maps. (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#35900, @smagnani96)
+
+**Bugfixes:**
+* bpf: wireguard: avoid ipcache lookup for source's security identity (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#38592, @julianwiedmann)
+* Fix panic caused in dual cluster setups where LRPs with `skipRedirectFromBackend` flag set to true are installed and IPv6 is disabled. (Backport PR cilium/cilium#38701, Upstream PR cilium/cilium#38656, @aditighag)
+* For configurations with --enable-identity-mark=false, don't attempt to retrieve the source identity from skb->mark. (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#38737, @julianwiedmann)
+
+**CI Changes:**
+* build: update golangci-lint to v2.0.0 (Backport PR cilium/cilium#38631, Upstream PR cilium/cilium#38473, @mhofstetter)
+* ci: build CI images within merge group (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38065, @marseel)
+* ci: prepare CI Image build for being required (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38320, @marseel)
+* Clear traced UDP v4/v6 connections on check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38264, @smagnani96)
+* Ensure packet protocol before using L4 ports in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38290, @smagnani96)
+* Extend tracing with IP length and whether src/dst pod are CiliumInternalIP in the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38281, @smagnani96)
+* Fix checked L4 port for UDP IPv6 packets in check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38265, @smagnani96)
+* Fix endianness for WireGuard UDP traffic in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38292, @smagnani96)
+* Fix erroneous TCP RST condition when no TCP packets in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38291, @smagnani96)
+* gh: aws-cni: set --enable-identity-mark=false option (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#38738, @julianwiedmann)
+* gh: ci-e2e-upgrade: Add encryption leak checks for wireguard (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#37551, @jschwinger233)
+* gh: update naming for bpftrace leak detection script (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#37865, @julianwiedmann)
+* Introduce tracing log info for ICMP v4/v6 packets in the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38278, @smagnani96)
+* Manual encap checks for when $skb->encapsulation is unset in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38293, @smagnani96)
+* Print skb pointer and correlate timestamp for subsequent trace logs in the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38266, @smagnani96)
+* Refactoring and code comments for the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38263, @smagnani96)
+* Report masqueraded flow through proxy in the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38297, @smagnani96)
+* Shift header references when encap and move leak check on CiliumInternalIP in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38280, @smagnani96)
+* Skip tracking DNS proxy connection with CiliumInternalIPs for IPSec in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38289, @smagnani96)
+* Skip tracking DNS proxy connection with CiliumInternalIPs for IPSec in the check-encryption-leak script. (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38289, @smagnani96)
+* Skip tracking TCP proxy connection with CiliumInternalIPs for IPSec in the check-encryption-leak script. (Backport PR cilium/cilium#38521, Upstream PR cilium/cilium#38287, @smagnani96)
+* Split TCP-related leak report into a separate log line with also seq/ack n. in the check-encryption-leak script. (Backport PR cilium/cilium#38741, Upstream PR cilium/cilium#38268, @smagnani96)
+* test: Update FQDN related domain and IP (Backport PR cilium/cilium#38770, Upstream PR cilium/cilium#38754, @sayboras)
+
+**Misc Changes:**
+* [v1.16] deps: bump github.com/containerd/containerd to v1.7.27 (cilium/cilium#38496, @ferozsalam)
+* [v1.16] deps: Bump package x/net (cilium/cilium#38323, @ferozsalam)
+* [v1.16] deps: bump package x/oauth2 (cilium/cilium#38404, @ferozsalam)
+* [v1.16]: deps: bump x/net to v0.38.0 (cilium/cilium#38781, @ferozsalam)
+* bpf: host: identify Cilium's Wireguard traffic as from HOST (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#37956, @julianwiedmann)
+* bpf: let MARK_MAGIC_EGW_DONE carry source identity (Backport PR cilium/cilium#38747, Upstream PR cilium/cilium#38430, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#38347, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#38515, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (patch) (cilium/cilium#38346, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#38304, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#38442, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#38543, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.3 (v1.16) (cilium/cilium#38731, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v30 (v1.16) (cilium/cilium#38348, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v30.2 (v1.16) (cilium/cilium#38714, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.36.1 docker digest to e246aa2 (v1.16) (cilium/cilium#38344, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.5.21 (v1.16) (cilium/cilium#38613, @cilium-renovate[bot])
+* chore(deps): update go to v1.23.8 (v1.16) (cilium/cilium#38345, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.31.5-1742184290-6036296930bb05a4870ef40867ca33baec4489e6 (v1.16) (cilium/cilium#38258, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.4-1742515734-d30064faed34d8936672353d4b6d6dbcfbaa7b2d (v1.16) (cilium/cilium#38385, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1743506100-0821ef0acdf9f824d47d34e02932be522b3e7233 (v1.16) (cilium/cilium#38672, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.32.5-1743993953-6f87ef30cb1aca19e233099304bd08d689f380dd (v1.16) (cilium/cilium#38774, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#38317, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#38614, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#38832, @cilium-renovate[bot])
+* docs: Add missing kernel options to system requirements documentation to help users with custom kernels. (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38173, @yrsuthari)
+* docs: clarify hubble flow filter match semantics (Backport PR cilium/cilium#38701, Upstream PR cilium/cilium#38657, @devodev)
+* docs: Document jitter applied to BGP ConnectRetryTimeSeconds (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38231, @rastislavs)
+* docs: Update LLVM requirements to 18.1 (Backport PR cilium/cilium#38342, Upstream PR cilium/cilium#38294, @gentoo-root)
+* Documentation: "cilium config set" restarts by default (Backport PR cilium/cilium#38299, Upstream PR cilium/cilium#38114, @joamaki)
+* Documentation: fix mentions of per-node `cilium-dbg` tool (Backport PR cilium/cilium#38299, Upstream PR cilium/cilium#38276, @tklauser)
+* images: bump distroless to static (Backport PR cilium/cilium#38695, Upstream PR cilium/cilium#38647, @kaworu)
+* pkg/controller: fix data race in update params locked (Backport PR cilium/cilium#38525, Upstream PR cilium/cilium#38327, @aanm)
+* pkg/endpoint: fix race in unit test (Backport PR cilium/cilium#38299, Upstream PR cilium/cilium#38129, @squeed)
+* remove the endpointRoutes for aws cni in the doc (Backport PR cilium/cilium#38701, Upstream PR cilium/cilium#38381, @liyihuang)
+
+**Other Changes:**
+* [v1.16] hubble: fix flowfilter flag parsing allowing only one filter (cilium/cilium#38794, @devodev)
+* [v1.16] proxy: Bump envoy version to 1.32.x (cilium/cilium#38307, @sayboras)
+* fix AWS ENI IPAM mode performance regression in the Operator when `--update-ec2-adapter-limit-via-api` is set to `true` (cilium/cilium#38533, @antonipp)
+* gha: Skip HTTPRouteServiceTypes test (cilium/cilium#38343, @sayboras)
+* install: Update image digests for v1.16.8 (cilium/cilium#38207, @cilium-release-bot[bot])
+
 ## v1.16.8
 
 Summary of Changes
