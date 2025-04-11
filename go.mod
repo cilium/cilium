@@ -20,9 +20,9 @@ require (
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.18.0
-	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
+	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v0.0.0-20250328192914-7f3c86c9c25e
+	github.com/cilium/hive v0.0.0-20250409150907-8eacab6fab5b
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250331052455-35234fc3c234
 	github.com/cilium/statedb v0.3.7
@@ -78,7 +78,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/prometheus/client_golang v1.22.0
-	github.com/prometheus/client_model v0.6.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.63.0
 	github.com/prometheus/procfs v0.16.0
 	github.com/russross/blackfriday/v2 v2.1.0
