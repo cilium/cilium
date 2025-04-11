@@ -331,6 +331,13 @@ func (m *Map) WithPressureMetric() *Map {
 	return m.WithPressureMetricThreshold(0.0)
 }
 
+// WithPinPath overrides the default pin path in this map.
+func (m *Map) WithPinPath(p string) *Map {
+	m.path = p
+
+	return m
+}
+
 // UpdatePressureMetricWithSize updates map pressure metric using the given map size.
 func (m *Map) UpdatePressureMetricWithSize(size int32) {
 	if m.pressureGauge == nil {

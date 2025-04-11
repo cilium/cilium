@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"syscall"
@@ -16,7 +17,13 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+
+	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 )
 
 const (
@@ -70,12 +77,16 @@ type SocketFilter struct {
 
 type DestroySocketCB func(id netlink.SocketID) bool
 
+type NetlinkSocketDestroyer struct {
+	Logger *slog.Logger
+}
+
 // Destroy destroys sockets matching the passed filter parameters using the
 // sock_diag netlink framework.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP
-func Destroy(logger *slog.Logger, filter SocketFilter) error {
+func (d *NetlinkSocketDestroyer) Destroy(filter SocketFilter) error {
 	family := filter.Family
 	protocol := filter.Protocol
 
@@ -96,13 +107,13 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 				return
 			}
 			if filter.MatchSocket(sock) {
-				logger.Info("", logfields.Socket, sock)
-				if err := destroySocket(logger, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
+				d.Logger.Info("", logfields.Socket, sock)
+				if err := destroySocket(d.Logger, sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
 				}
-				logger.Debug("Destroyed socket", logfields.Socket, sock)
+				d.Logger.Debug("Destroyed socket", logfields.Socket, sock)
 				success++
 			}
 		})
@@ -114,12 +125,98 @@ func Destroy(logger *slog.Logger, filter SocketFilter) error {
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", protocol)
 	}
 	if success > 0 || failed > 0 || errs != nil {
-		logger.Info(
+		d.Logger.Info(
 			"Forcefully terminated sockets",
 			logfields.Filter, filter,
 			logfields.Success, success,
 			logfields.Failed, failed,
 			logfields.Errors, errs,
+		)
+	}
+
+	return nil
+}
+
+type BPFSocketDestroyer struct {
+	destroyMu      lock.Mutex
+	prog           *ebpf.Program
+	SockTermFilter *filter.SockTermFilterMap
+	Logger         *slog.Logger
+}
+
+// Destroy destroys sockets matching the passed filter parameters using a BPF
+// socket iterator and the cil_sock_udp_destroy program.
+//
+// Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
+// Supported protocols in the filter: unix.IPPROTO_UDP
+func (sd *BPFSocketDestroyer) Destroy(f SocketFilter) error {
+	if f.Family != syscall.AF_INET && f.Family != syscall.AF_INET6 {
+		return fmt.Errorf("unsupported family for socket destroy: %d", f.Family)
+	}
+	if f.Protocol != unix.IPPROTO_UDP {
+		return fmt.Errorf("unsupported protocol for socket destroy: %d", f.Protocol)
+	}
+
+	sd.destroyMu.Lock()
+	defer sd.destroyMu.Unlock()
+
+	if sd.prog == nil {
+		prog, err := loader.LoadSockTerm("")
+		if err != nil {
+			return err
+		}
+		sd.prog = prog
+	}
+
+	if err := sd.SockTermFilter.Set(f.Family, f.DestIp, f.DestPort); err != nil {
+		return fmt.Errorf("configuring filter: %w", err)
+	}
+
+	iter, err := link.AttachIter(link.IterOptions{
+		Program: sd.prog,
+	})
+	if err != nil {
+		return fmt.Errorf("creating iterator: %w", err)
+	}
+
+	defer iter.Close()
+
+	rc, err := iter.Open()
+	if err != nil {
+		return fmt.Errorf("creating reader: %w", err)
+	}
+
+	defer rc.Close()
+
+	var cookie [8]byte
+	var n int
+	count := 0
+	for err == nil {
+		n, err = rc.Read(cookie[:])
+		if err != nil || n == 0 {
+			continue
+		}
+
+		if n != len(cookie) {
+			sd.Logger.Warn("Unexpected number of bytes", logfields.Value, n)
+			continue
+		}
+
+		sd.Logger.Debug("Destroyed socket",
+			logfields.Filter, f,
+			logfields.SocketCookie, native.Uint64(cookie[:]),
+		)
+		count++
+	}
+
+	if !errors.Is(err, io.EOF) {
+		return fmt.Errorf("reading: %w", err)
+	}
+
+	if count > 0 {
+		sd.Logger.Info("Forcefully terminated sockets",
+			logfields.Filter, f,
+			logfields.Success, count,
 		)
 	}
 
@@ -137,7 +234,7 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 }
 
 func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.SocketID, err error)) error {
-	return iterateNetlinkSockets(unix.IPPROTO_UDP, syscall.AF_INET, 0xffff, func(sockInfo *Socket, err error) error {
+	return iterateNetlinkSockets(unix.IPPROTO_UDP, family, 0xffff, func(sockInfo *Socket, err error) error {
 		socketCB(sockInfo.ID, err)
 		return nil
 	})
