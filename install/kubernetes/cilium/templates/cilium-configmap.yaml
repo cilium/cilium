@@ -710,6 +710,7 @@ data:
 {{- if .Values.bandwidthManager.enabled }}
   enable-bandwidth-manager: {{ .Values.bandwidthManager.enabled | quote }}
   enable-bbr: {{ .Values.bandwidthManager.bbr | quote }}
+  enable-bbr-hostns-only: {{ .Values.bandwidthManager.bbrHostNamespaceOnly | quote }}
 {{- end }}
 {{- end }}
 

@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -474,6 +475,17 @@ func reserveLocalIPPorts(conf *models.DaemonConfigurationStatus, sysctl sysctl.S
 	return sysctl.Write(param, reserved)
 }
 
+func configureCongestionControl(conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) error {
+	if !conf.EnableBBRHostNamespaceOnly {
+		return nil
+	}
+
+	// Note: This setting applies to IPv4 and IPv6
+	return sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_congestion_control"}, Val: "cubic"},
+	})
+}
+
 func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
@@ -769,6 +781,11 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 				}
 			}
 			macAddrStr = newEp.Status.Networking.Mac
+		}
+		if err = ns.Do(func() error {
+			return configureCongestionControl(conf, sysctl)
+		}); err != nil {
+			return fmt.Errorf("unable to configure congestion control: %w", err)
 		}
 		res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
 			Name:    epConf.IfName(),
