@@ -17,7 +17,7 @@ func (t noPolicies) build(ct *check.ConnectivityTest, _ map[string]string) {
 			tests.ClientToClient(),
 			tests.PodToService(),
 			tests.PodToHostPort(),
-			tests.PodToWorld(tests.WithRetryAll()),
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryAll()),
 			tests.PodToHost(),
 			tests.HostToPod(),
 			tests.PodToCIDR(tests.WithRetryAll()),
