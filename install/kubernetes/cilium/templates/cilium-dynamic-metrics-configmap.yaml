@@ -11,6 +11,8 @@ metadata:
   {{- end }}
 data:
   dynamic-metrics.yaml: |
+    {{- with .Values.hubble.metrics.dynamic.config.content }}
     metrics:
-{{ .Values.hubble.metrics.dynamic.config.content | toYaml | indent 4 }}
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
 {{- end }}
