@@ -1281,11 +1281,11 @@ hubble:
         # Switch to false if you want to self maintain the file content.
         createConfigMap: true
         # ---- Exporters configuration in YAML format.
-        content:
-          - name: all
-            contextOptions: []
-            includeFilters: []
-            excludeFilters: []
+        content: []
+        # - name: dns
+        #   contextOptions: []
+        #   includeFilters: []
+        #   excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables redacting sensitive information present in Layer 7 flows.
@@ -2619,7 +2619,7 @@ tls:
   secretsBackend: ~
   # @schema
   # type: [null, boolean]
-  # @schema  
+  # @schema
   # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
   #    CiliumNetworkPolicy relevant Secrets.
   #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
