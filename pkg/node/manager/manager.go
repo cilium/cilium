@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -1392,7 +1393,7 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 					}
 
 					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
-					hr := sc.NewScope(e.node.Name)
+					hr := sc.NewScope(strings.ReplaceAll(e.node.Name, ".", "-"))
 					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
 						hr.Degraded("Failed node neighbor link update", err)
 						errs = errors.Join(errs, err)
