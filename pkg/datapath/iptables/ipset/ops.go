@@ -75,11 +75,21 @@ var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
 var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
 
 func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	panic("Unexpectedly Update() called for reconciliation")
+	if !ops.enabled {
+		return nil
+	}
+
+	addrsByName := map[string][]netip.Addr{entry.Name: {entry.Addr}}
+	return ops.ipset.addBatch(ctx, addrsByName)
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	panic("Unexpectedly Delete() called for reconciliation")
+	if !ops.enabled {
+		return nil
+	}
+
+	addrsByName := map[string][]netip.Addr{entry.Name: {entry.Addr}}
+	return ops.ipset.delBatch(ctx, addrsByName)
 }
 
 func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, objs iter.Seq2[*tables.IPSetEntry, statedb.Revision]) error {
