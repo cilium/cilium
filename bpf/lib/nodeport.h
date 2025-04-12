@@ -33,7 +33,7 @@ ASSIGN_CONFIG(__u16, device_mtu, MTU)
 #define THIS_MTU CONFIG(device_mtu) /* Backwards compatibility */
 
 #define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) CTX_ACT_OK
-#define nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
+#define nodeport_rev_dnat_ipv4_hook(ctx, ip4, tuple, tunnel_endpoint, src_sec_identity, \
 		dst_sec_identity) -1
 
 #ifdef ENABLE_NODEPORT
@@ -838,8 +838,8 @@ drop_err:
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
 static __always_inline int
-nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
-			       __s8 *ext_err)
+nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		       __s8 *ext_err)
 {
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
@@ -988,7 +988,7 @@ fib_redirect:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 static __always_inline
-int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
+int tail_nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -997,7 +997,7 @@ int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret = 0;
 
-	ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
 
@@ -1077,7 +1077,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 					     __and(is_defined(ENABLE_IPV6_FRAGMENTS),
 						   is_defined(IS_BPF_XDP))),
 					CILIUM_CALL_IPV6_NODEPORT_REVNAT,
-					nodeport_rev_dnat_ingress_ipv6,
+					nodeport_rev_dnat_ipv6,
 					&trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
@@ -2122,8 +2122,8 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
 static __always_inline int
-nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
-			       __s8 *ext_err)
+nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		       __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -2169,8 +2169,8 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
 #endif
 
-	ret = nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
-						  &src_sec_identity, &dst_sec_identity);
+	ret = nodeport_rev_dnat_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
+					  &src_sec_identity, &dst_sec_identity);
 	if (ret == CTX_ACT_OK)
 		return ret;
 	else if (ret == CTX_ACT_REDIRECT)
@@ -2272,7 +2272,7 @@ redirect:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 static __always_inline
-int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
+int tail_nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -2281,7 +2281,7 @@ int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret = 0;
 
-	ret = nodeport_rev_dnat_ingress_ipv4(ctx, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2370,13 +2370,13 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	/* If we're not in full DSR mode, reply traffic from remote backends
 	 * might pass back through the LB node and requires revDNAT.
 	 *
-	 * Also let nodeport_rev_dnat_ingress_ipv4() redirect EgressGW
+	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 	 * reply traffic into tunnel (see there for details).
 	 */
 	ret = invoke_traced_tailcall_if(__and(is_defined(ENABLE_HOST_FIREWALL),
 					      is_defined(IS_BPF_HOST)),
 					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
-					nodeport_rev_dnat_ingress_ipv4,
+					nodeport_rev_dnat_ipv4,
 					&trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
