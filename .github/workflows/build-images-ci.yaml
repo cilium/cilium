@@ -213,7 +213,7 @@ jobs:
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:7bd7664289914169dc0a0b51a5061b487fb37eb5@sha256:5be3f32d896cdd1e5d98fa13bdcd6df3c9b7ad688a4728bb6c4e4cdabc51b96f
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:f55d49dd9f3d9b94221103d7cf90fd975b0f93f8@sha256:f6b23a85e0dc2bf0aa51e417d43a20ec6542da9660dd53446b1202c44cd95307
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
