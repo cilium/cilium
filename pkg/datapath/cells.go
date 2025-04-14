@@ -149,6 +149,9 @@ var Cell = cell.Module(
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed
 	// connections (from ctmap's GC).
 	act.Cell,
+
+	// Provides a cache of link names to ifindex mappings
+	link.Cell,
 )
 
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
