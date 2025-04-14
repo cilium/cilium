@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
+
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/cilium/hive/cell"
 )
 
 func (s *Service) healthCheckCallback(_ int, data any) {
@@ -97,6 +97,16 @@ func (s *Service) notifyHealthCheckUpdateSubscribers(svcAddr lb.L3n4Addr) {
 	for _, subscriber := range s.healthCheckSubscribers {
 		if subscriber.Ctx.Err() == nil {
 			subscriber.Callback(s.healthUpdateFromSvcInfo(info))
+		}
+	}
+}
+
+func (s *Service) notifyHealthCheckUpdateSubscribersServiceDelete(svc *svcInfo) {
+	s.logger.Debug("Notify health update subscribers about deleted service (0 active backends)", logfields.Service, svc.svcName)
+	svc.backends = []*lb.Backend{} // reset backends
+	for _, subscriber := range s.healthCheckSubscribers {
+		if subscriber.Ctx.Err() == nil {
+			subscriber.Callback(s.healthUpdateFromSvcInfo(svc))
 		}
 	}
 }
