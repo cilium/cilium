@@ -837,6 +837,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				ID := e.SecurityIdentity.ID
 				hostIP, ok := ip.AddrFromIP(node.GetIPv4())
 				if !ok {
+					e.runlock()
 					return controller.NewExitReason("Failed to convert node IPv4 address")
 				}
 				key := node.GetEndpointEncryptKeyIndex()
