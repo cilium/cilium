@@ -720,21 +720,20 @@ ct_recreate6:
 			goto encrypt_to_stack;
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 
-		/* Three cases exist here either (a) the encap and redirect could
-		 * not find the tunnel so fallthrough to nat46 and stack, (b)
-		 * the packet needs IPSec encap so push ctx to stack for encap, or
-		 * (c) packet was redirected to tunnel device so return.
-		 */
-		ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
-					     SECLABEL_IPV6, *dst_sec_identity,
-					     &trace);
-		switch (ret) {
-		case CTX_ACT_OK:
-			goto encrypt_to_stack;
-		case DROP_NO_TUNNEL_ENDPOINT:
-			break;
-		default:
-			return ret;
+		if (info && info->flag_has_tunnel_ep) {
+			/* Two cases exist here either
+			 * (a) the packet needs IPSec encap so push ctx to stack for encap, or
+			 * (b) packet was redirected to tunnel device so return.
+			 */
+			ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
+						     SECLABEL_IPV6, *dst_sec_identity,
+						     &trace);
+			switch (ret) {
+			case CTX_ACT_OK:
+				goto encrypt_to_stack;
+			default:
+				return ret;
+			}
 		}
 	}
 #endif
@@ -1280,22 +1279,22 @@ skip_vtep:
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
-					     SECLABEL_IPV4, *dst_sec_identity, &trace);
-		switch (ret) {
-		case CTX_ACT_OK:
-			/* IPsec, pass up to stack for XFRM processing. */
-			goto encrypt_to_stack;
-		case DROP_NO_TUNNEL_ENDPOINT:
-			/* Deliver via native device. */
-			break;
+		if (info && info->flag_has_tunnel_ep) {
+			ret = encap_and_redirect_lxc(ctx, info, encrypt_key,
+						     SECLABEL_IPV4, *dst_sec_identity,
+						     &trace);
+			switch (ret) {
+			case CTX_ACT_OK:
+				/* IPsec, pass up to stack for XFRM processing. */
+				goto encrypt_to_stack;
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-		case CTX_ACT_REDIRECT:
-			ctx_set_cluster_id_mark(ctx, cluster_id);
-			fallthrough;
+			case CTX_ACT_REDIRECT:
+				ctx_set_cluster_id_mark(ctx, cluster_id);
+				fallthrough;
 #endif
-		default:
-			return ret;
+			default:
+				return ret;
+			}
 		}
 	}
 #endif /* TUNNEL_MODE */
