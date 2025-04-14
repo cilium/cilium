@@ -64,7 +64,8 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 
 	ds := &DaemonFQDNSuite{}
 	d := &fqdnProxyBootstrapper{}
-	d.policyRepo = policy.NewPolicyRepository(hivetest.Logger(tb), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	logger := hivetest.Logger(tb)
+	d.policyRepo = policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
@@ -85,10 +86,10 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d.policyRepo.GetSelectorCache().SetLocalIdentityNotifier(d.nameManager)
 	d.dnsMessageHandler = messagehandler.NewDNSMessageHandler(
 		messagehandler.DNSMessageHandlerParams{
-			Logger:            hivetest.Logger(tb),
+			Logger:            logger,
 			NameManager:       ns,
 			ProxyInstance:     nil,
-			ProxyAccessLogger: accesslog.NewProxyAccessLogger(hivetest.Logger(tb), accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
+			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
 		})
 
 	ds.d = d

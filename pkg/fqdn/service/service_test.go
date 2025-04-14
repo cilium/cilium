@@ -56,7 +56,7 @@ func TestFQDNDataServer(t *testing.T) {
 			serverPort:               0,
 			enableStandaloneDNSProxy: true,
 			enableL7Proxy:            true,
-			err:                      errors.New("listen tcp: address -1: invalid port"),
+			err:                      errors.New("rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp 127.0.0.1:0: connect: connection refused\""),
 		},
 	}
 
@@ -133,17 +133,19 @@ func TestFQDNDataServer(t *testing.T) {
 
 			c := pb.NewFQDNDataClient(conn)
 
+			var serverErr error
 			connected := false
 			testutils.WaitUntil(func() bool {
 				stream, err := c.StreamPolicyState(t.Context())
 				if err != nil {
+					serverErr = err
 					return false
 				}
 				response, err := stream.Recv()
 				if err != nil {
 					return false
 				}
-				t.Log("response:", response)
+
 				if response.GetRequestId() == "" {
 					return false
 				} else {
@@ -152,8 +154,16 @@ func TestFQDNDataServer(t *testing.T) {
 				}
 			}, 5*time.Second)
 
+			// If the server is running, we should get a response from the server
 			if !connected && tt.err == nil {
 				t.Fatalf("failed to connect to server")
+			}
+
+			// Case when the server is not running, we should get an error
+			if tt.err != nil {
+				require.Error(t, serverErr)
+				require.Equal(t, tt.err.Error(), serverErr.Error())
+				require.False(t, connected)
 			}
 
 			t.Cleanup(func() {
