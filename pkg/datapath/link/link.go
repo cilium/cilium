@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/vishvananda/netlink"
@@ -18,16 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	// linkCache is the singleton instance of the LinkCache, only needed to
-	// ensure that the single controller used to update the LinkCache is
-	// triggered exactly once and the same instance is handed to all users.
-	linkCache LinkCache
-	once      sync.Once
-
-	linkCacheControllerGroup = controller.NewGroup("link-cache")
 )
 
 // DeleteByName deletes the interface with the name ifName.
@@ -87,7 +76,6 @@ var Cell = cell.Module(
 	"Provides a cache of link names to ifindex mappings",
 
 	cell.Provide(newLinkCache),
-	cell.Invoke(registerLinkCacheHooks),
 )
 
 type linkCacheParams struct {
@@ -95,53 +83,41 @@ type linkCacheParams struct {
 	Lifecycle cell.Lifecycle
 }
 
-func registerLinkCacheHooks(params linkCacheParams, cache *LinkCache) {
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			// Start the controller when the application starts
-			cache.manager.UpdateController("link-cache",
-				controller.ControllerParams{
-					Group:       linkCacheControllerGroup,
-					RunInterval: 15 * time.Second,
-					DoFunc: func(ctx context.Context) error {
-						return cache.syncCache()
-					},
-				},
-			)
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			cache.Stop()
-			return nil
-		},
-	})
-}
-
-func newLinkCache() *LinkCache {
-	once.Do(func() {
-		linkCache = LinkCache{
-			indexToName: make(map[int]string),
-			manager:     controller.NewManager(),
-		}
-	})
-
-	return &linkCache
-}
-
 func NewLinkCache() *LinkCache {
-	lc := newLinkCache()
+	return &LinkCache{
+		indexToName: make(map[int]string),
+		manager:     controller.NewManager(),
+	}
+}
 
-	lc.manager.UpdateController("link-cache",
+func newLinkCache(params linkCacheParams) *LinkCache {
+	lc := NewLinkCache()
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(_ cell.HookContext) error {
+			lc.Start()
+			return nil
+		},
+		OnStop: func(_ cell.HookContext) error {
+			lc.Stop()
+			return nil
+		},
+	})
+
+	return lc
+}
+
+// Start starts syncing the link cache
+func (c *LinkCache) Start() {
+	c.manager.UpdateController("link-cache",
 		controller.ControllerParams{
-			Group:       linkCacheControllerGroup,
+			Group:       controller.NewGroup("link-cache"),
 			RunInterval: 15 * time.Second,
 			DoFunc: func(ctx context.Context) error {
-				return linkCache.syncCache()
+				return c.syncCache()
 			},
 		},
 	)
-
-	return lc
 }
 
 // Stop terminates the link cache controller
