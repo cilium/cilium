@@ -22,13 +22,6 @@ type EndpointProxy interface {
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
 }
 
-// SetProxy sets the proxy for this endpoint.
-func (e *Endpoint) SetProxy(p EndpointProxy) {
-	e.unconditionalLock()
-	defer e.unlock()
-	e.proxy = p
-}
-
 func (e *Endpoint) removeNetworkPolicy() {
 	if e.IsProxyDisabled() {
 		return

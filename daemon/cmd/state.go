@@ -228,18 +228,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 			scopedLog = scopedLog.WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName())
 		}
 
-		// We have to set the allocator for identities here during the Endpoint
-		// lifecycle, because the identity allocator has been initialized *after*
-		// endpoints are restored from disk. This is because we have to reserve
-		// IPs for the endpoints that are restored via IPAM. Reserving of IPs
-		// affects the allocation of IPs w.r.t. node addressing, which we need
-		// to know before the identity allocator is initialized. We need to
-		// know the node addressing because when adding a reference to the
-		// kvstore because the local node's IP is used as a suffix for the key
-		// in the key-value store.
-		ep.SetAllocator(d.identityAllocator)
-		ep.SetCtMapGC(d.ctMapGC)
-
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
 			// Disconnected EPs are not failures, clean them silently below
@@ -258,7 +246,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		ep.SetDefaultConfiguration()
-		ep.SetProxy(d.l7Proxy)
 		ep.SkipStateClean()
 
 		state.restored = append(state.restored, ep)
