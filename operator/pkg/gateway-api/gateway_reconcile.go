@@ -93,9 +93,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
-	if err := r.Client.List(ctx, tlsRouteList); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, tlsRouteList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		}
 	}
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
