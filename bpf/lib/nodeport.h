@@ -841,9 +841,6 @@ static __always_inline int
 nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			       __s8 *ext_err)
 {
-#ifdef ENABLE_NAT_46X64_GATEWAY
-	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
-#endif
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET6,
@@ -867,8 +864,8 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifdef ENABLE_NAT_46X64_GATEWAY
-	if (nat_46x64_fib)
+#if !defined(IS_BPF_LXC) && defined(ENABLE_NAT_46X64_GATEWAY)
+	if (nat46x64_cb_route(ctx))
 		goto fib_lookup;
 #endif
 
