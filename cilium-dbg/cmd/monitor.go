@@ -231,6 +231,7 @@ func runMonitor(args []string) {
 		os.Exit(1)
 	}
 
+	linkCache.Start()
 	validateEndpointsFilters()
 	setVerbosity()
 	setupSigHandler()
