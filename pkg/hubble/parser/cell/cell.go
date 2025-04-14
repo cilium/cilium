@@ -31,8 +31,6 @@ var Cell = cell.Module(
 	"payload-parser",
 	"Provides a payload parser for Hubble",
 
-	link.Cell,
-
 	cell.Provide(newPayloadParser),
 	cell.Config(defaultConfig),
 )
