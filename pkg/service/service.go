@@ -2088,6 +2088,8 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	metrics.ServicesEventsCount.WithLabelValues("delete").Inc()
 	s.notifyMonitorServiceDelete(svc.frontend.ID)
 
+	s.notifyHealthCheckUpdateSubscribersServiceDelete(svc)
+
 	return nil
 }
 
