@@ -18,7 +18,7 @@ import (
 const numberOfEndpointPolicies = 10
 
 func Test_PolicyUpdateCallback(t *testing.T) {
-	mgr := New(&dummyEpSyncher{}, nil, nil, nil, nil)
+	mgr := New(&dummyEpSyncher{}, nil, nil, nil)
 	called := int32(0)
 	updateFunc := func(idsRegen *set.Set[identity.NumericIdentity], incremental bool) error {
 		atomic.AddInt32(&called, 1)
