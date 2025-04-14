@@ -37,6 +37,16 @@ func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer
 	default:
 		return nil, fmt.Errorf("unsupported message type %T", messageType)
 	}
+
+	// Truncate buffer according to the event version. This allows us to serialize previous
+	// versions of events in tests, which would be otherwise serialized with the maximum size of the
+	// respective data structure (ex. DropNotifyV1 -> DropNotifyV2 + zero bytes of padding).
+	switch messageType := message.(type) {
+	case monitor.DropNotify:
+		buf.Truncate(int(messageType.DataOffset()))
+	}
+
+	// Serialize layers.
 	packet := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{
 		FixLengths: true,
