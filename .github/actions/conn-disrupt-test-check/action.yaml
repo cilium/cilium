@@ -20,6 +20,10 @@ inputs:
     required: false
     default: ''
     description: 'Select which connectivity tests to run'
+  test-concurrency:
+    required: false
+    default: 1
+    description: 'Concurrency level to run tests'
 
 runs:
   using: composite
@@ -49,5 +53,6 @@ runs:
           --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
           --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
           --test "$TEST_ARG" \
+          --test-concurrency ${{ inputs.test-concurrency }} \
           --expected-xfrm-errors "+inbound_no_state" \
           ${EXTRA_ARG}
