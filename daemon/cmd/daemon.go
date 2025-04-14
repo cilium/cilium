@@ -178,7 +178,6 @@ type Daemon struct {
 	hubble         hubblecell.HubbleIntegration
 
 	lrpManager   *redirectpolicy.Manager
-	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
 
 	explbConfig experimental.Config
@@ -389,7 +388,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		orchestrator:      params.Orchestrator,
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
-		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
 		explbConfig:       params.ExpLBConfig,
 		ciliumHealth:      params.CiliumHealth,

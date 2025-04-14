@@ -62,7 +62,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -281,7 +281,7 @@ type fakeParser struct {
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, epJSON)
+	return ParseEndpoint(nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON)
 }
 
 var _ EndpointParser = &fakeParser{}

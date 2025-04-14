@@ -58,6 +58,9 @@ type endpointCreator struct {
 	proxy            endpoint.EndpointProxy
 	allocator        cache.IdentityAllocator
 	ctMapGC          ctmap.GCRunner
+	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
+	// information about endpoints.
+	kvstoreSyncher *ipcache.IPIdentitySynchronizer
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -65,22 +68,23 @@ var _ EndpointCreator = &endpointCreator{}
 type endpointManagerParams struct {
 	cell.In
 
-	EndpointManager  endpointmanager.EndpointManager
-	DNSRulesService  fqdnrules.DNSRulesService
-	EPBuildQueue     endpoint.EndpointBuildQueue
-	Loader           datapath.Loader
-	Orchestrator     datapath.Orchestrator
-	CompilationLock  datapath.CompilationLock
-	BandwidthManager datapath.BandwidthManager
-	IPTablesManager  datapath.IptablesManager
-	IdentityManager  identitymanager.IDManager
-	MonitorAgent     monitoragent.Agent
-	PolicyMapFactory policymap.Factory
-	PolicyRepo       policy.PolicyRepository
-	IPCache          *ipcache.IPCache
-	Proxy            *proxy.Proxy
-	Allocator        cache.IdentityAllocator
-	CTMapGC          ctmap.GCRunner
+	EndpointManager     endpointmanager.EndpointManager
+	DNSRulesService     fqdnrules.DNSRulesService
+	EPBuildQueue        endpoint.EndpointBuildQueue
+	Loader              datapath.Loader
+	Orchestrator        datapath.Orchestrator
+	CompilationLock     datapath.CompilationLock
+	BandwidthManager    datapath.BandwidthManager
+	IPTablesManager     datapath.IptablesManager
+	IdentityManager     identitymanager.IDManager
+	MonitorAgent        monitoragent.Agent
+	PolicyMapFactory    policymap.Factory
+	PolicyRepo          policy.PolicyRepository
+	IPCache             *ipcache.IPCache
+	Proxy               *proxy.Proxy
+	Allocator           cache.IdentityAllocator
+	CTMapGC             ctmap.GCRunner
+	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
@@ -101,6 +105,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		proxy:            p.Proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
+		kvstoreSyncher:   p.KVStoreSynchronizer,
 	}
 }
 
@@ -122,6 +127,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
 		base,
 	)
 }
@@ -140,6 +146,10 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.policyMapFactory,
 		c.policyRepo,
 		c.ipcache,
+		c.proxy,
+		c.allocator,
+		c.ctMapGC,
+		c.kvstoreSyncher,
 		epJSON,
 	)
 }
@@ -161,6 +171,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
 	)
 	if err != nil {
 		return err
@@ -192,6 +203,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
 	)
 	if err != nil {
 		return err
