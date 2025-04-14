@@ -87,11 +87,6 @@ const (
 	// CNCName is the full name of Cilium Node Config
 	CNCName = CNCPluralName + "." + CustomResourceDefinitionGroup
 
-	// CiliumCIDRGroup (CCG)
-	CCGPluralName     = "ciliumcidrgroups"
-	CCGKindDefinition = "CiliumCIDRGroup"
-	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium L2 Announcement policy
 
 	// L2AnnouncementSingularName is the singular name ofCilium L2 announcement policy
@@ -165,8 +160,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPPeeringPolicyList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
-		&CiliumCIDRGroup{},
-		&CiliumCIDRGroupList{},
 		&CiliumL2AnnouncementPolicy{},
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},

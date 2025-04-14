@@ -55,7 +55,7 @@ type KubernetesClient interface {
 	ListCiliumBGPAdvertisements(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPAdvertisementList, error)
 	ListCiliumBGPNodeConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigList, error)
 	ListCiliumBGPNodeConfigOverrides(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigOverrideList, error)
-	ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error)
+	ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumCIDRGroupList, error)
 	ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error)
 	ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error)
 	ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error)

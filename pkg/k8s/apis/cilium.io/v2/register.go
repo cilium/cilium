@@ -40,6 +40,17 @@ const (
 	// CCNPName is the full name of Cilium Cluster wide Network Policy
 	CCNPName = CCNPPluralName + "." + CustomResourceDefinitionGroup
 
+	// CiliumCIDRGroup (CCG)
+
+	// CCGPluralName is the plural name of Cilium CIDR Group
+	CCGPluralName = "ciliumcidrgroups"
+
+	// CCGKindDefinition is the kind name for Cilium CIDR Group
+	CCGKindDefinition = "CiliumCIDRGroup"
+
+	// CCGName is the full name of Cilium CIDR Group
+	CCGName = CCGPluralName + "." + CustomResourceDefinitionGroup
+
 	// Cilium Egress Gateway Policy (CEGP)
 
 	// CEGPPluralName is the plural name of Cilium Egress Gateway Policy
@@ -201,6 +212,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicyList{},
 		&CiliumClusterwideNetworkPolicy{},
 		&CiliumClusterwideNetworkPolicyList{},
+		&CiliumCIDRGroup{},
+		&CiliumCIDRGroupList{},
 		&CiliumEgressGatewayPolicy{},
 		&CiliumEgressGatewayPolicyList{},
 		&CiliumEndpoint{},

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumcidrgroup",path="ciliumcidrgroups",scope="Cluster",shortName={ccg}
 // +kubebuilder:object:root=true
-// +kubebuilder:deprecatedversion
+// +kubebuilder:storageversion
 // +deepequal-gen=false
 
 // CiliumCIDRGroup is a list of external CIDRs (i.e: CIDRs selecting peers

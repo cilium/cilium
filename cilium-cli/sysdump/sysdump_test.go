@@ -552,7 +552,7 @@ func (c *fakeClient) GetHelmValues(_ context.Context, _ string, _ string) (strin
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumCIDRGroups(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
+func (c *fakeClient) ListCiliumCIDRGroups(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumCIDRGroupList, error) {
 	panic("implement me")
 }
 
