@@ -10,13 +10,6 @@
 CiliumCIDRGroup
 ***************************
 
-.. note::
-
-    **Beta Feature:** CiliumCIDRGroup is currently in beta. We welcome your feedback
-    and encourage you to report any issues by filing a GitHub issue.
-
-    For the list of outstanding tasks and known issues, please refer to :gh-issue:`24801`.
-
 CiliumCIDRGroup (CCG) is a feature that allows administrators to reference a group of
 CIDR blocks in a :ref:`CiliumNetworkPolicy`. Unlike :ref:`CiliumEndpoint` resources,
 which are managed by the Cilium agent, CiliumCIDRGroup resources are intended
