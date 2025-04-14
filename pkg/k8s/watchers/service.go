@@ -385,11 +385,13 @@ func configureWithSourceRanges(svcType loadbalancer.SVCType) bool {
 }
 
 // datapathSVCs returns all services that should be set in the datapath.
-func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) ([]loadbalancer.SVC, error) {
+func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints, checkNodeExposure bool) ([]loadbalancer.SVC, error) {
 	svcs := []loadbalancer.SVC{}
 
-	if nodeMatches, err := k.checkServiceNodeExposure(svc); err != nil || !nodeMatches {
-		return svcs, err
+	if checkNodeExposure {
+		if nodeMatches, err := k.checkServiceNodeExposure(svc); err != nil || !nodeMatches {
+			return svcs, err
+		}
 	}
 	uniqPorts := svc.UniquePorts()
 
@@ -551,7 +553,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		endpoints = stripEndpointsProtocol(endpoints)
 	}
 
-	svcs, err := k.datapathSVCs(svc, endpoints)
+	svcs, err := k.datapathSVCs(svc, endpoints, true)
 	if err != nil {
 		scopedLog.Error("Error while evaluating datapath services", logfields.Error, err)
 		return
@@ -561,7 +563,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 	if oldSvc != nil {
 		// If we have oldService then we need to detect which frontends
 		// are no longer in the updated service and delete them in the datapath.
-		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
+		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints, false)
 		if err != nil {
 			scopedLog.Error("Error while evaluating datapath services for old service", logfields.Error, err)
 			return
