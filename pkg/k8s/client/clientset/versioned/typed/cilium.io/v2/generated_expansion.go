@@ -15,6 +15,8 @@ type CiliumBGPNodeConfigOverrideExpansion interface{}
 
 type CiliumBGPPeerConfigExpansion interface{}
 
+type CiliumCIDRGroupExpansion interface{}
+
 type CiliumClusterwideEnvoyConfigExpansion interface{}
 
 type CiliumClusterwideNetworkPolicyExpansion interface{}
