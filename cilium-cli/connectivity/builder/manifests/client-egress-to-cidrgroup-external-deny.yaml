@@ -3,7 +3,7 @@
 # Please note that if there is no other allowed rule, the policy
 # will be automatically denied {{.ExternalIPv4}} and {{.ExternalIPv6}} as well.
 
-apiVersion: "cilium.io/v2alpha1"
+apiVersion: "cilium.io/v2"
 kind: CiliumCIDRGroup
 metadata:
   name: cilium-test-external-cidr

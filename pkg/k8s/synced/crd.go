@@ -63,7 +63,7 @@ func agentCRDResourceNames() []string {
 	}
 
 	if option.Config.EnableCiliumNetworkPolicy || option.Config.EnableCiliumClusterwideNetworkPolicy {
-		result = append(result, CRDResourceName(v2alpha1.CCGName))
+		result = append(result, CRDResourceName(v2.CCGName))
 	}
 
 	if option.Config.EnableIPv4EgressGateway {

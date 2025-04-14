@@ -35,6 +35,10 @@ func (c *FakeCiliumV2) CiliumBGPPeerConfigs() v2.CiliumBGPPeerConfigInterface {
 	return newFakeCiliumBGPPeerConfigs(c)
 }
 
+func (c *FakeCiliumV2) CiliumCIDRGroups() v2.CiliumCIDRGroupInterface {
+	return newFakeCiliumCIDRGroups(c)
+}
+
 func (c *FakeCiliumV2) CiliumClusterwideEnvoyConfigs() v2.CiliumClusterwideEnvoyConfigInterface {
 	return newFakeCiliumClusterwideEnvoyConfigs(c)
 }
