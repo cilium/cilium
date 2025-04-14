@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -80,7 +81,7 @@ var Cell = cell.Module(
 
 type linkCacheParams struct {
 	cell.In
-	Lifecycle cell.Lifecycle
+	JobGroup job.Group
 }
 
 func NewLinkCache() *LinkCache {
@@ -93,39 +94,12 @@ func NewLinkCache() *LinkCache {
 func newLinkCache(params linkCacheParams) *LinkCache {
 	lc := NewLinkCache()
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(_ cell.HookContext) error {
-			lc.Start()
-			return nil
-		},
-		OnStop: func(_ cell.HookContext) error {
-			lc.Stop()
-			return nil
-		},
-	})
+	params.JobGroup.Add(job.Timer("sync", lc.SyncCache, 15*time.Second))
 
 	return lc
 }
 
-// Start starts syncing the link cache
-func (c *LinkCache) Start() {
-	c.manager.UpdateController("link-cache",
-		controller.ControllerParams{
-			Group:       controller.NewGroup("link-cache"),
-			RunInterval: 15 * time.Second,
-			DoFunc: func(ctx context.Context) error {
-				return c.syncCache()
-			},
-		},
-	)
-}
-
-// Stop terminates the link cache controller
-func (c *LinkCache) Stop() {
-	c.manager.RemoveController("link-cache")
-}
-
-func (c *LinkCache) syncCache() error {
+func (c *LinkCache) SyncCache(_ context.Context) error {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return err
