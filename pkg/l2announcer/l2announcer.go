@@ -47,6 +47,7 @@ var Cell = cell.Module(
 
 	cell.Provide(NewL2Announcer),
 	cell.Provide(l2AnnouncementPolicyResource),
+	cell.Invoke(func(*L2Announcer) {}), // register and start L2 announcer
 )
 
 func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
@@ -62,9 +63,7 @@ func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (re
 type l2AnnouncerParams struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
-	Health    cell.Health
+	Logger logrus.FieldLogger
 
 	DaemonConfig         *option.DaemonConfig
 	Clientset            k8sClient.Clientset
