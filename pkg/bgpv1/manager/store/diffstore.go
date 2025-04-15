@@ -33,7 +33,7 @@ type DiffStore[T k8sRuntime.Object] interface {
 	// Diff returns a list of items that have been upserted (updated or inserted) and deleted
 	// since InitDiff or the last call to Diff with the same callerID.
 	// Init(callerID) has to be called before Diff(callerID).
-	Diff(callerID string) (upserted []T, deleted []resource.Key, err error)
+	Diff(callerID string) (upserted []T, deleted []T, err error)
 
 	// CleanupDiff cleans up all caller-specific diff state.
 	CleanupDiff(callerID string)
@@ -72,7 +72,8 @@ type diffStore[T k8sRuntime.Object] struct {
 	initialSync bool
 
 	mu                lock.Mutex
-	callerUpdatedKeys map[string]updatedKeysMap // updated keys per caller ID
+	callerUpdatedKeys map[string]updatedKeysMap     // updated keys per caller ID
+	callerDeletedObjs map[string]map[resource.Key]T // deleted objects per caller ID
 }
 
 func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
@@ -85,6 +86,7 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 		signaler: params.Signaler,
 
 		callerUpdatedKeys: make(map[string]updatedKeysMap),
+		callerDeletedObjs: make(map[string]map[resource.Key]T),
 	}
 
 	params.JobGroup.Add(
@@ -116,7 +118,17 @@ func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 		}
 		ds.mu.Unlock()
 
-		// Start triggering the signaler after initialization to reduce reconciliation load.
+		if ds.initialSync {
+			ds.signaler.Event(struct{}{})
+		}
+	}
+	delete := func(k resource.Key, o T) {
+		ds.mu.Lock()
+		for _, deletedObjs := range ds.callerDeletedObjs {
+			deletedObjs[k] = o
+		}
+		ds.mu.Unlock()
+
 		if ds.initialSync {
 			ds.signaler.Event(struct{}{})
 		}
@@ -126,8 +138,10 @@ func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 	case resource.Sync:
 		ds.initialSync = true
 		ds.signaler.Event(struct{}{})
-	case resource.Upsert, resource.Delete:
+	case resource.Upsert:
 		update(event.Key)
+	case resource.Delete:
+		delete(event.Key, event.Object)
 	}
 
 	event.Done(nil)
@@ -139,12 +153,18 @@ func (ds *diffStore[T]) InitDiff(callerID string) {
 	defer ds.mu.Unlock()
 
 	ds.callerUpdatedKeys[callerID] = make(updatedKeysMap)
+	ds.callerDeletedObjs[callerID] = make(map[resource.Key]T)
 }
 
 // Diff returns a list of items that have been upserted (updated or inserted) and deleted
 // since InitDiff or the last call to Diff with the same callerID.
 // Init(callerID) has to be called before Diff(callerID).
-func (ds *diffStore[T]) Diff(callerID string) (upserted []T, deleted []resource.Key, err error) {
+func (ds *diffStore[T]) Diff(callerID string) (upserted []T, deleted []T, err error) {
+	// Deleting keys doesn't shrink the memory size. So if the size of updateKeys ever reaches above this threshold
+	// we should re-create it to reduce memory usage. Below the threshold, don't bother to avoid unnecessary allocation.
+	// Note: this value is arbitrary, can be changed to tune CPU/Memory tradeoff
+	const shrinkThreshold = 64
+
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
@@ -156,13 +176,7 @@ func (ds *diffStore[T]) Diff(callerID string) (upserted []T, deleted []resource.
 	if !ok {
 		return nil, nil, ErrDiffUninitialized
 	}
-
-	// Deleting keys doesn't shrink the memory size. So if the size of updateKeys ever reaches above this threshold
-	// we should re-create it to reduce memory usage. Below the threshold, don't bother to avoid unnecessary allocation.
-	// Note: this value is arbitrary, can be changed to tune CPU/Memory tradeoff
-	const shrinkThreshold = 64
 	shrink := len(updatedKeys) > shrinkThreshold
-
 	for k := range updatedKeys {
 		item, found, err := ds.store.GetByKey(k)
 		if err != nil {
@@ -171,17 +185,28 @@ func (ds *diffStore[T]) Diff(callerID string) (upserted []T, deleted []resource.
 
 		if found {
 			upserted = append(upserted, item)
-		} else {
-			deleted = append(deleted, k)
 		}
-
 		if !shrink {
 			delete(updatedKeys, k)
 		}
 	}
-
 	if shrink {
 		ds.callerUpdatedKeys[callerID] = make(updatedKeysMap, shrinkThreshold)
+	}
+
+	deletedObjs, ok := ds.callerDeletedObjs[callerID]
+	if !ok {
+		return nil, nil, ErrDiffUninitialized
+	}
+	shrink = len(deletedObjs) > shrinkThreshold
+	for k, o := range deletedObjs {
+		deleted = append(deleted, o)
+		if !shrink {
+			delete(deletedObjs, k)
+		}
+	}
+	if shrink {
+		ds.callerDeletedObjs[callerID] = make(map[resource.Key]T, shrinkThreshold)
 	}
 
 	return upserted, deleted, err
@@ -193,6 +218,7 @@ func (ds *diffStore[T]) CleanupDiff(callerID string) {
 	defer ds.mu.Unlock()
 
 	delete(ds.callerUpdatedKeys, callerID)
+	delete(ds.callerDeletedObjs, callerID)
 }
 
 // GetByKey returns the latest version of the object with given key.
