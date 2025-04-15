@@ -32,15 +32,17 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -52,7 +54,7 @@ func TestScript(t *testing.T) {
 	// not EndpointSlice) in the tests here, which is why we're currently only testing against
 	// the default.
 	// Issue for fixing this: https://github.com/cilium/cilium/issues/35537
-	version.Force(testutils.DefaultVersion)
+	version.Force(k8sTestutils.DefaultVersion)
 
 	// Set the node name
 	nodeTypes.SetName("testnode")
@@ -79,6 +81,7 @@ func TestScript(t *testing.T) {
 					// By default 10% of the time the LBMap operations fail
 					TestFaultProbability: 0.1,
 				}),
+				metrics.Cell,
 				maglev.Cell,
 				node.LocalNodeStoreCell,
 				cell.Provide(
@@ -128,8 +131,12 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 			cmds["http/get"] = httpGetCmd
 
+			conds := map[string]script.Cond{
+				"privileged": script.BoolCondition("testutils.IsPrivileged", testutils.IsPrivileged()),
+			}
 			return &script.Engine{
 				Cmds:             cmds,
+				Conds:            conds,
 				RetryInterval:    20 * time.Millisecond,
 				MaxRetryInterval: 500 * time.Millisecond,
 			}
