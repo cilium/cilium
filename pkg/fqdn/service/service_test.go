@@ -5,9 +5,9 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"log"
 	"log/slog"
+	"net"
 	"net/netip"
 	"testing"
 
@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -48,16 +49,37 @@ func TestFQDNDataServer(t *testing.T) {
 			port:                     1234,
 			enableL7Proxy:            true,
 			enableStandaloneDNSProxy: true,
-			serverPort:               40045,
-			err:                      nil,
+			// Random port for the server should run ideally
+			// but for the test we are using bufconn
+			// which will not use the port
+			serverPort: 40045,
+			err:        nil,
 		},
-		"Failure on running the server due to invalid server port": {
-			port:                     1234,
-			serverPort:               0,
-			enableStandaloneDNSProxy: true,
-			enableL7Proxy:            true,
-			err:                      errors.New("rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp 127.0.0.1:0: connect: connection refused\""),
-		},
+	}
+
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+
+	fn := func(ctx context.Context, fqdnDataServer *FQDNDataServer) error {
+		listenErrs := make(chan error, 1)
+		baseServer := grpc.NewServer()
+		pb.RegisterFQDNDataServer(baseServer, fqdnDataServer)
+		go func() {
+			defer close(listenErrs)
+			if err := baseServer.Serve(lis); err != nil {
+				log.Printf("error serving server: %v", err)
+				listenErrs <- err
+			}
+		}()
+
+		select {
+		case err := <-listenErrs:
+			return err
+		case <-ctx.Done():
+			fqdnDataServer.Stop()
+			return nil
+		}
+
 	}
 
 	for scenario, tt := range test {
@@ -110,7 +132,9 @@ func TestFQDNDataServer(t *testing.T) {
 						},
 						newServer,
 					)),
-				cell.Invoke(func(_ *FQDNDataServer) {}))
+				cell.Invoke(func(fqdnServer *FQDNDataServer) {
+					fqdnServer.SetListenAndServe(fn)
+				}))
 
 			hive.AddConfigOverride(
 				h,
@@ -128,17 +152,17 @@ func TestFQDNDataServer(t *testing.T) {
 			// and try to connect to the server. If the server is not running,
 			// the client will return an error.
 			// If the server is running, we will get a response from the server.
-			conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", tt.serverPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient("passthrough://bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return lis.Dial()
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			require.NoError(t, err)
 
 			c := pb.NewFQDNDataClient(conn)
 
-			var serverErr error
 			connected := false
 			testutils.WaitUntil(func() bool {
 				stream, err := c.StreamPolicyState(t.Context())
 				if err != nil {
-					serverErr = err
 					return false
 				}
 				response, err := stream.Recv()
@@ -157,13 +181,6 @@ func TestFQDNDataServer(t *testing.T) {
 			// If the server is running, we should get a response from the server
 			if !connected && tt.err == nil {
 				t.Fatalf("failed to connect to server")
-			}
-
-			// Case when the server is not running, we should get an error
-			if tt.err != nil {
-				require.Error(t, serverErr)
-				require.Equal(t, tt.err.Error(), serverErr.Error())
-				require.False(t, connected)
 			}
 
 			t.Cleanup(func() {

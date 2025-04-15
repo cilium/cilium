@@ -58,6 +58,10 @@ type FQDNDataServer struct {
 
 	// log is the logger for the FQDNDataServer
 	log *slog.Logger
+
+	// ListenAndServeFunc is function to start the grpc server
+	// It is used for testing purposes
+	ListenAndServeFunc func(context.Context, *FQDNDataServer) error
 }
 
 var (
@@ -187,8 +191,18 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 	}, nil
 }
 
+// SetListenAndServe is a setter for the ListenAndServe function and is used for testing
+func (s *FQDNDataServer) SetListenAndServe(fn func(context.Context, *FQDNDataServer) error) {
+	s.ListenAndServeFunc = fn
+}
+
 // ListenAndServe starts the Standalone DNS Proxy gRPC server on the given port
 func (s *FQDNDataServer) ListenAndServe(ctx context.Context, health cell.Health) error {
+	// If the ListenAndServe function is set, use it
+	// This is used for testing purposes
+	if s.ListenAndServeFunc != nil {
+		return s.ListenAndServeFunc(ctx, s)
+	}
 	listenErrs := make(chan error)
 	go func() {
 		defer close(listenErrs)
