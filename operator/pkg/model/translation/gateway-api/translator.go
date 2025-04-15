@@ -203,8 +203,17 @@ func (t *gatewayAPITranslator) toServiceType(params *model.Service) corev1.Servi
 // toExternalTrafficPolicy returns the ExternalTrafficPolicy from the given Service object.
 // If hostNetwork is enabled, no external traffic policy is return.
 // The default value is the one from the configuration flag.
+// ExternalTrafficPolicy is only set for LoadBalancer and NodePort service types.
 func (t *gatewayAPITranslator) toExternalTrafficPolicy(params *model.Service) corev1.ServiceExternalTrafficPolicy {
 	if t.cfg.HostNetworkConfig.Enabled {
+		return corev1.ServiceExternalTrafficPolicy("")
+	}
+
+	// Get the service type
+	serviceType := t.toServiceType(params)
+
+	// ExternalTrafficPolicy is only valid for LoadBalancer and NodePort service types
+	if serviceType != corev1.ServiceTypeLoadBalancer && serviceType != corev1.ServiceTypeNodePort {
 		return corev1.ServiceExternalTrafficPolicy("")
 	}
 
