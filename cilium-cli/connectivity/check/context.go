@@ -485,7 +485,7 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 				ct.Debugf("Flushing CT entries in %s/%s", pod.Pod.Namespace, pod.Pod.Name)
 				_, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 				if err != nil {
-					ct.Fatal("failed to flush ct entries: %w", err)
+					ct.Fatalf("failed to flush ct entries: %v", err)
 				}
 			}(ctx, ciliumPod)
 		}
@@ -645,7 +645,7 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 		time.Sleep(5 * time.Second)
 		status, err = ct.hubbleClient.ServerStatus(ctx, &observer.ServerStatusRequest{})
 		if err != nil {
-			ct.Fail("Not all nodes became available to Hubble Relay: %w", err)
+			ct.Failf("Not all nodes became available to Hubble Relay: %v", err)
 			return fmt.Errorf("not all nodes became available to Hubble Relay: %w", err)
 		}
 	}
@@ -806,7 +806,6 @@ var multiClusterClientLock = lock.Mutex{}
 // otherwise, list nodes and check for NoSchedule taints, as long as we have > 1
 // schedulable nodes we will run multi-node tests.
 func (ct *ConnectivityTest) detectSingleNode(ctx context.Context) error {
-
 	if ct.params.MultiCluster != "" && ct.params.SingleNode {
 		return fmt.Errorf("single-node test can not be enabled with multi-cluster test")
 	}
