@@ -20,8 +20,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/vishvananda/netlink"
-
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -649,12 +647,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 	}
 
-	vlanFilter, err := vlanFilterMacros(nativeDevices)
-	if err != nil {
-		return fmt.Errorf("rendering vlan filter macros: %w", err)
-	}
-	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
-
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
 	}
@@ -781,71 +773,6 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	}
 
 	return ephemeralPortMin, nil
-}
-
-// vlanFilterMacros generates VLAN_FILTER macros which
-// are written to node_config.h
-func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
-	devices := make(map[int]bool)
-	for _, device := range nativeDevices {
-		devices[device.Index] = true
-	}
-
-	allowedVlans := make(map[int]bool)
-	for _, vlanId := range option.Config.VLANBPFBypass {
-		allowedVlans[vlanId] = true
-	}
-
-	// allow all vlan id's
-	if allowedVlans[0] {
-		return "return true", nil
-	}
-
-	vlansByIfIndex := make(map[int][]int)
-
-	links, err := safenetlink.LinkList()
-	if err != nil {
-		return "", fmt.Errorf("listing network interfaces: %w", err)
-	}
-
-	for _, l := range links {
-		vlan, ok := l.(*netlink.Vlan)
-		// if it's vlan device and we're controlling vlan main device
-		// and either all vlans are allowed, or we're controlling vlan device or vlan is explicitly allowed
-		if ok && devices[vlan.ParentIndex] && (devices[vlan.Index] || allowedVlans[vlan.VlanId]) {
-			vlansByIfIndex[vlan.ParentIndex] = append(vlansByIfIndex[vlan.ParentIndex], vlan.VlanId)
-		}
-	}
-
-	vlansCount := 0
-	for _, v := range vlansByIfIndex {
-		vlansCount += len(v)
-		slices.Sort(v) // sort Vlanids in-place since safenetlink.LinkList() may return them in any order
-	}
-
-	if vlansCount == 0 {
-		return "return false", nil
-	} else if vlansCount > 5 {
-		return "", fmt.Errorf("allowed VLAN list is too big - %d entries, please use '--vlan-bpf-bypass 0' in order to allow all available VLANs", vlansCount)
-	} else {
-		vlanFilterTmpl := template.Must(template.New("vlanFilter").Parse(
-			`switch (ifindex) { \
-{{range $ifindex,$vlans := . -}} case {{$ifindex}}: \
-switch (vlan_id) { \
-{{range $vlan := $vlans -}} case {{$vlan}}: \
-{{end}}return true; \
-} \
-break; \
-{{end}}} \
-return false;`))
-
-		var vlanFilterMacro bytes.Buffer
-		if err := vlanFilterTmpl.Execute(&vlanFilterMacro, vlansByIfIndex); err != nil {
-			return "", fmt.Errorf("failed to execute template: %w", err)
-		}
-
-		return vlanFilterMacro.String(), nil
-	}
 }
 
 // devMacros generates NATIVE_DEV_MAC_BY_IFINDEX and IS_L3_DEV macros which

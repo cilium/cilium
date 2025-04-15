@@ -2126,9 +2126,6 @@ type DaemonConfig struct {
 	// ARPPingKernelManaged denotes whether kernel can auto-refresh Neighbor entries
 	ARPPingKernelManaged bool
 
-	// VLANBPFBypass list of explicitly allowed VLAN id's for bpf logic bypass
-	VLANBPFBypass []int
-
 	// DisableExternalIPMigration disable externalIP mitigation (CVE-2020-8554)
 	DisableExternalIPMitigation bool
 
@@ -3010,16 +3007,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 	c.InstallUplinkRoutesForDelegatedIPAM = vp.GetBool(InstallUplinkRoutesForDelegatedIPAM)
-
-	vlanBPFBypassIDs := vp.GetStringSlice(VLANBPFBypass)
-	c.VLANBPFBypass = make([]int, 0, len(vlanBPFBypassIDs))
-	for _, vlanIDStr := range vlanBPFBypassIDs {
-		vlanID, err := strconv.Atoi(vlanIDStr)
-		if err != nil {
-			log.WithError(err).Fatalf("Cannot parse vlan ID integer from --%s option", VLANBPFBypass)
-		}
-		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
-	}
 
 	c.DisableExternalIPMitigation = vp.GetBool(DisableExternalIPMitigation)
 
