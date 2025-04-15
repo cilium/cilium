@@ -1051,14 +1051,40 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 		require.Empty(t, foundRoutes)
 	}
 
-	// delete nodev9
-	err = linuxNodeHandler.NodeDelete(nodev9)
+	// nodev10: Re-introduce node with secondary CIDRs
+	nodev10 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc1,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev9, nodev10)
 	require.NoError(t, err)
 
-	// remaining primary node route must have been deleted
+	// expecting both primary and secondary routes to exist
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
+		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		require.NoError(t, err)
+		require.Len(t, foundRoutes, expectedIPv4Routes)
+	}
+
+	// node routes for alloc2 ranges should have been removed
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
+
+	// delete nodev10
+	err = linuxNodeHandler.NodeDelete(nodev10)
+	require.NoError(t, err)
+
+	// all node routes must have been deleted
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
+		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		require.NoError(t, err)
+		require.Empty(t, foundRoutes)
+	}
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.T) {
