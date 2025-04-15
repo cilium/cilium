@@ -4,6 +4,7 @@
 package ip
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"testing"
@@ -22,41 +23,36 @@ func TestIPToNetPrefix(t *testing.T) {
 	assert.Equal(t, netip.Prefix{}, IPToNetPrefix(nil))
 }
 
-func mustParseCIDR(t *testing.T, s string) *net.IPNet {
-	_, n, err := net.ParseCIDR(s)
-	assert.NoError(t, err)
-	return n
-}
-
-func TestNetsContainsAny(t *testing.T) {
+func TestPrefixesContains(t *testing.T) {
 	tests := []struct {
-		name string
-		a    []*net.IPNet
-		b    []*net.IPNet
-		ret  bool
+		prefixes []netip.Prefix
+		addr     netip.Addr
+		ret      bool
 	}{
 		{
-			name: "a contains b",
-			a:    []*net.IPNet{mustParseCIDR(t, "0.0.0.0/0")},
-			b:    []*net.IPNet{mustParseCIDR(t, "192.0.0.1/32")},
-			ret:  true,
+			prefixes: []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")},
+			addr:     netip.MustParseAddr("192.0.0.1"),
+			ret:      true,
 		},
 		{
-			name: "b contains a",
-			a:    []*net.IPNet{mustParseCIDR(t, "192.0.0.1/32")},
-			b:    []*net.IPNet{mustParseCIDR(t, "0.0.0.0/0")},
+			prefixes: []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")},
+			addr:     netip.MustParseAddr("192.0.0.1"),
+			ret:      true,
 		},
 		{
-			name: "a equals b",
-			a:    []*net.IPNet{mustParseCIDR(t, "192.0.0.1/32")},
-			b:    []*net.IPNet{mustParseCIDR(t, "192.0.0.1/32")},
-			ret:  true,
+			prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.0.1/32"), netip.MustParsePrefix("f00d::/118")},
+			addr:     netip.MustParseAddr("f00d::1"),
+			ret:      true,
+		},
+		{
+			prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.0.1/32")},
+			addr:     netip.MustParseAddr("0.0.0.0"),
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.ret, NetsContainsAny(tt.a, tt.b))
+		t.Run(fmt.Sprintf("contains(%v, %s)", tt.prefixes, tt.addr), func(t *testing.T) {
+			assert.Equal(t, tt.ret, PrefixesContains(tt.prefixes, tt.addr))
 		})
 	}
 }

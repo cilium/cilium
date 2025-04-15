@@ -5,6 +5,7 @@ package hive
 
 import (
 	"log/slog"
+	"net/netip"
 	"reflect"
 	"runtime/pprof"
 	"slices"
@@ -16,7 +17,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/logging"
@@ -101,16 +101,17 @@ func New(cells ...cell.Cell) *Hive {
 }
 
 var decodeHooks = cell.DecodeHooks{
-	// Decode *cidr.CIDR fields
+	// Decode netip.Prefix fields
+	// TODO: move to github.com/cilium/hive/cell.decoderConfig default decode hooks once
+	// https://github.com/go-viper/mapstructure/pull/85 is merged.
 	func(from reflect.Type, to reflect.Type, data any) (any, error) {
 		if from.Kind() != reflect.String {
 			return data, nil
 		}
-		s := data.(string)
-		if to != reflect.TypeOf((*cidr.CIDR)(nil)) {
+		if to != reflect.TypeOf(netip.Prefix{}) {
 			return data, nil
 		}
-		return cidr.ParseCIDR(s)
+		return netip.ParsePrefix(data.(string))
 	},
 }
 

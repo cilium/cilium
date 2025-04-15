@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -99,7 +98,7 @@ func (n NodeAddress) TableRow() []string {
 }
 
 type NodeAddressConfig struct {
-	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
+	NodePortAddresses []netip.Prefix `mapstructure:"nodeport-addresses"`
 }
 
 type NodeAddressKey struct {
@@ -198,14 +197,6 @@ type AddressScopeMax uint8
 
 func newAddressScopeMax(cfg NodeAddressConfig, daemonCfg *option.DaemonConfig) (AddressScopeMax, error) {
 	return AddressScopeMax(daemonCfg.AddressScopeMax), nil
-}
-
-func (cfg NodeAddressConfig) getNets() []*net.IPNet {
-	nets := make([]*net.IPNet, len(cfg.NodePortAddresses))
-	for i, cidr := range cfg.NodePortAddresses {
-		nets[i] = cidr.IPNet
-	}
-	return nets
 }
 
 func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
@@ -543,7 +534,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		// by the logic following this loop.
 		nodePort := false
 		if len(n.Config.NodePortAddresses) > 0 {
-			nodePort = dev.Name != defaults.HostDevice && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
+			nodePort = dev.Name != defaults.HostDevice && ip.PrefixesContains(n.Config.NodePortAddresses, addr.Addr)
 		}
 		addrs = append(addrs,
 			NodeAddress{
